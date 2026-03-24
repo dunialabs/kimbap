@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/dunialabs/kimbap-core/internal/connectors"
+	realFlows "github.com/dunialabs/kimbap-core/internal/connectors/flows"
 	"github.com/dunialabs/kimbap-core/internal/connectors/flows/browser"
 )
 
@@ -165,6 +166,23 @@ func TestProviderIsConfiguredRejectsPlaceholderEndpoints(t *testing.T) {
 	}
 }
 
+func TestHasUnresolvedPlaceholdersIncludesUserInfoAndRevocation(t *testing.T) {
+	provider := connectors.ProviderDefinition{
+		AuthEndpoint:       "https://auth.example.com/oauth/authorize",
+		TokenEndpoint:      "https://auth.example.com/oauth/token",
+		RevocationEndpoint: "https://{subdomain}.example.com/oauth/revoke",
+	}
+	if !hasUnresolvedPlaceholders(provider) {
+		t.Fatal("expected unresolved revocation placeholder to be detected")
+	}
+
+	provider.RevocationEndpoint = "https://api.example.com/oauth/revoke"
+	provider.UserInfoEndpoint = "https://{subdomain}.example.com/me"
+	if !hasUnresolvedPlaceholders(provider) {
+		t.Fatal("expected unresolved userinfo placeholder to be detected")
+	}
+}
+
 func TestIsBrowserEnvFailureUsesSentinelError(t *testing.T) {
 	err := fmt.Errorf("wrapped: %w", browser.ErrLoopbackListener)
 	if !isBrowserEnvFailure(err) {
@@ -188,5 +206,104 @@ func TestResolveConnectionScopeRejectsUnsupportedProviderScope(t *testing.T) {
 	_, err := resolveConnectionScope("workspace", provider)
 	if err == nil {
 		t.Fatal("expected unsupported provider scope to return error")
+	}
+}
+
+func TestValidateProviderExtraValuesRejectsHostInjection(t *testing.T) {
+	provider := connectors.ProviderDefinition{
+		ID:            "canvas",
+		AuthEndpoint:  "https://{domain}/login/oauth2/auth",
+		TokenEndpoint: "https://{domain}/login/oauth2/token",
+	}
+	err := validateProviderExtraValues(provider, map[string]string{"domain": "school.example.com/evil"})
+	if err == nil {
+		t.Fatal("expected invalid domain extra to fail")
+	}
+}
+
+func TestValidateProviderExtraValuesAcceptsValidHostAndLabel(t *testing.T) {
+	canvas := connectors.ProviderDefinition{
+		ID:            "canvas",
+		AuthEndpoint:  "https://{domain}/login/oauth2/auth",
+		TokenEndpoint: "https://{domain}/login/oauth2/token",
+	}
+	if err := validateProviderExtraValues(canvas, map[string]string{"domain": "school.example.com:8443"}); err != nil {
+		t.Fatalf("expected valid domain extra, got error: %v", err)
+	}
+
+	zendesk := connectors.ProviderDefinition{
+		ID:            "zendesk",
+		AuthEndpoint:  "https://{subdomain}.zendesk.com/oauth/authorizations/new",
+		TokenEndpoint: "https://{subdomain}.zendesk.com/oauth/tokens",
+	}
+	if err := validateProviderExtraValues(zendesk, map[string]string{"subdomain": "acme-ops"}); err != nil {
+		t.Fatalf("expected valid subdomain extra, got error: %v", err)
+	}
+}
+
+func TestCheckBrowserLaunchFeasibleProviderAware(t *testing.T) {
+	origProviders := providers
+	origDetect := detectFlowEnvironment
+	t.Cleanup(func() {
+		providers = origProviders
+		detectFlowEnvironment = origDetect
+	})
+
+	providers.GetProvider = func(id string) (connectors.ProviderDefinition, error) {
+		switch id {
+		case "browser-only":
+			return connectors.ProviderDefinition{ID: id, SupportedFlows: []connectors.FlowType{connectors.FlowBrowser}}, nil
+		case "browser-device":
+			return connectors.ProviderDefinition{ID: id, SupportedFlows: []connectors.FlowType{connectors.FlowBrowser, connectors.FlowDevice}}, nil
+		default:
+			return connectors.ProviderDefinition{}, fmt.Errorf("unknown provider: %s", id)
+		}
+	}
+	detectFlowEnvironment = func() realFlows.EnvironmentInfo {
+		return realFlows.EnvironmentInfo{IsSSH: false, HasTTY: true, HasDisplay: true, CanOpenBrowser: false}
+	}
+
+	browserOnly := checkBrowserLaunchFeasible("browser-only")
+	if browserOnly.Status != "fail" {
+		t.Fatalf("expected browser-only provider to fail when browser unavailable, got %s", browserOnly.Status)
+	}
+
+	browserDevice := checkBrowserLaunchFeasible("browser-device")
+	if browserDevice.Status != "warn" {
+		t.Fatalf("expected browser+device provider to warn when browser unavailable, got %s", browserDevice.Status)
+	}
+
+	detectFlowEnvironment = func() realFlows.EnvironmentInfo {
+		return realFlows.EnvironmentInfo{IsSSH: false, HasTTY: true, HasDisplay: false, CanOpenBrowser: false}
+	}
+	browserOnlyNoDisplay := checkBrowserLaunchFeasible("browser-only")
+	if browserOnlyNoDisplay.Status != "fail" {
+		t.Fatalf("expected browser-only provider to fail with no display, got %s", browserOnlyNoDisplay.Status)
+	}
+}
+
+func TestPrepareRevocationProviderRejectsInvalidExtra(t *testing.T) {
+	origProviders := providers
+	t.Cleanup(func() {
+		providers = origProviders
+	})
+
+	providers.GetProvider = func(id string) (connectors.ProviderDefinition, error) {
+		if id != "canvas" {
+			return connectors.ProviderDefinition{}, fmt.Errorf("unknown provider: %s", id)
+		}
+		return connectors.ProviderDefinition{
+			ID:            "canvas",
+			AuthEndpoint:  "https://{domain}/login/oauth2/auth",
+			TokenEndpoint: "https://{domain}/login/oauth2/token",
+		}, nil
+	}
+
+	_, known, _, err := prepareRevocationProvider("canvas", map[string]string{"domain": "school.example.com/evil"})
+	if err == nil {
+		t.Fatal("expected prepareRevocationProvider to fail for invalid domain extra")
+	}
+	if !known {
+		t.Fatal("expected known provider result")
 	}
 }

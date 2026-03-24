@@ -245,7 +245,11 @@ func newConnectorRefreshCommand() *cobra.Command {
 				return fmt.Errorf("provider %q not found: %w", name, provErr)
 			}
 			name = provider.ID
-			provider = substituteProviderEndpoints(provider, parseExtras(extras))
+			extraValues := parseExtras(extras)
+			if valErr := validateProviderExtraValues(provider, extraValues); valErr != nil {
+				return valErr
+			}
+			provider = substituteProviderEndpoints(provider, extraValues)
 			if hasUnresolvedPlaceholders(provider) {
 				missing := listUnresolvedPlaceholders(provider)
 				return fmt.Errorf("provider %q has unresolved endpoint placeholders: %s (use --extra key=value)", name, strings.Join(missing, ", "))

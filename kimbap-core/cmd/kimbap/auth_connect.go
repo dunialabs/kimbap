@@ -117,6 +117,9 @@ func newAuthReconnectCommand() *cobra.Command {
 
 			provider, provErr := providers.GetProvider(providerID)
 			if provErr == nil {
+				if err := validateProviderExtraValues(provider, extraMap); err != nil {
+					return err
+				}
 				provider = substituteProviderEndpoints(provider, extraMap)
 				if hasUnresolvedPlaceholders(provider) {
 					missing := listUnresolvedPlaceholders(provider)
@@ -241,6 +244,9 @@ func runAuthConnect(
 		return fmt.Errorf("provider %q not found: %w", providerID, err)
 	}
 	providerID = provider.ID
+	if err := validateProviderExtraValues(provider, extras); err != nil {
+		return err
+	}
 
 	provider = substituteProviderEndpoints(provider, extras)
 	if hasUnresolvedPlaceholders(provider) {

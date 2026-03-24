@@ -6,10 +6,12 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"net"
 	"net/http"
 	"net/url"
 	"os"
 	"sort"
+	"strconv"
 	"strings"
 	"time"
 
@@ -112,6 +114,175 @@ func parseExtras(raw []string) map[string]string {
 	return out
 }
 
+type placeholderKind int
+
+const (
+	placeholderHostLabel placeholderKind = iota
+	placeholderHostValue
+)
+
+func validateProviderExtraValues(provider connectors.ProviderDefinition, extras map[string]string) error {
+	if len(extras) == 0 {
+		return nil
+	}
+	kinds := placeholderKindsForProvider(provider)
+	for key, kind := range kinds {
+		value, ok := extras[key]
+		if !ok {
+			continue
+		}
+		value = strings.TrimSpace(value)
+		if value == "" {
+			return fmt.Errorf("invalid --extra %s: value must not be empty", key)
+		}
+		switch kind {
+		case placeholderHostLabel:
+			if !isValidDNSLabel(value) {
+				return fmt.Errorf("invalid --extra %s=%q: expected a DNS label (letters, digits, hyphen)", key, value)
+			}
+		case placeholderHostValue:
+			if err := validateHostExtraValue(value); err != nil {
+				return fmt.Errorf("invalid --extra %s=%q: %w", key, value, err)
+			}
+		}
+	}
+	return nil
+}
+
+func placeholderKindsForProvider(provider connectors.ProviderDefinition) map[string]placeholderKind {
+	result := map[string]placeholderKind{}
+	for _, endpoint := range []string{provider.AuthEndpoint, provider.TokenEndpoint, provider.DeviceEndpoint, provider.RevocationEndpoint, provider.UserInfoEndpoint} {
+		host := endpointHostTemplate(endpoint)
+		if host == "" {
+			continue
+		}
+		for _, key := range placeholdersInString(host) {
+			kind := placeholderHostLabel
+			if host == "{"+key+"}" {
+				kind = placeholderHostValue
+			}
+			prev, exists := result[key]
+			if !exists || kind < prev {
+				result[key] = kind
+			}
+		}
+	}
+	return result
+}
+
+func endpointHostTemplate(endpoint string) string {
+	trimmed := strings.TrimSpace(endpoint)
+	if trimmed == "" {
+		return ""
+	}
+	i := strings.Index(trimmed, "://")
+	if i < 0 {
+		return ""
+	}
+	rest := trimmed[i+3:]
+	if rest == "" {
+		return ""
+	}
+	if j := strings.IndexAny(rest, "/?#"); j >= 0 {
+		return rest[:j]
+	}
+	return rest
+}
+
+func placeholdersInString(input string) []string {
+	seen := map[string]struct{}{}
+	out := make([]string, 0)
+	remaining := input
+	for {
+		start := strings.IndexByte(remaining, '{')
+		if start < 0 {
+			break
+		}
+		endRel := strings.IndexByte(remaining[start:], '}')
+		if endRel < 0 {
+			break
+		}
+		key := remaining[start+1 : start+endRel]
+		if key != "" {
+			if _, ok := seen[key]; !ok {
+				seen[key] = struct{}{}
+				out = append(out, key)
+			}
+		}
+		remaining = remaining[start+endRel+1:]
+	}
+	return out
+}
+
+func validateHostExtraValue(value string) error {
+	if strings.Contains(value, "://") {
+		return errors.New("must be host only (scheme not allowed)")
+	}
+	u, err := url.Parse("https://" + value)
+	if err != nil {
+		return fmt.Errorf("invalid host: %w", err)
+	}
+	if u.User != nil {
+		return errors.New("userinfo is not allowed")
+	}
+	if u.Path != "" || u.RawQuery != "" || u.Fragment != "" {
+		return errors.New("path, query, and fragment are not allowed")
+	}
+	hostname := strings.TrimSpace(u.Hostname())
+	if hostname == "" {
+		return errors.New("host is required")
+	}
+	if !isValidHostNameOrIP(hostname) {
+		return errors.New("host must be a valid DNS name or IP address")
+	}
+	if port := u.Port(); port != "" {
+		parsed, pErr := strconv.Atoi(port)
+		if pErr != nil || parsed < 1 || parsed > 65535 {
+			return errors.New("port must be in range 1-65535")
+		}
+	}
+	return nil
+}
+
+func isValidHostNameOrIP(host string) bool {
+	if ip := net.ParseIP(host); ip != nil {
+		return true
+	}
+	if len(host) > 253 {
+		return false
+	}
+	if strings.HasPrefix(host, ".") || strings.HasSuffix(host, ".") {
+		return false
+	}
+	parts := strings.Split(host, ".")
+	if len(parts) == 0 {
+		return false
+	}
+	for _, part := range parts {
+		if !isValidDNSLabel(part) {
+			return false
+		}
+	}
+	return true
+}
+
+func isValidDNSLabel(label string) bool {
+	if len(label) == 0 || len(label) > 63 {
+		return false
+	}
+	if label[0] == '-' || label[len(label)-1] == '-' {
+		return false
+	}
+	for i := 0; i < len(label); i++ {
+		ch := label[i]
+		if (ch >= 'a' && ch <= 'z') || (ch >= 'A' && ch <= 'Z') || (ch >= '0' && ch <= '9') || ch == '-' {
+			continue
+		}
+		return false
+	}
+	return true
+}
+
 func substituteProviderEndpoints(provider connectors.ProviderDefinition, extras map[string]string) connectors.ProviderDefinition {
 	if len(extras) == 0 {
 		return provider
@@ -131,7 +302,7 @@ func substituteProviderEndpoints(provider connectors.ProviderDefinition, extras 
 }
 
 func hasUnresolvedPlaceholders(provider connectors.ProviderDefinition) bool {
-	for _, ep := range []string{provider.AuthEndpoint, provider.TokenEndpoint, provider.DeviceEndpoint} {
+	for _, ep := range []string{provider.AuthEndpoint, provider.TokenEndpoint, provider.DeviceEndpoint, provider.RevocationEndpoint, provider.UserInfoEndpoint} {
 		if strings.Contains(ep, "{") {
 			return true
 		}

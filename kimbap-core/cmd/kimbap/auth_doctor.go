@@ -15,6 +15,8 @@ import (
 	"github.com/spf13/cobra"
 )
 
+var detectFlowEnvironment = realFlows.DetectEnvironment
+
 func newAuthDoctorCommand() *cobra.Command {
 	var tenant string
 	var profile string
@@ -64,7 +66,7 @@ func newAuthDoctorCommand() *cobra.Command {
 			checks = append(checks, loopbackCheck)
 			hasFailure = hasFailure || loopbackCheck.Status == "fail"
 
-			browserCheck := checkBrowserLaunchFeasible()
+			browserCheck := checkBrowserLaunchFeasible(providerID)
 			checks = append(checks, browserCheck)
 			hasFailure = hasFailure || browserCheck.Status == "fail"
 
@@ -185,6 +187,9 @@ func checkProviderEndpointsReachable(providerID string, extras map[string]string
 	if err != nil {
 		return []doctorCheck{{Name: "provider endpoints reachable", Status: "fail", Detail: err.Error()}}
 	}
+	if valErr := validateProviderExtraValues(provider, extras); valErr != nil {
+		return []doctorCheck{{Name: "provider endpoints reachable", Status: "fail", Detail: valErr.Error()}}
+	}
 
 	provider = substituteProviderEndpoints(provider, extras)
 	if hasUnresolvedPlaceholders(provider) {
@@ -248,18 +253,38 @@ func checkLoopbackPortBindable(port int) doctorCheck {
 	return doctorCheck{Name: "loopback port bindable", Status: "ok", Detail: bound}
 }
 
-func checkBrowserLaunchFeasible() doctorCheck {
-	env := realFlows.DetectEnvironment()
+func checkBrowserLaunchFeasible(providerID string) doctorCheck {
+	if strings.TrimSpace(providerID) == "" {
+		return doctorCheck{Name: "browser launch feasible", Status: "skip", Detail: "no provider specified"}
+	}
+	provider, err := providers.GetProvider(providerID)
+	if err != nil {
+		return doctorCheck{Name: "browser launch feasible", Status: "skip", Detail: "provider unknown"}
+	}
+	browserRequired := provider.SupportsBrowserFlow() && !provider.SupportsDeviceFlow() && !provider.SupportsClientCredentials()
+	env := detectFlowEnvironment()
 	if env.IsSSH {
+		if browserRequired {
+			return doctorCheck{Name: "browser launch feasible", Status: "fail", Detail: "SSH session detected; provider requires browser flow"}
+		}
 		return doctorCheck{Name: "browser launch feasible", Status: "warn", Detail: "SSH session detected; browser flow may not work"}
 	}
 	if !env.HasTTY {
+		if browserRequired {
+			return doctorCheck{Name: "browser launch feasible", Status: "fail", Detail: "no TTY detected; provider requires browser flow"}
+		}
 		return doctorCheck{Name: "browser launch feasible", Status: "warn", Detail: "no TTY detected; browser flow may not work"}
 	}
 	if !env.HasDisplay {
+		if browserRequired {
+			return doctorCheck{Name: "browser launch feasible", Status: "fail", Detail: "no display detected; provider requires browser flow"}
+		}
 		return doctorCheck{Name: "browser launch feasible", Status: "warn", Detail: "no display detected; browser flow may not work"}
 	}
 	if !env.CanOpenBrowser {
+		if !browserRequired {
+			return doctorCheck{Name: "browser launch feasible", Status: "warn", Detail: "environment cannot open browser; non-browser OAuth flows are available"}
+		}
 		return doctorCheck{Name: "browser launch feasible", Status: "fail", Detail: "environment cannot open a browser"}
 	}
 	return doctorCheck{Name: "browser launch feasible", Status: "ok", Detail: "browser launch should work"}

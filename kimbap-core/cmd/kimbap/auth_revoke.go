@@ -7,6 +7,7 @@ import (
 	"os"
 	"strings"
 
+	"github.com/dunialabs/kimbap-core/internal/connectors"
 	"github.com/spf13/cobra"
 )
 
@@ -55,18 +56,11 @@ func newAuthRevokeCommand() *cobra.Command {
 			auditEmitter := initAuthAuditEmitter(cfg)
 			defer closeAuditEmitter(auditEmitter)
 
-			provider, providerErr := providers.GetProvider(providerID)
-			providerMetaKnown := providerErr == nil
-			revocationAttempted := false
-			revocationResult := "not_supported"
-			if providerMetaKnown {
-				provider = substituteProviderEndpoints(provider, extraValues)
-				if hasUnresolvedPlaceholders(provider) {
-					revocationResult = "not_supported: unresolved endpoint placeholders"
-				} else if vErr := validateProviderEndpoints(provider); vErr != nil {
-					revocationResult = fmt.Sprintf("failed: invalid endpoint configuration (%v)", vErr)
-				}
+			provider, providerMetaKnown, revocationResult, prepareErr := prepareRevocationProvider(providerID, extraValues)
+			if prepareErr != nil {
+				return prepareErr
 			}
+			revocationAttempted := false
 			if providerMetaKnown && strings.TrimSpace(provider.RevocationEndpoint) != "" && !strings.HasPrefix(revocationResult, "failed: invalid endpoint configuration") && !strings.HasPrefix(revocationResult, "not_supported: unresolved") {
 				var revokeToken string
 				store, stErr := openConnectorStore(cfg)
@@ -133,4 +127,22 @@ func newAuthRevokeCommand() *cobra.Command {
 	cmd.Flags().StringArrayVar(&extras, "extra", nil, "provider-specific key=value pairs for placeholder endpoints")
 	cmd.Flags().BoolVar(&force, "force", false, "skip revocation confirmation")
 	return cmd
+}
+
+func prepareRevocationProvider(providerID string, extras map[string]string) (connectors.ProviderDefinition, bool, string, error) {
+	provider, providerErr := providers.GetProvider(providerID)
+	if providerErr != nil {
+		return connectors.ProviderDefinition{}, false, "not_supported", nil
+	}
+	if valErr := validateProviderExtraValues(provider, extras); valErr != nil {
+		return connectors.ProviderDefinition{}, true, "failed: invalid placeholder value", fmt.Errorf("invalid --extra values: %w", valErr)
+	}
+	provider = substituteProviderEndpoints(provider, extras)
+	if hasUnresolvedPlaceholders(provider) {
+		return provider, true, "not_supported: unresolved endpoint placeholders", nil
+	}
+	if vErr := validateProviderEndpoints(provider); vErr != nil {
+		return provider, true, fmt.Sprintf("failed: invalid endpoint configuration (%v)", vErr), nil
+	}
+	return provider, true, "not_supported", nil
 }
