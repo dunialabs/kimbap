@@ -103,11 +103,14 @@ function validateFormat(url: string): { isValid: boolean; errorMessage?: string 
  */
 async function validateAvailability(url: string): Promise<ValidationResult> {
   try {
+    const baseUrl = url.trim().replace(/\/+$/, '');
+    const healthUrl = `${baseUrl}/health`;
+
     // Create fetch with 3 second timeout
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 3000);
 
-    const response = await fetch(url, {
+    const response = await fetch(healthUrl, {
       method: 'GET',
       signal: controller.signal,
       headers: {
@@ -121,15 +124,17 @@ async function validateAvailability(url: string): Promise<ValidationResult> {
     if (response.ok) {
       try {
         const data = await response.json();
+        const status = typeof data?.status === 'string'
+          ? data.status
+          : (typeof data?.data?.status === 'string' ? data.data.status : '');
 
-        // Verify this is Kimbap Core service
-        if (data.service === 'Kimbap Core') {
+        if (status === 'healthy' || status === 'ok') {
           // Extract host and port from URL
-          const urlObj = new URL(url);
+          const urlObj = new URL(baseUrl);
           const host = urlObj.hostname;
           const port = urlObj.port ? parseInt(urlObj.port) : (urlObj.protocol === 'https:' ? 443 : 80);
 
-          console.log(`✓ KIMBAP_CORE_URL validation successful: ${url}`);
+          console.log(`✓ KIMBAP_CORE_URL validation successful: ${baseUrl}`);
           return {
             isValid: true,
             status: 'valid',
@@ -137,30 +142,29 @@ async function validateAvailability(url: string): Promise<ValidationResult> {
             port,
           };
         } else {
-          // Service is responding but not Kimbap Core
-          console.warn(`✗ Service at ${url} is not Kimbap Core (service: ${data.service || 'unknown'})`);
+          console.warn(`✗ Service at ${healthUrl} is not recognized as Kimbap Core health endpoint (status: ${status || 'unknown'})`);
           return {
             isValid: false,
             status: 'unreachable',
-            errorMessage: `Service at ${url} is not Kimbap Core (found: ${data.service || 'unknown'})`,
+            errorMessage: `Service at ${healthUrl} returned unrecognized health payload (status: ${status || 'unknown'})`,
           };
         }
       } catch (parseError) {
         // Response is not valid JSON
-        console.warn(`✗ Invalid JSON response from ${url}`);
+        console.warn(`✗ Invalid JSON response from ${healthUrl}`);
         return {
           isValid: false,
           status: 'unreachable',
-          errorMessage: `Service at ${url} returned invalid JSON response`,
+          errorMessage: `Service at ${healthUrl} returned invalid JSON response`,
         };
       }
     } else {
       // HTTP error response
-      console.warn(`✗ HTTP error from ${url}: ${response.status}`);
+      console.warn(`✗ HTTP error from ${healthUrl}: ${response.status}`);
       return {
         isValid: false,
         status: 'unreachable',
-        errorMessage: `Service at ${url} returned HTTP ${response.status}`,
+        errorMessage: `Service at ${healthUrl} returned HTTP ${response.status}`,
       };
     }
   } catch (error: any) {
@@ -189,7 +193,7 @@ async function validateAvailability(url: string): Promise<ValidationResult> {
  * Performs comprehensive validation:
  * 1. Format validation (URL syntax, protocol, no /admin suffix)
  * 2. Availability check (HTTP request with 3s timeout)
- * 3. Service verification (data.service === 'Kimbap Core')
+ * 3. Service verification (health response status is "healthy" or "ok")
  *
  * Caching strategy:
  * - valid: Permanent cache (until service restart)

@@ -723,7 +723,13 @@ func schemaType(schema map[string]any) string {
 						if st := schemaType(m); st != "string" {
 							if found == "" {
 								found = st
-							} else if found != st {
+								continue
+							}
+							if (found == "integer" && st == "number") || (found == "number" && st == "integer") {
+								found = "integer"
+								continue
+							}
+							if found != st {
 								return "string"
 							}
 						}
