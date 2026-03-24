@@ -612,7 +612,14 @@ var logSensitiveKeys = []string{
 func isLogSensitiveKey(key string) bool {
 	lower := strings.ToLower(key)
 	for _, s := range logSensitiveKeys {
-		if strings.Contains(lower, s) {
+		if lower == s {
+			return true
+		}
+		// Match as a whole word segment separated by _, -, or .
+		if strings.HasPrefix(lower, s+"_") || strings.HasPrefix(lower, s+"-") || strings.HasPrefix(lower, s+".") ||
+			strings.HasSuffix(lower, "_"+s) || strings.HasSuffix(lower, "-"+s) || strings.HasSuffix(lower, "."+s) ||
+			strings.Contains(lower, "_"+s+"_") || strings.Contains(lower, "-"+s+"-") || strings.Contains(lower, "."+s+".") ||
+			strings.Contains(lower, "_"+s+"-") || strings.Contains(lower, "-"+s+"_") {
 			return true
 		}
 	}

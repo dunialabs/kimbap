@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useCallback, useRef } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { toast } from 'sonner'
 import {
   Plus,
@@ -57,11 +57,16 @@ import {
   CollapsibleContent,
   CollapsibleTrigger,
 } from '@/components/ui/collapsible'
-
-interface ToolSuggestion {
-  name: string
-  serverName?: string
-}
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog'
 
 function ToolPatternInput({
   value,
@@ -73,7 +78,6 @@ function ToolPatternInput({
   onChange: (value: string) => void
   placeholder?: string
   className?: string
-  suggestions?: ToolSuggestion[]
 }) {
   return (
     <Input
@@ -318,7 +322,6 @@ function RuleCard({
   onChange,
   onMove,
   onRemove,
-  toolSuggestions,
 }: {
   rule: PolicyRule
   index: number
@@ -327,7 +330,6 @@ function RuleCard({
   onChange: (updated: PolicyRule) => void
   onMove: (direction: 'up' | 'down') => void
   onRemove: () => void
-  toolSuggestions: ToolSuggestion[]
 }) {
   const [expanded, setExpanded] = useState(false)
   const [extractOpen, setExtractOpen] = useState(rule.extract.length > 0)
@@ -395,7 +397,6 @@ function RuleCard({
                 placeholder="e.g., delete_*, *"
                 value={rule.match.tool}
                 onChange={(v) => onChange({ ...rule, match: { ...rule.match, tool: v } })}
-                suggestions={toolSuggestions}
                 className="h-9"
               />
             </div>
@@ -650,8 +651,7 @@ export default function PoliciesPage() {
 
   const [editingId, setEditingId] = useState<string | null>(null)
   const [formRules, setFormRules] = useState<PolicyRule[]>([])
-  const [toolSuggestions, setToolSuggestions] = useState<ToolSuggestion[]>([])
-  const toolsFetchedRef = useRef(false)
+  const [discardDialogOpen, setDiscardDialogOpen] = useState(false)
 
   const fetchPolicies = useCallback(async () => {
     try {
@@ -670,17 +670,11 @@ export default function PoliciesPage() {
     fetchPolicies()
   }, [fetchPolicies])
 
-  const fetchToolSuggestions = useCallback(async () => {
-    if (toolsFetchedRef.current) return
-    toolsFetchedRef.current = true
-  }, [])
-
   const openCreate = () => {
     setEditingId(null)
     setFormRules([emptyRule()])
     setIsDirty(false)
     setDialogOpen(true)
-    fetchToolSuggestions()
   }
 
   const openEdit = (p: PolicySet) => {
@@ -690,7 +684,6 @@ export default function PoliciesPage() {
     setFormRules(rules)
     setIsDirty(false)
     setDialogOpen(true)
-    fetchToolSuggestions()
   }
 
   const handleSave = async () => {
@@ -771,7 +764,8 @@ export default function PoliciesPage() {
 
   const tryCloseDialog = (open: boolean) => {
     if (!open && isDirty) {
-      if (!window.confirm('You have unsaved changes. Discard?')) return
+      setDiscardDialogOpen(true)
+      return
     }
     if (!open) setDialogOpen(false)
   }
@@ -991,7 +985,6 @@ export default function PoliciesPage() {
                         onChange={(updated) => handleRuleChange(i, updated)}
                         onMove={(direction) => handleRuleMove(i, direction)}
                         onRemove={() => handleRuleRemove(i)}
-                        toolSuggestions={toolSuggestions}
                       />
                     ))}
                   </div>
@@ -1031,6 +1024,30 @@ export default function PoliciesPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <AlertDialog open={discardDialogOpen} onOpenChange={setDiscardDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Discard changes?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Your unsaved changes will be lost.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              onClick={() => {
+                setDiscardDialogOpen(false)
+                setDialogOpen(false)
+                setIsDirty(false)
+              }}
+            >
+              Discard
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   )
 }
