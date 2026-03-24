@@ -31,6 +31,7 @@ type cliOptions struct {
 	logLevel   string
 	mode       string
 	format     string
+	jsonInput  string
 	dryRun     bool
 	trace      bool
 }
@@ -70,6 +71,7 @@ func init() {
 	rootCmd.AddCommand(newRunCommand())
 	rootCmd.AddCommand(newProxyCommand())
 	rootCmd.AddCommand(newServeCommand())
+	rootCmd.AddCommand(newDaemonCommand())
 	rootCmd.AddCommand(newAgentProfileCommand())
 }
 

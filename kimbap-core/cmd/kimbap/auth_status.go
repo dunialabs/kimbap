@@ -1,6 +1,7 @@
 package main
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"strings"
@@ -24,23 +25,27 @@ func newAuthListCommand() *cobra.Command {
 
 			store, storeErr := openConnectorStore(cfg)
 			if storeErr != nil {
-				_ = printOutput(map[string]any{
-					"status":    "not_configured",
-					"operation": "auth.list",
-					"tenant_id": activeTenant,
-					"message":   fmt.Sprintf("OAuth state store unavailable: %v", storeErr),
-				})
+				if outputAsJSON() {
+					_ = printOutput(map[string]any{
+						"status":    "not_configured",
+						"operation": "auth.list",
+						"tenant_id": activeTenant,
+						"message":   fmt.Sprintf("OAuth state store unavailable: %v", storeErr),
+					})
+				}
 				return fmt.Errorf("OAuth state store unavailable: %w", storeErr)
 			}
 			mgr := connectors.NewManager(store)
 			states, listErr := mgr.List(contextBackground(), activeTenant)
 			if listErr != nil {
-				_ = printOutput(map[string]any{
-					"status":    "not_configured",
-					"operation": "auth.list",
-					"tenant_id": activeTenant,
-					"message":   fmt.Sprintf("OAuth state store unavailable: %v", listErr),
-				})
+				if outputAsJSON() {
+					_ = printOutput(map[string]any{
+						"status":    "not_configured",
+						"operation": "auth.list",
+						"tenant_id": activeTenant,
+						"message":   fmt.Sprintf("OAuth state store unavailable: %v", listErr),
+					})
+				}
 				return fmt.Errorf("OAuth state store unavailable: %w", listErr)
 			}
 
@@ -106,12 +111,14 @@ func newAuthStatusCommand() *cobra.Command {
 
 			store, storeErr := openConnectorStore(cfg)
 			if storeErr != nil {
-				_ = printOutput(map[string]any{
-					"status":    "not_configured",
-					"operation": "auth.status",
-					"tenant_id": activeTenant,
-					"message":   fmt.Sprintf("OAuth state store unavailable: %v", storeErr),
-				})
+				if outputAsJSON() {
+					_ = printOutput(map[string]any{
+						"status":    "not_configured",
+						"operation": "auth.status",
+						"tenant_id": activeTenant,
+						"message":   fmt.Sprintf("OAuth state store unavailable: %v", storeErr),
+					})
+				}
 				return fmt.Errorf("OAuth state store unavailable: %w", storeErr)
 			}
 			mgr := connectors.NewManager(store)
@@ -119,12 +126,14 @@ func newAuthStatusCommand() *cobra.Command {
 			if len(args) == 0 {
 				states, listErr := mgr.List(contextBackground(), activeTenant)
 				if listErr != nil {
-					_ = printOutput(map[string]any{
-						"status":    "not_configured",
-						"operation": "auth.status",
-						"tenant_id": activeTenant,
-						"message":   fmt.Sprintf("OAuth state store unavailable: %v", listErr),
-					})
+					if outputAsJSON() {
+						_ = printOutput(map[string]any{
+							"status":    "not_configured",
+							"operation": "auth.status",
+							"tenant_id": activeTenant,
+							"message":   fmt.Sprintf("OAuth state store unavailable: %v", listErr),
+						})
+					}
 					return fmt.Errorf("OAuth state store unavailable: %w", listErr)
 				}
 
@@ -187,23 +196,30 @@ func newAuthStatusCommand() *cobra.Command {
 
 			state, statusErr := mgr.Status(contextBackground(), activeTenant, providerID)
 			if statusErr != nil {
-				if strings.Contains(statusErr.Error(), "not found") {
+				if errors.Is(statusErr, connectors.ErrConnectorNotFound) {
+					msg := fmt.Sprintf("No connection found for %q. Run: kimbap auth connect %s", providerID, providerID)
+					if !outputAsJSON() {
+						_, _ = fmt.Fprintln(os.Stdout, msg)
+						return fmt.Errorf("no connection found for %q: %w", providerID, statusErr)
+					}
 					_ = printOutput(map[string]any{
 						"status":    "not_connected",
 						"operation": "auth.status",
 						"tenant_id": activeTenant,
 						"provider":  providerID,
-						"message":   fmt.Sprintf("No connection found for %q. Run: kimbap auth connect %s", providerID, providerID),
+						"message":   msg,
 					})
 					return fmt.Errorf("no connection found for %q: %w", providerID, statusErr)
 				}
-				_ = printOutput(map[string]any{
-					"status":    "error",
-					"operation": "auth.status",
-					"tenant_id": activeTenant,
-					"provider":  providerID,
-					"message":   fmt.Sprintf("failed to retrieve status: %v", statusErr),
-				})
+				if outputAsJSON() {
+					_ = printOutput(map[string]any{
+						"status":    "error",
+						"operation": "auth.status",
+						"tenant_id": activeTenant,
+						"provider":  providerID,
+						"message":   fmt.Sprintf("failed to retrieve status: %v", statusErr),
+					})
+				}
 				return fmt.Errorf("failed to get provider %q status: %w", providerID, statusErr)
 			}
 

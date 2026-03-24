@@ -50,6 +50,19 @@ func parseConnectionScope(raw string) connectors.ConnectionScope {
 	}
 }
 
+func resolveConnectionScope(raw string, provider connectors.ProviderDefinition) connectors.ConnectionScope {
+	requested := parseConnectionScope(raw)
+	if len(provider.ConnectionScopeModel) == 0 {
+		return requested
+	}
+	for _, supported := range provider.ConnectionScopeModel {
+		if supported == requested {
+			return requested
+		}
+	}
+	return provider.ConnectionScopeModel[0]
+}
+
 func scopeValues(raw string, fallback []string) []string {
 	trimmed := strings.TrimSpace(raw)
 	if trimmed == "" {

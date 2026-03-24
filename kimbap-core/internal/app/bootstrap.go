@@ -79,12 +79,18 @@ func BuildRuntime(deps RuntimeDeps) (*runtime.Runtime, error) {
 		credentialResolver = &chainCredentialResolver{resolvers: resolvers}
 	}
 
+	var heldStore runtime.HeldExecutionStore
+	if deps.ApprovalManager != nil {
+		heldStore = NewMemoryHeldExecutionStore()
+	}
+
 	return runtime.NewRuntime(runtime.Runtime{
 		ActionRegistry:     actionRegistry,
 		PolicyEvaluator:    policyEvaluator,
 		CredentialResolver: credentialResolver,
 		AuditWriter:        deps.AuditWriter,
 		ApprovalManager:    deps.ApprovalManager,
+		HeldExecutionStore: heldStore,
 		Adapters: map[string]adapters.Adapter{
 			"http": adapters.NewHTTPAdapter(nil),
 		},
@@ -289,6 +295,9 @@ func (r *connectorCredentialResolver) Resolve(ctx context.Context, tenantID stri
 
 	token, err := r.mgr.GetAccessToken(ctx, tenantID, connectorName)
 	if err != nil {
+		if errors.Is(err, connectors.ErrConnectorNotFound) {
+			return nil, nil
+		}
 		return nil, err
 	}
 	if strings.TrimSpace(token) == "" {

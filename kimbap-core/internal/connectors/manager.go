@@ -50,6 +50,8 @@ type pendingLogin struct {
 	expiresAt  time.Time
 }
 
+var ErrConnectorNotFound = errors.New("connector state not found")
+
 func NewManager(store ConnectorStore) *Manager {
 	return &Manager{
 		configs:    map[string]ConnectorConfig{},
@@ -194,7 +196,7 @@ func (m *Manager) Refresh(ctx context.Context, tenantID, name string) error {
 		return err
 	}
 	if state == nil {
-		return errors.New("connector state not found")
+		return ErrConnectorNotFound
 	}
 
 	if strings.TrimSpace(state.RefreshToken) == "" {
@@ -250,7 +252,7 @@ func (m *Manager) GetAccessToken(ctx context.Context, tenantID, name string) (st
 		return "", err
 	}
 	if state == nil {
-		return "", errors.New("connector state not found")
+		return "", ErrConnectorNotFound
 	}
 
 	if state.ExpiresAt != nil && time.Now().After(*state.ExpiresAt) {
@@ -262,7 +264,7 @@ func (m *Manager) GetAccessToken(ctx context.Context, tenantID, name string) (st
 			return "", err
 		}
 		if state == nil {
-			return "", errors.New("connector state not found")
+			return "", ErrConnectorNotFound
 		}
 	}
 
@@ -331,7 +333,7 @@ func (m *Manager) Status(ctx context.Context, tenantID, name string) (*Connector
 		return nil, err
 	}
 	if state == nil {
-		return nil, errors.New("connector state not found")
+		return nil, ErrConnectorNotFound
 	}
 
 	copyState := *state
@@ -485,7 +487,7 @@ func (m *Manager) Revoke(ctx context.Context, tenantID, name string) error {
 		return err
 	}
 	if state == nil {
-		return errors.New("connector state not found")
+		return ErrConnectorNotFound
 	}
 
 	now := time.Now().UTC()

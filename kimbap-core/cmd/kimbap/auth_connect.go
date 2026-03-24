@@ -84,6 +84,9 @@ func newAuthReconnectCommand() *cobra.Command {
 			if providerID == "" {
 				return fmt.Errorf("provider is required")
 			}
+			if p, pErr := providers.GetProvider(providerID); pErr == nil {
+				providerID = p.ID
+			}
 			activeTenant := connectorTenant(tenant)
 
 			cfg, err := loadAppConfig()
@@ -92,6 +95,9 @@ func newAuthReconnectCommand() *cobra.Command {
 			}
 
 			_, _ = fmt.Fprintln(os.Stderr, "Attempting to reconnect...")
+
+			auditEmitter := initAuthAuditEmitter(cfg)
+			defer closeAuditEmitter(auditEmitter)
 
 			store, storeErr := openConnectorStore(cfg)
 			if storeErr == nil {
@@ -113,12 +119,18 @@ func newAuthReconnectCommand() *cobra.Command {
 				refreshErr := mgr.Refresh(contextBackground(), activeTenant, providerID)
 				if refreshErr == nil {
 					_, _ = fmt.Fprintln(os.Stderr, "Token refresh succeeded.")
+					if auditEmitter != nil {
+						auditEmitter.RefreshSucceeded(contextBackground(), providerID, activeTenant)
+					}
 					refreshedState, _ := mgr.Status(contextBackground(), activeTenant, providerID)
 					prevScopes := []string{}
 					if refreshedState != nil {
 						prevScopes = refreshedState.Scopes
 					}
 					requestedScopes := scopeValues(scopeInput, prevScopes)
+					if !outputAsJSON() {
+						return nil
+					}
 					return printOutput(map[string]any{
 						"status":           "ok",
 						"operation":        "auth.reconnect",
@@ -131,6 +143,9 @@ func newAuthReconnectCommand() *cobra.Command {
 							"account_changes": "none",
 						},
 					})
+				}
+				if auditEmitter != nil {
+					auditEmitter.RefreshFailed(contextBackground(), providerID, activeTenant, refreshErr.Error())
 				}
 				_, _ = fmt.Fprintf(os.Stderr, "Refresh failed: %v\nFalling back to full connect flow...\n", refreshErr)
 			}
@@ -187,13 +202,15 @@ func runAuthConnect(
 ) error {
 	provider, err := providers.GetProvider(providerID)
 	if err != nil {
-		_ = printOutput(map[string]any{
-			"status":    "not_found",
-			"operation": "auth.connect",
-			"tenant_id": tenantID,
-			"provider":  providerID,
-			"message":   err.Error(),
-		})
+		if outputAsJSON() {
+			_ = printOutput(map[string]any{
+				"status":    "not_found",
+				"operation": "auth.connect",
+				"tenant_id": tenantID,
+				"provider":  providerID,
+				"message":   err.Error(),
+			})
+		}
 		return fmt.Errorf("provider %q not found: %w", providerID, err)
 	}
 	providerID = provider.ID
@@ -208,7 +225,7 @@ func runAuthConnect(
 		return err
 	}
 
-	connScope := parseConnectionScope(connectionScope)
+	connScope := resolveConnectionScope(connectionScope, provider)
 	if timeout <= 0 {
 		timeout = 5 * time.Minute
 	}
@@ -405,5 +422,8 @@ func runAuthConnect(
 		}
 	}
 
+	if !outputAsJSON() {
+		return nil
+	}
 	return printOutput(result)
 }

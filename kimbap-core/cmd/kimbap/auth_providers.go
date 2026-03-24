@@ -86,12 +86,14 @@ func newAuthProvidersDescribeCommand() *cobra.Command {
 			}
 			provider, err := providers.GetProvider(providerID)
 			if err != nil {
-				_ = printOutput(map[string]any{
-					"status":    "not_found",
-					"operation": "auth.providers.describe",
-					"provider":  providerID,
-					"message":   err.Error(),
-				})
+				if outputAsJSON() {
+					_ = printOutput(map[string]any{
+						"status":    "not_found",
+						"operation": "auth.providers.describe",
+						"provider":  providerID,
+						"message":   err.Error(),
+					})
+				}
 				return fmt.Errorf("provider %q not found: %w", providerID, err)
 			}
 

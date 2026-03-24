@@ -1,6 +1,7 @@
 package main
 
 import (
+	"errors"
 	"fmt"
 	"net"
 	"net/http"
@@ -25,6 +26,9 @@ func newAuthDoctorCommand() *cobra.Command {
 			providerID := ""
 			if len(args) == 1 {
 				providerID = strings.TrimSpace(args[0])
+				if p, pErr := providers.GetProvider(providerID); pErr == nil {
+					providerID = p.ID
+				}
 			}
 
 			cfg, err := loadAppConfig()
@@ -64,6 +68,27 @@ func newAuthDoctorCommand() *cobra.Command {
 			scopeCheck := checkGrantedScopes(cfg, activeTenant, providerID)
 			checks = append(checks, scopeCheck)
 			hasFailure = hasFailure || scopeCheck.Status == "fail"
+
+			if !outputAsJSON() {
+				for _, c := range checks {
+					icon := "✓"
+					switch c.Status {
+					case "fail":
+						icon = "✗"
+					case "warn":
+						icon = "!"
+					case "skip":
+						icon = "-"
+					}
+					_, _ = fmt.Fprintf(os.Stdout, "  %s %-35s %s\n", icon, c.Name, c.Detail)
+				}
+				if hasFailure {
+					_, _ = fmt.Fprintln(os.Stdout, "\nSome checks failed. Run with --format json for details.")
+					return fmt.Errorf("auth doctor found failing checks")
+				}
+				_, _ = fmt.Fprintln(os.Stdout, "\nAll checks passed.")
+				return nil
+			}
 
 			if err := printOutput(map[string]any{
 				"status":    ternary(hasFailure, "fail", "ok"),
@@ -115,7 +140,10 @@ func checkAuthTokenState(cfg *config.KimbapConfig, tenantID, providerID string) 
 	mgr := connectors.NewManager(store)
 	state, statusErr := mgr.Status(contextBackground(), tenantID, providerID)
 	if statusErr != nil {
-		return doctorCheck{Name: "token expiry status", Status: "skip", Detail: "no token state found"}, doctorCheck{Name: "refresh token availability", Status: "skip", Detail: "no token state found"}
+		if errors.Is(statusErr, connectors.ErrConnectorNotFound) {
+			return doctorCheck{Name: "token expiry status", Status: "skip", Detail: "no connection found"}, doctorCheck{Name: "refresh token availability", Status: "skip", Detail: "no connection found"}
+		}
+		return doctorCheck{Name: "token expiry status", Status: "fail", Detail: statusErr.Error()}, doctorCheck{Name: "refresh token availability", Status: "fail", Detail: statusErr.Error()}
 	}
 
 	cs := statusFromSanitizedState(state)
@@ -236,7 +264,13 @@ func checkGrantedScopes(cfg *config.KimbapConfig, tenantID, providerID string) d
 	}
 	mgr := connectors.NewManager(store)
 	state, statusErr := mgr.Status(contextBackground(), tenantID, providerID)
-	if statusErr != nil || state == nil {
+	if statusErr != nil {
+		if errors.Is(statusErr, connectors.ErrConnectorNotFound) {
+			return doctorCheck{Name: "scope coverage", Status: "skip", Detail: "no connection found"}
+		}
+		return doctorCheck{Name: "scope coverage", Status: "fail", Detail: statusErr.Error()}
+	}
+	if state == nil {
 		return doctorCheck{Name: "scope coverage", Status: "skip", Detail: "no connection found"}
 	}
 

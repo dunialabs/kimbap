@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"os"
 	"strings"
 
 	"github.com/spf13/cobra"
@@ -21,12 +22,19 @@ func newAuthRevokeCommand() *cobra.Command {
 			if providerID == "" {
 				return fmt.Errorf("provider is required")
 			}
+			if p, pErr := providers.GetProvider(providerID); pErr == nil {
+				providerID = p.ID
+			}
 			activeTenant := connectorTenant(tenant)
 
 			if !force {
 				if ok, promptErr := confirmRevocation(providerID); promptErr != nil {
 					return promptErr
 				} else if !ok {
+					if !outputAsJSON() {
+						_, _ = fmt.Fprintln(os.Stdout, "Cancelled.")
+						return nil
+					}
 					return printOutput(map[string]any{
 						"status":    "cancelled",
 						"operation": "auth.revoke",
@@ -80,6 +88,17 @@ func newAuthRevokeCommand() *cobra.Command {
 
 			if auditEmitter != nil {
 				auditEmitter.RevokeCompleted(contextBackground(), providerID, activeTenant, revocationResult == "success")
+			}
+
+			if !outputAsJSON() {
+				fmt.Fprintf(os.Stdout, "Disconnected %s.\n", providerID)
+				fmt.Fprintf(os.Stdout, "Remote revocation: %s\n", revocationResult)
+				if deleted {
+					fmt.Fprintln(os.Stdout, "Local token material removed.")
+				} else if deleteErr != nil {
+					fmt.Fprintf(os.Stdout, "Local cleanup failed: %v\n", deleteErr)
+				}
+				return nil
 			}
 
 			return printOutput(map[string]any{
