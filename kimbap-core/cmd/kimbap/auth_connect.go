@@ -57,7 +57,7 @@ func newAuthConnectCommand() *cobra.Command {
 		},
 	}
 
-	cmd.Flags().StringVar(&flow, "flow", "auto", "auth flow to use (auto, browser, device)")
+	cmd.Flags().StringVar(&flow, "flow", "auto", "auth flow to use (auto, browser, device, client-credentials)")
 	cmd.Flags().StringVar(&scopeInput, "scope", "", "requested scopes (space/comma separated)")
 	cmd.Flags().StringVar(&scopeInput, "scopes", "", "requested scopes (space/comma separated)")
 	cmd.Flags().StringVar(&browserName, "browser", "auto", "browser strategy (auto, system, none)")
@@ -165,7 +165,7 @@ func newAuthReconnectCommand() *cobra.Command {
 			)
 		},
 	}
-	cmd.Flags().StringVar(&flow, "flow", "auto", "auth flow to use (auto, browser, device)")
+	cmd.Flags().StringVar(&flow, "flow", "auto", "auth flow to use (auto, browser, device, client-credentials)")
 	cmd.Flags().StringVar(&scopeInput, "scope", "", "requested scopes (space/comma separated)")
 	cmd.Flags().StringVar(&tenant, "tenant", "", "tenant id")
 	return cmd
@@ -219,6 +219,12 @@ func runAuthConnect(
 	}
 
 	ctx := contextBackground()
+	auditEmitter := initAuthAuditEmitter(cfg)
+	defer closeAuditEmitter(auditEmitter)
+	if auditEmitter != nil {
+		auditEmitter.ConnectStarted(ctx, providerID, tenantID, selectedFlow)
+	}
+
 	var accessToken, refreshToken, grantedScope string
 	var expiresIn int
 
@@ -234,6 +240,9 @@ func runAuthConnect(
 			Timeout:        timeout,
 		}, os.Stderr)
 		if deviceErr != nil {
+			if auditEmitter != nil {
+				auditEmitter.ConnectFailed(ctx, providerID, tenantID, selectedFlow, deviceErr.Error())
+			}
 			return deviceErr
 		}
 		accessToken = deviceResult.AccessToken
@@ -254,6 +263,9 @@ func runAuthConnect(
 			Timeout:       timeout,
 		}, os.Stderr)
 		if browserErr != nil {
+			if auditEmitter != nil {
+				auditEmitter.ConnectFailed(ctx, providerID, tenantID, selectedFlow, browserErr.Error())
+			}
 			return browserErr
 		}
 		accessToken = browserResult.AccessToken
@@ -270,6 +282,9 @@ func runAuthConnect(
 			Scopes:        scopes,
 		})
 		if ccErr != nil {
+			if auditEmitter != nil {
+				auditEmitter.ConnectFailed(ctx, providerID, tenantID, selectedFlow, ccErr.Error())
+			}
 			return ccErr
 		}
 		accessToken = ccResult.AccessToken
@@ -277,14 +292,28 @@ func runAuthConnect(
 		grantedScope = ccResult.Scope
 
 	default:
+		if auditEmitter != nil {
+			auditEmitter.ConnectFailed(ctx, providerID, tenantID, selectedFlow, fmt.Sprintf("unsupported flow: %s", selectedFlow))
+		}
 		return fmt.Errorf("unsupported flow: %s", selectedFlow)
 	}
 
 	store, storeErr := openConnectorStore(cfg)
 	if storeErr != nil {
+		if auditEmitter != nil {
+			auditEmitter.ConnectFailed(ctx, providerID, tenantID, selectedFlow, storeErr.Error())
+		}
 		return storeErr
 	}
 	mgr := connectors.NewManager(store)
+	prevScopes := []string{}
+	existingPrincipal := ""
+	if reconnectMode {
+		if prev, _ := store.Get(ctx, tenantID, providerID); prev != nil {
+			prevScopes = append(prevScopes, prev.Scopes...)
+			existingPrincipal = strings.TrimSpace(prev.ConnectedPrincipal)
+		}
+	}
 	mgr.RegisterConfig(connectors.ConnectorConfig{
 		Name:         providerID,
 		Provider:     providerID,
@@ -296,7 +325,23 @@ func runAuthConnect(
 	})
 
 	if err := mgr.StoreConnection(ctx, tenantID, providerID, provider.ID, accessToken, refreshToken, expiresIn, grantedScope, selectedFlow, connScope, workspace); err != nil {
+		if auditEmitter != nil {
+			auditEmitter.ConnectFailed(ctx, providerID, tenantID, selectedFlow, err.Error())
+		}
 		return fmt.Errorf("store connection: %w", err)
+	}
+
+	connectedPrincipal := ""
+	if strings.TrimSpace(provider.UserInfoEndpoint) != "" && strings.TrimSpace(accessToken) != "" {
+		if userInfo, uErr := connectors.FetchUserInfo(ctx, provider.UserInfoEndpoint, accessToken); uErr == nil && userInfo != nil {
+			connectedPrincipal = userInfo.Principal()
+			if connectedPrincipal != "" {
+				if stored, _ := store.Get(ctx, tenantID, providerID); stored != nil {
+					stored.ConnectedPrincipal = connectedPrincipal
+					_ = store.Save(ctx, stored)
+				}
+			}
+		}
 	}
 
 	grantedScopes := scopes
@@ -309,18 +354,56 @@ func runAuthConnect(
 	if len(grantedScopes) > 0 {
 		_, _ = fmt.Fprintf(os.Stderr, "Granted scopes: %s\n", strings.Join(grantedScopes, ", "))
 	}
+	if expiresIn > 0 {
+		_, _ = fmt.Fprintf(os.Stderr, "Expires in: %s\n", formatDuration(time.Duration(expiresIn)*time.Second))
+	}
 	_, _ = fmt.Fprintln(os.Stderr, "Refresh: healthy")
 	_, _ = fmt.Fprintln(os.Stderr, "Ready to use with Kimbap actions.")
 
-	return printOutput(map[string]any{
-		"status":           "ok",
-		"operation":        operation,
-		"tenant_id":        tenantID,
-		"provider":         provider.ID,
-		"connection_scope": connScope,
-		"status_detail":    connectors.StatusConnected,
-		"granted_scopes":   grantedScopes,
-		"flow_used":        selectedFlow,
-		"workspace":        stringOrNil(workspace),
-	})
+	accountChanges := "none"
+	if reconnectMode {
+		newPrincipal := strings.TrimSpace(connectedPrincipal)
+		if newPrincipal == "" {
+			if current, _ := store.Get(ctx, tenantID, providerID); current != nil {
+				newPrincipal = strings.TrimSpace(current.ConnectedPrincipal)
+			}
+		}
+		switch {
+		case existingPrincipal == "" && newPrincipal != "":
+			accountChanges = fmt.Sprintf("set to %s", newPrincipal)
+		case existingPrincipal != "" && newPrincipal == "":
+			accountChanges = fmt.Sprintf("cleared from %s", existingPrincipal)
+		case existingPrincipal != "" && newPrincipal != "" && existingPrincipal != newPrincipal:
+			accountChanges = fmt.Sprintf("changed from %s to %s", existingPrincipal, newPrincipal)
+		}
+	}
+
+	result := map[string]any{
+		"status":             "ok",
+		"operation":          operation,
+		"tenant_id":          tenantID,
+		"provider":           provider.ID,
+		"connection_scope":   connScope,
+		"status_detail":      connectors.StatusConnected,
+		"granted_scopes":     grantedScopes,
+		"flow_used":          selectedFlow,
+		"expires_in_seconds": expiresIn,
+		"workspace":          stringOrNil(workspace),
+	}
+	if reconnectMode {
+		result["delta"] = map[string]any{
+			"scope_changes":   scopeDelta(prevScopes, grantedScopes),
+			"account_changes": accountChanges,
+		}
+	}
+
+	if auditEmitter != nil {
+		if reconnectMode {
+			auditEmitter.ReconnectCompleted(ctx, providerID, tenantID, selectedFlow)
+		} else {
+			auditEmitter.ConnectCompleted(ctx, providerID, tenantID, selectedFlow, grantedScopes)
+		}
+	}
+
+	return printOutput(result)
 }

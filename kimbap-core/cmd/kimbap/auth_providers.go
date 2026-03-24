@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"os"
 	"sort"
 	"strings"
 
@@ -29,11 +30,37 @@ func newAuthProvidersListCommand() *cobra.Command {
 			out := make([]map[string]any, 0, len(items))
 			for _, item := range items {
 				out = append(out, map[string]any{
-					"id":              item.ID,
-					"display_name":    item.DisplayName,
-					"supported_flows": item.SupportedFlows,
-					"configured":      providerIsConfigured(item),
+					"id":                     item.ID,
+					"display_name":           item.DisplayName,
+					"supported_flows":        item.SupportedFlows,
+					"configured":             providerIsConfigured(item),
+					"connection_scope_model": item.ConnectionScopeModel,
 				})
+			}
+
+			if !outputAsJSON() {
+				if len(items) == 0 {
+					_, _ = fmt.Fprintln(os.Stdout, "No providers configured.")
+					return nil
+				}
+				_, _ = fmt.Fprintf(os.Stdout, "%-15s  %-20s  %-30s  %-12s  %s\n", "ID", "NAME", "FLOWS", "CONFIGURED", "SCOPES")
+				for _, item := range items {
+					flowStrs := make([]string, 0, len(item.SupportedFlows))
+					for _, f := range item.SupportedFlows {
+						flowStrs = append(flowStrs, string(f))
+					}
+					scopeStrs := make([]string, 0, len(item.ConnectionScopeModel))
+					for _, s := range item.ConnectionScopeModel {
+						scopeStrs = append(scopeStrs, string(s))
+					}
+					_, _ = fmt.Fprintf(os.Stdout, "%-15s  %-20s  %-30s  %-12v  %s\n",
+						item.ID, item.DisplayName,
+						strings.Join(flowStrs, ", "),
+						providerIsConfigured(item),
+						strings.Join(scopeStrs, ", "),
+					)
+				}
+				return nil
 			}
 
 			return printOutput(map[string]any{
@@ -66,6 +93,29 @@ func newAuthProvidersDescribeCommand() *cobra.Command {
 					"message":   err.Error(),
 				})
 				return fmt.Errorf("provider %q not found: %w", providerID, err)
+			}
+
+			if !outputAsJSON() {
+				_, _ = fmt.Fprintf(os.Stdout, "Provider:             %s\n", provider.ID)
+				_, _ = fmt.Fprintf(os.Stdout, "Display Name:         %s\n", provider.DisplayName)
+				flowStrs := make([]string, 0, len(provider.SupportedFlows))
+				for _, f := range provider.SupportedFlows {
+					flowStrs = append(flowStrs, string(f))
+				}
+				_, _ = fmt.Fprintf(os.Stdout, "Supported Flows:      %s\n", strings.Join(flowStrs, ", "))
+				if len(provider.DefaultScopes) > 0 {
+					_, _ = fmt.Fprintf(os.Stdout, "Default Scopes:       %s\n", strings.Join(provider.DefaultScopes, ", "))
+				}
+				scopeStrs := make([]string, 0, len(provider.ConnectionScopeModel))
+				for _, s := range provider.ConnectionScopeModel {
+					scopeStrs = append(scopeStrs, string(s))
+				}
+				_, _ = fmt.Fprintf(os.Stdout, "Connection Scopes:    %s\n", strings.Join(scopeStrs, ", "))
+				_, _ = fmt.Fprintf(os.Stdout, "PKCE Required:        %v\n", provider.PKCERequired)
+				if provider.Notes != "" {
+					_, _ = fmt.Fprintf(os.Stdout, "Notes:                %s\n", provider.Notes)
+				}
+				return nil
 			}
 
 			return printOutput(map[string]any{

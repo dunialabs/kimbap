@@ -17,6 +17,7 @@ import (
 	"github.com/dunialabs/kimbap-core/internal/approvals"
 	"github.com/dunialabs/kimbap-core/internal/audit"
 	"github.com/dunialabs/kimbap-core/internal/config"
+	"github.com/dunialabs/kimbap-core/internal/connectors"
 	corecrypto "github.com/dunialabs/kimbap-core/internal/crypto"
 	"github.com/dunialabs/kimbap-core/internal/runtime"
 	"github.com/dunialabs/kimbap-core/internal/skills"
@@ -309,12 +310,31 @@ func buildRuntimeFromConfig(cfg *config.KimbapConfig) (*runtime.Runtime, error) 
 		_, _ = fmt.Fprintf(os.Stderr, "warning: approval store unavailable (%v); approval-requiring actions will fail\n", rsErr)
 	}
 
+	var connStore connectors.ConnectorStore
+	var connConfigs []connectors.ConnectorConfig
+	if cs, csErr := openConnectorStore(cfg); csErr == nil {
+		connStore = cs
+		for _, prov := range providers.ListProviders() {
+			connConfigs = append(connConfigs, connectors.ConnectorConfig{
+				Name:         prov.ID,
+				Provider:     prov.ID,
+				ClientID:     resolveClientID(cfg, prov.ID),
+				ClientSecret: resolveClientSecret(cfg, prov.ID),
+				TokenURL:     prov.TokenEndpoint,
+				DeviceURL:    prov.DeviceEndpoint,
+				Scopes:       prov.DefaultScopes,
+			})
+		}
+	}
+
 	return app.BuildRuntime(app.RuntimeDeps{
-		Config:          cfg,
-		VaultStore:      vaultStore,
-		PolicyPath:      cfg.Policy.Path,
-		SkillsDir:       cfg.Skills.Dir,
-		AuditWriter:     auditWriter,
-		ApprovalManager: approvalManager,
+		Config:           cfg,
+		VaultStore:       vaultStore,
+		ConnectorStore:   connStore,
+		ConnectorConfigs: connConfigs,
+		PolicyPath:       cfg.Policy.Path,
+		SkillsDir:        cfg.Skills.Dir,
+		AuditWriter:      auditWriter,
+		ApprovalManager:  approvalManager,
 	})
 }

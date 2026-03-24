@@ -40,6 +40,8 @@ func newAuthRevokeCommand() *cobra.Command {
 			if err != nil {
 				return err
 			}
+			auditEmitter := initAuthAuditEmitter(cfg)
+			defer closeAuditEmitter(auditEmitter)
 
 			provider, providerErr := providers.GetProvider(providerID)
 			providerMetaKnown := providerErr == nil
@@ -74,6 +76,10 @@ func newAuthRevokeCommand() *cobra.Command {
 			deleteErr := deleteConnectorState(cfg, activeTenant, providerID)
 			if deleteErr != nil && !errors.Is(deleteErr, sql.ErrNoRows) {
 				deleted = false
+			}
+
+			if auditEmitter != nil {
+				auditEmitter.RevokeCompleted(contextBackground(), providerID, activeTenant, revocationResult == "success")
 			}
 
 			return printOutput(map[string]any{

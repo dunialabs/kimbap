@@ -13,6 +13,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/dunialabs/kimbap-core/internal/audit"
 	"github.com/dunialabs/kimbap-core/internal/config"
 	"github.com/dunialabs/kimbap-core/internal/connectors"
 	realFlows "github.com/dunialabs/kimbap-core/internal/connectors/flows"
@@ -298,4 +299,42 @@ var flows = struct {
 		}
 		return (&realFlows.FlowSelector{}).SelectFlow(requested, provider)
 	},
+}
+
+func initAuthAuditEmitter(cfg *config.KimbapConfig) *connectors.AuditEmitter {
+	auditPath := ""
+	if cfg != nil {
+		auditPath = strings.TrimSpace(cfg.Audit.Path)
+	}
+	if auditPath == "" {
+		return nil
+	}
+	writer, err := audit.NewJSONLWriter(auditPath)
+	if err != nil {
+		return nil
+	}
+	return &connectors.AuditEmitter{Writer: writer}
+}
+
+func closeAuditEmitter(emitter *connectors.AuditEmitter) {
+	if emitter == nil || emitter.Writer == nil {
+		return
+	}
+	if closer, ok := emitter.Writer.(interface{ Close() error }); ok {
+		_ = closer.Close()
+	}
+}
+
+func formatDuration(d time.Duration) string {
+	if d < time.Minute {
+		return fmt.Sprintf("%ds", int(d.Seconds()))
+	}
+	if d < time.Hour {
+		return fmt.Sprintf("%dm", int(d.Minutes()))
+	}
+	hours := int(d.Hours())
+	if hours < 24 {
+		return fmt.Sprintf("%dh", hours)
+	}
+	return fmt.Sprintf("%dd %dh", hours/24, hours%24)
 }

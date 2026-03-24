@@ -2,7 +2,9 @@ package main
 
 import (
 	"fmt"
+	"os"
 	"strings"
+	"time"
 
 	"github.com/dunialabs/kimbap-core/internal/connectors"
 	"github.com/spf13/cobra"
@@ -58,6 +60,22 @@ func newAuthListCommand() *cobra.Command {
 					"refresh_health": refreshHealthFromConnectionStatus(cs),
 					"last_used_at":   state.LastUsedAt,
 				})
+			}
+
+			if !outputAsJSON() {
+				if len(items) == 0 {
+					_, _ = fmt.Fprintln(os.Stdout, "No OAuth connections found.")
+					return nil
+				}
+				_, _ = fmt.Fprintf(os.Stdout, "OAuth Connections (%d):\n\n", len(items))
+				for _, item := range items {
+					provider, _ := item["provider"].(string)
+					status, _ := item["status"].(connectors.ConnectionStatus)
+					scopeLevel, _ := item["scope_level"].(string)
+					refreshHealth, _ := item["refresh_health"].(string)
+					_, _ = fmt.Fprintf(os.Stdout, "  %-15s  status=%-20s  scope=%-10s  refresh=%s\n", provider, status, scopeLevel, refreshHealth)
+				}
+				return nil
 			}
 
 			return printOutput(map[string]any{
@@ -131,6 +149,25 @@ func newAuthStatusCommand() *cobra.Command {
 					})
 				}
 
+				if !outputAsJSON() {
+					if len(items) == 0 {
+						_, _ = fmt.Fprintln(os.Stdout, "No OAuth connections found.")
+						return nil
+					}
+					for _, item := range items {
+						provider, _ := item["provider"].(string)
+						status, _ := item["status"].(connectors.ConnectionStatus)
+						scopeLevel, _ := item["connection_scope"].(string)
+						principal, _ := item["connected_principal"].(string)
+						_, _ = fmt.Fprintf(os.Stdout, "%-15s  status=%-20s  scope=%-10s", provider, status, scopeLevel)
+						if principal != "" {
+							_, _ = fmt.Fprintf(os.Stdout, "  user=%s", principal)
+						}
+						_, _ = fmt.Fprintln(os.Stdout)
+					}
+					return nil
+				}
+
 				return printOutput(map[string]any{
 					"status":      "ok",
 					"operation":   "auth.status",
@@ -174,6 +211,29 @@ func newAuthStatusCommand() *cobra.Command {
 			scopeLevel := string(state.ConnectionScope)
 			if scopeLevel == "" {
 				scopeLevel = string(connectors.ScopeUser)
+			}
+			if !outputAsJSON() {
+				_, _ = fmt.Fprintf(os.Stdout, "Provider:            %s\n", state.Provider)
+				_, _ = fmt.Fprintf(os.Stdout, "Connection scope:    %s\n", scopeLevel)
+				if state.ConnectedPrincipal != "" {
+					_, _ = fmt.Fprintf(os.Stdout, "Connected as:        %s\n", state.ConnectedPrincipal)
+				}
+				_, _ = fmt.Fprintf(os.Stdout, "Status:              %s\n", cs)
+				if len(state.Scopes) > 0 {
+					_, _ = fmt.Fprintf(os.Stdout, "Granted scopes:      %s\n", strings.Join(state.Scopes, ", "))
+				}
+				_, _ = fmt.Fprintln(os.Stdout, "Access token:        managed by core")
+				_, _ = fmt.Fprintf(os.Stdout, "Refresh status:      %s\n", refreshStateFromConnectionStatus(cs))
+				if state.LastRefresh != nil {
+					_, _ = fmt.Fprintf(os.Stdout, "Last refresh:        %s\n", state.LastRefresh.Format(time.RFC3339))
+				}
+				if state.LastUsedAt != nil {
+					_, _ = fmt.Fprintf(os.Stdout, "Last used:           %s\n", state.LastUsedAt.Format(time.RFC3339))
+				}
+				if rem := remediationFromStatus(cs); rem != nil {
+					_, _ = fmt.Fprintf(os.Stdout, "Remediation:         %s\n", rem)
+				}
+				return nil
 			}
 			return printOutput(map[string]any{
 				"status":              "ok",

@@ -14,6 +14,7 @@ import (
 	"github.com/dunialabs/kimbap-core/internal/approvals"
 	"github.com/dunialabs/kimbap-core/internal/audit"
 	"github.com/dunialabs/kimbap-core/internal/config"
+	"github.com/dunialabs/kimbap-core/internal/connectors"
 	"github.com/dunialabs/kimbap-core/internal/policy"
 	"github.com/dunialabs/kimbap-core/internal/runtime"
 	"github.com/dunialabs/kimbap-core/internal/skills"
@@ -21,12 +22,14 @@ import (
 )
 
 type RuntimeDeps struct {
-	Config          *config.KimbapConfig
-	VaultStore      vault.Store
-	PolicyPath      string
-	SkillsDir       string
-	AuditWriter     runtime.AuditWriter
-	ApprovalManager runtime.ApprovalManager
+	Config           *config.KimbapConfig
+	VaultStore       vault.Store
+	ConnectorStore   connectors.ConnectorStore
+	ConnectorConfigs []connectors.ConnectorConfig
+	PolicyPath       string
+	SkillsDir        string
+	AuditWriter      runtime.AuditWriter
+	ApprovalManager  runtime.ApprovalManager
 }
 
 func BuildRuntime(deps RuntimeDeps) (*runtime.Runtime, error) {
@@ -59,8 +62,21 @@ func BuildRuntime(deps RuntimeDeps) (*runtime.Runtime, error) {
 	}
 
 	var credentialResolver runtime.CredentialResolver
+	var resolvers []runtime.CredentialResolver
+	if deps.ConnectorStore != nil && len(deps.ConnectorConfigs) > 0 {
+		mgr := connectors.NewManager(deps.ConnectorStore)
+		for _, cfg := range deps.ConnectorConfigs {
+			mgr.RegisterConfig(cfg)
+		}
+		resolvers = append(resolvers, &connectorCredentialResolver{mgr: mgr})
+	}
 	if deps.VaultStore != nil {
-		credentialResolver = &vaultCredentialResolver{store: deps.VaultStore}
+		resolvers = append(resolvers, &vaultCredentialResolver{store: deps.VaultStore})
+	}
+	if len(resolvers) == 1 {
+		credentialResolver = resolvers[0]
+	} else if len(resolvers) > 1 {
+		credentialResolver = &chainCredentialResolver{resolvers: resolvers}
 	}
 
 	return runtime.NewRuntime(runtime.Runtime{
@@ -252,6 +268,54 @@ func parseCredentialSet(raw []byte, req actions.AuthRequirement) *actions.Resolv
 		set.APIKey = trimmed
 	}
 	return set
+}
+
+// connectorCredentialResolver resolves credentials by looking up stored OAuth
+// connections via a long-lived connectors.Manager. This bridges "kimbap auth
+// connect" with "kimbap call" — tokens stored by the CLI auth flow become
+// usable by the runtime without any manual token export step.
+type connectorCredentialResolver struct {
+	mgr *connectors.Manager
+}
+
+func (r *connectorCredentialResolver) Resolve(ctx context.Context, tenantID string, req actions.AuthRequirement) (*actions.ResolvedCredentialSet, error) {
+	if r == nil || r.mgr == nil {
+		return nil, nil
+	}
+	connectorName := strings.TrimSpace(req.CredentialRef)
+	if connectorName == "" {
+		return nil, nil
+	}
+
+	token, err := r.mgr.GetAccessToken(ctx, tenantID, connectorName)
+	if err != nil {
+		return nil, err
+	}
+	if strings.TrimSpace(token) == "" {
+		return nil, nil
+	}
+
+	return &actions.ResolvedCredentialSet{
+		Type:  string(req.Type),
+		Token: token,
+	}, nil
+}
+
+type chainCredentialResolver struct {
+	resolvers []runtime.CredentialResolver
+}
+
+func (c *chainCredentialResolver) Resolve(ctx context.Context, tenantID string, req actions.AuthRequirement) (*actions.ResolvedCredentialSet, error) {
+	for _, r := range c.resolvers {
+		creds, err := r.Resolve(ctx, tenantID, req)
+		if err != nil {
+			return nil, err
+		}
+		if creds != nil {
+			return creds, nil
+		}
+	}
+	return nil, nil
 }
 
 type auditWriterAdapter struct {

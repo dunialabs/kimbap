@@ -10,6 +10,7 @@ import (
 
 	"github.com/dunialabs/kimbap-core/internal/config"
 	"github.com/dunialabs/kimbap-core/internal/connectors"
+	realFlows "github.com/dunialabs/kimbap-core/internal/connectors/flows"
 	"github.com/spf13/cobra"
 )
 
@@ -55,6 +56,14 @@ func newAuthDoctorCommand() *cobra.Command {
 			loopbackCheck := checkLoopbackPortBindable(0)
 			checks = append(checks, loopbackCheck)
 			hasFailure = hasFailure || loopbackCheck.Status == "fail"
+
+			browserCheck := checkBrowserLaunchFeasible()
+			checks = append(checks, browserCheck)
+			hasFailure = hasFailure || browserCheck.Status == "fail"
+
+			scopeCheck := checkGrantedScopes(cfg, activeTenant, providerID)
+			checks = append(checks, scopeCheck)
+			hasFailure = hasFailure || scopeCheck.Status == "fail"
 
 			if err := printOutput(map[string]any{
 				"status":    ternary(hasFailure, "fail", "ok"),
@@ -192,4 +201,63 @@ func checkLoopbackPortBindable(port int) doctorCheck {
 	bound := ln.Addr().String()
 	_ = ln.Close()
 	return doctorCheck{Name: "loopback port bindable", Status: "ok", Detail: bound}
+}
+
+func checkBrowserLaunchFeasible() doctorCheck {
+	env := realFlows.DetectEnvironment()
+	if env.IsSSH {
+		return doctorCheck{Name: "browser launch feasible", Status: "warn", Detail: "SSH session detected; browser flow may not work"}
+	}
+	if !env.HasTTY {
+		return doctorCheck{Name: "browser launch feasible", Status: "warn", Detail: "no TTY detected; browser flow may not work"}
+	}
+	if !env.HasDisplay {
+		return doctorCheck{Name: "browser launch feasible", Status: "warn", Detail: "no display detected; browser flow may not work"}
+	}
+	if !env.CanOpenBrowser {
+		return doctorCheck{Name: "browser launch feasible", Status: "fail", Detail: "environment cannot open a browser"}
+	}
+	return doctorCheck{Name: "browser launch feasible", Status: "ok", Detail: "browser launch should work"}
+}
+
+func checkGrantedScopes(cfg *config.KimbapConfig, tenantID, providerID string) doctorCheck {
+	if strings.TrimSpace(providerID) == "" {
+		return doctorCheck{Name: "scope coverage", Status: "skip", Detail: "no provider specified"}
+	}
+
+	provider, err := providers.GetProvider(providerID)
+	if err != nil {
+		return doctorCheck{Name: "scope coverage", Status: "skip", Detail: "provider not found"}
+	}
+
+	store, storeErr := openConnectorStore(cfg)
+	if storeErr != nil {
+		return doctorCheck{Name: "scope coverage", Status: "skip", Detail: "store unavailable"}
+	}
+	mgr := connectors.NewManager(store)
+	state, statusErr := mgr.Status(contextBackground(), tenantID, providerID)
+	if statusErr != nil || state == nil {
+		return doctorCheck{Name: "scope coverage", Status: "skip", Detail: "no connection found"}
+	}
+
+	if len(provider.DefaultScopes) == 0 {
+		return doctorCheck{Name: "scope coverage", Status: "ok", Detail: "provider has no default scopes to check"}
+	}
+
+	grantedSet := map[string]struct{}{}
+	for _, s := range state.Scopes {
+		grantedSet[s] = struct{}{}
+	}
+
+	missing := make([]string, 0)
+	for _, required := range provider.DefaultScopes {
+		if _, ok := grantedSet[required]; !ok {
+			missing = append(missing, required)
+		}
+	}
+
+	if len(missing) > 0 {
+		return doctorCheck{Name: "scope coverage", Status: "warn", Detail: fmt.Sprintf("missing default scopes: %s", strings.Join(missing, ", "))}
+	}
+	return doctorCheck{Name: "scope coverage", Status: "ok", Detail: fmt.Sprintf("all %d default scopes granted", len(provider.DefaultScopes))}
 }
