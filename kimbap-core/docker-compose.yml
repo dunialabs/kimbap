@@ -1,0 +1,53 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: kimbap-core-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: kimbap
+      POSTGRES_PASSWORD: kimbap123
+      POSTGRES_DB: kimbap_mcp_gateway
+    ports:
+      - '${KIMBAP_POSTGRES_PORT:-5433}:5432'
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U kimbap -d kimbap_mcp_gateway']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - kimbap-core-network
+
+  kimbap-auth:
+    image: dunialabs/kimbap-auth:latest
+    container_name: kimbap-auth
+    restart: unless-stopped
+    ports:
+      - '7788:7788'
+    networks:
+      - kimbap-core-network
+    volumes:
+      - kimbap-auth-data:/data
+
+  cloudflared:
+    image: cloudflare/cloudflared:latest
+    container_name: kimbap-core-cloudflared
+    restart: unless-stopped
+    command: tunnel --no-autoupdate run
+    environment:
+      - TUNNEL_TOKEN=${CLOUDFLARE_TUNNEL_TOKEN:-}
+    networks:
+      - kimbap-core-network
+    volumes:
+      - ./cloudflared:/etc/cloudflared
+
+volumes:
+  postgres_data:
+    driver: local
+  kimbap-auth-data:
+    driver: local
+
+networks:
+  kimbap-core-network:
+    driver: bridge

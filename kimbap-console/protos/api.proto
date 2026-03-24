@@ -1,0 +1,2017 @@
+syntax = "proto3";
+
+package peta.api;
+
+message Request {
+  int32 cmdId = 1;
+  string userid = 2;
+}
+
+message Response {
+  int32 code = 1;
+  string message = 2;
+  int32 cmdId = 3;
+  string errorCode = 4;
+}
+
+message KV {
+  string key = 1;
+  string value = 2;
+}
+
+message TokenInfo {
+  string userid = 1;
+  int32 role = 2; // 1-owner, 2-admin
+  int32 createAt = 3;
+}
+
+
+message Credential {
+  string name = 1;
+  string description = 2;
+  int32 dataType = 3; // 1-input, 2-radio, 3-checkbox, 4-select...
+  string key = 4;
+  string value = 5;
+  repeated KV options = 6;
+  KV selected = 7;
+}
+
+message ToolFunction {
+  string funcName = 1;
+  bool enabled = 2; // default true
+  int32 dangerLevel = 3; // 0: No validation, 1: hint only (keep fields), 2: validation required
+  string description = 4; // description for the function
+}
+
+message ToolResource {
+  string uri = 1;
+  bool enabled = 2; // default true
+}
+
+message CustomRemoteConfig {
+  string url = 1;
+  repeated KV headers = 2;
+}
+
+message Tool {
+  string toolTmplId = 1;
+  int32 toolType = 2; // 1-Brave Search
+  string name = 3;
+  string description = 4;
+  repeated string tags = 5;
+  repeated string authtags = 6;
+  repeated Credential credentials = 7;
+  repeated ToolFunction toolFuncs = 8;
+  repeated ToolResource toolResources = 9;
+  int32 lastUsed = 10;
+  bool enabled = 11;
+  string toolId = 12;
+  int32 runningState = 13; // 0-online，1-offline，2-connecting，3-error
+  int32 authType = 14; // auth类型: 1-apiKey, 2-googleAuth, 3-notion
+  int32 allowUserInput = 15; // 1-True, else-False
+  int32 category = 16; // 1-common tool, 2-custom tool
+  string authConfig =17;
+}
+
+message AccessToken {
+  string tokenId = 1;
+  string name = 2;
+  int32 role = 3; // 1-owner, 2-admin, 3-member
+  string notes = 4;
+  int32 lastUsed = 5;
+  int32 createAt = 6;
+  int32 expireAt = 7;
+  int32 rateLimit = 8;
+  repeated Tool toolList = 9;
+  string namespace = 10; // Token namespace (default: "default")
+  repeated string tags = 11; // Token tags
+}
+
+message License {
+  string plan = 1;
+  int32 status = 2;  // 100: active, 1: inactive, 2: expired
+  int32 expiresAt = 3;
+  int32 createdAt = 4;
+  string customerEmail = 5;
+  string licenseStr = 6;
+  int32 maxToolCreations = 8;
+  int32 maxAccessTokens = 9;
+  int32 currentToolCreations = 10;
+  int32 currentAccessTokens = 11;
+}
+
+// create owner token [POST /api/10001]
+message Request10001 {
+  Request common = 1;
+  Params params = 2;
+	message Params {
+    string masterPwd = 1;
+	}
+}
+
+message Response10001 {
+  Response common = 1;
+	Data data = 2;
+	message Data {
+    string accessToken = 1;
+    string proxyName = 2;
+    int32 role = 3; // 1-owner
+    int32 proxyId = 4;
+    string proxyKey = 5;
+    string userid = 6;
+	}
+}
+
+// get proxy server info
+message Request10002 {
+  Request common = 1;
+  Params params = 2;
+	message Params {
+
+	}
+}
+
+message Response10002 {
+  Data data = 2;
+	message Data {
+    int32 proxyId = 1;
+    string proxyKey = 2;
+    string proxyName = 3;
+    int32 status = 4;  // 1-running, 2-stopped
+    int32 createAt = 5;
+    string fingerprint = 6; 
+	}
+}
+
+// edit proxy server info
+message Request10003 {
+  Request common = 1;
+  Params params = 2;
+	message Params {
+    int32 handleType = 1; // 1-edit base info, 8-reset server
+    int32 proxyId = 2;
+    string proxyName = 3;
+    string masterPwd = 4;
+	}
+}
+
+message Response10003 {
+  Data data = 2;
+	message Data {
+
+	}
+}
+
+
+// get tools template
+message Request10004 {
+  Request common = 1;
+  Params params = 2;
+	message Params {
+
+	}
+}
+
+message Response10004 {
+  Data data = 2;
+	message Data {
+    repeated Tool toolTmplList = 1;
+	}
+}
+
+
+// operate tool
+message Request10005 {
+  Request common = 1;
+  Params params = 2;
+	message Params {
+    int32 handleType = 1;  // 1-add, 2-edit, 3-enable, 4-disable, 5-delete, 6-restart
+    int32 proxyId = 2;
+    string toolId = 3; // unique id
+    repeated Credential authConf = 4;
+    repeated ToolFunction functions = 5;
+    repeated ToolResource resources = 6;
+    string masterPwd = 7;
+    int32 allowUserInput = 8; // 1-True, else-False
+    int32 category = 9; // 1-Template tool, 2-Custom MCP URL tool, 3-REST API tool, 4-Skills tool
+    CustomRemoteConfig customRemoteConfig = 10; // Custom MCP URL configuration (for category=2)
+    string toolTmplId = 11; // Template ID (for category=1)
+    string serverName = 12; // Server name (for category=4 Skills)
+    string restApiConfig = 13; // REST API configuration JSON string (for category=3)
+    bool lazyStartEnabled = 14; // Enable lazy loading for this server
+    bool publicAccess = 15; // Public access for this server, default is false
+	}
+}
+
+message Response10005 {
+  Data data = 2;
+	message Data {
+    string toolId = 1;
+    int32 isStartServer = 2; // 1-successful start, 2-failed start
+	}
+}
+
+// get tool list [for Tool Configuration]
+message Request10006 {
+  Request common = 1;
+  Params params = 2;
+	message Params {
+    int32 proxyId = 1;
+    int32 handleType = 2; // 1-all, 2-enable=true
+	}
+}
+
+message Response10006 {
+  Data data = 2;
+	message Data {
+    repeated Tool toolList = 1;
+	}
+}
+
+// get access tokens
+message Request10007 {
+  Request common = 1;
+  Params params = 2;
+	message Params {
+    int32 proxyId = 1; 
+  }
+}
+
+message Response10007 {
+  Data data = 2;
+	message Data {
+    repeated AccessToken tokenList = 1;
+	}
+}
+
+// operate access token
+message Request10008 {
+  Request common = 1;
+  Params params = 2;
+	message Params {
+    int32 handleType = 1; // 1-add, 2-edit, 3-delete, 4-bulk update
+    string userid = 2;
+    string name = 3;
+    int32 role = 4; // 2-admin, 3-member
+    int32 expireAt = 5;
+    int32 rateLimit = 6;
+    string notes = 7;
+    repeated Tool permissions = 8;
+    string masterPwd = 9;
+    int32 proxyId = 10;
+    string namespace = 11; // Token namespace
+    repeated string tags = 12; // Token tags
+    // Bulk update fields (handleType=4)
+    repeated string userids = 13; // Target token IDs for bulk update
+    string permissionsMode = 14; // "replace" or "merge"
+    string tagsMode = 15; // "replace", "add", "remove", or "clear"
+	}
+}
+
+message Response10008 {
+  Data data = 2;
+	message Data {
+    string accessToken = 1;
+    // Bulk update response fields (handleType=4)
+    int32 updatedCount = 2;
+    int32 failedCount = 3;
+    repeated BulkUpdateFailure failures = 4;
+	}
+}
+
+message BulkUpdateFailure {
+  string userid = 1;
+  string error = 2;
+}
+
+
+// get scopes
+message Request10009 {
+  Request common = 1;
+  Params params = 2;
+	message Params {
+    int32 proxyId = 1;
+	}
+}
+
+message Response10009 {
+  Data data = 2;
+	message Data {
+    repeated Tool scopes = 1;
+	}
+}
+
+
+// get server capabilities
+message Request10010 {
+  Request common = 1;
+  Params params = 2;
+	message Params {
+    string toolId = 1;
+	}
+}
+
+message Response10010 {
+  Data data = 2;
+	message Data {
+    repeated ToolFunction functions = 1;
+    repeated ToolResource resources = 2;
+	}
+}
+
+
+// operate dns record
+message Request10011 {
+  Request common = 1;
+  Params params = 2;
+	message Params {
+    int32 handleType = 1; // 1-start remote access, 2-stop remote access, 3-add manual dns, 4-delete manual dns
+    string domain = 2; 
+    string publicIP = 3;
+    int32 recordId = 4; // for delete
+    string proxyKey = 5;
+	}
+}
+
+message Response10011 {
+  Data data = 2;
+	message Data {
+    string subdomain = 1;
+	}
+}
+
+// get ip whitelist
+message Request10012 {
+  Request common = 1;
+  Params params = 2;
+	message Params {
+
+	}
+}
+
+message Response10012 {
+  Data data = 2;
+	message Data {
+    repeated IPRecord ipList = 1;
+    message IPRecord {
+      int32 id = 1;
+      string ip = 2;
+    }
+	}
+}
+
+// add ip whitelist
+message Request10013 {
+  Request common = 1;
+  Params params = 2;
+	message Params {
+    int32 handleType = 1; // 1-add ip , 2-allow all ip, 3-not allow all ip , 4-delete ip
+    repeated string ipList = 2;
+    repeated int32 idList = 3;
+	}
+}
+
+message Response10013 {
+  Data data = 2;
+	message Data {
+    
+	}
+}
+
+
+// get dns config info
+message Request10014 {
+  Request common = 1;
+  Params params = 2;
+	message Params {
+    
+	}
+}
+
+message Response10014 {
+  Data data = 2;
+	message Data {
+    string petaSubdomain = 1;
+    string localPublicIP = 2;
+    repeated ManualDnsConf manualDnsList = 3;
+    message ManualDnsConf {
+      string publicIP = 1;
+      string domain = 2;
+      int32 recordId = 3;
+    }
+    string manualConnection = 4;
+	}
+}
+
+// login with access token or master pwd
+message Request10015 {
+  Request common = 1;
+  Params params = 2;
+	message Params {
+    string accessToken = 1;
+    string masterPwd = 2;
+	}
+}
+
+message Response10015 {
+  Response common = 1;
+	Data data = 2;
+	message Data {
+    TokenInfo tokenInfo = 2;
+	}
+}
+
+
+// backup server data
+message Request10016 {
+  Request common = 1;
+  Params params = 2;
+	message Params {
+    string masterPwd = 1;
+	}
+}
+
+message Response10016 {
+  Response common = 1;
+	Data data = 2;
+	message Data {
+    string encryptedData = 1;
+	}
+}
+
+// restore from backup
+message Request10017 {
+  Request common = 1;
+  Params params = 2;
+	message Params {
+    string masterPwd = 1;
+    string encryptedData = 2;
+	}
+}
+
+message Response10017 {
+  Response common = 1;
+	Data data = 2;
+	message Data {
+  
+	}
+}
+
+// connect all mcp server
+message Request10018 {
+  Request common = 1;
+  Params params = 2;
+	message Params {
+    string masterPwd = 1;
+	}
+}
+
+message Response10018 {
+  Response common = 1;
+	Data data = 2;
+	message Data {
+  
+	}
+}
+
+
+// import license
+message Request10019 {
+  Request common = 1;
+  Params params = 2;
+	message Params {
+    string proxyKey = 1;
+    string licenseStr = 2;
+	}
+}
+
+message Response10019 {
+  Response common = 1;
+	Data data = 2;
+	message Data {
+  
+	}
+}
+
+// history license
+message Request10020 {
+  Request common = 1;
+  Params params = 2;
+	message Params {
+
+	}
+}
+
+message Response10020 {
+  Response common = 1;
+	Data data = 2;
+	message Data {
+    repeated License licenseList = 1;
+	}
+}
+
+
+// detect peta core
+message Request10021 {
+  Request common = 1;
+  Params params = 2;
+	message Params {
+
+	}
+}
+
+message Response10021 {
+  Response common = 1;
+	Data data = 2;
+	message Data {
+    int32 isAvailable = 1;  // 1-可用， 2-prot未启动， 3-port启动但不是peta core服务, 4-数据库中已经保存过host了(不能重复保存)
+    string petaCoreHost = 2;
+    int32 petaCorePort = 3;
+	}
+}
+
+
+// custom peta core host and port
+message Request10022 {
+  Request common = 1;
+  Params params = 2;
+	message Params {
+    string host = 1;
+    int32 port = 2; 
+	}
+}
+
+message Response10022 {
+  Response common = 1;
+	Data data = 2;
+	message Data {
+    int32 status = 1; // 1-连接成功， 2-prot没有启动，3-prot启动了但不是peta core
+	}
+}
+
+
+
+// Dashboard overview statistics
+message Request10023 {
+  Request common = 1;
+  Params params = 2;
+  message Params {
+    string timeRange = 1; // 时间范围: "24h", "7d", "30d", "90d"
+  }
+}
+
+message Response10023 {
+  Response common = 1;
+  Data data = 2;
+  message Data {
+    // 基础统计
+    string uptime = 1; // 服务器运行时间，格式如 "5 days, 12 hours"
+    int32 apiRequests = 2; // API请求总数
+    int32 activeTokens = 3; // 活跃的token数量
+    int32 configuredTools = 4; // 配置的工具数量
+    int32 connectedClientsCount = 5; // 连接的客户端数量 (兼容字段)
+    int32 monthlyUsage = 6; // 月度使用百分比（0-100）
+    
+    // 工具使用分布（按请求次数排序）
+    repeated ToolUsage toolsUsage = 7;
+    message ToolUsage {
+      string name = 1; // 工具名称
+      int32 requests = 2; // 请求次数
+      int32 percentage = 3; // 占总请求的百分比（0-100）
+    }
+    
+    // Token使用分布（按请求次数排序）
+    repeated TokenUsage tokenUsage = 8;
+    message TokenUsage {
+      string name = 1; // token名称/用户名
+      string token = 2; // token最后4位，如 "...a3b4"
+      int32 requests = 3; // 请求次数
+      int32 percentage = 4; // 占总请求的百分比（0-100）
+    }
+    
+    // 连接的客户端详情
+    repeated ConnectedClient connectedClients = 9;
+    message ConnectedClient {
+      string id = 1; // 客户端ID
+      string name = 2; // 客户端名称
+      string token = 3; // 使用的token（最后4位）
+      string ip = 4; // IP地址
+      string location = 5; // 位置信息
+      string lastActive = 6; // 最后活跃时间
+      int32 requests = 7; // 请求次数
+    }
+    
+    // 最近活动
+    repeated RecentActivity recentActivity = 10;
+    message RecentActivity {
+      string action = 1; // 动作描述
+      string status = 2; // 状态: "success", "warning", "info"
+      string time = 3; // 时间描述，如 "2 minutes ago"
+    }
+    string sshTunnelAddress = 11;
+    string manualConnection = 12;
+  }
+}
+
+
+// reset masterpwd
+message Request10024 {
+  Request common = 1;
+  Params params = 2;
+  message Params {
+    string masterPwd = 1;
+    string accessToken = 2;
+  }
+}
+
+message Response10024 {
+  Response common = 1;
+  Data data = 2;
+  message Data {
+
+  }
+}
+
+// get operate limit
+message Request10025 {
+  Request common = 1;
+  Params params = 2;
+  message Params {
+    string proxyKey = 1;
+  }
+}
+
+message Response10025 {
+  Response common = 1;
+  Data data = 2;
+  message Data {
+    bool isFreeTier = 1;
+    int64 expiresAt = 2;
+    int32 maxToolCreations = 3;
+    int32 currentToolCount = 4;
+    int32 remainingToolCount = 5;
+    int32 maxAccessTokens = 6;
+    int32 currentAccessTokenCount = 7;
+    int32 remainingAccessTokenCount = 8;
+    string licenseKey = 9;
+    string fingerprintHash = 10;
+}
+
+
+// ============ Tool Usage Statistics APIs (20001-20010) ============
+
+// get tool usage summary [GET /api/20001]
+// 获取工具使用情况汇总统计
+message Request20001 {
+  Request common = 1;
+  Params params = 2;
+	message Params {
+    int32 timeRange = 1; // 时间范围: 1-今天, 7-最近7天, 30-最近30天, 90-最近90天
+    int32 serverId = 2; // 服务器ID，0表示所有服务器
+	}
+}
+
+message Response20001 {
+  Response common = 1;
+	Data data = 2;
+	message Data {
+    int32 totalTools = 1; // 工具总数
+    int32 activeTools = 2; // 活跃工具数（有请求的）
+    int32 totalRequests = 3; // 总请求数
+    int32 successRequests = 4; // 成功请求数
+    int32 failedRequests = 5; // 失败请求数
+    float avgSuccessRate = 6; // 平均成功率(%)
+    int32 avgResponseTime = 7; // 平均响应时间(ms)
+    int32 totalUsers = 8; // 使用工具的用户总数
+	}
+}
+
+// get tool detailed metrics [GET /api/20002]
+// 获取各工具详细指标数据
+message Request20002 {
+  Request common = 1;
+  Params params = 2;
+	message Params {
+    int32 timeRange = 1; // 时间范围: 1-今天, 7-最近7天, 30-最近30天, 90-最近90天
+    int32 serverId = 2; // 服务器ID，0表示所有服务器
+    string toolId = 3; // 特定工具ID，空表示所有工具
+    int32 page = 4; // 分页-页码
+    int32 pageSize = 5; // 分页-每页数量
+	}
+}
+
+message Response20002 {
+  Response common = 1;
+	Data data = 2;
+	message Data {
+    repeated ToolMetrics toolMetrics = 1;
+    int32 totalCount = 2; // 总数量（用于分页）
+    message ToolMetrics {
+      string toolId = 1; // 工具ID
+      string toolName = 2; // 工具名称
+      int32 toolType = 3; // 工具类型
+      int32 totalRequests = 4; // 总请求数
+      int32 successRequests = 5; // 成功请求数
+      int32 failedRequests = 6; // 失败请求数
+      float successRate = 7; // 成功率(%)
+      int32 avgResponseTime = 8; // 平均响应时间(ms)
+      int32 minResponseTime = 9; // 最小响应时间(ms)
+      int32 maxResponseTime = 10; // 最大响应时间(ms)
+      int32 lastUsed = 11; // 最后使用时间(时间戳)
+      int32 status = 12; // 工具状态: 1-active, 2-inactive, 3-error
+      int32 uniqueUsers = 13; // 使用该工具的独立用户数
+    }
+	}
+}
+
+// get tool usage trends [GET /api/20003]
+// 获取工具使用趋势数据（用于折线图）
+message Request20003 {
+  Request common = 1;
+  Params params = 2;
+	message Params {
+    int32 timeRange = 1; // 时间范围: 7-最近7天, 30-最近30天, 90-最近90天
+    int32 serverId = 2; // 服务器ID，0表示所有服务器
+    repeated string toolIds = 3; // 要查看趋势的工具ID列表，空表示所有工具
+    int32 granularity = 4; // 数据粒度: 1-按小时, 2-按天, 3-按周
+	}
+}
+
+message Response20003 {
+  Response common = 1;
+	Data data = 2;
+	message Data {
+    repeated TrendPoint trendData = 1;
+    message TrendPoint {
+      string date = 1; // 日期/时间点 (格式: "2024-01-15" 或 "2024-01-15 14:00")
+      repeated ToolCount toolCounts = 2; // 各工具在该时间点的请求数
+      message ToolCount {
+        string toolId = 1; // 工具ID
+        string toolName = 2; // 工具名称
+        int32 requestCount = 3; // 请求数量
+        int32 successCount = 4; // 成功数量
+        int32 failedCount = 5; // 失败数量
+      }
+    }
+	}
+}
+
+// get tool error analysis [GET /api/20004]
+// 获取工具错误分析数据
+message Request20004 {
+  Request common = 1;
+  Params params = 2;
+	message Params {
+    int32 timeRange = 1; // 时间范围: 1-今天, 7-最近7天, 30-最近30天, 90-最近90天
+    int32 serverId = 2; // 服务器ID，0表示所有服务器
+    string toolId = 3; // 特定工具ID，空表示所有工具
+	}
+}
+
+message Response20004 {
+  Response common = 1;
+	Data data = 2;
+	message Data {
+    repeated ToolErrors toolErrors = 1;
+    message ToolErrors {
+      string toolId = 1; // 工具ID
+      string toolName = 2; // 工具名称
+      int32 totalErrors = 3; // 总错误数
+      repeated ErrorType errorTypes = 4; // 错误类型分布
+      message ErrorType {
+        string errorCode = 1; // 错误代码
+        string errorMessage = 2; // 错误描述
+        int32 count = 3; // 发生次数
+        float percentage = 4; // 占比(%)
+        int32 lastOccurred = 5; // 最后发生时间(时间戳)
+      }
+    }
+	}
+}
+
+// get tool usage distribution [GET /api/20005]
+// 获取工具使用分布数据（用于饼图）
+message Request20005 {
+  Request common = 1;
+  Params params = 2;
+	message Params {
+    int32 timeRange = 1; // 时间范围: 1-今天, 7-最近7天, 30-最近30天, 90-最近90天
+    int32 serverId = 2; // 服务器ID，0表示所有服务器
+    int32 metricType = 3; // 指标类型: 1-按请求数, 2-按用户数, 3-按响应时间
+	}
+}
+
+message Response20005 {
+  Response common = 1;
+	Data data = 2;
+	message Data {
+    repeated Distribution distribution = 1;
+    message Distribution {
+      string toolId = 1; // 工具ID
+      string toolName = 2; // 工具名称
+      int32 value = 3; // 数值（请求数/用户数/响应时间）
+      float percentage = 4; // 占比(%)
+    }
+	}
+}
+
+// get tool performance comparison [GET /api/20006]
+// 获取工具性能对比数据（用于柱状图）
+message Request20006 {
+  Request common = 1;
+  Params params = 2;
+	message Params {
+    int32 timeRange = 1; // 时间范围: 1-今天, 7-最近7天, 30-最近30天, 90-最近90天
+    int32 serverId = 2; // 服务器ID，0表示所有服务器
+    int32 metricType = 3; // 对比指标: 1-响应时间, 2-成功率, 3-请求量
+	}
+}
+
+message Response20006 {
+  Response common = 1;
+	Data data = 2;
+	message Data {
+    repeated ToolComparison comparison = 1;
+    message ToolComparison {
+      string toolId = 1; // 工具ID
+      string toolName = 2; // 工具名称
+      float avgValue = 3; // 平均值
+      float minValue = 4; // 最小值
+      float maxValue = 5; // 最大值
+    }
+	}
+}
+
+// get user tool usage [GET /api/20007]
+// 获取用户工具使用情况
+message Request20007 {
+  Request common = 1;
+  Params params = 2;
+	message Params {
+    int32 timeRange = 1; // 时间范围: 1-今天, 7-最近7天, 30-最近30天, 90-最近90天
+    string userId = 3; // 用户ID，空表示所有用户
+    int32 page = 4; // 分页-页码
+    int32 pageSize = 5; // 分页-每页数量
+	}
+}
+
+message Response20007 {
+  Response common = 1;
+	Data data = 2;
+	message Data {
+    repeated UserUsage userUsage = 1;
+    int32 totalCount = 2; // 总数量（用于分页）
+    message UserUsage {
+      string userId = 1; // 用户ID
+      string userName = 2; // 用户名称
+      int32 role = 3; // 用户角色: 1-owner, 2-admin, 3-member
+      int32 totalRequests = 4; // 总请求数
+      int32 toolsUsed = 5; // 使用的工具数量
+      repeated ToolUsage topTools = 6; // 最常用的工具TOP5
+      int32 lastActive = 7; // 最后活跃时间(时间戳)
+      message ToolUsage {
+        string toolId = 1; // 工具ID
+        string toolName = 2; // 工具名称
+        int32 requestCount = 3; // 请求次数
+      }
+    }
+	}
+}
+
+// get real-time tool status [GET /api/20008]
+// 获取工具实时状态
+message Request20008 {
+  Request common = 1;
+  Params params = 2;
+	message Params {
+    int32 serverId = 1; // 服务器ID，0表示所有服务器
+	}
+}
+
+message Response20008 {
+  Response common = 1;
+	Data data = 2;
+	message Data {
+    repeated ToolStatus toolStatus = 1;
+    message ToolStatus {
+      string toolId = 1; // 工具ID
+      string toolName = 2; // 工具名称
+      int32 status = 3; // 状态: 0-online, 1-offline, 2-connecting, 3-error
+      int32 activeConnections = 4; // 当前活跃连接数
+      int32 queuedRequests = 5; // 排队请求数
+      int32 lastHeartbeat = 6; // 最后心跳时间(时间戳)
+      string errorMessage = 7; // 错误信息（如果有）
+    }
+	}
+}
+
+// export usage report [GET /api/20009]
+// 导出使用报告
+message Request20009 {
+  Request common = 1;
+  Params params = 2;
+	message Params {
+    int32 timeRange = 1; // 时间范围: 7-最近7天, 30-最近30天, 90-最近90天
+    int32 serverId = 2; // 服务器ID，0表示所有服务器
+    int32 format = 3; // 导出格式: 1-CSV, 2-JSON, 3-PDF
+    repeated string toolIds = 4; // 要导出的工具ID列表，空表示所有
+	}
+}
+
+message Response20009 {
+  Response common = 1;
+	Data data = 2;
+	message Data {
+    string downloadUrl = 1; // 下载链接
+    string fileName = 2; // 文件名
+    int32 expiresAt = 3; // 链接过期时间(时间戳)
+	}
+}
+
+// get tool action logs [GET /api/20010]
+// 获取工具操作日志（基于MCPEventLogType）
+message Request20010 {
+  Request common = 1;
+  Params params = 2;
+	message Params {
+    int32 timeRange = 1; // 时间范围: 1-今天, 7-最近7天, 30-最近30天
+    string toolId = 2; // 工具ID，空表示所有工具
+    repeated int32 actionTypes = 3; // MCPEventLogType枚举值列表，空表示所有类型
+    int32 page = 4; // 分页-页码
+    int32 pageSize = 5; // 分页-每页数量
+	}
+}
+
+message Response20010 {
+  Response common = 1;
+	Data data = 2;
+	message Data {
+    repeated ActionLog logs = 1;
+    int32 totalCount = 2; // 总数量（用于分页）
+    message ActionLog {
+      string logId = 1; // 日志ID
+      int32 actionType = 2; // MCPEventLogType枚举值
+      string actionName = 3; // 操作名称（如: "RequestTool", "ResponseTool"等）
+      string toolId = 4; // 工具ID
+      string toolName = 5; // 工具名称
+      string userId = 6; // 用户ID
+      string userName = 7; // 用户名称
+      int32 timestamp = 8; // 时间戳
+      int32 responseTime = 9; // 响应时间(ms)
+      int32 status = 10; // 状态: 1-success, 2-failed
+      string errorMessage = 11; // 错误信息（如果失败）
+      string details = 12; // 详细信息（JSON格式）
+    }
+	}
+}
+
+// ============ Access Token Usage Statistics APIs (21001-21010) ============
+
+// get token usage summary [GET /api/21001]
+// 获取访问令牌使用情况汇总统计
+message Request21001 {
+  Request common = 1;
+  Params params = 2;
+	message Params {
+    int32 timeRange = 1; // 时间范围: 1-今天, 7-最近7天, 30-最近30天, 90-最近90天
+	}
+}
+
+message Response21001 {
+  Response common = 1;
+	Data data = 2;
+	message Data {
+    int32 totalTokens = 1; // 令牌总数
+    int32 activeTokens = 2; // 活跃令牌数（有请求的）
+    int32 totalRequests = 3; // 总请求数
+    int32 successRequests = 4; // 成功请求数
+    int32 failedRequests = 5; // 失败请求数
+    float avgSuccessRate = 6; // 平均成功率(%)
+    int32 totalClients = 7; // 连接的客户端总数
+    int32 expiredTokens = 8; // 过期令牌数
+    int32 limitedTokens = 9; // 达到速率限制的令牌数
+	}
+}
+
+// get token detailed metrics [GET /api/21002]
+// 获取各令牌详细指标数据
+message Request21002 {
+  Request common = 1;
+  Params params = 2;
+	message Params {
+    int32 timeRange = 1; // 时间范围: 1-今天, 7-最近7天, 30-最近30天, 90-最近90天
+    string tokenId = 2; // 特定令牌ID，空表示所有令牌
+    int32 page = 3; // 分页-页码
+    int32 pageSize = 4; // 分页-每页数量
+	}
+}
+
+message Response21002 {
+  Response common = 1;
+	Data data = 2;
+	message Data {
+    repeated TokenMetrics tokenMetrics = 1;
+    int32 totalCount = 2; // 总数量（用于分页）
+    message TokenMetrics {
+      string tokenId = 1; // 令牌ID（脱敏后）
+      string tokenName = 2; // 令牌名称
+      string userId = 3; // 所属用户ID
+      int32 role = 4; // 用户角色: 1-owner, 2-admin, 3-member
+      int32 totalRequests = 5; // 总请求数
+      int32 successRequests = 6; // 成功请求数
+      int32 failedRequests = 7; // 失败请求数
+      float successRate = 8; // 成功率(%)
+      int32 rateLimit = 9; // 速率限制(请求/分钟)
+      int32 rateLimitHits = 10; // 触发速率限制次数
+      int32 lastUsed = 11; // 最后使用时间(时间戳)
+      int32 createdAt = 12; // 创建时间(时间戳)
+      int32 expiresAt = 13; // 过期时间(时间戳)，0表示永不过期
+      int32 status = 14; // 状态: 1-active, 2-inactive, 3-expired, 4-limited
+      int32 clientCount = 15; // 使用该令牌的客户端数量
+      repeated Location topLocations = 16; // 热门使用地点TOP5
+      message Location {
+        string country = 1; // 国家代码
+        string city = 2; // 城市名称
+        int32 requests = 3; // 请求数
+        float percentage = 4; // 占比(%)
+      }
+    }
+	}
+}
+
+// get token usage trends [GET /api/21003]
+// 获取令牌使用趋势数据（用于折线图）
+message Request21003 {
+  Request common = 1;
+  Params params = 2;
+	message Params {
+    int32 timeRange = 1; // 时间范围: 7-最近7天, 30-最近30天, 90-最近90天
+    repeated string tokenIds = 2; // 要查看趋势的令牌ID列表，空表示所有令牌
+    int32 granularity = 3; // 数据粒度: 1-按小时, 2-按天, 3-按周
+	}
+}
+
+message Response21003 {
+  Response common = 1;
+	Data data = 2;
+	message Data {
+    repeated TrendPoint trendData = 1;
+    message TrendPoint {
+      string date = 1; // 日期/时间点
+      repeated TokenCount tokenCounts = 2; // 各令牌在该时间点的请求数
+      message TokenCount {
+        string tokenId = 1; // 令牌ID
+        string tokenName = 2; // 令牌名称
+        int32 requestCount = 3; // 请求数量
+        int32 successCount = 4; // 成功数量
+        int32 failedCount = 5; // 失败数量
+        int32 rateLimitCount = 6; // 触发速率限制次数
+      }
+    }
+	}
+}
+
+// get token geographic usage [GET /api/21004]
+// 获取令牌地理位置使用分布
+message Request21004 {
+  Request common = 1;
+  Params params = 2;
+	message Params {
+    int32 timeRange = 1; // 时间范围: 1-今天, 7-最近7天, 30-最近30天, 90-最近90天
+    string tokenId = 2; // 特定令牌ID，空表示所有令牌
+	}
+}
+
+message Response21004 {
+  Response common = 1;
+	Data data = 2;
+	message Data {
+    repeated TokenGeoUsage geoUsage = 1;
+    message TokenGeoUsage {
+      string tokenId = 1; // 令牌ID
+      string tokenName = 2; // 令牌名称
+      repeated GeoLocation locations = 3; // 地理位置分布
+      message GeoLocation {
+        string country = 1; // 国家代码
+        string countryName = 2; // 国家名称
+        string city = 3; // 城市名称
+        int32 requests = 4; // 请求数
+        float percentage = 5; // 占比(%)
+        int32 uniqueIPs = 6; // 独立IP数
+      }
+    }
+	}
+}
+
+// get token usage patterns [GET /api/21005]
+// 获取令牌使用模式数据（分钟级和小时级）
+message Request21005 {
+  Request common = 1;
+  Params params = 2;
+	message Params {
+    string tokenId = 1; // 令牌ID，必填
+    int32 patternType = 2; // 模式类型: 1-最近60分钟, 2-最近24小时, 3-最近7天每小时
+	}
+}
+
+message Response21005 {
+  Response common = 1;
+	Data data = 2;
+	message Data {
+    string tokenId = 1; // 令牌ID
+    string tokenName = 2; // 令牌名称
+    repeated UsagePoint patterns = 3; // 使用模式数据点
+    message UsagePoint {
+      string timeLabel = 1; // 时间标签 (如: "14:30", "2024-01-15 14:00")
+      int32 requests = 2; // 请求数
+      int32 successRequests = 3; // 成功请求数
+      int32 failedRequests = 4; // 失败请求数
+      int32 rateLimitHits = 5; // 触发速率限制次数
+    }
+	}
+}
+
+// get token distribution [GET /api/21006]
+// 获取令牌使用分布数据（用于饼图）
+message Request21006 {
+  Request common = 1;
+  Params params = 2;
+	message Params {
+    int32 timeRange = 1; // 时间范围: 1-今天, 7-最近7天, 30-最近30天, 90-最近90天
+    int32 metricType = 2; // 指标类型: 1-按请求数, 2-按客户端数, 3-按成功率
+	}
+}
+
+message Response21006 {
+  Response common = 1;
+	Data data = 2;
+	message Data {
+    repeated TokenDistribution distribution = 1;
+    message TokenDistribution {
+      string tokenId = 1; // 令牌ID
+      string tokenName = 2; // 令牌名称
+      int32 value = 3; // 数值（请求数/客户端数/成功率*100）
+      float percentage = 4; // 占比(%)
+    }
+	}
+}
+
+// get token rate limit analysis [GET /api/21007]
+// 获取令牌速率限制分析
+message Request21007 {
+  Request common = 1;
+  Params params = 2;
+	message Params {
+    int32 timeRange = 1; // 时间范围: 1-今天, 7-最近7天, 30-最近30天
+    string tokenId = 2; // 特定令牌ID，空表示所有令牌
+	}
+}
+
+message Response21007 {
+  Response common = 1;
+	Data data = 2;
+	message Data {
+    repeated TokenRateLimit rateLimits = 1;
+    message TokenRateLimit {
+      string tokenId = 1; // 令牌ID
+      string tokenName = 2; // 令牌名称
+      int32 rateLimit = 3; // 配置的速率限制
+      int32 totalHits = 4; // 总触发次数
+      int32 peakHitsPerMinute = 5; // 每分钟最大触发次数
+      repeated RateLimitEvent events = 6; // 最近的限制事件
+      message RateLimitEvent {
+        int32 timestamp = 1; // 触发时间
+        int32 requestsInMinute = 2; // 该分钟内的请求数
+        string clientIP = 3; // 客户端IP（脱敏）
+      }
+    }
+	}
+}
+
+// get token client analysis [GET /api/21008]
+// 获取令牌客户端分析
+message Request21008 {
+  Request common = 1;
+  Params params = 2;
+	message Params {
+    int32 timeRange = 1; // 时间范围: 1-今天, 7-最近7天, 30-最近30天
+    string tokenId = 2; // 特定令牌ID，空表示所有令牌
+	}
+}
+
+message Response21008 {
+  Response common = 1;
+	Data data = 2;
+	message Data {
+    repeated TokenClients clients = 1;
+    message TokenClients {
+      string tokenId = 1; // 令牌ID
+      string tokenName = 2; // 令牌名称
+      repeated ClientInfo clientList = 3; // 客户端信息列表
+      message ClientInfo {
+        string clientIP = 1; // 客户端IP（脱敏）
+        string userAgent = 2; // 用户代理（截取）
+        string location = 3; // 地理位置
+        int32 requests = 4; // 请求数
+        int32 firstSeen = 5; // 首次发现时间
+        int32 lastSeen = 6; // 最后活跃时间
+        int32 status = 7; // 状态: 1-active, 2-inactive
+      }
+    }
+	}
+}
+
+// export token usage report [GET /api/21009]
+// 导出令牌使用报告
+message Request21009 {
+  Request common = 1;
+  Params params = 2;
+	message Params {
+    int32 timeRange = 1; // 时间范围: 7-最近7天, 30-最近30天, 90-最近90天
+    int32 format = 2; // 导出格式: 1-CSV, 2-JSON, 3-PDF
+    repeated string tokenIds = 3; // 要导出的令牌ID列表，空表示所有
+    bool includeGeoData = 4; // 是否包含地理位置数据
+    bool includeClientData = 5; // 是否包含客户端数据
+	}
+}
+
+message Response21009 {
+  Response common = 1;
+	Data data = 2;
+	message Data {
+    string downloadUrl = 1; // 下载链接
+    string fileName = 2; // 文件名
+    int32 expiresAt = 3; // 链接过期时间(时间戳)
+	}
+}
+
+// get token audit logs [GET /api/21010]
+// 获取令牌审计日志
+message Request21010 {
+  Request common = 1;
+  Params params = 2;
+	message Params {
+    int32 timeRange = 1; // 时间范围: 1-今天, 7-最近7天, 30-最近30天
+    string tokenId = 2; // 令牌ID，空表示所有令牌
+    repeated int32 eventTypes = 3; // 事件类型: 1-认证成功, 2-认证失败, 3-速率限制, 4-IP变更
+    int32 page = 4; // 分页-页码
+    int32 pageSize = 5; // 分页-每页数量
+	}
+}
+
+message Response21010 {
+  Response common = 1;
+	Data data = 2;
+	message Data {
+    repeated AuditLog logs = 1;
+    int32 totalCount = 2; // 总数量（用于分页）
+    message AuditLog {
+      string logId = 1; // 日志ID
+      string tokenId = 2; // 令牌ID
+      string tokenName = 3; // 令牌名称
+      int32 eventType = 4; // 事件类型
+      string eventDescription = 5; // 事件描述
+      string clientIP = 6; // 客户端IP（脱敏）
+      string userAgent = 7; // 用户代理（截取）
+      string location = 8; // 地理位置
+      int32 timestamp = 9; // 时间戳
+      int32 statusCode = 10; // HTTP状态码
+      string details = 11; // 详细信息（JSON格式）
+    }
+	}
+}
+
+// ===== Usage Overview Statistics Interfaces (22001-22010) =====
+
+// get usage overview summary [GET /api/22001]
+// 获取使用概览汇总统计
+message Request22001 {
+  Request common = 1;
+  Params params = 2;
+	message Params {
+    int32 timeRange = 1; // 时间范围: 1-今天, 7-最近7天, 30-最近30天
+	}
+}
+
+message Response22001 {
+  Response common = 1;
+	Data data = 2;
+	message Data {
+    int32 totalRequests24h = 1; // 24小时总请求数
+    int32 totalRequestsYesterday = 2; // 昨天总请求数（用于计算增长率）
+    int32 activeTokens = 3; // 活跃令牌数
+    int32 tokensUsedLastHour = 4; // 最近1小时使用的令牌数
+    int32 toolsInUse = 5; // 使用中的工具数
+    string mostActiveToolName = 6; // 最活跃的工具名称
+    int32 avgResponseTime = 7; // 平均响应时间(毫秒)
+    int32 avgResponseTimeYesterday = 8; // 昨天平均响应时间(毫秒)
+	}
+}
+
+// get top tools by usage [GET /api/22002]
+// 获取使用量最高的工具
+message Request22002 {
+  Request common = 1;
+  Params params = 2;
+	message Params {
+    int32 timeRange = 1; // 时间范围: 1-今天, 7-最近7天, 30-最近30天
+    int32 limit = 2; // 返回数量限制，默认10
+	}
+}
+
+message Response22002 {
+  Response common = 1;
+	Data data = 2;
+	message Data {
+    repeated ToolUsageStat topTools = 1;
+    int32 totalRequests = 2; // 总请求数（用于计算百分比）
+    message ToolUsageStat {
+      string toolName = 1; // 工具名称
+      string toolType = 2; // 工具类型
+      int32 requestCount = 3; // 请求数量
+      double percentage = 4; // 占总请求的百分比
+      string color = 5; // 显示颜色（用于UI）
+    }
+	}
+}
+
+// get active tokens overview [GET /api/22003]
+// 获取活跃令牌概览
+message Request22003 {
+  Request common = 1;
+  Params params = 2;
+	message Params {
+    int32 timeRange = 1; // 时间范围: 1-今天, 7-最近7天, 30-最近30天
+    int32 limit = 2; // 返回数量限制，默认5
+	}
+}
+
+message Response22003 {
+  Response common = 1;
+	Data data = 2;
+	message Data {
+    repeated ActiveTokenStat activeTokens = 1;
+    message ActiveTokenStat {
+      string tokenId = 1; // 令牌ID（脱敏）
+      string tokenName = 2; // 令牌名称
+      int32 requestCount = 3; // 请求数量
+      int32 lastUsedMinutesAgo = 4; // 最后使用时间（多少分钟前）
+      bool isCurrentlyActive = 5; // 是否当前活跃（最近5分钟内有请求）
+    }
+	}
+}
+
+// get recent activity [GET /api/22004]
+// 获取最近活动
+message Request22004 {
+  Request common = 1;
+  Params params = 2;
+	message Params {
+    int32 limit = 1; // 返回数量限制，默认10
+	}
+}
+
+message Response22004 {
+  Response common = 1;
+	Data data = 2;
+	message Data {
+    repeated ActivityEvent recentEvents = 1;
+    message ActivityEvent {
+      string eventType = 1; // 事件类型: "tool_request", "token_auth", "rate_limit", "error"
+      string description = 2; // 事件描述
+      string details = 3; // 详细信息（如响应时间、令牌等）
+      int32 minutesAgo = 4; // 多少分钟前发生
+      string color = 5; // 显示颜色（用于UI状态点）
+      int32 statusCode = 6; // HTTP状态码（如果适用）
+    }
+	}
+}
+
+// get usage trends [GET /api/22005]
+// 获取使用趋势（用于小型图表）
+message Request22005 {
+  Request common = 1;
+  Params params = 2;
+	message Params {
+    int32 timeRange = 1; // 时间范围: 1-今天(按小时), 7-最近7天(按天)
+    string metricType = 2; // 指标类型: "requests", "response_time", "tokens", "tools"
+	}
+}
+
+message Response22005 {
+  Response common = 1;
+	Data data = 2;
+	message Data {
+    repeated TrendPoint trendData = 1;
+    message TrendPoint {
+      string timeLabel = 1; // 时间标签
+      int32 value = 2; // 指标值
+      int32 timestamp = 3; // 时间戳
+    }
+	}
+}
+
+// get system health status [GET /api/22006]
+// 获取系统健康状态
+message Request22006 {
+  Request common = 1;
+  Params params = 2;
+	message Params {
+    // 无参数，获取当前系统状态
+	}
+}
+
+message Response22006 {
+  Response common = 1;
+	Data data = 2;
+	message Data {
+    string overallStatus = 1; // 整体状态: "healthy", "warning", "critical"
+    repeated ServiceStatus services = 2;
+    SystemMetrics metrics = 3;
+    message ServiceStatus {
+      string serviceName = 1; // 服务名称
+      string status = 2; // 状态: "online", "offline", "degraded"
+      int32 responseTime = 3; // 响应时间
+      string lastCheck = 4; // 最后检查时间
+    }
+    message SystemMetrics {
+      double cpuUsage = 1; // CPU使用率
+      double memoryUsage = 2; // 内存使用率
+      double diskUsage = 3; // 磁盘使用率
+      int32 activeConnections = 4; // 活跃连接数
+    }
+	}
+}
+
+// get error analytics [GET /api/22007]
+// 获取错误分析
+message Request22007 {
+  Request common = 1;
+  Params params = 2;
+	message Params {
+    int32 timeRange = 1; // 时间范围: 1-今天, 7-最近7天, 30-最近30天
+	}
+}
+
+message Response22007 {
+  Response common = 1;
+	Data data = 2;
+	message Data {
+    int32 totalErrors = 1; // 总错误数
+    double errorRate = 2; // 错误率（百分比）
+    repeated ErrorTypeStat errorTypes = 3;
+    repeated ErrorTrendPoint errorTrend = 4;
+    message ErrorTypeStat {
+      int32 statusCode = 1; // 状态码
+      string errorType = 2; // 错误类型
+      int32 count = 3; // 出现次数
+      double percentage = 4; // 占总错误的百分比
+    }
+    message ErrorTrendPoint {
+      string timeLabel = 1; // 时间标签
+      int32 errorCount = 2; // 错误数量
+      int32 timestamp = 3; // 时间戳
+    }
+	}
+}
+
+// get performance metrics [GET /api/22008]
+// 获取性能指标
+message Request22008 {
+  Request common = 1;
+  Params params = 2;
+	message Params {
+    int32 timeRange = 1; // 时间范围: 1-今天, 7-最近7天, 30-最近30天
+	}
+}
+
+message Response22008 {
+  Response common = 1;
+	Data data = 2;
+	message Data {
+    PerformanceOverview overview = 1;
+    repeated PerformanceByTool toolPerformance = 2;
+    repeated PerformanceTrendPoint trends = 3;
+    message PerformanceOverview {
+      int32 avgResponseTime = 1; // 平均响应时间
+      int32 p95ResponseTime = 2; // 95%分位响应时间
+      int32 p99ResponseTime = 3; // 99%分位响应时间
+      double throughput = 4; // 吞吐量（请求/秒）
+    }
+    message PerformanceByTool {
+      string toolName = 1; // 工具名称
+      int32 avgResponseTime = 2; // 平均响应时间
+      int32 requestCount = 3; // 请求数量
+      double errorRate = 4; // 错误率
+    }
+    message PerformanceTrendPoint {
+      string timeLabel = 1; // 时间标签
+      int32 avgResponseTime = 2; // 平均响应时间
+      int32 requestCount = 3; // 请求数量
+      int32 timestamp = 4; // 时间戳
+    }
+	}
+}
+
+// export usage report [GET /api/22009]
+// 导出使用报告
+message Request22009 {
+  Request common = 1;
+  Params params = 2;
+	message Params {
+    int32 timeRange = 1; // 时间范围: 1-今天, 7-最近7天, 30-最近30天
+    int32 format = 2; // 导出格式: 1-CSV, 2-JSON, 3-PDF
+    repeated string includeData = 3; // 包含数据: "tools", "tokens", "errors", "performance"
+	}
+}
+
+message Response22009 {
+  Response common = 1;
+	Data data = 2;
+	message Data {
+    string downloadUrl = 1; // 下载链接
+    string fileName = 2; // 文件名
+    int32 fileSize = 3; // 文件大小（字节）
+    int32 expiresAt = 4; // 链接过期时间(时间戳)
+	}
+}
+
+// get detailed logs [GET /api/22010]
+// 获取详细日志（用于钻取分析）
+message Request22010 {
+  Request common = 1;
+  Params params = 2;
+	message Params {
+    int32 timeRange = 1; // 时间范围: 1-今天, 7-最近7天, 30-最近30天
+    string filterType = 2; // 过滤类型: "tool", "token", "error", "all"
+    string filterValue = 3; // 过滤值（如具体的工具名称或令牌ID）
+    int32 page = 4; // 分页-页码
+    int32 pageSize = 5; // 分页-每页数量
+	}
+}
+
+message Response22010 {
+  Response common = 1;
+	Data data = 2;
+	message Data {
+    repeated DetailedLogEntry logs = 1;
+    int32 totalCount = 2; // 总数量（用于分页）
+    message DetailedLogEntry {
+      string logId = 1; // 日志ID
+      string timestamp = 2; // 时间戳（格式化）
+      string toolName = 3; // 工具名称
+      string tokenId = 4; // 令牌ID（脱敏）
+      string action = 5; // 操作类型
+      int32 statusCode = 6; // 状态码
+      int32 responseTime = 7; // 响应时间
+      string clientIP = 8; // 客户端IP（脱敏）
+      string errorMessage = 9; // 错误信息（如果有）
+    }
+	}
+}
+
+// ===== Logs Management Interfaces (23001-23010) =====
+
+// get logs with filters [GET /api/23001]
+// 获取日志列表（支持多种过滤条件）
+message Request23001 {
+  Request common = 1;
+  Params params = 2;
+	message Params {
+    int32 page = 1; // 分页-页码，从1开始
+    int32 pageSize = 2; // 分页-每页数量，默认50
+    string timeRange = 3; // 时间范围: "1h", "6h", "24h", "7d", "all"
+    string level = 4; // 日志级别: "all", "INFO", "WARN", "ERROR", "DEBUG"
+    string source = 5; // 日志来源: "all", "api-gateway", "tool-manager", etc.
+    string search = 6; // 搜索关键词（搜索message和rawData）
+    string requestId = 7; // 请求ID过滤
+    string userId = 8; // 用户ID过滤
+	}
+}
+
+message Response23001 {
+  Response common = 1;
+	Data data = 2;
+	message Data {
+    repeated LogEntry logs = 1;
+    int32 totalCount = 2; // 总记录数（用于分页）
+    int32 totalPages = 3; // 总页数
+    repeated string availableSources = 4; // 可用的日志来源列表
+    message LogEntry {
+      string id = 1; // 日志ID
+      string timestamp = 2; // 时间戳（格式化）
+      string level = 3; // 日志级别: INFO, WARN, ERROR, DEBUG
+      string message = 4; // 日志消息
+      string source = 5; // 日志来源
+      string requestId = 6; // 请求ID（可选）
+      string userId = 7; // 用户ID（可选）
+      string rawData = 8; // 原始日志数据
+      LogDetails details = 9; // 详细信息
+      message LogDetails {
+        string method = 1; // HTTP方法
+        string url = 2; // 请求URL
+        int32 statusCode = 3; // 状态码
+        int32 responseTime = 4; // 响应时间(毫秒)
+        string userAgent = 5; // 用户代理
+        string ip = 6; // 客户端IP
+        string tokenId = 7; // 令牌ID（脱敏）
+        string toolName = 8; // 工具名称
+        string errorType = 9; // 错误类型
+        string stackTrace = 10; // 堆栈跟踪（ERROR级别）
+      }
+    }
+	}
+}
+
+// get log statistics [GET /api/23002]
+// 获取日志统计信息
+message Request23002 {
+  Request common = 1;
+  Params params = 2;
+	message Params {
+    string timeRange = 1; // 时间范围: "1h", "6h", "24h", "7d"
+	}
+}
+
+message Response23002 {
+  Response common = 1;
+	Data data = 2;
+	message Data {
+    LogStatistics statistics = 1;
+    message LogStatistics {
+      int32 totalLogs = 1; // 总日志数
+      int32 errorLogs = 2; // 错误日志数
+      int32 warnLogs = 3; // 警告日志数
+      int32 infoLogs = 4; // 信息日志数
+      int32 debugLogs = 5; // 调试日志数
+      double errorRate = 6; // 错误率（百分比）
+      repeated SourceStats sourceStats = 7; // 按来源统计
+      repeated HourlyStats hourlyStats = 8; // 按小时统计（最近24小时）
+      message SourceStats {
+        string source = 1; // 来源名称
+        int32 logCount = 2; // 日志数量
+        int32 errorCount = 3; // 错误数量
+        double percentage = 4; // 占总日志的百分比
+      }
+      message HourlyStats {
+        string hour = 1; // 小时标签，如 "14:00"
+        int32 totalCount = 2; // 该小时总日志数
+        int32 errorCount = 3; // 该小时错误数
+        int32 timestamp = 4; // 时间戳
+      }
+    }
+	}
+}
+
+// get log details by ID [GET /api/23003]
+// 获取单个日志的详细信息
+message Request23003 {
+  Request common = 1;
+  Params params = 2;
+	message Params {
+    string logId = 1; // 日志ID
+	}
+}
+
+message Response23003 {
+  Response common = 1;
+	Data data = 2;
+	message Data {
+    LogEntry logDetail = 1; // 详细日志信息（使用23001中的LogEntry结构）
+    repeated LogEntry relatedLogs = 2; // 相关日志（同一requestId或userId）
+	}
+}
+
+// export logs [GET /api/23004]
+// 导出日志
+message Request23004 {
+  Request common = 1;
+  Params params = 2;
+	message Params {
+    string timeRange = 1; // 时间范围: "1h", "6h", "24h", "7d"
+    string level = 2; // 日志级别过滤
+    string source = 3; // 日志来源过滤
+    string search = 4; // 搜索关键词
+    int32 format = 5; // 导出格式: 1-TXT, 2-JSON, 3-CSV
+    int32 maxRecords = 6; // 最大记录数限制，默认10000
+	}
+}
+
+message Response23004 {
+  Response common = 1;
+	Data data = 2;
+	message Data {
+    string downloadUrl = 1; // 下载链接
+    string fileName = 2; // 文件名
+    int32 fileSize = 3; // 文件大小（字节）
+    int32 recordCount = 4; // 实际导出的记录数
+    int32 expiresAt = 5; // 链接过期时间(时间戳)
+	}
+}
+
+// get real-time logs [GET /api/23005]
+// 获取实时日志（用于流式更新）
+message Request23005 {
+  Request common = 1;
+  Params params = 2;
+	message Params {
+    int32 lastLogId = 1; // 最后接收到的日志ID（用于增量获取）
+    string level = 2; // 日志级别过滤
+    string source = 3; // 日志来源过滤
+    int32 limit = 4; // 返回数量限制，默认50
+	}
+}
+
+message Response23005 {
+  Response common = 1;
+	Data data = 2;
+	message Data {
+    repeated LogEntry newLogs = 1; // 新日志列表
+    int32 latestLogId = 2; // 最新日志ID
+    bool hasMore = 3; // 是否还有更多日志
+	}
+}
+
+// get log error analysis [GET /api/23006]
+// 获取日志错误分析
+message Request23006 {
+  Request common = 1;
+  Params params = 2;
+	message Params {
+    string timeRange = 1; // 时间范围: "1h", "6h", "24h", "7d"
+	}
+}
+
+message Response23006 {
+  Response common = 1;
+	Data data = 2;
+	message Data {
+    ErrorAnalysis analysis = 1;
+    message ErrorAnalysis {
+      int32 totalErrors = 1; // 总错误数
+      double errorRate = 2; // 错误率
+      repeated ErrorPattern topErrors = 3; // 最常见错误
+      repeated ErrorTrend errorTrend = 4; // 错误趋势
+      repeated ErrorSource errorSources = 5; // 错误来源分布
+      message ErrorPattern {
+        string errorType = 1; // 错误类型
+        string message = 2; // 错误消息模式
+        int32 count = 3; // 出现次数
+        double percentage = 4; // 占总错误的百分比
+        string firstSeen = 5; // 首次出现时间
+        string lastSeen = 6; // 最后出现时间
+      }
+      message ErrorTrend {
+        string timeLabel = 1; // 时间标签
+        int32 errorCount = 2; // 错误数量
+        int32 timestamp = 3; // 时间戳
+      }
+      message ErrorSource {
+        string source = 1; // 错误来源
+        int32 errorCount = 2; // 错误数量
+        double percentage = 3; // 占总错误的百分比
+      }
+    }
+	}
+}
+
+// manage log retention [POST /api/23007]
+// 管理日志保留策略
+message Request23007 {
+  Request common = 1;
+  Params params = 2;
+	message Params {
+    int32 operation = 1; // 操作类型: 1-获取配置, 2-更新配置, 3-清理旧日志
+    int32 retentionDays = 2; // 保留天数（operation=2时）
+    string purgeOlderThan = 3; // 清理早于指定时间的日志（operation=3时）
+    repeated string levelsToPurge = 4; // 要清理的日志级别（operation=3时）
+	}
+}
+
+message Response23007 {
+  Response common = 1;
+	Data data = 2;
+	message Data {
+    RetentionConfig config = 1; // 保留配置
+    PurgeResult purgeResult = 2; // 清理结果（operation=3时）
+    message RetentionConfig {
+      int32 retentionDays = 1; // 当前保留天数
+      int32 maxLogSize = 2; // 最大日志大小（MB）
+      repeated string autoCleanupLevels = 3; // 自动清理的级别
+      bool compressionEnabled = 4; // 是否启用压缩
+    }
+    message PurgeResult {
+      int32 deletedCount = 1; // 删除的日志数量
+      int32 freedSpaceMB = 2; // 释放的空间（MB）
+      string operation = 3; // 执行的操作
+    }
+	}
+}
+
+// get log performance metrics [GET /api/23008]
+// 获取日志性能指标
+message Request23008 {
+  Request common = 1;
+  Params params = 2;
+	message Params {
+    string timeRange = 1; // 时间范围: "1h", "6h", "24h", "7d"
+	}
+}
+
+message Response23008 {
+  Response common = 1;
+	Data data = 2;
+	message Data {
+    PerformanceMetrics metrics = 1;
+    message PerformanceMetrics {
+      double avgResponseTime = 1; // 平均响应时间
+      double p95ResponseTime = 2; // 95%分位响应时间
+      double p99ResponseTime = 3; // 99%分位响应时间
+      int32 totalRequests = 4; // 总请求数
+      int32 slowRequests = 5; // 慢请求数（>1000ms）
+      double throughput = 6; // 吞吐量（请求/秒）
+      repeated ToolPerformance toolPerformance = 7; // 工具性能统计
+      repeated TimeSlotPerformance timeSlots = 8; // 时间段性能
+      message ToolPerformance {
+        string toolName = 1; // 工具名称
+        double avgResponseTime = 2; // 平均响应时间
+        int32 requestCount = 3; // 请求数
+        int32 errorCount = 4; // 错误数
+        double errorRate = 5; // 错误率
+      }
+      message TimeSlotPerformance {
+        string timeLabel = 1; // 时间标签
+        double avgResponseTime = 2; // 平均响应时间
+        int32 requestCount = 3; // 请求数
+        int32 timestamp = 4; // 时间戳
+      }
+    }
+	}
+}
+
+// search logs with advanced filters [GET /api/23009]
+// 高级日志搜索
+message Request23009 {
+  Request common = 1;
+  Params params = 2;
+	message Params {
+    string query = 1; // 搜索查询语句
+    repeated string fields = 2; // 搜索字段: ["message", "rawData", "source", "requestId"]
+    string timeStart = 3; // 开始时间（ISO格式）
+    string timeEnd = 4; // 结束时间（ISO格式）
+    repeated string levels = 5; // 日志级别列表
+    repeated string sources = 6; // 日志来源列表
+    int32 page = 7; // 分页-页码
+    int32 pageSize = 8; // 分页-每页数量
+    string sortBy = 9; // 排序字段: "timestamp", "level", "source"
+    string sortOrder = 10; // 排序方向: "asc", "desc"
+	}
+}
+
+message Response23009 {
+  Response common = 1;
+	Data data = 2;
+	message Data {
+    repeated LogEntry searchResults = 1; // 搜索结果
+    int32 totalMatches = 2; // 匹配总数
+    SearchMetadata metadata = 3; // 搜索元数据
+    message SearchMetadata {
+      string query = 1; // 执行的查询
+      int32 searchTime = 2; // 搜索耗时（毫秒）
+      repeated string suggestedFilters = 3; // 建议的过滤器
+      repeated HighlightMatch highlights = 4; // 高亮匹配
+      message HighlightMatch {
+        string logId = 1; // 日志ID
+        string field = 2; // 匹配字段
+        string matchedText = 3; // 匹配的文本
+      }
+    }
+	}
+}
+
+// get log audit trail [GET /api/23010]
+// 获取日志审计跟踪
+message Request23010 {
+  Request common = 1;
+  Params params = 2;
+	message Params {
+    string entityType = 1; // 实体类型: "user", "token", "request", "session"
+    string entityId = 2; // 实体ID
+    string timeRange = 3; // 时间范围: "1h", "6h", "24h", "7d"
+    int32 page = 4; // 分页-页码
+    int32 pageSize = 5; // 分页-每页数量
+	}
+}
+
+message Response23010 {
+  Response common = 1;
+	Data data = 2;
+	message Data {
+    repeated AuditEvent auditTrail = 1; // 审计跟踪记录
+    int32 totalCount = 2; // 总记录数
+    AuditSummary summary = 3; // 审计摘要
+    message AuditEvent {
+      string timestamp = 1; // 时间戳
+      string eventType = 2; // 事件类型
+      string action = 3; // 执行的操作
+      string source = 4; // 来源
+      string level = 5; // 日志级别
+      string details = 6; // 详细信息
+      string relatedLogId = 7; // 关联的日志ID
+    }
+    message AuditSummary {
+      int32 totalEvents = 1; // 总事件数
+      int32 errorEvents = 2; // 错误事件数
+      string firstActivity = 3; // 首次活动时间
+      string lastActivity = 4; // 最后活动时间
+      repeated string involvedSources = 5; // 涉及的来源
+    }
+	}
+}
+
+
+// ============ Skills Management API (10040-10043) ============
+
+message SkillInfo {
+  string name = 1;
+  string description = 2;
+  string version = 3;
+  string updatedAt = 4;               // ISO timestamp of last update
+}
+
+// list all skills for a server [POST /api/10040]
+message Request10040 {
+  Request common = 1;
+  Params params = 2;
+  message Params {
+    string serverId = 1;              // Skills Server ID
+  }
+}
+
+message Response10040 {
+  Response common = 1;
+  Data data = 2;
+  message Data {
+    repeated SkillInfo skills = 1;
+  }
+}
+
+// upload skills bundle to a server [POST /api/10041]
+// Uploads a ZIP containing the entire skills directory
+// Backend will auto-detect and extract skill directories (those containing SKILL.md)
+message Request10041 {
+  Request common = 1;
+  Params params = 2;
+  message Params {
+    string serverId = 1;              // Skills Server ID
+    string data = 2;                  // ZIP file content (base64 encoded)
+  }
+}
+
+message Response10041 {
+  Response common = 1;
+  Data data = 2;
+  message Data {
+    bool success = 1;
+    string message = 2;
+    string skillName = 3;
+  }
+}
+
+// delete skill from a server [POST /api/10042]
+message Request10042 {
+  Request common = 1;
+  Params params = 2;
+  message Params {
+    string serverId = 1;              // Skills Server ID
+    string skillName = 2;             // Skill name to delete
+  }
+}
+
+message Response10042 {
+  Response common = 1;
+  Data data = 2;
+  message Data {
+    bool success = 1;
+    string message = 2;
+  }
+}
+
+// delete all skills for a server [POST /api/10043]
+// Used when deleting the entire Skills tool
+message Request10043 {
+  Request common = 1;
+  Params params = 2;
+  message Params {
+    string serverId = 1;              // Skills Server ID
+  }
+}
+
+message Response10043 {
+  Response common = 1;
+  Data data = 2;
+  message Data {
+    bool success = 1;
+    string message = 2;
+  }
+}

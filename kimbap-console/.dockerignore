@@ -1,0 +1,58 @@
+# Docker ignore文件
+# 减少构建上下文大小，提高构建速度
+
+# 依赖目录
+node_modules/
+backend-src/node_modules/
+
+# 构建输出
+.next/
+dist/
+
+# 开发文件
+temp/
+*.log
+.env.local
+.env.development
+
+# Git
+.git/
+.gitignore
+
+# 文档
+README.md
+docs/
+
+# 开发工具
+.vscode/
+.idea/
+
+# 系统文件
+.DS_Store
+Thumbs.db
+
+# 测试
+coverage/
+*.test.js
+__tests__/
+
+# 缓存
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# 部署包
+*.zip
+*.tar.gz
+
+# 临时构建文件
+.temp-build/
+temp-downloads/
+typescript-sdk-main/
+
+# 大型依赖包
+postgresql*/
+cloudflared*/
+
+# 开发用脚本（不进镜像）
+aes-gcm.js

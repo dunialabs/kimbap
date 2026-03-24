@@ -1,0 +1,24 @@
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Tooling
+.openchrome/
+.sisyphus/
+
+# Nested git backups
+kimbap-core/.git-backup/
+kimbap-console/.git-backup/
+
+# Node
+kimbap-console/node_modules/
+kimbap-console/.next/
+
+# Go
+kimbap-core/kimbap

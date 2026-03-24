@@ -1,0 +1,97 @@
+generator client {
+  provider      = "prisma-client-js"
+  binaryTargets = ["native", "darwin", "darwin-arm64", "linux-musl", "linux-musl-openssl-3.0.x", "windows"]
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model DnsConf {
+  subdomain  String @default("") @map("subdomain") @db.VarChar(128)
+  type       Int    @default(0) @map("type")
+  publicIp   String @default("") @map("public_ip") @db.VarChar(128)
+  id         Int    @id @default(autoincrement())
+  addtime    Int    @default(0) @map("addtime")
+  updateTime Int    @default(0) @map("update_time")
+  tunnelId   String @default("") @map("tunnel_id") @db.VarChar(256)
+  proxyKey   String @default("") @map("proxy_key") @db.VarChar(64)
+
+  @@map("dns_conf")
+}
+
+model License {
+  id         Int    @id @default(autoincrement())
+  licenseStr String @map("license_str")
+  addtime    Int    @map("addtime")
+  status     Int    @map("status")
+  proxyKey   String @map("proxy_key") @db.VarChar(64)
+
+  @@map("license")
+}
+
+model Log {
+  id                     Int     @id @default(autoincrement())
+  addtime                BigInt  @default(0)
+  action                 Int     @default(0)
+  userid                 String  @default("") @db.VarChar
+  serverId               String? @map("server_id") @db.VarChar(128)
+  sessionId              String  @default("") @map("session_id") @db.VarChar
+  upstreamRequestId      String  @default("") @map("upstream_request_id") @db.VarChar
+  uniformRequestId       String? @map("uniform_request_id") @db.VarChar
+  parentUniformRequestId String? @map("parent_uniform_request_id") @db.VarChar
+  proxyRequestId         String? @map("proxy_request_id") @db.VarChar
+  ip                     String  @default("") @db.VarChar
+  ua                     String  @default("") @db.VarChar
+  tokenMask              String  @default("") @map("token_mask") @db.VarChar
+  requestParams          String  @default("") @map("request_params")
+  responseResult         String  @default("") @map("response_result")
+  error                  String  @default("")
+  duration               Int?    @map("duration")
+  statusCode             Int?    @map("status_code")
+  idInCore               BigInt? @map("id_in_core")
+  proxyKey               String  @default("") @map("proxy_key") @db.VarChar(64)
+
+  @@index([userid])
+  @@index([sessionId])
+  @@index([uniformRequestId])
+  @@index([serverId])
+  @@index([addtime])
+  @@index([proxyKey, addtime(sort: Desc)], map: "idx_log_proxy_key_addtime")
+  @@index([proxyKey, idInCore(sort: Desc)], map: "idx_log_proxy_key_id_in_core")
+  @@index([idInCore], map: "idx_log_id_in_core")
+  @@index([proxyKey, statusCode], map: "idx_log_proxy_key_status_code")
+  @@index([proxyKey, userid], map: "idx_log_proxy_key_userid")
+  @@map("log")
+}
+
+model User {
+  userid      String @id @map("userid") @db.VarChar(256)
+  accessToken String @map("access_token") @db.VarChar(256)
+  proxyKey    String @map("proxy_key") @db.VarChar(64)
+  role        Int    @map("role")
+
+  @@map("user")
+}
+
+model Config {
+  id             Int    @id @default(autoincrement())
+  kimbap_core_host String @default("") @db.VarChar(256)
+  kimbap_core_prot Int    @default(80)
+
+  @@map("config")
+}
+
+model TokenMetadata {
+  proxyId   Int      @map("proxy_id")
+  userid    String   @map("userid") @db.VarChar(256)
+  namespace String   @default("default") @map("namespace") @db.VarChar(64)
+  tags      String   @default("[]") @map("tags") @db.Text
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@id([proxyId, userid])
+  @@index([proxyId])
+  @@map("token_metadata")
+}

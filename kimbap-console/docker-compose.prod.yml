@@ -1,0 +1,103 @@
+version: '3.8'
+
+services:
+  # PostgreSQL database
+  postgres:
+    image: postgres:16-alpine
+    container_name: kimbap-postgres-prod
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: kimbap
+      POSTGRES_PASSWORD: kimbap123
+      POSTGRES_DB: kimbap_db
+      POSTGRES_INITDB_ARGS: "--encoding=UTF-8 --lc-collate=C --lc-ctype=C"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./docker/init-db.sql:/docker-entrypoint-initdb.d/init-db.sql:ro
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U kimbap -d kimbap_db"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - kimbap-network
+
+  # KIMBAP Console app
+  kimbap-console:
+    image: kimbap/kimbap-console:latest  # Use Docker Hub image
+    # build:  # Local build (for development)
+    #   context: .
+    #   dockerfile: Dockerfile
+    container_name: kimbap-console-app
+    restart: unless-stopped
+    environment:
+      # Database configuration
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_USER: kimbap
+      DB_PASSWORD: kimbap123
+      DB_NAME: kimbap_db
+      DATABASE_URL: postgresql://kimbap:kimbap123@postgres:5432/kimbap_db
+      
+      # Application configuration
+      NODE_ENV: production
+      
+      # Port configuration
+      PORT: 3000
+      BACKEND_PORT: 3002
+    ports:
+      - "3000:3000"  # Frontend
+      - "3002:3002"  # Backend API
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - kimbap-network
+    volumes:
+      - app_logs:/app/logs
+
+  # Adminer database management (optional)
+  adminer:
+    image: adminer:4-standalone
+    container_name: kimbap-adminer
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    environment:
+      ADMINER_DEFAULT_SERVER: postgres
+    depends_on:
+      - postgres
+    networks:
+      - kimbap-network
+    profiles:
+      - admin
+
+  # Cloudflare Tunnel (Optional - for HTTPS remote access)
+  cloudflared:
+    image: cloudflare/cloudflared:latest
+    container_name: kimbap-cloudflared-prod
+    restart: unless-stopped
+    command: tunnel --no-autoupdate run
+    environment:
+      - TUNNEL_TOKEN=${CLOUDFLARE_TUNNEL_TOKEN:-eyJhIjoiMzY3MmMwODM0MDlkYTVjYTEzM2M1MGUwZDA2ZmQwZTAiLCJ0IjoiY2UwY2Q2MjUtZjdiYy00MWY0LTk2YzQtNzgwMTJkYjg4ZGZkIiwicyI6Ik9HWTFPVEppWVdVdE1qWXpZUzAwT0RjM0xUazRNRGd0WkRneU1tRm1ZemxrWVRJdyJ9}
+    networks:
+      - kimbap-network
+    volumes:
+      - ./cloudflared:/etc/cloudflared
+    depends_on:
+      kimbap-console:
+        condition: service_started
+    profiles:
+      - cloudflared
+
+volumes:
+  postgres_data:
+    driver: local
+  app_logs:
+    driver: local
+
+networks:
+  kimbap-network:
+    driver: bridge

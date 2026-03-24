@@ -1,0 +1,148 @@
+import { PrismaClient } from '@prisma/client';
+import { ApiError, ErrorCode } from '@/lib/error-codes';
+import { getUsers } from '@/lib/proxy-api';
+
+const prisma = new PrismaClient();
+
+interface Request21001 {
+  common: {
+    cmdId: number;
+    userid: string;
+  };
+  params: {
+    timeRange: number; // 时间范围: 1-今天, 7-最近7天, 30-最近30天, 90-最近90天
+  };
+}
+
+interface Response21001Data {
+  totalTokens: number;        // 令牌总数
+  activeTokens: number;       // 活跃令牌数（有请求的）
+  totalRequests: number;      // 总请求数
+  successRequests: number;    // 成功请求数
+  failedRequests: number;     // 失败请求数
+  avgSuccessRate: number;     // 平均成功率(%)
+  totalClients: number;       // 连接的客户端总数
+  expiredTokens: number;      // 过期令牌数
+  limitedTokens: number;      // 达到速率限制的令牌数
+}
+
+/**
+ * Protocol 21001 - Get Token Usage Summary
+ * 获取访问令牌使用情况汇总统计
+ */
+export async function handleProtocol21001(body: Request21001): Promise<Response21001Data> {
+  try {
+    const { timeRange } = body.params;
+    
+    // 从proxy-api获取所有用户（包括owner）的access token列表
+    let allUsers: any[] = [];
+    try {
+      const usersResult = await getUsers({}, body.common.userid);
+      allUsers = usersResult.users || [];
+      console.log('[Protocol-21001] Got users from proxy-api:', allUsers.length);
+    } catch (error) {
+      console.warn('[Protocol-21001] Failed to get users from proxy-api:', error);
+      return {
+        totalTokens: 0,
+        activeTokens: 0,
+        totalRequests: 0,
+        successRequests: 0,
+        failedRequests: 0,
+        avgSuccessRate: 0,
+        totalClients: 0,
+        expiredTokens: 0,
+        limitedTokens: 0
+      };
+    }
+    
+    // 计算时间范围
+    const now = Math.floor(Date.now() / 1000);
+    const timeRangeSeconds = timeRange * 24 * 60 * 60;
+    const startTime = now - timeRangeSeconds;
+    
+    // 构建日志查询的where条件（基于tokenMask识别token使用）
+    const logWhereCondition: any = {
+      addtime: {
+        gte: BigInt(startTime)
+      },
+      tokenMask: {
+        not: ''
+      }
+    };
+    
+    // 并行查询统计数据
+    const [
+      activeTokensFromLogs,
+      requestStats,
+      successRequestsCount,
+      uniqueClientsFromLogs
+    ] = await Promise.all([
+      // 活跃令牌数 - 指定时间范围内有请求的令牌（通过tokenMask去重）
+      prisma.log.findMany({
+        where: logWhereCondition,
+        select: {
+          tokenMask: true
+        },
+        distinct: ['tokenMask']
+      }),
+      
+      // 总请求数
+      prisma.log.count({
+        where: logWhereCondition
+      }),
+      
+      // 成功请求数
+      prisma.log.count({
+        where: {
+          ...logWhereCondition,
+          statusCode: {
+            gte: 200,
+            lt: 300
+          }
+        }
+      }),
+      
+      // 独立客户端数（基于IP去重）
+      prisma.log.findMany({
+        where: logWhereCondition,
+        select: {
+          ip: true
+        },
+        distinct: ['ip']
+      })
+    ]);
+    
+    // 计算统计指标
+    const totalTokens = allUsers.length;  // 基于proxy-api用户列表
+    const activeTokens = activeTokensFromLogs.filter(t => t.tokenMask && t.tokenMask.trim()).length;
+    const totalRequests = requestStats;
+    const successRequests = successRequestsCount;
+    const failedRequests = totalRequests - successRequests;
+    const avgSuccessRate = totalRequests > 0 ? (successRequests / totalRequests) * 100 : 0;
+    const totalClients = uniqueClientsFromLogs.filter(c => c.ip && c.ip.trim()).length;
+    
+    // 过期令牌数和速率限制令牌数（基于proxy-api用户状态）
+    const expiredTokens = 0; // 需要根据proxy-api返回的用户状态计算
+    const limitedTokens = 0; // 需要根据速率限制记录计算
+    
+    const response: Response21001Data = {
+      totalTokens,
+      activeTokens,
+      totalRequests,
+      successRequests,
+      failedRequests,
+      avgSuccessRate: Math.round(avgSuccessRate * 10) / 10, // 保留1位小数
+      totalClients,
+      expiredTokens,
+      limitedTokens
+    };
+    
+    console.log('Protocol 21001 response:', response);
+    
+    return response;
+    
+  } catch (error) {
+    console.error('Protocol 21001 error:', error);
+    throw new ApiError(ErrorCode.INTERNAL_SERVER_ERROR, 500, { details: 'Failed to get token usage summary statistics' });
+  }
+}
