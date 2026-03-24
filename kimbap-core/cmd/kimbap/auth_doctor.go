@@ -109,7 +109,7 @@ func checkAuthTokenState(cfg *config.KimbapConfig, tenantID, providerID string) 
 		return doctorCheck{Name: "token expiry status", Status: "skip", Detail: "no token state found"}, doctorCheck{Name: "refresh token availability", Status: "skip", Detail: "no token state found"}
 	}
 
-	cs := connectors.MapLegacyStatus(state.Status)
+	cs := statusFromSanitizedState(state)
 
 	expiry := doctorCheck{Name: "token expiry status", Status: "ok", Detail: "token expiry not recorded"}
 	if state.ExpiresAt != nil {

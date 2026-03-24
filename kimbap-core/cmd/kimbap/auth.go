@@ -73,6 +73,16 @@ func scopeValues(raw string, fallback []string) []string {
 	return out
 }
 
+func statusFromSanitizedState(state *connectors.ConnectorState) connectors.ConnectionStatus {
+	if state.RevokedAt != nil {
+		return connectors.StatusRevoked
+	}
+	if strings.TrimSpace(state.LastRefreshError) != "" && state.LastRefresh != nil {
+		return connectors.StatusRefreshFailed
+	}
+	return connectors.MapLegacyStatus(state.Status)
+}
+
 func refreshHealthFromConnectionStatus(status connectors.ConnectionStatus) string {
 	switch status {
 	case connectors.StatusConnected:

@@ -42,7 +42,7 @@ func newAuthListCommand() *cobra.Command {
 
 			items := make([]map[string]any, 0, len(states))
 			for _, state := range states {
-				cs := connectors.MapLegacyStatus(state.Status)
+				cs := statusFromSanitizedState(&state)
 				scopeLevel := string(state.ConnectionScope)
 				if scopeLevel == "" {
 					scopeLevel = string(connectors.ScopeUser)
@@ -108,7 +108,7 @@ func newAuthStatusCommand() *cobra.Command {
 
 				items := make([]map[string]any, 0, len(states))
 				for _, state := range states {
-					cs := connectors.MapLegacyStatus(state.Status)
+					cs := statusFromSanitizedState(&state)
 					scopeLevel := string(state.ConnectionScope)
 					if scopeLevel == "" {
 						scopeLevel = string(connectors.ScopeUser)
@@ -152,7 +152,7 @@ func newAuthStatusCommand() *cobra.Command {
 				})
 			}
 
-			cs := connectors.MapLegacyStatus(state.Status)
+			cs := statusFromSanitizedState(state)
 			scopeLevel := string(state.ConnectionScope)
 			if scopeLevel == "" {
 				scopeLevel = string(connectors.ScopeUser)
