@@ -56,6 +56,10 @@ func newConnectorLoginCommand() *cobra.Command {
 			if err != nil {
 				return err
 			}
+			extraValues, parseErr := parseExtrasStrict(extras)
+			if parseErr != nil {
+				return parseErr
+			}
 
 			return runAuthConnect(
 				cfg,
@@ -71,7 +75,7 @@ func newConnectorLoginCommand() *cobra.Command {
 				connectionScope,
 				"default",
 				false,
-				parseExtras(extras),
+				extraValues,
 			)
 		},
 	}
@@ -245,7 +249,10 @@ func newConnectorRefreshCommand() *cobra.Command {
 				return fmt.Errorf("provider %q not found: %w", name, provErr)
 			}
 			name = provider.ID
-			extraValues := parseExtras(extras)
+			extraValues, parseErr := parseExtrasStrict(extras)
+			if parseErr != nil {
+				return parseErr
+			}
 			if valErr := validateProviderExtraValues(provider, extraValues); valErr != nil {
 				return valErr
 			}

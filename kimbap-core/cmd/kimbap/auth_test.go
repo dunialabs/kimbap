@@ -1,14 +1,27 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"testing"
 	"time"
 
+	"github.com/dunialabs/kimbap-core/internal/audit"
 	"github.com/dunialabs/kimbap-core/internal/connectors"
 	realFlows "github.com/dunialabs/kimbap-core/internal/connectors/flows"
 	"github.com/dunialabs/kimbap-core/internal/connectors/flows/browser"
 )
+
+type testAuditWriter struct {
+	events []audit.AuditEvent
+}
+
+func (w *testAuditWriter) Write(_ context.Context, event audit.AuditEvent) error {
+	w.events = append(w.events, event)
+	return nil
+}
+
+func (w *testAuditWriter) Close() error { return nil }
 
 func TestNormalizeFlowInput(t *testing.T) {
 	tests := []struct {
@@ -282,6 +295,22 @@ func TestCheckBrowserLaunchFeasibleProviderAware(t *testing.T) {
 	}
 }
 
+func TestCheckBrowserLaunchFeasibleGenericWarnsWithoutProvider(t *testing.T) {
+	origDetect := detectFlowEnvironment
+	t.Cleanup(func() {
+		detectFlowEnvironment = origDetect
+	})
+
+	detectFlowEnvironment = func() realFlows.EnvironmentInfo {
+		return realFlows.EnvironmentInfo{IsSSH: true, HasTTY: true, HasDisplay: true, CanOpenBrowser: true}
+	}
+
+	check := checkBrowserLaunchFeasible("")
+	if check.Status != "warn" {
+		t.Fatalf("expected generic browser check to warn under SSH, got %s", check.Status)
+	}
+}
+
 func TestPrepareRevocationProviderRejectsInvalidExtra(t *testing.T) {
 	origProviders := providers
 	t.Cleanup(func() {
@@ -305,5 +334,64 @@ func TestPrepareRevocationProviderRejectsInvalidExtra(t *testing.T) {
 	}
 	if !known {
 		t.Fatal("expected known provider result")
+	}
+}
+
+func TestParseExtrasStrictRejectsMalformedEntries(t *testing.T) {
+	if _, err := parseExtrasStrict([]string{"domain"}); err == nil {
+		t.Fatal("expected parseExtrasStrict to reject entries without equals")
+	}
+	if _, err := parseExtrasStrict([]string{"=value"}); err == nil {
+		t.Fatal("expected parseExtrasStrict to reject empty key")
+	}
+	if _, err := parseExtrasStrict([]string{"domain="}); err == nil {
+		t.Fatal("expected parseExtrasStrict to reject empty value")
+	}
+}
+
+func TestPrepareRevocationProviderDetectsUnresolvedRevocationPlaceholder(t *testing.T) {
+	origProviders := providers
+	t.Cleanup(func() {
+		providers = origProviders
+	})
+
+	providers.GetProvider = func(id string) (connectors.ProviderDefinition, error) {
+		if id != "p" {
+			return connectors.ProviderDefinition{}, fmt.Errorf("unknown provider: %s", id)
+		}
+		return connectors.ProviderDefinition{
+			ID:                 "p",
+			AuthEndpoint:       "https://example.com/oauth/authorize",
+			TokenEndpoint:      "https://example.com/oauth/token",
+			RevocationEndpoint: "https://{domain}/oauth/revoke",
+		}, nil
+	}
+
+	_, known, result, err := prepareRevocationProvider("p", nil)
+	if err != nil {
+		t.Fatalf("expected nil error, got: %v", err)
+	}
+	if !known {
+		t.Fatal("expected provider metadata known")
+	}
+	if result != "not_supported: unresolved endpoint placeholders" {
+		t.Fatalf("unexpected revocation preparation result: %s", result)
+	}
+}
+
+func TestEmitRevokePrepareErrorAuditWritesEvent(t *testing.T) {
+	writer := &testAuditWriter{}
+	emitter := &connectors.AuditEmitter{Writer: writer}
+	err := fmt.Errorf("invalid --extra values")
+
+	returned := emitRevokePrepareErrorAudit(emitter, "github", "tenant-a", err)
+	if returned == nil || returned.Error() != err.Error() {
+		t.Fatalf("expected same error to be returned, got %v", returned)
+	}
+	if len(writer.events) != 1 {
+		t.Fatalf("expected one audit event, got %d", len(writer.events))
+	}
+	if writer.events[0].Action != "auth.revoke.completed" {
+		t.Fatalf("expected revoke completed action, got %s", writer.events[0].Action)
 	}
 }

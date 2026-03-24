@@ -27,7 +27,10 @@ func newAuthDoctorCommand() *cobra.Command {
 		Args:  cobra.MaximumNArgs(1),
 		RunE: func(_ *cobra.Command, args []string) error {
 			activeTenant := connectorTenant(tenant)
-			extraValues := parseExtras(extras)
+			extraValues, parseErr := parseExtrasStrict(extras)
+			if parseErr != nil {
+				return parseErr
+			}
 			providerID := ""
 			if len(args) == 1 {
 				providerID = strings.TrimSpace(args[0])
@@ -254,15 +257,27 @@ func checkLoopbackPortBindable(port int) doctorCheck {
 }
 
 func checkBrowserLaunchFeasible(providerID string) doctorCheck {
+	env := detectFlowEnvironment()
 	if strings.TrimSpace(providerID) == "" {
-		return doctorCheck{Name: "browser launch feasible", Status: "skip", Detail: "no provider specified"}
+		if env.IsSSH {
+			return doctorCheck{Name: "browser launch feasible", Status: "warn", Detail: "SSH session detected; browser flow may not work"}
+		}
+		if !env.HasTTY {
+			return doctorCheck{Name: "browser launch feasible", Status: "warn", Detail: "no TTY detected; browser flow may not work"}
+		}
+		if !env.HasDisplay {
+			return doctorCheck{Name: "browser launch feasible", Status: "warn", Detail: "no display detected; browser flow may not work"}
+		}
+		if !env.CanOpenBrowser {
+			return doctorCheck{Name: "browser launch feasible", Status: "warn", Detail: "environment cannot open browser; non-browser OAuth flows may be required"}
+		}
+		return doctorCheck{Name: "browser launch feasible", Status: "ok", Detail: "browser launch should work"}
 	}
 	provider, err := providers.GetProvider(providerID)
 	if err != nil {
 		return doctorCheck{Name: "browser launch feasible", Status: "skip", Detail: "provider unknown"}
 	}
 	browserRequired := provider.SupportsBrowserFlow() && !provider.SupportsDeviceFlow() && !provider.SupportsClientCredentials()
-	env := detectFlowEnvironment()
 	if env.IsSSH {
 		if browserRequired {
 			return doctorCheck{Name: "browser launch feasible", Status: "fail", Detail: "SSH session detected; provider requires browser flow"}

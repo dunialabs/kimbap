@@ -114,6 +114,22 @@ func parseExtras(raw []string) map[string]string {
 	return out
 }
 
+func parseExtrasStrict(raw []string) (map[string]string, error) {
+	for _, item := range raw {
+		key, value, ok := strings.Cut(item, "=")
+		if !ok {
+			return nil, fmt.Errorf("invalid --extra %q: expected key=value", item)
+		}
+		if strings.TrimSpace(key) == "" {
+			return nil, fmt.Errorf("invalid --extra %q: key must not be empty", item)
+		}
+		if strings.TrimSpace(value) == "" {
+			return nil, fmt.Errorf("invalid --extra %q: value must not be empty", item)
+		}
+	}
+	return parseExtras(raw), nil
+}
+
 type placeholderKind int
 
 const (
@@ -212,6 +228,10 @@ func placeholdersInString(input string) []string {
 		remaining = remaining[start+endRel+1:]
 	}
 	return out
+}
+
+func hasPlaceholderInEndpoint(endpoint string) bool {
+	return strings.Contains(strings.TrimSpace(endpoint), "{")
 }
 
 func validateHostExtraValue(value string) error {

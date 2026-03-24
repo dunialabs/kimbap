@@ -42,6 +42,10 @@ func newAuthConnectCommand() *cobra.Command {
 			if err != nil {
 				return err
 			}
+			extraMap, err := parseExtrasStrict(extras)
+			if err != nil {
+				return err
+			}
 			return runAuthConnect(
 				cfg,
 				providerID,
@@ -56,7 +60,7 @@ func newAuthConnectCommand() *cobra.Command {
 				connectionScope,
 				profile,
 				false,
-				parseExtras(extras),
+				extraMap,
 			)
 		},
 	}
@@ -101,7 +105,10 @@ func newAuthReconnectCommand() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			extraMap := parseExtras(extras)
+			extraMap, parseErr := parseExtrasStrict(extras)
+			if parseErr != nil {
+				return parseErr
+			}
 
 			_, _ = fmt.Fprintln(os.Stderr, "Attempting to reconnect...")
 

@@ -52,13 +52,16 @@ func newAuthRevokeCommand() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			extraValues := parseExtras(extras)
+			extraValues, parseErr := parseExtrasStrict(extras)
+			if parseErr != nil {
+				return parseErr
+			}
 			auditEmitter := initAuthAuditEmitter(cfg)
 			defer closeAuditEmitter(auditEmitter)
 
 			provider, providerMetaKnown, revocationResult, prepareErr := prepareRevocationProvider(providerID, extraValues)
 			if prepareErr != nil {
-				return prepareErr
+				return emitRevokePrepareErrorAudit(auditEmitter, providerID, activeTenant, prepareErr)
 			}
 			revocationAttempted := false
 			if providerMetaKnown && strings.TrimSpace(provider.RevocationEndpoint) != "" && !strings.HasPrefix(revocationResult, "failed: invalid endpoint configuration") && !strings.HasPrefix(revocationResult, "not_supported: unresolved") {
@@ -129,6 +132,16 @@ func newAuthRevokeCommand() *cobra.Command {
 	return cmd
 }
 
+func emitRevokePrepareErrorAudit(emitter *connectors.AuditEmitter, providerID, tenantID string, prepareErr error) error {
+	if prepareErr == nil {
+		return nil
+	}
+	if emitter != nil {
+		emitter.RevokeCompleted(contextBackground(), providerID, tenantID, false)
+	}
+	return prepareErr
+}
+
 func prepareRevocationProvider(providerID string, extras map[string]string) (connectors.ProviderDefinition, bool, string, error) {
 	provider, providerErr := providers.GetProvider(providerID)
 	if providerErr != nil {
@@ -139,6 +152,9 @@ func prepareRevocationProvider(providerID string, extras map[string]string) (con
 	}
 	provider = substituteProviderEndpoints(provider, extras)
 	if hasUnresolvedPlaceholders(provider) {
+		return provider, true, "not_supported: unresolved endpoint placeholders", nil
+	}
+	if hasPlaceholderInEndpoint(provider.RevocationEndpoint) {
 		return provider, true, "not_supported: unresolved endpoint placeholders", nil
 	}
 	if vErr := validateProviderEndpoints(provider); vErr != nil {
