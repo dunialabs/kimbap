@@ -80,7 +80,7 @@ export default function WelcomePage() {
           >
             Dunia Labs, Inc.
           </a>
-          <span> Operations console for approvals, policies, logs, and usage.</span>
+          <span> The control plane for MCP servers.</span>
         </div>
       </footer>
     </div>

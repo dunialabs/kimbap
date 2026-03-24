@@ -146,7 +146,7 @@ export function LoginForm({
           </div>
           <div className="h-[44px] border-b border-border" />
           <div className="h-12 rounded-lg bg-muted/40 animate-pulse" />
-          <div className="h-12 rounded-[8px] bg-muted/30" />
+          <div className="h-12 rounded-[8px] bg-muted/30 animate-pulse" />
         </div>
       ) : (
       <>
@@ -310,15 +310,16 @@ export function LoginForm({
         }
         className="w-full h-12 text-base bg-slate-900 hover:bg-slate-800 disabled:bg-slate-900 disabled:opacity-30 text-white rounded-[8px] dark:bg-slate-100 dark:hover:bg-slate-200 dark:text-slate-900 dark:disabled:bg-slate-100"
         size="lg"
+        aria-busy={isLoggingIn}
       >
         {isLoggingIn ? (
           <>
-            <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin mr-2" />
+            <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin mr-2" aria-hidden="true" />
             Logging in...
           </>
         ) : (
           <>
-            <LogIn className="w-4 h-4 mr-2" />
+            <LogIn className="w-4 h-4 mr-2" aria-hidden="true" />
             Log in
           </>
         )}

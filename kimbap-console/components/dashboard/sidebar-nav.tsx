@@ -169,12 +169,12 @@ export function SidebarNav({ onNavigate, pendingApprovalCount = 0 }: SidebarNavP
                 className="flex items-center gap-3 rounded-lg px-3 py-2 text-muted-foreground transition-all hover:bg-slate-100 dark:hover:bg-slate-800 mb-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2"
               >
                 <Download className="h-4 w-4" aria-hidden="true" focusable="false" />
-                <span className="font-medium">Download Kimbap Desk</span>
+                <span className="font-medium">Install Kimbap Desk</span>
                 <LinkIcon className="h-3 w-3 ml-auto opacity-60" aria-hidden="true" focusable="false" />
               </a>
             </TooltipTrigger>
             <TooltipContent side="right">
-              <p>Download Kimbap Desk (Opens quick start guide)</p>
+              <p>Opens the Kimbap Desk quick start guide</p>
             </TooltipContent>
           </Tooltip>
         </TooltipProvider>

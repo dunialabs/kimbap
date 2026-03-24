@@ -604,7 +604,7 @@ function RuleCard({
             <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Action</Label>
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
               <div className="space-y-1.5">
-                <Label className="text-xs">Outcome</Label>
+                <Label className="text-xs">Decision</Label>
                 <Select
                   value={rule.effect.decision}
                   onValueChange={(v) =>

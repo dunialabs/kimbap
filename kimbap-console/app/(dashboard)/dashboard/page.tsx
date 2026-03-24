@@ -523,7 +523,7 @@ export default function DashboardPage() {
         <Card>
           <CardHeader>
             <CardTitle>Recent Activity</CardTitle>
-            <CardDescription>Recent server events</CardDescription>
+            <CardDescription>Last 30 days</CardDescription>
           </CardHeader>
           <CardContent>
             {!recentActivity || recentActivity.length === 0 ? (
