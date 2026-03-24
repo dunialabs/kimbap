@@ -363,11 +363,7 @@ func (s *Server) handleApprove(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if s.approvalManager != nil {
-		err = s.approvalManager.Approve(r.Context(), id, principal.ID)
-	} else {
-		err = s.store.UpdateApprovalStatus(r.Context(), id, "approved", principal.ID, "approved via api")
-	}
+	err = s.store.UpdateApprovalStatus(r.Context(), id, "approved", principal.ID, "approved via api")
 	if err != nil {
 		writeEnvelopeError(w, r, mapApprovalError(err))
 		return
@@ -431,11 +427,7 @@ func (s *Server) handleDeny(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if s.approvalManager != nil {
-		err = s.approvalManager.Deny(r.Context(), id, principal.ID, "denied via api")
-	} else {
-		err = s.store.UpdateApprovalStatus(r.Context(), id, "denied", principal.ID, "denied via api")
-	}
+	err = s.store.UpdateApprovalStatus(r.Context(), id, "denied", principal.ID, "denied via api")
 	if err != nil {
 		writeEnvelopeError(w, r, mapApprovalError(err))
 		return

@@ -157,6 +157,61 @@ func TestSQLiteStoreApprovalCreateAndUpdateStatus(t *testing.T) {
 	}
 }
 
+func TestSQLiteStoreUpdateApprovalStatusAlreadyResolvedReturnsTypedError(t *testing.T) {
+	st := newTestSQLiteStore(t)
+	ctx := context.Background()
+	now := time.Now().UTC()
+
+	req := &ApprovalRecord{
+		ID:        "apr-cas-resolved",
+		TenantID:  "tenant-a",
+		RequestID: "req-cas-resolved",
+		AgentName: "agent-a",
+		Service:   "github",
+		Action:    "issues.create",
+		Status:    "pending",
+		InputJSON: `{}`,
+		CreatedAt: now,
+		ExpiresAt: now.Add(10 * time.Minute),
+	}
+	if err := st.CreateApproval(ctx, req); err != nil {
+		t.Fatalf("create approval: %v", err)
+	}
+
+	if err := st.UpdateApprovalStatus(ctx, req.ID, "approved", "operator-1", "ok"); err != nil {
+		t.Fatalf("first update approval status: %v", err)
+	}
+	if err := st.UpdateApprovalStatus(ctx, req.ID, "denied", "operator-2", "late deny"); !errors.Is(err, ErrApprovalAlreadyResolved) {
+		t.Fatalf("expected ErrApprovalAlreadyResolved, got %v", err)
+	}
+}
+
+func TestSQLiteStoreUpdateApprovalStatusExpiredReturnsTypedError(t *testing.T) {
+	st := newTestSQLiteStore(t)
+	ctx := context.Background()
+	now := time.Now().UTC()
+
+	req := &ApprovalRecord{
+		ID:        "apr-cas-expired",
+		TenantID:  "tenant-a",
+		RequestID: "req-cas-expired",
+		AgentName: "agent-a",
+		Service:   "github",
+		Action:    "issues.create",
+		Status:    "pending",
+		InputJSON: `{}`,
+		CreatedAt: now.Add(-30 * time.Minute),
+		ExpiresAt: now.Add(-1 * time.Minute),
+	}
+	if err := st.CreateApproval(ctx, req); err != nil {
+		t.Fatalf("create approval: %v", err)
+	}
+
+	if err := st.UpdateApprovalStatus(ctx, req.ID, "approved", "operator-1", "too late"); !errors.Is(err, ErrApprovalExpired) {
+		t.Fatalf("expected ErrApprovalExpired, got %v", err)
+	}
+}
+
 func TestSQLiteStorePolicySetAndGet(t *testing.T) {
 	st := newTestSQLiteStore(t)
 	ctx := context.Background()
