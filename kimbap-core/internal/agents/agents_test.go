@@ -181,3 +181,19 @@ func TestStatusAfterSync(t *testing.T) {
 		}
 	}
 }
+
+func TestIsAgentDetectedDetailedReturnsErrorOnNonDirectoryPath(t *testing.T) {
+	dir := t.TempDir()
+	projectFile := filepath.Join(dir, "project-file")
+	if err := os.WriteFile(projectFile, []byte("x"), 0o644); err != nil {
+		t.Fatalf("write project file: %v", err)
+	}
+
+	detected, err := isAgentDetectedDetailed(projectFile, AgentConfig{DetectPaths: []string{".claude"}})
+	if detected {
+		t.Fatal("expected detected=false when project path is not a directory")
+	}
+	if err == nil {
+		t.Fatal("expected detection error for non-directory project path")
+	}
+}

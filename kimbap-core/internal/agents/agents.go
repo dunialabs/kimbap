@@ -242,9 +242,14 @@ func Status(projectDir string) ([]StatusResult, error) {
 			return nil, fmt.Errorf("list synced skills for %q: %w", kind, err)
 		}
 
+		detected, detectErr := isAgentDetectedDetailed(baseDir, cfg)
+		if detectErr != nil {
+			return nil, fmt.Errorf("detect agent %q: %w", kind, detectErr)
+		}
+
 		results = append(results, StatusResult{
 			Agent:        kind,
-			Detected:     isAgentDetected(baseDir, cfg),
+			Detected:     detected,
 			SkillsDir:    filepath.Join(baseDir, cfg.SkillsDir),
 			SyncedSkills: syncedSkills,
 			RulesPresent: rulesPresent,
@@ -290,16 +295,25 @@ func normalizeProjectDir(projectDir string) string {
 }
 
 func isAgentDetected(projectDir string, cfg AgentConfig) bool {
+	detected, _ := isAgentDetectedDetailed(projectDir, cfg)
+	return detected
+}
+
+func isAgentDetectedDetailed(projectDir string, cfg AgentConfig) (bool, error) {
+	var firstErr error
 	for _, detectPath := range cfg.DetectPaths {
 		exists, err := pathExists(filepath.Join(projectDir, detectPath))
 		if err != nil {
+			if firstErr == nil {
+				firstErr = fmt.Errorf("check detect path %q: %w", detectPath, err)
+			}
 			continue
 		}
 		if exists {
-			return true
+			return true, nil
 		}
 	}
-	return false
+	return false, firstErr
 }
 
 func pathExists(path string) (bool, error) {

@@ -154,8 +154,18 @@ func runAgentsSync(projectDir string, rawAgentKinds string, force bool, dryRun b
 		metaDir := filepath.Join(normalizedProjectDir, agentCfg.SkillsDir, "kimbap")
 		metaPath := filepath.Join(metaDir, "SKILL.md")
 
-		existing, readErr := os.ReadFile(metaPath)
-		needsWrite := readErr != nil || string(existing) != metaContent || force
+		needsWrite := force
+		if !needsWrite {
+			existing, readErr := os.ReadFile(metaPath)
+			switch {
+			case readErr == nil:
+				needsWrite = string(existing) != metaContent
+			case os.IsNotExist(readErr):
+				needsWrite = true
+			default:
+				return agentSetupResult{}, fmt.Errorf("read existing meta-skill for %q at %q: %w", result.Agent, metaPath, readErr)
+			}
+		}
 		if !needsWrite {
 			continue
 		}
