@@ -942,7 +942,7 @@ export default function PoliciesPage() {
               <div className="space-y-3">
                 <div className="flex items-center justify-between">
                   <div>
-                    <Label className="text-sm font-semibold">Rules ({formRules.length})</Label>
+                    <Label className="text-sm font-semibold">Rules{formRules.length > 0 ? ` (${formRules.length})` : ''}</Label>
                     <p className="mt-0.5 text-xs text-muted-foreground">
                       {formRules.length === 0
                         ? 'Add rules to define how tool calls are handled.'

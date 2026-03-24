@@ -212,7 +212,8 @@ export default function UsagePage() {
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
         <Card className="h-full">
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium">Total Requests ({timeRangeLabel})</CardTitle>
+            <CardTitle className="text-sm font-medium">Total Requests</CardTitle>
+            <CardDescription className="text-xs">Last {timeRangeLabel}</CardDescription>
           </CardHeader>
           <CardContent className="flex flex-col gap-1 justify-center">
             <div className={loading || overviewSummary?.totalRequests24h == null ? "text-sm text-muted-foreground" : "text-2xl font-bold"}>

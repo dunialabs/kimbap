@@ -68,11 +68,10 @@ type ServerContext struct {
 	RunnerMetadata *CustomStdioRunnerMetadata
 	RunnerTrace    *RunnerExecutionTrace
 
-	authStrategy       AuthStrategy
-	tokenRefreshStop   chan struct{}
-	tokenRefreshTimer  *time.Timer
-	refreshCancel      context.CancelFunc
-	currentAccessToken string
+	authStrategy      AuthStrategy
+	tokenRefreshStop  chan struct{}
+	tokenRefreshTimer *time.Timer
+	refreshCancel     context.CancelFunc
 	currentTokenExpiry int64
 	tokenRefreshSeq    uint64
 
@@ -536,7 +535,6 @@ func (s *ServerContext) StartTokenRefresh(ctx context.Context, strategy AuthStra
 	refreshCtx, cancel := context.WithCancel(context.Background())
 	s.refreshCancel = cancel
 	s.authStrategy = strategy
-	s.currentAccessToken = token
 	s.currentTokenExpiry = expiresAt
 	s.tokenRefreshSeq++
 	s.scheduleNextRefreshLocked(refreshCtx)
@@ -620,7 +618,6 @@ func (s *ServerContext) performTokenRefresh(ctx context.Context) {
 		s.mu.Unlock()
 		return
 	}
-	s.currentAccessToken = token
 	s.currentTokenExpiry = expiresAt
 	s.mu.Unlock()
 
@@ -882,7 +879,6 @@ func (s *ServerContext) StopTokenRefresh() {
 	}
 
 	s.authStrategy = nil
-	s.currentAccessToken = ""
 	s.currentTokenExpiry = 0
 }
 
