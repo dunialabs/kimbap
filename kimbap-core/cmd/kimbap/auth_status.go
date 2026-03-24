@@ -51,20 +51,7 @@ func newAuthListCommand() *cobra.Command {
 
 			items := make([]map[string]any, 0, len(states))
 			for _, state := range states {
-				cs := statusFromSanitizedState(&state)
-				scopeLevel := string(state.ConnectionScope)
-				if scopeLevel == "" {
-					scopeLevel = string(connectors.ScopeUser)
-				}
-				items = append(items, map[string]any{
-					"provider":       state.Provider,
-					"connection_id":  state.Name,
-					"scope_level":    scopeLevel,
-					"status":         cs,
-					"expires_at":     state.ExpiresAt,
-					"refresh_health": refreshHealthFromConnectionStatus(cs),
-					"last_used_at":   state.LastUsedAt,
-				})
+				items = append(items, authListItem(state))
 			}
 
 			if !outputAsJSON() {
@@ -75,10 +62,14 @@ func newAuthListCommand() *cobra.Command {
 				_, _ = fmt.Fprintf(os.Stdout, "OAuth Connections (%d):\n\n", len(items))
 				for _, item := range items {
 					provider, _ := item["provider"].(string)
-					status, _ := item["status"].(connectors.ConnectionStatus)
-					scopeLevel, _ := item["scope_level"].(string)
+					status, _ := item["status_detail"].(connectors.ConnectionStatus)
+					scopeLevel, _ := item["connection_scope"].(string)
 					refreshHealth, _ := item["refresh_health"].(string)
-					_, _ = fmt.Fprintf(os.Stdout, "  %-15s  status=%-20s  scope=%-10s  refresh=%s\n", provider, status, scopeLevel, refreshHealth)
+					principal, _ := item["connected_principal"].(string)
+					if principal == "" {
+						principal = "-"
+					}
+					_, _ = fmt.Fprintf(os.Stdout, "  %-15s  status=%-20s  scope=%-10s  refresh=%-12s  principal=%s\n", provider, status, scopeLevel, refreshHealth, principal)
 				}
 				return nil
 			}
@@ -139,23 +130,7 @@ func newAuthStatusCommand() *cobra.Command {
 
 				items := make([]map[string]any, 0, len(states))
 				for _, state := range states {
-					cs := statusFromSanitizedState(&state)
-					scopeLevel := string(state.ConnectionScope)
-					if scopeLevel == "" {
-						scopeLevel = string(connectors.ScopeUser)
-					}
-					items = append(items, map[string]any{
-						"provider":            state.Provider,
-						"connection_scope":    scopeLevel,
-						"connected_principal": state.ConnectedPrincipal,
-						"granted_scopes":      state.Scopes,
-						"expiry":              state.ExpiresAt,
-						"refresh_state":       refreshStateFromConnectionStatus(cs),
-						"last_refresh":        state.LastRefresh,
-						"last_used_at":        state.LastUsedAt,
-						"status":              cs,
-						"remediation":         remediationFromStatus(cs),
-					})
+					items = append(items, authStatusItem(state))
 				}
 
 				if !outputAsJSON() {
@@ -165,14 +140,14 @@ func newAuthStatusCommand() *cobra.Command {
 					}
 					for _, item := range items {
 						provider, _ := item["provider"].(string)
-						status, _ := item["status"].(connectors.ConnectionStatus)
+						status, _ := item["status_detail"].(connectors.ConnectionStatus)
 						scopeLevel, _ := item["connection_scope"].(string)
 						principal, _ := item["connected_principal"].(string)
-						_, _ = fmt.Fprintf(os.Stdout, "%-15s  status=%-20s  scope=%-10s", provider, status, scopeLevel)
-						if principal != "" {
-							_, _ = fmt.Fprintf(os.Stdout, "  user=%s", principal)
+						refreshHealth, _ := item["refresh_health"].(string)
+						if principal == "" {
+							principal = "-"
 						}
-						_, _ = fmt.Fprintln(os.Stdout)
+						_, _ = fmt.Fprintf(os.Stdout, "%-15s  status=%-20s  scope=%-10s  refresh=%-12s  principal=%s\n", provider, status, scopeLevel, refreshHealth, principal)
 					}
 					return nil
 				}
@@ -240,34 +215,109 @@ func newAuthStatusCommand() *cobra.Command {
 				}
 				_, _ = fmt.Fprintln(os.Stdout, "Access token:        managed by core")
 				_, _ = fmt.Fprintf(os.Stdout, "Refresh status:      %s\n", refreshStateFromConnectionStatus(cs))
+				if strings.TrimSpace(state.LastRefreshError) != "" {
+					_, _ = fmt.Fprintf(os.Stdout, "Last refresh result: failed (%s)\n", state.LastRefreshError)
+				} else if state.LastRefresh != nil {
+					_, _ = fmt.Fprintln(os.Stdout, "Last refresh result: success")
+				}
 				if state.LastRefresh != nil {
 					_, _ = fmt.Fprintf(os.Stdout, "Last refresh:        %s\n", state.LastRefresh.Format(time.RFC3339))
 				}
 				if state.LastUsedAt != nil {
 					_, _ = fmt.Fprintf(os.Stdout, "Last used:           %s\n", state.LastUsedAt.Format(time.RFC3339))
 				}
+				if state.RevokedAt != nil {
+					_, _ = fmt.Fprintf(os.Stdout, "Revocation state:    revoked at %s\n", state.RevokedAt.Format(time.RFC3339))
+				} else {
+					_, _ = fmt.Fprintln(os.Stdout, "Revocation state:    active")
+				}
 				if rem := remediationFromStatus(cs); rem != nil {
 					_, _ = fmt.Fprintf(os.Stdout, "Remediation:         %s\n", rem)
 				}
 				return nil
 			}
-			return printOutput(map[string]any{
-				"status":              "ok",
-				"operation":           "auth.status",
-				"tenant_id":           activeTenant,
-				"provider":            state.Provider,
-				"connection_scope":    scopeLevel,
-				"connected_principal": state.ConnectedPrincipal,
-				"granted_scopes":      state.Scopes,
-				"expiry":              state.ExpiresAt,
-				"refresh_state":       refreshStateFromConnectionStatus(cs),
-				"last_refresh":        state.LastRefresh,
-				"last_used_at":        state.LastUsedAt,
-				"status_detail":       cs,
-				"remediation":         remediationFromStatus(cs),
-			})
+			return printOutput(authSingleStatusPayload(activeTenant, *state))
 		},
 	}
 	cmd.Flags().StringVar(&tenant, "tenant", "", "tenant id")
 	return cmd
+}
+
+func authScopeLevel(state connectors.ConnectorState) string {
+	scopeLevel := string(state.ConnectionScope)
+	if scopeLevel == "" {
+		return string(connectors.ScopeUser)
+	}
+	return scopeLevel
+}
+
+func authLastRefreshResult(state connectors.ConnectorState) string {
+	if strings.TrimSpace(state.LastRefreshError) != "" {
+		return "failed"
+	}
+	if state.LastRefresh != nil {
+		return "success"
+	}
+	return "unknown"
+}
+
+func authRevocationState(state connectors.ConnectorState) string {
+	if state.RevokedAt != nil {
+		return "revoked"
+	}
+	return "active"
+}
+
+func authListItem(state connectors.ConnectorState) map[string]any {
+	cs := statusFromSanitizedState(&state)
+	scopeLevel := authScopeLevel(state)
+	return map[string]any{
+		"provider":            state.Provider,
+		"connection_id":       state.Name,
+		"connection_scope":    scopeLevel,
+		"scope_level":         scopeLevel,
+		"connected_principal": state.ConnectedPrincipal,
+		"status_detail":       cs,
+		"status":              cs,
+		"expires_at":          state.ExpiresAt,
+		"refresh_state":       refreshStateFromConnectionStatus(cs),
+		"refresh_health":      refreshHealthFromConnectionStatus(cs),
+		"last_refresh_result": authLastRefreshResult(state),
+		"revocation_state":    authRevocationState(state),
+		"last_used_at":        state.LastUsedAt,
+	}
+}
+
+func authStatusItem(state connectors.ConnectorState) map[string]any {
+	cs := statusFromSanitizedState(&state)
+	scopeLevel := authScopeLevel(state)
+	return map[string]any{
+		"provider":            state.Provider,
+		"connection_id":       state.Name,
+		"connection_scope":    scopeLevel,
+		"scope_level":         scopeLevel,
+		"connected_principal": state.ConnectedPrincipal,
+		"granted_scopes":      state.Scopes,
+		"expires_at":          state.ExpiresAt,
+		"refresh_state":       refreshStateFromConnectionStatus(cs),
+		"refresh_health":      refreshHealthFromConnectionStatus(cs),
+		"last_refresh_result": authLastRefreshResult(state),
+		"last_refresh":        state.LastRefresh,
+		"last_used_at":        state.LastUsedAt,
+		"revocation_state":    authRevocationState(state),
+		"status_detail":       cs,
+		"status":              cs,
+		"remediation":         remediationFromStatus(cs),
+	}
+}
+
+func authSingleStatusPayload(tenantID string, state connectors.ConnectorState) map[string]any {
+	item := authStatusItem(state)
+	connectionStatus := item["status"]
+	item["status"] = "ok"
+	item["operation"] = "auth.status"
+	item["tenant_id"] = tenantID
+	item["connection_status"] = connectionStatus
+	item["provider"] = state.Provider
+	return item
 }

@@ -24,16 +24,24 @@ func newAuthProvidersListCommand() *cobra.Command {
 		Use:   "list",
 		Short: "List known OAuth providers",
 		RunE: func(_ *cobra.Command, _ []string) error {
+			cfg, err := loadAppConfig()
+			if err != nil {
+				return err
+			}
 			items := providers.ListProviders()
 			sort.Slice(items, func(i, j int) bool { return items[i].ID < items[j].ID })
 
 			out := make([]map[string]any, 0, len(items))
 			for _, item := range items {
+				configured := providerIsConfigured(item) && strings.TrimSpace(resolveClientID(cfg, item.ID)) != ""
 				out = append(out, map[string]any{
 					"id":                     item.ID,
 					"display_name":           item.DisplayName,
 					"supported_flows":        item.SupportedFlows,
-					"configured":             providerIsConfigured(item),
+					"configured":             configured,
+					"supports_browser_flow":  item.SupportsBrowserFlow(),
+					"supports_device_flow":   item.SupportsDeviceFlow(),
+					"supports_client_creds":  item.SupportsClientCredentials(),
 					"connection_scope_model": item.ConnectionScopeModel,
 				})
 			}
@@ -45,6 +53,7 @@ func newAuthProvidersListCommand() *cobra.Command {
 				}
 				_, _ = fmt.Fprintf(os.Stdout, "%-15s  %-20s  %-30s  %-12s  %s\n", "ID", "NAME", "FLOWS", "CONFIGURED", "SCOPES")
 				for _, item := range items {
+					configured := providerIsConfigured(item) && strings.TrimSpace(resolveClientID(cfg, item.ID)) != ""
 					flowStrs := make([]string, 0, len(item.SupportedFlows))
 					for _, f := range item.SupportedFlows {
 						flowStrs = append(flowStrs, string(f))
@@ -56,7 +65,7 @@ func newAuthProvidersListCommand() *cobra.Command {
 					_, _ = fmt.Fprintf(os.Stdout, "%-15s  %-20s  %-30s  %-12v  %s\n",
 						item.ID, item.DisplayName,
 						strings.Join(flowStrs, ", "),
-						providerIsConfigured(item),
+						configured,
 						strings.Join(scopeStrs, ", "),
 					)
 				}
@@ -105,8 +114,19 @@ func newAuthProvidersDescribeCommand() *cobra.Command {
 					flowStrs = append(flowStrs, string(f))
 				}
 				_, _ = fmt.Fprintf(os.Stdout, "Supported Flows:      %s\n", strings.Join(flowStrs, ", "))
+				_, _ = fmt.Fprintf(os.Stdout, "Browser Flow:         %v\n", provider.SupportsBrowserFlow())
+				_, _ = fmt.Fprintf(os.Stdout, "Device Flow:          %v\n", provider.SupportsDeviceFlow())
+				_, _ = fmt.Fprintf(os.Stdout, "Client Credentials:   %v\n", provider.SupportsClientCredentials())
 				if len(provider.DefaultScopes) > 0 {
 					_, _ = fmt.Fprintf(os.Stdout, "Default Scopes:       %s\n", strings.Join(provider.DefaultScopes, ", "))
+				}
+				if len(provider.ScopePresets) > 0 {
+					presetNames := make([]string, 0, len(provider.ScopePresets))
+					for name := range provider.ScopePresets {
+						presetNames = append(presetNames, name)
+					}
+					sort.Strings(presetNames)
+					_, _ = fmt.Fprintf(os.Stdout, "Scope Presets:        %s\n", strings.Join(presetNames, ", "))
 				}
 				scopeStrs := make([]string, 0, len(provider.ConnectionScopeModel))
 				for _, s := range provider.ConnectionScopeModel {
@@ -126,6 +146,9 @@ func newAuthProvidersDescribeCommand() *cobra.Command {
 				"id":                     provider.ID,
 				"display_name":           provider.DisplayName,
 				"supported_flows":        provider.SupportedFlows,
+				"supports_browser_flow":  provider.SupportsBrowserFlow(),
+				"supports_device_flow":   provider.SupportsDeviceFlow(),
+				"supports_client_creds":  provider.SupportsClientCredentials(),
 				"default_scopes":         provider.DefaultScopes,
 				"scope_presets":          provider.ScopePresets,
 				"auth_endpoint":          provider.AuthEndpoint,

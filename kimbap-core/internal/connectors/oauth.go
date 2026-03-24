@@ -122,7 +122,7 @@ func PollForToken(cfg ConnectorConfig, deviceCode string, interval int, timeout 
 			time.Sleep(time.Duration(interval) * time.Second)
 			continue
 		case "slow_down":
-			interval += 2
+			interval += 5 // RFC 8628 §3.5: MUST increase by 5 seconds
 			time.Sleep(time.Duration(interval) * time.Second)
 			continue
 		default:

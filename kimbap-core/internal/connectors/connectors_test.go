@@ -457,6 +457,37 @@ func TestStoreConnectionOverExisting_NoDoubleEncryption(t *testing.T) {
 	}
 }
 
+func TestPollForTokenSlowDownIncrementsBy5(t *testing.T) {
+	callCount := 0
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		callCount++
+		switch callCount {
+		case 1:
+			w.WriteHeader(http.StatusBadRequest)
+			_, _ = w.Write([]byte(`{"error":"slow_down"}`))
+		case 2:
+			_, _ = w.Write([]byte(`{"access_token":"tok","expires_in":3600,"token_type":"Bearer"}`))
+		default:
+			w.WriteHeader(http.StatusInternalServerError)
+		}
+	}))
+	defer server.Close()
+
+	start := time.Now()
+	token, err := PollForToken(ConnectorConfig{ClientID: "cid", TokenURL: server.URL}, "dev-code", 1, 30*time.Second)
+	elapsed := time.Since(start)
+
+	if err != nil {
+		t.Fatalf("PollForToken: %v", err)
+	}
+	if token.AccessToken != "tok" {
+		t.Fatalf("unexpected token: %s", token.AccessToken)
+	}
+	if elapsed < 6*time.Second {
+		t.Fatalf("expected at least 6s delay after slow_down (+5), got %v", elapsed)
+	}
+}
+
 func mustEncryptToken(t *testing.T, value, key string) string {
 	t.Helper()
 	encrypted, err := security.EncryptData(value, key)

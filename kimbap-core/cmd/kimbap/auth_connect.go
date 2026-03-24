@@ -121,14 +121,15 @@ func newAuthReconnectCommand() *cobra.Command {
 					_, _ = fmt.Fprintln(os.Stderr, "Token refresh succeeded.")
 					if auditEmitter != nil {
 						auditEmitter.RefreshSucceeded(contextBackground(), providerID, activeTenant)
+						flowUsed := connectors.FlowType("")
+						if refreshedState, _ := mgr.Status(contextBackground(), activeTenant, providerID); refreshedState != nil {
+							flowUsed = refreshedState.FlowUsed
+						}
+						auditEmitter.ReconnectCompleted(contextBackground(), providerID, activeTenant, flowUsed)
 					}
-					refreshedState, _ := mgr.Status(contextBackground(), activeTenant, providerID)
-					prevScopes := []string{}
-					if refreshedState != nil {
-						prevScopes = refreshedState.Scopes
-					}
-					requestedScopes := scopeValues(scopeInput, prevScopes)
 					if !outputAsJSON() {
+						_, _ = fmt.Fprintln(os.Stderr, "Scope changes: none (refresh does not change scopes)")
+						_, _ = fmt.Fprintln(os.Stderr, "Account changes: none")
 						return nil
 					}
 					return printOutput(map[string]any{
@@ -139,7 +140,7 @@ func newAuthReconnectCommand() *cobra.Command {
 						"reconnect_method": "refresh",
 						"message":          "Refresh token path succeeded",
 						"delta": map[string]any{
-							"scope_changes":   scopeDelta(prevScopes, requestedScopes),
+							"scope_changes":   map[string][]string{"added": {}, "removed": {}},
 							"account_changes": "none",
 						},
 					})
@@ -220,7 +221,9 @@ func runAuthConnect(
 	}
 
 	scopes := scopeValues(scopeInput, provider.DefaultScopes)
-	selectedFlow, err := flows.SelectFlow(strings.TrimSpace(flow), provider, scopes)
+	selectedFlow, err := flows.SelectFlow(strings.TrimSpace(flow), provider, []string{
+		"browser=" + strings.ToLower(strings.TrimSpace(browserName)),
+	})
 	if err != nil {
 		return err
 	}
@@ -247,6 +250,9 @@ func runAuthConnect(
 
 	switch selectedFlow {
 	case connectors.FlowDevice:
+		if auditEmitter != nil {
+			auditEmitter.DeviceFlowStarted(ctx, providerID, tenantID)
+		}
 		_, _ = fmt.Fprintf(os.Stderr, "Starting device authorization for %s...\n\n", provider.DisplayName)
 		deviceResult, deviceErr := device.RunDeviceFlow(ctx, device.DeviceFlowConfig{
 			DeviceEndpoint: provider.DeviceEndpoint,
@@ -261,6 +267,9 @@ func runAuthConnect(
 				auditEmitter.ConnectFailed(ctx, providerID, tenantID, selectedFlow, deviceErr.Error())
 			}
 			return deviceErr
+		}
+		if auditEmitter != nil {
+			auditEmitter.DeviceFlowCompleted(ctx, providerID, tenantID)
 		}
 		accessToken = deviceResult.AccessToken
 		refreshToken = deviceResult.RefreshToken
@@ -280,6 +289,37 @@ func runAuthConnect(
 			Timeout:       timeout,
 		}, os.Stderr)
 		if browserErr != nil {
+			normalizedFlow := normalizeFlowInput(flow)
+			if (normalizedFlow == "" || normalizedFlow == "auto") && provider.SupportsDeviceFlow() {
+				if auditEmitter != nil {
+					auditEmitter.ConnectFailed(ctx, providerID, tenantID, connectors.FlowBrowser, browserErr.Error())
+					auditEmitter.DeviceFlowStarted(ctx, providerID, tenantID)
+				}
+				_, _ = fmt.Fprintf(os.Stderr, "Browser flow failed (%v). Falling back to device authorization...\n", browserErr)
+				deviceResult, deviceErr := device.RunDeviceFlow(ctx, device.DeviceFlowConfig{
+					DeviceEndpoint: provider.DeviceEndpoint,
+					TokenEndpoint:  provider.TokenEndpoint,
+					ClientID:       resolveClientID(cfg, providerID),
+					ClientSecret:   resolveClientSecret(cfg, providerID),
+					Scopes:         scopes,
+					Timeout:        timeout,
+				}, os.Stderr)
+				if deviceErr != nil {
+					if auditEmitter != nil {
+						auditEmitter.ConnectFailed(ctx, providerID, tenantID, connectors.FlowDevice, deviceErr.Error())
+					}
+					return deviceErr
+				}
+				if auditEmitter != nil {
+					auditEmitter.DeviceFlowCompleted(ctx, providerID, tenantID)
+				}
+				selectedFlow = connectors.FlowDevice
+				accessToken = deviceResult.AccessToken
+				refreshToken = deviceResult.RefreshToken
+				expiresIn = deviceResult.ExpiresIn
+				grantedScope = deviceResult.Scope
+				break
+			}
 			if auditEmitter != nil {
 				auditEmitter.ConnectFailed(ctx, providerID, tenantID, selectedFlow, browserErr.Error())
 			}
@@ -376,8 +416,10 @@ func runAuthConnect(
 	}
 	_, _ = fmt.Fprintln(os.Stderr, "Refresh: healthy")
 	_, _ = fmt.Fprintln(os.Stderr, "Ready to use with Kimbap actions.")
+	_, _ = fmt.Fprintf(os.Stderr, "Next: kimbap auth status %s\n", provider.ID)
 
 	accountChanges := "none"
+	scopeChanges := scopeDelta(prevScopes, grantedScopes)
 	if reconnectMode {
 		newPrincipal := strings.TrimSpace(connectedPrincipal)
 		if newPrincipal == "" {
@@ -406,10 +448,11 @@ func runAuthConnect(
 		"flow_used":          selectedFlow,
 		"expires_in_seconds": expiresIn,
 		"workspace":          stringOrNil(workspace),
+		"next_action":        fmt.Sprintf("kimbap auth status %s", provider.ID),
 	}
 	if reconnectMode {
 		result["delta"] = map[string]any{
-			"scope_changes":   scopeDelta(prevScopes, grantedScopes),
+			"scope_changes":   scopeChanges,
 			"account_changes": accountChanges,
 		}
 	}
@@ -423,6 +466,12 @@ func runAuthConnect(
 	}
 
 	if !outputAsJSON() {
+		if reconnectMode {
+			if len(scopeChanges["added"]) > 0 || len(scopeChanges["removed"]) > 0 {
+				_, _ = fmt.Fprintf(os.Stderr, "Scope changes: added=%v removed=%v\n", scopeChanges["added"], scopeChanges["removed"])
+			}
+			_, _ = fmt.Fprintf(os.Stderr, "Account changes: %s\n", accountChanges)
+		}
 		return nil
 	}
 	return printOutput(result)

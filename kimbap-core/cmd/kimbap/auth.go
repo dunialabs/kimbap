@@ -304,14 +304,40 @@ var providers = struct {
 var flows = struct {
 	SelectFlow func(string, connectors.ProviderDefinition, []string) (connectors.FlowType, error)
 }{
-	SelectFlow: func(raw string, provider connectors.ProviderDefinition, _ []string) (connectors.FlowType, error) {
-		normalized := strings.ToLower(strings.TrimSpace(raw))
+	SelectFlow: func(raw string, provider connectors.ProviderDefinition, hints []string) (connectors.FlowType, error) {
+		normalized := normalizeFlowInput(raw)
 		requested := connectors.FlowType(normalized)
 		if normalized == "" || normalized == "auto" {
 			requested = ""
 		}
+
+		if requested == "" {
+			for _, hint := range hints {
+				h := strings.ToLower(strings.TrimSpace(hint))
+				if h == "browser=none" {
+					if provider.SupportsDeviceFlow() {
+						return connectors.FlowDevice, nil
+					}
+					if provider.SupportsClientCredentials() {
+						return connectors.FlowClientCredentials, nil
+					}
+					return "", fmt.Errorf("--browser=none specified but provider %q only supports browser flow", provider.ID)
+				}
+			}
+		}
+
 		return (&realFlows.FlowSelector{}).SelectFlow(requested, provider)
 	},
+}
+
+func normalizeFlowInput(raw string) string {
+	normalized := strings.ToLower(strings.TrimSpace(raw))
+	switch normalized {
+	case "client-credentials", "client_credentials":
+		return string(connectors.FlowClientCredentials)
+	default:
+		return normalized
+	}
 }
 
 func initAuthAuditEmitter(cfg *config.KimbapConfig) *connectors.AuditEmitter {
