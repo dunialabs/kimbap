@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 
 	"github.com/dunialabs/kimbap-core/internal/database"
+	"github.com/dunialabs/kimbap-core/internal/types"
 )
 
 type ServerLogger struct {
@@ -33,7 +34,7 @@ func (l *ServerLogger) LogServerCapabilityUpdate(params any) {
 		}
 	}
 	l.service.EnqueueLog(database.Log{
-		Action:        1313,
+		Action:        types.MCPEventLogTypeServerCapabilityUpdate,
 		ServerID:      &serverID,
 		RequestParams: req,
 	})

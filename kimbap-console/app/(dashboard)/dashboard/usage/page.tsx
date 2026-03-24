@@ -302,8 +302,8 @@ export default function UsagePage() {
       {/* Top Tools by Usage */}
       <Card>
         <CardHeader>
-          <CardTitle><Link href={`/dashboard/usage/tool-usage?timeRange=${timeRange}`} className="hover:underline">Top Tools →</Link></CardTitle>
-          <CardDescription>Most used tools</CardDescription>
+            <CardTitle><Link href={`/dashboard/usage/tool-usage?timeRange=${timeRange}`} className="hover:underline">Top Tools →</Link></CardTitle>
+            <CardDescription>Last {timeRangeLabel}</CardDescription>
         </CardHeader>
         <CardContent>
           {loading || !topTools || topTools.length === 0 ? (

@@ -228,14 +228,9 @@ export default function DashboardPage() {
     <div className="space-y-4">
       <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <div className="mb-0">
-            <h1 className="text-[30px] font-bold tracking-tight">Dashboard</h1>
-            <p className="text-[14px] text-foreground">
-              {serverInfo?.proxyName || 'MCP Server'}
-            </p>
-          </div>
-          <p className="text-base text-muted-foreground">
-            Overview of your {serverInfo?.proxyName || 'server'}
+          <h1 className="text-[30px] font-bold tracking-tight">Dashboard</h1>
+          <p className="text-[14px] text-foreground">
+            {serverInfo?.proxyName || 'MCP Server'}
           </p>
         </div>
         <div className="flex items-center gap-2">

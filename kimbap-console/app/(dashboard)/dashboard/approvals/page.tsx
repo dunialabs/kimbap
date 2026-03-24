@@ -410,6 +410,7 @@ export default function ApprovalsPage() {
                 value={userFilter}
                 onChange={(e) => setUserFilter(e.target.value)}
                 className="h-8 w-[160px] text-sm"
+                aria-label="Filter by user"
               />
             </div>
           </div>

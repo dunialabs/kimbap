@@ -314,7 +314,8 @@ func (s *SQLiteStore) GetVersion(ctx context.Context, tenantID string, name stri
 }
 
 func (s *SQLiteStore) MarkUsed(ctx context.Context, tenantID string, name string) error {
-	res, err := s.db.ExecContext(ctx, `UPDATE secrets SET last_used_at = ?, updated_at = ? WHERE tenant_id = ? AND name = ?`, time.Now().UTC(), time.Now().UTC(), tenantID, name)
+	now := time.Now().UTC()
+	res, err := s.db.ExecContext(ctx, `UPDATE secrets SET last_used_at = ?, updated_at = ? WHERE tenant_id = ? AND name = ?`, now, now, tenantID, name)
 	if err != nil {
 		return err
 	}

@@ -53,10 +53,11 @@ const (
 	MCPEventLogTypeReverseRootsResponse    = 1204
 	MCPEventLogTypeReverseElicitRequest    = 1205
 	MCPEventLogTypeReverseElicitResponse   = 1206
-	MCPEventLogTypeSessionInit             = 1301
-	MCPEventLogTypeSessionClose            = 1302
-	MCPEventLogTypeServerInit              = 1310
-	MCPEventLogTypeServerClose             = 1311
+	MCPEventLogTypeSessionInit              = 1301
+	MCPEventLogTypeSessionClose             = 1302
+	MCPEventLogTypeServerInit               = 1310
+	MCPEventLogTypeServerClose              = 1311
+	MCPEventLogTypeServerCapabilityUpdate   = 1313
 
 	MCPEventLogTypeServerNotification = 1314
 

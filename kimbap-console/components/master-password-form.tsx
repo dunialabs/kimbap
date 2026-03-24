@@ -5,7 +5,7 @@ import { useState, useEffect } from 'react'
 import { Button } from '@/components/ui/button'
 import { Label } from '@/components/ui/label'
 import { Alert, AlertDescription } from '@/components/ui/alert'
-import { Eye, EyeOff, Key } from 'lucide-react'
+import { Eye, EyeOff, Lock } from 'lucide-react'
 import { renderErrorMessageWithLinks } from '@/lib/error-utils'
 
 interface MasterPasswordFormProps {
@@ -195,7 +195,7 @@ export function MasterPasswordForm({ onSuccess }: MasterPasswordFormProps) {
             </>
           ) : (
             <>
-              <Key className="w-4 h-4 mr-2" />
+              <Lock className="w-4 h-4 mr-2" />
               Create Password
             </>
           )}
