@@ -230,14 +230,20 @@ func buildEnv(base []string, extra map[string]string, proxyAddr, agentToken stri
 		}
 		envMap["HTTP_PROXY"] = proxyURL
 		envMap["HTTPS_PROXY"] = proxyURL
+		envMap["http_proxy"] = proxyURL
+		envMap["https_proxy"] = proxyURL
 		loopback := "localhost,127.0.0.1,::1"
-		if existing, ok := envMap["NO_PROXY"]; ok && existing != "" {
-			if !strings.Contains(existing, "localhost") {
-				envMap["NO_PROXY"] = existing + "," + loopback
-			}
-		} else {
-			envMap["NO_PROXY"] = loopback
+		existing := envMap["NO_PROXY"]
+		if existing == "" {
+			existing = envMap["no_proxy"]
 		}
+		if existing != "" && !strings.Contains(existing, "localhost") {
+			existing = existing + "," + loopback
+		} else if existing == "" {
+			existing = loopback
+		}
+		envMap["NO_PROXY"] = existing
+		envMap["no_proxy"] = existing
 	}
 	if strings.TrimSpace(agentToken) != "" {
 		envMap["KIMBAP_AGENT_TOKEN"] = strings.TrimSpace(agentToken)

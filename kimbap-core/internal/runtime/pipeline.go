@@ -273,7 +273,7 @@ func (r *Runtime) execute(ctx context.Context, req actions.ExecutionRequest, tra
 		}
 		creds, credErr := r.CredentialResolver.Resolve(ctx, req.TenantID, req.Action.Auth)
 		if credErr != nil {
-			mapped := actions.NewExecutionError(actions.ErrCredentialMissing, credErr.Error(), 401, false, nil)
+			mapped := actions.NewExecutionError(actions.ErrDownstreamUnavailable, credErr.Error(), 502, true, nil)
 			trace.Record("resolve_credentials", "error", mapped.Error())
 			return r.finalizeWithError(ctx, &result, req, mapped, startedAt, policyDecision, approvalRequestID)
 		}

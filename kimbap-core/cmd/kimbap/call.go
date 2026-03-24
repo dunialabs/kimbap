@@ -140,6 +140,13 @@ func isCredentialReady(cfg *config.KimbapConfig, req actions.ExecutionRequest) b
 
 func splitGlobalCallFlags(tokens []string) ([]string, error) {
 	out := make([]string, 0, len(tokens))
+	globalStringFlags := map[string]*string{
+		"--format":    &opts.format,
+		"--config":    &opts.configPath,
+		"--data-dir":  &opts.dataDir,
+		"--log-level": &opts.logLevel,
+		"--mode":      &opts.mode,
+	}
 	for i := 0; i < len(tokens); i++ {
 		tok := strings.TrimSpace(tokens[i])
 		switch {
@@ -168,7 +175,23 @@ func splitGlobalCallFlags(tokens []string) ([]string, error) {
 			opts.trace = value
 			continue
 		default:
-			out = append(out, tokens[i])
+			handled := false
+			if target, ok := globalStringFlags[tok]; ok && i+1 < len(tokens) && !strings.HasPrefix(strings.TrimSpace(tokens[i+1]), "--") {
+				i++
+				*target = strings.TrimSpace(tokens[i])
+				handled = true
+			} else {
+				for prefix, target := range globalStringFlags {
+					if strings.HasPrefix(tok, prefix+"=") {
+						*target = strings.TrimSpace(strings.TrimPrefix(tok, prefix+"="))
+						handled = true
+						break
+					}
+				}
+			}
+			if !handled {
+				out = append(out, tokens[i])
+			}
 		}
 	}
 	return out, nil
