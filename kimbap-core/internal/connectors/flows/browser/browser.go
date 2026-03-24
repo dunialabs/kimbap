@@ -241,6 +241,7 @@ func exchangeAuthorizationCode(ctx context.Context, cfg BrowserFlowConfig, redir
 		return nil, fmt.Errorf("build token request: %w", err)
 	}
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	req.Header.Set("Accept", "application/json")
 
 	client := &http.Client{Timeout: 15 * time.Second}
 	res, err := client.Do(req)

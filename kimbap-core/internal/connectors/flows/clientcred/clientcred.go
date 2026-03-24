@@ -48,6 +48,7 @@ func RunClientCredentialsFlow(ctx context.Context, cfg ClientCredentialsConfig) 
 		return nil, fmt.Errorf("build token request: %w", err)
 	}
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	req.Header.Set("Accept", "application/json")
 
 	res, err := (&http.Client{Timeout: 15 * time.Second}).Do(req)
 	if err != nil {

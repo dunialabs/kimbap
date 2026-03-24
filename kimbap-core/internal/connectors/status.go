@@ -16,10 +16,6 @@ const (
 
 func (s ConnectionStatus) String() string { return string(s) }
 
-func (s ConnectionStatus) IsHealthy() bool {
-	return s == StatusConnected
-}
-
 func (s ConnectionStatus) NeedsAttention() bool {
 	switch s {
 	case StatusDegraded, StatusRefreshFailed, StatusReconnectRequired,
@@ -30,15 +26,7 @@ func (s ConnectionStatus) NeedsAttention() bool {
 	}
 }
 
-func AllConnectionStatuses() []ConnectionStatus {
-	return []ConnectionStatus{
-		StatusNotConnected, StatusConnecting, StatusConnected,
-		StatusDegraded, StatusRefreshFailed, StatusReconnectRequired,
-		StatusRevoked, StatusExpired, StatusError,
-	}
-}
-
-func mapLegacyStatus(legacy ConnectorStatus) ConnectionStatus {
+func MapLegacyStatus(legacy ConnectorStatus) ConnectionStatus {
 	switch legacy {
 	case StatusHealthy:
 		return StatusConnected

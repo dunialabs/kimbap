@@ -49,7 +49,7 @@ func DetectEnvironment() EnvironmentInfo {
 
 	hasDisplay := true
 	if runtime.GOOS == "linux" {
-		hasDisplay = os.Getenv("DISPLAY") != ""
+		hasDisplay = os.Getenv("DISPLAY") != "" || os.Getenv("WAYLAND_DISPLAY") != ""
 	}
 
 	canOpenBrowser := !isSSH && hasTTY && hasDisplay

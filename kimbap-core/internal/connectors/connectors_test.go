@@ -277,6 +277,186 @@ func (s *memConnectorStore) key(tenantID, name string) string {
 	return tenantID + "::" + name
 }
 
+func TestRefreshNoTokenRotation_NoDoubleEncryption(t *testing.T) {
+	ctx := context.Background()
+	store := newMemConnectorStore()
+	manager := NewManager(store)
+	const encKey = "connector-test-key"
+	t.Setenv("KIMBAP_CONNECTOR_ENCRYPTION_KEY", encKey)
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if err := r.ParseForm(); err != nil {
+			t.Fatalf("parse form: %v", err)
+		}
+		if got := r.Form.Get("refresh_token"); got != "original-refresh" {
+			t.Fatalf("expected original refresh token, got: %s", got)
+		}
+		_, _ = w.Write([]byte(`{"access_token":"new-access","expires_in":3600,"token_type":"Bearer"}`))
+	}))
+	defer server.Close()
+
+	manager.RegisterConfig(ConnectorConfig{
+		Name:     "github",
+		Provider: "github",
+		ClientID: "client-id",
+		TokenURL: server.URL,
+	})
+
+	expired := time.Now().Add(-10 * time.Minute)
+	if err := store.Save(ctx, &ConnectorState{
+		Name:         "github",
+		TenantID:     "tenant-1",
+		Provider:     "github",
+		Status:       StatusOldExpired,
+		AccessToken:  mustEncryptToken(t, "old-access", encKey),
+		RefreshToken: mustEncryptToken(t, "original-refresh", encKey),
+		ExpiresAt:    &expired,
+		CreatedAt:    time.Now().Add(-time.Hour),
+		UpdatedAt:    time.Now().Add(-time.Hour),
+	}); err != nil {
+		t.Fatalf("seed store: %v", err)
+	}
+
+	if err := manager.Refresh(ctx, "tenant-1", "github"); err != nil {
+		t.Fatalf("first refresh: %v", err)
+	}
+
+	stored, err := store.Get(ctx, "tenant-1", "github")
+	if err != nil || stored == nil {
+		t.Fatalf("store get after first refresh: %v", err)
+	}
+
+	decryptedRefresh, err := security.DecryptDataFromString(stored.RefreshToken, encKey)
+	if err != nil {
+		t.Fatalf("decrypt refresh token after first refresh: %v", err)
+	}
+	if decryptedRefresh != "original-refresh" {
+		t.Fatalf("refresh token corrupted after first refresh: got %q, want %q", decryptedRefresh, "original-refresh")
+	}
+
+	decryptedAccess, err := security.DecryptDataFromString(stored.AccessToken, encKey)
+	if err != nil {
+		t.Fatalf("decrypt access token after first refresh: %v", err)
+	}
+	if decryptedAccess != "new-access" {
+		t.Fatalf("access token wrong after first refresh: got %q, want %q", decryptedAccess, "new-access")
+	}
+
+	if err := manager.Refresh(ctx, "tenant-1", "github"); err != nil {
+		t.Fatalf("second refresh (proves no double-encryption): %v", err)
+	}
+
+	stored2, _ := store.Get(ctx, "tenant-1", "github")
+	decryptedRefresh2, err := security.DecryptDataFromString(stored2.RefreshToken, encKey)
+	if err != nil {
+		t.Fatalf("decrypt refresh token after second refresh: %v", err)
+	}
+	if decryptedRefresh2 != "original-refresh" {
+		t.Fatalf("refresh token corrupted after second refresh: got %q, want %q", decryptedRefresh2, "original-refresh")
+	}
+}
+
+func TestLoginWithExistingState_NoDoubleEncryption(t *testing.T) {
+	ctx := context.Background()
+	store := newMemConnectorStore()
+	manager := NewManager(store)
+	const encKey = "connector-test-key"
+	t.Setenv("KIMBAP_CONNECTOR_ENCRYPTION_KEY", encKey)
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_, _ = w.Write([]byte(`{"device_code":"dev-1","verification_uri":"https://v.example","user_code":"CODE","expires_in":600,"interval":1}`))
+	}))
+	defer server.Close()
+
+	manager.RegisterConfig(ConnectorConfig{
+		Name:      "github",
+		Provider:  "github",
+		ClientID:  "client-id",
+		DeviceURL: server.URL,
+		TokenURL:  server.URL + "/token",
+	})
+
+	if err := store.Save(ctx, &ConnectorState{
+		Name:         "github",
+		TenantID:     "tenant-1",
+		Provider:     "github",
+		Status:       StatusHealthy,
+		AccessToken:  mustEncryptToken(t, "existing-access", encKey),
+		RefreshToken: mustEncryptToken(t, "existing-refresh", encKey),
+		CreatedAt:    time.Now().Add(-time.Hour),
+		UpdatedAt:    time.Now().Add(-time.Hour),
+	}); err != nil {
+		t.Fatalf("seed store: %v", err)
+	}
+
+	if _, err := manager.Login(ctx, "tenant-1", "github"); err != nil {
+		t.Fatalf("login: %v", err)
+	}
+
+	stored, _ := store.Get(ctx, "tenant-1", "github")
+	if stored == nil {
+		t.Fatal("stored state is nil")
+	}
+
+	decryptedAccess, err := security.DecryptDataFromString(stored.AccessToken, encKey)
+	if err != nil {
+		t.Fatalf("decrypt access token after login: %v (double-encrypted?)", err)
+	}
+	if decryptedAccess != "existing-access" {
+		t.Fatalf("access token corrupted: got %q, want %q", decryptedAccess, "existing-access")
+	}
+
+	decryptedRefresh, err := security.DecryptDataFromString(stored.RefreshToken, encKey)
+	if err != nil {
+		t.Fatalf("decrypt refresh token after login: %v (double-encrypted?)", err)
+	}
+	if decryptedRefresh != "existing-refresh" {
+		t.Fatalf("refresh token corrupted: got %q, want %q", decryptedRefresh, "existing-refresh")
+	}
+}
+
+func TestStoreConnectionOverExisting_NoDoubleEncryption(t *testing.T) {
+	ctx := context.Background()
+	store := newMemConnectorStore()
+	manager := NewManager(store)
+	const encKey = "connector-test-key"
+	t.Setenv("KIMBAP_CONNECTOR_ENCRYPTION_KEY", encKey)
+
+	if err := store.Save(ctx, &ConnectorState{
+		Name:         "notion",
+		TenantID:     "tenant-1",
+		Provider:     "notion",
+		Status:       StatusHealthy,
+		AccessToken:  mustEncryptToken(t, "old-access", encKey),
+		RefreshToken: mustEncryptToken(t, "old-refresh", encKey),
+		CreatedAt:    time.Now().Add(-time.Hour),
+		UpdatedAt:    time.Now().Add(-time.Hour),
+	}); err != nil {
+		t.Fatalf("seed store: %v", err)
+	}
+
+	if err := manager.StoreConnection(ctx, "tenant-1", "notion", "notion", "new-access", "new-refresh", 3600, "read write", FlowBrowser, ScopeWorkspace, "ws-1"); err != nil {
+		t.Fatalf("store connection: %v", err)
+	}
+
+	stored, _ := store.Get(ctx, "tenant-1", "notion")
+	decryptedAccess, err := security.DecryptDataFromString(stored.AccessToken, encKey)
+	if err != nil {
+		t.Fatalf("decrypt access: %v", err)
+	}
+	if decryptedAccess != "new-access" {
+		t.Fatalf("access wrong: got %q, want %q", decryptedAccess, "new-access")
+	}
+
+	decryptedRefresh, err := security.DecryptDataFromString(stored.RefreshToken, encKey)
+	if err != nil {
+		t.Fatalf("decrypt refresh: %v", err)
+	}
+	if decryptedRefresh != "new-refresh" {
+		t.Fatalf("refresh wrong: got %q, want %q", decryptedRefresh, "new-refresh")
+	}
+}
+
 func mustEncryptToken(t *testing.T, value, key string) string {
 	t.Helper()
 	encrypted, err := security.EncryptData(value, key)

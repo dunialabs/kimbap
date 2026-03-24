@@ -157,7 +157,3 @@ func ListProviders() []connectors.ProviderDefinition {
 	}
 	return out
 }
-
-func ProviderIDs() []string {
-	return append([]string(nil), order...)
-}

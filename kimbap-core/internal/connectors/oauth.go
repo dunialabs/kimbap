@@ -70,7 +70,7 @@ func DeviceCodeRequest(cfg ConnectorConfig) (*DeviceFlowResult, error) {
 		UserCode:        decoded.UserCode,
 		ExpiresIn:       decoded.ExpiresIn,
 		Interval:        decoded.Interval,
-		deviceCode:      decoded.DeviceCode,
+		DeviceCode:      decoded.DeviceCode,
 	}, nil
 }
 
@@ -182,6 +182,7 @@ func postForm(endpoint string, form url.Values) ([]byte, error) {
 		return nil, fmt.Errorf("build oauth request: %w", err)
 	}
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	req.Header.Set("Accept", "application/json")
 
 	res, err := oauthHTTPClient.Do(req)
 	if err != nil {

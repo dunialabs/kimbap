@@ -73,26 +73,3 @@ type ConnectorState struct {
 	RevokedAt          *time.Time
 	FlowUsed           FlowType
 }
-
-// ConnectResult is returned to the CLI after a successful connect operation.
-type ConnectResult struct {
-	Provider           string           `json:"provider"`
-	ConnectionScope    ConnectionScope  `json:"connection_scope"`
-	Status             ConnectionStatus `json:"status"`
-	GrantedScopes      []string         `json:"granted_scopes,omitempty"`
-	ConnectedPrincipal string           `json:"connected_principal,omitempty"`
-	ExpiresAt          *time.Time       `json:"expires_at,omitempty"`
-	FlowUsed           FlowType         `json:"flow_used"`
-}
-
-// ConnectOptions configures how a connection attempt should proceed.
-type ConnectOptions struct {
-	Flow            FlowType
-	Scopes          []string
-	Browser         string // "auto", "system", "none"
-	NoOpen          bool
-	Port            int
-	Timeout         time.Duration
-	ConnectionScope ConnectionScope
-	WorkspaceID     string
-}

@@ -5,10 +5,8 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"reflect"
 	"strings"
 	"time"
-	"unsafe"
 
 	"github.com/dunialabs/kimbap-core/internal/connectors"
 )
@@ -56,14 +54,9 @@ func RunDeviceFlow(ctx context.Context, cfg DeviceFlowConfig, output io.Writer) 
 		return nil, err
 	}
 
-	_, _ = fmt.Fprintf(output, "\n=== Device Authentication Required ===\n")
-	_, _ = fmt.Fprintf(output, "Visit: %s\n", deviceResponse.VerificationURL)
-	_, _ = fmt.Fprintf(output, "Enter code: %s\n\n", deviceResponse.UserCode)
-
-	deviceCode, err := extractDeviceCode(deviceResponse)
-	if err != nil {
-		return nil, err
-	}
+	_, _ = fmt.Fprintf(output, "\nOpen this URL in any browser:\n  %s\n\n", deviceResponse.VerificationURL)
+	_, _ = fmt.Fprintf(output, "Enter code:\n  %s\n\n", deviceResponse.UserCode)
+	_, _ = fmt.Fprintf(output, "Waiting for approval... Press Ctrl+C to cancel.\n")
 
 	timeout := cfg.Timeout
 	if timeout <= 0 {
@@ -77,7 +70,7 @@ func RunDeviceFlow(ctx context.Context, cfg DeviceFlowConfig, output io.Writer) 
 	pollCh := make(chan pollResult, 1)
 
 	go func() {
-		token, pollErr := connectors.PollForToken(connectorCfg, deviceCode, deviceResponse.Interval, timeout)
+		token, pollErr := connectors.PollForToken(connectorCfg, deviceResponse.DeviceCode, deviceResponse.Interval, timeout)
 		pollCh <- pollResult{token: token, err: pollErr}
 	}()
 
@@ -95,24 +88,4 @@ func RunDeviceFlow(ctx context.Context, cfg DeviceFlowConfig, output io.Writer) 
 			Scope:        result.token.Scope,
 		}, nil
 	}
-}
-
-func extractDeviceCode(result *connectors.DeviceFlowResult) (string, error) {
-	if result == nil {
-		return "", errors.New("device flow response is nil")
-	}
-
-	value := reflect.ValueOf(result).Elem()
-	field := value.FieldByName("deviceCode")
-	if !field.IsValid() {
-		return "", errors.New("device code not found in response")
-	}
-
-	ptr := unsafe.Pointer(field.UnsafeAddr())
-	deviceCode := reflect.NewAt(field.Type(), ptr).Elem().String()
-	if strings.TrimSpace(deviceCode) == "" {
-		return "", errors.New("device code is empty")
-	}
-
-	return deviceCode, nil
 }

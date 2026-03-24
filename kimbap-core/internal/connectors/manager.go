@@ -36,8 +36,7 @@ type DeviceFlowResult struct {
 	UserCode        string
 	ExpiresIn       int
 	Interval        int
-
-	deviceCode string
+	DeviceCode      string
 }
 
 type refreshResult struct {
@@ -78,7 +77,10 @@ func (m *Manager) Login(ctx context.Context, tenantID, name string) (*DeviceFlow
 	}
 
 	now := time.Now().UTC()
-	state, _ := m.store.Get(ctx, tenantID, name)
+	state, loadErr := m.loadDecryptedState(ctx, tenantID, name)
+	if loadErr != nil {
+		return nil, fmt.Errorf("load existing state: %w", loadErr)
+	}
 	if state == nil {
 		state = &ConnectorState{Name: name, TenantID: tenantID, Provider: cfg.Provider, CreatedAt: now}
 	}
@@ -91,7 +93,7 @@ func (m *Manager) Login(ctx context.Context, tenantID, name string) (*DeviceFlow
 
 	m.mu.Lock()
 	m.pending[m.pendingKey(tenantID, name)] = pendingLogin{
-		deviceCode: result.deviceCode,
+		deviceCode: result.DeviceCode,
 		interval:   result.Interval,
 		expiresAt:  now.Add(time.Duration(result.ExpiresIn) * time.Second),
 	}
@@ -144,9 +146,9 @@ func (m *Manager) CompleteLogin(ctx context.Context, tenantID, name string, code
 		return err
 	}
 
-	state, err := m.store.Get(ctx, tenantID, name)
-	if err != nil {
-		return err
+	state, loadErr := m.loadDecryptedState(ctx, tenantID, name)
+	if loadErr != nil {
+		return fmt.Errorf("load existing state: %w", loadErr)
 	}
 	now := time.Now().UTC()
 	if state == nil {
@@ -154,9 +156,7 @@ func (m *Manager) CompleteLogin(ctx context.Context, tenantID, name string, code
 	}
 	state.Provider = cfg.Provider
 	state.AccessToken = token.AccessToken
-	if token.RefreshToken != "" {
-		state.RefreshToken = token.RefreshToken
-	}
+	state.RefreshToken = token.RefreshToken
 	if token.Scope != "" {
 		state.Scopes = strings.Fields(token.Scope)
 	} else {
@@ -168,6 +168,8 @@ func (m *Manager) CompleteLogin(ctx context.Context, tenantID, name string, code
 	} else {
 		state.ExpiresAt = nil
 	}
+	state.LastRefreshError = ""
+	state.RevokedAt = nil
 	state.Status = deriveStatus(state)
 	state.UpdatedAt = now
 	if err := m.saveState(ctx, state); err != nil {
@@ -187,7 +189,7 @@ func (m *Manager) Refresh(ctx context.Context, tenantID, name string) error {
 		return err
 	}
 
-	state, err := m.store.Get(ctx, tenantID, name)
+	state, err := m.loadDecryptedState(ctx, tenantID, name)
 	if err != nil {
 		return err
 	}
@@ -195,24 +197,28 @@ func (m *Manager) Refresh(ctx context.Context, tenantID, name string) error {
 		return errors.New("connector state not found")
 	}
 
-	refreshToken, err := m.decryptToken(state.RefreshToken)
-	if err != nil {
-		return fmt.Errorf("decrypt refresh token: %w", err)
-	}
-	if strings.TrimSpace(refreshToken) == "" {
+	if strings.TrimSpace(state.RefreshToken) == "" {
+		now := time.Now().UTC()
 		state.Status = StatusReauthNeeded
-		state.UpdatedAt = time.Now().UTC()
-		if saveErr := m.store.Save(ctx, state); saveErr != nil {
-			return saveErr
+		state.LastRefreshError = "refresh token is missing"
+		state.LastRefresh = &now
+		state.UpdatedAt = now
+		if saveErr := m.saveState(ctx, state); saveErr != nil {
+			return fmt.Errorf("refresh token is missing (also failed to persist status: %w)", saveErr)
 		}
 		return errors.New("refresh token is missing")
 	}
 
-	token, err := RefreshAccessToken(cfg, refreshToken)
+	token, err := RefreshAccessToken(cfg, state.RefreshToken)
 	if err != nil {
+		now := time.Now().UTC()
 		state.Status = StatusReauthNeeded
-		state.UpdatedAt = time.Now().UTC()
-		_ = m.store.Save(ctx, state)
+		state.LastRefreshError = err.Error()
+		state.LastRefresh = &now
+		state.UpdatedAt = now
+		if saveErr := m.saveState(ctx, state); saveErr != nil {
+			return fmt.Errorf("%w (also failed to persist status: %v)", err, saveErr)
+		}
 		return err
 	}
 
@@ -233,6 +239,7 @@ func (m *Manager) Refresh(ctx context.Context, tenantID, name string) error {
 	state.Status = deriveStatus(state)
 	state.UpdatedAt = now
 	state.LastRefresh = &now
+	state.LastRefreshError = ""
 
 	return m.saveState(ctx, state)
 }
@@ -335,6 +342,27 @@ func (m *Manager) Status(ctx context.Context, tenantID, name string) (*Connector
 	return &copyState, nil
 }
 
+func (m *Manager) loadDecryptedState(ctx context.Context, tenantID, name string) (*ConnectorState, error) {
+	state, err := m.store.Get(ctx, tenantID, name)
+	if err != nil {
+		return nil, err
+	}
+	if state == nil {
+		return nil, nil
+	}
+	decAccess, err := m.decryptToken(state.AccessToken)
+	if err != nil {
+		return nil, fmt.Errorf("decrypt access token: %w", err)
+	}
+	decRefresh, err := m.decryptToken(state.RefreshToken)
+	if err != nil {
+		return nil, fmt.Errorf("decrypt refresh token: %w", err)
+	}
+	state.AccessToken = decAccess
+	state.RefreshToken = decRefresh
+	return state, nil
+}
+
 func (m *Manager) configFor(name string) (ConnectorConfig, error) {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
@@ -395,7 +423,13 @@ func deriveStatus(state *ConnectorState) ConnectorStatus {
 	if state == nil {
 		return StatusPending
 	}
+	if state.RevokedAt != nil {
+		return StatusReauthNeeded
+	}
 	if state.Status == StatusReauthNeeded {
+		return StatusReauthNeeded
+	}
+	if strings.TrimSpace(state.LastRefreshError) != "" && state.LastRefresh != nil {
 		return StatusReauthNeeded
 	}
 	if strings.TrimSpace(state.AccessToken) == "" {
@@ -413,6 +447,98 @@ func deriveStatus(state *ConnectorState) ConnectorStatus {
 		return StatusExpiring
 	}
 	return StatusHealthy
+}
+
+func DeriveConnectionStatus(state *ConnectorState) ConnectionStatus {
+	if state == nil {
+		return StatusNotConnected
+	}
+	if state.RevokedAt != nil {
+		return StatusRevoked
+	}
+	if strings.TrimSpace(state.LastRefreshError) != "" && state.LastRefresh != nil {
+		return StatusRefreshFailed
+	}
+	if state.Status == StatusReauthNeeded {
+		return StatusReconnectRequired
+	}
+	if strings.TrimSpace(state.AccessToken) == "" {
+		return StatusConnecting
+	}
+	if state.ExpiresAt == nil {
+		return StatusConnected
+	}
+
+	now := time.Now().UTC()
+	if now.After(*state.ExpiresAt) {
+		return StatusExpired
+	}
+	if now.Add(5 * time.Minute).After(*state.ExpiresAt) {
+		return StatusDegraded
+	}
+	return StatusConnected
+}
+
+func (m *Manager) Revoke(ctx context.Context, tenantID, name string) error {
+	state, err := m.store.Get(ctx, tenantID, name)
+	if err != nil {
+		return err
+	}
+	if state == nil {
+		return errors.New("connector state not found")
+	}
+
+	now := time.Now().UTC()
+	state.Status = StatusReauthNeeded
+	state.AccessToken = ""
+	state.RefreshToken = ""
+	state.RevokedAt = &now
+	state.UpdatedAt = now
+
+	return m.store.Save(ctx, state)
+}
+
+func (m *Manager) Delete(ctx context.Context, tenantID, name string) error {
+	return m.store.Delete(ctx, tenantID, name)
+}
+
+func (m *Manager) StoreConnection(ctx context.Context, tenantID, name, provider string, accessToken, refreshToken string, expiresIn int, scope string, flowUsed FlowType, connScope ConnectionScope, workspaceID string) error {
+	now := time.Now().UTC()
+
+	state, loadErr := m.loadDecryptedState(ctx, tenantID, name)
+	if loadErr != nil {
+		return fmt.Errorf("load existing state: %w", loadErr)
+	}
+	if state == nil {
+		state = &ConnectorState{
+			Name:      name,
+			TenantID:  tenantID,
+			Provider:  provider,
+			CreatedAt: now,
+		}
+	}
+
+	state.Provider = provider
+	state.AccessToken = accessToken
+	state.RefreshToken = refreshToken
+	if scope != "" {
+		state.Scopes = strings.Fields(scope)
+	}
+	if expiresIn > 0 {
+		expiresAt := now.Add(time.Duration(expiresIn) * time.Second)
+		state.ExpiresAt = &expiresAt
+	} else {
+		state.ExpiresAt = nil
+	}
+	state.LastRefreshError = ""
+	state.RevokedAt = nil
+	state.Status = deriveStatus(state)
+	state.UpdatedAt = now
+	state.FlowUsed = flowUsed
+	state.ConnectionScope = connScope
+	state.WorkspaceID = workspaceID
+
+	return m.saveState(ctx, state)
 }
 
 func (m *Manager) pendingKey(tenantID, name string) string {
