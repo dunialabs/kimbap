@@ -13,6 +13,7 @@ import (
 
 func newAuthListCommand() *cobra.Command {
 	var tenant string
+	var workspace string
 	cmd := &cobra.Command{
 		Use:   "list",
 		Short: "List OAuth connection states",
@@ -49,8 +50,9 @@ func newAuthListCommand() *cobra.Command {
 				return fmt.Errorf("OAuth state store unavailable: %w", listErr)
 			}
 
-			items := make([]map[string]any, 0, len(states))
-			for _, state := range states {
+			filtered := filterStatesByWorkspace(states, workspace)
+			items := make([]map[string]any, 0, len(filtered))
+			for _, state := range filtered {
 				items = append(items, authListItem(state))
 			}
 
@@ -62,6 +64,11 @@ func newAuthListCommand() *cobra.Command {
 				_, _ = fmt.Fprintf(os.Stdout, "OAuth Connections (%d):\n\n", len(items))
 				for _, item := range items {
 					provider, _ := item["provider"].(string)
+					connectionID, _ := item["connection_id"].(string)
+					display := provider
+					if connectionID != "" && connectionID != provider {
+						display = fmt.Sprintf("%s (%s)", provider, connectionID)
+					}
 					status, _ := item["status_detail"].(connectors.ConnectionStatus)
 					scopeLevel, _ := item["connection_scope"].(string)
 					refreshHealth, _ := item["refresh_health"].(string)
@@ -69,7 +76,7 @@ func newAuthListCommand() *cobra.Command {
 					if principal == "" {
 						principal = "-"
 					}
-					_, _ = fmt.Fprintf(os.Stdout, "  %-15s  status=%-20s  scope=%-10s  refresh=%-12s  principal=%s\n", provider, status, scopeLevel, refreshHealth, principal)
+					_, _ = fmt.Fprintf(os.Stdout, "  %-15s  status=%-20s  scope=%-10s  refresh=%-12s  principal=%s\n", display, status, scopeLevel, refreshHealth, principal)
 				}
 				return nil
 			}
@@ -84,11 +91,14 @@ func newAuthListCommand() *cobra.Command {
 		},
 	}
 	cmd.Flags().StringVar(&tenant, "tenant", "", "tenant id")
+	cmd.Flags().StringVar(&workspace, "workspace", "", "workspace id filter (applies to workspace-scoped connections)")
 	return cmd
 }
 
 func newAuthStatusCommand() *cobra.Command {
 	var tenant string
+	var profile string
+	var workspace string
 	cmd := &cobra.Command{
 		Use:   "status [provider]",
 		Short: "Show OAuth status details",
@@ -128,8 +138,9 @@ func newAuthStatusCommand() *cobra.Command {
 					return fmt.Errorf("OAuth state store unavailable: %w", listErr)
 				}
 
-				items := make([]map[string]any, 0, len(states))
-				for _, state := range states {
+				filtered := filterStatesByWorkspace(states, workspace)
+				items := make([]map[string]any, 0, len(filtered))
+				for _, state := range filtered {
 					items = append(items, authStatusItem(state))
 				}
 
@@ -140,6 +151,11 @@ func newAuthStatusCommand() *cobra.Command {
 					}
 					for _, item := range items {
 						provider, _ := item["provider"].(string)
+						connectionID, _ := item["connection_id"].(string)
+						display := provider
+						if connectionID != "" && connectionID != provider {
+							display = fmt.Sprintf("%s (%s)", provider, connectionID)
+						}
 						status, _ := item["status_detail"].(connectors.ConnectionStatus)
 						scopeLevel, _ := item["connection_scope"].(string)
 						principal, _ := item["connected_principal"].(string)
@@ -147,7 +163,7 @@ func newAuthStatusCommand() *cobra.Command {
 						if principal == "" {
 							principal = "-"
 						}
-						_, _ = fmt.Fprintf(os.Stdout, "%-15s  status=%-20s  scope=%-10s  refresh=%-12s  principal=%s\n", provider, status, scopeLevel, refreshHealth, principal)
+						_, _ = fmt.Fprintf(os.Stdout, "%-15s  status=%-20s  scope=%-10s  refresh=%-12s  principal=%s\n", display, status, scopeLevel, refreshHealth, principal)
 					}
 					return nil
 				}
@@ -168,8 +184,9 @@ func newAuthStatusCommand() *cobra.Command {
 			if p, pErr := providers.GetProvider(providerID); pErr == nil {
 				providerID = p.ID
 			}
+			storeName := connectorStoreName(providerID, profile)
 
-			state, statusErr := mgr.Status(contextBackground(), activeTenant, providerID)
+			state, statusErr := mgr.Status(contextBackground(), activeTenant, storeName)
 			if statusErr != nil {
 				if errors.Is(statusErr, connectors.ErrConnectorNotFound) {
 					msg := fmt.Sprintf("No connection found for %q. Run: kimbap auth connect %s", providerID, providerID)
@@ -199,12 +216,34 @@ func newAuthStatusCommand() *cobra.Command {
 			}
 
 			cs := statusFromSanitizedState(state)
+			if strings.TrimSpace(workspace) != "" {
+				ws := strings.TrimSpace(workspace)
+				if state.ConnectionScope != connectors.ScopeWorkspace || strings.TrimSpace(state.WorkspaceID) != ws {
+					msg := fmt.Sprintf("No workspace-scoped connection found for %q in workspace %q.", providerID, workspace)
+					if !outputAsJSON() {
+						_, _ = fmt.Fprintln(os.Stdout, msg)
+						return fmt.Errorf("workspace-scoped connection mismatch for %q", providerID)
+					}
+					_ = printOutput(map[string]any{
+						"status":    "not_connected",
+						"operation": "auth.status",
+						"tenant_id": activeTenant,
+						"provider":  providerID,
+						"workspace": workspace,
+						"message":   msg,
+					})
+					return fmt.Errorf("workspace-scoped connection mismatch for %q", providerID)
+				}
+			}
 			scopeLevel := string(state.ConnectionScope)
 			if scopeLevel == "" {
 				scopeLevel = string(connectors.ScopeUser)
 			}
 			if !outputAsJSON() {
 				_, _ = fmt.Fprintf(os.Stdout, "Provider:            %s\n", state.Provider)
+				if storeName != state.Provider {
+					_, _ = fmt.Fprintf(os.Stdout, "Connection id:       %s\n", storeName)
+				}
 				_, _ = fmt.Fprintf(os.Stdout, "Connection scope:    %s\n", scopeLevel)
 				if state.ConnectedPrincipal != "" {
 					_, _ = fmt.Fprintf(os.Stdout, "Connected as:        %s\n", state.ConnectedPrincipal)
@@ -240,7 +279,26 @@ func newAuthStatusCommand() *cobra.Command {
 		},
 	}
 	cmd.Flags().StringVar(&tenant, "tenant", "", "tenant id")
+	cmd.Flags().StringVar(&profile, "profile", "default", "connection profile name for multiple accounts per provider")
+	cmd.Flags().StringVar(&workspace, "workspace", "", "workspace id filter (applies to workspace-scoped connections)")
 	return cmd
+}
+
+func filterStatesByWorkspace(states []connectors.ConnectorState, workspace string) []connectors.ConnectorState {
+	ws := strings.TrimSpace(workspace)
+	if ws == "" {
+		return states
+	}
+	filtered := make([]connectors.ConnectorState, 0, len(states))
+	for _, state := range states {
+		if state.ConnectionScope != connectors.ScopeWorkspace {
+			continue
+		}
+		if strings.TrimSpace(state.WorkspaceID) == ws {
+			filtered = append(filtered, state)
+		}
+	}
+	return filtered
 }
 
 func authScopeLevel(state connectors.ConnectorState) string {

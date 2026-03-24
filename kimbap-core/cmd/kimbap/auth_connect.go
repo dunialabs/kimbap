@@ -125,6 +125,9 @@ func newAuthReconnectCommand() *cobra.Command {
 					}
 					return fmt.Errorf("provider %q has unresolved endpoint placeholders: %s\nUse --extra key=value to provide them (e.g. --extra %s=<value>)", providerID, strings.Join(missing, ", "), missing[0])
 				}
+				if err := validateProviderEndpoints(provider); err != nil {
+					return fmt.Errorf("provider %q endpoint validation failed: %w", providerID, err)
+				}
 				mgr.RegisterConfig(connectors.ConnectorConfig{
 					Name:         storeName,
 					Provider:     providerID,
@@ -269,6 +272,14 @@ func runAuthConnect(
 	if err != nil {
 		return err
 	}
+	workspace = strings.TrimSpace(workspace)
+	if connScope == connectors.ScopeWorkspace {
+		if workspace == "" {
+			return fmt.Errorf("workspace connection scope requires --workspace")
+		}
+	} else {
+		workspace = ""
+	}
 	if timeout <= 0 {
 		timeout = 5 * time.Minute
 	}
@@ -295,6 +306,14 @@ func runAuthConnect(
 	mgr := connectors.NewManager(store)
 	prevScopes := []string{}
 	existingPrincipal := ""
+	if existing, _ := store.Get(ctx, tenantID, storeName); existing != nil {
+		if connScope == connectors.ScopeWorkspace && existing.ConnectionScope == connectors.ScopeWorkspace {
+			existingWorkspace := strings.TrimSpace(existing.WorkspaceID)
+			if existingWorkspace != "" && workspace != "" && existingWorkspace != workspace {
+				return fmt.Errorf("workspace-scoped connection %q already bound to workspace %q; use a different --profile or revoke first", storeName, existingWorkspace)
+			}
+		}
+	}
 	if reconnectMode {
 		if prev, _ := store.Get(ctx, tenantID, storeName); prev != nil {
 			prevScopes = append(prevScopes, prev.Scopes...)
