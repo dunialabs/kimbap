@@ -55,8 +55,8 @@ export default function WelcomePage() {
         <div className="flex-1 flex bg-white dark:bg-slate-900 rounded-[12px]">
           <div className="w-full flex flex-col">
             <div className="p-[14px]">
-              <img src="/new_logo.svg" alt="Kimbap Logo" className="block dark:hidden" />
-              <img src="/darklogo.svg" alt="Kimbap Logo" className="hidden dark:block" />
+              <img src="/new_logo.svg" alt="Kimbap Logo" width={226} height={32} className="block dark:hidden" />
+              <img src="/darklogo.svg" alt="Kimbap Logo" width={226} height={32} className="hidden dark:block" />
             </div>
             <div className="flex-1 flex flex-col justify-center items-center">
               <LoginForm

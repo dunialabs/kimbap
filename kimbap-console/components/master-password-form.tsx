@@ -172,7 +172,7 @@ export function MasterPasswordForm({ onSuccess }: MasterPasswordFormProps) {
 
         {/* Error Message */}
         {error && (
-           <Alert className="border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-950/20">
+           <Alert className="border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-950/20" role="alert">
             <AlertDescription className="text-sm text-red-800 dark:text-red-200">
               {renderErrorMessageWithLinks(error)}
             </AlertDescription>

@@ -35,7 +35,7 @@ export function AuthLayout({ children }: AuthLayoutProps) {
         <div className="w-full flex flex-col">
           {/* Logo */}
           <div className="p-[14px]">
-            <img src="/consoleLogo.svg" alt="Kimbap Logo" />
+            <img src="/consoleLogo.svg" alt="Kimbap Logo" width={239} height={34} />
           </div>
 
           {/* Content */}

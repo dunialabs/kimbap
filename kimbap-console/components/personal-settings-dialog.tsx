@@ -45,7 +45,7 @@ export function PersonalSettingsDialog({ children }: PersonalSettingsDialogProps
   const [oldMasterPassword, setOldMasterPassword] = useState("")
   const [newMasterPassword, setNewMasterPassword] = useState("")
   const [masterPasswordError, setMasterPasswordError] = useState("")
-  const [isLoggingOut, setIsLoggingOut] = useState(false)
+
   const [showClearDataDialog, setShowClearDataDialog] = useState(false)
   const [showMasterPasswordDialog, setShowMasterPasswordDialog] = useState(false)
   const [showLoginDialog, setShowLoginDialog] = useState(false)
@@ -120,16 +120,9 @@ export function PersonalSettingsDialog({ children }: PersonalSettingsDialogProps
     setShowLoginDialog(false)
   }
 
-  const handleLogout = async () => {
-    setIsLoggingOut(true)
-
-    // Simulate logout process
-    await new Promise(resolve => setTimeout(resolve, 1000))
-
-    // Clear login state but keep master password
+  const handleLogout = () => {
     localStorage.setItem("clientManagementAuth", "guest")
     setIsLoggedIn(false)
-    setIsLoggingOut(false)
   }
 
   const handleClearLocalData = () => {
@@ -193,22 +186,12 @@ export function PersonalSettingsDialog({ children }: PersonalSettingsDialogProps
               ) : (
                 <Button
                   onClick={handleLogout}
-                  disabled={isLoggingOut}
                   variant="outline"
                   size="sm"
                   className="w-full text-xs"
                 >
-                  {isLoggingOut ? (
-                    <>
-                      <div className="w-3 h-3 border-2 border-slate-600 border-t-transparent rounded-full animate-spin mr-2" />
-                      Logging out...
-                    </>
-                  ) : (
-                    <>
-                      <LogOut className="w-3 h-3 mr-2" />
-                      Logout
-                    </>
-                  )}
+                  <LogOut className="w-3 h-3 mr-2" />
+                  Logout
                 </Button>
               )}
             </CardContent>

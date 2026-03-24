@@ -266,7 +266,7 @@ export function LoginForm({
         )}
 
         {loginError && loginMode === 'password' && (
-           <Alert className="border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-950/20">
+          <Alert className="border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-950/20" role="alert">
             <AlertDescription className="text-sm text-red-800 dark:text-red-200">
               {renderErrorMessageWithLinks(loginError)}
             </AlertDescription>
@@ -274,7 +274,7 @@ export function LoginForm({
         )}
 
         {tokenError && loginMode === 'token' && (
-           <Alert className="border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-950/20">
+           <Alert className="border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-950/20" role="alert">
             <AlertDescription className="text-sm text-red-800 dark:text-red-200">
               {tokenError === 'member_link' ? (
                 <>

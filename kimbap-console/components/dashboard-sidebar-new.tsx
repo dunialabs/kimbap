@@ -56,8 +56,8 @@ export function DashboardSidebar() {
           <SheetContent side="left" className="flex flex-col p-0 w-[280px]">
             <SheetTitle className="sr-only">Navigation Menu</SheetTitle>
             <div className="flex h-14 items-center border-b px-4">
-              <img src="/new_logo.svg" width={237} alt="Kimbap Logo" className="block dark:hidden" />
-              <img src="/darklogo.svg" width={237} alt="Kimbap Logo" className="hidden dark:block" />
+              <img src="/new_logo.svg" width={237} height={34} alt="Kimbap Logo" className="block dark:hidden" />
+              <img src="/darklogo.svg" width={237} height={34} alt="Kimbap Logo" className="hidden dark:block" />
             </div>
             <div className="flex-1 overflow-y-auto py-2">
               <SidebarNav onNavigate={() => setMobileMenuOpen(false)} pendingApprovalCount={pendingApprovalCount} />
@@ -75,8 +75,8 @@ export function DashboardSidebar() {
           </SheetContent>
         </Sheet>
         <div className="ml-3">
-          <img src="/new_logo.svg" width={160} alt="Kimbap Logo" className="block dark:hidden" />
-          <img src="/darklogo.svg" width={160} alt="Kimbap Logo" className="hidden dark:block" />
+          <img src="/new_logo.svg" width={160} height={23} alt="Kimbap Logo" className="block dark:hidden" />
+          <img src="/darklogo.svg" width={160} height={23} alt="Kimbap Logo" className="hidden dark:block" />
         </div>
       </div>
 
@@ -85,8 +85,8 @@ export function DashboardSidebar() {
         <div className="flex h-full max-h-screen flex-col gap-2">
           <div className="flex h-14 items-center border-b px-4 lg:h-[60px] lg:px-6">
             <div className="flex items-center gap-2 font-semibold flex-1">
-              <img src="/new_logo.svg" width={237} alt="Kimbap Logo" className="block dark:hidden" />
-              <img src="/darklogo.svg" width={237} alt="Kimbap Logo" className="hidden dark:block" />
+              <img src="/new_logo.svg" width={237} height={34} alt="Kimbap Logo" className="block dark:hidden" />
+              <img src="/darklogo.svg" width={237} height={34} alt="Kimbap Logo" className="hidden dark:block" />
             </div>
           </div>
           <div className="flex-1">

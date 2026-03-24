@@ -4,11 +4,11 @@ import {
   Server,
   CheckCircle,
   Shield,
-  FileText,
-  Eye,
+  Activity,
   Globe,
   MapPin,
-  Users
+  Users,
+  TrendingUp
 } from 'lucide-react'
 import Link from 'next/link'
 import { useEffect, useState } from 'react'
@@ -288,7 +288,7 @@ export default function DashboardPage() {
             className="block rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2"
           >
             <Card className="w-full flex items-center gap-1 justify-center h-[44px] cursor-pointer hover:bg-muted/50 transition-colors">
-              <Eye className="h-4 w-4" />
+              <TrendingUp className="h-4 w-4" />
               <div className="action-content">View Usage</div>
             </Card>
           </Link>
@@ -297,7 +297,7 @@ export default function DashboardPage() {
             className="block rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2"
           >
             <Card className="w-full flex items-center gap-1 justify-center h-[44px] cursor-pointer hover:bg-muted/50 transition-colors">
-              <FileText className="h-4 w-4" />
+              <Activity className="h-4 w-4" />
               <div className="action-content">View Logs</div>
             </Card>
           </Link>
@@ -571,7 +571,7 @@ export default function DashboardPage() {
         <DialogContent id="connected-clients-dialog" className="max-w-4xl max-h-[80vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
-              <Globe className="h-5 w-5" />
+              <Users className="h-5 w-5" />
               Recent Clients (24h) ({connectedClients.length})
             </DialogTitle>
             <DialogDescription>
