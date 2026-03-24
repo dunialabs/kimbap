@@ -172,15 +172,18 @@ func (r *Runtime) ResumeApproved(ctx context.Context, approvalRequestID string) 
 	}
 
 	held, err := r.HeldExecutionStore.Resume(ctx, approvalRequestID)
-	if err != nil || held == nil {
-		msg := "held execution not found"
-		if err != nil {
-			msg = err.Error()
+	if err != nil {
+		return actions.ExecutionResult{
+			Status:     actions.StatusError,
+			HTTPStatus: 500,
+			Error:      actions.NewExecutionError(actions.ErrDownstreamUnavailable, "held execution unavailable", 500, true, nil),
 		}
+	}
+	if held == nil {
 		return actions.ExecutionResult{
 			Status:     actions.StatusError,
 			HTTPStatus: 404,
-			Error:      actions.NewExecutionError(actions.ErrActionNotFound, msg, 404, false, nil),
+			Error:      actions.NewExecutionError(actions.ErrActionNotFound, "held execution not found", 404, false, nil),
 		}
 	}
 
@@ -506,12 +509,11 @@ func (r *Runtime) resolveAction(ctx context.Context, req actions.ExecutionReques
 		return actions.ActionDefinition{}, actions.NewExecutionError(actions.ErrActionNotFound, "action registry unavailable", 500, false, nil)
 	}
 	resolved, err := r.ActionRegistry.Lookup(ctx, req.Classification.ActionName)
-	if err != nil || resolved == nil {
-		message := "action not found"
-		if err != nil {
-			message = err.Error()
-		}
-		return actions.ActionDefinition{}, actions.NewExecutionError(actions.ErrActionNotFound, message, 404, false, map[string]any{"action": req.Classification.ActionName})
+	if err != nil {
+		return actions.ActionDefinition{}, actions.NewExecutionError(actions.ErrDownstreamUnavailable, "action resolution failed", 500, true, map[string]any{"action": req.Classification.ActionName})
+	}
+	if resolved == nil {
+		return actions.ActionDefinition{}, actions.NewExecutionError(actions.ErrActionNotFound, "action not found", 404, false, map[string]any{"action": req.Classification.ActionName})
 	}
 	return *resolved, nil
 }

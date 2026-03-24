@@ -128,6 +128,9 @@ func walkValue(path string, value any, stringFn func(path string, value string) 
 		return stringFn(path, typed)
 	case map[string]any:
 		for key, child := range typed {
+			if err := stringFn(path+"."+key+"(key)", key); err != nil {
+				return err
+			}
 			if err := walkValue(path+"."+key, child, stringFn); err != nil {
 				return err
 			}
@@ -170,7 +173,11 @@ func walkValue(path string, value any, stringFn func(path string, value string) 
 			if key.Kind() != reflect.String {
 				continue
 			}
-			if err := walkValue(path+"."+key.String(), iter.Value().Interface(), stringFn); err != nil {
+			keyStr := key.String()
+			if err := stringFn(path+"."+keyStr+"(key)", keyStr); err != nil {
+				return err
+			}
+			if err := walkValue(path+"."+keyStr, iter.Value().Interface(), stringFn); err != nil {
 				return err
 			}
 		}

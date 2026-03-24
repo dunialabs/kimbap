@@ -6,7 +6,6 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/dunialabs/kimbap-core/internal/approvals"
 	"github.com/dunialabs/kimbap-core/internal/auth"
 	"github.com/dunialabs/kimbap-core/internal/runtime"
 	"github.com/dunialabs/kimbap-core/internal/store"
@@ -22,7 +21,6 @@ type Server struct {
 	httpServer        *http.Server
 	tokenService      *auth.TokenService
 	runtime           *runtime.Runtime
-	approvalManager   *approvals.ApprovalManager
 	webhookDispatcher *webhooks.Dispatcher
 	skipConsole       bool
 }
@@ -68,7 +66,6 @@ func NewServer(addr string, st store.Store, opts ...ServerOption) *Server {
 	}
 	if st != nil {
 		s.tokenService = auth.NewTokenService(&storeTokenAdapter{st: st})
-		s.approvalManager = approvals.NewApprovalManager(&storeApprovalAdapter{st: st}, nil, 10*time.Minute)
 	}
 	for _, opt := range opts {
 		if opt != nil {

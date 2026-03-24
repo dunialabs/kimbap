@@ -109,6 +109,23 @@ func TestSanitizeInputWithOptionsRespectsCustomSizeLimits(t *testing.T) {
 	assertValidationError(t, err)
 }
 
+func TestSanitizeInputRejectsMaliciousMapKeys(t *testing.T) {
+	tests := []struct {
+		name string
+		key  string
+	}{
+		{"path traversal key", "../../etc/passwd"},
+		{"control char key", "field\x00name"},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			input := map[string]any{tc.key: "safe-value"}
+			err := SanitizeInput(input)
+			assertValidationError(t, err)
+		})
+	}
+}
+
 func assertValidationError(t *testing.T, err error) {
 	t.Helper()
 	if err == nil {

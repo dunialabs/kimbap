@@ -1,6 +1,7 @@
 package api
 
 import (
+	"bytes"
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
@@ -470,12 +471,13 @@ func (s *Server) handleQueryAudit(w http.ResponseWriter, r *http.Request) {
 func (s *Server) handleExportAudit(w http.ResponseWriter, r *http.Request) {
 	tenantID := tenantFromContext(r.Context())
 	format := strings.TrimSpace(r.URL.Query().Get("format"))
+	var contentType string
 	switch strings.ToLower(format) {
 	case "", "json", "jsonl", "ndjson":
-		w.Header().Set("Content-Type", "application/x-ndjson")
+		contentType = "application/x-ndjson"
 		format = "jsonl"
 	case "csv":
-		w.Header().Set("Content-Type", "text/csv")
+		contentType = "text/csv"
 	default:
 		writeEnvelopeError(w, r, actions.NewExecutionError(
 			actions.ErrValidationFailed,
@@ -484,12 +486,15 @@ func (s *Server) handleExportAudit(w http.ResponseWriter, r *http.Request) {
 		))
 		return
 	}
-	err := s.store.ExportAuditEvents(r.Context(), store.AuditFilter{TenantID: tenantID}, format, w)
+	var buf bytes.Buffer
+	err := s.store.ExportAuditEvents(r.Context(), store.AuditFilter{TenantID: tenantID}, format, &buf)
 	if err != nil {
-		w.Header().Set("Content-Type", "application/json")
 		writeEnvelopeError(w, r, actions.NewExecutionError(actions.ErrDownstreamUnavailable, "internal server error", http.StatusInternalServerError, false, nil))
 		return
 	}
+	w.Header().Set("Content-Type", contentType)
+	w.WriteHeader(http.StatusOK)
+	_, _ = io.Copy(w, &buf)
 }
 
 const maxAPIRequestBodyBytes int64 = 4 << 20
@@ -536,138 +541,6 @@ func parseRFC3339Ptr(v string) (*time.Time, error) {
 
 type storeTokenAdapter struct {
 	st store.Store
-}
-
-type storeApprovalAdapter struct {
-	st store.Store
-}
-
-func (a *storeApprovalAdapter) Create(ctx context.Context, req *approvals.ApprovalRequest) error {
-	if req == nil {
-		return errors.New("approval request is required")
-	}
-	inputJSON := "{}"
-	if len(req.Input) > 0 {
-		b, err := json.Marshal(req.Input)
-		if err != nil {
-			return err
-		}
-		inputJSON = string(b)
-	}
-	return a.st.CreateApproval(ctx, &store.ApprovalRecord{
-		ID:         req.ID,
-		TenantID:   req.TenantID,
-		RequestID:  req.RequestID,
-		AgentName:  req.AgentName,
-		Service:    req.Service,
-		Action:     req.Action,
-		Status:     string(req.Status),
-		InputJSON:  inputJSON,
-		CreatedAt:  req.CreatedAt,
-		ExpiresAt:  req.ExpiresAt,
-		ResolvedAt: req.ResolvedAt,
-		ResolvedBy: req.ResolvedBy,
-		Reason:     req.DenyReason,
-	})
-}
-
-func (a *storeApprovalAdapter) Get(ctx context.Context, id string) (*approvals.ApprovalRequest, error) {
-	rec, err := a.st.GetApproval(ctx, id)
-	if err != nil {
-		return nil, err
-	}
-	out := &approvals.ApprovalRequest{
-		ID:         rec.ID,
-		TenantID:   rec.TenantID,
-		RequestID:  rec.RequestID,
-		AgentName:  rec.AgentName,
-		Service:    rec.Service,
-		Action:     rec.Action,
-		Status:     approvals.ApprovalStatus(rec.Status),
-		CreatedAt:  rec.CreatedAt,
-		ExpiresAt:  rec.ExpiresAt,
-		ResolvedAt: rec.ResolvedAt,
-		ResolvedBy: rec.ResolvedBy,
-		DenyReason: rec.Reason,
-	}
-	if strings.TrimSpace(rec.InputJSON) != "" {
-		var input map[string]any
-		if err := json.Unmarshal([]byte(rec.InputJSON), &input); err == nil {
-			out.Input = input
-		}
-	}
-	return out, nil
-}
-
-func (a *storeApprovalAdapter) Update(ctx context.Context, req *approvals.ApprovalRequest) error {
-	if req == nil {
-		return errors.New("approval request is required")
-	}
-	reason := req.DenyReason
-	if req.Status == approvals.StatusApproved && strings.TrimSpace(reason) == "" {
-		reason = "approved via api"
-	}
-	return a.st.UpdateApprovalStatus(ctx, req.ID, string(req.Status), req.ResolvedBy, reason)
-}
-
-func (a *storeApprovalAdapter) ListPending(ctx context.Context, tenantID string) ([]approvals.ApprovalRequest, error) {
-	items, err := a.st.ListApprovals(ctx, tenantID, string(approvals.StatusPending))
-	if err != nil {
-		return nil, err
-	}
-	out := make([]approvals.ApprovalRequest, 0, len(items))
-	for i := range items {
-		it := items[i]
-		out = append(out, approvals.ApprovalRequest{
-			ID:         it.ID,
-			TenantID:   it.TenantID,
-			RequestID:  it.RequestID,
-			AgentName:  it.AgentName,
-			Service:    it.Service,
-			Action:     it.Action,
-			Status:     approvals.ApprovalStatus(it.Status),
-			CreatedAt:  it.CreatedAt,
-			ExpiresAt:  it.ExpiresAt,
-			ResolvedAt: it.ResolvedAt,
-			ResolvedBy: it.ResolvedBy,
-			DenyReason: it.Reason,
-		})
-	}
-	return out, nil
-}
-
-func (a *storeApprovalAdapter) ListAll(ctx context.Context, tenantID string, filter approvals.ApprovalFilter) ([]approvals.ApprovalRequest, error) {
-	status := ""
-	if filter.Status != nil {
-		status = string(*filter.Status)
-	}
-	items, err := a.st.ListApprovals(ctx, tenantID, status)
-	if err != nil {
-		return nil, err
-	}
-	out := make([]approvals.ApprovalRequest, 0, len(items))
-	for i := range items {
-		it := items[i]
-		out = append(out, approvals.ApprovalRequest{
-			ID:         it.ID,
-			TenantID:   it.TenantID,
-			RequestID:  it.RequestID,
-			AgentName:  it.AgentName,
-			Service:    it.Service,
-			Action:     it.Action,
-			Status:     approvals.ApprovalStatus(it.Status),
-			CreatedAt:  it.CreatedAt,
-			ExpiresAt:  it.ExpiresAt,
-			ResolvedAt: it.ResolvedAt,
-			ResolvedBy: it.ResolvedBy,
-			DenyReason: it.Reason,
-		})
-	}
-	return out, nil
-}
-
-func (a *storeApprovalAdapter) ExpireOld(_ context.Context) (int, error) {
-	return 0, nil
 }
 
 func (a *storeTokenAdapter) Create(ctx context.Context, token *auth.ServiceToken) error {
