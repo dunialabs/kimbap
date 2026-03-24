@@ -41,7 +41,7 @@ func newInitCommand() *cobra.Command {
 			checks = append(checks, vaultCheck, devKeyCheck)
 			hasFailure = hasFailure || vaultCheck.Status == "fail" || devKeyCheck.Status == "fail"
 
-			policyCheck := ensurePolicyFile(cfg.Policy.Path)
+			policyCheck := ensurePolicyFile(cfg.Policy.Path, cfg.Mode)
 			checks = append(checks, policyCheck)
 			hasFailure = hasFailure || policyCheck.Status == "fail"
 
@@ -179,8 +179,9 @@ func initializeVault(cfg *config.KimbapConfig) (doctorCheck, doctorCheck) {
 	return vaultCheck, doctorCheck{Name: "dev master key", Status: keyStatus, Detail: fmt.Sprintf("%s: %s", keyDetail, devKeyPath)}
 }
 
-func ensurePolicyFile(path string) doctorCheck {
-	const defaultPolicy = `version: "1.0.0"
+func policyForMode(mode string) string {
+	if strings.EqualFold(strings.TrimSpace(mode), "dev") {
+		return `version: "1.0.0"
 rules:
   - id: allow-all
     priority: 1
@@ -188,13 +189,31 @@ rules:
       actions: ["*"]
     decision: allow
 `
-	if fileExists(path) {
+	}
+	return `version: "1.0.0"
+rules:
+  - id: deny-unreviewed
+    priority: 1
+    match:
+      actions: ["*"]
+    decision: require_approval
+`
+}
+
+func ensurePolicyFile(path, mode string) doctorCheck {
+	if st, err := os.Stat(path); err == nil {
+		if st.IsDir() {
+			return doctorCheck{Name: "policy file valid", Status: "fail", Detail: "path exists but is a directory"}
+		}
+		if st.Size() == 0 {
+			return doctorCheck{Name: "policy file valid", Status: "fail", Detail: fmt.Sprintf("policy file is empty: %s", path)}
+		}
 		return doctorCheck{Name: "policy file valid", Status: "skip", Detail: fmt.Sprintf("exists: %s", path)}
 	}
 	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
 		return doctorCheck{Name: "policy file valid", Status: "fail", Detail: err.Error()}
 	}
-	if err := os.WriteFile(path, []byte(defaultPolicy), 0o600); err != nil {
+	if err := os.WriteFile(path, []byte(policyForMode(mode)), 0o600); err != nil {
 		return doctorCheck{Name: "policy file valid", Status: "fail", Detail: err.Error()}
 	}
 	return doctorCheck{Name: "policy file valid", Status: "ok", Detail: fmt.Sprintf("created: %s", path)}

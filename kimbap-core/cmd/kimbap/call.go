@@ -323,6 +323,9 @@ func parseJSONInput(jsonArg string) (map[string]any, error) {
 	if err := dec.Decode(&parsed); err != nil {
 		return nil, fmt.Errorf("parse json input: %w", err)
 	}
+	if dec.More() {
+		return nil, fmt.Errorf("parse json input: unexpected trailing data after JSON object")
+	}
 	return coerceJSONNumbers(parsed), nil
 }
 

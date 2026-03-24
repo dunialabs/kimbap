@@ -703,6 +703,12 @@ func schemaType(schema map[string]any) string {
 	case "number":
 		return "number"
 	default:
+		if _, hasProps := schema["properties"]; hasProps {
+			return "object"
+		}
+		if _, hasItems := schema["items"]; hasItems {
+			return "array"
+		}
 		return "string"
 	}
 }

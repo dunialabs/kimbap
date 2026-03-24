@@ -127,12 +127,6 @@ func (i *LocalInstaller) Remove(name string) error {
 	if err := validateSkillName(name); err != nil {
 		return err
 	}
-	p := filepath.Join(i.skillsDir, name+".yaml")
-	if err := os.Remove(p); err != nil {
-		if !os.IsNotExist(err) {
-			return fmt.Errorf("remove manifest file: %w", err)
-		}
-	}
 
 	lf, err := i.readLockfile()
 	if err != nil {
@@ -142,6 +136,13 @@ func (i *LocalInstaller) Remove(name string) error {
 		delete(lf.Skills, name)
 		if err := i.writeLockfile(lf); err != nil {
 			return fmt.Errorf("write lockfile: %w", err)
+		}
+	}
+
+	p := filepath.Join(i.skillsDir, name+".yaml")
+	if err := os.Remove(p); err != nil {
+		if !os.IsNotExist(err) {
+			return fmt.Errorf("remove manifest file: %w", err)
 		}
 	}
 	return nil

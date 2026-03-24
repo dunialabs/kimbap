@@ -54,6 +54,10 @@ func newDaemonCommand() *cobra.Command {
 			}
 
 			socketPath := daemonSocketPath(cfg.DataDir)
+			if conn, dialErr := net.Dial("unix", socketPath); dialErr == nil {
+				conn.Close()
+				return fmt.Errorf("daemon already running on %s", socketPath)
+			}
 			_ = os.Remove(socketPath)
 			if err := os.MkdirAll(filepath.Dir(socketPath), 0o755); err != nil {
 				return fmt.Errorf("create socket dir: %w", err)

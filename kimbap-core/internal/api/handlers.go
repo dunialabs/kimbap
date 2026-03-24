@@ -458,8 +458,19 @@ func (s *Server) handleQueryAudit(w http.ResponseWriter, r *http.Request) {
 func (s *Server) handleExportAudit(w http.ResponseWriter, r *http.Request) {
 	tenantID := tenantFromContext(r.Context())
 	format := strings.TrimSpace(r.URL.Query().Get("format"))
-	if strings.EqualFold(format, "csv") {
+	switch strings.ToLower(format) {
+	case "", "json", "jsonl", "ndjson":
+		w.Header().Set("Content-Type", "application/x-ndjson")
+		format = "jsonl"
+	case "csv":
 		w.Header().Set("Content-Type", "text/csv")
+	default:
+		writeEnvelopeError(w, r, actions.NewExecutionError(
+			actions.ErrValidationFailed,
+			fmt.Sprintf("unsupported export format %q; accepted values: json, jsonl, csv", format),
+			http.StatusBadRequest, false, nil,
+		))
+		return
 	}
 	err := s.store.ExportAuditEvents(r.Context(), store.AuditFilter{TenantID: tenantID}, format, w)
 	if err != nil {
