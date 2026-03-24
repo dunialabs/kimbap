@@ -196,6 +196,7 @@ func runAuthConnect(
 		})
 		return fmt.Errorf("provider %q not found: %w", providerID, err)
 	}
+	providerID = provider.ID
 
 	if strings.Contains(provider.AuthEndpoint, "{") || strings.Contains(provider.TokenEndpoint, "{") {
 		return fmt.Errorf("provider %q has endpoint placeholders that require substitution (not yet supported)", providerID)

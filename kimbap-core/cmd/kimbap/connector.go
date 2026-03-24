@@ -239,6 +239,7 @@ func newConnectorRefreshCommand() *cobra.Command {
 				})
 				return fmt.Errorf("provider %q not found: %w", name, provErr)
 			}
+			name = provider.ID
 
 			mgr.RegisterConfig(connectors.ConnectorConfig{
 				Name:         name,

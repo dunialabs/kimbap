@@ -144,17 +144,30 @@ func newAuthStatusCommand() *cobra.Command {
 			if providerID == "" {
 				return fmt.Errorf("provider is required")
 			}
+			if p, pErr := providers.GetProvider(providerID); pErr == nil {
+				providerID = p.ID
+			}
 
 			state, statusErr := mgr.Status(contextBackground(), activeTenant, providerID)
 			if statusErr != nil {
+				if strings.Contains(statusErr.Error(), "not found") {
+					_ = printOutput(map[string]any{
+						"status":    "not_connected",
+						"operation": "auth.status",
+						"tenant_id": activeTenant,
+						"provider":  providerID,
+						"message":   fmt.Sprintf("No connection found for %q. Run: kimbap auth connect %s", providerID, providerID),
+					})
+					return fmt.Errorf("no connection found for %q: %w", providerID, statusErr)
+				}
 				_ = printOutput(map[string]any{
-					"status":    "not_found",
+					"status":    "error",
 					"operation": "auth.status",
 					"tenant_id": activeTenant,
 					"provider":  providerID,
-					"message":   statusErr.Error(),
+					"message":   fmt.Sprintf("failed to retrieve status: %v", statusErr),
 				})
-				return fmt.Errorf("provider %q not found: %w", providerID, statusErr)
+				return fmt.Errorf("failed to get provider %q status: %w", providerID, statusErr)
 			}
 
 			cs := statusFromSanitizedState(state)

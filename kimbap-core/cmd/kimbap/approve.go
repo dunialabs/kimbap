@@ -163,10 +163,11 @@ func runApproveAccept(requestID string) error {
 }
 
 func approvalTenant(raw string) string {
-	if strings.TrimSpace(raw) == "" {
+	trimmed := strings.TrimSpace(raw)
+	if trimmed == "" {
 		return defaultTenantID()
 	}
-	return raw
+	return trimmed
 }
 
 func approvalStatus(raw string) string {
