@@ -187,13 +187,14 @@ func runAuthConnect(
 ) error {
 	provider, err := providers.GetProvider(providerID)
 	if err != nil {
-		return printOutput(map[string]any{
+		_ = printOutput(map[string]any{
 			"status":    "not_found",
 			"operation": "auth.connect",
 			"tenant_id": tenantID,
 			"provider":  providerID,
 			"message":   err.Error(),
 		})
+		return fmt.Errorf("provider %q not found: %w", providerID, err)
 	}
 
 	if strings.Contains(provider.AuthEndpoint, "{") || strings.Contains(provider.TokenEndpoint, "{") {

@@ -8,8 +8,10 @@ import (
 	"fmt"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"github.com/dunialabs/kimbap-core/internal/config"
+	"github.com/dunialabs/kimbap-core/internal/connectors"
 	"github.com/spf13/cobra"
 )
 
@@ -28,18 +30,58 @@ func newConnectorCommand() *cobra.Command {
 }
 
 func newConnectorLoginCommand() *cobra.Command {
+	var (
+		flow            string
+		scopeInput      string
+		browserName     string
+		noOpen          bool
+		port            int
+		timeout         time.Duration
+		workspace       string
+		connectionScope string
+		tenant          string
+	)
 	cmd := &cobra.Command{
 		Use:   "login <name>",
-		Short: "Start connector device-flow login",
+		Short: "Start connector OAuth login",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(_ *cobra.Command, args []string) error {
 			name := strings.TrimSpace(args[0])
 			if name == "" {
 				return fmt.Errorf("connector name is required")
 			}
-			return fmt.Errorf("connector login is not yet available.\n\nConnector login for %q requires a running ConnectorManager with OAuth device-flow support.\nThis feature is under development. Track progress: https://github.com/dunialabs/kimbap/issues\n\nAvailable connector commands: list, status", name)
+
+			cfg, err := loadAppConfig()
+			if err != nil {
+				return err
+			}
+
+			return runAuthConnect(
+				cfg,
+				name,
+				connectorTenant(tenant),
+				flow,
+				scopeInput,
+				browserName,
+				noOpen,
+				port,
+				timeout,
+				workspace,
+				connectionScope,
+				false,
+			)
 		},
 	}
+	cmd.Flags().StringVar(&flow, "flow", "auto", "auth flow to use (auto, browser, device)")
+	cmd.Flags().StringVar(&scopeInput, "scope", "", "requested scopes (space/comma separated)")
+	cmd.Flags().StringVar(&scopeInput, "scopes", "", "requested scopes (space/comma separated)")
+	cmd.Flags().StringVar(&browserName, "browser", "auto", "browser strategy (auto, system, none)")
+	cmd.Flags().BoolVar(&noOpen, "no-open", false, "do not automatically open browser")
+	cmd.Flags().IntVar(&port, "port", 0, "local callback port for browser flow")
+	cmd.Flags().DurationVar(&timeout, "timeout", 5*time.Minute, "authorization timeout")
+	cmd.Flags().StringVar(&workspace, "workspace", "", "workspace id for workspace-scoped connection")
+	cmd.Flags().StringVar(&connectionScope, "connection-scope", string(connectors.ScopeUser), "connection scope (user, workspace, service)")
+	cmd.Flags().StringVar(&tenant, "tenant", "", "tenant id")
 	return cmd
 }
 
@@ -154,8 +196,9 @@ func newConnectorStatusCommand() *cobra.Command {
 }
 
 func newConnectorRefreshCommand() *cobra.Command {
+	var tenant string
 	cmd := &cobra.Command{
-		Use:   "refresh <name>",
+		Use:   "refresh <name> [--tenant <id>]",
 		Short: "Force refresh connector access token",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(_ *cobra.Command, args []string) error {
@@ -163,9 +206,72 @@ func newConnectorRefreshCommand() *cobra.Command {
 			if name == "" {
 				return fmt.Errorf("connector name is required")
 			}
-			return fmt.Errorf("connector refresh is not yet available.\n\nConnector refresh for %q requires ConnectorManager with OAuth refresh-token flow.\nThis feature is under development. Track progress: https://github.com/dunialabs/kimbap/issues\n\nAvailable connector commands: list, status", name)
+			activeTenant := connectorTenant(tenant)
+
+			cfg, err := loadAppConfig()
+			if err != nil {
+				return err
+			}
+
+			store, storeErr := openConnectorStore(cfg)
+			if storeErr != nil {
+				_ = printOutput(map[string]any{
+					"status":    "not_configured",
+					"operation": "connector.refresh",
+					"tenant_id": activeTenant,
+					"connector": name,
+					"message":   fmt.Sprintf("Connector state store unavailable: %v", storeErr),
+				})
+				return fmt.Errorf("connector state store unavailable: %w", storeErr)
+			}
+
+			mgr := connectors.NewManager(store)
+
+			provider, provErr := providers.GetProvider(name)
+			if provErr != nil {
+				_ = printOutput(map[string]any{
+					"status":    "not_found",
+					"operation": "connector.refresh",
+					"tenant_id": activeTenant,
+					"connector": name,
+					"message":   fmt.Sprintf("Provider %q not found in registry: %v", name, provErr),
+					"next":      "Check available providers with: kimbap auth providers list",
+				})
+				return fmt.Errorf("provider %q not found: %w", name, provErr)
+			}
+
+			mgr.RegisterConfig(connectors.ConnectorConfig{
+				Name:         name,
+				Provider:     provider.ID,
+				ClientID:     resolveClientID(cfg, name),
+				ClientSecret: resolveClientSecret(cfg, name),
+				TokenURL:     provider.TokenEndpoint,
+				DeviceURL:    provider.DeviceEndpoint,
+				Scopes:       provider.DefaultScopes,
+			})
+
+			if refreshErr := mgr.Refresh(contextBackground(), activeTenant, name); refreshErr != nil {
+				_ = printOutput(map[string]any{
+					"status":    "error",
+					"operation": "connector.refresh",
+					"tenant_id": activeTenant,
+					"connector": name,
+					"message":   refreshErr.Error(),
+					"next":      fmt.Sprintf("If refresh token is missing or expired, run: kimbap connector login %s", name),
+				})
+				return fmt.Errorf("connector refresh failed: %w", refreshErr)
+			}
+
+			return printOutput(map[string]any{
+				"status":    "ok",
+				"operation": "connector.refresh",
+				"tenant_id": activeTenant,
+				"connector": name,
+				"refreshed": true,
+			})
 		},
 	}
+	cmd.Flags().StringVar(&tenant, "tenant", "", "tenant id")
 	return cmd
 }
 

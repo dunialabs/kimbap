@@ -20,6 +20,7 @@ func newVaultCommand() *cobra.Command {
 	cmd.AddCommand(newVaultGetCommand())
 	cmd.AddCommand(newVaultListCommand())
 	cmd.AddCommand(newVaultRotateCommand())
+	cmd.AddCommand(newVaultDeleteCommand())
 
 	return cmd
 }
@@ -178,6 +179,43 @@ func newVaultRotateCommand() *cobra.Command {
 	}
 	cmd.Flags().StringVar(&filePath, "file", "", "read new secret from file path")
 	cmd.Flags().BoolVar(&readStdin, "stdin", false, "read new secret from stdin")
+	return cmd
+}
+
+func newVaultDeleteCommand() *cobra.Command {
+	var force bool
+	cmd := &cobra.Command{
+		Use:   "delete <name> [--force]",
+		Short: "Delete a secret and all its versions",
+		Args:  cobra.ExactArgs(1),
+		RunE: func(_ *cobra.Command, args []string) error {
+			name := strings.TrimSpace(args[0])
+			if name == "" {
+				return fmt.Errorf("secret name is required")
+			}
+
+			if !force {
+				_, _ = fmt.Fprintf(os.Stderr, "⚠  This will permanently delete secret %q and all its versions.\n", name)
+				_, _ = fmt.Fprintln(os.Stderr, "   Add --force to confirm deletion.")
+				return fmt.Errorf("--force is required to delete a secret")
+			}
+
+			cfg, err := loadAppConfig()
+			if err != nil {
+				return err
+			}
+			store, err := initVaultStore(cfg)
+			if err != nil {
+				return err
+			}
+
+			if err := store.Delete(contextBackground(), defaultTenantID(), name); err != nil {
+				return err
+			}
+			return printOutput(map[string]any{"deleted": true, "name": name})
+		},
+	}
+	cmd.Flags().BoolVar(&force, "force", false, "confirm intent to permanently delete the secret")
 	return cmd
 }
 

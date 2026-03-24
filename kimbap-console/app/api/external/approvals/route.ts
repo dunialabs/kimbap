@@ -16,6 +16,10 @@ interface ListApprovalsInput {
   pageSize?: number;
 }
 
+function isPositiveInteger(n: unknown): n is number {
+  return typeof n === 'number' && Number.isFinite(n) && Number.isInteger(n) && n > 0;
+}
+
 function normalizeListApprovalsInput(body: ListApprovalsInput): ListApprovalsInput {
   if (body.userId !== undefined && typeof body.userId !== 'string') {
     throw new ExternalApiError(E1003, 'Invalid field value: userId must be a string');
@@ -29,34 +33,32 @@ function normalizeListApprovalsInput(body: ListApprovalsInput): ListApprovalsInp
   if (body.status !== undefined && typeof body.status !== 'string') {
     throw new ExternalApiError(E1003, 'Invalid field value: status must be a string');
   }
-  if (body.page !== undefined && typeof body.page !== 'number') {
-    throw new ExternalApiError(E1003, 'Invalid field value: page must be a number');
+  if (body.page !== undefined && !isPositiveInteger(body.page)) {
+    throw new ExternalApiError(E1003, 'Invalid field value: page must be a positive integer');
   }
-  if (body.pageSize !== undefined && typeof body.pageSize !== 'number') {
-    throw new ExternalApiError(E1003, 'Invalid field value: pageSize must be a number');
+  if (body.pageSize !== undefined && !isPositiveInteger(body.pageSize)) {
+    throw new ExternalApiError(E1003, 'Invalid field value: pageSize must be a positive integer');
   }
   return body;
 }
 
-function parseListApprovalsQuery(request: NextRequest): ListApprovalsInput {
-  const page = request.nextUrl.searchParams.get('page');
-  const pageSize = request.nextUrl.searchParams.get('pageSize');
-  const parsedPage = page !== null ? Number(page) : undefined;
-  const parsedPageSize = pageSize !== null ? Number(pageSize) : undefined;
-  if (parsedPage !== undefined && Number.isNaN(parsedPage)) {
-    throw new ExternalApiError(E1003, 'Invalid field value: page must be a number');
+function parsePositiveIntParam(raw: string | null, name: string): number | undefined {
+  if (raw === null || raw.trim() === '') return undefined;
+  const n = Number(raw.trim());
+  if (!Number.isFinite(n) || !Number.isInteger(n) || n < 1) {
+    throw new ExternalApiError(E1003, `Invalid field value: ${name} must be a positive integer`);
   }
-  if (parsedPageSize !== undefined && Number.isNaN(parsedPageSize)) {
-    throw new ExternalApiError(E1003, 'Invalid field value: pageSize must be a number');
-  }
+  return n;
+}
 
+function parseListApprovalsQuery(request: NextRequest): ListApprovalsInput {
   return {
     userId: request.nextUrl.searchParams.get('userId') ?? undefined,
     serverId: request.nextUrl.searchParams.get('serverId') ?? undefined,
     toolName: request.nextUrl.searchParams.get('toolName') ?? undefined,
     status: request.nextUrl.searchParams.get('status') ?? undefined,
-    page: parsedPage,
-    pageSize: parsedPageSize,
+    page: parsePositiveIntParam(request.nextUrl.searchParams.get('page'), 'page'),
+    pageSize: parsePositiveIntParam(request.nextUrl.searchParams.get('pageSize'), 'pageSize'),
   };
 }
 

@@ -9,8 +9,10 @@ import (
 
 func (s *Server) registerRoutes() {
 	r := s.router
-	r.Handle("/console", http.StripPrefix("/console", console.Handler()))
-	r.Handle("/console/*", http.StripPrefix("/console", console.Handler()))
+	if !s.skipConsole {
+		r.Handle("/console", http.StripPrefix("/console", console.Handler()))
+		r.Handle("/console/*", http.StripPrefix("/console", console.Handler()))
+	}
 
 	r.Route("/v1", func(r chi.Router) {
 		r.Get("/health", s.handleHealth)

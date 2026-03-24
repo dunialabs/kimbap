@@ -102,14 +102,13 @@ async function listTokens(request: NextRequest, filters: TokenFilters) {
 }
 
 /**
- * POST /api/external/tokens
+ * GET|POST /api/external/tokens
  *
- * Get access tokens with optional filtering.
- * Requires authentication.
+ * List access tokens with optional filtering.
+ * Requires authentication (owner or admin).
  *
- * Optional body:
- *   namespace?: string  - filter by exact namespace match
- *   tags?: string[]     - filter by tags (AND match: token must have all specified tags)
+ * GET params: ?namespace=string&tags=a,b (comma-separated)
+ * POST body:  { namespace?: string, tags?: string[] }
  */
 export async function POST(request: NextRequest) {
   try {

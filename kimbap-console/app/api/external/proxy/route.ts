@@ -31,7 +31,7 @@ async function getProxyInfo() {
 }
 
 /**
- * POST /api/external/proxy
+ * GET|POST /api/external/proxy
  *
  * Get current proxy server information.
  * No authentication required.

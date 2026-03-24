@@ -488,7 +488,7 @@ func run() error {
 	r.With(userAuthMW.Authenticate).Method(http.MethodPost, "/user", http.HandlerFunc(userController.HandleUserRequest))
 
 	if managementStore != nil {
-		v1ManagementAPI := api.NewServer("", managementStore)
+		v1ManagementAPI := api.NewServer("", managementStore, api.WithoutConsole())
 		r.Mount("/api", v1ManagementAPI.Router())
 	}
 

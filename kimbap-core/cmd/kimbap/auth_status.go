@@ -22,22 +22,24 @@ func newAuthListCommand() *cobra.Command {
 
 			store, storeErr := openConnectorStore(cfg)
 			if storeErr != nil {
-				return printOutput(map[string]any{
+				_ = printOutput(map[string]any{
 					"status":    "not_configured",
 					"operation": "auth.list",
 					"tenant_id": activeTenant,
 					"message":   fmt.Sprintf("OAuth state store unavailable: %v", storeErr),
 				})
+				return fmt.Errorf("OAuth state store unavailable: %w", storeErr)
 			}
 			mgr := connectors.NewManager(store)
 			states, listErr := mgr.List(contextBackground(), activeTenant)
 			if listErr != nil {
-				return printOutput(map[string]any{
+				_ = printOutput(map[string]any{
 					"status":    "not_configured",
 					"operation": "auth.list",
 					"tenant_id": activeTenant,
 					"message":   fmt.Sprintf("OAuth state store unavailable: %v", listErr),
 				})
+				return fmt.Errorf("OAuth state store unavailable: %w", listErr)
 			}
 
 			items := make([]map[string]any, 0, len(states))
@@ -86,24 +88,26 @@ func newAuthStatusCommand() *cobra.Command {
 
 			store, storeErr := openConnectorStore(cfg)
 			if storeErr != nil {
-				return printOutput(map[string]any{
+				_ = printOutput(map[string]any{
 					"status":    "not_configured",
 					"operation": "auth.status",
 					"tenant_id": activeTenant,
 					"message":   fmt.Sprintf("OAuth state store unavailable: %v", storeErr),
 				})
+				return fmt.Errorf("OAuth state store unavailable: %w", storeErr)
 			}
 			mgr := connectors.NewManager(store)
 
 			if len(args) == 0 {
 				states, listErr := mgr.List(contextBackground(), activeTenant)
 				if listErr != nil {
-					return printOutput(map[string]any{
+					_ = printOutput(map[string]any{
 						"status":    "not_configured",
 						"operation": "auth.status",
 						"tenant_id": activeTenant,
 						"message":   fmt.Sprintf("OAuth state store unavailable: %v", listErr),
 					})
+					return fmt.Errorf("OAuth state store unavailable: %w", listErr)
 				}
 
 				items := make([]map[string]any, 0, len(states))
@@ -143,13 +147,14 @@ func newAuthStatusCommand() *cobra.Command {
 
 			state, statusErr := mgr.Status(contextBackground(), activeTenant, providerID)
 			if statusErr != nil {
-				return printOutput(map[string]any{
+				_ = printOutput(map[string]any{
 					"status":    "not_found",
 					"operation": "auth.status",
 					"tenant_id": activeTenant,
 					"provider":  providerID,
 					"message":   statusErr.Error(),
 				})
+				return fmt.Errorf("provider %q not found: %w", providerID, statusErr)
 			}
 
 			cs := statusFromSanitizedState(state)

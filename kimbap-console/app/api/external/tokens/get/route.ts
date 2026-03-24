@@ -53,10 +53,13 @@ async function getTokenById(request: NextRequest, tokenIdRaw: string) {
 }
 
 /**
- * POST /api/external/tokens/get
+ * GET|POST /api/external/tokens/get
  *
  * Get a specific token by ID.
  * Requires authentication (owner or admin).
+ *
+ * GET params: ?tokenId=string
+ * POST body:  { tokenId: string }
  */
 export async function POST(request: NextRequest) {
   try {

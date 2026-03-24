@@ -22,6 +22,7 @@ type Server struct {
 	tokenService    *auth.TokenService
 	runtime         *runtime.Runtime
 	approvalManager *approvals.ApprovalManager
+	skipConsole     bool
 }
 
 const (
@@ -34,6 +35,12 @@ type ServerOption func(*Server)
 func WithRuntime(rt *runtime.Runtime) ServerOption {
 	return func(s *Server) {
 		s.runtime = rt
+	}
+}
+
+func WithoutConsole() ServerOption {
+	return func(s *Server) {
+		s.skipConsole = true
 	}
 }
 
