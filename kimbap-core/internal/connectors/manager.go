@@ -199,19 +199,35 @@ func (m *Manager) Refresh(ctx context.Context, tenantID, name string) error {
 		return ErrConnectorNotFound
 	}
 
+	var token *TokenResponse
 	if strings.TrimSpace(state.RefreshToken) == "" {
-		now := time.Now().UTC()
-		state.Status = StatusReauthNeeded
-		state.LastRefreshError = "refresh token is missing"
-		state.LastRefresh = &now
-		state.UpdatedAt = now
-		if saveErr := m.saveState(ctx, state); saveErr != nil {
-			return fmt.Errorf("refresh token is missing (also failed to persist status: %w)", saveErr)
+		if state.FlowUsed == FlowClientCredentials {
+			token, err = RequestClientCredentialsTokenWithContext(ctx, cfg)
+			if err != nil {
+				now := time.Now().UTC()
+				state.Status = StatusReauthNeeded
+				state.LastRefreshError = err.Error()
+				state.LastRefresh = &now
+				state.UpdatedAt = now
+				if saveErr := m.saveState(ctx, state); saveErr != nil {
+					return fmt.Errorf("%w (also failed to persist status: %v)", err, saveErr)
+				}
+				return err
+			}
+		} else {
+			now := time.Now().UTC()
+			state.Status = StatusReauthNeeded
+			state.LastRefreshError = "refresh token is missing"
+			state.LastRefresh = &now
+			state.UpdatedAt = now
+			if saveErr := m.saveState(ctx, state); saveErr != nil {
+				return fmt.Errorf("refresh token is missing (also failed to persist status: %w)", saveErr)
+			}
+			return errors.New("refresh token is missing")
 		}
-		return errors.New("refresh token is missing")
+	} else {
+		token, err = RefreshAccessTokenWithContext(ctx, cfg, state.RefreshToken)
 	}
-
-	token, err := RefreshAccessToken(cfg, state.RefreshToken)
 	if err != nil {
 		now := time.Now().UTC()
 		state.Status = StatusReauthNeeded

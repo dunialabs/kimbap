@@ -72,6 +72,7 @@ func scanConnectorRow(scanner interface{ Scan(...any) error }, tenantID string) 
 
 	st.TenantID = tenantID
 	st.Scopes = strings.Fields(scopesJSON)
+	st.Profile = connectorProfileFromName(st.Name)
 	st.ConnectionScope = connectors.ConnectionScope(connScope)
 	st.FlowUsed = connectors.FlowType(flowUsed)
 	if expiresAt.Valid {
@@ -143,4 +144,16 @@ func (s *sqlConnectorStore) Delete(ctx context.Context, tenantID, name string) e
 	q := `DELETE FROM connector_states WHERE tenant_id = ? AND name = ?`
 	_, err := s.db.ExecContext(ctx, bindQuery(q, s.dialect), tenantID, name)
 	return err
+}
+
+func connectorProfileFromName(name string) string {
+	trimmed := strings.TrimSpace(name)
+	if trimmed == "" {
+		return "default"
+	}
+	parts := strings.SplitN(trimmed, ":", 2)
+	if len(parts) < 2 || strings.TrimSpace(parts[1]) == "" {
+		return "default"
+	}
+	return strings.TrimSpace(parts[1])
 }

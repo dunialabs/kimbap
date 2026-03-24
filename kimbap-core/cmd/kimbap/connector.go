@@ -39,6 +39,7 @@ func newConnectorLoginCommand() *cobra.Command {
 		timeout         time.Duration
 		workspace       string
 		connectionScope string
+		extras          []string
 		tenant          string
 	)
 	cmd := &cobra.Command{
@@ -68,7 +69,9 @@ func newConnectorLoginCommand() *cobra.Command {
 				timeout,
 				workspace,
 				connectionScope,
+				"default",
 				false,
+				parseExtras(extras),
 			)
 		},
 	}
@@ -81,6 +84,7 @@ func newConnectorLoginCommand() *cobra.Command {
 	cmd.Flags().DurationVar(&timeout, "timeout", 5*time.Minute, "authorization timeout")
 	cmd.Flags().StringVar(&workspace, "workspace", "", "workspace id for workspace-scoped connection")
 	cmd.Flags().StringVar(&connectionScope, "connection-scope", string(connectors.ScopeUser), "connection scope (user, workspace, service)")
+	cmd.Flags().StringArrayVar(&extras, "extra", nil, "provider-specific key=value pairs for placeholder endpoints")
 	cmd.Flags().StringVar(&tenant, "tenant", "", "tenant id")
 	return cmd
 }
@@ -197,6 +201,7 @@ func newConnectorStatusCommand() *cobra.Command {
 
 func newConnectorRefreshCommand() *cobra.Command {
 	var tenant string
+	var extras []string
 	cmd := &cobra.Command{
 		Use:   "refresh <name> [--tenant <id>]",
 		Short: "Force refresh connector access token",
@@ -240,6 +245,14 @@ func newConnectorRefreshCommand() *cobra.Command {
 				return fmt.Errorf("provider %q not found: %w", name, provErr)
 			}
 			name = provider.ID
+			provider = substituteProviderEndpoints(provider, parseExtras(extras))
+			if hasUnresolvedPlaceholders(provider) {
+				missing := listUnresolvedPlaceholders(provider)
+				return fmt.Errorf("provider %q has unresolved endpoint placeholders: %s (use --extra key=value)", name, strings.Join(missing, ", "))
+			}
+			if vErr := validateProviderEndpoints(provider); vErr != nil {
+				return fmt.Errorf("provider %q endpoint validation failed: %w", name, vErr)
+			}
 
 			mgr.RegisterConfig(connectors.ConnectorConfig{
 				Name:         name,
@@ -273,6 +286,7 @@ func newConnectorRefreshCommand() *cobra.Command {
 		},
 	}
 	cmd.Flags().StringVar(&tenant, "tenant", "", "tenant id")
+	cmd.Flags().StringArrayVar(&extras, "extra", nil, "provider-specific key=value pairs for placeholder endpoints")
 	return cmd
 }
 

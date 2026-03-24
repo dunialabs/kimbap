@@ -111,7 +111,7 @@ func PollForTokenWithContext(ctx context.Context, cfg ConnectorConfig, deviceCod
 			form.Set("client_secret", cfg.ClientSecret)
 		}
 
-		body, err := postForm(cfg.TokenURL, form)
+		body, err := postFormWithContext(ctx, cfg.TokenURL, form)
 		if err == nil {
 			return parseTokenResponse(body)
 		}
@@ -128,13 +128,13 @@ func PollForTokenWithContext(ctx context.Context, cfg ConnectorConfig, deviceCod
 
 		switch tokenErr.Error {
 		case "authorization_pending":
-			if err := waitForPollInterval(ctx, time.Duration(interval)*time.Second); err != nil {
+			if err := pollIntervalWait(ctx, time.Duration(interval)*time.Second); err != nil {
 				return nil, err
 			}
 			continue
 		case "slow_down":
 			interval += 5 // RFC 8628 §3.5: MUST increase by 5 seconds
-			if err := waitForPollInterval(ctx, time.Duration(interval)*time.Second); err != nil {
+			if err := pollIntervalWait(ctx, time.Duration(interval)*time.Second); err != nil {
 				return nil, err
 			}
 			continue
@@ -162,6 +162,10 @@ func waitForPollInterval(ctx context.Context, d time.Duration) error {
 }
 
 func RefreshAccessToken(cfg ConnectorConfig, refreshToken string) (*TokenResponse, error) {
+	return RefreshAccessTokenWithContext(context.Background(), cfg, refreshToken)
+}
+
+func RefreshAccessTokenWithContext(ctx context.Context, cfg ConnectorConfig, refreshToken string) (*TokenResponse, error) {
 	if cfg.TokenURL == "" {
 		return nil, errors.New("token url is required")
 	}
@@ -177,7 +181,34 @@ func RefreshAccessToken(cfg ConnectorConfig, refreshToken string) (*TokenRespons
 		form.Set("client_secret", cfg.ClientSecret)
 	}
 
-	body, err := postForm(cfg.TokenURL, form)
+	body, err := postFormWithContext(ctx, cfg.TokenURL, form)
+	if err != nil {
+		return nil, err
+	}
+
+	return parseTokenResponse(body)
+}
+
+func RequestClientCredentialsToken(cfg ConnectorConfig) (*TokenResponse, error) {
+	return RequestClientCredentialsTokenWithContext(context.Background(), cfg)
+}
+
+func RequestClientCredentialsTokenWithContext(ctx context.Context, cfg ConnectorConfig) (*TokenResponse, error) {
+	if cfg.TokenURL == "" {
+		return nil, errors.New("token url is required")
+	}
+
+	form := url.Values{}
+	form.Set("grant_type", "client_credentials")
+	form.Set("client_id", cfg.ClientID)
+	if cfg.ClientSecret != "" {
+		form.Set("client_secret", cfg.ClientSecret)
+	}
+	if len(cfg.Scopes) > 0 {
+		form.Set("scope", strings.Join(cfg.Scopes, " "))
+	}
+
+	body, err := postFormWithContext(ctx, cfg.TokenURL, form)
 	if err != nil {
 		return nil, err
 	}
@@ -195,13 +226,21 @@ func (e *oauthHTTPError) Error() string {
 }
 
 func postForm(endpoint string, form url.Values) ([]byte, error) {
-	ctx := context.Background()
+	return postFormWithContext(context.Background(), endpoint, form)
+}
+
+func postFormWithContext(ctx context.Context, endpoint string, form url.Values) ([]byte, error) {
+	if ctx == nil {
+		ctx = context.Background()
+	}
+
+	reqCtx := ctx
 	if oauthHTTPClient.Timeout > 0 {
 		var cancel context.CancelFunc
-		ctx, cancel = context.WithTimeout(ctx, oauthHTTPClient.Timeout)
+		reqCtx, cancel = context.WithTimeout(reqCtx, oauthHTTPClient.Timeout)
 		defer cancel()
 	}
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, endpoint, strings.NewReader(form.Encode()))
+	req, err := http.NewRequestWithContext(reqCtx, http.MethodPost, endpoint, strings.NewReader(form.Encode()))
 	if err != nil {
 		return nil, fmt.Errorf("build oauth request: %w", err)
 	}
@@ -228,6 +267,8 @@ func postForm(endpoint string, form url.Values) ([]byte, error) {
 
 	return body, nil
 }
+
+var pollIntervalWait = waitForPollInterval
 
 func parseTokenResponse(body []byte) (*TokenResponse, error) {
 	var token TokenResponse

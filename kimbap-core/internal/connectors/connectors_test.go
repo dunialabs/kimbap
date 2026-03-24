@@ -170,6 +170,69 @@ func TestGetAccessTokenAutoRefreshExpiredToken(t *testing.T) {
 	}
 }
 
+func TestGetAccessTokenAutoRefreshExpiredClientCredentialsToken(t *testing.T) {
+	ctx := context.Background()
+	store := newMemConnectorStore()
+	manager := NewManager(store)
+	t.Setenv("KIMBAP_CONNECTOR_ENCRYPTION_KEY", "connector-test-key")
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if err := r.ParseForm(); err != nil {
+			t.Fatalf("parse form: %v", err)
+		}
+		if got := r.Form.Get("grant_type"); got != "client_credentials" {
+			t.Fatalf("unexpected grant_type: %s", got)
+		}
+		if got := r.Form.Get("client_id"); got != "client-id" {
+			t.Fatalf("unexpected client_id: %s", got)
+		}
+		_, _ = w.Write([]byte(`{"access_token":"cc-fresh-access","expires_in":3600,"token_type":"Bearer"}`))
+	}))
+	defer server.Close()
+
+	manager.RegisterConfig(ConnectorConfig{
+		Name:         "internal-api",
+		Provider:     "internal-api",
+		ClientID:     "client-id",
+		ClientSecret: "client-secret",
+		TokenURL:     server.URL,
+	})
+
+	expired := time.Now().Add(-2 * time.Minute)
+	if err := store.Save(ctx, &ConnectorState{
+		Name:        "internal-api",
+		TenantID:    "tenant-1",
+		Provider:    "internal-api",
+		Status:      StatusOldExpired,
+		AccessToken: mustEncryptToken(t, "cc-old-access", "connector-test-key"),
+		ExpiresAt:   &expired,
+		FlowUsed:    FlowClientCredentials,
+		CreatedAt:   time.Now().Add(-time.Hour),
+		UpdatedAt:   time.Now().Add(-time.Hour),
+	}); err != nil {
+		t.Fatalf("seed store: %v", err)
+	}
+
+	token, err := manager.GetAccessToken(ctx, "tenant-1", "internal-api")
+	if err != nil {
+		t.Fatalf("get access token: %v", err)
+	}
+	if token != "cc-fresh-access" {
+		t.Fatalf("unexpected token: %s", token)
+	}
+
+	updated, err := store.Get(ctx, "tenant-1", "internal-api")
+	if err != nil {
+		t.Fatalf("store get: %v", err)
+	}
+	if updated.LastRefresh == nil {
+		t.Fatal("expected last_refresh to be set")
+	}
+	if updated.LastRefreshError != "" {
+		t.Fatalf("expected empty refresh error, got %q", updated.LastRefreshError)
+	}
+}
+
 func TestListConnectorStatusAndTenantIsolation(t *testing.T) {
 	ctx := context.Background()
 	store := newMemConnectorStore()
@@ -458,6 +521,14 @@ func TestStoreConnectionOverExisting_NoDoubleEncryption(t *testing.T) {
 }
 
 func TestPollForTokenSlowDownIncrementsBy5(t *testing.T) {
+	originalWait := pollIntervalWait
+	t.Cleanup(func() { pollIntervalWait = originalWait })
+	var waited time.Duration
+	pollIntervalWait = func(_ context.Context, d time.Duration) error {
+		waited = d
+		return nil
+	}
+
 	callCount := 0
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		callCount++
@@ -473,9 +544,7 @@ func TestPollForTokenSlowDownIncrementsBy5(t *testing.T) {
 	}))
 	defer server.Close()
 
-	start := time.Now()
 	token, err := PollForToken(ConnectorConfig{ClientID: "cid", TokenURL: server.URL}, "dev-code", 1, 30*time.Second)
-	elapsed := time.Since(start)
 
 	if err != nil {
 		t.Fatalf("PollForToken: %v", err)
@@ -483,8 +552,8 @@ func TestPollForTokenSlowDownIncrementsBy5(t *testing.T) {
 	if token.AccessToken != "tok" {
 		t.Fatalf("unexpected token: %s", token.AccessToken)
 	}
-	if elapsed < 6*time.Second {
-		t.Fatalf("expected at least 6s delay after slow_down (+5), got %v", elapsed)
+	if waited != 6*time.Second {
+		t.Fatalf("expected wait of 6s after slow_down (+5), got %v", waited)
 	}
 }
 
