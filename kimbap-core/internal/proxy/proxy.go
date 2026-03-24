@@ -356,7 +356,7 @@ func (p *ProxyServer) handleConnect(w http.ResponseWriter, req *http.Request) {
 		if classification != nil && classification.Matched {
 			mitmReq.Header.Set("X-Kimbap-Request-ID", reqID)
 			if p.runtime != nil {
-				result := p.executeClassifiedRequest(mitmReq.Context(), mitmReq, reqID, classification, host, mitmReq.URL.Path)
+				result := p.executeClassifiedRequest(req.Context(), mitmReq, reqID, classification, host, mitmReq.URL.Path)
 				if result.Error != nil {
 					status := runtimeResultStatus(result)
 					msg := result.Error.Message

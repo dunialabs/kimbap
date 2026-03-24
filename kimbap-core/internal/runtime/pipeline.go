@@ -236,8 +236,9 @@ func (r *Runtime) execute(ctx context.Context, req actions.ExecutionRequest, tra
 		trace.Record("request_approval", "ok", "requested")
 		approvalRes, approvalErr := r.requestApproval(ctx, req)
 		if approvalErr != nil {
-			trace.Record("request_approval", "error", approvalErr.Error())
-			return r.finalizeWithError(ctx, &result, req, approvalErr, startedAt, "require_approval", approvalRequestID)
+			mapped := actions.NewExecutionError(actions.ErrApprovalRequired, approvalErr.Error(), 202, false, nil)
+			trace.Record("request_approval", "error", mapped.Error())
+			return r.finalizeWithStatus(ctx, &result, req, actions.StatusApprovalRequired, mapped, nil, 202, startedAt, "require_approval", approvalRequestID)
 		}
 		if approvalRes != nil {
 			approvalRequestID = approvalRes.RequestID
