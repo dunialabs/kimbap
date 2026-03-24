@@ -39,28 +39,38 @@ func newAuthCommand() *cobra.Command {
 	return cmd
 }
 
-func parseConnectionScope(raw string) connectors.ConnectionScope {
-	switch connectors.ConnectionScope(strings.ToLower(strings.TrimSpace(raw))) {
+func parseConnectionScope(raw string) (connectors.ConnectionScope, bool) {
+	normalized := connectors.ConnectionScope(strings.ToLower(strings.TrimSpace(raw)))
+	switch normalized {
+	case "", connectors.ScopeUser:
+		return connectors.ScopeUser, true
 	case connectors.ScopeWorkspace:
-		return connectors.ScopeWorkspace
+		return connectors.ScopeWorkspace, true
 	case connectors.ScopeService:
-		return connectors.ScopeService
+		return connectors.ScopeService, true
 	default:
-		return connectors.ScopeUser
+		return "", false
 	}
 }
 
-func resolveConnectionScope(raw string, provider connectors.ProviderDefinition) connectors.ConnectionScope {
-	requested := parseConnectionScope(raw)
+func resolveConnectionScope(raw string, provider connectors.ProviderDefinition) (connectors.ConnectionScope, error) {
+	requested, ok := parseConnectionScope(raw)
+	if !ok {
+		return "", fmt.Errorf("invalid connection scope %q", strings.TrimSpace(raw))
+	}
 	if len(provider.ConnectionScopeModel) == 0 {
-		return requested
+		return requested, nil
 	}
 	for _, supported := range provider.ConnectionScopeModel {
 		if supported == requested {
-			return requested
+			return requested, nil
 		}
 	}
-	return provider.ConnectionScopeModel[0]
+	allowed := make([]string, 0, len(provider.ConnectionScopeModel))
+	for _, s := range provider.ConnectionScopeModel {
+		allowed = append(allowed, string(s))
+	}
+	return "", fmt.Errorf("connection scope %q not supported by provider %q (supported: %s)", requested, provider.ID, strings.Join(allowed, ", "))
 }
 
 func scopeValues(raw string, fallback []string) []string {
@@ -85,6 +95,106 @@ func scopeValues(raw string, fallback []string) []string {
 		out = append(out, v)
 	}
 	return out
+}
+
+func parseExtras(raw []string) map[string]string {
+	if len(raw) == 0 {
+		return nil
+	}
+	out := make(map[string]string, len(raw))
+	for _, item := range raw {
+		key, value, ok := strings.Cut(item, "=")
+		if !ok || strings.TrimSpace(key) == "" {
+			continue
+		}
+		out[strings.TrimSpace(key)] = strings.TrimSpace(value)
+	}
+	return out
+}
+
+func substituteProviderEndpoints(provider connectors.ProviderDefinition, extras map[string]string) connectors.ProviderDefinition {
+	if len(extras) == 0 {
+		return provider
+	}
+	replace := func(s string) string {
+		for k, v := range extras {
+			s = strings.ReplaceAll(s, "{"+k+"}", v)
+		}
+		return s
+	}
+	provider.AuthEndpoint = replace(provider.AuthEndpoint)
+	provider.TokenEndpoint = replace(provider.TokenEndpoint)
+	provider.DeviceEndpoint = replace(provider.DeviceEndpoint)
+	provider.RevocationEndpoint = replace(provider.RevocationEndpoint)
+	provider.UserInfoEndpoint = replace(provider.UserInfoEndpoint)
+	return provider
+}
+
+func hasUnresolvedPlaceholders(provider connectors.ProviderDefinition) bool {
+	for _, ep := range []string{provider.AuthEndpoint, provider.TokenEndpoint, provider.DeviceEndpoint} {
+		if strings.Contains(ep, "{") {
+			return true
+		}
+	}
+	return false
+}
+
+func listUnresolvedPlaceholders(provider connectors.ProviderDefinition) []string {
+	seen := map[string]struct{}{}
+	var out []string
+	for _, ep := range []string{provider.AuthEndpoint, provider.TokenEndpoint, provider.DeviceEndpoint, provider.RevocationEndpoint, provider.UserInfoEndpoint} {
+		for {
+			start := strings.IndexByte(ep, '{')
+			if start < 0 {
+				break
+			}
+			end := strings.IndexByte(ep[start:], '}')
+			if end < 0 {
+				break
+			}
+			placeholder := ep[start+1 : start+end]
+			if _, ok := seen[placeholder]; !ok {
+				seen[placeholder] = struct{}{}
+				out = append(out, placeholder)
+			}
+			ep = ep[start+end+1:]
+		}
+	}
+	return out
+}
+
+func validateProviderEndpoints(provider connectors.ProviderDefinition) error {
+	endpoints := map[string]string{
+		"auth":       strings.TrimSpace(provider.AuthEndpoint),
+		"token":      strings.TrimSpace(provider.TokenEndpoint),
+		"device":     strings.TrimSpace(provider.DeviceEndpoint),
+		"revocation": strings.TrimSpace(provider.RevocationEndpoint),
+		"userinfo":   strings.TrimSpace(provider.UserInfoEndpoint),
+	}
+	for name, endpoint := range endpoints {
+		if endpoint == "" {
+			continue
+		}
+		u, err := url.Parse(endpoint)
+		if err != nil {
+			return fmt.Errorf("invalid %s endpoint: %w", name, err)
+		}
+		if !strings.EqualFold(u.Scheme, "https") {
+			return fmt.Errorf("invalid %s endpoint: only https endpoints are allowed", name)
+		}
+		if strings.TrimSpace(u.Host) == "" {
+			return fmt.Errorf("invalid %s endpoint: host is required", name)
+		}
+	}
+	return nil
+}
+
+func connectorStoreName(providerID, profile string) string {
+	p := strings.TrimSpace(profile)
+	if p == "" || p == "default" {
+		return providerID
+	}
+	return providerID + ":" + p
 }
 
 func statusFromSanitizedState(state *connectors.ConnectorState) connectors.ConnectionStatus {
@@ -263,7 +373,9 @@ func deleteConnectorState(cfg *config.KimbapConfig, tenantID, providerID string)
 }
 
 func providerIsConfigured(p connectors.ProviderDefinition) bool {
-	return strings.TrimSpace(p.AuthEndpoint) != "" && strings.TrimSpace(p.TokenEndpoint) != ""
+	auth := strings.TrimSpace(p.AuthEndpoint)
+	token := strings.TrimSpace(p.TokenEndpoint)
+	return auth != "" && token != "" && !strings.Contains(auth, "{") && !strings.Contains(token, "{")
 }
 
 func callRevocationEndpoint(endpoint, clientID, clientSecret, token string) error {

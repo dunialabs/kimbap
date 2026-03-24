@@ -143,7 +143,7 @@ func (m *Manager) CompleteLogin(ctx context.Context, tenantID, name string, code
 		}
 	}
 
-	token, err := PollForToken(cfg, deviceCode, interval, 10*time.Minute)
+	token, err := PollForTokenWithContext(ctx, cfg, deviceCode, interval, 10*time.Minute)
 	if err != nil {
 		return err
 	}
@@ -275,6 +275,9 @@ func (m *Manager) GetAccessToken(ctx context.Context, tenantID, name string) (st
 	if accessToken == "" {
 		return "", errors.New("access token is empty")
 	}
+	now := time.Now().UTC()
+	state.LastUsedAt = &now
+	_ = m.store.Save(ctx, state)
 
 	return accessToken, nil
 }

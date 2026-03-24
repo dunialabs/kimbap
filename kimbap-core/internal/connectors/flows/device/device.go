@@ -70,7 +70,7 @@ func RunDeviceFlow(ctx context.Context, cfg DeviceFlowConfig, output io.Writer) 
 	pollCh := make(chan pollResult, 1)
 
 	go func() {
-		token, pollErr := connectors.PollForToken(connectorCfg, deviceResponse.DeviceCode, deviceResponse.Interval, timeout)
+		token, pollErr := connectors.PollForTokenWithContext(ctx, connectorCfg, deviceResponse.DeviceCode, deviceResponse.Interval, timeout)
 		pollCh <- pollResult{token: token, err: pollErr}
 	}()
 

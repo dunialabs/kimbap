@@ -75,6 +75,10 @@ func DeviceCodeRequest(cfg ConnectorConfig) (*DeviceFlowResult, error) {
 }
 
 func PollForToken(cfg ConnectorConfig, deviceCode string, interval int, timeout time.Duration) (*TokenResponse, error) {
+	return PollForTokenWithContext(context.Background(), cfg, deviceCode, interval, timeout)
+}
+
+func PollForTokenWithContext(ctx context.Context, cfg ConnectorConfig, deviceCode string, interval int, timeout time.Duration) (*TokenResponse, error) {
 	if cfg.TokenURL == "" {
 		return nil, errors.New("token url is required")
 	}
@@ -90,6 +94,11 @@ func PollForToken(cfg ConnectorConfig, deviceCode string, interval int, timeout 
 
 	deadline := time.Now().Add(timeout)
 	for {
+		select {
+		case <-ctx.Done():
+			return nil, fmt.Errorf("device flow polling canceled: %w", ctx.Err())
+		default:
+		}
 		if time.Now().After(deadline) {
 			return nil, errors.New("device flow polling timed out")
 		}
@@ -119,11 +128,15 @@ func PollForToken(cfg ConnectorConfig, deviceCode string, interval int, timeout 
 
 		switch tokenErr.Error {
 		case "authorization_pending":
-			time.Sleep(time.Duration(interval) * time.Second)
+			if err := waitForPollInterval(ctx, time.Duration(interval)*time.Second); err != nil {
+				return nil, err
+			}
 			continue
 		case "slow_down":
 			interval += 5 // RFC 8628 §3.5: MUST increase by 5 seconds
-			time.Sleep(time.Duration(interval) * time.Second)
+			if err := waitForPollInterval(ctx, time.Duration(interval)*time.Second); err != nil {
+				return nil, err
+			}
 			continue
 		default:
 			if tokenErr.ErrorDescription != "" {
@@ -134,6 +147,17 @@ func PollForToken(cfg ConnectorConfig, deviceCode string, interval int, timeout 
 			}
 			return nil, err
 		}
+	}
+}
+
+func waitForPollInterval(ctx context.Context, d time.Duration) error {
+	t := time.NewTimer(d)
+	defer t.Stop()
+	select {
+	case <-ctx.Done():
+		return fmt.Errorf("device flow polling canceled: %w", ctx.Err())
+	case <-t.C:
+		return nil
 	}
 }
 

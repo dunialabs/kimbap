@@ -19,6 +19,8 @@ import (
 
 const maxTokenBodyBytes int64 = 4 << 20
 
+var ErrLoopbackListener = errors.New("loopback listener unavailable")
+
 type BrowserFlowConfig struct {
 	AuthEndpoint  string
 	TokenEndpoint string
@@ -88,7 +90,7 @@ func RunBrowserFlow(ctx context.Context, cfg BrowserFlowConfig, output io.Writer
 
 	listener, err := net.Listen("tcp", net.JoinHostPort("127.0.0.1", strconv.Itoa(bindPort)))
 	if err != nil {
-		return nil, fmt.Errorf("start loopback listener: %w", err)
+		return nil, fmt.Errorf("%w: %v", ErrLoopbackListener, err)
 	}
 	defer listener.Close()
 

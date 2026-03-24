@@ -1,6 +1,7 @@
 package main
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"strings"
@@ -23,6 +24,8 @@ func newAuthConnectCommand() *cobra.Command {
 	var timeout time.Duration
 	var workspace string
 	var connectionScope string
+	var profile string
+	var extras []string
 	var tenant string
 
 	cmd := &cobra.Command{
@@ -39,7 +42,6 @@ func newAuthConnectCommand() *cobra.Command {
 			if err != nil {
 				return err
 			}
-
 			return runAuthConnect(
 				cfg,
 				providerID,
@@ -52,7 +54,9 @@ func newAuthConnectCommand() *cobra.Command {
 				timeout,
 				workspace,
 				connectionScope,
+				profile,
 				false,
+				parseExtras(extras),
 			)
 		},
 	}
@@ -66,6 +70,8 @@ func newAuthConnectCommand() *cobra.Command {
 	cmd.Flags().DurationVar(&timeout, "timeout", 5*time.Minute, "authorization timeout")
 	cmd.Flags().StringVar(&workspace, "workspace", "", "workspace id for workspace-scoped connection")
 	cmd.Flags().StringVar(&connectionScope, "connection-scope", string(connectors.ScopeUser), "connection scope (user, workspace, service)")
+	cmd.Flags().StringVar(&profile, "profile", "default", "connection profile name for multiple accounts per provider")
+	cmd.Flags().StringArrayVar(&extras, "extra", nil, "provider-specific key=value pairs (e.g. --extra subdomain=acme)")
 	cmd.Flags().StringVar(&tenant, "tenant", "", "tenant id")
 
 	return cmd
@@ -74,6 +80,8 @@ func newAuthConnectCommand() *cobra.Command {
 func newAuthReconnectCommand() *cobra.Command {
 	var flow string
 	var scopeInput string
+	var profile string
+	var extras []string
 	var tenant string
 	cmd := &cobra.Command{
 		Use:   "reconnect <provider>",
@@ -93,6 +101,7 @@ func newAuthReconnectCommand() *cobra.Command {
 			if err != nil {
 				return err
 			}
+			extraMap := parseExtras(extras)
 
 			_, _ = fmt.Fprintln(os.Stderr, "Attempting to reconnect...")
 
@@ -100,68 +109,76 @@ func newAuthReconnectCommand() *cobra.Command {
 			defer closeAuditEmitter(auditEmitter)
 
 			store, storeErr := openConnectorStore(cfg)
-			if storeErr == nil {
-				mgr := connectors.NewManager(store)
-
-				provider, provErr := providers.GetProvider(providerID)
-				if provErr == nil {
-					mgr.RegisterConfig(connectors.ConnectorConfig{
-						Name:         providerID,
-						Provider:     providerID,
-						ClientID:     resolveClientID(cfg, providerID),
-						ClientSecret: resolveClientSecret(cfg, providerID),
-						TokenURL:     provider.TokenEndpoint,
-						DeviceURL:    provider.DeviceEndpoint,
-						Scopes:       scopeValues(scopeInput, provider.DefaultScopes),
-					})
-				}
-
-				refreshErr := mgr.Refresh(contextBackground(), activeTenant, providerID)
-				if refreshErr == nil {
-					_, _ = fmt.Fprintln(os.Stderr, "Token refresh succeeded.")
-					if auditEmitter != nil {
-						auditEmitter.RefreshSucceeded(contextBackground(), providerID, activeTenant)
-						flowUsed := connectors.FlowType("")
-						if refreshedState, _ := mgr.Status(contextBackground(), activeTenant, providerID); refreshedState != nil {
-							flowUsed = refreshedState.FlowUsed
-						}
-						auditEmitter.ReconnectCompleted(contextBackground(), providerID, activeTenant, flowUsed)
-					}
-					if !outputAsJSON() {
-						_, _ = fmt.Fprintln(os.Stderr, "Scope changes: none (refresh does not change scopes)")
-						_, _ = fmt.Fprintln(os.Stderr, "Account changes: none")
-						return nil
-					}
-					return printOutput(map[string]any{
-						"status":           "ok",
-						"operation":        "auth.reconnect",
-						"tenant_id":        activeTenant,
-						"provider":         providerID,
-						"reconnect_method": "refresh",
-						"message":          "Refresh token path succeeded",
-						"delta": map[string]any{
-							"scope_changes":   map[string][]string{"added": {}, "removed": {}},
-							"account_changes": "none",
-						},
-					})
-				}
-				if auditEmitter != nil {
-					auditEmitter.RefreshFailed(contextBackground(), providerID, activeTenant, refreshErr.Error())
-				}
-				_, _ = fmt.Fprintf(os.Stderr, "Refresh failed: %v\nFalling back to full connect flow...\n", refreshErr)
+			if storeErr != nil {
+				return storeErr
 			}
+			mgr := connectors.NewManager(store)
+			storeName := connectorStoreName(providerID, profile)
+
+			provider, provErr := providers.GetProvider(providerID)
+			if provErr == nil {
+				provider = substituteProviderEndpoints(provider, extraMap)
+				if hasUnresolvedPlaceholders(provider) {
+					missing := listUnresolvedPlaceholders(provider)
+					if len(missing) == 0 {
+						return fmt.Errorf("provider %q has unresolved endpoint placeholders. Use --extra key=value to provide them", providerID)
+					}
+					return fmt.Errorf("provider %q has unresolved endpoint placeholders: %s\nUse --extra key=value to provide them (e.g. --extra %s=<value>)", providerID, strings.Join(missing, ", "), missing[0])
+				}
+				mgr.RegisterConfig(connectors.ConnectorConfig{
+					Name:         storeName,
+					Provider:     providerID,
+					ClientID:     resolveClientID(cfg, providerID),
+					ClientSecret: resolveClientSecret(cfg, providerID),
+					TokenURL:     provider.TokenEndpoint,
+					DeviceURL:    provider.DeviceEndpoint,
+					Scopes:       scopeValues(scopeInput, provider.DefaultScopes),
+				})
+			}
+
+			refreshErr := mgr.Refresh(contextBackground(), activeTenant, storeName)
+			if refreshErr == nil {
+				_, _ = fmt.Fprintln(os.Stderr, "Token refresh succeeded.")
+				if auditEmitter != nil {
+					auditEmitter.RefreshSucceeded(contextBackground(), providerID, activeTenant)
+					flowUsed := connectors.FlowType("")
+					if refreshedState, _ := mgr.Status(contextBackground(), activeTenant, storeName); refreshedState != nil {
+						flowUsed = refreshedState.FlowUsed
+					}
+					auditEmitter.ReconnectCompleted(contextBackground(), providerID, activeTenant, flowUsed)
+				}
+				if !outputAsJSON() {
+					_, _ = fmt.Fprintln(os.Stderr, "Scope changes: none (refresh does not change scopes)")
+					_, _ = fmt.Fprintln(os.Stderr, "Account changes: none")
+					return nil
+				}
+				return printOutput(map[string]any{
+					"status":           "ok",
+					"operation":        "auth.reconnect",
+					"tenant_id":        activeTenant,
+					"provider":         providerID,
+					"reconnect_method": "refresh",
+					"message":          "Refresh token path succeeded",
+					"delta": map[string]any{
+						"scope_changes":   map[string][]string{"added": {}, "removed": {}},
+						"account_changes": "none",
+					},
+				})
+			}
+			if auditEmitter != nil {
+				auditEmitter.RefreshFailed(contextBackground(), providerID, activeTenant, refreshErr.Error())
+			}
+			_, _ = fmt.Fprintf(os.Stderr, "Refresh failed: %v\nFalling back to full connect flow...\n", refreshErr)
 
 			existingWorkspace := ""
 			existingScope := string(connectors.ScopeUser)
-			if storeErr == nil {
-				prevMgr := connectors.NewManager(store)
-				if prev, _ := prevMgr.Status(contextBackground(), activeTenant, providerID); prev != nil {
-					if prev.WorkspaceID != "" {
-						existingWorkspace = prev.WorkspaceID
-					}
-					if prev.ConnectionScope != "" {
-						existingScope = string(prev.ConnectionScope)
-					}
+			prevMgr := connectors.NewManager(store)
+			if prev, _ := prevMgr.Status(contextBackground(), activeTenant, connectorStoreName(providerID, profile)); prev != nil {
+				if prev.WorkspaceID != "" {
+					existingWorkspace = prev.WorkspaceID
+				}
+				if prev.ConnectionScope != "" {
+					existingScope = string(prev.ConnectionScope)
 				}
 			}
 
@@ -177,12 +194,16 @@ func newAuthReconnectCommand() *cobra.Command {
 				5*time.Minute,
 				existingWorkspace,
 				existingScope,
+				profile,
 				true,
+				extraMap,
 			)
 		},
 	}
 	cmd.Flags().StringVar(&flow, "flow", "auto", "auth flow to use (auto, browser, device, client-credentials)")
 	cmd.Flags().StringVar(&scopeInput, "scope", "", "requested scopes (space/comma separated)")
+	cmd.Flags().StringVar(&profile, "profile", "default", "connection profile name for multiple accounts per provider")
+	cmd.Flags().StringArrayVar(&extras, "extra", nil, "provider-specific key=value pairs (e.g. --extra subdomain=acme)")
 	cmd.Flags().StringVar(&tenant, "tenant", "", "tenant id")
 	return cmd
 }
@@ -199,7 +220,9 @@ func runAuthConnect(
 	timeout time.Duration,
 	workspace string,
 	connectionScope string,
+	profile string,
 	reconnectMode bool,
+	extras map[string]string,
 ) error {
 	provider, err := providers.GetProvider(providerID)
 	if err != nil {
@@ -216,8 +239,22 @@ func runAuthConnect(
 	}
 	providerID = provider.ID
 
-	if strings.Contains(provider.AuthEndpoint, "{") || strings.Contains(provider.TokenEndpoint, "{") {
-		return fmt.Errorf("provider %q has endpoint placeholders that require substitution (not yet supported)", providerID)
+	provider = substituteProviderEndpoints(provider, extras)
+	if hasUnresolvedPlaceholders(provider) {
+		missing := listUnresolvedPlaceholders(provider)
+		if len(missing) == 0 {
+			return fmt.Errorf("provider %q has unresolved endpoint placeholders. Use --extra key=value to provide them", providerID)
+		}
+		return fmt.Errorf("provider %q has unresolved endpoint placeholders: %s\nUse --extra key=value to provide them (e.g. --extra %s=<value>)", providerID, strings.Join(missing, ", "), missing[0])
+	}
+	if err := validateProviderEndpoints(provider); err != nil {
+		return fmt.Errorf("provider %q endpoint validation failed: %w", providerID, err)
+	}
+
+	storeName := connectorStoreName(providerID, profile)
+	nextStatusCmd := fmt.Sprintf("kimbap auth status %s", provider.ID)
+	if strings.TrimSpace(profile) != "" && strings.TrimSpace(profile) != "default" {
+		nextStatusCmd = fmt.Sprintf("kimbap auth status %s --profile %s", provider.ID, strings.TrimSpace(profile))
 	}
 
 	scopes := scopeValues(scopeInput, provider.DefaultScopes)
@@ -228,7 +265,10 @@ func runAuthConnect(
 		return err
 	}
 
-	connScope := resolveConnectionScope(connectionScope, provider)
+	connScope, err := resolveConnectionScope(connectionScope, provider)
+	if err != nil {
+		return err
+	}
 	if timeout <= 0 {
 		timeout = 5 * time.Minute
 	}
@@ -244,6 +284,32 @@ func runAuthConnect(
 	if auditEmitter != nil {
 		auditEmitter.ConnectStarted(ctx, providerID, tenantID, selectedFlow)
 	}
+
+	store, storeErr := openConnectorStore(cfg)
+	if storeErr != nil {
+		if auditEmitter != nil {
+			auditEmitter.ConnectFailed(ctx, providerID, tenantID, selectedFlow, storeErr.Error())
+		}
+		return storeErr
+	}
+	mgr := connectors.NewManager(store)
+	prevScopes := []string{}
+	existingPrincipal := ""
+	if reconnectMode {
+		if prev, _ := store.Get(ctx, tenantID, storeName); prev != nil {
+			prevScopes = append(prevScopes, prev.Scopes...)
+			existingPrincipal = strings.TrimSpace(prev.ConnectedPrincipal)
+		}
+	}
+	mgr.RegisterConfig(connectors.ConnectorConfig{
+		Name:         storeName,
+		Provider:     providerID,
+		ClientID:     resolveClientID(cfg, providerID),
+		ClientSecret: resolveClientSecret(cfg, providerID),
+		TokenURL:     provider.TokenEndpoint,
+		DeviceURL:    provider.DeviceEndpoint,
+		Scopes:       scopes,
+	})
 
 	var accessToken, refreshToken, grantedScope string
 	var expiresIn int
@@ -290,7 +356,8 @@ func runAuthConnect(
 		}, os.Stderr)
 		if browserErr != nil {
 			normalizedFlow := normalizeFlowInput(flow)
-			if (normalizedFlow == "" || normalizedFlow == "auto") && provider.SupportsDeviceFlow() {
+			isEnvFailure := isBrowserEnvFailure(browserErr)
+			if isEnvFailure && (normalizedFlow == "" || normalizedFlow == "auto") && provider.SupportsDeviceFlow() {
 				if auditEmitter != nil {
 					auditEmitter.ConnectFailed(ctx, providerID, tenantID, connectors.FlowBrowser, browserErr.Error())
 					auditEmitter.DeviceFlowStarted(ctx, providerID, tenantID)
@@ -331,7 +398,8 @@ func runAuthConnect(
 		grantedScope = browserResult.Scope
 
 	case connectors.FlowClientCredentials:
-		_, _ = fmt.Fprintf(os.Stderr, "Starting client credentials flow for %s...\n", provider.DisplayName)
+		_, _ = fmt.Fprintf(os.Stderr, "Starting client credentials flow for %s (service-level connection)...\n", provider.DisplayName)
+		_, _ = fmt.Fprintf(os.Stderr, "Client: %s\n", resolveClientID(cfg, providerID))
 		ccResult, ccErr := clientcred.RunClientCredentialsFlow(ctx, clientcred.ClientCredentialsConfig{
 			TokenEndpoint: provider.TokenEndpoint,
 			ClientID:      resolveClientID(cfg, providerID),
@@ -355,33 +423,7 @@ func runAuthConnect(
 		return fmt.Errorf("unsupported flow: %s", selectedFlow)
 	}
 
-	store, storeErr := openConnectorStore(cfg)
-	if storeErr != nil {
-		if auditEmitter != nil {
-			auditEmitter.ConnectFailed(ctx, providerID, tenantID, selectedFlow, storeErr.Error())
-		}
-		return storeErr
-	}
-	mgr := connectors.NewManager(store)
-	prevScopes := []string{}
-	existingPrincipal := ""
-	if reconnectMode {
-		if prev, _ := store.Get(ctx, tenantID, providerID); prev != nil {
-			prevScopes = append(prevScopes, prev.Scopes...)
-			existingPrincipal = strings.TrimSpace(prev.ConnectedPrincipal)
-		}
-	}
-	mgr.RegisterConfig(connectors.ConnectorConfig{
-		Name:         providerID,
-		Provider:     providerID,
-		ClientID:     resolveClientID(cfg, providerID),
-		ClientSecret: resolveClientSecret(cfg, providerID),
-		TokenURL:     provider.TokenEndpoint,
-		DeviceURL:    provider.DeviceEndpoint,
-		Scopes:       scopes,
-	})
-
-	if err := mgr.StoreConnection(ctx, tenantID, providerID, provider.ID, accessToken, refreshToken, expiresIn, grantedScope, selectedFlow, connScope, workspace); err != nil {
+	if err := mgr.StoreConnection(ctx, tenantID, storeName, provider.ID, accessToken, refreshToken, expiresIn, grantedScope, selectedFlow, connScope, workspace); err != nil {
 		if auditEmitter != nil {
 			auditEmitter.ConnectFailed(ctx, providerID, tenantID, selectedFlow, err.Error())
 		}
@@ -393,7 +435,7 @@ func runAuthConnect(
 		if userInfo, uErr := connectors.FetchUserInfo(ctx, provider.UserInfoEndpoint, accessToken); uErr == nil && userInfo != nil {
 			connectedPrincipal = userInfo.Principal()
 			if connectedPrincipal != "" {
-				if stored, _ := store.Get(ctx, tenantID, providerID); stored != nil {
+				if stored, _ := store.Get(ctx, tenantID, storeName); stored != nil {
 					stored.ConnectedPrincipal = connectedPrincipal
 					_ = store.Save(ctx, stored)
 				}
@@ -407,6 +449,9 @@ func runAuthConnect(
 	}
 
 	_, _ = fmt.Fprintf(os.Stderr, "\nConnected to %s.\n", provider.DisplayName)
+	if connectedPrincipal != "" {
+		_, _ = fmt.Fprintf(os.Stderr, "Connected as: %s\n", connectedPrincipal)
+	}
 	_, _ = fmt.Fprintf(os.Stderr, "Connection scope: %s\n", connScope)
 	if len(grantedScopes) > 0 {
 		_, _ = fmt.Fprintf(os.Stderr, "Granted scopes: %s\n", strings.Join(grantedScopes, ", "))
@@ -416,14 +461,14 @@ func runAuthConnect(
 	}
 	_, _ = fmt.Fprintln(os.Stderr, "Refresh: healthy")
 	_, _ = fmt.Fprintln(os.Stderr, "Ready to use with Kimbap actions.")
-	_, _ = fmt.Fprintf(os.Stderr, "Next: kimbap auth status %s\n", provider.ID)
+	_, _ = fmt.Fprintf(os.Stderr, "Next: %s\n", nextStatusCmd)
 
 	accountChanges := "none"
 	scopeChanges := scopeDelta(prevScopes, grantedScopes)
 	if reconnectMode {
 		newPrincipal := strings.TrimSpace(connectedPrincipal)
 		if newPrincipal == "" {
-			if current, _ := store.Get(ctx, tenantID, providerID); current != nil {
+			if current, _ := store.Get(ctx, tenantID, storeName); current != nil {
 				newPrincipal = strings.TrimSpace(current.ConnectedPrincipal)
 			}
 		}
@@ -448,7 +493,7 @@ func runAuthConnect(
 		"flow_used":          selectedFlow,
 		"expires_in_seconds": expiresIn,
 		"workspace":          stringOrNil(workspace),
-		"next_action":        fmt.Sprintf("kimbap auth status %s", provider.ID),
+		"next_action":        nextStatusCmd,
 	}
 	if reconnectMode {
 		result["delta"] = map[string]any{
@@ -475,4 +520,8 @@ func runAuthConnect(
 		return nil
 	}
 	return printOutput(result)
+}
+
+func isBrowserEnvFailure(err error) bool {
+	return errors.Is(err, browser.ErrLoopbackListener)
 }

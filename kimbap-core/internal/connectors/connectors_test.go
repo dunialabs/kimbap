@@ -488,6 +488,25 @@ func TestPollForTokenSlowDownIncrementsBy5(t *testing.T) {
 	}
 }
 
+func TestPollForTokenWithContextCancelsDuringWait(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusBadRequest)
+		_, _ = w.Write([]byte(`{"error":"authorization_pending"}`))
+	}))
+	defer server.Close()
+
+	ctx, cancel := context.WithCancel(context.Background())
+	time.AfterFunc(200*time.Millisecond, cancel)
+
+	_, err := PollForTokenWithContext(ctx, ConnectorConfig{ClientID: "cid", TokenURL: server.URL}, "dev-code", 5, 30*time.Second)
+	if err == nil {
+		t.Fatal("expected cancellation error, got nil")
+	}
+	if !strings.Contains(err.Error(), "canceled") {
+		t.Fatalf("expected canceled error, got %v", err)
+	}
+}
+
 func mustEncryptToken(t *testing.T, value, key string) string {
 	t.Helper()
 	encrypted, err := security.EncryptData(value, key)

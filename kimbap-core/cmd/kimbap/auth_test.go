@@ -1,10 +1,12 @@
 package main
 
 import (
+	"fmt"
 	"testing"
 	"time"
 
 	"github.com/dunialabs/kimbap-core/internal/connectors"
+	"github.com/dunialabs/kimbap-core/internal/connectors/flows/browser"
 )
 
 func TestNormalizeFlowInput(t *testing.T) {
@@ -150,5 +152,41 @@ func TestSelectFlowBrowserNoneErrorsForBrowserOnlyProvider(t *testing.T) {
 	_, err := flows.SelectFlow("auto", provider, []string{"browser=none"})
 	if err == nil {
 		t.Fatal("expected error for browser=none with browser-only provider, got nil")
+	}
+}
+
+func TestProviderIsConfiguredRejectsPlaceholderEndpoints(t *testing.T) {
+	provider := connectors.ProviderDefinition{
+		AuthEndpoint:  "https://{subdomain}.example.com/oauth/authorize",
+		TokenEndpoint: "https://{subdomain}.example.com/oauth/token",
+	}
+	if providerIsConfigured(provider) {
+		t.Fatal("expected provider with unresolved placeholders to be unconfigured")
+	}
+}
+
+func TestIsBrowserEnvFailureUsesSentinelError(t *testing.T) {
+	err := fmt.Errorf("wrapped: %w", browser.ErrLoopbackListener)
+	if !isBrowserEnvFailure(err) {
+		t.Fatal("expected loopback sentinel error to be treated as environment failure")
+	}
+}
+
+func TestResolveConnectionScopeRejectsInvalidValue(t *testing.T) {
+	provider := connectors.ProviderDefinition{ID: "p1"}
+	_, err := resolveConnectionScope("invalid-scope", provider)
+	if err == nil {
+		t.Fatal("expected invalid connection scope to return error")
+	}
+}
+
+func TestResolveConnectionScopeRejectsUnsupportedProviderScope(t *testing.T) {
+	provider := connectors.ProviderDefinition{
+		ID:                   "p2",
+		ConnectionScopeModel: []connectors.ConnectionScope{connectors.ScopeUser},
+	}
+	_, err := resolveConnectionScope("workspace", provider)
+	if err == nil {
+		t.Fatal("expected unsupported provider scope to return error")
 	}
 }
