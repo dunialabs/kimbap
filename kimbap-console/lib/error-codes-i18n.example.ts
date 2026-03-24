@@ -3,10 +3,12 @@
  * This file demonstrates how to extend the error system for internationalization
  */
 
-import { ErrorCode } from './error-codes';
+import { ErrorCode, ErrorMessages } from './error-codes';
 
 // Example: Chinese error messages
 export const ErrorMessagesCN: Record<ErrorCode, string> = {
+  ...ErrorMessages,
+
   // Common errors
   [ErrorCode.MISSING_CMD_ID]: '请求中缺少 cmdId',
   [ErrorCode.PROTOCOL_NOT_IMPLEMENTED]: '协议 {cmdId} 未实现',
@@ -38,10 +40,17 @@ export const ErrorMessagesCN: Record<ErrorCode, string> = {
   [ErrorCode.SERVER_NOT_FOUND]: '服务器未找到',
   [ErrorCode.USER_NOT_FOUND]: '用户未找到',
   [ErrorCode.PERMISSION_DENIED]: '权限被拒绝',
+  [ErrorCode.USER_DISABLED]: '用户账号已被禁用',
+
+  [ErrorCode.INVALID_PARAMS]: '无效参数',
+
+  [ErrorCode.KIMBAP_CORE_CONFIG_NOT_FOUND]: '未找到 Kimbap Core 配置，请先完成配置',
 };
 
 // Example: Japanese error messages
 export const ErrorMessagesJP: Record<ErrorCode, string> = {
+  ...ErrorMessages,
+
   // Common errors
   [ErrorCode.MISSING_CMD_ID]: 'リクエストにcmdIdがありません',
   [ErrorCode.PROTOCOL_NOT_IMPLEMENTED]: 'プロトコル {cmdId} は実装されていません',

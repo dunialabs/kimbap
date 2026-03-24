@@ -56,17 +56,20 @@ func (s *Server) handleListActions(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) handleDescribeAction(w http.ResponseWriter, r *http.Request) {
 	if s.runtime == nil || s.runtime.ActionRegistry == nil {
-		writeEnvelopeError(w, r, actions.NewExecutionError(actions.ErrActionNotFound, "action registry unavailable", http.StatusNotFound, false, nil))
+		writeEnvelopeError(w, r, actions.NewExecutionError(actions.ErrDownstreamUnavailable, "action registry unavailable", http.StatusInternalServerError, false, nil))
 		return
 	}
 	name := chi.URLParam(r, "service") + "." + chi.URLParam(r, "action")
 	def, err := s.runtime.ActionRegistry.Lookup(r.Context(), name)
-	if err != nil {
-		writeEnvelopeError(w, r, actions.NewExecutionError(actions.ErrDownstreamUnavailable, "action lookup failed", http.StatusInternalServerError, true, map[string]any{"action": name}))
-		return
+	if def == nil && err == nil {
+		err = fmt.Errorf("action %q not found", name)
 	}
-	if def == nil {
-		writeEnvelopeError(w, r, actions.NewExecutionError(actions.ErrActionNotFound, "action not found", http.StatusNotFound, false, map[string]any{"action": name}))
+	if err != nil {
+		if err.Error() == fmt.Sprintf("action %q not found", name) {
+			writeEnvelopeError(w, r, actions.NewExecutionError(actions.ErrActionNotFound, "action not found", http.StatusNotFound, false, map[string]any{"action": name}))
+		} else {
+			writeEnvelopeError(w, r, actions.NewExecutionError(actions.ErrDownstreamUnavailable, "action lookup failed", http.StatusInternalServerError, true, map[string]any{"action": name}))
+		}
 		return
 	}
 	writeSuccess(w, r, http.StatusOK, def)
@@ -74,7 +77,7 @@ func (s *Server) handleDescribeAction(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) handleExecuteAction(w http.ResponseWriter, r *http.Request) {
 	if s.runtime == nil {
-		writeEnvelopeError(w, r, actions.NewExecutionError(actions.ErrDownstreamUnavailable, "runtime pipeline unavailable", http.StatusNotImplemented, false, nil))
+		writeEnvelopeError(w, r, actions.NewExecutionError(actions.ErrDownstreamUnavailable, "runtime pipeline unavailable", http.StatusInternalServerError, false, nil))
 		return
 	}
 	var body struct {

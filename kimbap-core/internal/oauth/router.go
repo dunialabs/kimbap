@@ -4,11 +4,11 @@ import (
 	"encoding/json"
 	"net/http"
 
-	"github.com/go-chi/chi/v5"
 	"github.com/dunialabs/kimbap-core/internal/middleware"
 	oauthcontroller "github.com/dunialabs/kimbap-core/internal/oauth/controller"
 	"github.com/dunialabs/kimbap-core/internal/oauth/service"
 	types "github.com/dunialabs/kimbap-core/internal/types"
+	"github.com/go-chi/chi/v5"
 )
 
 type RouterDependencies struct {
@@ -34,10 +34,8 @@ func RegisterRoutes(r chi.Router, deps RouterDependencies) {
 
 	r.Get("/.well-known/oauth-authorization-server", metaCtrl.AuthorizationServerMetadata)
 	r.Get("/.well-known/oauth-protected-resource", metaCtrl.ProtectedResourceMetadata)
-	r.Get("/.well-known/oauth-protected-resource/mcp", metaCtrl.ProtectedResourceMetadata)
 	r.Options("/.well-known/oauth-authorization-server", metaCtrl.HandleOptions)
 	r.Options("/.well-known/oauth-protected-resource", metaCtrl.HandleOptions)
-	r.Options("/.well-known/oauth-protected-resource/mcp", metaCtrl.HandleOptions)
 
 	r.Post("/register", oauthCtrl.Register)
 	r.Get("/authorize", oauthCtrl.ShowAuthorizePage)

@@ -17,12 +17,15 @@ import (
 
 func newAuthDoctorCommand() *cobra.Command {
 	var tenant string
+	var profile string
+	var extras []string
 	cmd := &cobra.Command{
 		Use:   "doctor [provider]",
 		Short: "Run OAuth-specific diagnostics",
 		Args:  cobra.MaximumNArgs(1),
 		RunE: func(_ *cobra.Command, args []string) error {
 			activeTenant := connectorTenant(tenant)
+			extraValues := parseExtras(extras)
 			providerID := ""
 			if len(args) == 1 {
 				providerID = strings.TrimSpace(args[0])
@@ -47,11 +50,11 @@ func newAuthDoctorCommand() *cobra.Command {
 			checks = append(checks, providerCheck)
 			hasFailure = hasFailure || providerCheck.Status == "fail"
 
-			expiryCheck, refreshCheck := checkAuthTokenState(cfg, activeTenant, providerID)
+			expiryCheck, refreshCheck := checkAuthTokenState(cfg, activeTenant, providerID, profile)
 			checks = append(checks, expiryCheck, refreshCheck)
 			hasFailure = hasFailure || expiryCheck.Status == "fail" || refreshCheck.Status == "fail"
 
-			reachabilityChecks := checkProviderEndpointsReachable(providerID)
+			reachabilityChecks := checkProviderEndpointsReachable(providerID, extraValues)
 			for _, c := range reachabilityChecks {
 				checks = append(checks, c)
 				hasFailure = hasFailure || c.Status == "fail"
@@ -65,7 +68,7 @@ func newAuthDoctorCommand() *cobra.Command {
 			checks = append(checks, browserCheck)
 			hasFailure = hasFailure || browserCheck.Status == "fail"
 
-			scopeCheck := checkGrantedScopes(cfg, activeTenant, providerID)
+			scopeCheck := checkGrantedScopes(cfg, activeTenant, providerID, profile)
 			checks = append(checks, scopeCheck)
 			hasFailure = hasFailure || scopeCheck.Status == "fail"
 
@@ -107,6 +110,8 @@ func newAuthDoctorCommand() *cobra.Command {
 		},
 	}
 	cmd.Flags().StringVar(&tenant, "tenant", "", "tenant id")
+	cmd.Flags().StringVar(&profile, "profile", "default", "connection profile name for multiple accounts per provider")
+	cmd.Flags().StringArrayVar(&extras, "extra", nil, "provider-specific key=value pairs for placeholder endpoints")
 	return cmd
 }
 
@@ -128,7 +133,7 @@ func checkAuthProviderConfig(providerID string) doctorCheck {
 	return doctorCheck{Name: "provider config exists", Status: "ok", Detail: providerID}
 }
 
-func checkAuthTokenState(cfg *config.KimbapConfig, tenantID, providerID string) (doctorCheck, doctorCheck) {
+func checkAuthTokenState(cfg *config.KimbapConfig, tenantID, providerID, profile string) (doctorCheck, doctorCheck) {
 	if strings.TrimSpace(providerID) == "" {
 		return doctorCheck{Name: "token expiry status", Status: "skip", Detail: "no provider specified"}, doctorCheck{Name: "refresh token availability", Status: "skip", Detail: "no provider specified"}
 	}
@@ -138,7 +143,7 @@ func checkAuthTokenState(cfg *config.KimbapConfig, tenantID, providerID string) 
 		return doctorCheck{Name: "token expiry status", Status: "fail", Detail: storeErr.Error()}, doctorCheck{Name: "refresh token availability", Status: "fail", Detail: storeErr.Error()}
 	}
 	mgr := connectors.NewManager(store)
-	state, statusErr := mgr.Status(contextBackground(), tenantID, providerID)
+	state, statusErr := mgr.Status(contextBackground(), tenantID, connectorStoreName(providerID, profile))
 	if statusErr != nil {
 		if errors.Is(statusErr, connectors.ErrConnectorNotFound) {
 			return doctorCheck{Name: "token expiry status", Status: "skip", Detail: "no connection found"}, doctorCheck{Name: "refresh token availability", Status: "skip", Detail: "no connection found"}
@@ -171,7 +176,7 @@ func checkAuthTokenState(cfg *config.KimbapConfig, tenantID, providerID string) 
 	return expiry, refreshAvailability
 }
 
-func checkProviderEndpointsReachable(providerID string) []doctorCheck {
+func checkProviderEndpointsReachable(providerID string, extras map[string]string) []doctorCheck {
 	if strings.TrimSpace(providerID) == "" {
 		return []doctorCheck{{Name: "provider endpoints reachable", Status: "skip", Detail: "no provider specified"}}
 	}
@@ -179,6 +184,18 @@ func checkProviderEndpointsReachable(providerID string) []doctorCheck {
 	provider, err := providers.GetProvider(providerID)
 	if err != nil {
 		return []doctorCheck{{Name: "provider endpoints reachable", Status: "fail", Detail: err.Error()}}
+	}
+
+	provider = substituteProviderEndpoints(provider, extras)
+	if hasUnresolvedPlaceholders(provider) {
+		missing := listUnresolvedPlaceholders(provider)
+		if len(missing) == 0 {
+			return []doctorCheck{{Name: "provider endpoints reachable", Status: "fail", Detail: "provider endpoints contain unresolved placeholders; use --extra key=value"}}
+		}
+		return []doctorCheck{{Name: "provider endpoints reachable", Status: "fail", Detail: fmt.Sprintf("unresolved placeholders: %s (use --extra key=value)", strings.Join(missing, ", "))}}
+	}
+	if vErr := validateProviderEndpoints(provider); vErr != nil {
+		return []doctorCheck{{Name: "provider endpoints reachable", Status: "fail", Detail: vErr.Error()}}
 	}
 
 	client := &http.Client{Timeout: 8 * time.Second}
@@ -248,7 +265,7 @@ func checkBrowserLaunchFeasible() doctorCheck {
 	return doctorCheck{Name: "browser launch feasible", Status: "ok", Detail: "browser launch should work"}
 }
 
-func checkGrantedScopes(cfg *config.KimbapConfig, tenantID, providerID string) doctorCheck {
+func checkGrantedScopes(cfg *config.KimbapConfig, tenantID, providerID, profile string) doctorCheck {
 	if strings.TrimSpace(providerID) == "" {
 		return doctorCheck{Name: "scope coverage", Status: "skip", Detail: "no provider specified"}
 	}
@@ -263,7 +280,7 @@ func checkGrantedScopes(cfg *config.KimbapConfig, tenantID, providerID string) d
 		return doctorCheck{Name: "scope coverage", Status: "skip", Detail: "store unavailable"}
 	}
 	mgr := connectors.NewManager(store)
-	state, statusErr := mgr.Status(contextBackground(), tenantID, providerID)
+	state, statusErr := mgr.Status(contextBackground(), tenantID, connectorStoreName(providerID, profile))
 	if statusErr != nil {
 		if errors.Is(statusErr, connectors.ErrConnectorNotFound) {
 			return doctorCheck{Name: "scope coverage", Status: "skip", Detail: "no connection found"}

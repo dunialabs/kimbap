@@ -14,19 +14,6 @@ interface Request20003 {
   };
 }
 
-interface ToolCount {
-  toolId: string;         // 工具ID
-  toolName: string;       // 工具名称
-  requestCount: number;   // 请求数量
-  successCount: number;   // 成功数量
-  failedCount: number;    // 失败数量
-}
-
-interface TrendPoint {
-  date: string;           // 日期/时间点 (格式: "2024-01-15" 或 "2024-01-15 14:00")
-  toolCounts: ToolCount[]; // 各工具在该时间点的请求数
-}
-
 interface Response20003Data {
   trends: Array<{
     date: string;
@@ -80,7 +67,7 @@ export async function handleProtocol20003(body: Request20003): Promise<Response2
     const trends: Array<{date: string; [toolName: string]: string | number}> = [];
     
     for (const timePoint of timePoints) {
-      const trendData: { [key: string]: string | number } = {
+      const trendData: { date: string; [key: string]: string | number } = {
         date: timePoint
       };
       
@@ -182,24 +169,27 @@ function getTimeRangeForPoint(timePoint: string, granularity: number): { startTi
   let endTime: number;
   
   switch (granularity) {
-    case 1: // 按小时
+    case 1: { // 按小时
       startTime = Math.floor(date.getTime() / 1000);
       endTime = startTime + 60 * 60; // +1小时
       break;
-    case 3: // 按周
+    }
+    case 3: { // 按周
       const startOfWeek = new Date(date);
       startOfWeek.setDate(date.getDate() - date.getDay());
       startOfWeek.setHours(0, 0, 0, 0);
       startTime = Math.floor(startOfWeek.getTime() / 1000);
       endTime = startTime + 7 * 24 * 60 * 60; // +7天
       break;
+    }
     case 2: // 按天（默认）
-    default:
+    default: {
       const startOfDay = new Date(date);
       startOfDay.setHours(0, 0, 0, 0);
       startTime = Math.floor(startOfDay.getTime() / 1000);
       endTime = startTime + 24 * 60 * 60; // +1天
       break;
+    }
   }
   
   return { startTime, endTime };

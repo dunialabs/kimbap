@@ -444,6 +444,8 @@ func (s *OAuthService) generateAccessToken(clientID, userID string, scopes []str
 	}
 	if resource != nil && *resource != "" {
 		payload["aud"] = *resource
+	} else if pub := strings.TrimSpace(os.Getenv("KIMBAP_PUBLIC_BASE_URL")); pub != "" {
+		payload["aud"] = strings.TrimRight(pub, "/")
 	}
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, payload)
 	signed, err := token.SignedString([]byte(secret))
@@ -569,7 +571,7 @@ func (s *OAuthService) GenerateProtectedResourceMetadata(resourceURL, authServer
 		Resource:                        resourceURL,
 		AuthorizationServers:            []string{authServerURL},
 		BearerMethodsSupported:          []string{"header"},
-		ResourceDocumentation:           authServerURL + "/docs/mcp-gateway",
+		ResourceDocumentation:           authServerURL + "/docs/oauth",
 		ResourceSigningAlgValuesSupport: []string{"HS256"},
 		ScopesSupported:                 []string{"mcp:tools", "mcp:resources", "mcp:prompts"},
 	}

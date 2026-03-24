@@ -71,7 +71,7 @@ export function aggregateLocationStats(ipRequestCounts: Map<string, number>): Ar
   const totalRequests = Array.from(ipRequestCounts.values()).reduce((sum, count) => sum + count, 0);
   
   // Aggregate by location
-  for (const [ip, requests] of ipRequestCounts) {
+  for (const [ip, requests] of Array.from(ipRequestCounts.entries())) {
     const location = getGeoLocationFromIP(ip);
     const locationKey = `${location.country}-${location.city}`;
     

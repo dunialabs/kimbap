@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"gopkg.in/yaml.v3"
 )
@@ -46,8 +47,10 @@ type PolicyConfig struct {
 }
 
 type SkillsConfig struct {
-	Dir      string `yaml:"dir"`
-	Official string `yaml:"official"`
+	Dir             string `yaml:"dir"`
+	Official        string `yaml:"official"`
+	Verify          string `yaml:"verify"`
+	SignaturePolicy string `yaml:"signature_policy"`
 }
 
 type DatabaseConfig struct {
@@ -84,8 +87,10 @@ func DefaultConfig() *KimbapConfig {
 		},
 		Policy: PolicyConfig{Path: filepath.Join(dataDir, "policy.yaml")},
 		Skills: SkillsConfig{
-			Dir:      filepath.Join(dataDir, "skills"),
-			Official: "https://skills.kimbap.ai",
+			Dir:             filepath.Join(dataDir, "skills"),
+			Official:        "https://skills.kimbap.ai",
+			Verify:          "warn",
+			SignaturePolicy: "optional",
 		},
 		Database: DatabaseConfig{
 			Driver: "sqlite",
@@ -115,6 +120,9 @@ func LoadKimbapConfig(paths ...string) (*KimbapConfig, error) {
 			return nil, err
 		}
 	}
+
+	cfg.Skills.Verify = normalizeSkillVerifyMode(cfg.Skills.Verify)
+	cfg.Skills.SignaturePolicy = normalizeSkillSignaturePolicy(cfg.Skills.SignaturePolicy)
 
 	return cfg, nil
 }
@@ -167,6 +175,8 @@ func applyKimbapEnv(cfg *KimbapConfig) {
 
 	setIfNotEmpty(&cfg.Skills.Dir, os.Getenv("KIMBAP_SKILLS_DIR"))
 	setIfNotEmpty(&cfg.Skills.Official, os.Getenv("KIMBAP_SKILLS_OFFICIAL"))
+	setIfNotEmpty(&cfg.Skills.Verify, os.Getenv("KIMBAP_SKILLS_VERIFY"))
+	setIfNotEmpty(&cfg.Skills.SignaturePolicy, os.Getenv("KIMBAP_SKILLS_SIGNATURE_POLICY"))
 
 	setIfNotEmpty(&cfg.Database.Driver, os.Getenv("KIMBAP_DATABASE_DRIVER"))
 	setIfNotEmpty(&cfg.Database.DSN, os.Getenv("KIMBAP_DATABASE_DSN"))
@@ -194,6 +204,8 @@ func mergeConfig(dst, src *KimbapConfig) {
 
 	setIfNotEmpty(&dst.Skills.Dir, src.Skills.Dir)
 	setIfNotEmpty(&dst.Skills.Official, src.Skills.Official)
+	setIfNotEmpty(&dst.Skills.Verify, src.Skills.Verify)
+	setIfNotEmpty(&dst.Skills.SignaturePolicy, src.Skills.SignaturePolicy)
 
 	setIfNotEmpty(&dst.Database.Driver, src.Database.Driver)
 	setIfNotEmpty(&dst.Database.DSN, src.Database.DSN)
@@ -202,5 +214,29 @@ func mergeConfig(dst, src *KimbapConfig) {
 func setIfNotEmpty(dst *string, value string) {
 	if value != "" {
 		*dst = value
+	}
+}
+
+func normalizeSkillVerifyMode(mode string) string {
+	switch strings.ToLower(strings.TrimSpace(mode)) {
+	case "", "warn", "off", "strict":
+		if strings.TrimSpace(mode) == "" {
+			return "warn"
+		}
+		return strings.ToLower(strings.TrimSpace(mode))
+	default:
+		return "warn"
+	}
+}
+
+func normalizeSkillSignaturePolicy(policy string) string {
+	switch strings.ToLower(strings.TrimSpace(policy)) {
+	case "", "optional", "required", "off":
+		if strings.TrimSpace(policy) == "" {
+			return "optional"
+		}
+		return strings.ToLower(strings.TrimSpace(policy))
+	default:
+		return "optional"
 	}
 }

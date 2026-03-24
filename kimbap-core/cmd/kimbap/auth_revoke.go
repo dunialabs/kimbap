@@ -12,6 +12,8 @@ import (
 
 func newAuthRevokeCommand() *cobra.Command {
 	var tenant string
+	var profile string
+	var extras []string
 	var force bool
 	cmd := &cobra.Command{
 		Use:   "revoke <provider>",
@@ -26,6 +28,7 @@ func newAuthRevokeCommand() *cobra.Command {
 				providerID = p.ID
 			}
 			activeTenant := connectorTenant(tenant)
+			storeName := connectorStoreName(providerID, profile)
 
 			if !force {
 				if ok, promptErr := confirmRevocation(providerID); promptErr != nil {
@@ -48,6 +51,7 @@ func newAuthRevokeCommand() *cobra.Command {
 			if err != nil {
 				return err
 			}
+			extraValues := parseExtras(extras)
 			auditEmitter := initAuthAuditEmitter(cfg)
 			defer closeAuditEmitter(auditEmitter)
 
@@ -55,11 +59,19 @@ func newAuthRevokeCommand() *cobra.Command {
 			providerMetaKnown := providerErr == nil
 			revocationAttempted := false
 			revocationResult := "not_supported"
-			if providerMetaKnown && strings.TrimSpace(provider.RevocationEndpoint) != "" {
+			if providerMetaKnown {
+				provider = substituteProviderEndpoints(provider, extraValues)
+				if hasUnresolvedPlaceholders(provider) {
+					revocationResult = "not_supported: unresolved endpoint placeholders"
+				} else if vErr := validateProviderEndpoints(provider); vErr != nil {
+					revocationResult = fmt.Sprintf("failed: invalid endpoint configuration (%v)", vErr)
+				}
+			}
+			if providerMetaKnown && strings.TrimSpace(provider.RevocationEndpoint) != "" && !strings.HasPrefix(revocationResult, "failed: invalid endpoint configuration") && !strings.HasPrefix(revocationResult, "not_supported: unresolved") {
 				var revokeToken string
 				store, stErr := openConnectorStore(cfg)
 				if stErr == nil {
-					if stored, _ := store.Get(contextBackground(), activeTenant, providerID); stored != nil {
+					if stored, _ := store.Get(contextBackground(), activeTenant, storeName); stored != nil {
 						decrypted := decryptStoredToken(stored.RefreshToken)
 						if decrypted == "" {
 							decrypted = decryptStoredToken(stored.AccessToken)
@@ -81,7 +93,7 @@ func newAuthRevokeCommand() *cobra.Command {
 			}
 
 			deleted := true
-			deleteErr := deleteConnectorState(cfg, activeTenant, providerID)
+			deleteErr := deleteConnectorState(cfg, activeTenant, storeName)
 			if deleteErr != nil && !errors.Is(deleteErr, sql.ErrNoRows) {
 				deleted = false
 			}
@@ -117,6 +129,8 @@ func newAuthRevokeCommand() *cobra.Command {
 		},
 	}
 	cmd.Flags().StringVar(&tenant, "tenant", "", "tenant id")
+	cmd.Flags().StringVar(&profile, "profile", "default", "connection profile name for multiple accounts per provider")
+	cmd.Flags().StringArrayVar(&extras, "extra", nil, "provider-specific key=value pairs for placeholder endpoints")
 	cmd.Flags().BoolVar(&force, "force", false, "skip revocation confirmation")
 	return cmd
 }

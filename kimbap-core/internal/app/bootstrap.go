@@ -46,7 +46,11 @@ func BuildRuntime(deps RuntimeDeps) (*runtime.Runtime, error) {
 		policyPath = strings.TrimSpace(deps.Config.Policy.Path)
 	}
 
-	actionRegistry := &skillsActionRegistry{installer: skills.NewLocalInstaller(skillsDir)}
+	actionRegistry := &skillsActionRegistry{
+		installer:       skills.NewLocalInstaller(skillsDir),
+		verifyMode:      strings.ToLower(strings.TrimSpace(deps.Config.Skills.Verify)),
+		signaturePolicy: strings.ToLower(strings.TrimSpace(deps.Config.Skills.SignaturePolicy)),
+	}
 
 	var policyEvaluator runtime.PolicyEvaluator
 	if policyPath != "" {
@@ -98,7 +102,9 @@ func BuildRuntime(deps RuntimeDeps) (*runtime.Runtime, error) {
 }
 
 type skillsActionRegistry struct {
-	installer *skills.LocalInstaller
+	installer       *skills.LocalInstaller
+	verifyMode      string
+	signaturePolicy string
 }
 
 func (r *skillsActionRegistry) Lookup(_ context.Context, name string) (*actions.ActionDefinition, error) {
@@ -160,6 +166,12 @@ func (r *skillsActionRegistry) loadDefinitions() ([]actions.ActionDefinition, er
 	}
 	out := make([]actions.ActionDefinition, 0)
 	for _, it := range installed {
+		if ok, verifyErr := r.verifyInstalledSkill(it.Manifest.Name); !ok {
+			if verifyErr != nil {
+				return nil, verifyErr
+			}
+			continue
+		}
 		defs, convErr := skills.ToActionDefinitions(&it.Manifest)
 		if convErr != nil {
 			return nil, convErr
@@ -167,6 +179,69 @@ func (r *skillsActionRegistry) loadDefinitions() ([]actions.ActionDefinition, er
 		out = append(out, defs...)
 	}
 	return out, nil
+}
+
+func (r *skillsActionRegistry) verifyInstalledSkill(name string) (bool, error) {
+	verifyMode := normalizeVerifyMode(r.verifyMode)
+	signaturePolicy := normalizeSignaturePolicy(r.signaturePolicy)
+
+	if verifyMode == "off" && signaturePolicy != "required" {
+		return true, nil
+	}
+
+	result, err := r.installer.Verify(name)
+	if err != nil {
+		if signaturePolicy == "required" {
+			return false, fmt.Errorf("verify installed skill %q for required signature policy: %w", name, err)
+		}
+		if verifyMode == "strict" {
+			return false, fmt.Errorf("verify installed skill %q: %w", name, err)
+		}
+		_, _ = fmt.Fprintf(os.Stderr, "warning: verify installed skill %q failed: %v\n", name, err)
+		return true, nil
+	}
+
+	if signaturePolicy == "required" {
+		if !result.Locked || !result.Signed || !result.SignatureValid {
+			msg := fmt.Sprintf("skill %q failed required signature verification (locked=%v signed=%v valid=%v)", name, result.Locked, result.Signed, result.SignatureValid)
+			if verifyMode == "strict" {
+				return false, fmt.Errorf("%s", msg)
+			}
+			_, _ = fmt.Fprintln(os.Stderr, "warning:", msg)
+			return false, nil
+		}
+	}
+
+	if verifyMode != "off" {
+		if !result.Locked || !result.Verified {
+			msg := fmt.Sprintf("skill %q failed digest verification (locked=%v verified=%v)", name, result.Locked, result.Verified)
+			if verifyMode == "strict" {
+				return false, fmt.Errorf("%s", msg)
+			}
+			_, _ = fmt.Fprintln(os.Stderr, "warning:", msg)
+			return true, nil
+		}
+	}
+
+	return true, nil
+}
+
+func normalizeVerifyMode(mode string) string {
+	switch strings.ToLower(strings.TrimSpace(mode)) {
+	case "off", "strict", "warn":
+		return strings.ToLower(strings.TrimSpace(mode))
+	default:
+		return "warn"
+	}
+}
+
+func normalizeSignaturePolicy(policy string) string {
+	switch strings.ToLower(strings.TrimSpace(policy)) {
+	case "off", "optional", "required":
+		return strings.ToLower(strings.TrimSpace(policy))
+	default:
+		return "optional"
+	}
 }
 
 type policyEvaluatorAdapter struct {
@@ -288,8 +363,16 @@ func (r *connectorCredentialResolver) Resolve(ctx context.Context, tenantID stri
 	if r == nil || r.mgr == nil {
 		return nil, nil
 	}
+	if req.Type != actions.AuthTypeBearer && req.Type != actions.AuthTypeOAuth2 && req.Type != actions.AuthTypeSession {
+		return nil, nil
+	}
 	connectorName := strings.TrimSpace(req.CredentialRef)
 	if connectorName == "" {
+		return nil, nil
+	}
+
+	connectorName, ok := connectorNameFromRef(connectorName)
+	if !ok {
 		return nil, nil
 	}
 
@@ -303,11 +386,25 @@ func (r *connectorCredentialResolver) Resolve(ctx context.Context, tenantID stri
 	if strings.TrimSpace(token) == "" {
 		return nil, nil
 	}
-
 	return &actions.ResolvedCredentialSet{
 		Type:  string(req.Type),
 		Token: token,
 	}, nil
+}
+
+func connectorNameFromRef(ref string) (string, bool) {
+	suffixes := []string{".oauth_token", ".oidc_token", ".token", ".oauth"}
+	lower := strings.ToLower(ref)
+	for _, suffix := range suffixes {
+		if strings.HasSuffix(lower, suffix) {
+			name := strings.TrimSpace(ref[:len(ref)-len(suffix)])
+			if name != "" {
+				return name, true
+			}
+			return "", false
+		}
+	}
+	return "", false
 }
 
 type chainCredentialResolver struct {

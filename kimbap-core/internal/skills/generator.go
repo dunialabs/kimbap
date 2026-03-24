@@ -46,7 +46,10 @@ func GenerateFromOpenAPI(spec []byte) (*SkillManifest, error) {
 	name := normalizeSkillName(stringAt(info, "title"))
 	version := normalizeVersion(stringAt(info, "version"))
 	description := strings.TrimSpace(stringAt(info, "description"))
-	baseURL := normalizeBaseURL(firstServerURL(root))
+	baseURL, err := normalizeBaseURL(firstServerURL(root))
+	if err != nil {
+		return nil, err
+	}
 
 	auth, err := extractAuth(root, resolver, name)
 	if err != nil {
@@ -110,7 +113,60 @@ func GenerateFromOpenAPIURL(rawURL string) (*SkillManifest, error) {
 		return nil, fmt.Errorf("OpenAPI spec exceeds maximum size of %d bytes", maxOpenAPISpecBytes)
 	}
 
+	body = resolveServerURL(body, resp.Request.URL.String())
+
 	return GenerateFromOpenAPI(body)
+}
+
+func resolveServerURL(specBytes []byte, fetchedURL string) []byte {
+	root, err := parseOpenAPIRoot(specBytes)
+	if err != nil {
+		return specBytes
+	}
+
+	servers := anySliceAt(root, "servers")
+	if len(servers) == 0 {
+		return specBytes
+	}
+
+	firstServer, ok := servers[0].(map[string]any)
+	if !ok {
+		return specBytes
+	}
+
+	rawServerURL := strings.TrimSpace(stringAt(firstServer, "url"))
+	if rawServerURL == "" {
+		return specBytes
+	}
+
+	parsedServerURL, err := url.Parse(rawServerURL)
+	if err != nil || parsedServerURL.IsAbs() {
+		return specBytes
+	}
+
+	parsedFetchedURL, err := url.Parse(strings.TrimSpace(fetchedURL))
+	if err != nil || parsedFetchedURL.Scheme == "" || parsedFetchedURL.Host == "" {
+		return specBytes
+	}
+
+	resolvedServerURL := parsedFetchedURL.ResolveReference(parsedServerURL)
+	if resolvedServerURL.Scheme == "" || resolvedServerURL.Host == "" {
+		return specBytes
+	}
+
+	firstServer["url"] = resolvedServerURL.String()
+
+	var out []byte
+	if json.Valid(specBytes) {
+		out, err = json.Marshal(root)
+	} else {
+		out, err = yaml.Marshal(root)
+	}
+	if err != nil {
+		return specBytes
+	}
+
+	return out
 }
 
 type openAPIRefResolver struct {
@@ -591,12 +647,24 @@ func firstServerURL(root map[string]any) string {
 	return strings.TrimSpace(stringAt(first, "url"))
 }
 
-func normalizeBaseURL(raw string) string {
-	u, err := url.Parse(strings.TrimSpace(raw))
-	if err == nil && u.Scheme != "" && u.Host != "" {
-		return u.String()
+func normalizeBaseURL(raw string) (string, error) {
+	trimmed := strings.TrimSpace(raw)
+	if trimmed == "" {
+		return "", fmt.Errorf("OpenAPI spec must include at least one absolute server URL")
 	}
-	return "https://example.com"
+
+	u, err := url.Parse(trimmed)
+	if err != nil {
+		return "", fmt.Errorf("invalid OpenAPI server URL %q: %w", trimmed, err)
+	}
+	if u.Scheme == "" || u.Host == "" {
+		return "", fmt.Errorf("OpenAPI server URL must be absolute: %q", trimmed)
+	}
+	if u.Scheme != "http" && u.Scheme != "https" {
+		return "", fmt.Errorf("OpenAPI server URL must use http or https: %q", trimmed)
+	}
+
+	return u.String(), nil
 }
 
 func firstReferencedSecurityScheme(root map[string]any) string {
@@ -1034,6 +1102,7 @@ func appendActionWarnings(action *SkillAction, warnings []string) {
 	if len(uniqueWarnings) == 0 {
 		return
 	}
+	action.Warnings = append([]string(nil), uniqueWarnings...)
 	lines := make([]string, 0, len(uniqueWarnings))
 	for _, warning := range uniqueWarnings {
 		lines = append(lines, "WARNING: "+warning)

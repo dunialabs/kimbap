@@ -68,7 +68,7 @@ func FetchUserInfo(ctx context.Context, endpoint, accessToken string) (*UserInfo
 			break
 		}
 	}
-	for _, key := range []string{"login", "username", "preferred_username", "sub"} {
+	for _, key := range []string{"login", "username", "preferred_username", "sub", "user", "user_id"} {
 		if v, ok := raw[key].(string); ok && v != "" {
 			info.Login = v
 			break

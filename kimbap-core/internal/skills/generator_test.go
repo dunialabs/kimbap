@@ -140,27 +140,12 @@ func TestGenerateFromOpenAPIJSONMissingServerAndSecurity(t *testing.T) {
   }
 }`
 
-	manifest, err := GenerateFromOpenAPI([]byte(spec))
-	if err != nil {
-		t.Fatalf("GenerateFromOpenAPI failed: %v", err)
+	_, err := GenerateFromOpenAPI([]byte(spec))
+	if err == nil {
+		t.Fatalf("expected error when OpenAPI servers are missing")
 	}
-
-	if manifest.BaseURL != "https://example.com" {
-		t.Fatalf("expected fallback base URL, got %s", manifest.BaseURL)
-	}
-	if manifest.Auth.Type != "none" {
-		t.Fatalf("expected auth.type=none, got %+v", manifest.Auth)
-	}
-	if manifest.Version != "2.0.0" {
-		t.Fatalf("expected normalized version 2.0.0, got %s", manifest.Version)
-	}
-
-	deleteAction, ok := manifest.Actions["delete-items-id"]
-	if !ok {
-		t.Fatalf("expected generated DELETE action")
-	}
-	if deleteAction.Risk.Level != "high" || !deleteAction.Risk.Mutating {
-		t.Fatalf("unexpected DELETE risk: %+v", deleteAction.Risk)
+	if !strings.Contains(err.Error(), "server URL") {
+		t.Fatalf("expected missing server URL error, got %v", err)
 	}
 }
 
@@ -197,6 +182,39 @@ paths:
 	}
 	if _, ok := manifest.Actions["health"]; !ok {
 		t.Fatalf("expected health action from URL source")
+	}
+}
+
+func TestGenerateFromOpenAPIURLResolvesRelativeServerURL(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_, _ = w.Write([]byte(`openapi: 3.0.0
+info:
+  title: Relative Server URL Skill
+  version: 1.0.0
+servers:
+  - url: /api
+paths:
+  /health:
+    get:
+      operationId: health
+      responses:
+        '200':
+          description: ok
+          content:
+            application/json:
+              schema:
+                type: object
+`))
+	}))
+	defer server.Close()
+
+	manifest, err := GenerateFromOpenAPIURL(server.URL)
+	if err != nil {
+		t.Fatalf("GenerateFromOpenAPIURL failed: %v", err)
+	}
+
+	if manifest.BaseURL != server.URL+"/api" {
+		t.Fatalf("expected baseURL to resolve against fetched origin, got %q", manifest.BaseURL)
 	}
 }
 
@@ -754,5 +772,110 @@ paths:
 
 	if !def.InputSchema.AdditionalProperties {
 		t.Fatal("expected additionalProperties=true so --json input passes through as raw body")
+	}
+}
+
+func TestGenerateFromOpenAPIParityContract(t *testing.T) {
+	spec := `openapi: 3.0.3
+info:
+  title: Parity Contract API
+  version: 1.0.0
+servers:
+  - url: https://contract.example.com
+components:
+  securitySchemes:
+    ApiKeyAuth:
+      type: apiKey
+      in: query
+      name: api_key
+paths:
+  /items/{id}:
+    get:
+      operationId: getItem
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: includeMeta
+          in: query
+          required: false
+          schema:
+            type: boolean
+      responses:
+        '200':
+          description: ok
+          content:
+            application/json:
+              schema:
+                type: object
+  /items:
+    post:
+      operationId: createItem
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name]
+              properties:
+                name:
+                  type: string
+                quantity:
+                  type: number
+      responses:
+        '201':
+          description: created
+          content:
+            application/json:
+              schema:
+                type: object
+`
+
+	manifest, err := GenerateFromOpenAPI([]byte(spec))
+	if err != nil {
+		t.Fatalf("GenerateFromOpenAPI failed: %v", err)
+	}
+
+	if manifest.BaseURL != "https://contract.example.com" {
+		t.Fatalf("unexpected baseURL: %s", manifest.BaseURL)
+	}
+	if manifest.Auth.Type != "query" || manifest.Auth.QueryParam != "api_key" {
+		t.Fatalf("unexpected auth mapping: %+v", manifest.Auth)
+	}
+
+	getAction, ok := manifest.Actions["getitem"]
+	if !ok {
+		t.Fatalf("expected getitem action")
+	}
+	if getAction.Method != "GET" || getAction.Path != "/items/{id}" {
+		t.Fatalf("unexpected get action route: %+v", getAction)
+	}
+	if getAction.Request.PathParams["id"] != "{id}" {
+		t.Fatalf("expected path param mapping id -> {id}, got %+v", getAction.Request.PathParams)
+	}
+	if getAction.Request.Query["includeMeta"] != "{includeMeta}" {
+		t.Fatalf("expected query param mapping includeMeta -> {includeMeta}, got %+v", getAction.Request.Query)
+	}
+
+	createAction, ok := manifest.Actions["createitem"]
+	if !ok {
+		t.Fatalf("expected createitem action")
+	}
+	if createAction.Method != "POST" || createAction.Path != "/items" {
+		t.Fatalf("unexpected create action route: %+v", createAction)
+	}
+
+	args := map[string]ActionArg{}
+	for _, arg := range createAction.Args {
+		args[arg.Name] = arg
+	}
+	if !args["name"].Required || args["name"].Type != "string" {
+		t.Fatalf("expected required name:string arg, got %+v", args["name"])
+	}
+	if args["quantity"].Required || args["quantity"].Type != "number" {
+		t.Fatalf("expected optional quantity:number arg, got %+v", args["quantity"])
 	}
 }

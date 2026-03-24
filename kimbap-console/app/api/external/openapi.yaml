@@ -1,14 +1,17 @@
 openapi: 3.1.0
 info:
-  title: "Kimbap Console External API"
-  version: "1.0.0"
+  title: Kimbap Console External API
+  version: 1.0.0
 servers:
-  - url: "/api/external"
+  - url: /api/external
+security:
+  - BearerAuth: []
 paths:
   /auth/init:
     post:
       operationId: authInit
-      summary: Initialize Proxy and Create Owner Token (public)
+      summary: Initialize console auth and owner token
+      security: []
       requestBody:
         required: true
         content:
@@ -18,8 +21,7 @@ paths:
               properties:
                 masterPwd:
                   type: string
-              required:
-                - masterPwd
+              required: [masterPwd]
       responses:
         '201':
           description: Created
@@ -27,30 +29,35 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/SuccessEnvelope'
-        '400':
-          description: Bad Request
+        default:
+          description: Error
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
-        '401':
-          description: Unauthorized
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '403':
-          description: Forbidden
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-      security:
-        - BearerAuth: []
+
   /proxy:
+    get:
+      operationId: proxyGet
+      summary: Get current proxy info
+      security: []
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessEnvelope'
+        default:
+          description: Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
     post:
-      operationId: proxyGetPublic
-      summary: Get current proxy info (public)
+      operationId: proxyGetPost
+      summary: Get current proxy info (POST)
+      security: []
       requestBody:
         required: false
         content:
@@ -65,14 +72,13 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/SuccessEnvelope'
-        '400':
-          description: Bad Request
+        default:
+          description: Error
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
-      security:
-        - BearerAuth: []
+
   /proxy/update:
     post:
       operationId: proxyUpdate
@@ -88,9 +94,7 @@ paths:
                   type: integer
                 proxyName:
                   type: string
-              required:
-                - proxyId
-                - proxyName
+              required: [proxyId, proxyName]
       responses:
         '200':
           description: OK
@@ -98,29 +102,46 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/SuccessEnvelope'
-        '400':
-          description: Bad Request
+        default:
+          description: Error
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
+
   /tokens:
+    get:
+      operationId: tokensListGet
+      summary: List tokens (GET)
+      parameters:
+        - in: query
+          name: namespace
+          required: false
+          schema:
+            type: string
+        - in: query
+          name: tags
+          required: false
+          description: comma-separated
+          schema:
+            type: string
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessEnvelope'
     post:
-      operationId: tokensList
-      summary: List Tokens
+      operationId: tokensListPost
+      summary: List/query tokens (POST)
       requestBody:
         required: false
         content:
           application/json:
             schema:
               type: object
-              properties:
-                namespace:
-                  type: string
-                tags:
-                  type: array
-                  items:
-                    type: string
+              additionalProperties: true
       responses:
         '200':
           description: OK
@@ -128,16 +149,32 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/SuccessEnvelope'
-        '400':
-          description: Bad Request
+
+  /tokens/get:
+    get:
+      operationId: tokensGetGet
+      summary: Get token by id (GET)
+      parameters:
+        - in: query
+          name: tokenId
+          schema:
+            type: string
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessEnvelope'
+        default:
+          description: Error
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
-  /tokens/get:
     post:
-      operationId: tokensGet
-      summary: Get Token by ID
+      operationId: tokensGetPost
+      summary: Get token by id (POST)
       requestBody:
         required: true
         content:
@@ -147,8 +184,7 @@ paths:
               properties:
                 tokenId:
                   type: string
-              required:
-                - tokenId
+              required: [tokenId]
       responses:
         '200':
           description: OK
@@ -156,22 +192,17 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/SuccessEnvelope'
-        '400':
-          description: Bad Request
+        default:
+          description: Error
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
-        '404':
-          description: Not Found
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
+
   /tokens/create:
     post:
       operationId: tokensCreate
-      summary: Batch Create Tokens
+      summary: Batch create tokens
       requestBody:
         required: true
         content:
@@ -204,8 +235,32 @@ paths:
                         type: array
                         items:
                           type: object
-              required:
-                - tokens
+                          properties:
+                            toolId:
+                              type: string
+                            functions:
+                              type: array
+                              items:
+                                type: object
+                                properties:
+                                  funcName:
+                                    type: string
+                                  enabled:
+                                    type: boolean
+                                required: [funcName, enabled]
+                            resources:
+                              type: array
+                              items:
+                                type: object
+                                properties:
+                                  uri:
+                                    type: string
+                                  enabled:
+                                    type: boolean
+                                required: [uri, enabled]
+                          required: [toolId]
+                    required: [name, role]
+              required: [tokens]
       responses:
         '201':
           description: Created
@@ -213,16 +268,17 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/SuccessEnvelope'
-        '400':
-          description: Bad Request
+        default:
+          description: Error
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
+
   /tokens/update:
     post:
       operationId: tokensUpdate
-      summary: Update Token
+      summary: Update token
       requestBody:
         required: true
         content:
@@ -232,8 +288,7 @@ paths:
               properties:
                 tokenId:
                   type: string
-              required:
-                - tokenId
+              required: [tokenId]
       responses:
         '200':
           description: OK
@@ -241,16 +296,17 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/SuccessEnvelope'
-        '400':
-          description: Bad Request
+        default:
+          description: Error
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
+
   /tokens/delete:
     post:
       operationId: tokensDelete
-      summary: Delete Token
+      summary: Delete token
       requestBody:
         required: true
         content:
@@ -260,8 +316,7 @@ paths:
               properties:
                 tokenId:
                   type: string
-              required:
-                - tokenId
+              required: [tokenId]
       responses:
         '200':
           description: OK
@@ -269,16 +324,17 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/SuccessEnvelope'
-        '400':
-          description: Bad Request
+        default:
+          description: Error
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
+
   /tokens/batch-update:
     post:
       operationId: tokensBatchUpdate
-      summary: Batch Update Tokens
+      summary: Batch update tokens
       requestBody:
         required: true
         content:
@@ -290,16 +346,47 @@ paths:
                   type: array
                   items:
                     type: string
-                permissions:
-                  type: array
-                  items:
-                    type: object
                 namespace:
                   type: string
                 tags:
                   type: array
                   items:
                     type: string
+                tagsMode:
+                  type: string
+                  enum: [replace, add, remove, clear]
+                permissions:
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      toolId:
+                        type: string
+                      functions:
+                        type: array
+                        items:
+                          type: object
+                          properties:
+                            funcName:
+                              type: string
+                            enabled:
+                              type: boolean
+                          required: [funcName, enabled]
+                      resources:
+                        type: array
+                        items:
+                          type: object
+                          properties:
+                            uri:
+                              type: string
+                            enabled:
+                              type: boolean
+                          required: [uri, enabled]
+                    required: [toolId]
+                permissionsMode:
+                  type: string
+                  enum: [replace, merge]
+              required: [tokenIds]
       responses:
         '200':
           description: OK
@@ -307,319 +394,23 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/SuccessEnvelope'
-        '400':
-          description: Bad Request
+        default:
+          description: Error
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
-  /templates:
-    post:
-      operationId: listToolTemplates
-      summary: List Tool Templates
-      requestBody:
-        required: false
-        content:
-          application/json:
-            schema:
-              type: object
-              properties:
-                none:
-                  type: boolean
-      responses:
-        '200':
-          description: OK
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/SuccessEnvelope'
-        '401':
-          description: Unauthorized
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-  /tools:
-    post:
-      operationId: listTools
-      summary: List Tools
-      requestBody:
-        required: false
-        content:
-          application/json:
-            schema:
-              type: object
-              properties:
-                enabled:
-                  type: boolean
-      responses:
-        '200':
-          description: OK
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/SuccessEnvelope'
-  /tools/basic-mcp:
-    post:
-      operationId: toolsBasicMcp
-      summary: Create Basic MCP Tool
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              properties:
-                config:
-                  type: object
-      responses:
-        '200':
-          description: OK
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/SuccessEnvelope'
-  /tools/basic-mcp/update:
-    post:
-      operationId: toolsBasicMcpUpdate
-      summary: Update Basic MCP Tool
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              properties:
-                toolId:
-                  type: string
-      responses:
-        '200':
-          description: OK
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/SuccessEnvelope'
-  /tools/custom-mcp:
-    post:
-      operationId: toolsCustomMcp
-      summary: Create Custom MCP Tool
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              properties:
-                config:
-                  type: object
-      responses:
-        '200':
-          description: OK
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/SuccessEnvelope'
-  /tools/custom-mcp/update:
-    post:
-      operationId: toolsCustomMcpUpdate
-      summary: Update Custom MCP Tool
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              properties:
-                toolId:
-                  type: string
-      responses:
-        '200':
-          description: OK
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/SuccessEnvelope'
-  /tools/rest-api:
-    post:
-      operationId: toolsRestApi
-      summary: Integrate REST API Tool
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              properties:
-                endpoint:
-                  type: string
-      responses:
-        '200':
-          description: OK
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/SuccessEnvelope'
-  /tools/rest-api/update:
-    post:
-      operationId: toolsRestApiUpdate
-      summary: Update REST API Tool
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              properties:
-                toolId:
-                  type: string
-      responses:
-        '200':
-          description: OK
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/SuccessEnvelope'
-  /tools/skills:
-    post:
-      operationId: toolsSkills
-      summary: Create Skills Tool
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              properties:
-                config:
-                  type: object
-      responses:
-        '200':
-          description: OK
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/SuccessEnvelope'
-  /tools/skills/update:
-    post:
-      operationId: toolsSkillsUpdate
-      summary: Update Skills Tool
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              properties:
-                toolId:
-                  type: string
-      responses:
-        '200':
-          description: OK
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/SuccessEnvelope'
-  /tools/delete:
-    post:
-      operationId: toolsDelete
-      summary: Delete Tool
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              properties:
-                toolId:
-                  type: string
-      responses:
-        '200':
-          description: OK
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/SuccessEnvelope'
-  /tools/enable:
-    post:
-      operationId: toolsEnable
-      summary: Enable Tool
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              properties:
-                toolId:
-                  type: string
-      responses:
-        '200':
-          description: OK
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/SuccessEnvelope'
-  /tools/disable:
-    post:
-      operationId: toolsDisable
-      summary: Disable Tool
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              properties:
-                toolId:
-                  type: string
-      responses:
-        '200':
-          description: OK
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/SuccessEnvelope'
-  /tools/start:
-    post:
-      operationId: toolsStart
-      summary: Start Tool
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              properties:
-                toolId:
-                  type: string
-      responses:
-        '200':
-          description: OK
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/SuccessEnvelope'
-  /tools/connect-all:
-    post:
-      operationId: toolsConnectAll
-      summary: Connect All Tools
-      requestBody:
-        required: false
-        content:
-          application/json:
-            schema:
-              type: object
-      responses:
-        '200':
-          description: OK
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/SuccessEnvelope'
+
   /policies:
     get:
       operationId: policiesListGet
-      summary: List Policies (GET)
+      summary: List policies (GET)
+      parameters:
+        - in: query
+          name: serverId
+          required: false
+          schema:
+            type: string
       responses:
         '200':
           description: OK
@@ -629,13 +420,14 @@ paths:
                 $ref: '#/components/schemas/SuccessEnvelope'
     post:
       operationId: policiesListPost
-      summary: List/Query Policies (POST)
+      summary: List/query policies (POST)
       requestBody:
         required: false
         content:
           application/json:
             schema:
               type: object
+              additionalProperties: true
       responses:
         '200':
           description: OK
@@ -643,10 +435,26 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/SuccessEnvelope'
+
   /policies/get:
+    get:
+      operationId: policiesGetGet
+      summary: Get policy by id (GET)
+      parameters:
+        - in: query
+          name: id
+          schema:
+            type: string
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessEnvelope'
     post:
-      operationId: policiesGet
-      summary: Get Policy by ID
+      operationId: policiesGetPost
+      summary: Get policy by id (POST)
       requestBody:
         required: true
         content:
@@ -654,8 +462,9 @@ paths:
             schema:
               type: object
               properties:
-                policyId:
+                id:
                   type: string
+              required: [id]
       responses:
         '200':
           description: OK
@@ -663,10 +472,11 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/SuccessEnvelope'
+
   /policies/create:
     post:
       operationId: policiesCreate
-      summary: Create Policy
+      summary: Create policy
       requestBody:
         required: true
         content:
@@ -674,19 +484,24 @@ paths:
             schema:
               type: object
               properties:
-                name:
+                serverId:
                   type: string
+                dsl:
+                  type: object
+                  additionalProperties: true
+              required: [dsl]
       responses:
-        '200':
-          description: OK
+        '201':
+          description: Created
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/SuccessEnvelope'
+
   /policies/update:
     post:
       operationId: policiesUpdate
-      summary: Update Policy
+      summary: Update policy
       requestBody:
         required: true
         content:
@@ -694,8 +509,15 @@ paths:
             schema:
               type: object
               properties:
-                policyId:
+                id:
                   type: string
+                dsl:
+                  type: object
+                  additionalProperties: true
+                status:
+                  type: string
+                  enum: [active, archived]
+              required: [id]
       responses:
         '200':
           description: OK
@@ -703,10 +525,11 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/SuccessEnvelope'
+
   /policies/delete:
     post:
       operationId: policiesDelete
-      summary: Delete Policy
+      summary: Delete policy
       requestBody:
         required: true
         content:
@@ -714,8 +537,9 @@ paths:
             schema:
               type: object
               properties:
-                policyId:
+                id:
                   type: string
+              required: [id]
       responses:
         '200':
           description: OK
@@ -723,10 +547,17 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/SuccessEnvelope'
+
   /policies/effective:
     get:
       operationId: policiesEffectiveGet
-      summary: Get Effective Policies (GET)
+      summary: Get effective policies (GET)
+      parameters:
+        - in: query
+          name: serverId
+          required: false
+          schema:
+            type: string
       responses:
         '200':
           description: OK
@@ -736,13 +567,14 @@ paths:
                 $ref: '#/components/schemas/SuccessEnvelope'
     post:
       operationId: policiesEffectivePost
-      summary: Get Effective Policies (POST)
+      summary: Get effective policies (POST)
       requestBody:
         required: false
         content:
           application/json:
             schema:
               type: object
+              additionalProperties: true
       responses:
         '200':
           description: OK
@@ -750,10 +582,42 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/SuccessEnvelope'
+
   /approvals:
     get:
       operationId: approvalsListGet
-      summary: List Approvals (GET)
+      summary: List approvals (GET)
+      parameters:
+        - in: query
+          name: userId
+          required: false
+          schema:
+            type: string
+        - in: query
+          name: serverId
+          required: false
+          schema:
+            type: string
+        - in: query
+          name: toolName
+          required: false
+          schema:
+            type: string
+        - in: query
+          name: status
+          required: false
+          schema:
+            type: string
+        - in: query
+          name: page
+          required: false
+          schema:
+            type: integer
+        - in: query
+          name: pageSize
+          required: false
+          schema:
+            type: integer
       responses:
         '200':
           description: OK
@@ -763,13 +627,14 @@ paths:
                 $ref: '#/components/schemas/SuccessEnvelope'
     post:
       operationId: approvalsListPost
-      summary: List Approvals (POST)
+      summary: List/query approvals (POST)
       requestBody:
         required: false
         content:
           application/json:
             schema:
               type: object
+              additionalProperties: true
       responses:
         '200':
           description: OK
@@ -777,10 +642,26 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/SuccessEnvelope'
+
   /approvals/get:
+    get:
+      operationId: approvalsGetGet
+      summary: Get approval by id (GET)
+      parameters:
+        - in: query
+          name: id
+          schema:
+            type: string
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessEnvelope'
     post:
-      operationId: approvalsGet
-      summary: Get Approval by ID
+      operationId: approvalsGetPost
+      summary: Get approval by id (POST)
       requestBody:
         required: true
         content:
@@ -788,8 +669,9 @@ paths:
             schema:
               type: object
               properties:
-                approvalId:
+                id:
                   type: string
+              required: [id]
       responses:
         '200':
           description: OK
@@ -797,10 +679,17 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/SuccessEnvelope'
+
   /approvals/count-pending:
     get:
       operationId: approvalsCountPendingGet
-      summary: Count Pending Approvals (GET)
+      summary: Count pending approvals (GET)
+      parameters:
+        - in: query
+          name: userId
+          required: false
+          schema:
+            type: string
       responses:
         '200':
           description: OK
@@ -808,10 +697,28 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/SuccessEnvelope'
+    post:
+      operationId: approvalsCountPendingPost
+      summary: Count pending approvals (POST)
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: true
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessEnvelope'
+
   /approvals/decide:
     post:
       operationId: approvalsDecide
-      summary: Decide on Approval
+      summary: Decide approval request
       requestBody:
         required: true
         content:
@@ -819,30 +726,14 @@ paths:
             schema:
               type: object
               properties:
-                approvalId:
+                id:
                   type: string
                 decision:
                   type: string
-      responses:
-        '200':
-          description: OK
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/SuccessEnvelope'
-  /scopes:
-    post:
-      operationId: scopesCreate
-      summary: Create Scope
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              properties:
-                scopeName:
+                  enum: [APPROVED, REJECTED]
+                reason:
                   type: string
+              required: [id, decision]
       responses:
         '200':
           description: OK
@@ -850,10 +741,17 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/SuccessEnvelope'
+
   /user-capabilities:
     get:
       operationId: userCapabilitiesListGet
-      summary: List User Capabilities (GET)
+      summary: List user capabilities (GET)
+      parameters:
+        - in: query
+          name: userId
+          required: true
+          schema:
+            type: string
       responses:
         '200':
           description: OK
@@ -863,13 +761,14 @@ paths:
                 $ref: '#/components/schemas/SuccessEnvelope'
     post:
       operationId: userCapabilitiesListPost
-      summary: List User Capabilities (POST)
+      summary: List/query user capabilities (POST)
       requestBody:
         required: false
         content:
           application/json:
             schema:
               type: object
+              additionalProperties: true
       responses:
         '200':
           description: OK
@@ -877,19 +776,18 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/SuccessEnvelope'
+
   /user-capabilities/set:
     post:
       operationId: userCapabilitiesSet
-      summary: Set User Capabilities
+      summary: Set user capabilities
       requestBody:
         required: true
         content:
           application/json:
             schema:
               type: object
-              properties:
-                userId:
-                  type: string
+              additionalProperties: true
       responses:
         '200':
           description: OK
@@ -897,112 +795,11 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/SuccessEnvelope'
-  /sessions:
-    post:
-      operationId: sessionsCreate
-      summary: Create Session
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              properties:
-                sessionName:
-                  type: string
-      responses:
-        '200':
-          description: OK
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/SuccessEnvelope'
-  /ip-whitelist:
-    post:
-      operationId: ipWhitelist
-      summary: Manage IP whitelist
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              properties:
-                action:
-                  type: string
-      responses:
-        '200':
-          description: OK
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/SuccessEnvelope'
-  /ip-whitelist/add:
-    post:
-      operationId: ipWhitelistAdd
-      summary: Add IP to whitelist
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              properties:
-                ip:
-                  type: string
-      responses:
-        '200':
-          description: OK
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/SuccessEnvelope'
-  /ip-whitelist/allow-all:
-    post:
-      operationId: ipWhitelistAllowAll
-      summary: Allow all IPs (disable restrictions)
-      responses:
-        '200':
-          description: OK
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/SuccessEnvelope'
-  /ip-whitelist/restrict:
-    post:
-      operationId: ipWhitelistRestrict
-      summary: Restrict IPs (activate restrictions)
-      responses:
-        '200':
-          description: OK
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/SuccessEnvelope'
-  /ip-whitelist/delete:
-    post:
-      operationId: ipWhitelistDelete
-      summary: Remove IP from whitelist
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              properties:
-                ip:
-                  type: string
-      responses:
-        '200':
-          description: OK
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/SuccessEnvelope'
+
   /kimbap-core/connect:
     get:
       operationId: kimbapCoreConnectGet
-      summary: Connect to Kimbap Core (GET)
+      summary: Get kimbap-core connection status (GET)
       responses:
         '200':
           description: OK
@@ -1010,15 +807,22 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/SuccessEnvelope'
+        default:
+          description: Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
     post:
       operationId: kimbapCoreConnectPost
-      summary: Connect to Kimbap Core (POST)
+      summary: Get kimbap-core connection status (POST)
       requestBody:
-        required: true
+        required: false
         content:
           application/json:
             schema:
               type: object
+              additionalProperties: true
       responses:
         '200':
           description: OK
@@ -1026,6 +830,13 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/SuccessEnvelope'
+        default:
+          description: Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
 components:
   securitySchemes:
     BearerAuth:
@@ -1033,6 +844,14 @@ components:
       scheme: bearer
       bearerFormat: JWT
   schemas:
+    ErrorDetail:
+      type: object
+      properties:
+        code:
+          type: string
+        message:
+          type: string
+      required: [code, message]
     ErrorResponse:
       type: object
       properties:
@@ -1041,19 +860,7 @@ components:
           example: false
         error:
           $ref: '#/components/schemas/ErrorDetail'
-      required:
-        - success
-        - error
-    ErrorDetail:
-      type: object
-      properties:
-        code:
-          type: string
-        message:
-          type: string
-      required:
-        - code
-        - message
+      required: [success, error]
     SuccessEnvelope:
       type: object
       properties:
@@ -1063,74 +870,4 @@ components:
         data:
           type: object
           additionalProperties: true
-      required:
-        - success
-        - data
-    TokenItem:
-      type: object
-      properties:
-        tokenId:
-          type: string
-        accessToken:
-          type: string
-        name:
-          type: string
-        role:
-          type: integer
-        createdAt:
-          type: integer
-        namespace:
-          type: string
-        tags:
-          type: array
-          items:
-            type: string
-        lastUsed:
-          type: integer
-        expiresAt:
-          type: integer
-        rateLimit:
-          type: integer
-        permissions:
-          type: array
-          items:
-            type: object
-      required:
-        - tokenId
-    TokenList:
-      type: object
-      properties:
-        tokens:
-          type: array
-          items:
-            $ref: '#/components/schemas/TokenItem'
-      required:
-        - tokens
-    ProxyInfo:
-      type: object
-      properties:
-        proxyId:
-          type: integer
-        proxyKey:
-          type: string
-        proxyName:
-          type: string
-        createdAt:
-          type: integer
-        fingerprint:
-          type: string
-    AuthInitData:
-      type: object
-      properties:
-        accessToken:
-          type: string
-        proxyId:
-          type: integer
-        proxyName:
-          type: string
-        proxyKey:
-          type: string
-        role:
-          type: integer
-        userid:
-          type: string
+      required: [success, data]

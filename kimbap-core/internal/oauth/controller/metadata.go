@@ -45,9 +45,6 @@ func (c *OAuthMetadataController) ProtectedResourceMetadata(w http.ResponseWrite
 		json.NewEncoder(w).Encode(map[string]any{"error": "Internal server error"})
 		return
 	}
-	if !strings.HasSuffix(resource, "/mcp") {
-		resource += "/mcp"
-	}
 	authURL := publicURL(r)
 	meta := c.oauthService.GenerateProtectedResourceMetadata(resource, authURL)
 	w.Header().Set("Access-Control-Allow-Origin", "*")

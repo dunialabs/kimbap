@@ -9,9 +9,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/golang-jwt/jwt/v5"
 	"github.com/dunialabs/kimbap-core/internal/config"
 	coretypes "github.com/dunialabs/kimbap-core/internal/types"
+	"github.com/golang-jwt/jwt/v5"
 )
 
 type OAuthTokenRecord struct {
@@ -254,8 +254,5 @@ func expectedOAuthAudience() string {
 	parsed.RawQuery = ""
 	parsed.Fragment = ""
 	normalized := strings.TrimRight(parsed.String(), "/")
-	if strings.HasSuffix(normalized, "/mcp") {
-		return normalized
-	}
-	return normalized + "/mcp"
+	return normalized
 }

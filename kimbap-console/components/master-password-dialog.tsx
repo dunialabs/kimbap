@@ -92,41 +92,9 @@ export function MasterPasswordDialog({
       return
     }
 
-    try {
-      setIsResetting(true)
-      setValidationError('')
-
-      const { api } = await import('@/lib/api-client')
-
-      // Call protocol 10024 to reset master password
-      const response = await api.servers.resetMasterPassword({
-        token: resetToken.trim(),
-        masterPwd: newPassword
-      })
-
-      if (response.data?.data?.success) {
-        toast.success('Master password reset.')
-
-        // Save new master password locally
-        await MasterPasswordManager.setMasterPassword(newPassword)
-
-        // Reset form and close dialog
-        handleClose()
-      } else {
-        setValidationError(
-          response.data?.data?.message || 'Could not reset master password'
-        )
-      }
-    } catch (error: any) {
-      // Error handled below via UI state
-      const errorMessage =
-        error.response?.data?.common?.message ||
-        error.response?.data?.message ||
-        'Could not reset master password. Try again.'
-      setValidationError(errorMessage)
-    } finally {
-      setIsResetting(false)
-    }
+    setIsResetting(true)
+    setValidationError('Master password reset is not available in this build yet.')
+    setIsResetting(false)
   }
 
   const handleClose = () => {
@@ -207,21 +175,6 @@ export function MasterPasswordDialog({
                 </div>
               )}
             </div>
-
-            {/* Forgot Password link for owner */}
-            {showForgotPassword && (
-              <div className="text-right">
-                <button
-                  type="button"
-                  onClick={() => setIsResetMode(true)}
-                  className="text-sm text-muted-foreground hover:text-primary hover:underline"
-                  disabled={isLoading || isValidating}
-                >
-                  Forgot Password?
-                </button>
-              </div>
-            )}
-
             <div className="flex gap-3">
               <Button
                 type="button"

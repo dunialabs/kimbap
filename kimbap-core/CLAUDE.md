@@ -21,7 +21,6 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 Go binary with a chi router, serving a single HTTP server on port 3002.
 Endpoints:
-- `/mcp` - MCP JSON-RPC protocol endpoint
 - `/admin` - legacy action-code admin (frozen)
 - `/user` - legacy action-code user (frozen)
 - `/api/v1` - canonical REST management API (tokens, policies, approvals, audit, actions)
@@ -41,7 +40,6 @@ Endpoints:
 ## Key Patterns
 - Action-code routing on `/admin` and `/user` (legacy, frozen)
 - RESTful resource routes on `/api/v1` (canonical)
-- MCP JSON-RPC on `/mcp`
 - OAuth2 standard endpoints
 
 ## Database

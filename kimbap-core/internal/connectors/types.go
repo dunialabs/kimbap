@@ -57,6 +57,7 @@ type ConnectorState struct {
 	TenantID           string
 	WorkspaceID        string
 	Provider           string
+	Profile            string
 	Status             ConnectorStatus
 	AccessToken        string
 	RefreshToken       string

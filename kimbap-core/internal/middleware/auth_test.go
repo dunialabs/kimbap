@@ -95,42 +95,6 @@ func TestSetWWWAuthenticateIfUnauthorized(t *testing.T) {
 }
 
 func TestAuthErrorWriters(t *testing.T) {
-	t.Run("writeJSONRPCError writes JSON-RPC 2.0 error shape", func(t *testing.T) {
-		rr := httptest.NewRecorder()
-		writeJSONRPCError(rr, http.StatusBadRequest, -32001, "bad request", map[string]any{"field": "value"})
-
-		if rr.Code != http.StatusBadRequest {
-			t.Fatalf("expected status 400, got %d", rr.Code)
-		}
-		if rr.Header().Get("Content-Type") != "application/json" {
-			t.Fatalf("expected application/json content type")
-		}
-
-		var body map[string]any
-		if err := json.Unmarshal(rr.Body.Bytes(), &body); err != nil {
-			t.Fatalf("invalid json: %v", err)
-		}
-		if body["jsonrpc"] != "2.0" {
-			t.Fatalf("expected jsonrpc=2.0, got %#v", body["jsonrpc"])
-		}
-		errObj, ok := body["error"].(map[string]any)
-		if !ok {
-			t.Fatalf("expected error object in payload")
-		}
-		if errObj["code"] != float64(-32001) {
-			t.Fatalf("expected error code -32001, got %#v", errObj["code"])
-		}
-		if errObj["message"] != "bad request" {
-			t.Fatalf("expected error message, got %#v", errObj["message"])
-		}
-		if _, ok := errObj["details"]; !ok {
-			t.Fatalf("expected details field in error object")
-		}
-		if id, exists := body["id"]; !exists || id != nil {
-			t.Fatalf("expected id to be present and null, got %#v (exists=%v)", id, exists)
-		}
-	})
-
 	t.Run("writeJSONError writes generic error shape", func(t *testing.T) {
 		rr := httptest.NewRecorder()
 		writeJSONError(rr, http.StatusUnauthorized, "missing token")
@@ -182,32 +146,6 @@ func TestAuthErrorWriters(t *testing.T) {
 		}
 	})
 
-	t.Run("writeJSONRPCConnectionClosed writes null id and default code", func(t *testing.T) {
-		rr := httptest.NewRecorder()
-		writeJSONRPCConnectionClosed(rr, http.StatusBadRequest, "closed")
-
-		if rr.Code != http.StatusBadRequest {
-			t.Fatalf("expected status 400, got %d", rr.Code)
-		}
-
-		var body map[string]any
-		if err := json.Unmarshal(rr.Body.Bytes(), &body); err != nil {
-			t.Fatalf("invalid json: %v", err)
-		}
-		errObj, ok := body["error"].(map[string]any)
-		if !ok {
-			t.Fatalf("expected error object")
-		}
-		if errObj["code"] != float64(-32000) {
-			t.Fatalf("expected code=-32000 (ConnectionClosed), got %#v", errObj["code"])
-		}
-		if errObj["message"] != "closed" {
-			t.Fatalf("expected message=closed, got %#v", errObj["message"])
-		}
-		if id, exists := body["id"]; !exists || id != nil {
-			t.Fatalf("expected id to be null, got %#v", id)
-		}
-	})
 }
 
 func TestDecodePermissions(t *testing.T) {
@@ -232,62 +170,10 @@ func TestDecodePermissions(t *testing.T) {
 	})
 }
 
-func TestIsInitializeRequestBody(t *testing.T) {
-	t.Run("accepts initialize object", func(t *testing.T) {
-		ok, valid := isInitializeRequestBody([]byte(`{"jsonrpc":"2.0","id":1,"method":"initialize"}`))
-		if !valid {
-			t.Fatal("expected valid json")
-		}
-		if !ok {
-			t.Fatal("expected initialize request")
-		}
-	})
-
-	t.Run("accepts initialize batch", func(t *testing.T) {
-		ok, valid := isInitializeRequestBody([]byte(`[{"jsonrpc":"2.0","id":1,"method":"initialize"}]`))
-		if !valid {
-			t.Fatal("expected valid json")
-		}
-		if !ok {
-			t.Fatal("expected batch initialize request")
-		}
-	})
-
-	t.Run("accepts initialize batch when initialize not first", func(t *testing.T) {
-		ok, valid := isInitializeRequestBody([]byte(`[{"jsonrpc":"2.0","id":2,"method":"initialize"},{"jsonrpc":"2.0","id":1,"method":"initialize"}]`))
-		if !valid {
-			t.Fatal("expected valid json")
-		}
-		if !ok {
-			t.Fatal("expected initialize-only batch to pass")
-		}
-	})
-
-	t.Run("rejects mixed-method batch", func(t *testing.T) {
-		ok, valid := isInitializeRequestBody([]byte(`[{"jsonrpc":"2.0","id":1,"method":"initialize"},{"jsonrpc":"2.0","id":2,"method":"tools/list"}]`))
-		if !valid {
-			t.Fatal("expected valid json")
-		}
-		if ok {
-			t.Fatal("expected mixed-method batch to be rejected")
-		}
-	})
-
-	t.Run("rejects invalid json", func(t *testing.T) {
-		ok, valid := isInitializeRequestBody([]byte(`{"jsonrpc"`))
-		if valid {
-			t.Fatal("expected invalid json")
-		}
-		if ok {
-			t.Fatal("expected non-initialize for invalid json")
-		}
-	})
-}
-
 func TestBuildWWWAuthenticateHeaderUsesCanonicalAndTrustedForwardedSource(t *testing.T) {
 	t.Run("uses canonical base when configured", func(t *testing.T) {
 		t.Setenv("KIMBAP_PUBLIC_BASE_URL", "https://public.example.com/")
-		req := httptest.NewRequest(http.MethodGet, "http://service.local/mcp", nil)
+		req := httptest.NewRequest(http.MethodGet, "http://service.local/api/v1/actions", nil)
 		req.RemoteAddr = "198.51.100.10:40000"
 		req.Host = "service.local"
 		req.Header.Set("X-Forwarded-Host", "evil.example")
@@ -301,7 +187,7 @@ func TestBuildWWWAuthenticateHeaderUsesCanonicalAndTrustedForwardedSource(t *tes
 
 	t.Run("rejects canonical base with userinfo", func(t *testing.T) {
 		t.Setenv("KIMBAP_PUBLIC_BASE_URL", "https://user:pass@public.example.com")
-		req := httptest.NewRequest(http.MethodGet, "http://service.local/mcp", nil)
+		req := httptest.NewRequest(http.MethodGet, "http://service.local/api/v1/actions", nil)
 		req.RemoteAddr = "198.51.100.10:40000"
 		req.Host = "service.local"
 
@@ -313,7 +199,7 @@ func TestBuildWWWAuthenticateHeaderUsesCanonicalAndTrustedForwardedSource(t *tes
 
 	t.Run("ignores forwarded headers from non-loopback source", func(t *testing.T) {
 		t.Setenv("KIMBAP_PUBLIC_BASE_URL", "")
-		req := httptest.NewRequest(http.MethodGet, "http://service.local/mcp", nil)
+		req := httptest.NewRequest(http.MethodGet, "http://service.local/api/v1/actions", nil)
 		req.RemoteAddr = "198.51.100.10:40000"
 		req.Host = "service.local"
 		req.Header.Set("X-Forwarded-Host", "evil.example")
@@ -367,7 +253,7 @@ func TestAuthenticateRequestAvoidsDuplicateUserLookup(t *testing.T) {
 	}
 	mw := NewAuthMiddleware(countingTokenValidator{userID: "user-1"}, nil, repo, nil)
 
-	req := httptest.NewRequest(http.MethodGet, "http://example.com/mcp", nil)
+	req := httptest.NewRequest(http.MethodGet, "http://example.com/api/v1/actions", nil)
 	req.Header.Set("Authorization", "Bearer test-token")
 
 	authCtx, err := mw.AuthenticateRequest(req)

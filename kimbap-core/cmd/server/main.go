@@ -18,7 +18,6 @@ import (
 	"github.com/dunialabs/kimbap-core/internal/database"
 	internalLog "github.com/dunialabs/kimbap-core/internal/log"
 	"github.com/dunialabs/kimbap-core/internal/logger"
-	"github.com/dunialabs/kimbap-core/internal/mcp"
 	"github.com/dunialabs/kimbap-core/internal/mcp/core"
 	mcpservices "github.com/dunialabs/kimbap-core/internal/mcp/services"
 	mcptypes "github.com/dunialabs/kimbap-core/internal/mcp/types"
@@ -83,7 +82,6 @@ func run() error {
 	authMW := middleware.NewAuthMiddleware(tokenValidator, oauthValidator, app.UserRepoAdapter{}, database.DB)
 	adminMW := middleware.NewAdminAuthMiddleware(authMW)
 	rateLimitService := security.NewRateLimitService()
-	rateLimitMW := middleware.NewRateLimitMiddleware(rateLimitService, 60)
 
 	sessions := core.SessionStoreInstance()
 	eventRepo := app.NewEventRepoAdapter()
@@ -165,33 +163,16 @@ func run() error {
 	r.Use(cors.Handler(cors.Options{
 		AllowedOrigins:     corsOrigins,
 		AllowedMethods:     []string{"GET", "POST", "PUT", "PATCH", "DELETE", "HEAD", "OPTIONS"},
-		AllowedHeaders:     []string{"Content-Type", "Authorization", "Mcp-Session-Id", "mcp-session-id", "mcp-protocol-version", "Accept", "last-event-id"},
-		ExposedHeaders:     []string{"mcp-session-id", "Mcp-Session-Id", "www-authenticate", "X-RateLimit-Limit", "X-RateLimit-Remaining", "X-RateLimit-Reset", "Retry-After"},
+		AllowedHeaders:     []string{"Content-Type", "Authorization", "Accept", "last-event-id"},
+		ExposedHeaders:     []string{"www-authenticate", "X-RateLimit-Limit", "X-RateLimit-Remaining", "X-RateLimit-Reset", "Retry-After"},
 		MaxAge:             86400,
 		OptionsPassthrough: false,
 	}))
-
-	r.Method(http.MethodPut, "/mcp", app.MethodNotAllowedHandler())
-	r.Method(http.MethodPut, "/mcp/", app.MethodNotAllowedHandler())
-	r.Method(http.MethodPatch, "/mcp", app.MethodNotAllowedHandler())
-	r.Method(http.MethodPatch, "/mcp/", app.MethodNotAllowedHandler())
-	r.Method(http.MethodHead, "/mcp", app.HeadMCPHandler())
-	r.Method(http.MethodHead, "/mcp/", app.HeadMCPHandler())
-	r.Method(http.MethodOptions, "/mcp", app.OptionsMCPHandler())
-	r.Method(http.MethodOptions, "/mcp/", app.OptionsMCPHandler())
 
 	oauth.RegisterRoutes(r, oauth.RouterDependencies{
 		UserValidator: app.OauthUserValidatorAdapter{Validator: tokenValidator},
 		AdminAuth:     adminMW,
 	})
-
-	mcpHandler := mcp.NewMCPRouter().Handler(authMW.Middleware, rateLimitMW.Middleware)
-	r.Method(http.MethodGet, "/mcp", mcpHandler)
-	r.Method(http.MethodGet, "/mcp/", mcpHandler)
-	r.Method(http.MethodPost, "/mcp", mcpHandler)
-	r.Method(http.MethodPost, "/mcp/", mcpHandler)
-	r.Method(http.MethodDelete, "/mcp", mcpHandler)
-	r.Method(http.MethodDelete, "/mcp/", mcpHandler)
 
 	adminController := admin.NewController()
 	r.With(adminMW.Middleware).Method(http.MethodPost, "/admin", http.HandlerFunc(adminController.HandleAdminRequest))
@@ -208,7 +189,6 @@ func run() error {
 	r.Get("/", func(w http.ResponseWriter, req *http.Request) {
 		endpoints := map[string]any{
 			"health":   "/health",
-			"mcp":      "/mcp",
 			"admin":    "/admin",
 			"socketio": "/socket.io",
 			"oauth": map[string]any{
@@ -237,7 +217,7 @@ func run() error {
 
 	r.Post("/", func(w http.ResponseWriter, req *http.Request) {
 		app.WriteJSON(w, http.StatusBadRequest, map[string]any{
-			"error": "Invalid endpoint. Please use /mcp for MCP requests or /admin for admin operations.",
+			"error": "Invalid endpoint. Please use /admin for admin operations.",
 		})
 	})
 

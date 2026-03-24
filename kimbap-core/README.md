@@ -358,7 +358,6 @@ Kimbap is an active, early-stage product. Today it operates as a **server runtim
 | Capability | Status | Notes |
 |---|---|---|
 | REST v1 API (`/api/v1`) | Available | Tokens, policies, approvals, audit, action execution |
-| MCP protocol (`/mcp`) | Available | JSON-RPC for AI agent communication |
 | Action runtime | Available | Policy evaluation, credential injection, execution |
 | Vault (encrypted credential storage) | Available | AES-256-GCM, per-record encryption |
 | OAuth connectors | Available | Google, GitHub, Slack |
@@ -383,7 +382,6 @@ For all new integrations, use the canonical interfaces:
 | Interface | Path | Status | Use When |
 |---|---|---|---|
 | **REST v1 API** | `/api/v1/*` | **Canonical** | Programmatic access, automation, SDKs |
-| **MCP Protocol** | `/mcp` | **Canonical** | AI agent communication via MCP JSON-RPC |
 | Admin API | `/admin` | Legacy (frozen) | Console uses this today; migration to REST v1 planned |
 | User API | `/user` | Legacy (frozen) | Console uses this today; migration to REST v1 planned |
 | Socket.IO | `/socket.io` | Stable | Real-time events (approvals, notifications) |
