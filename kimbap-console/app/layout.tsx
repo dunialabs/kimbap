@@ -6,26 +6,30 @@
  * @FilePath: /kimbap-console/app/layout.tsx
  * @Description: Root layout for Kimbap Console
  */
-import type { Metadata } from 'next';
-import { IBM_Plex_Mono } from 'next/font/google';
-import './globals.css';
-import { ConditionalLayout } from '@/components/conditional-layout';
-import { Toaster } from '@/components/ui/sonner';
-import { ThemeProvider } from '@/components/theme-provider';
+import type { Metadata } from 'next'
+import { IBM_Plex_Mono } from 'next/font/google'
+import './globals.css'
+import { ConditionalLayout } from '@/components/conditional-layout'
+import { Toaster } from '@/components/ui/sonner'
+import { ThemeProvider } from '@/components/theme-provider'
 
 const ibmPlexMono = IBM_Plex_Mono({
   subsets: ['latin'],
   weight: ['400', '500', '600', '700'],
   variable: '--font-ibm-plex-mono',
-  display: 'swap',
-});
+  display: 'swap'
+})
 
 export const metadata: Metadata = {
   title: 'Kimbap Console',
-  description: 'Operations and observability console for the Kimbap platform.',
-};
+  description: 'Operations console for the Kimbap platform.'
+}
 
-export default function RootLayout({ children }: { children: React.ReactNode }) {
+export default function RootLayout({
+  children
+}: {
+  children: React.ReactNode
+}) {
   return (
     <html lang="en" className={ibmPlexMono.variable} suppressHydrationWarning>
       <body>
@@ -53,5 +57,5 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         </ThemeProvider>
       </body>
     </html>
-  );
+  )
 }

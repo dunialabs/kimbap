@@ -1,12 +1,12 @@
 #!/bin/bash
 
-# KIMBAP Console Stop Script
+# Kimbap Console Stop Script
 # Compatible with macOS, Linux, Windows (Git Bash/WSL)
 
 set -e
 
 echo "=========================================="
-echo "  KIMBAP Console Stop"
+echo "  Kimbap Console Stop"
 echo "=========================================="
 echo ""
 

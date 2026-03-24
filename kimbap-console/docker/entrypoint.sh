@@ -2,7 +2,7 @@
 set -e
 
 echo "========================================" 
-echo "       KIMBAP Console Docker Starting"
+echo "       Kimbap Console Docker Starting"
 echo "========================================"
 
 # Wait for the database to be ready
@@ -46,7 +46,7 @@ echo "🎨 Starting frontend service..."
 DATABASE_URL="$DATABASE_URL" node server.js &
 FRONTEND_PID=$!
 
-echo "📱 KIMBAP Console is running!"
+echo "📱 Kimbap Console is running!"
 echo "   Frontend: http://localhost:3000"
 echo "   Backend:  http://localhost:3002"
 

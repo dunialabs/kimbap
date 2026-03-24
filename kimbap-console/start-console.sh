@@ -1,13 +1,13 @@
 #!/bin/bash
 
-# KIMBAP Console One-Click Start Script
+# Kimbap Console One-Click Start Script
 # Compatible with macOS, Linux, Windows (Git Bash/WSL)
 # All configuration files are automatically generated in the current directory
 
 set -e
 
 echo "=========================================="
-echo "  KIMBAP Console Startup"
+echo "  Kimbap Console Startup"
 echo "=========================================="
 echo ""
 
@@ -101,7 +101,7 @@ services:
 
   # Kimbap Console Service
   kimbap-console:
-    image: kimbapio/kimbap-console:latest
+    image: dunialabs/kimbap-console:latest
     container_name: kimbap-console
     restart: unless-stopped
     depends_on:

@@ -11,7 +11,7 @@
 
 const crypto = require('crypto');
 
-const AAD = Buffer.from('Kimbap Consol', 'utf8');
+const AAD = Buffer.from('Kimbap Con', 'utf8');
 const IV_LENGTH = 12; // 96-bit IV per NIST recommendation for GCM.
 
 function exitWithUsage(msg) {

@@ -4,7 +4,7 @@ export function GlobalFooter() {
       <div className="max-w-[1080px] mx-auto text-center text-xs text-slate-500 dark:text-slate-400">
         <span>© 2026 </span>
         <a
-          href="https://kimbap.io"
+          href="https://kimbap.sh"
           target="_blank"
           rel="noopener noreferrer"
           className="hover:underline text-slate-600 dark:text-slate-300"

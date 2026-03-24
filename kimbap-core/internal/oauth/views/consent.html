@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Secure Authorization with Peta Desk</title>
+    <title>Secure Authorization with Kimbap Desk</title>
     <style>
         * {
             margin: 0;
@@ -207,8 +207,8 @@
         </div>
 
         <div class="header-section">
-            <div class="header-title">Secure Authorization with<br/>Peta Desk</div>
-            <div class="header-subtitle">MCP server requires authorization through Peta Desk</div>
+            <div class="header-title">Secure Authorization with<br/>Kimbap Desk</div>
+            <div class="header-subtitle">Service requires authorization through Kimbap Desk</div>
         </div>
 
         <div class="info-box">
@@ -217,14 +217,14 @@
 
         <div class="guide-section">
             <ul class="scope-list">{{SCOPE_LIST}}</ul>
-            <div class="guide-text">Don't have Peta Desk yet? Download it to continue with secure authentication.</div>
-            <button class="button button-primary" id="downloadBtn">Get Peta Desk</button>
-            <button class="button button-secondary" id="openDeskBtn">Open Peta Desk</button>
+            <div class="guide-text">Don't have Kimbap Desk yet? Download it to continue with secure authentication.</div>
+            <button class="button button-primary" id="downloadBtn">Get Kimbap Desk</button>
+            <button class="button button-secondary" id="openDeskBtn">Open Kimbap Desk</button>
         </div>
     </div>
 
     <script>
-        // ===== Peta Desk Integration: Auto-authorization Flow =====
+        // ===== Kimbap Desk Integration: Auto-authorization Flow =====
 
         /**
          * Encode string to Base64URL (URL-safe base64)
@@ -250,7 +250,7 @@
 
         /**
          * Silently invoke custom URL scheme using hidden iframe
-         * Opens Peta Desk app without affecting current page
+         * Opens Kimbap Desk app without affecting current page
          */
         function openCustomScheme(url) {
             try {
@@ -309,7 +309,7 @@
         }
 
         /**
-         * Handle token callback from Peta Desk
+         * Handle token callback from Kimbap Desk
          * Directly submit authorization request to backend
          */
         async function handleTokenCallback(token) {
@@ -355,15 +355,15 @@
         }
 
         /**
-         * Invoke Peta Desk app with current URL
+         * Invoke Kimbap Desk app with current URL
          */
-        function invokePetaDesk() {
+        function invokeKimbapDesk() {
             const currentUrl = window.location.href;
             const encodedUrl = base64UrlEncode(currentUrl);
 
             if (encodedUrl) {
                 const proxyKey = "{{PROXY_KEY}}";
-                const schemeUrl = 'petadesk://peta.ai?type=1&url=' + encodedUrl +
+                const schemeUrl = 'kimbapdesk://kimbap.sh?type=1&url=' + encodedUrl +
                                   (proxyKey ? '&proxyKey=' + proxyKey : '');
                 openCustomScheme(schemeUrl);
             } else {
@@ -374,21 +374,21 @@
         // ===== Button Event Handlers =====
 
         document.addEventListener('DOMContentLoaded', function() {
-            // "Get Peta Desk" button - Open download page in new tab
+            // "Get Kimbap Desk" button - Open download page in new tab
             const downloadBtn = document.getElementById('downloadBtn');
             if (downloadBtn) {
                 downloadBtn.addEventListener('click', function() {
-                    console.log('[OAuth] Opening Peta Desk download page');
-                    window.open('https://www.peta.io/quick-start/#install-desk', '_blank');
+                    console.log('[OAuth] Opening Kimbap Desk download page');
+                    window.open('https://kimbap.sh/quick-start/#install-desk', '_blank');
                 });
             }
 
-            // "Open Peta Desk" button - Invoke custom scheme
+            // "Open Kimbap Desk" button - Invoke custom scheme
             const openDeskBtn = document.getElementById('openDeskBtn');
             if (openDeskBtn) {
                 openDeskBtn.addEventListener('click', function() {
-                    console.log('[OAuth] User clicked Open Peta Desk');
-                    invokePetaDesk();
+                    console.log('[OAuth] User clicked Open Kimbap Desk');
+                    invokeKimbapDesk();
                 });
             }
 
@@ -403,9 +403,9 @@
                 console.log('[OAuth] Token found in URL, auto-submitting authorization');
                 handleTokenCallback(token);
             } else {
-                // Scenario 2: No token → auto-invoke Peta Desk app
-                console.log('[OAuth] No token found, auto-invoking Peta Desk app');
-                invokePetaDesk();
+                // Scenario 2: No token → auto-invoke Kimbap Desk app
+                console.log('[OAuth] No token found, auto-invoking Kimbap Desk app');
+                invokeKimbapDesk();
             }
         });
     </script>

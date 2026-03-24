@@ -89,14 +89,37 @@ enum AdminActionType {
   GET_SERVERS_STATUS = 3004,
   GET_SERVERS_CAPABILITIES = 3005,
 
+  // Security configuration operations (4000-4999)
+  ADD_IP_WHITELIST = 4001,
+  GET_IP_WHITELIST = 4002,
+  DELETE_IP_WHITELIST = 4003,
+  SPECIAL_IP_WHITELIST_OPERATION = 4005,
+
   // Proxy operations (5000-5999)
   GET_PROXY = 5001,
   CREATE_PROXY = 5002,
   UPDATE_PROXY = 5003,
   DELETE_PROXY = 5004,
 
+  // Backup/Restore operations (6000-6999)
+  BACKUP_DATABASE = 6001,
+  RESTORE_DATABASE = 6002,
+
   // Log operations (7000-7099)
   GET_LOGS = 7002,
+
+  // Cloudflared operations (8000-8099)
+  UPDATE_CLOUDFLARED_CONFIG = 8001,
+  GET_CLOUDFLARED_CONFIGS = 8002,
+  DELETE_CLOUDFLARED_CONFIG = 8003,
+  RESTART_CLOUDFLARED = 8004,
+  STOP_CLOUDFLARED = 8005,
+
+  // Skills operations (10040-10043)
+  LIST_SKILLS = 10040,
+  UPLOAD_SKILLS = 10041,
+  DELETE_SKILL = 10042,
+  DELETE_SERVER_SKILLS = 10043,
 
   // Policy operations (9101-9105)
   CREATE_TOOL_POLICY = 9101,
@@ -168,14 +191,7 @@ async function getKimbapCoreConfig(): Promise<{ host: string; port: number | nul
 
     if (dbConfig && dbConfig.kimbap_core_host) {
       const host = dbConfig.kimbap_core_host;
-      const currentPort = Reflect.get(dbConfig, 'kimbap_core_port');
-      const legacyPort = Reflect.get(dbConfig, 'kimbap_core_prot');
-      const port =
-        typeof currentPort === 'number'
-          ? currentPort
-          : typeof legacyPort === 'number'
-            ? legacyPort
-            : undefined;
+      const port = dbConfig.kimbap_core_port;
 
       const displayStr = port === 443 || !port ? host : `${host}:${port}`;
       console.log(`[PROXY API] Using Kimbap Core config from database: ${displayStr}`);
@@ -556,27 +572,20 @@ export async function connectAllServers(
 }> {
   console.log(`[PROXY API] connectAllServers called`);
 
-  const result = token
-    ? await makeProxyRequest<{ successServers: any[]; failedServers: any[] }>(
+  const result = userid
+    ? await makeProxyRequestWithUserId<{ successServers: any[]; failedServers: any[] }>(
+        AdminActionType.CONNECT_ALL_SERVERS,
+        {},
+        userid,
+        undefined,
+        120000,
+      )
+    : await makeProxyRequest<{ successServers: any[]; failedServers: any[] }>(
         AdminActionType.CONNECT_ALL_SERVERS,
         {},
         token,
         120000,
-      )
-    : userid
-      ? await makeProxyRequestWithUserId<{ successServers: any[]; failedServers: any[] }>(
-          AdminActionType.CONNECT_ALL_SERVERS,
-          {},
-          userid,
-          undefined,
-          120000,
-        )
-      : await makeProxyRequest<{ successServers: any[]; failedServers: any[] }>(
-          AdminActionType.CONNECT_ALL_SERVERS,
-          {},
-          undefined,
-          120000,
-        );
+      );
 
   if (!result.success) {
     console.error(`[PROXY API] connectAllServers failed - Error:`, result.error);
@@ -1510,461 +1519,3 @@ export async function countServers(
 
   return result.data!;
 }
-
-// -------------------- LOG OPERATIONS --------------------
-
-/**
- * Get log records (Owner only)
- * @param params - Query parameters
- * @param userid - User ID (for token retrieval)
- * @returns Promise with logs data
- */
-export async function getLogs(
-  params?: {
-    id?: number;
-    limit?: number;
-  },
-  userid?: string,
-): Promise<{
-  logs: Array<{
-    id: number;
-    idInCore: bigint | null;
-    action: number;
-    userid: string;
-    serverId: string | null;
-    createdAt: number;
-    sessionId: string;
-    upstreamRequestId: string;
-    uniformRequestId: string | null;
-    parentUniformRequestId: string | null;
-    proxyRequestId: string | null;
-    ip: string;
-    ua: string;
-    tokenMask: string;
-    requestParams: string;
-    responseResult: string;
-    error: string;
-    duration: number | null;
-    statusCode: number | null;
-    proxyKey: string;
-  }>;
-  count: number;
-  startId: number;
-  limit: number;
-}> {
-  const result = userid
-    ? await makeProxyRequestWithUserId<{
-        logs: Array<{
-          id: number;
-          idInCore: bigint | null;
-          action: number;
-          userid: string;
-          serverId: string | null;
-          createdAt: number;
-          sessionId: string;
-          upstreamRequestId: string;
-          uniformRequestId: string | null;
-          parentUniformRequestId: string | null;
-          proxyRequestId: string | null;
-          ip: string;
-          ua: string;
-          tokenMask: string;
-          requestParams: string;
-          responseResult: string;
-          error: string;
-          duration: number | null;
-          statusCode: number | null;
-          proxyKey: string;
-        }>;
-        count: number;
-        startId: number;
-        limit: number;
-      }>(AdminActionType.GET_LOGS, params || {}, userid)
-    : await makeProxyRequest<{
-        logs: Array<{
-          id: number;
-          idInCore: bigint | null;
-          action: number;
-          userid: string;
-          serverId: string | null;
-          createdAt: number;
-          sessionId: string;
-          upstreamRequestId: string;
-          uniformRequestId: string | null;
-          parentUniformRequestId: string | null;
-          proxyRequestId: string | null;
-          ip: string;
-          ua: string;
-          tokenMask: string;
-          requestParams: string;
-          responseResult: string;
-          error: string;
-          duration: number | null;
-          statusCode: number | null;
-          proxyKey: string;
-        }>;
-        count: number;
-        startId: number;
-        limit: number;
-      }>(AdminActionType.GET_LOGS, params || {});
-
-  if (!result.success) {
-    throw new Error(`Failed to get logs: ${result.error?.message || 'Unknown error'}`);
-  }
-
-  return result.data!;
-}
-
-// -------------------- USER API OPERATIONS --------------------
-
-// User action types as defined in USER_API.md
-enum UserActionType {
-  // Capability configuration operations (1000-1999)
-  GET_CAPABILITIES = 1001, // Get user's capability configuration
-  SET_CAPABILITIES = 1002, // Set user's capability configuration
-
-  // Server configuration operations (2000-2999)
-  CONFIGURE_SERVER = 2001, // Configure a server for user
-  UNCONFIGURE_SERVER = 2002, // Unconfigure a server for user
-
-  // Session query operations (3000-3999)
-  GET_ONLINE_SESSIONS = 3001, // Get user's online session list
-}
-
-// User API request and response interfaces
-interface UserRequest<T = any> {
-  action: UserActionType;
-  data?: T;
-}
-
-interface UserResponse<T = any> {
-  success: boolean;
-  data?: T;
-  error?: {
-    code: number;
-    message: string;
-  };
-}
-
-/**
- * Get proxy user API URL (based on getProxyAdminUrl, but uses /user endpoint)
- */
-async function getProxyUserUrl(): Promise<string> {
-  const adminUrl = await getProxyAdminUrl();
-  // Replace /admin with /user
-  return adminUrl.replace(/\/admin$/, '/user');
-}
-
-/**
- * Make a request to the proxy user API
- * @param action - The user action type
- * @param data - The request data
- * @param token - Access token for authentication (required)
- * @param timeout - Optional timeout in milliseconds (default: 30000ms)
- */
-async function makeProxyUserRequest<T = any>(
-  action: UserActionType,
-  data: any,
-  token: string,
-  timeout: number = 30000,
-): Promise<UserResponse<T>> {
-  const url = await getProxyUserUrl();
-
-  console.log(
-    `[PROXY API] Making user request - Action: ${UserActionType[action]} (${action}), URL: ${url}, Data:`,
-    JSON.stringify(data),
-  );
-
-  if (!url) {
-    throw new Error('Proxy user URL not configured');
-  }
-
-  if (!token) {
-    throw new Error('Token is required for user API requests');
-  }
-
-  try {
-    const startTime = Date.now();
-    const response = await axios.post<UserResponse<T>>(
-      url,
-      {
-        action,
-        data,
-      } as UserRequest,
-      {
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
-        },
-        timeout: timeout,
-      },
-    );
-
-    const duration = Date.now() - startTime;
-    console.log(
-      `[PROXY API] User response received - Action: ${UserActionType[action]} (${action}), Duration: ${duration}ms, Success: ${response.data.success}`,
-    );
-
-    return response.data;
-  } catch (error) {
-    console.error(
-      `[PROXY API] User request failed - Action: ${UserActionType[action]} (${action}), URL: ${url}, Error: ${formatErrorForLog(error)}`,
-    );
-
-    if (axios.isAxiosError(error)) {
-      if (error.response?.data) {
-        console.log(`[PROXY API] User error response data:`, JSON.stringify(error.response.data));
-        return error.response.data;
-      }
-      throw new Error(`Proxy User API request failed: ${error.message}`);
-    }
-    throw error;
-  }
-}
-
-/**
- * Server capability info returned by GET_CAPABILITIES
- */
-export interface ServerCapabilityInfo {
-  enabled: boolean;
-  serverName: string;
-  allowUserInput?: boolean;
-  authType?: number;
-  category?: number;
-  configTemplate?: string;
-  configured?: boolean;
-  status?: number;
-  tools: Record<
-    string,
-    {
-      enabled: boolean;
-      description?: string;
-      dangerLevel?: number;
-    }
-  >;
-  resources: Record<
-    string,
-    {
-      enabled: boolean;
-      description?: string;
-    }
-  >;
-  prompts: Record<
-    string,
-    {
-      enabled: boolean;
-      description?: string;
-    }
-  >;
-}
-
-/**
- * Get user capabilities from Kimbap Core
- * Proxies to Core's 1001 GET_CAPABILITIES operation
- * @param token - Access token of the user to get capabilities for
- * @returns Promise with user capabilities (map of serverId to ServerCapabilityInfo)
- */
-export async function getUserCapabilities(
-  token: string,
-): Promise<Record<string, ServerCapabilityInfo>> {
-  const result = await makeProxyUserRequest<Record<string, ServerCapabilityInfo>>(
-    UserActionType.GET_CAPABILITIES,
-    {},
-    token,
-  );
-
-  if (!result.success) {
-    throw new Error(`Failed to get user capabilities: ${result.error?.message || 'Unknown error'}`);
-  }
-
-  return result.data || {};
-}
-
-/**
- * Input type for SET_CAPABILITIES operation
- */
-export interface SetCapabilitiesInput {
-  [serverId: string]: {
-    enabled?: boolean;
-    tools?: {
-      [toolName: string]: {
-        enabled?: boolean;
-        dangerLevel?: 0 | 1 | 2;
-      };
-    };
-    resources?: {
-      [resourceName: string]: { enabled?: boolean };
-    };
-    prompts?: {
-      [promptName: string]: { enabled?: boolean };
-    };
-  };
-}
-
-/**
- * Set user capabilities in Kimbap Core
- * Proxies to Core's 1002 SET_CAPABILITIES operation
- * @param capabilities - Partial capabilities configuration to set
- * @param token - Access token of the user to set capabilities for
- * @returns Promise with success message
- */
-export async function setUserCapabilities(
-  capabilities: SetCapabilitiesInput,
-  token: string,
-): Promise<{ message: string }> {
-  const result = await makeProxyUserRequest<{ message: string }>(
-    UserActionType.SET_CAPABILITIES,
-    capabilities,
-    token,
-  );
-
-  if (!result.success) {
-    throw new Error(`Failed to set user capabilities: ${result.error?.message || 'Unknown error'}`);
-  }
-
-  return result.data || { message: 'Capabilities updated successfully' };
-}
-
-/**
- * Auth configuration for Template servers (category=1)
- */
-export interface TemplateAuthConf {
-  key: string; // Placeholder key from template.credentials
-  value: string; // Actual credential value
-  dataType: number; // Data type identifier (1 = string replacement)
-}
-
-/**
- * Auth configuration for Custom Remote HTTP servers (category=2)
- */
-export interface RemoteAuth {
-  params?: Record<string, string>; // Query parameters to append to URL
-  headers?: Record<string, string>; // HTTP headers to add
-}
-
-/**
- * Auth configuration for RestApi servers (category=3)
- */
-export interface RestfulApiAuth {
-  type: 'bearer' | 'basic' | 'header' | 'query_param';
-  value?: string; // Required for bearer, header, query_param
-  header?: string; // Required for header type
-  param?: string; // Required for query_param type
-  username?: string; // Required for basic type
-  password?: string; // Required for basic type
-}
-
-/**
- * Input type for CONFIGURE_SERVER operation
- */
-export interface ConfigureServerInput {
-  serverId: string;
-  authConf?: TemplateAuthConf[]; // For Template servers (category=1)
-  remoteAuth?: RemoteAuth; // For Custom Remote HTTP servers (category=2); Custom Stdio uses category=5
-  restfulApiAuth?: RestfulApiAuth; // For RestApi servers (category=3)
-}
-
-/**
- * Configure a server for a user in Kimbap Core
- * Proxies to Core's 2001 CONFIGURE_SERVER operation
- * @param config - Server configuration input
- * @param token - Access token of the user
- * @returns Promise with success message
- */
-export async function configureUserServer(
-  config: ConfigureServerInput,
-  token: string,
-): Promise<{ serverId: string; message: string }> {
-  const result = await makeProxyUserRequest<{ serverId: string; message: string }>(
-    UserActionType.CONFIGURE_SERVER,
-    config,
-    token,
-  );
-
-  if (!result.success) {
-    // Map Core error codes to meaningful messages
-    const errorCode = result.error?.code;
-    let errorMessage = result.error?.message || 'Unknown error';
-
-    // Add more context based on error code
-    if (errorCode === 2001) {
-      errorMessage = `Server not found: ${config.serverId}`;
-    } else if (errorCode === 2002) {
-      errorMessage = `Server is disabled: ${config.serverId}`;
-    } else if (errorCode === 2003) {
-      errorMessage = `Invalid server configuration: ${errorMessage}`;
-    } else if (errorCode === 2004) {
-      errorMessage = `Server does not allow user configuration: ${config.serverId}`;
-    } else if (errorCode === 2005) {
-      errorMessage = `Server missing configuration template: ${config.serverId}`;
-    }
-
-    throw new Error(`Failed to configure server: ${errorMessage}`);
-  }
-
-  return result.data || { serverId: config.serverId, message: 'Server configured successfully' };
-}
-
-/**
- * Unconfigure a server for a user in Kimbap Core
- * Proxies to Core's 2002 UNCONFIGURE_SERVER operation
- * This is an idempotent operation - safe to call multiple times
- * @param serverId - The server ID to unconfigure
- * @param token - Access token of the user
- * @returns Promise with success message
- */
-export async function unconfigureUserServer(
-  serverId: string,
-  token: string,
-): Promise<{ serverId: string; message: string }> {
-  const result = await makeProxyUserRequest<{ serverId: string; message: string }>(
-    UserActionType.UNCONFIGURE_SERVER,
-    { serverId },
-    token,
-  );
-
-  if (!result.success) {
-    throw new Error(`Failed to unconfigure server: ${result.error?.message || 'Unknown error'}`);
-  }
-
-  return result.data || { serverId, message: 'Server unconfigured successfully' };
-}
-
-/**
- * Session data returned by GET_ONLINE_SESSIONS
- */
-export interface SessionData {
-  sessionId: string;
-  clientName: string;
-  userAgent: string;
-  lastActive: string; // ISO 8601 timestamp
-}
-
-/**
- * Get online sessions for a user from Kimbap Core
- * Proxies to Core's 3001 GET_ONLINE_SESSIONS operation
- * @param token - Access token of the user to get sessions for
- * @returns Promise with array of session data
- */
-export async function getOnlineSessions(token: string): Promise<SessionData[]> {
-  const result = await makeProxyUserRequest<SessionData[]>(
-    UserActionType.GET_ONLINE_SESSIONS,
-    {},
-    token,
-  );
-
-  if (!result.success) {
-    throw new Error(`Failed to get online sessions: ${result.error?.message || 'Unknown error'}`);
-  }
-
-  return result.data || [];
-}
-
-// Export the new function and AdminActionType for use in protocol handlers
-export {
-  makeProxyRequestWithUserId,
-  makeProxyRequest,
-  AdminActionType,
-  UserActionType,
-  makeProxyUserRequest,
-};

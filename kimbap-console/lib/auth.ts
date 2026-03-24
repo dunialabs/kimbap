@@ -2,10 +2,7 @@ import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import { prisma } from '@/lib/prisma';
 
-const JWT_SECRET = process.env.JWT_SECRET;
-if (!JWT_SECRET) {
-  throw new Error('JWT_SECRET environment variable is required');
-}
+const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key-change-in-production';
 
 export interface JWTPayload {
   userId: string;
@@ -35,9 +32,9 @@ export const generateVerificationCode = (): string => {
 
 export const generateAccessToken = (): string => {
   const prefix = 'kimbap_';
-  const randomString = Array.from({ length: 32 }, () => Math.random().toString(36).charAt(2)).join(
-    '',
-  );
+  const randomString = Array.from({ length: 32 }, () =>
+    Math.random().toString(36).charAt(2)
+  ).join('');
   return prefix + randomString;
 };
 
@@ -56,7 +53,7 @@ export const getUserFromRequest = async (request: Request) => {
   try {
     const payload = verifyToken(token);
     const user = await prisma.user.findUnique({
-      where: { userid: payload.userId },
+      where: { userid: payload.userId }
     });
     return user;
   } catch (error) {

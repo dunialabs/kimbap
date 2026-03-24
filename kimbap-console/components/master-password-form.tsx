@@ -29,7 +29,7 @@ export function MasterPasswordForm({ onSuccess }: MasterPasswordFormProps) {
         setError(
           'Web Crypto API is not available. This application requires HTTPS or localhost. ' +
           'Please access via HTTPS (https://...) or localhost (http://localhost:...). ' +
-          'For more information, visit: https://docs.kimbap.io/#caddy-https-config'
+          'For more information, visit: https://docs.kimbap.sh/#caddy-https-config'
         )
       } else {
         setCryptoAvailable(true)
@@ -60,7 +60,7 @@ export function MasterPasswordForm({ onSuccess }: MasterPasswordFormProps) {
       setError(
         'Web Crypto API is not available. This application requires HTTPS or localhost. ' +
         'Please access via HTTPS (https://...) or localhost (http://localhost:...). ' +
-        'For more information, visit: https://docs.kimbap.io/#caddy-https-config'
+        'For more information, visit: https://docs.kimbap.sh/#caddy-https-config'
       )
       setCryptoAvailable(false)
       return

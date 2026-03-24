@@ -101,7 +101,7 @@ build_image() {
     log_info "开始构建 Docker 镜像..."
     
     # 使用 buildx 构建适合当前平台的镜像
-    if docker buildx build --platform "$PLATFORM" -t kimbapio/kimbap-console:latest . --load; then
+    if docker buildx build --platform "$PLATFORM" -t dunialabs/kimbap-console:latest . --load; then
         log_success "镜像构建成功"
     else
         log_error "镜像构建失败"
@@ -113,7 +113,7 @@ build_image() {
 verify_image() {
     log_info "验证镜像架构..."
     
-    local image_arch=$(docker inspect kimbapio/kimbap-console:latest --format='{{.Architecture}}')
+    local image_arch=$(docker inspect dunialabs/kimbap-console:latest --format='{{.Architecture}}')
     local expected_arch=$(echo "$PLATFORM" | cut -d'/' -f2)
     
     if [[ "$image_arch" == "$expected_arch" ]]; then
@@ -149,7 +149,7 @@ main() {
     echo "📋 平台信息:"
     echo "  系统架构: $(uname -m)"
     echo "  Docker平台: $PLATFORM"
-    echo "  镜像标签: kimbapio/kimbap-console:latest"
+    echo "  镜像标签: dunialabs/kimbap-console:latest"
 }
 
 # 运行主函数

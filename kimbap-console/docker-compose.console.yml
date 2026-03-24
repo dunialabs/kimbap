@@ -24,7 +24,7 @@ services:
 
   # Kimbap Console Service
   kimbap-console:
-image: kimbap/kimbap-console:latest
+    image: dunialabs/kimbap-console:latest
     container_name: kimbap-console
     restart: unless-stopped
     depends_on:

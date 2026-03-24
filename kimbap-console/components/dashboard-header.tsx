@@ -18,31 +18,19 @@ export function DashboardHeader() {
           <nav className="grid gap-2 text-lg font-medium">
             <Link href="#" className="flex items-center gap-2 text-lg font-semibold">
               <Package2 className="h-6 w-6" />
-              <span className="sr-only">kimbap.io</span>
+              <span className="sr-only">kimbap.sh</span>
             </Link>
             <Link
-              href="/dashboard/server-control"
+              href="/dashboard/policies"
               className="mx-[-0.65rem] flex items-center gap-4 rounded-xl px-3 py-2 text-muted-foreground hover:text-foreground"
             >
-              Server Control
+              Policies
             </Link>
             <Link
-              href="/dashboard/tool-configure"
+              href="/dashboard/approvals"
               className="mx-[-0.65rem] flex items-center gap-4 rounded-xl bg-muted px-3 py-2 text-foreground hover:text-foreground"
             >
-              Tool Configuration
-            </Link>
-            <Link
-              href="/dashboard/network-access"
-              className="mx-[-0.65rem] flex items-center gap-4 rounded-xl px-3 py-2 text-muted-foreground hover:text-foreground"
-            >
-              Network Access
-            </Link>
-            <Link
-              href="/dashboard/members"
-              className="mx-[-0.65rem] flex items-center gap-4 rounded-xl px-3 py-2 text-muted-foreground hover:text-foreground"
-            >
-              Access Tokens
+              Approvals
             </Link>
             <Link
               href="/dashboard/usage"

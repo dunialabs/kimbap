@@ -674,7 +674,7 @@ exit /b 1
 `;
 
     // SQL脚本创建表
-    const initTablesSQL = `-- Create tables for KIMBAP Console
+    const initTablesSQL = `-- Create tables for Kimbap Console
 
 CREATE TABLE IF NOT EXISTS "user" (
   user_id VARCHAR(64) PRIMARY KEY,
@@ -1186,7 +1186,7 @@ module.exports = DatabaseConfig;`;
     const unixScript = `#!/bin/bash
 
 echo "========================================" 
-echo "       KIMBAP Console Starting"
+echo "       Kimbap Console Starting"
 echo "========================================"
 
 SCRIPT_DIR="$( cd "$( dirname "\${BASH_SOURCE[0]}" )" && pwd )"
@@ -1286,10 +1286,10 @@ wait`;
     
     // Windows启动脚本
     const winScript = `@echo off
-title KIMBAP Console
+title Kimbap Console
 
 echo ========================================
-echo        KIMBAP Console Starting  
+echo        Kimbap Console Starting  
 echo ========================================
 
 set "SCRIPT_DIR=%~dp0"
@@ -1325,7 +1325,7 @@ pause`;
   async createDocumentation() {
     console.log('📄 Creating documentation...');
     
-    const readme = `# KIMBAP Console Deployment Package
+    const readme = `# Kimbap Console Deployment Package
 
 ## Quick Start
 
@@ -1435,12 +1435,12 @@ Platform: ${this.platform}-${this.arch}`;
     
     // 创建主启动批处理文件
     const mainBatContent = `@echo off
-title KIMBAP Console
+title Kimbap Console
 cd /d "%~dp0"
 call scripts\\start.bat
 pause`;
     
-    const mainBatPath = path.join(this.outputDir, 'KIMBAP-Console.bat');
+    const mainBatPath = path.join(this.outputDir, 'Kimbap-Console.bat');
     fs.writeFileSync(mainBatPath, mainBatContent);
     
     // 尝试使用 Node.js 创建一个简单的 .exe 启动器
@@ -1462,27 +1462,27 @@ spawn('cmd', ['/c', startScript], {
 
     // 创建双击启动的批处理文件
     const quickStartContent = `@echo off
-title KIMBAP Console
+title Kimbap Console
 cd /d "%~dp0"
-echo Starting KIMBAP Console...
+echo Starting Kimbap Console...
 call scripts\\start.bat`;
     
-    const quickStartPath = path.join(this.outputDir, 'Start-KIMBAP-Console.bat');
+    const quickStartPath = path.join(this.outputDir, 'Start-Kimbap-Console.bat');
     fs.writeFileSync(quickStartPath, quickStartContent);
     
     // 创建PowerShell启动脚本
-    const psContent = `# KIMBAP Console PowerShell Launcher
+    const psContent = `# Kimbap Console PowerShell Launcher
 Set-Location $PSScriptRoot
-Write-Host "Starting KIMBAP Console..." -ForegroundColor Green
+Write-Host "Starting Kimbap Console..." -ForegroundColor Green
 & .\\scripts\\start.bat`;
     
-    const psPath = path.join(this.outputDir, 'Start-KIMBAP-Console.ps1');
+    const psPath = path.join(this.outputDir, 'Start-Kimbap-Console.ps1');
     fs.writeFileSync(psPath, psContent);
     
     console.log('✅ Windows executables created:');
-    console.log('   - KIMBAP-Console.bat (with pause)');
-    console.log('   - Start-KIMBAP-Console.bat (auto-start)');
-    console.log('   - Start-KIMBAP-Console.ps1 (PowerShell)');
+    console.log('   - Kimbap-Console.bat (with pause)');
+    console.log('   - Start-Kimbap-Console.bat (auto-start)');
+    console.log('   - Start-Kimbap-Console.ps1 (PowerShell)');
     console.log('   - launcher.js (Node.js)');
   }
 
@@ -1490,7 +1490,7 @@ Write-Host "Starting KIMBAP Console..." -ForegroundColor Green
   async createMacOSApp() {
     console.log('📱 Creating macOS .app bundle...');
     
-    const appName = 'KIMBAP Console.app';
+    const appName = 'Kimbap Console.app';
     const appPath = path.join(this.outputDir, appName);
     const contentsPath = path.join(appPath, 'Contents');
     const macOSPath = path.join(contentsPath, 'MacOS');
@@ -1506,11 +1506,11 @@ Write-Host "Starting KIMBAP Console..." -ForegroundColor Green
 <plist version="1.0">
 <dict>
     <key>CFBundleExecutable</key>
-    <string>KIMBAP Console</string>
+    <string>Kimbap Console</string>
     <key>CFBundleIdentifier</key>
     <string>com.kimbap.console</string>
     <key>CFBundleName</key>
-    <string>KIMBAP Console</string>
+    <string>Kimbap Console</string>
     <key>CFBundleVersion</key>
     <string>1.0.0</string>
     <key>CFBundleShortVersionString</key>
@@ -1518,7 +1518,7 @@ Write-Host "Starting KIMBAP Console..." -ForegroundColor Green
     <key>CFBundlePackageType</key>
     <string>APPL</string>
     <key>CFBundleSignature</key>
-    <string>KIMBAP</string>
+    <string>Kimbap</string>
     <key>LSMinimumSystemVersion</key>
     <string>10.14</string>
     <key>NSHighResolutionCapable</key>
@@ -1530,7 +1530,7 @@ Write-Host "Starting KIMBAP Console..." -ForegroundColor Green
     
     // 创建主可执行文件
     const mainExecutableContent = `#!/bin/bash
-# KIMBAP Console macOS App Launcher
+# Kimbap Console macOS App Launcher
 SCRIPT_DIR="$( cd "$( dirname "\${BASH_SOURCE[0]}" )" && pwd )"
 APP_DIR="$( dirname "$( dirname "$SCRIPT_DIR" )" )"
 
@@ -1544,22 +1544,22 @@ cd "$APP_DIR"
 sleep 3
 open http://localhost:3000`;
     
-    const executablePath = path.join(macOSPath, 'KIMBAP Console');
+    const executablePath = path.join(macOSPath, 'Kimbap Console');
     fs.writeFileSync(executablePath, mainExecutableContent);
     fs.chmodSync(executablePath, 0o755);
     
     // 创建启动脚本
     const startScriptContent = `#!/bin/bash
-# Quick launcher for KIMBAP Console
+# Quick launcher for Kimbap Console
 cd "$( dirname "\${BASH_SOURCE[0]}" )"
 ./scripts/start.sh`;
     
-    const quickStartPath = path.join(this.outputDir, 'Start-KIMBAP-Console.command');
+    const quickStartPath = path.join(this.outputDir, 'Start-Kimbap-Console.command');
     fs.writeFileSync(quickStartPath, startScriptContent);
     fs.chmodSync(quickStartPath, 0o755);
     
-    console.log('✅ macOS .app bundle created: KIMBAP Console.app');
-    console.log('✅ Quick launcher created: Start-KIMBAP-Console.command');
+    console.log('✅ macOS .app bundle created: Kimbap Console.app');
+    console.log('✅ Quick launcher created: Start-Kimbap-Console.command');
   }
 
   // 创建 Linux 桌面文件
@@ -1569,27 +1569,27 @@ cd "$( dirname "\${BASH_SOURCE[0]}" )"
     const desktopContent = `[Desktop Entry]
 Version=1.0
 Type=Application
-Name=KIMBAP Console
-Comment=KIMBAP MCP Console Application
+Name=Kimbap Console
+Comment=Kimbap Console Application
 Exec=bash "%k/scripts/start.sh"
 Icon=%k/icon.png
 Path=%k
 Terminal=false
 StartupNotify=true
 Categories=Development;Network;
-Keywords=KIMBAP;MCP;Console;AI;`;
+Keywords=Kimbap;Console;AI;`;
     
-    const desktopPath = path.join(this.outputDir, 'KIMBAP-Console.desktop');
+    const desktopPath = path.join(this.outputDir, 'Kimbap-Console.desktop');
     fs.writeFileSync(desktopPath, desktopContent);
     fs.chmodSync(desktopPath, 0o755);
     
     // 创建简单的启动脚本
     const startScriptContent = `#!/bin/bash
-# KIMBAP Console Linux Launcher
+# Kimbap Console Linux Launcher
 SCRIPT_DIR="$( cd "$( dirname "\${BASH_SOURCE[0]}" )" && pwd )"
 cd "$SCRIPT_DIR"
 
-echo "Starting KIMBAP Console..."
+echo "Starting Kimbap Console..."
 ./scripts/start.sh
 
 # 打开浏览器 (如果有桌面环境)
@@ -1606,13 +1606,13 @@ fi`;
     const iconPath = path.join(this.outputDir, 'icon.png');
     if (!fs.existsSync(iconPath)) {
       // 创建一个简单的文本图标文件
-      const iconTextContent = `KIMBAP Console Icon - Replace with actual PNG icon`;
+      const iconTextContent = `Kimbap Console Icon - Replace with actual PNG icon`;
       fs.writeFileSync(iconPath, iconTextContent);
     }
     
     // 创建服务脚本 (systemd service)
     const serviceContent = `[Unit]
-Description=KIMBAP Console Service
+Description=Kimbap Console Service
 After=network.target
 
 [Service]
@@ -1631,11 +1631,11 @@ WantedBy=multi-user.target`;
     
     // 创建安装脚本
     const installContent = `#!/bin/bash
-# KIMBAP Console Linux Installation Script
+# Kimbap Console Linux Installation Script
 SCRIPT_DIR="$( cd "$( dirname "\${BASH_SOURCE[0]}" )" && pwd )"
 TARGET_DIR="$HOME/.kimbap-console"
 
-echo "Installing KIMBAP Console to $TARGET_DIR..."
+echo "Installing Kimbap Console to $TARGET_DIR..."
 
 # 创建目标目录
 mkdir -p "$TARGET_DIR"
@@ -1649,11 +1649,11 @@ chmod +x "$TARGET_DIR/scripts/start.sh"
 
 # 创建桌面快捷方式
 if [ -d "$HOME/Desktop" ]; then
-    cp "$TARGET_DIR/KIMBAP-Console.desktop" "$HOME/Desktop/"
+    cp "$TARGET_DIR/Kimbap-Console.desktop" "$HOME/Desktop/"
 fi
 
-echo "✅ KIMBAP Console installed successfully!"
-echo "   Desktop shortcut: ~/Desktop/KIMBAP-Console.desktop"
+echo "✅ Kimbap Console installed successfully!"
+echo "   Desktop shortcut: ~/Desktop/Kimbap-Console.desktop"
 echo "   Command line: ~/.kimbap-console/start-kimbap-console"`;
     
     const installPath = path.join(this.outputDir, 'install.sh');
@@ -1661,7 +1661,7 @@ echo "   Command line: ~/.kimbap-console/start-kimbap-console"`;
     fs.chmodSync(installPath, 0o755);
     
     console.log('✅ Linux executables created:');
-    console.log('   - KIMBAP-Console.desktop (desktop shortcut)');
+    console.log('   - Kimbap-Console.desktop (desktop shortcut)');
     console.log('   - start-kimbap-console (launcher script)');
     console.log('   - kimbap-console.service (systemd service)');
     console.log('   - install.sh (installation script)');

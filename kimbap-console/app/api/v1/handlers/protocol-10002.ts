@@ -1,5 +1,4 @@
 import { ApiError, ErrorCode } from '@/lib/error-codes';
-import { LicenseService } from '@/license-system';
 import { getProxy } from '@/lib/proxy-api';
 
 interface Request10002 {
@@ -41,9 +40,7 @@ export async function handleProtocol10002(body: Request10002): Promise<Response1
   //   serverStatus = 2; // assume stopped on error
   // }
 
-  // Get hardware fingerprint
-  const licenseService = LicenseService.getInstance();
-  const fingerprint = licenseService.getHardwareFingerprint();
+  const fingerprint = '';
 
   // Return proxy server info
   return {

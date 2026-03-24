@@ -4,8 +4,8 @@
 **Status:** Draft  
 **Language:** English  
 **Scope:** Console only  
-**Target Product:** Kimbap / Peta Console  
-**Related Components:** `peta-core-go`, existing TypeScript `peta-console`
+**Target Product:** Kimbap Console  
+**Related Components:** `kimbap-core`, existing TypeScript `kimbap-console` (legacy baseline)
 
 ---
 

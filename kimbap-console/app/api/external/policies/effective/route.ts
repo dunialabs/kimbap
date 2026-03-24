@@ -11,10 +11,31 @@ interface EffectivePolicyInput {
   serverId?: string;
 }
 
+function normalizeEffectivePolicyInput(body: EffectivePolicyInput): EffectivePolicyInput {
+  if (body.serverId !== undefined && typeof body.serverId !== 'string') {
+    throw new ExternalApiError(E1003, 'Invalid field value: serverId must be a string');
+  }
+  return body;
+}
+
+async function getEffectivePolicy(request: NextRequest, input: EffectivePolicyInput) {
+  const user = await authenticate(request);
+  const response = await makeProxyRequestWithUserId<{ policySets: any[] }>(
+    AdminActionType.GET_EFFECTIVE_POLICY,
+    { serverId: input.serverId },
+    user.userid,
+    user.accessToken
+  );
+
+  if (!response.success) {
+    throwCoreAdminError(response.error?.message || 'Failed to get effective policy', undefined, response.error?.code);
+  }
+
+  return ApiResponse.success({ policySets: response.data?.policySets || [] });
+}
+
 export async function POST(request: NextRequest) {
   try {
-    const user = await authenticate(request);
-
     let body: EffectivePolicyInput = {};
     const text = await request.text();
     if (text.trim()) {
@@ -24,23 +45,16 @@ export async function POST(request: NextRequest) {
         throw new ExternalApiError(E1001, 'Invalid request body');
       }
     }
+    return await getEffectivePolicy(request, normalizeEffectivePolicyInput(body));
+  } catch (error) {
+    return ApiResponse.handleError(error);
+  }
+}
 
-    if (body.serverId !== undefined && typeof body.serverId !== 'string') {
-      throw new ExternalApiError(E1003, 'Invalid field value: serverId must be a string');
-    }
-
-    const response = await makeProxyRequestWithUserId<{ policySets: any[] }>(
-      AdminActionType.GET_EFFECTIVE_POLICY,
-      { serverId: body.serverId },
-      user.userid,
-      user.accessToken
-    );
-
-    if (!response.success) {
-      throwCoreAdminError(response.error?.message || 'Failed to get effective policy', undefined, response.error?.code);
-    }
-
-    return ApiResponse.success({ policySets: response.data?.policySets || [] });
+export async function GET(request: NextRequest) {
+  try {
+    const serverId = request.nextUrl.searchParams.get('serverId') ?? undefined;
+    return await getEffectivePolicy(request, normalizeEffectivePolicyInput({ serverId }));
   } catch (error) {
     return ApiResponse.handleError(error);
   }

@@ -1,6 +1,6 @@
 # Kimbap Console
 
-KIMBAP MCP (Model Context Protocol) Console is a web app for managing and monitoring MCP servers.
+Kimbap Console — Operations Console for the Kimbap platform. A web app for audit, logs, approvals, and policy management.
 
 ## 🚀 Features
 - 🔐 **Secure auth** – email verification with JWT
@@ -11,11 +11,11 @@ KIMBAP MCP (Model Context Protocol) Console is a web app for managing and monito
 - 💾 **Backup and restore** – cloud and local data recovery
 
 ## 🛠️ Tech Stack
-- **Frontend:** Next.js 15 + TypeScript + Tailwind CSS
-- **Backend:** Express + TypeScript + MCP Protocol
-- **Database:** PostgreSQL + Prisma ORM (shared across frontend/backend)
+- **App runtime:** Next.js 15 App Router + TypeScript
+- **API layer:** Next.js API Routes (`app/api/*`)
+- **Database:** PostgreSQL + Prisma ORM
 - **Auth:** JWT + bcrypt
-- **UI:** Radix UI + Shadcn/ui
+- **UI:** Radix UI + shadcn/ui + Tailwind CSS
 - **Tooling:** Docker + Docker Compose
 
 ## 📁 Project Structure
@@ -26,19 +26,8 @@ kimbap-console/
 │   ├── (dashboard)/        # Dashboard pages
 │   └── api/                # API routes
 │       ├── auth/           # Auth APIs
-│       ├── servers/        # Server management
-│       ├── tokens/         # Token management
-│       └── dashboard/      # Dashboard data
-├── backend-src/            # Backend source (TypeScript)
-│   ├── src/                # Backend TypeScript
-│   │   ├── config/         # Config
-│   │   ├── core/           # Core MCP proxy logic
-│   │   ├── entities/       # Database entities
-│   │   ├── middleware/     # Middleware
-│   │   └── security/       # Security helpers
-│   ├── scripts/            # Migration scripts
-│   └── tsconfig.json       # Backend TypeScript config
-├── proxy-server/           # Compiled backend (JavaScript)
+│       ├── external/       # External REST API (automation clients)
+│       └── v1/             # Internal protocol API (cmdId-based)
 ├── components/             # React components
 │   └── ui/                 # Base UI primitives
 ├── lib/                    # Utilities (api client, auth, prisma, types)
@@ -57,11 +46,11 @@ Use the prebuilt Docker image for quick deployment.
 
 **Standard ports:**
 ```bash
-curl -O https://raw.githubusercontent.com/your-org/kimbap-console/main/docker-compose.yml
+curl -O https://raw.githubusercontent.com/dunialabs/kimbap-console/main/docker-compose.yml
 
 docker compose up -d
 # Frontend: http://localhost:3000
-# Backend:  http://localhost:3002
+# Console API (same app): http://localhost:3000/api/*
 ```
 
 **Auto port allocation:**
@@ -72,7 +61,7 @@ npm run docker:find-ports
 docker compose --env-file .env.ports up -d
 ```
 
-See the [Docker deployment guide](./docs/DOCKER_DEPLOYMENT.md) for details.
+See [DOCKER_USAGE.md](./DOCKER_USAGE.md) for details.
 
 #### 💻 Option 2: Local development
 
@@ -84,7 +73,7 @@ See the [Docker deployment guide](./docs/DOCKER_DEPLOYMENT.md) for details.
 **Setup**
 1) Clone and install
 ```bash
-git clone <repository-url>
+git clone https://github.com/dunialabs/kimbap-console.git
 cd kimbap-console
 npm install
 ```
@@ -95,13 +84,10 @@ cp .env.example .env.local
 ```
 Edit `.env.local` as needed:
 ```env
-DATABASE_URL="postgresql://kimbap:kimbap123@localhost:5432/kimbap_db"
+DATABASE_URL="postgresql://kimbap:kimbap123@localhost:5432/kimbap_console?schema=public"
 JWT_SECRET="your-super-secret-jwt-key"
-# Optional mail settings
-SMTP_HOST="smtp.gmail.com"
-SMTP_PORT="587"
-SMTP_USER="your-email@gmail.com"
-SMTP_PASS="your-app-password"
+# Optional override when Kimbap Core is not auto-detected
+KIMBAP_CORE_URL="http://localhost:3002"
 ```
 
 3) Start dev environment
@@ -116,8 +102,9 @@ This will:
 
 4) Access
 - 🌐 Frontend: http://localhost:3000
-- 🚀 Backend API: http://localhost:3002
+- 🚀 Console API: http://localhost:3000/api/*
 - 🗄️ Adminer: http://localhost:8080
+- 🧠 Kimbap Core (separate service): http://localhost:3002
 
 ## 🛠️ Developer Commands
 
@@ -196,10 +183,13 @@ npm run test-services
 - **Member**: limited access
 
 ## 🔗 API Endpoints
-- Auth: `POST /api/auth/login/email`, `POST /api/auth/login/verify`, `POST /api/auth/master-password/set`
-- Servers: `GET /api/servers`, `POST /api/servers`, `DELETE /api/servers/:id`
-- Tokens: `GET /api/tokens`, `POST /api/tokens`, `DELETE /api/tokens/:id`
-- Dashboard: `GET /api/dashboard/overview`, `GET /api/dashboard/metrics`
+- Internal protocol API: `POST /api/v1` (`cmdId`-based)
+- External REST API: `/api/external/*`
+- Auth APIs: `/api/auth/*`
+
+Detailed API references:
+- [External REST API](./app/api/external/API.md)
+- [Internal v1 Protocol API](./app/api/v1/API.md)
 
 ## 🌐 Cloudflare Tunnel
 Expose services securely without opening firewall ports.
@@ -208,7 +198,7 @@ npm run cloudflared:setup
 npm run cloudflared:start
 npm run cloudflared:logs
 ```
-See [Quick Start](./docs/CLOUDFLARED_QUICK_START.md) and [Full setup](./docs/CLOUDFLARED_SETUP.md).
+See [DOCKER_USAGE.md](./DOCKER_USAGE.md) and [DEPLOYMENT.md](./DEPLOYMENT.md) for deployment notes.
 
 ## 🚨 Troubleshooting
 1) **Unified dev issues**

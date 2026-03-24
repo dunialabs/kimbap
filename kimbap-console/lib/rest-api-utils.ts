@@ -15,7 +15,7 @@ export const ResponseTransformSchema = z.object({
   type: z.enum(['json', 'text', 'raw']),
   jsonPath: z.string().optional(),
   template: z.string().optional(),
-  errorPath: z.string().optional(),
+  errorPath: z.string().optional()
 });
 
 export const ParameterDefinitionSchema = z.object({
@@ -27,7 +27,7 @@ export const ParameterDefinitionSchema = z.object({
   location: parameterLocationEnum,
   mapping: z.string().optional(),
   enum: z.array(z.any()).optional(),
-  pattern: z.string().optional(),
+  pattern: z.string().optional()
 });
 
 export const ToolDefinitionSchema = z
@@ -42,7 +42,7 @@ export const ToolDefinitionSchema = z
     parameters: z.array(ParameterDefinitionSchema).max(50, 'Too many parameters (max 50)'),
     response: ResponseTransformSchema.optional(),
     headers: headersRecordSchema.optional(),
-    timeout: z.number().int().positive().max(300000).optional(),
+    timeout: z.number().int().positive().max(300000).optional()
   })
   .superRefine((tool, ctx) => {
     const regexp = /\{([^}]+)\}/g;
@@ -63,7 +63,7 @@ export const ToolDefinitionSchema = z
         ctx.addIssue({
           code: 'custom',
           path: ['parameters'],
-          message: `Endpoint expects path parameter "${token}" but no matching path parameter was defined`,
+          message: `Endpoint expects path parameter "${token}" but no matching path parameter was defined`
         });
       }
     }
@@ -76,7 +76,7 @@ export const AuthConfigSchema = z
     header: z.string().optional(),
     value: z.string().optional(),
     username: z.string().optional(),
-    password: z.string().optional(),
+    password: z.string().optional()
   })
   .superRefine((auth, ctx) => {
     if (auth.type === 'bearer' && !auth.value?.trim()) {
@@ -84,11 +84,7 @@ export const AuthConfigSchema = z
     }
     if (auth.type === 'header') {
       if (!auth.header?.trim()) {
-        ctx.addIssue({
-          code: 'custom',
-          path: ['header'],
-          message: 'Header auth requires header name',
-        });
+        ctx.addIssue({ code: 'custom', path: ['header'], message: 'Header auth requires header name' });
       }
       if (!auth.value?.trim()) {
         ctx.addIssue({ code: 'custom', path: ['value'], message: 'Header auth requires value' });
@@ -96,34 +92,18 @@ export const AuthConfigSchema = z
     }
     if (auth.type === 'query_param') {
       if (!auth.param?.trim()) {
-        ctx.addIssue({
-          code: 'custom',
-          path: ['param'],
-          message: 'Query param auth requires parameter name',
-        });
+        ctx.addIssue({ code: 'custom', path: ['param'], message: 'Query param auth requires parameter name' });
       }
       if (!auth.value?.trim()) {
-        ctx.addIssue({
-          code: 'custom',
-          path: ['value'],
-          message: 'Query param auth requires value',
-        });
+        ctx.addIssue({ code: 'custom', path: ['value'], message: 'Query param auth requires value' });
       }
     }
     if (auth.type === 'basic') {
       if (!auth.username?.trim()) {
-        ctx.addIssue({
-          code: 'custom',
-          path: ['username'],
-          message: 'Basic auth requires username',
-        });
+        ctx.addIssue({ code: 'custom', path: ['username'], message: 'Basic auth requires username' });
       }
       if (!auth.password?.trim()) {
-        ctx.addIssue({
-          code: 'custom',
-          path: ['password'],
-          message: 'Basic auth requires password',
-        });
+        ctx.addIssue({ code: 'custom', path: ['password'], message: 'Basic auth requires password' });
       }
     }
   });
@@ -134,12 +114,9 @@ export const ApiDefinitionSchema = z
     description: z.string().min(1, 'API description is required'),
     baseUrl: z.string().min(1, 'Base URL is required'),
     auth: AuthConfigSchema.optional(),
-    tools: z
-      .array(ToolDefinitionSchema)
-      .min(1, 'At least one tool must be defined')
-      .max(50, 'Too many tools (max 50)'),
+    tools: z.array(ToolDefinitionSchema).min(1, 'At least one tool must be defined').max(50, 'Too many tools (max 50)'),
     headers: headersRecordSchema.optional(),
-    timeout: z.number().int().positive().max(300000).optional(),
+    timeout: z.number().int().positive().max(300000).optional()
   })
   .superRefine((api, ctx) => {
     const issue = validateHttpsBaseUrl(api.baseUrl);
@@ -211,7 +188,11 @@ export async function detectFormat(input: string): Promise<DetectFormatResult> {
     const loaded = yaml.load(text);
     return { format: 'yaml', data: loaded };
   } catch (e) {
-    errors.push(`YAML parse failed: ${e instanceof Error ? e.message : 'Unknown error'}`);
+    errors.push(
+      `YAML parse failed: ${
+        e instanceof Error ? e.message : 'Unknown error'
+      }`
+    );
   }
 
   return { format: 'unknown', data: null, error: errors.join(' | ') };
@@ -227,9 +208,7 @@ export async function parseYamlToJson(yamlString: string): Promise<any> {
     const yaml = await import('js-yaml');
     return yaml.load(yamlString);
   } catch (error) {
-    throw new Error(
-      `Failed to parse YAML: ${error instanceof Error ? error.message : 'Unknown error'}`,
-    );
+    throw new Error(`Failed to parse YAML: ${error instanceof Error ? error.message : 'Unknown error'}`);
   }
 }
 
@@ -251,51 +230,6 @@ export function validateRestApiConfig(config: any): { valid: boolean; error?: st
 /**
  * Ensure baseUrl is HTTPS with valid hostname
  */
-const PRIVATE_IP_PATTERNS = [
-  /^127\./,
-  /^10\./,
-  /^172\.(1[6-9]|2\d|3[01])\./,
-  /^192\.168\./,
-  /^0\./,
-  /^169\.254\./,
-  /^fc00:/i,
-  /^fd/i,
-  /^fe80:/i,
-  /^::1$/,
-  /^::$/,
-  /^::ffff:/i,
-  /^100\.(6[4-9]|[7-9]\d|1[01]\d|12[0-7])\./,
-];
-
-const BLOCKED_HOSTNAMES = [
-  'localhost',
-  'host.docker.internal',
-  'metadata.google.internal',
-  'instance-data',
-];
-
-function normalizeIPv6MappedIPv4(host: string): string {
-  const mapped = host.match(/^::ffff:(\d+\.\d+\.\d+\.\d+)$/i);
-  if (mapped) return mapped[1];
-  return host;
-}
-
-function isPrivateTarget(hostname: string): boolean {
-  const stripped = hostname.replace(/^\[|\]$/g, '');
-  const lower = stripped.toLowerCase();
-  if (BLOCKED_HOSTNAMES.some((h) => lower === h || lower.endsWith('.' + h))) {
-    return true;
-  }
-  const normalized = normalizeIPv6MappedIPv4(stripped);
-  if (normalized !== stripped) {
-    if (PRIVATE_IP_PATTERNS.some((p) => p.test(normalized))) return true;
-  }
-  if (/^\d+$/.test(stripped)) return true;
-  if (/^0x/i.test(stripped)) return true;
-  if (/^0\d/.test(stripped) && !/^0\./.test(stripped)) return true;
-  return PRIVATE_IP_PATTERNS.some((p) => p.test(stripped));
-}
-
 export function validateHttpsBaseUrl(baseUrl: string): string | null {
   try {
     const url = new URL(baseUrl);
@@ -304,9 +238,6 @@ export function validateHttpsBaseUrl(baseUrl: string): string | null {
     }
     if (!url.hostname) {
       return 'Base URL must include a valid hostname';
-    }
-    if (isPrivateTarget(url.hostname)) {
-      return 'Base URL must not target private/internal addresses';
     }
     return null;
   } catch {
@@ -317,9 +248,7 @@ export function validateHttpsBaseUrl(baseUrl: string): string | null {
 /**
  * Generate a detailed validation report for a raw REST API configuration string
  */
-export async function generateRestApiValidationReport(
-  rawInput: string,
-): Promise<RestApiValidationReport> {
+export async function generateRestApiValidationReport(rawInput: string): Promise<RestApiValidationReport> {
   const trimmed = rawInput.trim();
   const rawConfigSize = new TextEncoder().encode(rawInput || '').length;
   const report: RestApiValidationReport = {
@@ -333,7 +262,7 @@ export async function generateRestApiValidationReport(
     errors: [],
     environmentPlaceholders: [],
     rawConfigSize,
-    checkedAt: Date.now(),
+    checkedAt: Date.now()
   };
 
   if (!trimmed) {
@@ -343,7 +272,7 @@ export async function generateRestApiValidationReport(
       id: 'empty-input',
       label: 'Configuration Input',
       status: 'error',
-      message,
+      message
     });
     report.summary = 'error';
     return report;
@@ -353,16 +282,15 @@ export async function generateRestApiValidationReport(
   report.format = detected.format;
 
   if (detected.format === 'unknown' || !detected.data) {
-    const message =
-      detected.format === 'unknown'
-        ? detected.error || 'Unable to parse configuration as JSON or YAML'
-        : 'Unable to parse configuration';
+    const message = detected.format === 'unknown'
+      ? detected.error || 'Unable to parse configuration as JSON or YAML'
+      : 'Unable to parse configuration';
     report.errors.push(message);
     report.checks.push({
       id: 'format',
       label: 'Format Detection',
       status: 'error',
-      message,
+      message
     });
     report.summary = 'error';
     return report;
@@ -373,19 +301,18 @@ export async function generateRestApiValidationReport(
     id: 'format',
     label: detected.format === 'yaml' ? 'YAML Format' : 'JSON Format',
     status: 'pass',
-    message: detected.format === 'yaml' ? 'Parsed YAML successfully' : 'Parsed JSON successfully',
+    message: detected.format === 'yaml' ? 'Parsed YAML successfully' : 'Parsed JSON successfully'
   });
 
   if (isOpenApiFormat(detected.data)) {
     report.openApiDetected = true;
-    const message =
-      'Detected OpenAPI specification. Convert it to the REST API configuration format before saving or testing.';
+    const message = 'Detected OpenAPI specification. Convert it to the REST API configuration format before saving or testing.';
     report.warnings.push(message);
     report.checks.push({
       id: 'openapi-detected',
       label: 'OpenAPI Specification',
       status: 'warn',
-      message,
+      message
     });
     report.summary = 'warning';
     return report;
@@ -401,7 +328,7 @@ export async function generateRestApiValidationReport(
       id: 'schema',
       label: 'Schema Validation',
       status: 'error',
-      message,
+      message
     });
     report.summary = 'error';
     return report;
@@ -415,7 +342,7 @@ export async function generateRestApiValidationReport(
     id: 'schema',
     label: 'Schema Validation',
     status: 'pass',
-    message: 'Configuration matches the required schema',
+    message: 'Configuration matches the required schema'
   });
 
   const baseUrlIssue = validateHttpsBaseUrl(parsedConfig.baseUrl);
@@ -423,7 +350,7 @@ export async function generateRestApiValidationReport(
     id: 'base-url',
     label: 'Base URL',
     status: baseUrlIssue ? 'error' : 'pass',
-    message: baseUrlIssue || 'Base URL uses HTTPS and is valid',
+    message: baseUrlIssue || 'Base URL uses HTTPS and is valid'
   });
   if (baseUrlIssue) {
     report.errors.push(baseUrlIssue);
@@ -439,7 +366,7 @@ export async function generateRestApiValidationReport(
       id: 'config-size',
       label: 'Configuration Size',
       status: 'error',
-      message,
+      message
     });
     report.summary = 'error';
     return report;
@@ -449,14 +376,14 @@ export async function generateRestApiValidationReport(
     id: 'config-size',
     label: 'Configuration Size',
     status: 'pass',
-    message: `Configuration size is ${(rawConfigSize / 1024).toFixed(1)} KB (limit 100 KB)`,
+    message: `Configuration size is ${(rawConfigSize / 1024).toFixed(1)} KB (limit 100 KB)`
   });
 
   report.checks.push({
     id: 'tool-count',
     label: 'Tool Count',
     status: parsedConfig.tools.length > 0 ? 'pass' : 'error',
-    message: `${parsedConfig.tools.length} tool${parsedConfig.tools.length === 1 ? '' : 's'} configured`,
+    message: `${parsedConfig.tools.length} tool${parsedConfig.tools.length === 1 ? '' : 's'} configured`
   });
 
   const envPlaceholders = checkEnvironmentVariables(parsedConfig);
@@ -471,15 +398,15 @@ export async function generateRestApiValidationReport(
       message,
       details: [
         'Replace placeholders like ${API_KEY} with actual credentials before saving.',
-        'Alternatively, document the required environment variables for your deployment.',
-      ],
+        'Alternatively, document the required environment variables for your deployment.'
+      ]
     });
   } else {
     report.checks.push({
       id: 'env-placeholders',
       label: 'Credential Placeholders',
       status: 'pass',
-      message: 'No environment variable placeholders detected',
+      message: 'No environment variable placeholders detected'
     });
   }
 
@@ -488,14 +415,12 @@ export async function generateRestApiValidationReport(
 }
 
 function deriveValidationSummary(report: RestApiValidationReport): RestApiValidationSummary {
-  const hasErrors =
-    report.errors.length > 0 || report.checks.some((check) => check.status === 'error');
+  const hasErrors = report.errors.length > 0 || report.checks.some((check) => check.status === 'error');
   if (hasErrors) {
     return 'error';
   }
 
-  const hasWarnings =
-    report.warnings.length > 0 || report.checks.some((check) => check.status === 'warn');
+  const hasWarnings = report.warnings.length > 0 || report.checks.some((check) => check.status === 'warn');
   if (hasWarnings) {
     return 'warning';
   }
@@ -596,7 +521,11 @@ export function setValueAtPath(target: any, path: string, value: any): any {
   }
 
   const base =
-    target && typeof target === 'object' ? target : typeof tokens[0] === 'number' ? [] : {};
+    target && typeof target === 'object'
+      ? target
+      : typeof tokens[0] === 'number'
+        ? []
+        : {};
 
   let current = base;
   for (let i = 0; i < tokens.length; i++) {
@@ -670,9 +599,7 @@ export function convertOpenApiToRestApiFormat(openApiSpec: any): APIDefinition {
   // Extract basic info
   const name = openApiSpec.info?.title || 'API';
   const description =
-    openApiSpec.info?.description ||
-    openApiSpec.info?.title ||
-    'Converted from OpenAPI specification';
+    openApiSpec.info?.description || openApiSpec.info?.title || 'Converted from OpenAPI specification';
   const baseUrl = openApiSpec.servers?.[0]?.url || '';
 
   if (!baseUrl) {
@@ -710,7 +637,7 @@ export function convertOpenApiToRestApiFormat(openApiSpec: any): APIDefinition {
     description,
     baseUrl,
     auth,
-    tools,
+    tools
   };
 }
 
@@ -756,14 +683,14 @@ function convertOpenApiAuth(openApiSpec: any): AuthConfig | undefined {
       return {
         type: 'header',
         header: scheme.name,
-        value: valuePlaceholder,
+        value: valuePlaceholder
       };
     }
     if (scheme.in === 'query') {
       return {
         type: 'query_param',
         param: scheme.name,
-        value: valuePlaceholder,
+        value: valuePlaceholder
       };
     }
   }
@@ -772,14 +699,14 @@ function convertOpenApiAuth(openApiSpec: any): AuthConfig | undefined {
     if (scheme.scheme === 'bearer') {
       return {
         type: 'bearer',
-        value: valuePlaceholder,
+        value: valuePlaceholder
       };
     }
     if (scheme.scheme === 'basic') {
       return {
         type: 'basic',
         username: usernamePlaceholder,
-        password: passwordPlaceholder,
+        password: passwordPlaceholder
       };
     }
   }
@@ -788,7 +715,7 @@ function convertOpenApiAuth(openApiSpec: any): AuthConfig | undefined {
   if (scheme.type === 'oauth2' || scheme.type === 'openIdConnect') {
     throw new Error(
       `OpenAPI security scheme "${schemeName}" is "${scheme.type}" and is not supported for automatic conversion. ` +
-        `Please configure auth manually.`,
+        `Please configure auth manually.`
     );
   }
 
@@ -825,7 +752,7 @@ type NormalizedSchema = {
 function normalizeSchema(
   openApiSpec: any,
   schema: OpenApiSchemaLike,
-  ctx: { seenRefs: Record<string, true> },
+  ctx: { seenRefs: Record<string, true> }
 ): NormalizedSchema {
   if (!schema || typeof schema !== 'object') return {};
 
@@ -856,8 +783,7 @@ function normalizeSchema(
       if (Array.isArray(part.required)) {
         for (let j = 0; j < part.required.length; j++) {
           const r = part.required[j];
-          if ((merged.required as string[]).indexOf(r) === -1)
-            (merged.required as string[]).push(r);
+          if ((merged.required as string[]).indexOf(r) === -1) (merged.required as string[]).push(r);
         }
       }
     }
@@ -876,7 +802,7 @@ function normalizeSchema(
       type: 'object',
       properties: {},
       required: [],
-      unionSource: unionKey as 'oneOf' | 'anyOf',
+      unionSource: unionKey as 'oneOf' | 'anyOf'
     };
     for (let i = 0; i < arr.length; i++) {
       const part = normalizeSchema(openApiSpec, arr[i], ctx);
@@ -897,7 +823,7 @@ function normalizeSchema(
     enum: schema.enum,
     default: schema.default,
     format: schema.format,
-    items: schema.items,
+    items: schema.items
   };
 }
 
@@ -947,8 +873,8 @@ function flattenBodySchemaToParameters(args: {
             basePath: path,
             parentRequired: !!isRequiredHere,
             forceOptional: effectiveForceOptional,
-            unionSource: effectiveUnionSource,
-          }),
+            unionSource: effectiveUnionSource
+          })
         );
         continue;
       }
@@ -966,7 +892,7 @@ function flattenBodySchemaToParameters(args: {
         location: 'body',
         mapping: path,
         enum: child.enum,
-        default: child.default,
+        default: child.default
       });
     }
     return params;
@@ -987,8 +913,8 @@ function flattenBodySchemaToParameters(args: {
       location: 'body',
       mapping: basePath || 'payload',
       enum: schema.enum,
-      default: schema.default,
-    },
+      default: schema.default
+    }
   ];
 }
 
@@ -1000,11 +926,10 @@ function convertOpenApiOperation(
   method: string,
   operation: any,
   pathItem: any,
-  openApiSpec: any,
+  openApiSpec: any
 ): ToolDefinition {
   const name = operation.operationId || `${method}_${path.replace(/\//g, '_')}`;
-  const description =
-    operation.summary || operation.description || `${method.toUpperCase()} ${path}`;
+  const description = operation.summary || operation.description || `${method.toUpperCase()} ${path}`;
 
   // Convert parameters
   const parameters: ParameterDefinition[] = [];
@@ -1015,8 +940,7 @@ function convertOpenApiOperation(
     for (let i = 0; i < pathItem.parameters.length; i++) mergedParams.push(pathItem.parameters[i]);
   }
   if (operation && Array.isArray(operation.parameters)) {
-    for (let i = 0; i < operation.parameters.length; i++)
-      mergedParams.push(operation.parameters[i]);
+    for (let i = 0; i < operation.parameters.length; i++) mergedParams.push(operation.parameters[i]);
   }
 
   const seenParamKeys: Record<string, true> = {};
@@ -1042,7 +966,7 @@ function convertOpenApiOperation(
     description,
     endpoint: path,
     method: method.toUpperCase() as any,
-    parameters,
+    parameters
   };
 }
 
@@ -1076,7 +1000,7 @@ function convertOpenApiParameter(param: any, openApiSpec: any): ParameterDefinit
     mapping: param.name,
     enum: schema.enum,
     default: schema.default,
-    pattern: schema.pattern,
+    pattern: schema.pattern
   };
 }
 
@@ -1106,7 +1030,7 @@ function convertOpenApiRequestBody(requestBody: any, openApiSpec: any): Paramete
     ctx,
     basePath: '',
     parentRequired: !!requestBody.required,
-    forceOptional: false,
+    forceOptional: false
   });
 
   for (let i = 0; i < params.length; i++) {

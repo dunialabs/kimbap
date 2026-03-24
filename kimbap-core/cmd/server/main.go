@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"fmt"
 	"net/http"
 	"os"
 	"os/signal"
@@ -14,6 +13,7 @@ import (
 	"time"
 
 	"github.com/dunialabs/kimbap-core/internal/admin"
+	"github.com/dunialabs/kimbap-core/internal/api"
 	"github.com/dunialabs/kimbap-core/internal/config"
 	"github.com/dunialabs/kimbap-core/internal/database"
 	internalLog "github.com/dunialabs/kimbap-core/internal/log"
@@ -27,8 +27,8 @@ import (
 	"github.com/dunialabs/kimbap-core/internal/oauth"
 	"github.com/dunialabs/kimbap-core/internal/repository"
 	"github.com/dunialabs/kimbap-core/internal/security"
-	"github.com/dunialabs/kimbap-core/internal/service"
 	"github.com/dunialabs/kimbap-core/internal/socket"
+	"github.com/dunialabs/kimbap-core/internal/store"
 	coretypes "github.com/dunialabs/kimbap-core/internal/types"
 	"github.com/dunialabs/kimbap-core/internal/user"
 	"github.com/go-chi/chi/v5"
@@ -73,10 +73,6 @@ type coreAuthStrategyAdapter struct {
 
 type eventRepoAdapter struct {
 	repo *repository.EventRepository
-}
-
-type ipWhitelistStoreAdapter struct {
-	repo *repository.IPWhitelistRepository
 }
 
 func (userRepoAdapter) FindByUserID(ctx context.Context, userID string) (*middleware.User, error) {
@@ -323,56 +319,6 @@ func (a *eventRepoAdapter) DeleteByStreamID(ctx context.Context, streamID string
 	return a.repo.DeleteByStreamID(ctx, streamID)
 }
 
-func (a ipWhitelistStoreAdapter) LoadWhitelist(ctx context.Context) ([]string, error) {
-	_ = ctx
-	if a.repo == nil {
-		return nil, errors.New("ip whitelist repository is not configured")
-	}
-	rows, err := a.repo.FindAll()
-	if err != nil {
-		return nil, err
-	}
-	ips := make([]string, 0, len(rows))
-	for _, row := range rows {
-		ips = append(ips, row.IP)
-	}
-	return ips, nil
-}
-
-func (a ipWhitelistStoreAdapter) AddIP(ctx context.Context, ip string) error {
-	_ = ctx
-	if a.repo == nil {
-		return errors.New("ip whitelist repository is not configured")
-	}
-	exists, err := a.repo.Exists(ip)
-	if err != nil {
-		return err
-	}
-	if exists {
-		return nil
-	}
-	_, err = a.repo.Create(ip)
-	return err
-}
-
-func (a ipWhitelistStoreAdapter) RemoveIP(ctx context.Context, ip string) error {
-	_ = ctx
-	if a.repo == nil {
-		return errors.New("ip whitelist repository is not configured")
-	}
-	_, err := a.repo.DeleteByIP(ip)
-	return err
-}
-
-func (a ipWhitelistStoreAdapter) ReplaceAll(ctx context.Context, ips []string) error {
-	_ = ctx
-	if a.repo == nil {
-		return errors.New("ip whitelist repository is not configured")
-	}
-	_, err := a.repo.ReplaceAll(ips)
-	return err
-}
-
 func main() {
 	if err := run(); err != nil {
 		appLog.Error().Err(err).Msg("failed to start application")
@@ -388,18 +334,32 @@ func run() error {
 		return err
 	}
 
+	var managementStore store.Store
+	enableV1 := !strings.EqualFold(config.Env("ENABLE_V1_API"), "false")
+	if enableV1 {
+		var err error
+		managementStore, err = store.OpenPostgresStore(databaseURL)
+		if err != nil {
+			appLog.Warn().Err(err).Msg("failed to initialize v1 management store; /api/v1 routes disabled")
+			managementStore = nil
+		} else {
+			autoMigrate := !strings.EqualFold(config.Env("AUTO_MIGRATE"), "false")
+			if autoMigrate {
+				if err := managementStore.Migrate(context.Background()); err != nil {
+					appLog.Warn().Err(err).Msg("failed to migrate v1 management store; /api/v1 routes disabled")
+					_ = managementStore.Close()
+					managementStore = nil
+				}
+			}
+		}
+	}
+
 	tokenValidator := security.NewTokenValidator()
 	oauthValidator := security.NewOAuthTokenValidator(repository.NewOAuthTokenRepository(nil), oauthUserRepoAdapter{})
 	authMW := middleware.NewAuthMiddleware(tokenValidator, oauthValidator, userRepoAdapter{}, database.DB)
 	adminMW := middleware.NewAdminAuthMiddleware(authMW)
 	rateLimitService := security.NewRateLimitService()
 	rateLimitMW := middleware.NewRateLimitMiddleware(rateLimitService, 60)
-	ipWhitelistRepo := repository.NewIPWhitelistRepository(nil)
-	ipWhitelistService := security.NewIPWhitelistService(ipWhitelistStoreAdapter{repo: ipWhitelistRepo})
-	if err := ipWhitelistService.LoadFromDB(); err != nil {
-		return fmt.Errorf("failed to initialize IP whitelist service: %w", err)
-	}
-	ipWhitelistMW := middleware.NewIPWhitelistMiddleware(ipWhitelistService)
 
 	sessions := core.SessionStoreInstance()
 	eventRepo := newEventRepoAdapter()
@@ -512,7 +472,7 @@ func run() error {
 		AdminAuth:     adminMW,
 	})
 
-	mcpHandler := mcp.NewMCPRouter().Handler(ipWhitelistMW.Middleware, authMW.Middleware, rateLimitMW.Middleware)
+	mcpHandler := mcp.NewMCPRouter().Handler(authMW.Middleware, rateLimitMW.Middleware)
 	r.Method(http.MethodGet, "/mcp", mcpHandler)
 	r.Method(http.MethodGet, "/mcp/", mcpHandler)
 	r.Method(http.MethodPost, "/mcp", mcpHandler)
@@ -520,36 +480,45 @@ func run() error {
 	r.Method(http.MethodDelete, "/mcp", mcpHandler)
 	r.Method(http.MethodDelete, "/mcp/", mcpHandler)
 
-	adminController := admin.NewController(ipWhitelistService)
+	adminController := admin.NewController()
 	r.With(adminMW.Middleware).Method(http.MethodPost, "/admin", http.HandlerFunc(adminController.HandleAdminRequest))
 
 	userController := user.NewController()
 	userAuthMW := user.NewUserAuthMiddleware(userTokenValidatorAdapter{authMW: authMW})
 	r.With(userAuthMW.Authenticate).Method(http.MethodPost, "/user", http.HandlerFunc(userController.HandleUserRequest))
 
+	if managementStore != nil {
+		v1ManagementAPI := api.NewServer("", managementStore)
+		r.Mount("/api", v1ManagementAPI.Router())
+	}
+
 	r.Get("/", func(w http.ResponseWriter, req *http.Request) {
-		writeJSON(w, http.StatusOK, map[string]any{
-			"service": "Kimbap Core",
-			"version": config.AppInfo.Version,
-			"status":  "running",
-			"endpoints": map[string]any{
-				"health":   "/health",
-				"mcp":      "/mcp",
-				"admin":    "/admin",
-				"socketio": "/socket.io",
-				"oauth": map[string]any{
-					"metadata": map[string]any{
-						"authorization_server": "/.well-known/oauth-authorization-server",
-						"protected_resource":   "/.well-known/oauth-protected-resource",
-					},
-					"register":   "/register",
-					"authorize":  "/authorize",
-					"token":      "/token",
-					"introspect": "/introspect",
-					"revoke":     "/revoke",
-					"admin":      "/oauth/admin/clients",
+		endpoints := map[string]any{
+			"health":   "/health",
+			"mcp":      "/mcp",
+			"admin":    "/admin",
+			"socketio": "/socket.io",
+			"oauth": map[string]any{
+				"metadata": map[string]any{
+					"authorization_server": "/.well-known/oauth-authorization-server",
+					"protected_resource":   "/.well-known/oauth-protected-resource",
 				},
+				"register":   "/register",
+				"authorize":  "/authorize",
+				"token":      "/token",
+				"introspect": "/introspect",
+				"revoke":     "/revoke",
+				"admin":      "/oauth/admin/clients",
 			},
+		}
+		if managementStore != nil {
+			endpoints["v1"] = "/api/v1"
+		}
+		writeJSON(w, http.StatusOK, map[string]any{
+			"service":   "Kimbap Core",
+			"version":   config.AppInfo.Version,
+			"status":    "running",
+			"endpoints": endpoints,
 		})
 	})
 
@@ -668,13 +637,6 @@ func run() error {
 		}()
 	}
 
-	cloudflared := service.NewCloudflaredService()
-	if runClusterJobs {
-		cloudflared.AutoStartIfConfigExists()
-	} else {
-		appLog.Info().Msg("Cloudflared auto-start disabled (RUN_CLUSTER_JOBS=false)")
-	}
-
 	shutdown := func(sig string) {
 		if isShuttingDown {
 			return
@@ -715,12 +677,13 @@ func run() error {
 		serverCancel()
 
 		rateLimitService.Close()
-		_, _ = cloudflared.StopCloudflared()
-
 		logCtx, logCancel := context.WithTimeout(context.Background(), 2*time.Second)
 		_ = internalLog.GetLogService().Shutdown(logCtx)
 		logCancel()
 		_ = logSyncSvc.Shutdown()
+		if managementStore != nil {
+			_ = managementStore.Close()
+		}
 		_ = database.Close()
 
 		exitCode := 0

@@ -241,7 +241,7 @@ importers:
         specifier: ^7.2.0
         version: 7.2.0
 
-  dist/kimbap-console-darwin-arm64/app:
+  dist/peta-console-darwin-arm64/app:
     dependencies:
       '@prisma/client':
         specifier: 6.13.0

@@ -19,7 +19,7 @@
 set -e
 
 # 配置
-IMAGE_NAME="kimbapio/kimbap-console"
+IMAGE_NAME="dunialabs/kimbap-console"
 PLATFORMS="linux/amd64,linux/arm64"
 
 # 从 package.json 读取版本号

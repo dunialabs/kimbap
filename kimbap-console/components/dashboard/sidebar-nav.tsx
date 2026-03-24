@@ -1,128 +1,148 @@
-'use client';
+'use client'
 
 import {
   LayoutDashboard,
   Shield,
   UserCheck,
+  TrendingUp,
   Activity,
-  BookOpen,
+  ChevronDown,
+  ChevronRight,
   Download,
   LinkIcon,
-  Blocks,
-  Plug,
-  Key,
-  Settings,
-  ClipboardList,
-  BarChart3,
-} from 'lucide-react';
-import Link from 'next/link';
-import { usePathname } from 'next/navigation';
+  BookOpen
+} from 'lucide-react'
+import Link from 'next/link'
+import { usePathname } from 'next/navigation'
+import { useState, useEffect } from 'react'
 
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
-import { cn } from '@/lib/utils';
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger
+} from '@/components/ui/collapsible'
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger
+} from '@/components/ui/tooltip'
+import { cn } from '@/lib/utils'
 
-// PRD Section 11: Primary navigation — operations and observability
-export const primaryNavItems = [
-  { href: '/dashboard', icon: LayoutDashboard, label: 'Overview' },
-  { href: '/dashboard/approvals', icon: UserCheck, label: 'Approvals' },
-  { href: '/dashboard/audit', icon: ClipboardList, label: 'Audit' },
-  { href: '/dashboard/logs', icon: Activity, label: 'Logs' },
-  { href: '/dashboard/stats', icon: BarChart3, label: 'Stats' },
-  { href: '/dashboard/integrations', icon: Plug, label: 'Integrations' },
-];
-
-// PRD Section 11: Secondary navigation — configuration and management
-export const secondaryNavItems = [
+export const navItems = [
+  { href: '/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
   { href: '/dashboard/policies', icon: Shield, label: 'Policies' },
-  { href: '/dashboard/tokens', icon: Key, label: 'Tokens / Sessions' },
-  { href: '/dashboard/skills', icon: Blocks, label: 'Skills / Packages' },
-  { href: '/dashboard/settings', icon: Settings, label: 'Settings' },
-];
-
-export const navItems = [...primaryNavItems, ...secondaryNavItems];
-
-const LEGACY_PATH_PREFIXES: [string, string][] = [
-  ['/dashboard/usage', '/dashboard/stats'],
-  ['/dashboard/connectors', '/dashboard/integrations'],
-];
-
-function resolveLegacyPath(pathname: string): string {
-  for (const [legacy, canonical] of LEGACY_PATH_PREFIXES) {
-    if (pathname === legacy || pathname.startsWith(legacy + '/')) {
-      return canonical + pathname.slice(legacy.length);
-    }
-  }
-  return pathname;
-}
+  { href: '/dashboard/approvals', icon: UserCheck, label: 'Approvals' },
+  {
+    href: '/dashboard/usage',
+    icon: TrendingUp,
+    label: 'Usage',
+    subItems: [
+      { href: '/dashboard/usage', label: 'Overview' },
+      { href: '/dashboard/usage/tool-usage', label: 'Tool usage' },
+      { href: '/dashboard/usage/token-usage', label: 'Access token usage' },
+    ]
+  },
+  { href: '/dashboard/logs', icon: Activity, label: 'Logs & Monitoring' }
+]
 
 interface SidebarNavProps {
-  onNavigate?: () => void;
-}
-
-function NavLink({
-  item,
-  pathname,
-  onNavigate,
-}: {
-  item: (typeof primaryNavItems)[number];
-  pathname: string;
-  onNavigate?: () => void;
-}) {
-  const resolved = resolveLegacyPath(pathname);
-  const isActive =
-    item.href === '/dashboard'
-      ? resolved === '/dashboard'
-      : resolved === item.href || resolved.startsWith(item.href + '/');
-
-  return (
-    <Link
-      href={item.href}
-      onClick={onNavigate}
-      aria-current={isActive ? 'page' : undefined}
-      className={cn(
-        'flex items-center gap-3 rounded-lg px-3 py-2 text-foreground transition-all hover:bg-slate-100 dark:hover:bg-slate-800',
-        'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2',
-        isActive && 'bg-slate-100 dark:bg-slate-800',
-      )}
-    >
-      <item.icon className="h-4 w-4" aria-hidden="true" focusable="false" />
-      {item.label}
-    </Link>
-  );
+  onNavigate?: () => void
 }
 
 export function SidebarNav({ onNavigate }: SidebarNavProps) {
-  const pathname = usePathname();
+  const pathname = usePathname()
+  const [expandedItems, setExpandedItems] = useState<string[]>([])
+
+  useEffect(() => {
+    if (pathname.startsWith('/dashboard/usage')) {
+      setExpandedItems(['/dashboard/usage'])
+    } else {
+      setExpandedItems([])
+    }
+  }, [pathname])
+
+  const toggleExpanded = (href: string) => {
+    setExpandedItems((prev) =>
+      prev.includes(href)
+        ? prev.filter((item) => item !== href)
+        : [...prev, href]
+    )
+  }
 
   return (
     <nav className="grid items-start px-2 text-sm font-medium lg:px-4">
-      {primaryNavItems.map((item) => (
+      {navItems.map((item) => (
         <div key={item.label}>
-          <NavLink item={item} pathname={pathname} onNavigate={onNavigate} />
+          {item.subItems ? (
+            <Collapsible
+              open={expandedItems.includes(item.href)}
+              onOpenChange={() => toggleExpanded(item.href)}
+            >
+              <CollapsibleTrigger asChild>
+                <button
+                  type="button"
+                  className={cn(
+                    'flex items-center gap-3 rounded-lg px-3 py-2 text-foreground transition-all w-full hover:bg-slate-100 dark:hover:bg-slate-800',
+                    'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2',
+                    pathname.startsWith(item.href) &&
+                      'bg-slate-100 dark:bg-slate-800'
+                  )}
+                >
+                  <item.icon className="h-4 w-4" aria-hidden="true" focusable="false" />
+                  {item.label}
+                  {expandedItems.includes(item.href) ? (
+                    <ChevronDown className="h-4 w-4 ml-auto" aria-hidden="true" />
+                  ) : (
+                    <ChevronRight className="h-4 w-4 ml-auto" aria-hidden="true" />
+                  )}
+                </button>
+              </CollapsibleTrigger>
+              <CollapsibleContent className="ml-6 mt-1 space-y-1">
+                {item.subItems.map((subItem) => (
+                  <Link
+                    key={subItem.href}
+                    href={subItem.href}
+                    onClick={onNavigate}
+                    aria-current={pathname === subItem.href ? 'page' : undefined}
+                    className={cn(
+                      'flex items-center gap-3 rounded-lg px-3 py-2 text-foreground transition-all hover:bg-slate-100 dark:hover:bg-slate-800 text-sm',
+                      'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2',
+                      pathname === subItem.href && 'bg-slate-100 dark:bg-slate-800'
+                    )}
+                  >
+                    {subItem.label}
+                  </Link>
+                ))}
+              </CollapsibleContent>
+            </Collapsible>
+          ) : (
+            <Link
+              href={item.href}
+              onClick={onNavigate}
+              aria-current={pathname === item.href ? 'page' : undefined}
+              className={cn(
+                'flex items-center gap-3 rounded-lg px-3 py-2 text-foreground transition-all hover:bg-slate-100 dark:hover:bg-slate-800',
+                'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2',
+                pathname === item.href && 'bg-slate-100 dark:bg-slate-800'
+              )}
+            >
+              <item.icon className="h-4 w-4" aria-hidden="true" focusable="false" />
+              {item.label}
+            </Link>
+          )}
         </div>
       ))}
 
-      <div className="mt-4">
-        <div className="px-3 py-2">
-          <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider border-b border-muted pb-2 mb-3">
-            Configuration
-          </h3>
-        </div>
-        {secondaryNavItems.map((item) => (
-          <div key={item.label}>
-            <NavLink item={item} pathname={pathname} onNavigate={onNavigate} />
-          </div>
-        ))}
-      </div>
-
-      <div className="mt-4">
+      {/* Resources Section */}
+      <div className="mt-6">
         <div className="px-3 py-2">
           <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider border-b border-muted pb-2 mb-3">
             Resources
           </h3>
         </div>
         <a
-          href="https://docs.kimbap.io"
+          href="https://docs.kimbap.sh"
           target="_blank"
           rel="noopener noreferrer"
           className="flex items-center gap-3 rounded-lg px-3 py-2 text-muted-foreground transition-all hover:bg-slate-100 dark:hover:bg-slate-800 mb-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2"
@@ -136,18 +156,14 @@ export function SidebarNav({ onNavigate }: SidebarNavProps) {
           <Tooltip>
             <TooltipTrigger asChild>
               <a
-                href="https://www.kimbap.io/quick-start/#install-desk"
+                href="https://www.kimbap.sh/quick-start/#install-desk"
                 target="_blank"
                 rel="noopener noreferrer"
                 className="flex items-center gap-3 rounded-lg px-3 py-2 text-muted-foreground transition-all hover:bg-slate-100 dark:hover:bg-slate-800 mb-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2"
               >
                 <Download className="h-4 w-4" aria-hidden="true" focusable="false" />
                 <span className="font-medium">Download Kimbap Desk</span>
-                <LinkIcon
-                  className="h-3 w-3 ml-auto opacity-60"
-                  aria-hidden="true"
-                  focusable="false"
-                />
+                <LinkIcon className="h-3 w-3 ml-auto opacity-60" aria-hidden="true" focusable="false" />
               </a>
             </TooltipTrigger>
             <TooltipContent side="right">
@@ -157,5 +173,5 @@ export function SidebarNav({ onNavigate }: SidebarNavProps) {
         </TooltipProvider>
       </div>
     </nav>
-  );
+  )
 }

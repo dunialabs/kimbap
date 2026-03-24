@@ -25,25 +25,13 @@ const (
 	AdminActionGetUserAvailableServersCapabilities = 3003
 	AdminActionGetServersStatus                    = 3004
 	AdminActionGetServersCapabilities              = 3005
-	AdminActionUpdateIPWhitelist                   = 4001
-	AdminActionGetIPWhitelist                      = 4002
-	AdminActionDeleteIPWhitelist                   = 4003
-	AdminActionAddIPWhitelist                      = 4004
-	AdminActionSpecialIPWhitelistOp                = 4005
 	AdminActionGetProxy                            = 5001
 	AdminActionCreateProxy                         = 5002
 	AdminActionUpdateProxy                         = 5003
 	AdminActionDeleteProxy                         = 5004
 	AdminActionStopProxy                           = 5005
-	AdminActionBackupDatabase                      = 6001
-	AdminActionRestoreDatabase                     = 6002
 	AdminActionSetLogWebhookURL                    = 7001
 	AdminActionGetLogs                             = 7002
-	AdminActionUpdateCloudflaredConfig             = 8001
-	AdminActionGetCloudflaredConfigs               = 8002
-	AdminActionDeleteCloudflaredConfig             = 8003
-	AdminActionRestartCloudflared                  = 8004
-	AdminActionStopCloudflared                     = 8005
 	AdminActionCreatePolicySet                     = 9101
 	AdminActionGetPolicySets                       = 9102
 	AdminActionUpdatePolicySet                     = 9103
@@ -76,31 +64,21 @@ type AdminResponseError struct {
 }
 
 const (
-	AdminErrorCodeInvalidRequest               = 1001
-	AdminErrorCodeUnauthorized                 = 1002
-	AdminErrorCodeForbidden                    = 1003
-	AdminErrorCodeUserNotFound                 = 2001
-	AdminErrorCodeUserAlreadyExists            = 2003
-	AdminErrorCodeServerNotFound               = 3001
-	AdminErrorCodeServerAlreadyExists          = 3003
-	AdminErrorCodeProxyNotFound                = 5001
-	AdminErrorCodeProxyAlreadyExists           = 5002
-	AdminErrorCodeIPWhitelistNotFound          = 5101
-	AdminErrorCodeInvalidIPFormat              = 5102
-	AdminErrorCodeDatabaseOpFailed             = 5201
-	AdminErrorCodeBackupFailed                 = 5301
-	AdminErrorCodeRestoreFailed                = 5302
-	AdminErrorCodeInvalidBackupData            = 5303
-	AdminErrorCodeCloudflaredConfigNotFound    = 8001
-	AdminErrorCodeInvalidCredentialsFormat     = 8002
-	AdminErrorCodeCloudflaredRestartFailed     = 8003
-	AdminErrorCodeCloudflaredDBConfigNotFound  = 8005
-	AdminErrorCodeCloudflaredLocalFileNotFound = 8006
-	AdminErrorCodeCloudflaredStopFailed        = 8007
-	AdminErrorCodeSkillNotFound                = 9001
-	AdminErrorCodeSkillUploadFailed            = 9002
-	AdminErrorCodeSkillDeleteFailed            = 9003
-	AdminErrorCodeInvalidSkillFormat           = 9004
+	AdminErrorCodeInvalidRequest           = 1001
+	AdminErrorCodeUnauthorized             = 1002
+	AdminErrorCodeForbidden                = 1003
+	AdminErrorCodeUserNotFound             = 2001
+	AdminErrorCodeUserAlreadyExists        = 2003
+	AdminErrorCodeServerNotFound           = 3001
+	AdminErrorCodeServerAlreadyExists      = 3003
+	AdminErrorCodeProxyNotFound            = 5001
+	AdminErrorCodeProxyAlreadyExists       = 5002
+	AdminErrorCodeDatabaseOpFailed         = 5201
+	AdminErrorCodeInvalidCredentialsFormat = 8002
+	AdminErrorCodeSkillNotFound            = 9001
+	AdminErrorCodeSkillUploadFailed        = 9002
+	AdminErrorCodeSkillDeleteFailed        = 9003
+	AdminErrorCodeInvalidSkillFormat       = 9004
 )
 
 type AdminError struct {

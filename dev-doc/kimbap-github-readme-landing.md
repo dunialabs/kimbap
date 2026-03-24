@@ -343,7 +343,7 @@ Existing CLIs assume a human operator. Kimbap assumes:
 
 ## Status
 
-Kimbap is being designed as a **CLI-first secure runtime** built from the durable core of Peta Core, reoriented for subprocess agents, local agents, and connected deployments.
+Kimbap is being designed as a **CLI-first secure runtime**, reoriented for subprocess agents, local agents, and connected deployments.
 
 Initial focus:
 
@@ -415,9 +415,6 @@ No. If a service has a usable REST API, Kimbap should usually expose it as actio
 
 ### How do agents learn to use Kimbap?
 Through an official Kimbap operating skill/profile plus runtime enforcement such as `kimbap run`, proxying, and policy.
-
-### Is this replacing Peta Core?
-No. Kimbap is the CLI-first and subprocess-first runtime. Peta Core continues to serve MCP-native scenarios.
 
 ---
 

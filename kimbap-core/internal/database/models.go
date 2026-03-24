@@ -54,7 +54,7 @@ type Server struct {
 	AuthType                int     `gorm:"column:auth_type;not null;default:1" json:"authType"`
 	Category                int     `gorm:"column:category;not null;default:1" json:"category"`
 	PublicAccess            bool    `gorm:"column:public_access;not null;default:false" json:"publicAccess"`
-	UseKimbapOauthConfig      bool    `gorm:"column:use_kimbap_oauth_config;not null;default:true" json:"useKimbapOauthConfig"`
+	UseKimbapOauthConfig    bool    `gorm:"column:use_kimbap_oauth_config;not null;default:true" json:"useKimbapOauthConfig"`
 	TransportType           *string `gorm:"column:transport_type;type:varchar(10)" json:"transportType"`
 	LazyStartEnabled        bool    `gorm:"column:lazy_start_enabled;not null;default:true" json:"lazyStartEnabled"`
 	CachedTools             *string `gorm:"column:cached_tools;type:text" json:"cachedTools"`
@@ -102,29 +102,6 @@ type Event struct {
 }
 
 func (Event) TableName() string { return "mcp_events" }
-
-type DnsConf struct {
-	Subdomain   string `gorm:"column:subdomain;type:varchar(128);not null;default:''" json:"subdomain"`
-	Type        int    `gorm:"column:type;not null;default:0" json:"type"`
-	PublicIP    string `gorm:"column:public_ip;type:varchar(128);not null;default:''" json:"publicIp"`
-	ID          int    `gorm:"column:id;primaryKey;autoIncrement" json:"id"`
-	Addtime     int    `gorm:"column:addtime;not null;default:0" json:"addtime"`
-	UpdateTime  int    `gorm:"column:update_time;not null;default:0" json:"updateTime"`
-	TunnelID    string `gorm:"column:tunnel_id;type:varchar(256);not null;default:''" json:"tunnelId"`
-	ProxyID     int    `gorm:"column:proxy_id;not null;default:0" json:"proxyId"`
-	CreatedBy   int    `gorm:"column:created_by;not null;default:0" json:"createdBy"`
-	Credentials string `gorm:"column:credentials;type:text;not null;default:''" json:"credentials"`
-}
-
-func (DnsConf) TableName() string { return "dns_conf" }
-
-type IPWhitelist struct {
-	ID      int    `gorm:"column:id;primaryKey;autoIncrement" json:"id"`
-	IP      string `gorm:"column:ip;type:varchar(128);not null;default:''" json:"ip"`
-	Addtime int    `gorm:"column:addtime;not null;default:0" json:"addtime"`
-}
-
-func (IPWhitelist) TableName() string { return "ip_whitelist" }
 
 type License struct {
 	ID         int    `gorm:"column:id;primaryKey;autoIncrement" json:"id"`

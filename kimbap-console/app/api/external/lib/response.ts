@@ -24,16 +24,18 @@ interface ErrorResponse {
  * API Response helper for external API
  */
 export class ApiResponse {
-  /**
-   * Return a success response
-   */
+  private static readonly cacheHeaders = {
+    'Cache-Control': 'private, no-store',
+    'Vary': 'Authorization',
+  };
+
   static success<T>(data: T, status: number = 200): NextResponse<SuccessResponse<T>> {
     return NextResponse.json(
       {
         success: true as const,
         data,
       },
-      { status }
+      { status, headers: this.cacheHeaders }
     );
   }
 
@@ -50,13 +52,10 @@ export class ApiResponse {
           message,
         },
       },
-      { status }
+      { status, headers: this.cacheHeaders }
     );
   }
 
-  /**
-   * Handle errors automatically
-   */
   static handleError(error: unknown): NextResponse<ErrorResponse> {
     // If it's our custom ExternalApiError
     if (error instanceof ExternalApiError) {

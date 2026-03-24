@@ -130,14 +130,14 @@ export function GettingStartedCard() {
                   Skip
                 </Button>
                 <Link
-                  href="/dashboard/tool-configure?action=add"
+                  href="/dashboard/policies"
                   onClick={() => updateStep('addTool', true)}
                   className={cn(
                     buttonVariants({ size: 'sm' }),
                     'w-[80px] bg-slate-900 hover:bg-slate-800 dark:bg-slate-100 dark:hover:bg-slate-200 text-white dark:text-slate-900'
                   )}
                 >
-                  Add Tool
+                  Open
                 </Link>
               </div>
             </div>
@@ -164,14 +164,14 @@ export function GettingStartedCard() {
                   Skip
                 </Button>
                 <Link
-                  href="/dashboard/members?action=create"
+                  href="/dashboard/approvals"
                   onClick={() => updateStep('createToken', true)}
                   className={cn(
                     buttonVariants({ size: 'sm' }),
                     'w-[80px] bg-slate-900 hover:bg-slate-800 dark:bg-slate-100 dark:hover:bg-slate-200 text-white dark:text-slate-900'
                   )}
                 >
-                  Create
+                  Open
                 </Link>
               </div>
             </div>

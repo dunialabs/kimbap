@@ -40,9 +40,8 @@ export async function authenticate(request: NextRequest): Promise<AuthUser> {
     throw new ExternalApiError(E2002, 'Invalid access token');
   }
 
-  // Check if user is owner (role === 1)
-  if (user.role !== 1) {
-    throw new ExternalApiError(E2003, 'Permission denied: only owner can access external API');
+  if (user.role !== 1 && user.role !== 2) {
+    throw new ExternalApiError(E2003, 'Permission denied: only owner or admin can access external API');
   }
 
   return {

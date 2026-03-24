@@ -98,7 +98,7 @@ function validateFormat(url: string): { isValid: boolean; errorMessage?: string 
 }
 
 /**
- * Validate MCP_GATEWAY_URL availability and verify it's KIMBAP Core service
+ * Validate MCP_GATEWAY_URL availability and verify it's Kimbap Core service
  * Makes actual HTTP request to check if service is responding
  */
 async function validateAvailability(url: string): Promise<ValidationResult> {
@@ -122,7 +122,7 @@ async function validateAvailability(url: string): Promise<ValidationResult> {
       try {
         const data = await response.json();
 
-        // Verify this is KIMBAP Core service
+        // Verify this is Kimbap Core service
         if (data.service === 'Kimbap Core') {
           // Extract host and port from URL
           const urlObj = new URL(url);
@@ -137,12 +137,12 @@ async function validateAvailability(url: string): Promise<ValidationResult> {
             port,
           };
         } else {
-          // Service is responding but not KIMBAP Core
-          console.warn(`✗ Service at ${url} is not KIMBAP Core (service: ${data.service || 'unknown'})`);
+          // Service is responding but not Kimbap Core
+          console.warn(`✗ Service at ${url} is not Kimbap Core (service: ${data.service || 'unknown'})`);
           return {
             isValid: false,
             status: 'unreachable',
-            errorMessage: `Service at ${url} is not KIMBAP Core (found: ${data.service || 'unknown'})`,
+            errorMessage: `Service at ${url} is not Kimbap Core (found: ${data.service || 'unknown'})`,
           };
         }
       } catch (parseError) {

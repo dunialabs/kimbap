@@ -3,7 +3,7 @@
 # Docker Run Script with .env Support
 # This script automatically loads .env file and adjusts DATABASE_URL for Docker
 
-echo "🚀 Starting KIMBAP Console with local .env configuration..."
+echo "🚀 Starting Kimbap Console with local .env configuration..."
 
 # Check if .env file exists
 if [ ! -f .env ]; then
@@ -61,7 +61,7 @@ docker run -d \
     -e NODE_ENV="$NODE_ENV" \
     -e PROXY_ADMIN_URL="$PROXY_ADMIN_URL" \
     -e PROXY_ADMIN_TOKEN="$PROXY_ADMIN_TOKEN" \
-    kimbapio/kimbap-console:latest
+    dunialabs/kimbap-console:latest
 
 # Check if container started successfully
 if [ $? -eq 0 ]; then

@@ -71,16 +71,16 @@ func TestIsPublicAdminActionSensitiveActionsRequireToken(t *testing.T) {
 	if isPublicAdminAction(types.AdminActionCreateProxy) {
 		t.Fatal("expected create proxy action to require token")
 	}
-	if isPublicAdminAction(types.AdminActionRestoreDatabase) {
-		t.Fatal("expected restore database action to require token")
+	if isPublicAdminAction(types.AdminActionDeleteProxy) {
+		t.Fatal("expected delete proxy action to require token")
 	}
 	if isPublicAdminAction(types.AdminActionCreateUser) {
 		t.Fatal("expected create user action to require token")
 	}
 }
 
-func TestIsOwnerOnlyAdminActionIncludesRestoreDatabase(t *testing.T) {
-	if !isOwnerOnlyAdminAction(types.AdminActionRestoreDatabase) {
-		t.Fatal("expected restore database action to be owner-only")
+func TestIsOwnerOnlyAdminActionIncludesDeleteProxy(t *testing.T) {
+	if !isOwnerOnlyAdminAction(types.AdminActionDeleteProxy) {
+		t.Fatal("expected delete proxy action to be owner-only")
 	}
 }

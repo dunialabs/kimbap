@@ -13,7 +13,6 @@ import (
 	internallog "github.com/dunialabs/kimbap-core/internal/log"
 	"github.com/dunialabs/kimbap-core/internal/mcp/core"
 	mcptypes "github.com/dunialabs/kimbap-core/internal/mcp/types"
-	"github.com/dunialabs/kimbap-core/internal/service"
 	"github.com/dunialabs/kimbap-core/internal/socket"
 	types "github.com/dunialabs/kimbap-core/internal/types"
 	"github.com/rs/zerolog/log"
@@ -21,19 +20,14 @@ import (
 )
 
 type ProxyHandler struct {
-	db                *gorm.DB
-	sessionStore      *core.SessionStore
-	serverManager     proxyRuntimeManager
-	cloudflaredDelete proxyCloudflaredDelete
-	socketNotifier    core.SocketNotifier
+	db             *gorm.DB
+	sessionStore   *core.SessionStore
+	serverManager  proxyRuntimeManager
+	socketNotifier core.SocketNotifier
 }
 
 type proxyRuntimeManager interface {
 	Shutdown(ctx context.Context)
-}
-
-type proxyCloudflaredDelete interface {
-	DeleteConfig(id *int, tunnelID *string) error
 }
 
 func NewProxyHandler(db *gorm.DB, sessionStore *core.SessionStore, serverManager proxyRuntimeManager, socketNotifier core.SocketNotifier) *ProxyHandler {
@@ -50,11 +44,10 @@ func NewProxyHandler(db *gorm.DB, sessionStore *core.SessionStore, serverManager
 		socketNotifier = socket.GetSocketNotifier()
 	}
 	return &ProxyHandler{
-		db:                db,
-		sessionStore:      sessionStore,
-		serverManager:     serverManager,
-		cloudflaredDelete: service.NewCloudflaredService(),
-		socketNotifier:    socketNotifier,
+		db:             db,
+		sessionStore:   sessionStore,
+		serverManager:  serverManager,
+		socketNotifier: socketNotifier,
 	}
 }
 
@@ -162,24 +155,6 @@ func (h *ProxyHandler) DeleteProxy(data map[string]any) (any, error) {
 		return nil, err
 	}
 
-	var cloudflaredConfs []database.DnsConf
-	if err := h.db.Where("proxy_id = ? AND type = ?", proxyID, 1).Find(&cloudflaredConfs).Error; err != nil {
-		log.Warn().Err(err).Int("proxyId", proxyID).Msg("failed to load cloudflared configs during proxy deletion")
-		return nil, err
-	}
-	if h.cloudflaredDelete != nil {
-		for _, conf := range cloudflaredConfs {
-			id := conf.ID
-			tunnelID := conf.TunnelID
-			if err := h.cloudflaredDelete.DeleteConfig(&id, &tunnelID); err != nil {
-				log.Warn().Err(err).Int("proxyId", proxyID).Int("dnsConfId", conf.ID).Str("tunnelId", conf.TunnelID).Msg("failed to delete cloudflared config during proxy deletion")
-				return nil, err
-			}
-		}
-	} else {
-		// TODO: inject cloudflared service so cloudflared resources are cleaned before deleting dns_conf records.
-	}
-
 	err := h.db.Transaction(func(tx *gorm.DB) error {
 		res := tx.Where("id = ?", proxyID).Delete(&database.Proxy{})
 		if res.Error != nil {
@@ -215,13 +190,7 @@ func (h *ProxyHandler) DeleteProxy(data map[string]any) (any, error) {
 		if err := deleteByProxyIDIfColumnExists(tx, &database.Event{}, proxyID); err != nil {
 			return err
 		}
-		if err := tx.Where("1=1").Delete(&database.IPWhitelist{}).Error; err != nil {
-			return err
-		}
 		if err := deleteByProxyIDIfColumnExists(tx, &database.Log{}, proxyID); err != nil {
-			return err
-		}
-		if err := deleteByProxyIDIfColumnExists(tx, &database.DnsConf{}, proxyID); err != nil {
 			return err
 		}
 		return nil

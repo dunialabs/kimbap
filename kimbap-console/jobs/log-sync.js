@@ -27,7 +27,7 @@ const CONFIG = {
 };
 
 /**
- * Get KIMBAP Core URL from config table
+ * Get Kimbap Core URL from config table
  */
 async function getKimbapCoreUrl() {
   try {
@@ -35,12 +35,17 @@ async function getKimbapCoreUrl() {
     const config = await prisma.config.findFirst();
 
     if (!config || !config.kimbap_core_host) {
-      console.log('[LogSync] No KIMBAP Core configuration found in database, using default localhost');
+      console.log('[LogSync] No Kimbap Core configuration found in database, using default localhost');
       return 'http://localhost:3002';
     }
 
     let url = config.kimbap_core_host;
-    const port = config.kimbap_core_prot;
+    const port =
+      typeof config.kimbap_core_port === 'number'
+        ? config.kimbap_core_port
+        : typeof config.kimbap_core_prot === 'number'
+          ? config.kimbap_core_prot
+          : undefined;
 
     // Build URL with smart protocol detection (same logic as proxy-api.ts)
     if (url.startsWith('http://') || url.startsWith('https://')) {
@@ -71,7 +76,7 @@ async function getKimbapCoreUrl() {
 
     return url;
   } catch (error) {
-    console.error('[LogSync] Failed to get KIMBAP Core config:', error.message);
+    console.error('[LogSync] Failed to get Kimbap Core config:', error.message);
     console.log('[LogSync] Falling back to default localhost');
     return 'http://localhost:3002';
   }
@@ -449,7 +454,7 @@ async function syncLogs() {
   console.log(`\x1b[33m[LogSync] Starting sync...\x1b[0m`);
 
   try {
-    // 1. Get KIMBAP Core URL and proxyKey
+    // 1. Get Kimbap Core URL and proxyKey
     const kimbapCoreUrl = await getKimbapCoreUrl();
     const proxyKey = await getProxyKey();
     if (!proxyKey) {

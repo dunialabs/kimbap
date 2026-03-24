@@ -1,7 +1,7 @@
 import { NextRequest } from 'next/server';
 import { getProxy, createUser, countUsers } from '@/lib/proxy-api';
 import { CryptoUtils } from '@/lib/crypto';
-import { LicenseService } from '@/license-system';
+
 import { prisma } from '@/lib/prisma';
 import {
   upsertTokenMetadata,
@@ -61,7 +61,7 @@ interface BatchCreateResponse {
  * POST /api/external/tokens/create
  *
  * Batch create access tokens.
- * Requires authentication (owner only).
+ * Requires authentication (owner or admin).
  * The owner token from Authorization header is used directly (no masterPwd needed).
  */
 export async function POST(request: NextRequest) {
@@ -96,29 +96,17 @@ export async function POST(request: NextRequest) {
         throw new ExternalApiError(E4007, `Cannot create owner role: tokens[${i}].role`);
       }
       if (t.role !== 2 && t.role !== 3) {
-        throw new ExternalApiError(
-          E1003,
-          `Invalid field value: tokens[${i}].role must be 2(admin) or 3(member)`,
-        );
+        throw new ExternalApiError(E1003, `Invalid field value: tokens[${i}].role must be 2(admin) or 3(member)`);
       }
       if (t.namespace !== undefined && typeof t.namespace !== 'string') {
-        throw new ExternalApiError(
-          E1003,
-          `Invalid field value: tokens[${i}].namespace must be a string`,
-        );
+        throw new ExternalApiError(E1003, `Invalid field value: tokens[${i}].namespace must be a string`);
       }
       if (t.tags !== undefined) {
         if (!Array.isArray(t.tags)) {
-          throw new ExternalApiError(
-            E1003,
-            `Invalid field value: tokens[${i}].tags must be an array`,
-          );
+          throw new ExternalApiError(E1003, `Invalid field value: tokens[${i}].tags must be an array`);
         }
         if (t.tags.some((tag: unknown) => typeof tag !== 'string')) {
-          throw new ExternalApiError(
-            E1003,
-            `Invalid field value: tokens[${i}].tags must be an array of strings`,
-          );
+          throw new ExternalApiError(E1003, `Invalid field value: tokens[${i}].tags must be an array of strings`);
         }
       }
       if (t.namespace !== undefined || t.tags !== undefined) {
@@ -128,36 +116,18 @@ export async function POST(request: NextRequest) {
           tags: t.tags,
         });
         if (metadataValidationError) {
-          throw new ExternalApiError(
-            E1003,
-            `Invalid field value: tokens[${i}] metadata - ${metadataValidationError}`,
-          );
+          throw new ExternalApiError(E1003, `Invalid field value: tokens[${i}] metadata - ${metadataValidationError}`);
         }
       }
       if (t.permissions !== undefined && !Array.isArray(t.permissions)) {
-        throw new ExternalApiError(
-          E1003,
-          `Invalid field value: tokens[${i}].permissions must be an array`,
-        );
+        throw new ExternalApiError(E1003, `Invalid field value: tokens[${i}].permissions must be an array`);
       }
     }
 
     // Get proxy info
     const proxy = await getProxy();
 
-    // Check license token limit (current + batch size must not exceed max)
-    const currentTokenCount = await countUsers({ excludeRole: 1 });
-    const licenseService = LicenseService.getInstance();
-    const limitCheck = await licenseService.checkAccessTokenLimit(currentTokenCount.count);
-    if (!limitCheck.allowed) {
-      throw new ExternalApiError(E4002, 'Token limit reached');
-    }
-    if (currentTokenCount.count + tokens.length > limitCheck.maxAccessTokens) {
-      throw new ExternalApiError(
-        E4002,
-        `Token limit exceeded: current ${currentTokenCount.count} + requested ${tokens.length} > max ${limitCheck.maxAccessTokens}`,
-      );
-    }
+    // Get proxy info
 
     // The owner token from the Authorization header
     const ownerToken = user.accessToken;
@@ -181,22 +151,19 @@ export async function POST(request: NextRequest) {
       const createdAt = Math.floor(Date.now() / 1000);
 
       // Create user record via proxy API using owner token directly
-      await createUser(
-        {
-          userId,
-          status: 1,
-          role: tokenInput.role,
-          permissions: JSON.stringify(parsedPermissions),
-          serverApiKeys: JSON.stringify({}),
-          ratelimit: tokenInput.rateLimit || 10,
-          name: tokenInput.name.trim(),
-          encryptedToken: JSON.stringify(encryptedToken),
-          proxyId: proxy.id,
-          notes: tokenInput.notes || '',
-          expiresAt: tokenInput.expiresAt || 0,
-        },
-        ownerToken,
-      );
+      await createUser({
+        userId,
+        status: 1,
+        role: tokenInput.role,
+        permissions: JSON.stringify(parsedPermissions),
+        serverApiKeys: JSON.stringify({}),
+        ratelimit: tokenInput.rateLimit || 10,
+        name: tokenInput.name.trim(),
+        encryptedToken: JSON.stringify(encryptedToken),
+        proxyId: proxy.id,
+        notes: tokenInput.notes || '',
+        expiresAt: tokenInput.expiresAt || 0,
+      }, ownerToken);
 
       // Save to local prisma user table
       try {
@@ -210,7 +177,6 @@ export async function POST(request: NextRequest) {
         });
       } catch (error) {
         console.error('Failed to save user to local table:', error);
-        throw new ExternalApiError(E5001, 'Failed to persist token user locally');
       }
 
       let namespace = 'default';
@@ -218,9 +184,7 @@ export async function POST(request: NextRequest) {
 
       if (tokenInput.namespace !== undefined || tokenInput.tags !== undefined) {
         const metadataInput = {
-          ...(tokenInput.namespace !== undefined
-            ? { namespace: normalizeNamespace(tokenInput.namespace) }
-            : {}),
+          ...(tokenInput.namespace !== undefined ? { namespace: normalizeNamespace(tokenInput.namespace) } : {}),
           ...(tokenInput.tags !== undefined ? { tags: normalizeTags(tokenInput.tags) } : {}),
         };
 

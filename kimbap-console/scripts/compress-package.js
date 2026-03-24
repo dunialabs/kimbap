@@ -125,7 +125,7 @@ class PackageCompressor {
   }
 
   async createReleaseNotes(filePath) {
-    const releaseNotes = `# KIMBAP Console 独立部署包
+    const releaseNotes = `# Kimbap Console 独立部署包
 
 ## 包信息
 - **文件名**: ${path.basename(filePath)}
@@ -174,7 +174,7 @@ scripts\\start.bat
 - 项目 GitHub 页面
 
 ---
-KIMBAP Console Team`;
+Kimbap Console Team`;
 
     const notesFile = path.join(this.distDir, `${this.packageName}-RELEASE-NOTES.md`);
     fs.writeFileSync(notesFile, releaseNotes);

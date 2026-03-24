@@ -1,5 +1,5 @@
 /**
- * Crypto utility functions for KIMBAP Console
+ * Crypto utility functions for Kimbap Console
  * Implements AES-GCM encryption with PBKDF2 key derivation
  */
 
@@ -35,7 +35,7 @@ export class CryptoUtils {
         throw new Error(
           'Web Crypto API is not available. This application requires HTTPS or localhost. ' +
           'Please access via HTTPS (https://...) or localhost (http://localhost:...). ' +
-          'For more information, visit: https://docs.kimbap.io/#caddy-https-config'
+          'For more information, visit: https://docs.kimbap.sh/#caddy-https-config'
         );
       }
       return window.crypto;

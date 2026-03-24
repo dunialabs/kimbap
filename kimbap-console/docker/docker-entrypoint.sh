@@ -1,9 +1,9 @@
 #!/bin/sh
 
-# Docker Entrypoint Script for KIMBAP Console
+# Docker Entrypoint Script for Kimbap Console
 # This script ensures database migrations are applied before starting the application
 
-echo "🚀 Starting KIMBAP Console Production..."
+echo "🚀 Starting Kimbap Console Production..."
 
 # Always refresh tool templates from the image defaults
 if [ -f "/app/defaults/tool-templates.json" ]; then

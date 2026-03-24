@@ -43,7 +43,7 @@ async function findNextAvailablePort(basePort, maxTries = 100) {
 }
 
 /**
- * Find available ports for all KIMBAP Console services
+ * Find available ports for all Kimbap Console services
  * @returns {Promise<Object>} - Object containing available ports
  */
 async function findAvailablePorts() {
@@ -123,7 +123,7 @@ KIMBAP_ADMINER_PORT=${ports.adminer}
  */
 async function main() {
   try {
-    console.log('🐳 KIMBAP Console - Port Allocation Tool');
+    console.log('🐳 Kimbap Console - Port Allocation Tool');
     console.log('=====================================');
     console.log('');
     

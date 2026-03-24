@@ -11,10 +11,29 @@ interface GetApprovalInput {
   id: string;
 }
 
+async function getApprovalById(request: NextRequest, idRaw: string) {
+  const user = await authenticate(request);
+  const id = idRaw.trim();
+  if (!id) {
+    throw new ExternalApiError(E1001, 'Missing required field: id');
+  }
+
+  const response = await makeProxyRequestWithUserId<any>(
+    AdminActionType.GET_APPROVAL_REQUEST,
+    { id },
+    user.userid,
+    user.accessToken
+  );
+
+  if (!response.success) {
+    throwCoreAdminError(response.error?.message || 'Failed to get approval request', E3002, response.error?.code);
+  }
+
+  return ApiResponse.success(response.data || null);
+}
+
 export async function POST(request: NextRequest) {
   try {
-    const user = await authenticate(request);
-
     let body: GetApprovalInput;
     try {
       body = await request.json();
@@ -25,19 +44,19 @@ export async function POST(request: NextRequest) {
     if (!body.id || typeof body.id !== 'string' || !body.id.trim()) {
       throw new ExternalApiError(E1001, 'Missing required field: id');
     }
+    return await getApprovalById(request, body.id);
+  } catch (error) {
+    return ApiResponse.handleError(error);
+  }
+}
 
-    const response = await makeProxyRequestWithUserId<any>(
-      AdminActionType.GET_APPROVAL_REQUEST,
-      { id: body.id.trim() },
-      user.userid,
-      user.accessToken
-    );
-
-    if (!response.success) {
-      throwCoreAdminError(response.error?.message || 'Failed to get approval request', E3002, response.error?.code);
+export async function GET(request: NextRequest) {
+  try {
+    const id = request.nextUrl.searchParams.get('id');
+    if (!id) {
+      throw new ExternalApiError(E1001, 'Missing required field: id');
     }
-
-    return ApiResponse.success(response.data || null);
+    return await getApprovalById(request, id);
   } catch (error) {
     return ApiResponse.handleError(error);
   }

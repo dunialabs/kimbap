@@ -1,7 +1,7 @@
 #!/bin/bash
 
 echo "========================================" 
-echo "    KIMBAP Console Docker Deployment Script"
+echo "    Kimbap Console Docker Deployment Script"
 echo "========================================"
 
 # Check if Docker is installed
@@ -22,7 +22,7 @@ fi
 echo "✅ Docker environment check passed"
 
 # Build and start services
-echo "🔨 Building and starting KIMBAP Console..."
+echo "🔨 Building and starting Kimbap Console..."
 
 # Stop existing services (if any)
 docker compose -f docker-compose.prod.yml down 2>/dev/null || true

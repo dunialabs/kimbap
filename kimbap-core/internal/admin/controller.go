@@ -12,44 +12,37 @@ import (
 	"github.com/dunialabs/kimbap-core/internal/database"
 	"github.com/dunialabs/kimbap-core/internal/mcp/core"
 	"github.com/dunialabs/kimbap-core/internal/middleware"
-	"github.com/dunialabs/kimbap-core/internal/security"
 	"github.com/dunialabs/kimbap-core/internal/service"
 	"github.com/dunialabs/kimbap-core/internal/socket"
 	types "github.com/dunialabs/kimbap-core/internal/types"
 )
 
 type Controller struct {
-	userHandler        *handlers.UserHandler
-	serverHandler      *handlers.ServerHandler
-	queryHandler       *handlers.QueryHandler
-	ipWhitelistHandler *handlers.IPWhitelistHandler
-	proxyHandler       *handlers.ProxyHandler
-	backupHandler      *handlers.BackupHandler
-	logHandler         *handlers.LogHandler
-	cloudflaredHandler *handlers.CloudflaredHandler
-	skillsHandler      *handlers.SkillsHandler
-	policyHandler      *handlers.PolicyHandler
-	approvalHandler    *handlers.ApprovalHandler
+	userHandler     *handlers.UserHandler
+	serverHandler   *handlers.ServerHandler
+	queryHandler    *handlers.QueryHandler
+	proxyHandler    *handlers.ProxyHandler
+	logHandler      *handlers.LogHandler
+	skillsHandler   *handlers.SkillsHandler
+	policyHandler   *handlers.PolicyHandler
+	approvalHandler *handlers.ApprovalHandler
 }
 
 const maxAdminRequestBodyBytes int64 = 1 << 20
 
-func NewController(ipWhitelistService *security.IPWhitelistService) *Controller {
+func NewController() *Controller {
 	serverManager := core.ServerManagerInstance()
 	sessionStore := core.SessionStoreInstance()
 	socketNotifier := socket.GetSocketNotifier()
 	return &Controller{
-		userHandler:        handlers.NewUserHandler(database.DB, sessionStore, socketNotifier, serverManager),
-		serverHandler:      handlers.NewServerHandler(database.DB, serverManager, sessionStore, socketNotifier),
-		queryHandler:       handlers.NewQueryHandler(database.DB),
-		ipWhitelistHandler: handlers.NewIPWhitelistHandler(database.DB, ipWhitelistService),
-		proxyHandler:       handlers.NewProxyHandler(database.DB, sessionStore, serverManager, socketNotifier),
-		backupHandler:      handlers.NewBackupHandler(database.DB, ipWhitelistService),
-		logHandler:         handlers.NewLogHandler(database.DB),
-		cloudflaredHandler: handlers.NewCloudflaredHandler(database.DB),
-		skillsHandler:      handlers.NewSkillsHandler(service.NewSkillsService(), database.DB, serverManager),
-		policyHandler:      handlers.NewPolicyHandler(database.DB),
-		approvalHandler:    handlers.NewApprovalHandler(),
+		userHandler:     handlers.NewUserHandler(database.DB, sessionStore, socketNotifier, serverManager),
+		serverHandler:   handlers.NewServerHandler(database.DB, serverManager, sessionStore, socketNotifier),
+		queryHandler:    handlers.NewQueryHandler(database.DB),
+		proxyHandler:    handlers.NewProxyHandler(database.DB, sessionStore, serverManager, socketNotifier),
+		logHandler:      handlers.NewLogHandler(database.DB),
+		skillsHandler:   handlers.NewSkillsHandler(service.NewSkillsService(), database.DB, serverManager),
+		policyHandler:   handlers.NewPolicyHandler(database.DB),
+		approvalHandler: handlers.NewApprovalHandler(),
 	}
 }
 
@@ -182,17 +175,6 @@ func (c *Controller) HandleAdminRequest(w http.ResponseWriter, r *http.Request) 
 	case types.AdminActionGetServersCapabilities:
 		result, err = c.queryHandler.GetServerCapabilities(request.Data)
 
-	case types.AdminActionUpdateIPWhitelist:
-		result, err = c.ipWhitelistHandler.Update(request.Data)
-	case types.AdminActionGetIPWhitelist:
-		result, err = c.ipWhitelistHandler.Get()
-	case types.AdminActionDeleteIPWhitelist:
-		result, err = c.ipWhitelistHandler.Delete(request.Data)
-	case types.AdminActionAddIPWhitelist:
-		result, err = c.ipWhitelistHandler.Add(request.Data)
-	case types.AdminActionSpecialIPWhitelistOp:
-		result, err = c.ipWhitelistHandler.SpecialOperation(request.Data)
-
 	case types.AdminActionGetProxy:
 		result, err = c.proxyHandler.GetProxy()
 	case types.AdminActionCreateProxy:
@@ -204,26 +186,10 @@ func (c *Controller) HandleAdminRequest(w http.ResponseWriter, r *http.Request) 
 	case types.AdminActionStopProxy:
 		result, err = c.proxyHandler.StopProxy()
 
-	case types.AdminActionBackupDatabase:
-		result, err = c.backupHandler.BackupDatabase()
-	case types.AdminActionRestoreDatabase:
-		result, err = c.backupHandler.RestoreDatabase(request.Data, token)
-
 	case types.AdminActionSetLogWebhookURL:
 		result, err = c.logHandler.SetLogWebhookURL(request.Data)
 	case types.AdminActionGetLogs:
 		result, err = c.logHandler.GetLogs(request.Data)
-
-	case types.AdminActionUpdateCloudflaredConfig:
-		result, err = c.cloudflaredHandler.UpdateConfig(request.Data)
-	case types.AdminActionGetCloudflaredConfigs:
-		result, err = c.cloudflaredHandler.GetConfigs(request.Data)
-	case types.AdminActionDeleteCloudflaredConfig:
-		result, err = c.cloudflaredHandler.DeleteConfig(request.Data)
-	case types.AdminActionRestartCloudflared:
-		result, err = c.cloudflaredHandler.Restart()
-	case types.AdminActionStopCloudflared:
-		result, err = c.cloudflaredHandler.Stop()
 
 	case types.AdminActionCreatePolicySet:
 		result, err = c.policyHandler.CreatePolicySet(request.Data)
@@ -287,7 +253,6 @@ func isOwnerOnlyAdminAction(action int) bool {
 		types.AdminActionConnectAllServers,
 		types.AdminActionCreateServer,
 		types.AdminActionUpdateServer,
-		types.AdminActionRestoreDatabase,
 		types.AdminActionDeleteProxy,
 		types.AdminActionStopProxy,
 		types.AdminActionSetLogWebhookURL,
@@ -325,10 +290,6 @@ func adminHTTPStatusFromCode(code int) int {
 	case types.AdminErrorCodeUserNotFound,
 		types.AdminErrorCodeServerNotFound,
 		types.AdminErrorCodeProxyNotFound,
-		types.AdminErrorCodeIPWhitelistNotFound,
-		types.AdminErrorCodeCloudflaredConfigNotFound,
-		types.AdminErrorCodeCloudflaredDBConfigNotFound,
-		types.AdminErrorCodeCloudflaredLocalFileNotFound,
 		types.AdminErrorCodeSkillNotFound:
 		return http.StatusNotFound
 	default:

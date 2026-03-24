@@ -333,7 +333,7 @@ echo "🎯 Database is ready at: postgresql://kimbap@localhost:5432/kimbap_db"
   }
 
   async createPostgreSQLInstructions() {
-    const instructions = `# PostgreSQL Setup for KIMBAP Console
+    const instructions = `# PostgreSQL Setup for Kimbap Console
 
 ## 自动检测结果
 系统中未找到可用的 PostgreSQL 安装。
@@ -428,9 +428,9 @@ psql "postgresql://kimbap:kimbap123@localhost:5432/kimbap_db" -c "SELECT version
 
   async createWindowsScript() {
     const script = `@echo off
-title KIMBAP Console
+title Kimbap Console
 echo ========================================
-echo         KIMBAP Console Starting
+echo         Kimbap Console Starting
 echo ========================================
 echo.
 
@@ -456,7 +456,7 @@ echo Database: kimbap_db, User: kimbap, Password: kimbap123
 echo.
 
 REM 启动应用
-echo 🚀 Starting KIMBAP Console...
+echo 🚀 Starting Kimbap Console...
 cd /d "%SCRIPT_DIR%app"
 ..\\node\\bin\\node.exe node_modules\\next\\dist\\bin\\next start -p 3000
 
@@ -468,7 +468,7 @@ if %errorlevel% neq 0 (
 )
 
 echo.
-echo 🛑 KIMBAP Console stopped.
+echo 🛑 Kimbap Console stopped.
 pause`;
 
     fs.writeFileSync(path.join(this.outputDir, 'scripts', 'start.bat'), script);
@@ -477,9 +477,9 @@ pause`;
   async createUnixScript() {
     const script = `#!/bin/bash
 
-# KIMBAP Console 启动脚本
+# Kimbap Console 启动脚本
 echo "========================================"
-echo "       KIMBAP Console Starting"
+echo "       Kimbap Console Starting"
 echo "========================================"
 echo
 
@@ -506,12 +506,12 @@ echo "Database: kimbap_db, User: kimbap, Password: kimbap123"
 echo
 
 # 启动应用
-echo "🚀 Starting KIMBAP Console..."
+echo "🚀 Starting Kimbap Console..."
 cd "$SCRIPT_DIR/app"
 ../node/bin/node node_modules/next/dist/bin/next start -p 3000
 
 echo
-echo "✅ KIMBAP Console stopped."`;
+echo "✅ Kimbap Console stopped."`;
 
     const scriptPath = path.join(this.outputDir, 'scripts', 'start.sh');
     fs.writeFileSync(scriptPath, script);
@@ -523,7 +523,7 @@ echo "✅ KIMBAP Console stopped."`;
   async createConfigFiles() {
     const config = {
       app: {
-        name: 'KIMBAP Console',
+        name: 'Kimbap Console',
         version: '1.0.0',
         port: 3000,
         host: 'localhost'
@@ -556,7 +556,7 @@ echo "✅ KIMBAP Console stopped."`;
   }
 
   async createDocumentation() {
-    const readme = `# KIMBAP Console 便携版
+    const readme = `# Kimbap Console 便携版
 
 ## 快速开始
 
@@ -637,7 +637,7 @@ docker exec kimbap-postgres pg_dump -U kimbap kimbap_db > backup.sql
 
 ---
 
-KIMBAP Console v1.0.0
+Kimbap Console v1.0.0
 构建日期: ${new Date().toISOString().split('T')[0]}
 平台: ${this.platform}-${this.arch}`;
 

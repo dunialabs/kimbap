@@ -324,7 +324,7 @@ if (require.main === module) {
     process.exit(0);
   }
   
-  console.log('🔧 KIMBAP Console 便携包诊断工具\n');
+  console.log('🔧 Kimbap Console 便携包诊断工具\n');
   const diagnostic = new BuildDiagnostic();
   diagnostic.diagnose();
 }

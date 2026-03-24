@@ -1,6 +1,6 @@
 #!/bin/bash
 
-echo "🔄 Updating KIMBAP Console..."
+echo "🔄 Updating Kimbap Console..."
 
 # Pull latest image
 echo "📥 Pulling latest image..."

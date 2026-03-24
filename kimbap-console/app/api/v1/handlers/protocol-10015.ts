@@ -240,7 +240,7 @@ export async function handleProtocol10015(body: Request10015): Promise<Response1
         }
         
         if (ownerToken) {
-          const reconnectResult = await connectAllServers(user.userId, ownerToken);
+          const reconnectResult = await connectAllServers(undefined, ownerToken);
           console.log(`[Protocol 10015] Server reconnection completed - Success: ${reconnectResult.successServers?.length || 0}, Failed: ${reconnectResult.failedServers?.length || 0}`);
           
           // Log any failed servers for debugging

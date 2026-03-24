@@ -4,14 +4,12 @@ import {
   LogIn,
   LogOut,
   Trash2,
-  Upload,
   Key,
 } from "lucide-react"
 import { useState, useEffect } from "react"
 
 import { AuthLoginDialog } from "@/components/auth-login-dialog"
 import { AuthRegistrationDialog } from "@/components/auth-registration-dialog"
-import { BackupDialog } from "@/components/backup-dialog"
 import {
   AlertDialog,
   AlertDialogAction,
@@ -136,10 +134,6 @@ export function PersonalSettingsDialog({ children }: PersonalSettingsDialogProps
     alert("Local data cleared.")
   }
 
-  const handleLoginRequired = () => {
-    // TODO: Show login dialog for cloud backup
-  }
-
   return (
     <>
     <Dialog open={open} onOpenChange={setOpen}>
@@ -261,28 +255,6 @@ export function PersonalSettingsDialog({ children }: PersonalSettingsDialogProps
               </Dialog>
             </CardContent>
           </Card>
-
-          {/* Cloud Features */}
-          {isLoggedIn && (
-            <Card className="shadow-sm">
-              <CardHeader className="pb-3">
-                <CardTitle className="text-sm">
-                  Cloud Features
-                </CardTitle>
-                <CardDescription className="text-xs">
-                  Backup and restore configurations
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="pt-0">
-                <BackupDialog isLoggedIn={isLoggedIn} onLoginRequired={handleLoginRequired}>
-                  <Button variant="outline" size="sm" className="w-full text-xs">
-                    <Upload className="w-3 h-3 mr-2" />
-                    Backup & Restore
-                  </Button>
-                </BackupDialog>
-              </CardContent>
-            </Card>
-          )}
 
           {/* Data Management */}
           <Card className="shadow-sm">

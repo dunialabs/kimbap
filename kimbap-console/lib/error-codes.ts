@@ -38,13 +38,6 @@ export enum ErrorCode {
   USER_NOT_FOUND = 'ERR_5002',
   PERMISSION_DENIED = 'ERR_5003',
   
-  // License errors (6000-6099)
-  LICENSE_ACTIVATION_FAILED = 'ERR_6000',
-  LICENSE_EXPIRED = 'ERR_6001',
-  HARDWARE_MISMATCH = 'ERR_6002',
-  LICENSE_INVALID = 'ERR_6003',
-  TOOL_CREATION_LIMIT_EXCEEDED = 'ERR_6004',
-  ACCESS_TOKEN_LIMIT_EXCEEDED = 'ERR_6005',
   
   // Parameter errors
   INVALID_PARAMS = 'ERR_3004',
@@ -89,13 +82,6 @@ export const ErrorMessages: Record<ErrorCode, string> = {
   [ErrorCode.USER_NOT_FOUND]: 'User not found',
   [ErrorCode.PERMISSION_DENIED]: 'Permission denied',
   
-  // License errors
-  [ErrorCode.LICENSE_ACTIVATION_FAILED]: '{message}',
-  [ErrorCode.LICENSE_EXPIRED]: 'License has expired',
-  [ErrorCode.HARDWARE_MISMATCH]: 'License is not valid for this machine',
-  [ErrorCode.LICENSE_INVALID]: 'Invalid license',
-  [ErrorCode.TOOL_CREATION_LIMIT_EXCEEDED]: 'Tool creation limit exceeded. Please upgrade your plan to create more tools.',
-  [ErrorCode.ACCESS_TOKEN_LIMIT_EXCEEDED]: 'Access token limit exceeded. Please upgrade your plan to create more tokens.',
   
   // Parameter errors  
   [ErrorCode.INVALID_PARAMS]: 'Invalid parameters',

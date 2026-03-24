@@ -6,7 +6,7 @@
 set -e
 
 # 配置
-IMAGE_NAME="kimbapio/kimbap-console"
+IMAGE_NAME="dunialabs/kimbap-console"
 TAG="${1:-latest}"
 PLATFORM="${2:-linux/amd64}"
 

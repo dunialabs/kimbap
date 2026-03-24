@@ -1,12 +1,12 @@
 #!/bin/bash
 
-# KIMBAP Console Restart Script
+# Kimbap Console Restart Script
 # Compatible with macOS, Linux, Windows (Git Bash/WSL)
 
 set -e
 
 echo "=========================================="
-echo "  KIMBAP Console Restart"
+echo "  Kimbap Console Restart"
 echo "=========================================="
 echo ""
 

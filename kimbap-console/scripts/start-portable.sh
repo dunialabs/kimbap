@@ -1,8 +1,8 @@
 #!/bin/bash
 
-# KIMBAP Console 便携版启动脚本 - 智能数据库配置
+# Kimbap Console 便携版启动脚本 - 智能数据库配置
 echo "========================================"
-echo "       KIMBAP Console Starting"
+echo "       Kimbap Console Starting"
 echo "========================================"
 echo
 
@@ -77,14 +77,14 @@ cleanup() {
         fi
     fi
     
-    echo "✅ KIMBAP Console stopped."
+    echo "✅ Kimbap Console stopped."
 }
 
 # 设置清理函数
 trap cleanup EXIT INT TERM
 
 # 主流程
-echo "🔧 Initializing KIMBAP Console..."
+echo "🔧 Initializing Kimbap Console..."
 
 # 检查端口
 check_port
@@ -97,7 +97,7 @@ fi
 
 # 启动应用
 echo ""
-echo "🚀 Starting KIMBAP Console (Frontend + Backend)..."
+echo "🚀 Starting Kimbap Console (Frontend + Backend)..."
 echo "📱 Open http://localhost:3000 in your browser"
 echo "🛑 Press Ctrl+C to stop"
 echo ""

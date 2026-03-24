@@ -19,9 +19,9 @@ services:
     networks:
       - kimbap-network
 
-  # KIMBAP Core Service (MCP Gateway)
+  # Kimbap Core Service (MCP Gateway)
   kimbap-core:
-    image: kimbapio/kimbap-core:latest
+    image: dunialabs/kimbap-core:latest
     container_name: kimbap-core
     restart: unless-stopped
     pull_policy: always
@@ -43,7 +43,7 @@ services:
       start_period: 15s
 
   kimbap-console:
-image: kimbap/kimbap-console:latest
+    image: dunialabs/kimbap-console:latest
     container_name: kimbap-console-app
     restart: unless-stopped
     pull_policy: always

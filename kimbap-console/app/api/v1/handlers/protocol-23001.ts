@@ -74,7 +74,7 @@ export async function handleProtocol23001(body: Request23001): Promise<Response2
   try {
     const {
       page = 1,
-      pageSize: rawPageSize = 50,
+      pageSize = 50,
       timeRange = '24h',
       level = 'all',
       source = 'all',
@@ -82,7 +82,6 @@ export async function handleProtocol23001(body: Request23001): Promise<Response2
       requestId = '',
       userId = '',
     } = body.params;
-    const pageSize = Math.min(Math.max(1, Number(rawPageSize) || 50), 200);
 
     // 1. Get proxyKey
     let proxyKey = '';

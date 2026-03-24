@@ -43,7 +43,7 @@ services:
 
   # Kimbap Core Service (MCP Gateway)
   kimbap-core:
-    image: kimbapio/kimbap-core:latest
+    image: dunialabs/kimbap-core:latest
     container_name: kimbap-core
     restart: unless-stopped
     profiles:
@@ -70,7 +70,7 @@ services:
 
   # Kimbap Console Service
   kimbap-console:
-image: kimbap/kimbap-console:latest
+    image: dunialabs/kimbap-console:latest
     container_name: kimbap-console
     restart: unless-stopped
     profiles:
@@ -83,7 +83,7 @@ image: kimbap/kimbap-console:latest
       DATABASE_URL: postgresql://kimbap:kimbap123@postgres-console:5432/kimbap_console?schema=public
       PORT: ${CONSOLE_PORT:-3000}
       JWT_SECRET: ${CONSOLE_JWT_SECRET:-your-secret-key-change-in-production}
-      # KIMBAP Core connection (Priority 2: environment variable)
+      # Kimbap Core connection (Priority 2: environment variable)
       # If only console runs, point to an external core service
       MCP_GATEWAY_URL: ${MCP_GATEWAY_URL:-http://kimbap-core:3002}
       # Log sync configuration

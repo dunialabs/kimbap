@@ -312,7 +312,7 @@ Kimbap turns that fragmentation into a platform opportunity.
 ## Why Kimbap can win
 
 ### 1. Strong technical lineage
-Kimbap is not starting from scratch. It is derived from the core runtime concepts already proven inside the peta-core family: vaulting, OAuth lifecycle, policy, approval, and audit.
+Kimbap is not starting from scratch. It is derived from core runtime concepts already proven in production: vaulting, OAuth lifecycle, policy, approval, and audit.
 
 ### 2. Better abstraction than proxies or per-service servers
 The action runtime model is broader than a proxy and cheaper than custom integrations.

@@ -1,11 +1,11 @@
 #!/bin/bash
 
-# KIMBAP Console - Docker Deployment with Auto Port Allocation
+# Kimbap Console - Docker Deployment with Auto Port Allocation
 # This script automatically finds available ports and starts Docker services
 
 set -e
 
-echo "🐳 KIMBAP Console - Auto Port Deployment"
+echo "🐳 Kimbap Console - Auto Port Deployment"
 echo "======================================"
 echo ""
 
@@ -86,7 +86,7 @@ print_info "Pulling latest Docker images..."
 docker compose --env-file .env.ports pull
 
 # Start services with auto-allocated ports
-print_info "Starting KIMBAP Console services..."
+print_info "Starting Kimbap Console services..."
 docker compose --env-file .env.ports up -d
 
 if [ $? -ne 0 ]; then
@@ -105,7 +105,7 @@ docker compose --env-file .env.ports ps
 # Read port configuration and display URLs
 if command -v node > /dev/null 2>&1; then
     echo ""
-    echo "🎉 KIMBAP Console is now running!"
+    echo "🎉 Kimbap Console is now running!"
     echo "==============================="
     
     # Parse port configuration and display URLs

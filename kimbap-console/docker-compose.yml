@@ -43,9 +43,9 @@ services:
     profiles:
       - cloudflared
 
-  # KIMBAP Core Service (MCP Gateway)
+  # Kimbap Core Service (MCP Gateway)
   kimbap-core:
-    image: kimbapio/kimbap-core:latest
+    image: dunialabs/kimbap-core:latest
     # platform: linux/amd64  # Let Docker pick the right architecture
     container_name: kimbap-core
     restart: unless-stopped
@@ -68,7 +68,7 @@ services:
       start_period: 15s
 
   kimbap-console:
-image: kimbap/kimbap-console:latest
+    image: dunialabs/kimbap-console:latest
     # platform: linux/amd64  # Let Docker pick the right architecture
     container_name: kimbap-console-app
     restart: unless-stopped
@@ -83,7 +83,7 @@ image: kimbap/kimbap-console:latest
       DB_NAME: kimbap_db
       DATABASE_URL: postgresql://kimbap:kimbap123@postgres:5432/kimbap_db
       NODE_ENV: production
-      # KIMBAP Core connection (Priority 2: environment variable)
+      # Kimbap Core connection (Priority 2: environment variable)
       MCP_GATEWAY_URL: ${MCP_GATEWAY_URL:-http://kimbap-core:3002}
     entrypoint: ['/app/docker/docker-entrypoint.sh']
     depends_on:

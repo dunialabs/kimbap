@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# KIMBAP Console Logs Viewer Script
+# Kimbap Console Logs Viewer Script
 # Compatible with macOS, Linux, Windows (Git Bash/WSL)
 
 # Color definitions
@@ -30,7 +30,7 @@ if [ ! -f "$COMPOSE_FILE" ]; then
 fi
 
 echo "=========================================="
-echo "  KIMBAP Console Logs"
+echo "  Kimbap Console Logs"
 echo "=========================================="
 echo ""
 echo "Press Ctrl+C to exit log view"

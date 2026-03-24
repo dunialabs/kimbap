@@ -2,7 +2,6 @@ import { prisma } from '@/lib/prisma';
 import { Prisma } from '@prisma/client';
 import { 
   getServers,
-  getCloudflaredConfigs,
   getUsers,
   getProxy
 } from '@/lib/proxy-api';
@@ -77,21 +76,7 @@ export async function handleProtocol10023(body: Request10023): Promise<Response1
   const userid = body.common.userid;
   
   try {
-    // Get sshTunnelAddress from cloudflared configs (similar to kimbapSubdomain in 10014)
-    let sshTunnelAddress = '';
-    try {
-      const cloudflaredResult = await getCloudflaredConfigs(userid || '', { type: 1 });
-      if (cloudflaredResult.dnsConfs?.length > 0) {
-        // Only return subdomain if container is running
-        const firstConfig = cloudflaredResult.dnsConfs[0];
-        if (firstConfig.status === 'running') {
-          sshTunnelAddress = firstConfig.subdomain || '';
-        }
-      }
-    } catch (error) {
-      console.error('Error getting cloudflared configs for sshTunnelAddress:', error);
-      // Keep sshTunnelAddress as empty string
-    }
+    const sshTunnelAddress = '';
     
     // Get manualConnection from config table (same as 10014)
     let manualConnection = '';
@@ -99,7 +84,14 @@ export async function handleProtocol10023(body: Request10023): Promise<Response1
       const configData = await prisma.config.findFirst();
       if (configData && configData.kimbap_core_host) {
         const host = configData.kimbap_core_host;
-        const port = configData.kimbap_core_prot;
+        const currentPort = Reflect.get(configData, 'kimbap_core_port');
+        const legacyPort = Reflect.get(configData, 'kimbap_core_prot');
+        const port =
+          typeof currentPort === 'number'
+            ? currentPort
+            : typeof legacyPort === 'number'
+              ? legacyPort
+              : undefined;
         
         // Build the connection string
         if (host.startsWith('http://') || host.startsWith('https://')) {

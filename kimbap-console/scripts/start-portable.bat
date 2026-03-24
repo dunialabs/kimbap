@@ -1,7 +1,7 @@
 @echo off
-title PETA Console
+title Kimbap Console
 echo ========================================
-echo         PETA Console Starting
+echo         Kimbap Console Starting
 echo ========================================
 echo.
 
@@ -15,7 +15,7 @@ REM 创建必要目录
 if not exist "%ROOT_DIR%\logs" mkdir "%ROOT_DIR%\logs"
 if not exist "%ROOT_DIR%\postgresql\data" mkdir "%ROOT_DIR%\postgresql\data"
 
-echo 🔧 Initializing PETA Console...
+echo 🔧 Initializing Kimbap Console...
 
 REM 检查端口是否被占用
 netstat -an | find "3000" > nul
@@ -36,8 +36,8 @@ if %errorlevel% neq 0 (
     echo ❌ Database setup failed!
     echo.
     echo 📖 Available options:
-    echo 1. 🐳 Docker: docker run --name peta-postgres -e POSTGRES_USER=peta -e POSTGRES_PASSWORD=peta123 -e POSTGRES_DB=peta_db -p 5432:5432 -d postgres:16
-    echo 2. 🏠 Local: Install PostgreSQL 16 and create database 'peta_db'
+    echo 1. 🐳 Docker: docker run --name kimbap-postgres -e POSTGRES_USER=kimbap -e POSTGRES_PASSWORD=kimbap123 -e POSTGRES_DB=kimbap_db -p 5432:5432 -d postgres:16
+    echo 2. 🏠 Local: Install PostgreSQL 16 and create database 'kimbap_db'
     echo 3. ☁️  Cloud: Set CLOUD_DB_* environment variables in .env.local
     echo.
     pause
@@ -48,14 +48,14 @@ echo ✅ Database ready
 
 REM 启动应用
 echo.
-echo 🚀 Starting PETA Console (Frontend + Backend)...
+echo 🚀 Starting Kimbap Console (Frontend + Backend)...
 echo 📱 Open http://localhost:3000 in your browser
 echo 🛑 Press Ctrl+C to stop
 echo.
 
 REM 启动后端代理服务器
 echo 🔧 Starting backend proxy server...
-start "PETA Backend" /min ..\node\node.exe proxy-server\index.js
+start "Kimbap Backend" /min ..\node\node.exe proxy-server\index.js
 
 REM 等待后端启动
 timeout /t 3 > nul
@@ -70,5 +70,5 @@ echo 🛑 Stopping all services...
 taskkill /f /im node.exe /t > nul 2>&1
 echo ✅ All processes stopped.
 echo.
-echo 🛑 PETA Console stopped.
+echo 🛑 Kimbap Console stopped.
 pause

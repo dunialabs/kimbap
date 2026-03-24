@@ -10,11 +10,21 @@ interface GetCapabilitiesInput {
   userId: string;
 }
 
+async function getCapabilities(request: NextRequest, input: GetCapabilitiesInput) {
+  const user = await authenticate(request);
+  const ownerToken = user.accessToken;
+
+  if (!input?.userId || typeof input.userId !== 'string' || !input.userId.trim()) {
+    throw new ExternalApiError(E1001, 'Missing required field: userId');
+  }
+
+  const capabilities = await getUserAvailableServersCapabilities(input.userId, undefined, ownerToken);
+
+  return ApiResponse.success({ capabilities });
+}
+
 export async function POST(request: NextRequest) {
   try {
-    const user = await authenticate(request);
-    const ownerToken = user.accessToken;
-
     let body: GetCapabilitiesInput;
     try {
       body = await request.json();
@@ -22,13 +32,19 @@ export async function POST(request: NextRequest) {
       throw new ExternalApiError(E1001, 'Missing required field: userId');
     }
 
-    if (!body?.userId || typeof body.userId !== 'string' || !body.userId.trim()) {
+    return await getCapabilities(request, body);
+  } catch (error) {
+    return ApiResponse.handleError(error);
+  }
+}
+
+export async function GET(request: NextRequest) {
+  try {
+    const userId = request.nextUrl.searchParams.get('userId');
+    if (!userId) {
       throw new ExternalApiError(E1001, 'Missing required field: userId');
     }
-
-    const capabilities = await getUserAvailableServersCapabilities(body.userId, undefined, ownerToken);
-
-    return ApiResponse.success({ capabilities });
+    return await getCapabilities(request, { userId });
   } catch (error) {
     return ApiResponse.handleError(error);
   }

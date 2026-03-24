@@ -30,18 +30,6 @@ services:
     volumes:
       - kimbap-auth-data:/data
 
-  cloudflared:
-    image: cloudflare/cloudflared:latest
-    container_name: kimbap-core-cloudflared
-    restart: unless-stopped
-    command: tunnel --no-autoupdate run
-    environment:
-      - TUNNEL_TOKEN=${CLOUDFLARE_TUNNEL_TOKEN:-}
-    networks:
-      - kimbap-core-network
-    volumes:
-      - ./cloudflared:/etc/cloudflared
-
 volumes:
   postgres_data:
     driver: local

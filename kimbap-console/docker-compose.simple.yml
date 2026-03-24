@@ -20,9 +20,9 @@ services:
       timeout: 5s
       retries: 5
 
-  # KIMBAP Console 应用（使用Docker Hub镜像）
+  # Kimbap Console 应用（使用Docker Hub镜像）
   kimbap-console:
-    image: kimbap/kimbap-console:latest
+    image: dunialabs/kimbap-console:latest
     container_name: kimbap-console-app
     restart: unless-stopped
     environment:

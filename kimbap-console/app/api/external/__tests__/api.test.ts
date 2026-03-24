@@ -3000,10 +3000,10 @@ suite('kimbap-core/connect', [
     },
   },
   {
-    name: 'valid KIMBAP Core should return 200 with isValid=1',
+    name: 'valid Kimbap Core should return 200 with isValid=1',
     run: async () => {
       if (!OWNER_TOKEN) { console.log('    Skipped: Set OWNER_TOKEN'); return; }
-      // Note: Replace with actual KIMBAP Core host for testing
+      // Note: Replace with actual Kimbap Core host for testing
       const res = await fetch(`${BASE_URL}/api/external/kimbap-core/connect`, {
         method: 'POST',
         headers: {

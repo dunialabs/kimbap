@@ -189,105 +189,17 @@ export const api = {
       }),
   },
 
-  // Servers
   servers: {
-    create: (masterPassword: string) =>
-      apiClient.post('/api/v1', {
-        common: {
-          cmdId: 10001,
-        },
-        params: {
-          masterPwd: masterPassword,
-        },
-      }),
-
-    // Get server info using protocol 10002
     getInfo: () =>
       apiClient.post('/api/v1', {
-        common: {
-          cmdId: 10002,
-        },
+        common: { cmdId: 10002 },
         params: {},
       }),
 
-    // Edit server info using protocol 10003
-    editInfo: (params: {
-      handleType: number; // 1-edit base info, 2-start server, 3-stop server, 4-backup to cloud, 5-backup to local, 6-restore from cloud, 7-restore from local file
-      proxyId?: number;
-      proxyName?: string;
-      proxyKey?: string;
-      masterPwd?: string;
-    }) =>
+    getDashboardOverview: (params?: { timeRange?: string }) =>
       apiClient.post('/api/v1', {
-        common: {
-          cmdId: 10003,
-        },
-        params,
-      }),
-
-    // Backup server info to local using protocol 10016
-    backupServerInfoToLocal: (params: { masterPwd: string }) =>
-      apiClient.post('/api/v1', {
-        common: {
-          cmdId: 10016,
-        },
-        params,
-      }),
-
-    // Restore server from local using protocol 10017
-    restoreServerFromLocal: (params: { masterPwd: string; encryptedData: string }) =>
-      apiClient.post('/api/v1', {
-        common: {
-          cmdId: 10017,
-        },
-        params,
-      }),
-
-    // Connect all MCP servers using protocol 10018
-    reconnectAllServers: (params: { masterPwd: string }) =>
-      apiClient.post('/api/v1', {
-        common: {
-          cmdId: 10018,
-        },
-        params,
-      }),
-
-    // Detect KIMBAP Core service using protocol 10021
-    detectKimbapCore: () =>
-      apiClient.post('/api/v1', {
-        common: {
-          cmdId: 10021,
-        },
-        params: {},
-      }),
-
-    // Get dashboard overview statistics using protocol 10023
-    getDashboardOverview: (params?: {
-      timeRange?: string; // "24h", "7d", "30d", "90d"
-    }) =>
-      apiClient.post('/api/v1', {
-        common: {
-          cmdId: 10023,
-        },
+        common: { cmdId: 10023 },
         params: params || {},
-      }),
-
-    // Configure custom KIMBAP Core host and port using protocol 10022
-    configureKimbapCore: (params: { host: string; port?: number }) =>
-      apiClient.post('/api/v1', {
-        common: {
-          cmdId: 10022,
-        },
-        params,
-      }),
-
-    // Reset master password using protocol 10024
-    resetMasterPassword: (params: { token: string; masterPwd: string }) =>
-      apiClient.post('/api/v1', {
-        common: {
-          cmdId: 10024,
-        },
-        params,
       }),
   },
 
@@ -836,18 +748,6 @@ export const api = {
       }),
   },
 
-  // Scopes
-  scopes: {
-    // Get scopes using protocol 10009
-    getScopes: (params: { proxyId: number }) =>
-      apiClient.post('/api/v1', {
-        common: {
-          cmdId: 10009,
-        },
-        params,
-      }),
-  },
-
   // Dashboard
   dashboard: {
     // Get dashboard overview statistics using protocol 10023
@@ -859,89 +759,6 @@ export const api = {
         params: {
           timeRange,
         },
-      }),
-  },
-
-  // License
-  license: {
-    // Import license using protocol 10019
-    importLicense: (params: { licenseStr: string; proxyKey: string }) =>
-      apiClient.post('/api/v1', {
-        common: {
-          cmdId: 10019,
-        },
-        params,
-      }),
-
-    // Get license history using protocol 10020
-    getHistory: () =>
-      apiClient.post('/api/v1', {
-        common: {
-          cmdId: 10020,
-        },
-        params: {},
-      }),
-
-    // Get real-time usage limits using protocol 10025
-    getLimits: (
-      params: {
-        proxyKey?: string;
-      } = {},
-    ) =>
-      apiClient.post('/api/v1', {
-        common: {
-          cmdId: 10025,
-        },
-        params,
-      }),
-  },
-
-  // Network Access
-  networkAccess: {
-    // Operate DNS record using protocol 10011
-    operateDnsRecord: (params: {
-      handleType: number; // 1-start remote access, 2-stop remote access, 3-add manual dns, 4-delete manual dns
-      domain?: string; // for handleType=3
-      publicIP?: string; // for handleType=3
-      recordId?: number; // for handleType=4
-      proxyKey: string; // required
-    }) =>
-      apiClient.post('/api/v1', {
-        common: {
-          cmdId: 10011,
-        },
-        params,
-      }),
-
-    // Get IP whitelist using protocol 10012
-    getIpWhitelist: () =>
-      apiClient.post('/api/v1', {
-        common: {
-          cmdId: 10012,
-        },
-        params: {},
-      }),
-
-    // Operate IP whitelist using protocol 10013
-    operateIpWhitelist: (params: {
-      handleType: number; // 1-add, 2-allow all, 3-not allow all, 4-delete
-      ipList: string[];
-      idList: number[];
-    }) =>
-      apiClient.post('/api/v1', {
-        common: {
-          cmdId: 10013,
-        },
-        params,
-      }),
-
-    // Get DNS configuration using protocol 10014
-    getDnsConfig: () =>
-      apiClient.post('/api/v1', {
-        common: {
-          cmdId: 10014,
-        },
-        params: {},
       }),
   },
 

@@ -1,13 +1,13 @@
 .PHONY: build run dev test clean deps lint vet
 
 VERSION ?= 1.1.0
-LDFLAGS ?= -X github.com/dunialabs/peta-core-go/internal/config.version=$(VERSION)
+LDFLAGS ?= -X github.com/dunialabs/kimbap-core/internal/config.version=$(VERSION)
 
 build:
-	go build -ldflags "$(LDFLAGS)" -o bin/peta-core-go ./cmd/server
+	go build -ldflags "$(LDFLAGS)" -o bin/kimbap-core ./cmd/server
 
 run: build
-	./bin/peta-core-go
+	./bin/kimbap-core
 
 dev:
 	go run ./cmd/server

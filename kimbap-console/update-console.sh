@@ -1,12 +1,12 @@
 #!/bin/bash
 
-# KIMBAP Console Update Script
+# Kimbap Console Update Script
 # Compatible with macOS, Linux, Windows (Git Bash/WSL)
 
 set -e
 
 echo "=========================================="
-echo "  KIMBAP Console Update"
+echo "  Kimbap Console Update"
 echo "=========================================="
 echo ""
 

@@ -32,7 +32,7 @@ interface UpdateTokenInput {
  * POST /api/external/tokens/update
  *
  * Update an existing access token.
- * Requires authentication (owner only).
+ * Requires authentication (owner or admin).
  */
 export async function POST(request: NextRequest) {
   try {

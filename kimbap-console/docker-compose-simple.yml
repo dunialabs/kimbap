@@ -22,9 +22,9 @@ services:
     networks:
       - kimbap-network
 
-  # KIMBAP Console app
+  # Kimbap Console app
   kimbap-console:
-image: kimbap/kimbap-console:latest
+    image: dunialabs/kimbap-console:latest
     container_name: kimbap-console-app
     restart: unless-stopped
     environment:

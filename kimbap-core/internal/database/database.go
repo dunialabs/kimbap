@@ -76,7 +76,7 @@ func actualInitialize(databaseURL string) error {
 		db.Config.DisableForeignKeyConstraintWhenMigrating = true
 		if err := db.AutoMigrate(
 			&Proxy{}, &User{}, &Server{}, &Log{}, &Event{},
-			&DnsConf{}, &IPWhitelist{}, &License{},
+			&License{},
 			&OAuthClient{}, &OAuthAuthorizationCode{}, &OAuthToken{},
 			&ApprovalRequest{}, &ToolPolicySet{},
 		); err != nil {

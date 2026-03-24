@@ -11,10 +11,35 @@ interface GetPolicyInput {
   id: string;
 }
 
+async function getPolicyById(request: NextRequest, idRaw: string) {
+  const user = await authenticate(request);
+  const id = idRaw.trim();
+  if (!id) {
+    throw new ExternalApiError(E1001, 'Missing required field: id');
+  }
+
+  const response = await makeProxyRequestWithUserId<{ policySets: any[] }>(
+    AdminActionType.GET_TOOL_POLICY,
+    { id },
+    user.userid,
+    user.accessToken
+  );
+
+  if (!response.success) {
+    throwCoreAdminError(response.error?.message || 'Failed to get policy', E3002, response.error?.code);
+  }
+
+  const policySets = response.data?.policySets || [];
+  const target = policySets[0];
+  if (!target) {
+    throw new ExternalApiError(E3002, `Policy not found: ${id}`);
+  }
+
+  return ApiResponse.success(target);
+}
+
 export async function POST(request: NextRequest) {
   try {
-    const user = await authenticate(request);
-
     let body: GetPolicyInput;
     try {
       body = await request.json();
@@ -25,25 +50,19 @@ export async function POST(request: NextRequest) {
     if (!body.id || typeof body.id !== 'string' || !body.id.trim()) {
       throw new ExternalApiError(E1001, 'Missing required field: id');
     }
+    return await getPolicyById(request, body.id);
+  } catch (error) {
+    return ApiResponse.handleError(error);
+  }
+}
 
-    const response = await makeProxyRequestWithUserId<{ policySets: any[] }>(
-      AdminActionType.GET_TOOL_POLICY,
-      { id: body.id.trim() },
-      user.userid,
-      user.accessToken
-    );
-
-    if (!response.success) {
-      throwCoreAdminError(response.error?.message || 'Failed to get policy', E3002, response.error?.code);
+export async function GET(request: NextRequest) {
+  try {
+    const id = request.nextUrl.searchParams.get('id');
+    if (!id) {
+      throw new ExternalApiError(E1001, 'Missing required field: id');
     }
-
-    const policySets = response.data?.policySets || [];
-    const target = policySets[0];
-    if (!target) {
-      throw new ExternalApiError(E3002, `Policy not found: ${body.id.trim()}`);
-    }
-
-    return ApiResponse.success(target);
+    return await getPolicyById(request, id);
   } catch (error) {
     return ApiResponse.handleError(error);
   }

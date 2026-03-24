@@ -1,5 +1,4 @@
 import { getProxy } from '@/lib/proxy-api';
-import { LicenseService } from '@/license-system';
 import { ApiResponse } from '../lib/response';
 import { ExternalApiError, E3001 } from '../lib/error-codes';
 
@@ -13,6 +12,24 @@ interface ProxyResponse {
   fingerprint: string;
 }
 
+async function getProxyInfo() {
+  const proxy = await getProxy();
+
+  if (!proxy) {
+    throw new ExternalApiError(E3001, 'Proxy not found');
+  }
+
+  const responseData: ProxyResponse = {
+    proxyId: proxy.id,
+    proxyKey: proxy.proxyKey || '',
+    proxyName: proxy.name,
+    createdAt: proxy.addtime,
+    fingerprint: '',
+  };
+
+  return ApiResponse.success(responseData);
+}
+
 /**
  * POST /api/external/proxy
  *
@@ -21,26 +38,15 @@ interface ProxyResponse {
  */
 export async function POST() {
   try {
-    // Get the proxy record (this implicitly validates KIMBAP Core is reachable)
-    const proxy = await getProxy();
+    return await getProxyInfo();
+  } catch (error) {
+    return ApiResponse.handleError(error);
+  }
+}
 
-    if (!proxy) {
-      throw new ExternalApiError(E3001, 'Proxy not found');
-    }
-
-    // Get hardware fingerprint
-    const licenseService = LicenseService.getInstance();
-    const fingerprint = licenseService.getHardwareFingerprint();
-
-    const responseData: ProxyResponse = {
-      proxyId: proxy.id,
-      proxyKey: proxy.proxyKey || '',
-      proxyName: proxy.name,
-      createdAt: proxy.addtime,
-      fingerprint: fingerprint,
-    };
-
-    return ApiResponse.success(responseData);
+export async function GET() {
+  try {
+    return await getProxyInfo();
   } catch (error) {
     return ApiResponse.handleError(error);
   }

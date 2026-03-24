@@ -136,7 +136,7 @@ DATABASE_URL=postgresql://kimbap:kimbap123@localhost:5432/kimbap_db`;
 
   async createTestWindowsScript(scriptsDir) {
     const script = `@echo off
-echo KIMBAP Console Test Script
+echo Kimbap Console Test Script
 echo Platform: Windows
 echo.
 echo This is a test version. Run 'npm run build:portable' for full build.
@@ -152,7 +152,7 @@ pause`;
 
   async createTestUnixScript(scriptsDir) {
     const script = `#!/bin/bash
-echo "KIMBAP Console Test Script"
+echo "Kimbap Console Test Script"
 echo "Platform: ${this.platform}"
 echo
 echo "This is a test version. Run 'npm run build:portable' for full build."
@@ -172,7 +172,7 @@ read -p "Press Enter to continue..."`;
     
     const config = {
       app: {
-        name: 'KIMBAP Console',
+        name: 'Kimbap Console',
         version: '1.0.0-test',
         port: 3000,
         host: 'localhost'
@@ -196,7 +196,7 @@ read -p "Press Enter to continue..."`;
     
     // 验证配置文件内容
     const savedConfig = JSON.parse(fs.readFileSync(configPath, 'utf8'));
-    if (savedConfig.app.name !== 'KIMBAP Console') {
+    if (savedConfig.app.name !== 'Kimbap Console') {
       throw new Error('Config file content validation failed');
     }
     

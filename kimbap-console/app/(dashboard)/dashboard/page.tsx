@@ -1,549 +1,654 @@
-'use client';
+'use client'
 
 import {
-  Activity,
-  AlertTriangle,
-  ArrowRight,
-  BarChart3,
-  CheckCircle2,
-  ClipboardList,
-  Plug,
-  ScrollText,
-  TrendingDown,
-  TrendingUp,
-  UserCheck,
-  XCircle,
-  Zap,
-} from 'lucide-react';
-import Link from 'next/link';
-import { useEffect, useState } from 'react';
+  Server,
+  CheckCircle,
+  Shield,
+  FileText,
+  Eye,
+  Globe,
+  MapPin
+} from 'lucide-react'
+import Link from 'next/link'
+import { useEffect, useState } from 'react'
 
-import { Badge } from '@/components/ui/badge';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-
-interface AuditEvent {
-  id: string;
-  action: string;
-  actor: string;
-  timestamp: string;
-  status: 'success' | 'warning' | 'error';
-}
-
-interface IntegrationStatus {
-  name: string;
-  status: string;
-}
+import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle
+} from '@/components/ui/card'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle
+} from '@/components/ui/dialog'
+import { Progress } from '@/components/ui/progress'
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow
+} from '@/components/ui/table'
 
 export default function DashboardPage() {
-  const [isLoading, setIsLoading] = useState(true);
-  const [pendingApprovals, setPendingApprovals] = useState<number | null>(null);
-  const [serviceHealth, setServiceHealth] = useState<string | null>(null);
-  const [recentErrors, setRecentErrors] = useState<number | null>(null);
-  const [integrationSummary, setIntegrationSummary] = useState<string | null>(null);
-  const [integrations, setIntegrations] = useState<IntegrationStatus[]>([]);
-  const [auditEvents, setAuditEvents] = useState<AuditEvent[]>([]);
-  const [usageHighlights, setUsageHighlights] = useState<{
-    totalRequests: number | null;
-    changePercent: number | null;
-    avgResponseTime: number | null;
-    responseTimeChange: number | null;
-    toolsInUse: number | null;
-    mostActiveTool: string | null;
-  }>({
-    totalRequests: null,
-    changePercent: null,
-    avgResponseTime: null,
-    responseTimeChange: null,
-    toolsInUse: null,
-    mostActiveTool: null,
-  });
+  const [serverInfo, setServerInfo] = useState<any>(null)
+  const [isClientsDialogOpen, setIsClientsDialogOpen] = useState(false)
+  const [dashboardData, setDashboardData] = useState<any>(null)
+  const [isLoading, setIsLoading] = useState(true)
+
 
   useEffect(() => {
-    const loadDashboard = async () => {
+    const fetchServerInfo = async () => {
       try {
-        const { api } = await import('@/lib/api-client');
+        const { api } = await import('@/lib/api-client')
 
-        const results = await Promise.allSettled([
-          api.approvals.countPending(),
-          api.servers.getDashboardOverview(),
-          api.logs.getStatistics({ timeRange: '24h' }),
-          api.audit.getRecentActivity({ limit: 5, timeRange: '24h' }),
-          api.usage.getOverviewSummary({ timeRange: 1 }),
-        ]);
+        // Try to get cached server info from localStorage first
+        const selectedServer = localStorage.getItem('selectedServer')
+        if (selectedServer) {
+          const parsedServer = JSON.parse(selectedServer)
 
-        if (results[0].status === 'fulfilled' && results[0].value.data?.common?.code === 0) {
-          const countData = results[0].value.data?.data || results[0].value.data;
-          setPendingApprovals(countData?.count ?? 0);
-        }
 
-        if (results[1].status === 'fulfilled' && results[1].value.data?.common?.code === 0) {
-          const overview = results[1].value.data?.data || results[1].value.data;
-          const rawHealth = overview?.health ?? overview?.status ?? null;
-          setServiceHealth(typeof rawHealth === 'string' ? rawHealth.toLowerCase() : rawHealth);
-          const connectors =
-            overview?.connectors || overview?.integrations || overview?.servers || [];
-          if (Array.isArray(connectors) && connectors.length > 0) {
-            const connected = connectors.filter((c: { status?: string; enabled?: boolean }) =>
-              c.status ? c.status === 'connected' || c.status === 'healthy' : c.enabled,
-            ).length;
-            setIntegrationSummary(`${connected}/${connectors.length}`);
-            setIntegrations(
-              connectors
-                .slice(0, 5)
-                .map(
-                  (c: {
-                    name?: string;
-                    serverName?: string;
-                    toolId?: string;
-                    status?: string;
-                    enabled?: boolean;
-                  }) => ({
-                    name: c.name || c.serverName || c.toolId || 'Unknown',
-                    status: c.status || (c.enabled ? 'connected' : 'disconnected'),
-                  }),
-                ),
-            );
-          } else if (overview?.totalServers != null) {
-            const total = overview.totalServers;
-            const active = overview.activeServers ?? overview.connectedServers ?? total;
-            setIntegrationSummary(`${active}/${total}`);
+          // Use cached server info if available
+          if (parsedServer.proxyId && parsedServer.proxyName) {
+            // Normalize status: convert string 'running'/'stopped' to number 1/2
+            let normalizedStatus = parsedServer.status
+            if (typeof normalizedStatus === 'string') {
+              normalizedStatus = normalizedStatus.toLowerCase() === 'running' ? 1 : 2
+            } else if (typeof normalizedStatus !== 'number') {
+              normalizedStatus = 1 // Default to running if invalid
+            }
+            
+            setServerInfo({
+              proxyId: parsedServer.proxyId,
+              proxyName: parsedServer.proxyName,
+              proxyKey: parsedServer.proxyKey,
+              status: normalizedStatus,
+              createdAt: parsedServer.createdAt
+            })
+            return // Use cache, no need to call API
           }
         }
 
-        if (results[2].status === 'fulfilled' && results[2].value.data?.common?.code === 0) {
-          const logStats = results[2].value.data?.data || results[2].value.data;
-          setRecentErrors(
-            logStats?.errorCount ?? logStats?.errors ?? logStats?.byLevel?.ERROR ?? null,
-          );
-        }
+        // No cache found, fetch server info using protocol 10002
+        const serverInfoResponse = await api.servers.getInfo()
+        if (serverInfoResponse.data?.data) {
+          const data = serverInfoResponse.data.data
+          setServerInfo(data)
 
-        if (results[3].status === 'fulfilled' && results[3].value.data?.common?.code === 0) {
-          const auditData = results[3].value.data?.data || results[3].value.data;
-          const logs = auditData?.logs || [];
-          setAuditEvents(
-            logs
-              .slice(0, 5)
-              .map(
-                (log: {
-                  id: string;
-                  details?: { toolName?: string };
-                  message?: string;
-                  userId?: string;
-                  timestamp?: string;
-                  level?: string;
-                }) => {
-                  const ts = log.timestamp ?? '';
-                  const iso = ts.includes('T') ? ts : ts.replace(' ', 'T');
-                  const parsedTime = new Date(
-                    iso.endsWith('Z') || /[+-]\d{2}:?\d{2}$/.test(iso) ? iso : iso + 'Z',
-                  ).getTime();
-                  let relTime = '—';
-                  const diffMs = Date.now() - parsedTime;
-                  if (!Number.isNaN(parsedTime) && diffMs >= 0) {
-                    const diffMin = Math.floor(diffMs / 60000);
-                    relTime = 'Just now';
-                    if (diffMin >= 1440) relTime = `${Math.floor(diffMin / 1440)}d ago`;
-                    else if (diffMin >= 60) relTime = `${Math.floor(diffMin / 60)}h ago`;
-                    else if (diffMin >= 1) relTime = `${diffMin}m ago`;
-                  }
-                  return {
-                    id: log.id,
-                    action: log.details?.toolName || log.message || 'Unknown action',
-                    actor: log.userId || 'system',
-                    timestamp: relTime,
-                    status:
-                      log.level === 'ERROR'
-                        ? ('error' as const)
-                        : log.level === 'WARN'
-                          ? ('warning' as const)
-                          : ('success' as const),
-                  };
-                },
-              ),
-          );
+          // Update localStorage cache with fresh server info
+          const selectedServer = localStorage.getItem('selectedServer')
+          if (selectedServer) {
+            try {
+              const parsedServer = JSON.parse(selectedServer)
+              parsedServer.proxyId = data.proxyId
+              parsedServer.id = data.proxyId
+              parsedServer.proxyName = data.proxyName
+              parsedServer.name = data.proxyName
+              parsedServer.proxyKey = data.proxyKey
+              parsedServer.status = data.status
+              parsedServer.createdAt = data.createdAt
+              localStorage.setItem(
+                'selectedServer',
+                JSON.stringify(parsedServer)
+              )
+            } catch (error) {
+              // Failed to update localStorage cache:
+            }
+          }
         }
-
-        if (results[4].status === 'fulfilled' && results[4].value.data?.common?.code === 0) {
-          const usage = results[4].value.data?.data || results[4].value.data;
-          setUsageHighlights({
-            totalRequests: usage?.totalRequests24h ?? null,
-            changePercent: usage?.requestsChangePercent ?? null,
-            avgResponseTime: usage?.avgResponseTime ?? null,
-            responseTimeChange: usage?.responseTimeChange ?? null,
-            toolsInUse: usage?.toolsInUse ?? null,
-            mostActiveTool: usage?.mostActiveToolName || null,
-          });
-        }
-      } catch {
-      } finally {
-        setIsLoading(false);
+      } catch (error) {
+        // Failed to fetch server info:
       }
-    };
-
-    loadDashboard();
-  }, []);
-
-  const statusIcon = (status: AuditEvent['status']) => {
-    switch (status) {
-      case 'success':
-        return <div className="w-2 h-2 rounded-full bg-emerald-500" />;
-      case 'warning':
-        return <div className="w-2 h-2 rounded-full bg-amber-500" />;
-      case 'error':
-        return <div className="w-2 h-2 rounded-full bg-red-500" />;
     }
-  };
 
-  const healthBadge = (status: string) => {
-    const normalized = status.toLowerCase();
-    if (normalized === 'connected' || normalized === 'healthy' || normalized === 'running') {
-      return (
-        <Badge
-          variant="outline"
-          className="bg-emerald-500/10 text-emerald-600 border-emerald-500/20"
-        >
-          <CheckCircle2 className="h-3 w-3 mr-1" />
-          Connected
-        </Badge>
-      );
+    fetchServerInfo()
+  }, [])
+
+  useEffect(() => {
+    const fetchDashboardData = async () => {
+      if (!serverInfo?.proxyId) return
+
+      try {
+        const { api } = await import('@/lib/api-client')
+
+        // Fetch dashboard overview data using protocol 10023
+        const overviewResponse = await api.dashboard.overview(
+          serverInfo.proxyId,
+          '30d'
+        )
+
+        if (overviewResponse.data?.data) {
+          setDashboardData(overviewResponse.data.data)
+        }
+      } catch (error) {
+        // Failed to fetch dashboard data:
+        setDashboardData(null)
+      } finally {
+        setIsLoading(false)
+      }
     }
-    if (normalized === 'degraded' || normalized === 'warning') {
-      return (
-        <Badge variant="outline" className="bg-amber-500/10 text-amber-600 border-amber-500/20">
-          <AlertTriangle className="h-3 w-3 mr-1" />
-          Degraded
-        </Badge>
-      );
-    }
+
+    fetchDashboardData()
+  }, [serverInfo])
+
+  // Use real data if available, otherwise show empty stats
+  const stats = {
+    apiRequests: dashboardData?.apiRequests ?? null,
+    activeTokens: dashboardData?.activeTokens ?? null,
+    configuredTools: dashboardData?.configuredTools ?? null,
+    connectedClients: dashboardData?.connectedClientsCount ?? null,
+    uptime: dashboardData?.uptime ?? null,
+    monthlyUsage: dashboardData?.monthlyUsage ?? 0
+  }
+
+  const toolsUsage = dashboardData?.toolsUsage || []
+  const tokenUsage = dashboardData?.tokenUsage || []
+  const connectedClients = dashboardData?.connectedClients || []
+  const recentActivity = dashboardData?.recentActivity || []
+
+  if (!serverInfo) {
     return (
-      <Badge variant="outline" className="bg-red-500/10 text-red-600 border-red-500/20">
-        <XCircle className="h-3 w-3 mr-1" />
-        Disconnected
-      </Badge>
-    );
-  };
+      <div className="flex items-center justify-center min-h-[400px]">
+        <div className="text-center">
+          <Server className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
+          <h3 className="text-lg font-semibold mb-2">No Server Connected</h3>
+          <p className="text-muted-foreground mb-4">
+            Connect to a server to view your dashboard.
+          </p>
+          <Link href="/">
+            <Button>Set Up Connection</Button>
+          </Link>
+        </div>
+      </div>
+    )
+  }
 
   if (isLoading) {
     return (
       <div className="flex items-center justify-center min-h-[400px]">
         <div aria-live="polite" className="text-center">
-          <div
-            className="w-8 h-8 border-2 border-muted-foreground/30 border-t-foreground rounded-full animate-spin mx-auto mb-4"
-            aria-hidden="true"
-          />
+          <div className="w-8 h-8 border-2 border-muted-foreground/30 border-t-foreground rounded-full animate-spin mx-auto mb-4" aria-hidden="true" />
           <h3 className="text-lg font-semibold mb-2">Loading Dashboard</h3>
-          <p className="text-muted-foreground">Loading runtime data…</p>
+          <p className="text-muted-foreground">Loading server data…</p>
         </div>
       </div>
-    );
+    )
   }
 
   return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-[30px] font-bold tracking-tight">Overview</h1>
-        <p className="text-base text-muted-foreground">
-          Operations overview — health, approvals, audit, and integration status.
-        </p>
-      </div>
-
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <Link href="/dashboard/stats" className="block group">
-          <Card className="h-full transition-colors group-hover:bg-muted/50">
-            <CardHeader className="pb-2">
-              <div className="flex items-center justify-between">
-                <Activity className="h-5 w-5 text-muted-foreground" />
-                <ArrowRight className="h-4 w-4 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
-              </div>
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold flex items-center gap-2">
-                {serviceHealth == null ? (
-                  '—'
-                ) : (
-                  <>
-                    <div
-                      className={`w-2.5 h-2.5 rounded-full ${
-                        serviceHealth === 'healthy' || serviceHealth === 'running'
-                          ? 'bg-emerald-500'
-                          : serviceHealth === 'degraded'
-                            ? 'bg-amber-500'
-                            : 'bg-red-500'
-                      }`}
-                    />
-                    <span className="capitalize">{serviceHealth}</span>
-                  </>
-                )}
-              </div>
-              <p className="text-sm text-muted-foreground">Service Health</p>
-            </CardContent>
-          </Card>
-        </Link>
-
-        <Link href="/dashboard/approvals" className="block group">
-          <Card
-            className={`h-full transition-colors group-hover:bg-muted/50 ${pendingApprovals && pendingApprovals > 0 ? 'border-amber-500/40' : ''}`}
+    <div className="space-y-4">
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <div className="mb-0">
+            <h1 className="text-[30px] font-bold tracking-tight">Dashboard</h1>
+            <p className="text-[14px] text-foreground">
+              {serverInfo?.proxyName || 'MCP Server'}
+            </p>
+          </div>
+          <p className="text-base text-muted-foreground">
+            Overview of your {serverInfo?.proxyName || 'server'}
+          </p>
+        </div>
+        <div className="flex items-center gap-2">
+          <span className="relative flex h-3 w-3">
+            {serverInfo?.status === 1 ? (
+              <>
+            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
+            <span className="relative inline-flex rounded-full h-3 w-3 bg-green-500"></span>
+              </>
+            ) : (
+              <span className="relative inline-flex rounded-full h-3 w-3 bg-gray-400 dark:bg-gray-500"></span>
+            )}
+          </span>
+          <Badge
+            variant="secondary"
+            className={
+              serverInfo?.status === 1
+                ? 'bg-green-50 text-green-700 border-green-200 dark:bg-green-950 dark:text-green-400 dark:border-green-900'
+                : 'bg-gray-50 text-gray-700 border-gray-200 dark:bg-gray-950 dark:text-gray-300 dark:border-gray-800'
+            }
           >
-            <CardHeader className="pb-2">
-              <div className="flex items-center justify-between">
-                <UserCheck className="h-5 w-5 text-muted-foreground" />
-                <ArrowRight className="h-4 w-4 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
-              </div>
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">
-                {pendingApprovals == null ? '—' : pendingApprovals}
-              </div>
-              <p className="text-sm text-muted-foreground">Pending Approvals</p>
-            </CardContent>
-          </Card>
-        </Link>
-
-        <Link href="/dashboard/logs" className="block group">
-          <Card
-            className={`h-full transition-colors group-hover:bg-muted/50 ${recentErrors && recentErrors > 0 ? 'border-red-500/40' : ''}`}
+            {serverInfo?.status === 1 ? 'Running' : 'Stopped'}
+          </Badge>
+        </div>
+      </div>
+      {/* Header */}
+      <div className="space-y-4">
+        <div className="actions grid grid-cols-2 md:grid-cols-4 gap-3">
+          <Link
+            href="/dashboard/policies"
+            className="block rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2"
           >
-            <CardHeader className="pb-2">
-              <div className="flex items-center justify-between">
-                <AlertTriangle className="h-5 w-5 text-muted-foreground" />
-                <ArrowRight className="h-4 w-4 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
+            <Card className="w-full flex items-center gap-1 justify-center h-[44px] cursor-pointer hover:bg-muted/50 transition-colors">
+              <Shield className="h-4 w-4" />
+              <div className="action-content">Manage Policies</div>
+            </Card>
+          </Link>
+          <Link
+            href="/dashboard/approvals"
+            className="block rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2"
+          >
+            <Card className="w-full flex items-center gap-1 justify-center h-[44px] cursor-pointer hover:bg-muted/50 transition-colors">
+              <CheckCircle className="h-4 w-4" />
+              <div className="action-content">Review Approvals</div>
+            </Card>
+          </Link>
+          <Link
+            href="/dashboard/usage"
+            className="block rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2"
+          >
+            <Card className="w-full flex items-center gap-1 justify-center h-[44px] cursor-pointer hover:bg-muted/50 transition-colors">
+              <Eye className="h-4 w-4" />
+              <div className="action-content">View Usage</div>
+            </Card>
+          </Link>
+          <Link
+            href="/dashboard/logs"
+            className="block rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2"
+          >
+            <Card className="w-full flex items-center gap-1 justify-center h-[44px] cursor-pointer hover:bg-muted/50 transition-colors">
+              <FileText className="h-4 w-4" />
+              <div className="action-content">View Logs</div>
+            </Card>
+          </Link>
+        </div>
+        {/* Connection Info */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+          <Card className="p-4 h-full">
+              <div className="flex items-center justify-between h-full gap-3">
+                <div className="flex flex-col gap-1 justify-center min-w-0">
+                  <p className="text-sm text-muted-foreground">
+                    Local Connection
+                  </p>
+                  <p className="font-mono text-sm font-normal break-words">
+                    {dashboardData?.manualConnection || 'Not configured'}
+                  </p>
+                </div>
+                <Globe className="h-5 w-5 text-muted-foreground" />
               </div>
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{recentErrors == null ? '—' : recentErrors}</div>
-              <p className="text-sm text-muted-foreground">Recent Errors (24h)</p>
-            </CardContent>
           </Card>
-        </Link>
 
-        <Link href="/dashboard/integrations" className="block group">
-          <Card className="h-full transition-colors group-hover:bg-muted/50">
-            <CardHeader className="pb-2">
-              <div className="flex items-center justify-between">
-                <Plug className="h-5 w-5 text-muted-foreground" />
-                <ArrowRight className="h-4 w-4 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
+          <Card className="p-4 h-full">
+            <div className="flex items-center justify-between h-full gap-3">
+              <div className="flex flex-col gap-1 justify-center min-w-0">
+                <p className="text-sm text-muted-foreground">
+                  Remote Connection
+                </p>
+                <p className="font-mono text-sm font-normal break-words">
+                  {dashboardData?.sshTunnelAddress || 'Not configured'}
+                </p>
               </div>
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{integrationSummary ?? '—'}</div>
-              <p className="text-sm text-muted-foreground">Integrations</p>
-            </CardContent>
+              <Globe className="h-5 w-5 text-muted-foreground" />
+            </div>
           </Card>
-        </Link>
+
+          <Link
+            href="/dashboard/usage/token-usage"
+            className="block rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2"
+          >
+            <Card className="p-4 cursor-pointer hover:bg-muted/50 transition-colors h-full">
+              <div className="flex items-center justify-between h-full">
+                <div className="flex flex-col gap-1 justify-center">
+                  <p className="text-sm text-muted-foreground">
+                    Active Tokens
+                  </p>
+                  <p className="font-mono text-sm font-normal text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300">
+                    {stats.activeTokens == null ? 'No data' : stats.activeTokens}
+                  </p>
+                </div>
+                <Shield className="h-5 w-5 text-blue-600 dark:text-blue-400" />
+              </div>
+            </Card>
+          </Link>
+        </div>
       </div>
 
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-        <Link
-          href="/dashboard/approvals"
-          className="block rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2"
-        >
-          <Card className="w-full flex items-center gap-2 justify-center h-[44px] cursor-pointer hover:bg-muted/50 transition-colors">
-            <UserCheck className="h-4 w-4" />
-            <span>Approvals</span>
-          </Card>
-        </Link>
-        <Link
-          href="/dashboard/audit"
-          className="block rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2"
-        >
-          <Card className="w-full flex items-center gap-2 justify-center h-[44px] cursor-pointer hover:bg-muted/50 transition-colors">
-            <ClipboardList className="h-4 w-4" />
-            <span>Audit</span>
-          </Card>
-        </Link>
-        <Link
-          href="/dashboard/logs"
-          className="block rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2"
-        >
-          <Card className="w-full flex items-center gap-2 justify-center h-[44px] cursor-pointer hover:bg-muted/50 transition-colors">
-            <ScrollText className="h-4 w-4" />
-            <span>Logs</span>
-          </Card>
-        </Link>
-        <Link
-          href="/dashboard/stats"
-          className="block rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2"
-        >
-          <Card className="w-full flex items-center gap-2 justify-center h-[44px] cursor-pointer hover:bg-muted/50 transition-colors">
-            <BarChart3 className="h-4 w-4" />
-            <span>Stats</span>
-          </Card>
-        </Link>
-      </div>
-
-      {(usageHighlights.totalRequests != null ||
-        usageHighlights.avgResponseTime != null ||
-        usageHighlights.toolsInUse != null ||
-        usageHighlights.mostActiveTool != null) && (
-        <Card>
-          <CardHeader className="pb-3">
-            <div className="flex items-center justify-between">
-              <div>
-                <CardTitle className="text-base">Usage Highlights</CardTitle>
-                <CardDescription>Last 24 hours</CardDescription>
-              </div>
-              <Link
-                href="/dashboard/stats"
-                className="text-sm text-muted-foreground hover:text-foreground transition-colors"
+      {/* Server Metrics */}
+      <Card>
+        <CardHeader className="pb-4">
+          <CardTitle>Server Metrics</CardTitle>
+          <CardDescription>
+            Server performance overview
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+            <div className="text-center p-3 rounded-lg border bg-muted/20 h-full flex flex-col gap-1 justify-center">
+              <div className="text-sm text-muted-foreground">Uptime</div>
+              <div
+                className={
+                  stats.uptime == null
+                    ? 'text-sm text-muted-foreground'
+                    : 'font-mono text-sm font-normal'
+                }
               >
-                View details →
-              </Link>
+                {stats.uptime == null ? '—' : stats.uptime}
+              </div>
             </div>
-          </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-              {usageHighlights.totalRequests != null && (
-                <div className="space-y-1">
-                  <p className="text-2xl font-bold">
-                    {usageHighlights.totalRequests.toLocaleString()}
-                  </p>
-                  <div className="flex items-center gap-1">
-                    <p className="text-xs text-muted-foreground">Requests</p>
-                    {usageHighlights.changePercent != null &&
-                      usageHighlights.changePercent !== 0 && (
-                        <span
-                          className={`text-xs flex items-center gap-0.5 ${usageHighlights.changePercent > 0 ? 'text-emerald-600' : 'text-red-600'}`}
-                        >
-                          {usageHighlights.changePercent > 0 ? (
-                            <TrendingUp className="h-3 w-3" />
-                          ) : (
-                            <TrendingDown className="h-3 w-3" />
-                          )}
-                          {Math.abs(usageHighlights.changePercent).toFixed(0)}%
-                        </span>
-                      )}
-                  </div>
-                </div>
-              )}
-              {usageHighlights.avgResponseTime != null && (
-                <div className="space-y-1">
-                  <p className="text-2xl font-bold">
-                    {usageHighlights.avgResponseTime < 1000
-                      ? `${Math.round(usageHighlights.avgResponseTime)}ms`
-                      : `${(usageHighlights.avgResponseTime / 1000).toFixed(1)}s`}
-                  </p>
-                  <div className="flex items-center gap-1">
-                    <p className="text-xs text-muted-foreground">Avg Response</p>
-                    {usageHighlights.responseTimeChange != null &&
-                      usageHighlights.responseTimeChange !== 0 && (
-                        <span
-                          className={`text-xs flex items-center gap-0.5 ${usageHighlights.responseTimeChange < 0 ? 'text-emerald-600' : 'text-red-600'}`}
-                        >
-                          {usageHighlights.responseTimeChange < 0 ? (
-                            <TrendingDown className="h-3 w-3" />
-                          ) : (
-                            <TrendingUp className="h-3 w-3" />
-                          )}
-                          {Math.abs(usageHighlights.responseTimeChange) < 1000
-                            ? `${Math.abs(usageHighlights.responseTimeChange)}ms`
-                            : `${(Math.abs(usageHighlights.responseTimeChange) / 1000).toFixed(1)}s`}
-                        </span>
-                      )}
-                  </div>
-                </div>
-              )}
-              {usageHighlights.toolsInUse != null && (
-                <div className="space-y-1">
-                  <p className="text-2xl font-bold">{usageHighlights.toolsInUse}</p>
-                  <p className="text-xs text-muted-foreground">Active Tools</p>
-                </div>
-              )}
-              {usageHighlights.mostActiveTool && (
-                <div className="space-y-1">
-                  <div className="flex items-center gap-1.5">
-                    <Zap className="h-4 w-4 text-amber-500" />
-                    <p className="text-sm font-semibold truncate">
-                      {usageHighlights.mostActiveTool}
-                    </p>
-                  </div>
-                  <p className="text-xs text-muted-foreground">Most Active</p>
-                </div>
-              )}
-            </div>
-          </CardContent>
-        </Card>
-      )}
+            <Link
+              href="/dashboard/usage"
+              className="text-center p-3 rounded-lg border cursor-pointer hover:bg-blue-50 hover:border-blue-200 dark:hover:bg-blue-950/50 dark:hover:border-blue-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 transition-all duration-200 h-full flex flex-col gap-1 justify-center"
+            >
+              <div className="text-sm text-muted-foreground">API Requests</div>
+              <div
+                className={
+                  stats.apiRequests == null
+                    ? 'text-sm text-muted-foreground'
+                    : 'font-mono text-sm font-normal text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300'
+                }
+              >
+                {stats.apiRequests == null
+                  ? '—'
+                  : stats.apiRequests.toLocaleString()}
+              </div>
+            </Link>
+            <Link
+              href="/dashboard/usage/token-usage"
+              className="text-center p-3 rounded-lg border cursor-pointer hover:bg-blue-50 hover:border-blue-200 dark:hover:bg-blue-950/50 dark:hover:border-blue-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 transition-all duration-200 h-full flex flex-col gap-1 justify-center"
+            >
+              <div className="text-sm text-muted-foreground">Active Tokens</div>
+              <div
+                className={
+                  stats.activeTokens == null
+                    ? 'text-sm text-muted-foreground'
+                    : 'font-mono text-sm font-normal text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300'
+                }
+              >
+                {stats.activeTokens == null ? '—' : stats.activeTokens}
+              </div>
+            </Link>
+            <Link
+              href="/dashboard/usage/tool-usage"
+              className="text-center p-3 rounded-lg border cursor-pointer hover:bg-blue-50 hover:border-blue-200 dark:hover:bg-blue-950/50 dark:hover:border-blue-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 transition-all duration-200 h-full flex flex-col gap-1 justify-center"
+            >
+              <div className="text-sm text-muted-foreground">
+                Configured Tools
+              </div>
+              <div
+                className={
+                  stats.configuredTools == null
+                    ? 'text-sm text-muted-foreground'
+                    : 'font-mono text-sm font-normal text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300'
+                }
+              >
+                {stats.configuredTools == null ? '—' : stats.configuredTools}
+              </div>
+            </Link>
+            <button
+              type="button"
+              className="text-center p-3 rounded-lg border cursor-pointer hover:bg-blue-50 hover:border-blue-200 dark:hover:bg-blue-950/50 dark:hover:border-blue-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 transition-all duration-200 h-full flex flex-col gap-1 justify-center"
+              onClick={() => setIsClientsDialogOpen(true)}
+              aria-haspopup="dialog"
+              aria-controls="connected-clients-dialog"
+            >
+              <div className="text-sm text-muted-foreground">
+                Recent Clients (24h)
+              </div>
+              <div
+                className={
+                  stats.connectedClients == null
+                    ? 'text-sm text-muted-foreground'
+                    : 'font-mono text-sm font-normal text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300'
+                }
+              >
+                {stats.connectedClients == null ? '—' : stats.connectedClients}
+              </div>
+            </button>
+          </div>
+        </CardContent>
+      </Card>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+      {/* Usage Overview */}
+      {/* <Card>
+        <CardContent className="p-4">
+          <div className="flex items-center gap-6">
+            <div className="flex-shrink-0">
+              <CardTitle className="text-base font-bold">
+                Monthly Usage
+              </CardTitle>
+              <CardDescription className="mt-1">
+                API requests this month
+              </CardDescription>
+            </div>
+            <div className="flex-1 flex flex-col gap-2">
+              <div className="flex items-center justify-between">
+                <div className="text-xs">{stats.monthlyUsage}% of limit</div>
+                <div className="text-xs text-muted-foreground whitespace-nowrap">
+                  {Math.round(
+                    (stats.apiRequests * 100) / stats.monthlyUsage
+                  ).toLocaleString()}{' '}
+                  / 100,000 requests
+                </div>
+              </div>
+              <Progress
+                value={stats.monthlyUsage}
+                className="h-[8px] [&>div]:bg-slate-900 dark:[&>div]:bg-slate-100"
+              />
+            </div>
+          </div>
+        </CardContent>
+      </Card> */}
+
+      {/* Tools Usage */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Tool Usage</CardTitle>
+          <CardDescription>
+            Requests by tool over the last 30 days
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          {!toolsUsage || toolsUsage.length === 0 ? (
+            <div className="flex items-center justify-center py-8">
+              <p className="text-sm text-muted-foreground">No tool requests in the last 30 days.</p>
+            </div>
+          ) : (
+            <div
+              className="grid gap-y-3 gap-x-2 items-center"
+              style={{ gridTemplateColumns: 'max-content 1fr max-content' }}
+            >
+              {toolsUsage.map((tool: any) => (
+                <div key={tool.name} className="contents">
+                  <div
+                    className="text-sm max-w-[200px] truncate"
+                    title={tool.name}
+                  >
+                    {tool.name}
+                  </div>
+                  <div className="min-w-0">
+                    <Progress
+                      value={tool.percentage}
+                      aria-label={`${tool.name} usage ${tool.percentage}%`}
+                      className="h-[8px] [&>div]:bg-slate-900 dark:[&>div]:bg-slate-100"
+                    />
+                  </div>
+                  <div className="text-sm text-muted-foreground text-right whitespace-nowrap">
+                    {tool.requests}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Access Token Usage */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Access Token Usage</CardTitle>
+          <CardDescription>
+            Requests by token over the last 30 days
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          {!tokenUsage || tokenUsage.length === 0 ? (
+            <div className="flex items-center justify-center py-8">
+              <p className="text-sm text-muted-foreground">No token requests in the last 30 days.</p>
+            </div>
+          ) : (
+            <div
+              className="grid gap-y-3 gap-x-2 items-center grid-cols-[max-content_1fr_max-content] md:grid-cols-[max-content_1fr_max-content_max-content]"
+            >
+              {tokenUsage.map((token: any) => (
+                <div key={token.token} className="contents">
+                  <div
+                    className="text-sm max-w-[200px] truncate"
+                    title={token.name}
+                  >
+                    {token.name}
+                  </div>
+                  <div className="min-w-0">
+                    <Progress
+                      value={token.percentage}
+                      aria-label={`${token.name} usage ${token.percentage}%`}
+                      className="h-[8px] [&>div]:bg-slate-900 dark:[&>div]:bg-slate-100"
+                    />
+                  </div>
+                  <div className="text-sm text-muted-foreground text-right whitespace-nowrap">
+                    {token.requests}
+                  </div>
+                  <div className="text-xs text-muted-foreground font-mono text-right whitespace-nowrap hidden md:block">
+                    {token.token}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Recent Activity & Quick Actions */}
+      <div className="grid grid-cols-1">
         <Card>
           <CardHeader>
-            <CardTitle className="text-base">Recent Admin Activity</CardTitle>
-            <CardDescription>Latest admin operations</CardDescription>
+            <CardTitle>Recent Activity</CardTitle>
+            <CardDescription>Recent server events</CardDescription>
           </CardHeader>
           <CardContent>
-            {auditEvents.length === 0 ? (
-              <div className="flex flex-col items-center justify-center py-8 text-center">
-                <ClipboardList className="h-8 w-8 text-muted-foreground/40 mb-2" />
-                <p className="text-sm text-muted-foreground">No recent audit activity</p>
+            {!recentActivity || recentActivity.length === 0 ? (
+              <div className="flex items-center justify-center py-8">
+                <p className="text-sm text-muted-foreground">No recent activity in the last 30 days.</p>
               </div>
             ) : (
               <div className="space-y-3">
-                {auditEvents.map((event) => (
-                  <div key={event.id} className="flex items-center gap-3">
-                    <div className="flex items-center gap-2 shrink-0">
-                      {statusIcon(event.status)}
+                {recentActivity.map((activity: any) => (
+                  <div key={`${activity.action}-${activity.time}`} className="flex items-center gap-3">
+                    <div className="flex-shrink-0">
+                      {activity.status === 'success' && (
+                        <div className="flex items-center gap-2">
+                          <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+                          <span className="text-[10px] text-muted-foreground">Success</span>
+                        </div>
+                      )}
+                      {activity.status === 'warning' && (
+                        <div className="flex items-center gap-2">
+                          <div className="w-2 h-2 bg-yellow-500 rounded-full"></div>
+                          <span className="text-[10px] text-muted-foreground">Warning</span>
+                        </div>
+                      )}
+                      {activity.status === 'info' && (
+                        <div className="flex items-center gap-2">
+                          <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
+                          <span className="text-[10px] text-muted-foreground">Info</span>
+                        </div>
+                      )}
                     </div>
                     <div className="flex-1 min-w-0">
-                      <p className="text-sm truncate">{event.action}</p>
-                      <p className="text-xs text-muted-foreground">
-                        {event.actor} · {event.timestamp}
+                      <p className="text-sm">
+                        {activity.action}
+                        <span className="text-xs text-muted-foreground gap-1 ml-2">
+                          {activity.time}
+                        </span>
                       </p>
                     </div>
                   </div>
                 ))}
               </div>
             )}
-            <div className="mt-4 pt-3 border-t">
-              <Link
-                href="/dashboard/audit"
-                className="text-sm text-muted-foreground hover:text-foreground transition-colors"
-              >
-                View all audit events →
-              </Link>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base">Integration Health</CardTitle>
-            <CardDescription>Integration status at a glance</CardDescription>
-          </CardHeader>
-          <CardContent>
-            {integrations.length > 0 ? (
-              <div className="space-y-3">
-                {integrations.map((integration) => (
-                  <div key={integration.name} className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <Plug className="h-4 w-4 text-muted-foreground" />
-                      <span className="text-sm">{integration.name}</span>
-                    </div>
-                    {healthBadge(integration.status)}
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <div className="space-y-3">
-                <div className="flex items-center gap-2">
-                  <Plug className="h-4 w-4 text-muted-foreground" />
-                  <span className="text-sm text-muted-foreground">No integrations configured</span>
-                </div>
-                <p className="text-xs text-muted-foreground">
-                  Connect services from the Integrations page to monitor health here.
-                </p>
-              </div>
-            )}
-            <div className="mt-4 pt-3 border-t">
-              <Link
-                href="/dashboard/integrations"
-                className="text-sm text-muted-foreground hover:text-foreground transition-colors"
-              >
-                Manage integrations →
-              </Link>
-            </div>
           </CardContent>
         </Card>
       </div>
+
+      <Dialog open={isClientsDialogOpen} onOpenChange={setIsClientsDialogOpen}>
+        <DialogContent id="connected-clients-dialog" className="max-w-4xl max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Globe className="h-5 w-5" />
+              Recent Clients (24h) ({connectedClients.length})
+            </DialogTitle>
+            <DialogDescription>
+              Clients seen in the last 24 hours on your{' '}
+              {serverInfo?.proxyName || 'MCP server'}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            {connectedClients.length === 0 ? (
+              <div className="flex items-center justify-center py-8">
+                <p className="text-sm text-muted-foreground">No clients seen in the last 24 hours.</p>
+              </div>
+            ) : (
+              <div className="overflow-x-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Client Name</TableHead>
+                      <TableHead>Access Token</TableHead>
+                      <TableHead>IP Address</TableHead>
+                      <TableHead>Location</TableHead>
+                      <TableHead>Last Active</TableHead>
+                      <TableHead className="text-right">Requests</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {connectedClients.map((client: any) => (
+                      <TableRow key={client.id}>
+                        <TableCell>{client.name}</TableCell>
+                        <TableCell>
+                          <code
+                            className="inline-block max-w-[180px] truncate text-xs bg-muted px-2 py-1 rounded align-middle"
+                            title={
+                              client.token
+                                ? `${client.token.slice(0, 8)}...${client.token.slice(-4)}`
+                                : '-'
+                            }
+                          >
+                            {client.token
+                              ? `${client.token.slice(0, 8)}...${client.token.slice(-4)}`
+                              : '-'}
+                          </code>
+                        </TableCell>
+                        <TableCell className="font-mono text-sm">
+                          {client.ip}
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex items-center gap-1">
+                            <MapPin className="h-3 w-3 text-muted-foreground" />
+                            <span className="text-sm">{client.location}</span>
+                          </div>
+                        </TableCell>
+                        <TableCell className="text-sm text-muted-foreground">
+                          {client.lastActive}
+                        </TableCell>
+                        <TableCell className="text-right">
+                          {client.requests.toLocaleString()}
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
-  );
+  )
 }

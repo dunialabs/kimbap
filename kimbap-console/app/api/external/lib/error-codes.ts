@@ -58,8 +58,8 @@ export const E4010 = 'E4010'; // Tunnel creation failed
 export const E4011 = 'E4011'; // Invalid proxy key
 export const E4012 = 'E4012'; // Backup decryption failed
 export const E4013 = 'E4013'; // Invalid backup data
-export const E4014 = 'E4014'; // KIMBAP Core not available
-export const E4015 = 'E4015'; // KIMBAP Core validation failed
+export const E4014 = 'E4014'; // Kimbap Core not available
+export const E4015 = 'E4015'; // Kimbap Core validation failed
 
 // System Errors (E5xxx)
 export const E5001 = 'E5001'; // Database error

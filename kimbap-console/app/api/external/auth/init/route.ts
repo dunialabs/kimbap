@@ -24,7 +24,7 @@ interface InitResponse {
 /**
  * POST /api/external/auth/init
  *
- * Initialize the KIMBAP MCP proxy system and create an owner token.
+ * Initialize the Kimbap proxy system and create an owner token.
  * This is the first step to set up a new proxy instance.
  */
 export async function POST(request: NextRequest) {
@@ -75,17 +75,14 @@ export async function POST(request: NextRequest) {
     const proxyKey = randomUUID().replace(/-/g, '');
 
     // Create proxy record
-    let proxy;
-    try {
-      proxy = await createProxy({
-        name: 'My MCP Server',
-        proxyKey: proxyKey,
-        startPort: 3002,
-      });
-    } catch (error) {
+    const proxy = await createProxy({
+      name: 'My MCP Server',
+      proxyKey: proxyKey,
+      startPort: 3002,
+    }).catch((error) => {
       console.error('Failed to create proxy:', error);
       throw new ExternalApiError(E5001, 'Database error');
-    }
+    });
 
     // Create owner user record in proxy service
     try {
@@ -118,7 +115,7 @@ export async function POST(request: NextRequest) {
       });
     } catch (error) {
       console.error('Failed to save user to local table:', error);
-      throw new ExternalApiError(E5001, 'Failed to persist user locally');
+      // Continue execution even if local save fails
     }
 
     // Return success response

@@ -1,48 +1,30 @@
 import { NextRequest, NextResponse } from 'next/server';
 
-import { executeHttpRequest, prepareConnectionRequest } from '@/lib/rest-api-test-client';
+import {
+  executeHttpRequest,
+  prepareConnectionRequest
+} from '@/lib/rest-api-test-client';
 import type { PreparedRequest } from '@/lib/rest-api-test-client';
 import type { APIDefinition } from '@/lib/rest-api-utils';
 import {
   collectResponseHeaders,
   extractResponseBody,
-  formatBodyPreview,
+  formatBodyPreview
 } from '@/lib/http-response-utils';
 import { validateRestApiConfig } from '@/lib/rest-api-utils';
-import { verifyToken } from '@/lib/auth';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 
 export async function POST(request: NextRequest) {
   try {
-    const authHeader = request.headers.get('authorization') || '';
-    if (!authHeader.startsWith('Bearer ') || !authHeader.slice(7).trim()) {
-      return NextResponse.json(
-        { success: false, error: 'Authentication required' },
-        { status: 401 },
-      );
-    }
-    let tokenPayload;
-    try {
-      tokenPayload = verifyToken(authHeader.slice(7).trim());
-    } catch {
-      return NextResponse.json(
-        { success: false, error: 'Invalid or expired token' },
-        { status: 401 },
-      );
-    }
-    if (tokenPayload.role !== 'admin' && tokenPayload.role !== 'owner') {
-      return NextResponse.json({ success: false, error: 'Admin access required' }, { status: 403 });
-    }
-
     const body = await request.json();
     const apiConfig = body?.apiConfig as APIDefinition | undefined;
 
     if (!apiConfig) {
       return NextResponse.json(
         { success: false, error: 'Request body must include "apiConfig".' },
-        { status: 400 },
+        { status: 400 }
       );
     }
 
@@ -50,7 +32,7 @@ export async function POST(request: NextRequest) {
     if (!validation.valid) {
       return NextResponse.json(
         { success: false, error: validation.error || 'REST API configuration is invalid.' },
-        { status: 422 },
+        { status: 422 }
       );
     }
 
@@ -60,7 +42,7 @@ export async function POST(request: NextRequest) {
     } catch (error: any) {
       return NextResponse.json(
         { success: false, error: error?.message || 'Unable to prepare test request.' },
-        { status: 400 },
+        { status: 400 }
       );
     }
 
@@ -76,8 +58,7 @@ export async function POST(request: NextRequest) {
         const responseHeaders = collectResponseHeaders(response);
         const shouldReadBody = method === 'GET' || statusCode >= 400;
         const bodyClone = shouldReadBody ? response.clone() : null;
-        const responseBody =
-          shouldReadBody && bodyClone ? await extractResponseBody(bodyClone) : undefined;
+        const responseBody = shouldReadBody && bodyClone ? await extractResponseBody(bodyClone) : undefined;
         const bodyPreview = formatBodyPreview(responseBody);
 
         if (statusCode === 401 || statusCode === 403) {
@@ -92,12 +73,12 @@ export async function POST(request: NextRequest) {
               statusCode,
               statusText,
               headers: responseHeaders,
-              bodyPreview,
+              bodyPreview
             },
             auth: {
               type: apiConfig.auth?.type || 'none',
-              passed: false,
-            },
+              passed: false
+            }
           });
         }
 
@@ -113,12 +94,12 @@ export async function POST(request: NextRequest) {
               statusCode,
               statusText,
               headers: responseHeaders,
-              bodyPreview,
+              bodyPreview
             },
             auth: {
               type: apiConfig.auth?.type || 'none',
-              passed: true,
-            },
+              passed: true
+            }
           });
         }
 
@@ -141,12 +122,12 @@ export async function POST(request: NextRequest) {
             statusCode,
             statusText,
             headers: responseHeaders,
-            bodyPreview,
+            bodyPreview
           },
           auth: {
             type: apiConfig.auth?.type || 'none',
-            passed: false,
-          },
+            passed: false
+          }
         });
       } catch (error: any) {
         lastError = error?.message || 'Request failed.';
@@ -159,14 +140,14 @@ export async function POST(request: NextRequest) {
       request: buildRequestSummary(prepared, 'HEAD'),
       auth: {
         type: apiConfig.auth?.type || 'none',
-        passed: false,
-      },
+        passed: false
+      }
     });
   } catch (error: any) {
     console.error('Failed to run API connection test:', error);
     return NextResponse.json(
       { success: false, error: error?.message || 'Failed to run API connection test.' },
-      { status: 500 },
+      { status: 500 }
     );
   }
 }
@@ -175,6 +156,6 @@ function buildRequestSummary(request: PreparedRequest, method: string) {
   return {
     method,
     url: request.maskedUrl,
-    headers: request.maskedHeaders,
+    headers: request.maskedHeaders
   };
 }

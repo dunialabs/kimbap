@@ -24,7 +24,7 @@ export default function LoginPage() {
           <div className="flex items-center justify-center mb-4">
             <Image
               src="/logo-icon.png"
-              alt="Kimbap.io"
+              alt="Kimbap"
               width={64}
               height={64}
               className="h-16 w-16"

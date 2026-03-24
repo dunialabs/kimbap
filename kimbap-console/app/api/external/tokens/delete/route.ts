@@ -16,7 +16,7 @@ interface DeleteTokenInput {
  * POST /api/external/tokens/delete
  *
  * Delete an existing access token.
- * Requires authentication (owner only).
+ * Requires authentication (owner or admin).
  */
 export async function POST(request: NextRequest) {
   try {
@@ -63,7 +63,7 @@ export async function POST(request: NextRequest) {
       // Continue with deletion even if disable fails
     }
 
-    // Delete the user via proxy API (from KIMBAP Core)
+    // Delete the user via proxy API (from Kimbap Core)
     await deleteUser(tokenId, undefined, ownerToken);
 
     // Clean up local data

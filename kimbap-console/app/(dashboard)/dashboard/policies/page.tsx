@@ -57,7 +57,33 @@ import {
   CollapsibleContent,
   CollapsibleTrigger,
 } from '@/components/ui/collapsible'
-import { ToolPatternInput, type ToolSuggestion } from '@/components/tool-pattern-input'
+
+interface ToolSuggestion {
+  name: string
+  serverName?: string
+}
+
+function ToolPatternInput({
+  value,
+  onChange,
+  placeholder,
+  className,
+}: {
+  value: string
+  onChange: (value: string) => void
+  placeholder?: string
+  className?: string
+  suggestions?: ToolSuggestion[]
+}) {
+  return (
+    <Input
+      placeholder={placeholder}
+      value={value}
+      onChange={(e) => onChange(e.target.value)}
+      className={className}
+    />
+  )
+}
 
 interface ExtractEntry {
   id: string
@@ -646,32 +672,7 @@ export default function PoliciesPage() {
 
   const fetchToolSuggestions = useCallback(async () => {
     if (toolsFetchedRef.current) return
-    try {
-      const serverInfoRes = await api.servers.getInfo()
-      const proxyId = serverInfoRes.data?.data?.proxyId
-      if (!proxyId) return
-      const res = await api.scopes.getScopes({ proxyId: Number(proxyId) })
-      const data = res.data?.data || res.data
-      const scopes = data?.scopes || []
-      const suggestions: ToolSuggestion[] = []
-      const seen = new Set<string>()
-      for (const scope of scopes) {
-        if (!scope.toolFuncs) continue
-        for (const func of scope.toolFuncs) {
-          if (!func.funcName || seen.has(func.funcName)) continue
-          seen.add(func.funcName)
-          suggestions.push({
-            name: func.funcName,
-            serverName: scope.name || undefined,
-          })
-        }
-      }
-      suggestions.sort((a, b) => a.name.localeCompare(b.name))
-      setToolSuggestions(suggestions)
-      toolsFetchedRef.current = true
-    } catch {
-      // Silently fail — suggestions are optional enhancement
-    }
+    toolsFetchedRef.current = true
   }, [])
 
   const openCreate = () => {

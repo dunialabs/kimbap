@@ -280,7 +280,7 @@ DATABASE_URL=postgresql://kimbap:kimbap123@localhost:5432/kimbap_db
     
     const config = {
       app: {
-        name: 'KIMBAP Console',
+        name: 'Kimbap Console',
         version: '1.0.0',
         port: 3000,
         host: 'localhost'
@@ -310,7 +310,7 @@ DATABASE_URL=postgresql://kimbap:kimbap123@localhost:5432/kimbap_db
   }
 
   async createDocs() {
-    const readme = `# KIMBAP Console 独立部署包
+    const readme = `# Kimbap Console 独立部署包
 
 ## 快速开始
 
@@ -362,7 +362,7 @@ docker run --name kimbap-postgres \\
 确保脚本有执行权限：\`chmod +x scripts/start.sh\`
 
 ---
-KIMBAP Console v1.0.0
+Kimbap Console v1.0.0
 构建时间: ${new Date().toISOString()}
 平台: ${this.platform}-${this.arch}`;
 

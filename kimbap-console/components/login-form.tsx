@@ -261,7 +261,7 @@ export function LoginForm({
                   Members can only use the server. For configuration, please
                   switch token or{' '}
                   <a
-                    href="https://www.kimbap.io/quick-start/#install-desk"
+                    href="https://www.kimbap.sh/quick-start/#install-desk"
                     target="_blank"
                     rel="noopener noreferrer"
                     className="text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 underline cursor-pointer font-medium"

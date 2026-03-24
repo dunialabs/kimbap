@@ -9,7 +9,7 @@
 ###
 
 echo "========================================"
-echo "    Publish KIMBAP Console to Docker Hub"
+echo "    Publish Kimbap Console to Docker Hub"
 echo "========================================"
 
 # Check whether Docker Hub login is active (more reliable approach)
@@ -27,7 +27,7 @@ fi
 
 # Set image information
 # Use environment variables or defaults
-DOCKER_USERNAME=${DOCKER_USERNAME:-"kimbapio"}
+DOCKER_USERNAME=${DOCKER_USERNAME:-"dunialabs"}
 IMAGE_NAME="$DOCKER_USERNAME/kimbap-console"
 VERSION=${1:-"latest"}
 FULL_TAG="$IMAGE_NAME:$VERSION"
