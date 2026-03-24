@@ -176,7 +176,7 @@ func (m *serverManager) GetOwnerToken() (string, error) {
 }
 
 func (m *serverManager) AddServer(ctx context.Context, server database.Server, token string) (*ServerContext, error) {
-	result, err, _ := m.startupGroup.Do(server.ServerID, func() (interface{}, error) {
+	result, err, _ := m.startupGroup.Do(server.ServerID, func() (any, error) {
 		var contextObj *ServerContext
 
 		m.mu.RLock()

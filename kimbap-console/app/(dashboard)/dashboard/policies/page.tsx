@@ -420,7 +420,7 @@ function RuleCard({
                 }
               >
                 <Plus className="mr-1 h-3 w-3" />
-                Add
+                Add Condition
               </Button>
             </div>
 
