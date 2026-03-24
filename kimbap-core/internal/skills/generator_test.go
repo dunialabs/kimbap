@@ -3,6 +3,7 @@ package skills
 import (
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 )
 
@@ -196,5 +197,562 @@ paths:
 	}
 	if _, ok := manifest.Actions["health"]; !ok {
 		t.Fatalf("expected health action from URL source")
+	}
+}
+
+func TestGenerateFromOpenAPIPreservesNumberTypes(t *testing.T) {
+	spec := `openapi: 3.0.3
+info:
+  title: Pricing API
+  version: 1.0.0
+servers:
+  - url: https://api.example.com
+paths:
+  /prices:
+    post:
+      operationId: createPrice
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [amount]
+              properties:
+                amount:
+                  type: number
+      responses:
+        '200':
+          description: ok
+          content:
+            application/json:
+              schema:
+                type: object
+`
+
+	manifest, err := GenerateFromOpenAPI([]byte(spec))
+	if err != nil {
+		t.Fatalf("GenerateFromOpenAPI failed: %v", err)
+	}
+
+	action := manifest.Actions["createprice"]
+	if len(action.Args) != 1 {
+		t.Fatalf("expected one arg, got %d", len(action.Args))
+	}
+	if action.Args[0].Name != "amount" || action.Args[0].Type != "number" {
+		t.Fatalf("expected amount:number, got %+v", action.Args[0])
+	}
+}
+
+func TestGenerateFromOpenAPIOperationSecurityOverride(t *testing.T) {
+	spec := `openapi: 3.0.3
+info:
+  title: Security API
+  version: 1.0.0
+servers:
+  - url: https://api.example.com
+security:
+  - BearerAuth: []
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+    ApiKeyAuth:
+      type: apiKey
+      in: query
+      name: api_key
+paths:
+  /search:
+    get:
+      operationId: search
+      security:
+        - ApiKeyAuth: []
+      responses:
+        '200':
+          description: ok
+          content:
+            application/json:
+              schema:
+                type: object
+`
+
+	manifest, err := GenerateFromOpenAPI([]byte(spec))
+	if err != nil {
+		t.Fatalf("GenerateFromOpenAPI failed: %v", err)
+	}
+
+	if manifest.Auth.Type != "bearer" {
+		t.Fatalf("expected skill-level bearer auth, got %+v", manifest.Auth)
+	}
+
+	action := manifest.Actions["search"]
+	if action.Auth == nil {
+		t.Fatalf("expected operation-level auth override")
+	}
+	if action.Auth.Type != "query" || action.Auth.QueryParam != "api_key" {
+		t.Fatalf("unexpected operation auth: %+v", action.Auth)
+	}
+}
+
+func TestGenerateFromOpenAPIActionKeyDisambiguationIsDeterministic(t *testing.T) {
+	spec := `openapi: 3.0.3
+info:
+  title: Collision API
+  version: 1.0.0
+servers:
+  - url: https://api.example.com
+paths:
+  /alpha:
+    get:
+      operationId: duplicate
+      responses:
+        '200':
+          description: ok
+          content:
+            application/json:
+              schema:
+                type: object
+  /beta:
+    get:
+      operationId: duplicate
+      responses:
+        '200':
+          description: ok
+          content:
+            application/json:
+              schema:
+                type: object
+  /gamma:
+    get:
+      operationId: duplicate
+      responses:
+        '200':
+          description: ok
+          content:
+            application/json:
+              schema:
+                type: object
+`
+
+	manifest, err := GenerateFromOpenAPI([]byte(spec))
+	if err != nil {
+		t.Fatalf("GenerateFromOpenAPI failed: %v", err)
+	}
+
+	if _, ok := manifest.Actions["duplicate"]; !ok {
+		t.Fatalf("expected base key to exist")
+	}
+
+	betaKey := "duplicate-" + shortStableHash("get /beta")[:6]
+	if _, ok := manifest.Actions[betaKey]; !ok {
+		t.Fatalf("expected deterministic beta key %q", betaKey)
+	}
+
+	gammaKey := "duplicate-" + shortStableHash("get /gamma")[:6]
+	if _, ok := manifest.Actions[gammaKey]; !ok {
+		t.Fatalf("expected deterministic gamma key %q", gammaKey)
+	}
+
+	for key := range manifest.Actions {
+		if strings.HasSuffix(key, "-2") || strings.HasSuffix(key, "-3") {
+			t.Fatalf("unexpected ordinal collision suffix in key %q", key)
+		}
+	}
+}
+
+func TestGenerateFromOpenAPICompositeSchemas(t *testing.T) {
+	spec := `openapi: 3.0.3
+info:
+  title: Composite API
+  version: 1.0.0
+servers:
+  - url: https://api.example.com
+paths:
+  /merge:
+    post:
+      operationId: mergePayload
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              allOf:
+                - type: object
+                  required: [name]
+                  properties:
+                    name:
+                      type: string
+                - type: object
+                  required: [price]
+                  properties:
+                    price:
+                      type: number
+      responses:
+        '200':
+          description: ok
+          content:
+            application/json:
+              schema:
+                type: object
+  /choose:
+    post:
+      operationId: choosePayload
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              oneOf:
+                - type: object
+                  required: [mode]
+                  properties:
+                    mode:
+                      type: string
+                - type: object
+                  required: [count]
+                  properties:
+                    count:
+                      type: integer
+      responses:
+        '200':
+          description: ok
+          content:
+            application/json:
+              schema:
+                type: object
+  /list:
+    get:
+      operationId: listItems
+      parameters:
+        - name: filter
+          in: query
+          schema:
+            anyOf:
+              - type: integer
+              - type: string
+      responses:
+        '200':
+          description: ok
+          content:
+            application/json:
+              schema:
+                type: object
+`
+
+	manifest, err := GenerateFromOpenAPI([]byte(spec))
+	if err != nil {
+		t.Fatalf("GenerateFromOpenAPI failed: %v", err)
+	}
+
+	merge := manifest.Actions["mergepayload"]
+	mergeArgs := map[string]ActionArg{}
+	for _, arg := range merge.Args {
+		mergeArgs[arg.Name] = arg
+	}
+	if !mergeArgs["name"].Required || !mergeArgs["price"].Required {
+		t.Fatalf("expected allOf required fields to be required, got %+v", merge.Args)
+	}
+	if mergeArgs["price"].Type != "number" {
+		t.Fatalf("expected allOf merged price:number, got %+v", mergeArgs["price"])
+	}
+
+	choose := manifest.Actions["choosepayload"]
+	if len(choose.Args) != 1 {
+		t.Fatalf("expected one arg from oneOf primary schema, got %d", len(choose.Args))
+	}
+	if choose.Args[0].Name != "mode" || choose.Args[0].Required {
+		t.Fatalf("expected oneOf primary arg mode to be optional, got %+v", choose.Args[0])
+	}
+
+	list := manifest.Actions["listitems"]
+	if len(list.Args) != 1 || list.Args[0].Name != "filter" || list.Args[0].Type != "integer" {
+		t.Fatalf("expected anyOf first schema type for filter arg, got %+v", list.Args)
+	}
+}
+
+func TestGenerateFromOpenAPIComplexOneOfFallsBackToOpaqueBody(t *testing.T) {
+	spec := `openapi: 3.0.3
+info:
+  title: Complex OneOf API
+  version: 1.0.0
+servers:
+  - url: https://api.example.com
+paths:
+  /events:
+    post:
+      operationId: createEvent
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              oneOf:
+                - type: object
+                  properties:
+                    kind:
+                      type: string
+                    a:
+                      type: string
+                - type: object
+                  properties:
+                    kind:
+                      type: string
+                    b:
+                      type: integer
+                - type: object
+                  properties:
+                    kind:
+                      type: string
+                    c:
+                      type: boolean
+      responses:
+        '200':
+          description: ok
+          content:
+            application/json:
+              schema:
+                type: object
+`
+
+	manifest, err := GenerateFromOpenAPI([]byte(spec))
+	if err != nil {
+		t.Fatalf("GenerateFromOpenAPI failed: %v", err)
+	}
+
+	action := manifest.Actions["createevent"]
+	if len(action.Args) != 0 {
+		t.Fatalf("expected no args for opaque body (raw JSON passthrough via --json), got %+v", action.Args)
+	}
+	if len(action.Request.Body) != 0 {
+		t.Fatalf("expected empty body template for opaque schema, got %+v", action.Request.Body)
+	}
+}
+
+func TestGenerateFromOpenAPIOneOfWithDiscriminatorFallsBackToOpaque(t *testing.T) {
+	spec := `openapi: 3.0.3
+info:
+  title: Discriminator API
+  version: 1.0.0
+servers:
+  - url: https://api.example.com
+paths:
+  /animals:
+    post:
+      operationId: createAnimal
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              discriminator:
+                propertyName: petType
+              oneOf:
+                - type: object
+                  properties:
+                    petType:
+                      type: string
+                    bark:
+                      type: boolean
+                - type: object
+                  properties:
+                    petType:
+                      type: string
+                    hunts:
+                      type: boolean
+      responses:
+        '200':
+          description: ok
+          content:
+            application/json:
+              schema:
+                type: object
+`
+
+	manifest, err := GenerateFromOpenAPI([]byte(spec))
+	if err != nil {
+		t.Fatalf("GenerateFromOpenAPI failed: %v", err)
+	}
+
+	action := manifest.Actions["createanimal"]
+	if len(action.Args) != 0 {
+		t.Fatalf("expected no args for opaque body with discriminator, got %+v", action.Args)
+	}
+	if len(action.Request.Body) != 0 {
+		t.Fatalf("expected empty body template for opaque schema, got %+v", action.Request.Body)
+	}
+}
+
+func TestGenerateFromOpenAPIAllOfTypeConflictUsesLastWriter(t *testing.T) {
+	spec := `openapi: 3.0.3
+info:
+  title: Conflict API
+  version: 1.0.0
+servers:
+  - url: https://api.example.com
+paths:
+  /conflict:
+    post:
+      operationId: conflictPayload
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              allOf:
+                - type: object
+                  required: [value]
+                  properties:
+                    value:
+                      type: string
+                - type: object
+                  discriminator:
+                    propertyName: mode
+                  properties:
+                    mode:
+                      type: string
+                    value:
+                      type: integer
+      responses:
+        '200':
+          description: ok
+          content:
+            application/json:
+              schema:
+                type: object
+`
+
+	manifest, err := GenerateFromOpenAPI([]byte(spec))
+	if err != nil {
+		t.Fatalf("GenerateFromOpenAPI failed: %v", err)
+	}
+
+	action := manifest.Actions["conflictpayload"]
+	argsByName := map[string]ActionArg{}
+	for _, arg := range action.Args {
+		argsByName[arg.Name] = arg
+	}
+	if argsByName["value"].Type != "integer" {
+		t.Fatalf("expected last-writer type override to integer, got %+v", argsByName["value"])
+	}
+	if !strings.Contains(action.Description, `allOf conflict for property "value"`) {
+		t.Fatalf("expected warning annotation in description, got %q", action.Description)
+	}
+}
+
+func TestGenerateFromOpenAPISimpleOneOfStillFlattens(t *testing.T) {
+	spec := `openapi: 3.0.3
+info:
+  title: Simple OneOf API
+  version: 1.0.0
+servers:
+  - url: https://api.example.com
+paths:
+  /choose:
+    post:
+      operationId: chooseSimple
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              oneOf:
+                - type: object
+                  required: [mode]
+                  properties:
+                    mode:
+                      type: string
+                - type: object
+                  required: [count]
+                  properties:
+                    count:
+                      type: integer
+      responses:
+        '200':
+          description: ok
+          content:
+            application/json:
+              schema:
+                type: object
+`
+
+	manifest, err := GenerateFromOpenAPI([]byte(spec))
+	if err != nil {
+		t.Fatalf("GenerateFromOpenAPI failed: %v", err)
+	}
+
+	action := manifest.Actions["choosesimple"]
+	if len(action.Args) != 1 {
+		t.Fatalf("expected one arg from first oneOf variant, got %+v", action.Args)
+	}
+	if action.Args[0].Name != "mode" {
+		t.Fatalf("expected flattened mode arg from primary schema, got %+v", action.Args[0])
+	}
+}
+
+func TestE2EOpaqueBodyRawPassthrough(t *testing.T) {
+	spec := `openapi: 3.0.3
+info:
+  title: Polymorphic API
+  version: 1.0.0
+servers:
+  - url: https://api.example.com
+paths:
+  /events:
+    post:
+      operationId: createEvent
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              oneOf:
+                - type: object
+                  properties:
+                    type: {type: string}
+                    a: {type: string}
+                - type: object
+                  properties:
+                    type: {type: string}
+                    b: {type: integer}
+                - type: object
+                  properties:
+                    type: {type: string}
+                    c: {type: boolean}
+      responses:
+        '200':
+          description: ok
+          content:
+            application/json:
+              schema:
+                type: object
+`
+	manifest, err := GenerateFromOpenAPI([]byte(spec))
+	if err != nil {
+		t.Fatalf("GenerateFromOpenAPI: %v", err)
+	}
+
+	defs, err := ToActionDefinitions(manifest)
+	if err != nil {
+		t.Fatalf("ToActionDefinitions: %v", err)
+	}
+
+	if len(defs) != 1 {
+		t.Fatalf("expected 1 action def, got %d", len(defs))
+	}
+
+	def := defs[0]
+
+	if def.Adapter.RequestBody != "" {
+		t.Fatalf("expected empty RequestBody template for opaque body, got %q", def.Adapter.RequestBody)
+	}
+
+	if def.InputSchema != nil && len(def.InputSchema.Properties) > 0 {
+		t.Fatalf("expected no input properties for opaque body, got %+v", def.InputSchema.Properties)
+	}
+
+	if !def.InputSchema.AdditionalProperties {
+		t.Fatal("expected additionalProperties=true so --json input passes through as raw body")
 	}
 }

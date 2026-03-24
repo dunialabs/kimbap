@@ -43,6 +43,8 @@ func (s *Server) registerRoutes() {
 
 			r.With(RequireScope("audit:read")).Get("/audit", s.handleQueryAudit)
 			r.With(RequireScope("audit:read")).Get("/audit/export", s.handleExportAudit)
+
+			s.registerWebhookRoutes(r)
 		})
 	})
 }

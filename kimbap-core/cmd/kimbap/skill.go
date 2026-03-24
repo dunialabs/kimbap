@@ -1,9 +1,12 @@
 package main
 
 import (
+	"crypto/ed25519"
+	"encoding/hex"
 	"fmt"
 	"net/url"
 	"os"
+	"path/filepath"
 	"strings"
 
 	"github.com/dunialabs/kimbap-core/internal/skills"
@@ -20,8 +23,11 @@ func newSkillCommand() *cobra.Command {
 	cmd.AddCommand(newSkillInstallCommand())
 	cmd.AddCommand(newSkillListCommand())
 	cmd.AddCommand(newSkillRemoveCommand())
+	cmd.AddCommand(newSkillVerifyCommand())
+	cmd.AddCommand(newSkillSignCommand())
 	cmd.AddCommand(newSkillValidateCommand())
 	cmd.AddCommand(newSkillGenerateCommand())
+	cmd.AddCommand(newSkillExportSkillMDCommand())
 
 	return cmd
 }
@@ -111,6 +117,142 @@ func newSkillValidateCommand() *cobra.Command {
 	return cmd
 }
 
+func newSkillVerifyCommand() *cobra.Command {
+	var includeSignatures bool
+	var pinnedKeyPath string
+
+	cmd := &cobra.Command{
+		Use:   "verify [name]",
+		Short: "Verify installed skill integrity against lockfile",
+		Args:  cobra.MaximumNArgs(1),
+		RunE: func(_ *cobra.Command, args []string) error {
+			cfg, err := loadAppConfig()
+			if err != nil {
+				return err
+			}
+			installer := installerFromConfig(cfg)
+
+			var pinnedKey ed25519.PublicKey
+			if strings.TrimSpace(pinnedKeyPath) != "" {
+				keyData, readErr := os.ReadFile(pinnedKeyPath)
+				if readErr != nil {
+					return fmt.Errorf("read pinned key: %w", readErr)
+				}
+				keyBytes, decErr := hex.DecodeString(strings.TrimSpace(string(keyData)))
+				if decErr != nil || len(keyBytes) != ed25519.PublicKeySize {
+					return fmt.Errorf("pinned key must be %d hex-encoded bytes (ed25519 public key)", ed25519.PublicKeySize)
+				}
+				pinnedKey = ed25519.PublicKey(keyBytes)
+			}
+
+			verifyOne := func(name string) (*skills.VerifyResult, error) {
+				if pinnedKey != nil {
+					return installer.VerifyWithKey(name, pinnedKey)
+				}
+				return installer.Verify(name)
+			}
+
+			if len(args) == 1 {
+				result, verifyErr := verifyOne(args[0])
+				if verifyErr != nil {
+					return verifyErr
+				}
+				if includeSignatures && !outputAsJSON() {
+					printVerifyResultText(*result, true)
+					return nil
+				}
+				return printOutput(result)
+			}
+
+			installed, listErr := installer.List()
+			if listErr != nil {
+				return listErr
+			}
+			results := make([]skills.VerifyResult, 0, len(installed))
+			for _, s := range installed {
+				result, verifyErr := verifyOne(s.Manifest.Name)
+				if verifyErr != nil {
+					return verifyErr
+				}
+				results = append(results, *result)
+			}
+			if includeSignatures && !outputAsJSON() {
+				for _, result := range results {
+					printVerifyResultText(result, true)
+				}
+				return nil
+			}
+			return printOutput(results)
+		},
+	}
+	cmd.Flags().BoolVar(&includeSignatures, "signatures", false, "include lockfile signature status in text output")
+	cmd.Flags().StringVar(&pinnedKeyPath, "key", "", "path to pinned ed25519 public key (hex) for signature verification (ignores embedded key)")
+	return cmd
+}
+
+func newSkillSignCommand() *cobra.Command {
+	var keyPath string
+
+	cmd := &cobra.Command{
+		Use:   "sign",
+		Short: "Sign lockfile entries with ed25519 key",
+		Long:  "Signs all skill digest entries in the lockfile for supply-chain integrity verification.",
+		RunE: func(_ *cobra.Command, _ []string) error {
+			cfg, err := loadAppConfig()
+			if err != nil {
+				return err
+			}
+
+			keyData, err := os.ReadFile(keyPath)
+			if err != nil {
+				return fmt.Errorf("read signing key: %w", err)
+			}
+
+			seedBytes, err := hex.DecodeString(strings.TrimSpace(string(keyData)))
+			if err != nil || len(seedBytes) != ed25519.SeedSize {
+				return fmt.Errorf("signing key must be %d hex-encoded bytes (ed25519 seed)", ed25519.SeedSize)
+			}
+
+			privateKey := ed25519.NewKeyFromSeed(seedBytes)
+			installer := installerFromConfig(cfg)
+
+			if err := installer.Sign(privateKey); err != nil {
+				return err
+			}
+
+			return printOutput(map[string]any{"signed": true})
+		},
+	}
+
+	cmd.Flags().StringVar(&keyPath, "key", "", "path to ed25519 private key (hex-encoded seed)")
+	_ = cmd.MarkFlagRequired("key")
+
+	return cmd
+}
+
+func printVerifyResultText(result skills.VerifyResult, includeSignatures bool) {
+	status := "NOT VERIFIED"
+	if result.Verified {
+		status = "VERIFIED"
+	}
+
+	locked := "unlocked"
+	if result.Locked {
+		locked = "locked"
+	}
+
+	line := fmt.Sprintf("%s: %s (%s)", result.Name, status, locked)
+	if includeSignatures && result.Signed {
+		sigStatus := "invalid"
+		if result.SignatureValid {
+			sigStatus = "valid"
+		}
+		line += fmt.Sprintf(" [signature: %s]", sigStatus)
+	}
+
+	_, _ = fmt.Fprintln(os.Stdout, line)
+}
+
 func newSkillGenerateCommand() *cobra.Command {
 	var openapiSource string
 	var outputPath string
@@ -153,6 +295,61 @@ func newSkillGenerateCommand() *cobra.Command {
 	cmd.Flags().StringVar(&openapiSource, "openapi", "", "OpenAPI 3.x spec path or URL")
 	cmd.Flags().StringVar(&outputPath, "output", "", "Output file path (defaults to stdout)")
 	_ = cmd.MarkFlagRequired("openapi")
+
+	return cmd
+}
+
+func newSkillExportSkillMDCommand() *cobra.Command {
+	var outputPath string
+	var outputDir string
+
+	cmd := &cobra.Command{
+		Use:   "export-skillmd <name> [--output file] [--dir directory]",
+		Short: "Export installed skill as SKILL.md (Agent Skills open standard)",
+		Long:  "Generate a SKILL.md file compatible with Claude Code, OpenAI Codex, GitHub Copilot, and other AI agents.",
+		Args:  cobra.ExactArgs(1),
+		RunE: func(_ *cobra.Command, args []string) error {
+			cfg, err := loadAppConfig()
+			if err != nil {
+				return err
+			}
+
+			installed, err := installerFromConfig(cfg).Get(args[0])
+			if err != nil {
+				return fmt.Errorf("skill %q not found: %w", args[0], err)
+			}
+
+			content, err := skills.GenerateSkillMD(&installed.Manifest)
+			if err != nil {
+				return err
+			}
+
+			if strings.TrimSpace(outputDir) != "" {
+				skillDir := filepath.Join(outputDir, installed.Manifest.Name)
+				if err := os.MkdirAll(skillDir, 0o755); err != nil {
+					return fmt.Errorf("create skill directory: %w", err)
+				}
+				outPath := filepath.Join(skillDir, "SKILL.md")
+				if err := os.WriteFile(outPath, []byte(content), 0o644); err != nil {
+					return fmt.Errorf("write SKILL.md: %w", err)
+				}
+				return printOutput(map[string]any{"exported": true, "path": outPath})
+			}
+
+			if strings.TrimSpace(outputPath) != "" {
+				if err := os.WriteFile(outputPath, []byte(content), 0o644); err != nil {
+					return fmt.Errorf("write SKILL.md: %w", err)
+				}
+				return printOutput(map[string]any{"exported": true, "path": outputPath})
+			}
+
+			fmt.Print(content)
+			return nil
+		},
+	}
+
+	cmd.Flags().StringVar(&outputPath, "output", "", "output file path")
+	cmd.Flags().StringVar(&outputDir, "dir", "", "output directory (creates name/SKILL.md structure)")
 
 	return cmd
 }

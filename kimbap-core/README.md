@@ -351,54 +351,75 @@ Existing CLIs assume a human operator. Kimbap assumes:
 
 ## Status
 
-Kimbap is being designed as a **CLI-first secure runtime**, reoriented for subprocess agents, local agents, and connected deployments.
+Kimbap is an active, early-stage product. Today it operates as a **server runtime** with REST and MCP interfaces. The CLI surface (`kimbap call`, `kimbap run`, etc.) is under development as a thin client over the same runtime.
 
-Initial focus:
+### Current availability
 
-- action runtime
-- vault and token lifecycle
-- Tier 1 skill execution
-- proxy and subprocess onboarding
-- OAuth connectors
-- policy and approval
-- audit and observability
+| Capability | Status | Notes |
+|---|---|---|
+| REST v1 API (`/api/v1`) | Available | Tokens, policies, approvals, audit, action execution |
+| MCP protocol (`/mcp`) | Available | JSON-RPC for AI agent communication |
+| Action runtime | Available | Policy evaluation, credential injection, execution |
+| Vault (encrypted credential storage) | Available | AES-256-GCM, per-record encryption |
+| OAuth connectors | Available | Google, GitHub, Slack |
+| Policy engine | Available | YAML DSL, dry-run simulation |
+| Approval workflow | Available | Console + Socket.IO real-time |
+| Audit trail | Available | Structured events, export |
+| Tier 1 skills (YAML) | Available | Declarative REST API integration |
+| Console (admin UI) | Available | Monitoring, approvals, audit viewer |
+| `kimbap call` (CLI) | In progress | Explicit action execution |
+| `kimbap run` (subprocess) | In progress | Agent process wrapper |
+| `kimbap proxy` (transparent) | In progress | HTTP/HTTPS proxy mode |
+| `kimbap serve` (connected) | In progress | Multi-tenant REST server |
+| Embedded mode (local-only) | Planned | Single-user, no server required |
+| SDKs | Planned | Python, TypeScript, Go |
+| Skill registry | Planned | Install, publish, verify |
+| Messaging adapters (Slack, Telegram) | Planned | Approval notification channels |
+
+### Supported interfaces
+
+For all new integrations, use the canonical interfaces:
+
+| Interface | Path | Status | Use When |
+|---|---|---|---|
+| **REST v1 API** | `/api/v1/*` | **Canonical** | Programmatic access, automation, SDKs |
+| **MCP Protocol** | `/mcp` | **Canonical** | AI agent communication via MCP JSON-RPC |
+| Admin API | `/admin` | Legacy (frozen) | Console uses this today; migration to REST v1 planned |
+| User API | `/user` | Legacy (frozen) | Console uses this today; migration to REST v1 planned |
+| Socket.IO | `/socket.io` | Stable | Real-time events (approvals, notifications) |
+| Health | `/health`, `/ready` | Stable | Liveness and readiness probes |
 
 ---
 
 ## Roadmap
 
-### Phase 1
+### Phase 1 (current)
 
-- core action runtime
-- vault
-- tokens
-- `kimbap call`
-- Tier 1 skills
-- embedded mode
+- Action runtime with REST v1 + MCP interfaces
+- Vault and token lifecycle
+- Tier 1 skill execution via YAML
+- OAuth connectors (Google, GitHub, Slack)
+- Policy engine and approval workflow
+- Audit trail and observability
+- Console admin UI
 
 ### Phase 2
 
-- `kimbap proxy`
-- `kimbap run`
-- `kimbap serve`
-- OAuth connectors
-- multi-tenant connected mode
-- policy evaluation
+- CLI surface: `kimbap call`, `kimbap run`, `kimbap proxy`, `kimbap serve`
+- Multi-tenant connected mode
+- Embedded (local-only) mode
 
 ### Phase 3
 
-- approval queue
-- console
-- messaging adapters
-- skill install and registry
-- provenance and verification
+- Messaging adapters for approval notifications
+- Skill registry (install, publish, verify)
+- Provenance and verification
 
 ### Phase 4
 
-- SDKs
-- optional MCP compatibility
-- enterprise identity
-- advanced registry and policy features
+- SDKs (Python, TypeScript, Go)
+- Enterprise identity (SPIFFE/OIDC)
+- Advanced registry and policy features
 
 ---
 

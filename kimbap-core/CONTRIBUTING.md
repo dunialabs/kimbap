@@ -82,6 +82,53 @@ If you find a bug or have a feature request:
 - Preserve auth, policy, and request-routing semantics
 - Ensure cleanup paths are safe and complete
 
+## Canonical Patterns
+
+### Adding a new feature to Kimbap Core
+
+**API endpoints:** Add new endpoints to the REST v1 API (`/api/v1`):
+- Routes go in `internal/api/routes.go`
+- Handlers go in `internal/api/handlers.go`
+- Follow existing RESTful resource patterns (see tokens, policies, approvals)
+- Use scope-based authorization: `r.With(RequireScope("resource:action"))`
+
+**Do NOT** add new handlers to `/admin` or `/user` — these are legacy and frozen.
+
+### Adding a new service integration (Skill)
+
+Create a YAML file in `skills/official/`:
+
+```yaml
+name: service-name
+version: 1.0.0
+description: Short description
+base_url: https://api.example.com
+auth:
+  type: bearer                    # bearer | header | query_param | basic | oauth2
+  credential_ref: service.token   # vault key reference
+actions:
+  action-name:
+    method: GET
+    path: /resource/{id}
+    description: What it does
+    args:
+      - name: id
+        type: string
+        required: true
+    risk:
+      level: low                  # low | medium | high | critical
+      mutating: false
+```
+
+**Action naming convention:** Use kebab-case within the skill file (e.g., `list-repos`, `create-issue`). The canonical name becomes `service.action-name` (e.g., `github.create-issue`).
+
+### Environment variables
+
+- Kimbap Core vars use the `KIMBAP_*` prefix where possible
+- `KIMBAP_CORE_URL` is the canonical name for the Core connection URL
+- `MCP_GATEWAY_URL` is accepted as a deprecated alias
+- `JWT_SECRET` must match between Core and Console
+
 ## Testing
 
 Run:

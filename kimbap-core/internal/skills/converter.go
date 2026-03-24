@@ -53,7 +53,7 @@ func ToActionDefinitions(skill *SkillManifest) ([]actions.ActionDefinition, erro
 			Risk:         mapRisk(actionSpec.Risk.Level),
 			Idempotent:   isIdempotent(actionSpec.Method),
 			ApprovalHint: mapApprovalHint(actionSpec.Risk.Level),
-			Auth:         mapAuth(skill.Auth),
+			Auth:         mapAuth(resolveActionAuth(skill.Auth, actionSpec.Auth)),
 			InputSchema:  buildInputSchema(actionSpec.Args, actionSpec.Request.PathParams),
 			OutputSchema: buildOutputSchema(actionSpec.Response),
 			Adapter: actions.AdapterConfig{
@@ -139,6 +139,13 @@ func mapAuth(auth SkillAuth) actions.AuthRequirement {
 	}
 
 	return req
+}
+
+func resolveActionAuth(defaultAuth SkillAuth, actionAuth *SkillAuth) SkillAuth {
+	if actionAuth != nil {
+		return *actionAuth
+	}
+	return defaultAuth
 }
 
 func buildInputSchema(args []ActionArg, pathParams map[string]string) *actions.Schema {

@@ -17,6 +17,7 @@ func newActionsCommand() *cobra.Command {
 	}
 
 	var service string
+	var brief bool
 	listCmd := &cobra.Command{
 		Use:   "list",
 		Short: "List actions from installed skills",
@@ -38,12 +39,31 @@ func newActionsCommand() *cobra.Command {
 				out = append(out, def)
 			}
 
+			if brief && outputAsJSON() {
+				briefList := make([]map[string]string, 0, len(out))
+				for _, def := range out {
+					briefList = append(briefList, map[string]string{
+						"name":        def.Name,
+						"description": def.Description,
+						"risk":        string(def.Risk),
+					})
+				}
+				return printOutput(briefList)
+			}
+
 			if outputAsJSON() {
 				return printOutput(out)
 			}
 
 			if len(out) == 0 {
 				return printOutput("No actions found.")
+			}
+
+			if brief {
+				for _, def := range out {
+					fmt.Printf("%-40s %s\n", def.Name, def.Description)
+				}
+				return nil
 			}
 
 			for _, def := range out {
@@ -53,6 +73,7 @@ func newActionsCommand() *cobra.Command {
 		},
 	}
 	listCmd.Flags().StringVar(&service, "service", "", "filter by service name")
+	listCmd.Flags().BoolVar(&brief, "brief", false, "show only action names and descriptions (agent-friendly)")
 
 	describeCmd := &cobra.Command{
 		Use:   "describe <service.action>",

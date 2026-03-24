@@ -17,7 +17,7 @@ var (
 	validRiskLevelSet    = map[string]struct{}{"low": {}, "medium": {}, "high": {}, "critical": {}}
 	validAuthTypeSet     = map[string]struct{}{"header": {}, "bearer": {}, "basic": {}, "query": {}, "body": {}, "none": {}}
 	validHTTPMethodSet   = map[string]struct{}{"GET": {}, "POST": {}, "PUT": {}, "PATCH": {}, "DELETE": {}, "HEAD": {}, "OPTIONS": {}}
-	validArgTypeSet      = map[string]struct{}{"string": {}, "integer": {}, "boolean": {}, "array": {}, "object": {}}
+	validArgTypeSet      = map[string]struct{}{"string": {}, "integer": {}, "number": {}, "boolean": {}, "array": {}, "object": {}}
 	validPageTypeSet     = map[string]struct{}{"cursor": {}, "offset": {}}
 	validResponseTypeSet = map[string]struct{}{"object": {}, "array": {}}
 )
@@ -112,7 +112,7 @@ func ValidateManifest(m *SkillManifest) []ValidationError {
 				errs = append(errs, ValidationError{Field: argField + ".name", Message: "is required"})
 			}
 			if _, ok := validArgTypeSet[strings.ToLower(strings.TrimSpace(arg.Type))]; !ok {
-				errs = append(errs, ValidationError{Field: argField + ".type", Message: "must be one of string, integer, boolean, array, object"})
+				errs = append(errs, ValidationError{Field: argField + ".type", Message: "must be one of string, integer, number, boolean, array, object"})
 			}
 			if arg.Required && arg.Default != nil {
 				errs = append(errs, ValidationError{Field: argField + ".default", Message: "required args must not have defaults"})

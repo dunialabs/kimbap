@@ -3,6 +3,8 @@ package main
 import (
 	"encoding/json"
 	"fmt"
+	"io"
+	"net/url"
 	"os"
 	"strconv"
 	"strings"
@@ -30,6 +32,13 @@ func newCallCommand() *cobra.Command {
 			input, err := parseDynamicInput(inputTokens)
 			if err != nil {
 				return err
+			}
+			if strings.TrimSpace(opts.jsonInput) != "" {
+				jsonInput, parseErr := parseJSONInput(opts.jsonInput)
+				if parseErr != nil {
+					return parseErr
+				}
+				input = mergeInputMaps(input, jsonInput)
 			}
 
 			cfg, err := loadAppConfig()
@@ -103,6 +112,22 @@ func newCallCommand() *cobra.Command {
 func buildDryRunPreview(cfg *config.KimbapConfig, req actions.ExecutionRequest) map[string]any {
 	validationErr := actions.ValidateInput(req.Action.InputSchema, req.Input)
 	credentialRef := strings.TrimSpace(req.Action.Auth.CredentialRef)
+	authReady := isCredentialReady(cfg, req)
+	approvalNeeded := req.Action.ApprovalHint == actions.ApprovalRequired
+
+	resolvedHeaders := map[string]string{}
+	for k, v := range req.Action.Adapter.Headers {
+		resolvedHeaders[k] = resolvePreviewTemplate(v, req.Input)
+	}
+	resolvedHeaders = maskSensitivePreviewHeaders(resolvedHeaders, req.Action.Auth)
+
+	resolvedQuery := map[string]string{}
+	for k, v := range req.Action.Adapter.Query {
+		resolvedQuery[k] = resolvePreviewTemplate(v, req.Input)
+	}
+
+	resolvedURL := resolvePreviewURL(req.Action, req.Input, resolvedQuery)
+	requestBodyPreview := buildRequestBodyPreview(req)
 
 	var validationError any
 	if validationErr != nil {
@@ -116,10 +141,83 @@ func buildDryRunPreview(cfg *config.KimbapConfig, req actions.ExecutionRequest) 
 		"input_valid":            validationErr == nil,
 		"validation_error":       validationError,
 		"credential_ref":         credentialRef,
-		"credential_ready":       isCredentialReady(cfg, req),
+		"credential_ready":       authReady,
+		"auth_type":              string(req.Action.Auth.Type),
+		"auth_ready":             authReady,
 		"policy_path":            strings.TrimSpace(cfg.Policy.Path),
-		"would_require_approval": req.Action.ApprovalHint == actions.ApprovalRequired,
+		"would_require_approval": approvalNeeded,
+		"approval_needed":        approvalNeeded,
+		"http_method":            strings.ToUpper(strings.TrimSpace(req.Action.Adapter.Method)),
+		"resolved_url":           resolvedURL,
+		"resolved_headers":       resolvedHeaders,
+		"resolved_query":         resolvedQuery,
+		"request_body_preview":   requestBodyPreview,
 	}
+}
+
+func resolvePreviewURL(action actions.ActionDefinition, input map[string]any, query map[string]string) string {
+	base := strings.TrimSuffix(strings.TrimSpace(action.Adapter.BaseURL), "/")
+	path := strings.TrimSpace(resolvePreviewTemplate(action.Adapter.URLTemplate, input))
+	if path == "" {
+		path = "/"
+	}
+	if !strings.HasPrefix(path, "/") {
+		path = "/" + path
+	}
+	resolved := base + path
+	if len(query) == 0 {
+		return resolved
+	}
+	values := url.Values{}
+	for k, v := range query {
+		values.Set(k, v)
+	}
+	encoded := values.Encode()
+	if encoded == "" {
+		return resolved
+	}
+	return resolved + "?" + encoded
+}
+
+func resolvePreviewTemplate(tmpl string, input map[string]any) string {
+	out := tmpl
+	for key, value := range input {
+		out = strings.ReplaceAll(out, "{"+key+"}", fmt.Sprintf("%v", value))
+	}
+	return out
+}
+
+func maskSensitivePreviewHeaders(headers map[string]string, auth actions.AuthRequirement) map[string]string {
+	masked := map[string]string{}
+	authHeaderName := strings.ToLower(strings.TrimSpace(auth.HeaderName))
+	for k, v := range headers {
+		lowerKey := strings.ToLower(strings.TrimSpace(k))
+		if lowerKey == "authorization" || lowerKey == "proxy-authorization" || lowerKey == authHeaderName || strings.Contains(lowerKey, "token") || strings.Contains(lowerKey, "api-key") || strings.Contains(lowerKey, "apikey") || strings.Contains(lowerKey, "secret") || strings.Contains(lowerKey, "password") {
+			masked[k] = "***"
+			continue
+		}
+		masked[k] = v
+	}
+	return masked
+}
+
+func buildRequestBodyPreview(req actions.ExecutionRequest) any {
+	body := strings.TrimSpace(req.Action.Adapter.RequestBody)
+	if body != "" {
+		return truncatePreview(resolvePreviewTemplate(body, req.Input), 2048)
+	}
+	b, err := json.Marshal(req.Input)
+	if err != nil {
+		return nil
+	}
+	return truncatePreview(string(b), 2048)
+}
+
+func truncatePreview(value string, maxLen int) string {
+	if maxLen <= 0 || len(value) <= maxLen {
+		return value
+	}
+	return value[:maxLen] + "..."
 }
 
 func isCredentialReady(cfg *config.KimbapConfig, req actions.ExecutionRequest) bool {
@@ -142,6 +240,7 @@ func splitGlobalCallFlags(tokens []string) ([]string, error) {
 	out := make([]string, 0, len(tokens))
 	globalStringFlags := map[string]*string{
 		"--format":    &opts.format,
+		"--json":      &opts.jsonInput,
 		"--config":    &opts.configPath,
 		"--data-dir":  &opts.dataDir,
 		"--log-level": &opts.logLevel,
@@ -195,6 +294,85 @@ func splitGlobalCallFlags(tokens []string) ([]string, error) {
 		}
 	}
 	return out, nil
+}
+
+func parseJSONInput(jsonArg string) (map[string]any, error) {
+	var raw string
+	switch {
+	case jsonArg == "-":
+		data, err := io.ReadAll(os.Stdin)
+		if err != nil {
+			return nil, fmt.Errorf("read stdin: %w", err)
+		}
+		raw = string(data)
+	case strings.HasPrefix(jsonArg, "@"):
+		data, err := os.ReadFile(strings.TrimPrefix(jsonArg, "@"))
+		if err != nil {
+			return nil, fmt.Errorf("read json file: %w", err)
+		}
+		raw = string(data)
+	default:
+		raw = jsonArg
+	}
+
+	// Use json.Number to preserve integer precision (json.Unmarshal defaults
+	// to float64 which breaks "integer" schema validation).
+	dec := json.NewDecoder(strings.NewReader(raw))
+	dec.UseNumber()
+	var parsed map[string]any
+	if err := dec.Decode(&parsed); err != nil {
+		return nil, fmt.Errorf("parse json input: %w", err)
+	}
+	return coerceJSONNumbers(parsed), nil
+}
+
+// coerceJSONNumbers walks a map and converts json.Number values to int64 when
+// the number has no fractional part, otherwise to float64. This ensures that
+// integer-typed schema fields receive Go int values, not float64.
+func coerceJSONNumbers(m map[string]any) map[string]any {
+	for k, v := range m {
+		switch val := v.(type) {
+		case json.Number:
+			if i, err := val.Int64(); err == nil {
+				m[k] = i
+			} else if f, err := val.Float64(); err == nil {
+				m[k] = f
+			}
+		case map[string]any:
+			m[k] = coerceJSONNumbers(val)
+		case []any:
+			m[k] = coerceJSONNumbersSlice(val)
+		}
+	}
+	return m
+}
+
+func coerceJSONNumbersSlice(s []any) []any {
+	for i, v := range s {
+		switch val := v.(type) {
+		case json.Number:
+			if n, err := val.Int64(); err == nil {
+				s[i] = n
+			} else if f, err := val.Float64(); err == nil {
+				s[i] = f
+			}
+		case map[string]any:
+			s[i] = coerceJSONNumbers(val)
+		case []any:
+			s[i] = coerceJSONNumbersSlice(val)
+		}
+	}
+	return s
+}
+
+func mergeInputMaps(base map[string]any, override map[string]any) map[string]any {
+	if base == nil {
+		base = map[string]any{}
+	}
+	for k, v := range override {
+		base[k] = v
+	}
+	return base
 }
 
 func parseOptionalBoolFlagValue(tokens []string, idx int) (bool, int) {
@@ -274,6 +452,9 @@ func parseScalar(v string) any {
 
 	if b, err := strconv.ParseBool(trimmed); err == nil {
 		return b
+	}
+	if len(trimmed) > 1 && trimmed[0] == '0' && trimmed[1] != '.' {
+		return v
 	}
 	if i, err := strconv.ParseInt(trimmed, 10, 64); err == nil {
 		return i

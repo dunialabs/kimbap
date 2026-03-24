@@ -24,6 +24,7 @@ const (
 	ErrValidationFailed    = "ERR_VALIDATION_FAILED"
 	ErrCredentialMissing   = "ERR_CREDENTIAL_MISSING"
 	ErrIdempotencyRequired = "ERR_IDEMPOTENCY_REQUIRED"
+	ErrAuditRequired       = "ERR_AUDIT_REQUIRED"
 )
 
 type ExecutionError struct {

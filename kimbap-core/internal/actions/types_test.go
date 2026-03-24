@@ -149,3 +149,29 @@ func TestValidateInputEmptySchemaPassesAll(t *testing.T) {
 		t.Fatalf("expected nil error for empty schema, got %v", err)
 	}
 }
+
+func TestValidateInputTypeNumberAcceptsFloatAndInteger(t *testing.T) {
+	schema := &Schema{
+		Type: "object",
+		Properties: map[string]*Schema{
+			"price": {Type: "number"},
+		},
+		AdditionalProperties: false,
+	}
+
+	if err := ValidateInput(schema, map[string]any{"price": 12.5}); err != nil {
+		t.Fatalf("expected float number to pass, got %v", err)
+	}
+
+	if err := ValidateInput(schema, map[string]any{"price": 12}); err != nil {
+		t.Fatalf("expected integer number to pass, got %v", err)
+	}
+
+	err := ValidateInput(schema, map[string]any{"price": "12.5"})
+	if err == nil {
+		t.Fatalf("expected number type validation error")
+	}
+	if !strings.Contains(err.Message, "must be number") {
+		t.Fatalf("expected number type error message, got %q", err.Message)
+	}
+}

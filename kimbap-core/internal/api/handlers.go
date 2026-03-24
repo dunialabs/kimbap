@@ -18,6 +18,7 @@ import (
 	"github.com/dunialabs/kimbap-core/internal/policy"
 	runtimepkg "github.com/dunialabs/kimbap-core/internal/runtime"
 	"github.com/dunialabs/kimbap-core/internal/store"
+	"github.com/dunialabs/kimbap-core/internal/webhooks"
 	"github.com/go-chi/chi/v5"
 )
 
@@ -29,7 +30,7 @@ type createTokenRequest struct {
 }
 
 func (s *Server) handleHealth(w http.ResponseWriter, r *http.Request) {
-	writeJSON(w, http.StatusOK, map[string]any{"status": "ok"})
+	writeSuccessRaw(w, r, http.StatusOK, map[string]any{"status": "ok"})
 }
 
 func (s *Server) handleListActions(w http.ResponseWriter, r *http.Request) {
@@ -43,38 +44,38 @@ func (s *Server) handleListActions(w http.ResponseWriter, r *http.Request) {
 			Limit:     limit,
 		})
 		if err != nil {
-			writeExecutionError(w, actions.NewExecutionError(actions.ErrDownstreamUnavailable, "internal server error", http.StatusInternalServerError, false, nil))
+			writeEnvelopeError(w, r, actions.NewExecutionError(actions.ErrDownstreamUnavailable, "internal server error", http.StatusInternalServerError, false, nil))
 			return
 		}
 		defs = items
 	}
-	writeJSON(w, http.StatusOK, map[string]any{"data": defs})
+	writeSuccess(w, r, http.StatusOK, defs)
 }
 
 func (s *Server) handleDescribeAction(w http.ResponseWriter, r *http.Request) {
 	if s.runtime == nil || s.runtime.ActionRegistry == nil {
-		writeExecutionError(w, actions.NewExecutionError(actions.ErrActionNotFound, "action registry unavailable", http.StatusNotFound, false, nil))
+		writeEnvelopeError(w, r, actions.NewExecutionError(actions.ErrActionNotFound, "action registry unavailable", http.StatusNotFound, false, nil))
 		return
 	}
 	name := chi.URLParam(r, "service") + "." + chi.URLParam(r, "action")
 	def, err := s.runtime.ActionRegistry.Lookup(r.Context(), name)
 	if err != nil || def == nil {
-		writeExecutionError(w, actions.NewExecutionError(actions.ErrActionNotFound, "action not found", http.StatusNotFound, false, map[string]any{"action": name}))
+		writeEnvelopeError(w, r, actions.NewExecutionError(actions.ErrActionNotFound, "action not found", http.StatusNotFound, false, map[string]any{"action": name}))
 		return
 	}
-	writeJSON(w, http.StatusOK, map[string]any{"data": def})
+	writeSuccess(w, r, http.StatusOK, def)
 }
 
 func (s *Server) handleExecuteAction(w http.ResponseWriter, r *http.Request) {
 	if s.runtime == nil {
-		writeExecutionError(w, actions.NewExecutionError(actions.ErrDownstreamUnavailable, "runtime pipeline unavailable", http.StatusNotImplemented, false, nil))
+		writeEnvelopeError(w, r, actions.NewExecutionError(actions.ErrDownstreamUnavailable, "runtime pipeline unavailable", http.StatusNotImplemented, false, nil))
 		return
 	}
 	var body struct {
 		Input map[string]any `json:"input"`
 	}
 	if err := decodeJSON(r, &body); err != nil {
-		writeExecutionError(w, actions.NewExecutionError(actions.ErrValidationFailed, err.Error(), http.StatusBadRequest, false, nil))
+		writeEnvelopeError(w, r, actions.NewExecutionError(actions.ErrValidationFailed, err.Error(), http.StatusBadRequest, false, nil))
 		return
 	}
 	principal := principalFromContext(r.Context())
@@ -100,10 +101,10 @@ func (s *Server) handleExecuteAction(w http.ResponseWriter, r *http.Request) {
 	}
 	result := s.runtime.Execute(r.Context(), req)
 	if result.Error != nil {
-		writeExecutionError(w, result.Error)
+		writeEnvelopeError(w, r, result.Error)
 		return
 	}
-	writeJSON(w, http.StatusOK, map[string]any{"data": result})
+	writeSuccess(w, r, http.StatusOK, result)
 }
 
 func (s *Server) handleValidateAction(w http.ResponseWriter, r *http.Request) {
@@ -112,44 +113,44 @@ func (s *Server) handleValidateAction(w http.ResponseWriter, r *http.Request) {
 		Input  map[string]any  `json:"input"`
 	}
 	if err := decodeJSON(r, &body); err != nil {
-		writeExecutionError(w, actions.NewExecutionError(actions.ErrValidationFailed, err.Error(), http.StatusBadRequest, false, nil))
+		writeEnvelopeError(w, r, actions.NewExecutionError(actions.ErrValidationFailed, err.Error(), http.StatusBadRequest, false, nil))
 		return
 	}
 	if verr := actions.ValidateInput(body.Schema, body.Input); verr != nil {
-		writeExecutionError(w, verr)
+		writeEnvelopeError(w, r, verr)
 		return
 	}
-	writeJSON(w, http.StatusOK, map[string]any{"valid": true})
+	writeSuccessRaw(w, r, http.StatusOK, map[string]any{"valid": true})
 }
 
 func (s *Server) handleListVaultKeys(w http.ResponseWriter, r *http.Request) {
-	writeJSON(w, http.StatusOK, map[string]any{"data": []any{}})
+	writeSuccess(w, r, http.StatusOK, []any{})
 }
 
 func (s *Server) handleCreateToken(w http.ResponseWriter, r *http.Request) {
 	if s.tokenService == nil {
-		writeExecutionError(w, actions.NewExecutionError(actions.ErrDownstreamUnavailable, "token service unavailable", http.StatusInternalServerError, false, nil))
+		writeEnvelopeError(w, r, actions.NewExecutionError(actions.ErrDownstreamUnavailable, "token service unavailable", http.StatusInternalServerError, false, nil))
 		return
 	}
 	var req createTokenRequest
 	if err := decodeJSON(r, &req); err != nil {
-		writeExecutionError(w, actions.NewExecutionError(actions.ErrValidationFailed, err.Error(), http.StatusBadRequest, false, nil))
+		writeEnvelopeError(w, r, actions.NewExecutionError(actions.ErrValidationFailed, err.Error(), http.StatusBadRequest, false, nil))
 		return
 	}
 	if strings.TrimSpace(req.AgentName) == "" {
-		writeExecutionError(w, actions.NewExecutionError(actions.ErrValidationFailed, "agent_name is required", http.StatusBadRequest, false, nil))
+		writeEnvelopeError(w, r, actions.NewExecutionError(actions.ErrValidationFailed, "agent_name is required", http.StatusBadRequest, false, nil))
 		return
 	}
 	tenantID := tenantFromContext(r.Context())
 	if tenantID == "" {
-		writeExecutionError(w, actions.NewExecutionError(actions.ErrUnauthorized, "tenant context required", http.StatusForbidden, false, nil))
+		writeEnvelopeError(w, r, actions.NewExecutionError(actions.ErrUnauthorized, "tenant context required", http.StatusForbidden, false, nil))
 		return
 	}
 	principal := principalFromContext(r.Context())
 	if len(req.Scopes) > 0 && principal != nil {
 		for _, requested := range req.Scopes {
 			if !principalHasScope(principal, requested) {
-				writeExecutionError(w, actions.NewExecutionError(actions.ErrUnauthorized,
+				writeEnvelopeError(w, r, actions.NewExecutionError(actions.ErrUnauthorized,
 					"cannot mint token with scope not held by caller: "+requested,
 					http.StatusForbidden, false, nil))
 				return
@@ -163,23 +164,31 @@ func (s *Server) handleCreateToken(w http.ResponseWriter, r *http.Request) {
 	raw, issued, err := s.tokenService.Issue(r.Context(), tenantID, req.AgentName, req.Scopes, ttl)
 	if err != nil {
 		if errors.Is(err, auth.ErrInvalidTTL) {
-			writeExecutionError(w, actions.NewExecutionError(actions.ErrValidationFailed, err.Error(), http.StatusBadRequest, false, nil))
+			writeEnvelopeError(w, r, actions.NewExecutionError(actions.ErrValidationFailed, err.Error(), http.StatusBadRequest, false, nil))
 			return
 		}
-		writeExecutionError(w, actions.NewExecutionError(actions.ErrDownstreamUnavailable, "internal server error", http.StatusInternalServerError, false, nil))
+		writeEnvelopeError(w, r, actions.NewExecutionError(actions.ErrDownstreamUnavailable, "internal server error", http.StatusInternalServerError, false, nil))
 		return
 	}
-	writeJSON(w, http.StatusCreated, map[string]any{"token": raw, "metadata": issued})
+	if s.webhookDispatcher != nil {
+		s.webhookDispatcher.EmitForTenant(issued.TenantID, webhooks.EventTokenCreated, map[string]any{
+			"token_id":   issued.ID,
+			"tenant_id":  issued.TenantID,
+			"agent_name": issued.AgentName,
+			"expires_at": issued.ExpiresAt,
+		})
+	}
+	writeSuccess(w, r, http.StatusCreated, map[string]any{"token": raw, "metadata": issued})
 }
 
 func (s *Server) handleListTokens(w http.ResponseWriter, r *http.Request) {
 	tenantID := tenantFromContext(r.Context())
 	items, err := s.store.ListTokens(r.Context(), tenantID)
 	if err != nil {
-		writeExecutionError(w, actions.NewExecutionError(actions.ErrDownstreamUnavailable, "internal server error", http.StatusInternalServerError, false, nil))
+		writeEnvelopeError(w, r, actions.NewExecutionError(actions.ErrDownstreamUnavailable, "internal server error", http.StatusInternalServerError, false, nil))
 		return
 	}
-	writeJSON(w, http.StatusOK, map[string]any{"data": items})
+	writeSuccess(w, r, http.StatusOK, items)
 }
 
 func (s *Server) handleInspectToken(w http.ResponseWriter, r *http.Request) {
@@ -191,14 +200,14 @@ func (s *Server) handleInspectToken(w http.ResponseWriter, r *http.Request) {
 		if errors.Is(err, store.ErrNotFound) {
 			status = http.StatusNotFound
 		}
-		writeExecutionError(w, actions.NewExecutionError(actions.ErrActionNotFound, sanitizeErrMsg(err, status), status, false, nil))
+		writeEnvelopeError(w, r, actions.NewExecutionError(actions.ErrActionNotFound, sanitizeErrMsg(err, status), status, false, nil))
 		return
 	}
 	if tok.TenantID != tenantID {
-		writeExecutionError(w, actions.NewExecutionError(actions.ErrUnauthorized, "token not accessible for tenant", http.StatusForbidden, false, nil))
+		writeEnvelopeError(w, r, actions.NewExecutionError(actions.ErrUnauthorized, "token not accessible for tenant", http.StatusForbidden, false, nil))
 		return
 	}
-	writeJSON(w, http.StatusOK, map[string]any{"data": tok})
+	writeSuccess(w, r, http.StatusOK, tok)
 }
 
 func (s *Server) handleRevokeToken(w http.ResponseWriter, r *http.Request) {
@@ -210,18 +219,25 @@ func (s *Server) handleRevokeToken(w http.ResponseWriter, r *http.Request) {
 		if errors.Is(err, store.ErrNotFound) {
 			status = http.StatusNotFound
 		}
-		writeExecutionError(w, actions.NewExecutionError(actions.ErrActionNotFound, sanitizeErrMsg(err, status), status, false, nil))
+		writeEnvelopeError(w, r, actions.NewExecutionError(actions.ErrActionNotFound, sanitizeErrMsg(err, status), status, false, nil))
 		return
 	}
 	if tok.TenantID != tenantID {
-		writeExecutionError(w, actions.NewExecutionError(actions.ErrUnauthorized, "token not accessible for tenant", http.StatusForbidden, false, nil))
+		writeEnvelopeError(w, r, actions.NewExecutionError(actions.ErrUnauthorized, "token not accessible for tenant", http.StatusForbidden, false, nil))
 		return
 	}
 	if err := s.store.RevokeToken(r.Context(), id); err != nil {
-		writeExecutionError(w, actions.NewExecutionError(actions.ErrDownstreamUnavailable, "internal server error", http.StatusInternalServerError, false, nil))
+		writeEnvelopeError(w, r, actions.NewExecutionError(actions.ErrDownstreamUnavailable, "internal server error", http.StatusInternalServerError, false, nil))
 		return
 	}
-	writeJSON(w, http.StatusOK, map[string]any{"revoked": true})
+	if s.webhookDispatcher != nil {
+		s.webhookDispatcher.EmitForTenant(tok.TenantID, webhooks.EventTokenDeleted, map[string]any{
+			"token_id":   tok.ID,
+			"tenant_id":  tok.TenantID,
+			"agent_name": tok.AgentName,
+		})
+	}
+	writeSuccessRaw(w, r, http.StatusOK, map[string]any{"revoked": true})
 }
 
 func (s *Server) handleGetPolicy(w http.ResponseWriter, r *http.Request) {
@@ -232,10 +248,10 @@ func (s *Server) handleGetPolicy(w http.ResponseWriter, r *http.Request) {
 		if errors.Is(err, store.ErrNotFound) {
 			status = http.StatusNotFound
 		}
-		writeExecutionError(w, actions.NewExecutionError(actions.ErrActionNotFound, sanitizeErrMsg(err, status), status, false, nil))
+		writeEnvelopeError(w, r, actions.NewExecutionError(actions.ErrActionNotFound, sanitizeErrMsg(err, status), status, false, nil))
 		return
 	}
-	writeJSON(w, http.StatusOK, map[string]any{"tenant_id": tenantID, "document": string(doc)})
+	writeSuccess(w, r, http.StatusOK, map[string]any{"tenant_id": tenantID, "document": string(doc)})
 }
 
 func (s *Server) handleSetPolicy(w http.ResponseWriter, r *http.Request) {
@@ -243,15 +259,32 @@ func (s *Server) handleSetPolicy(w http.ResponseWriter, r *http.Request) {
 		Document string `json:"document"`
 	}
 	if err := decodeJSON(r, &body); err != nil {
-		writeExecutionError(w, actions.NewExecutionError(actions.ErrValidationFailed, err.Error(), http.StatusBadRequest, false, nil))
+		writeEnvelopeError(w, r, actions.NewExecutionError(actions.ErrValidationFailed, err.Error(), http.StatusBadRequest, false, nil))
 		return
 	}
 	tenantID := tenantFromContext(r.Context())
+	currentPolicy, getErr := s.store.GetPolicy(r.Context(), tenantID)
+	policyEvent := webhooks.EventPolicyUpdated
+	if getErr != nil {
+		if errors.Is(getErr, store.ErrNotFound) {
+			policyEvent = webhooks.EventPolicyCreated
+		} else {
+			writeEnvelopeError(w, r, actions.NewExecutionError(actions.ErrDownstreamUnavailable, "internal server error", http.StatusInternalServerError, false, nil))
+			return
+		}
+	} else if len(currentPolicy) == 0 {
+		policyEvent = webhooks.EventPolicyCreated
+	}
 	if err := s.store.SetPolicy(r.Context(), tenantID, []byte(body.Document)); err != nil {
-		writeExecutionError(w, actions.NewExecutionError(actions.ErrDownstreamUnavailable, "internal server error", http.StatusInternalServerError, false, nil))
+		writeEnvelopeError(w, r, actions.NewExecutionError(actions.ErrDownstreamUnavailable, "internal server error", http.StatusInternalServerError, false, nil))
 		return
 	}
-	writeJSON(w, http.StatusOK, map[string]any{"updated": true})
+	if s.webhookDispatcher != nil {
+		s.webhookDispatcher.EmitForTenant(tenantID, policyEvent, map[string]any{
+			"tenant_id": tenantID,
+		})
+	}
+	writeSuccessRaw(w, r, http.StatusOK, map[string]any{"updated": true})
 }
 
 func (s *Server) handleEvalPolicy(w http.ResponseWriter, r *http.Request) {
@@ -264,7 +297,7 @@ func (s *Server) handleEvalPolicy(w http.ResponseWriter, r *http.Request) {
 		Args      map[string]any `json:"args"`
 	}
 	if err := decodeJSON(r, &body); err != nil {
-		writeExecutionError(w, actions.NewExecutionError(actions.ErrValidationFailed, err.Error(), http.StatusBadRequest, false, nil))
+		writeEnvelopeError(w, r, actions.NewExecutionError(actions.ErrValidationFailed, err.Error(), http.StatusBadRequest, false, nil))
 		return
 	}
 	tenantID := tenantFromContext(r.Context())
@@ -274,21 +307,21 @@ func (s *Server) handleEvalPolicy(w http.ResponseWriter, r *http.Request) {
 		if errors.Is(err, store.ErrNotFound) {
 			status = http.StatusNotFound
 		}
-		writeExecutionError(w, actions.NewExecutionError(actions.ErrActionNotFound, sanitizeErrMsg(err, status), status, false, nil))
+		writeEnvelopeError(w, r, actions.NewExecutionError(actions.ErrActionNotFound, sanitizeErrMsg(err, status), status, false, nil))
 		return
 	}
 	doc, err := policy.ParseDocument(docBytes)
 	if err != nil {
-		writeExecutionError(w, actions.NewExecutionError(actions.ErrValidationFailed, err.Error(), http.StatusBadRequest, false, nil))
+		writeEnvelopeError(w, r, actions.NewExecutionError(actions.ErrValidationFailed, err.Error(), http.StatusBadRequest, false, nil))
 		return
 	}
 	evaluator := policy.NewEvaluator(doc)
 	result, err := evaluator.Evaluate(r.Context(), policy.EvalRequest{TenantID: tenantID, AgentName: body.AgentName, Service: body.Service, Action: body.Action, Risk: body.Risk, Mutating: body.Mutating, Args: body.Args})
 	if err != nil {
-		writeExecutionError(w, actions.NewExecutionError(actions.ErrDownstreamUnavailable, "internal server error", http.StatusInternalServerError, false, nil))
+		writeEnvelopeError(w, r, actions.NewExecutionError(actions.ErrDownstreamUnavailable, "internal server error", http.StatusInternalServerError, false, nil))
 		return
 	}
-	writeJSON(w, http.StatusOK, map[string]any{"data": result})
+	writeSuccess(w, r, http.StatusOK, result)
 }
 
 func (s *Server) handleListApprovals(w http.ResponseWriter, r *http.Request) {
@@ -296,10 +329,10 @@ func (s *Server) handleListApprovals(w http.ResponseWriter, r *http.Request) {
 	status := strings.TrimSpace(r.URL.Query().Get("status"))
 	items, err := s.store.ListApprovals(r.Context(), tenantID, status)
 	if err != nil {
-		writeExecutionError(w, actions.NewExecutionError(actions.ErrDownstreamUnavailable, "internal server error", http.StatusInternalServerError, false, nil))
+		writeEnvelopeError(w, r, actions.NewExecutionError(actions.ErrDownstreamUnavailable, "internal server error", http.StatusInternalServerError, false, nil))
 		return
 	}
-	writeJSON(w, http.StatusOK, map[string]any{"data": items})
+	writeSuccess(w, r, http.StatusOK, items)
 }
 
 func (s *Server) handleApprove(w http.ResponseWriter, r *http.Request) {
@@ -313,19 +346,19 @@ func (s *Server) handleApprove(w http.ResponseWriter, r *http.Request) {
 		if errors.Is(err, store.ErrNotFound) {
 			status = http.StatusNotFound
 		}
-		writeExecutionError(w, actions.NewExecutionError(actions.ErrActionNotFound, sanitizeErrMsg(err, status), status, false, nil))
+		writeEnvelopeError(w, r, actions.NewExecutionError(actions.ErrActionNotFound, sanitizeErrMsg(err, status), status, false, nil))
 		return
 	}
 	if existing.TenantID != tenantID {
-		writeExecutionError(w, actions.NewExecutionError(actions.ErrUnauthorized, "approval not found", http.StatusNotFound, false, nil))
+		writeEnvelopeError(w, r, actions.NewExecutionError(actions.ErrUnauthorized, "approval not found", http.StatusNotFound, false, nil))
 		return
 	}
 	if existing.Status != "pending" {
-		writeExecutionError(w, actions.NewExecutionError(actions.ErrValidationFailed, "approval already resolved", http.StatusConflict, false, nil))
+		writeEnvelopeError(w, r, actions.NewExecutionError(actions.ErrValidationFailed, "approval already resolved", http.StatusConflict, false, nil))
 		return
 	}
 	if time.Now().After(existing.ExpiresAt) {
-		writeExecutionError(w, actions.NewExecutionError(actions.ErrApprovalTimeout, "approval expired", http.StatusGone, false, nil))
+		writeEnvelopeError(w, r, actions.NewExecutionError(actions.ErrApprovalTimeout, "approval expired", http.StatusGone, false, nil))
 		return
 	}
 
@@ -335,10 +368,28 @@ func (s *Server) handleApprove(w http.ResponseWriter, r *http.Request) {
 		err = s.store.UpdateApprovalStatus(r.Context(), id, "approved", principal.ID, "approved via api")
 	}
 	if err != nil {
-		writeExecutionError(w, actions.NewExecutionError(actions.ErrDownstreamUnavailable, "internal server error", http.StatusInternalServerError, false, nil))
+		writeEnvelopeError(w, r, actions.NewExecutionError(actions.ErrDownstreamUnavailable, "internal server error", http.StatusInternalServerError, false, nil))
 		return
 	}
-	writeJSON(w, http.StatusOK, map[string]any{"approved": true})
+
+	var execResult *actions.ExecutionResult
+	if s.runtime != nil {
+		result := s.runtime.ResumeApproved(r.Context(), id)
+		execResult = &result
+	}
+
+	resp := map[string]any{"approved": true}
+	if execResult != nil {
+		execMap := map[string]any{
+			"status":      execResult.Status,
+			"http_status": execResult.HTTPStatus,
+		}
+		if execResult.Output != nil {
+			execMap["output"] = execResult.Output
+		}
+		resp["execution"] = execMap
+	}
+	writeSuccessRaw(w, r, http.StatusOK, resp)
 }
 
 func (s *Server) handleDeny(w http.ResponseWriter, r *http.Request) {
@@ -352,19 +403,19 @@ func (s *Server) handleDeny(w http.ResponseWriter, r *http.Request) {
 		if errors.Is(err, store.ErrNotFound) {
 			status = http.StatusNotFound
 		}
-		writeExecutionError(w, actions.NewExecutionError(actions.ErrActionNotFound, sanitizeErrMsg(err, status), status, false, nil))
+		writeEnvelopeError(w, r, actions.NewExecutionError(actions.ErrActionNotFound, sanitizeErrMsg(err, status), status, false, nil))
 		return
 	}
 	if existing.TenantID != tenantID {
-		writeExecutionError(w, actions.NewExecutionError(actions.ErrUnauthorized, "approval not found", http.StatusNotFound, false, nil))
+		writeEnvelopeError(w, r, actions.NewExecutionError(actions.ErrUnauthorized, "approval not found", http.StatusNotFound, false, nil))
 		return
 	}
 	if existing.Status != "pending" {
-		writeExecutionError(w, actions.NewExecutionError(actions.ErrValidationFailed, "approval already resolved", http.StatusConflict, false, nil))
+		writeEnvelopeError(w, r, actions.NewExecutionError(actions.ErrValidationFailed, "approval already resolved", http.StatusConflict, false, nil))
 		return
 	}
 	if time.Now().After(existing.ExpiresAt) {
-		writeExecutionError(w, actions.NewExecutionError(actions.ErrApprovalTimeout, "approval expired", http.StatusGone, false, nil))
+		writeEnvelopeError(w, r, actions.NewExecutionError(actions.ErrApprovalTimeout, "approval expired", http.StatusGone, false, nil))
 		return
 	}
 
@@ -374,10 +425,10 @@ func (s *Server) handleDeny(w http.ResponseWriter, r *http.Request) {
 		err = s.store.UpdateApprovalStatus(r.Context(), id, "denied", principal.ID, "denied via api")
 	}
 	if err != nil {
-		writeExecutionError(w, actions.NewExecutionError(actions.ErrDownstreamUnavailable, "internal server error", http.StatusInternalServerError, false, nil))
+		writeEnvelopeError(w, r, actions.NewExecutionError(actions.ErrDownstreamUnavailable, "internal server error", http.StatusInternalServerError, false, nil))
 		return
 	}
-	writeJSON(w, http.StatusOK, map[string]any{"denied": true})
+	writeSuccessRaw(w, r, http.StatusOK, map[string]any{"denied": true})
 }
 
 func (s *Server) handleQueryAudit(w http.ResponseWriter, r *http.Request) {
@@ -398,10 +449,10 @@ func (s *Server) handleQueryAudit(w http.ResponseWriter, r *http.Request) {
 		Offset:    offset,
 	})
 	if err != nil {
-		writeExecutionError(w, actions.NewExecutionError(actions.ErrDownstreamUnavailable, "internal server error", http.StatusInternalServerError, false, nil))
+		writeEnvelopeError(w, r, actions.NewExecutionError(actions.ErrDownstreamUnavailable, "internal server error", http.StatusInternalServerError, false, nil))
 		return
 	}
-	writeJSON(w, http.StatusOK, map[string]any{"data": items})
+	writeSuccess(w, r, http.StatusOK, items)
 }
 
 func (s *Server) handleExportAudit(w http.ResponseWriter, r *http.Request) {
@@ -412,40 +463,10 @@ func (s *Server) handleExportAudit(w http.ResponseWriter, r *http.Request) {
 	}
 	err := s.store.ExportAuditEvents(r.Context(), store.AuditFilter{TenantID: tenantID}, format, w)
 	if err != nil {
-		writeExecutionError(w, actions.NewExecutionError(actions.ErrDownstreamUnavailable, "internal server error", http.StatusInternalServerError, false, nil))
+		w.Header().Set("Content-Type", "application/json")
+		writeEnvelopeError(w, r, actions.NewExecutionError(actions.ErrDownstreamUnavailable, "internal server error", http.StatusInternalServerError, false, nil))
 		return
 	}
-}
-
-func writeJSON(w http.ResponseWriter, status int, body any) {
-	w.WriteHeader(status)
-	_ = json.NewEncoder(w).Encode(body)
-}
-
-func writeExecutionError(w http.ResponseWriter, execErr *actions.ExecutionError) {
-	if execErr == nil {
-		execErr = actions.NewExecutionError(actions.ErrDownstreamUnavailable, "unknown error", http.StatusInternalServerError, false, nil)
-	}
-	status := execErr.HTTPStatus
-	if status <= 0 {
-		status = http.StatusInternalServerError
-	}
-	msg := execErr.Message
-	var details map[string]any
-	if status >= 500 {
-		msg = "internal server error"
-		details = nil
-	} else {
-		details = execErr.Details
-	}
-	writeJSON(w, status, map[string]any{
-		"error": map[string]any{
-			"code":      execErr.Code,
-			"message":   msg,
-			"retryable": execErr.Retryable,
-			"details":   details,
-		},
-	})
 }
 
 const maxAPIRequestBodyBytes int64 = 4 << 20

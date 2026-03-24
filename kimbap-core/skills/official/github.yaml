@@ -1,0 +1,94 @@
+name: github
+version: 1.0.0
+description: GitHub REST API integration for repository, issue, and pull request management
+base_url: https://api.github.com
+auth:
+  type: bearer
+  credential_ref: github.token
+actions:
+  list-repos:
+    method: GET
+    path: /user/repos
+    description: List repositories for the authenticated user
+    args:
+      - name: sort
+        type: string
+        required: false
+        default: updated
+        enum: [created, updated, pushed, full_name]
+      - name: per_page
+        type: integer
+        required: false
+        default: 30
+    request:
+      query:
+        sort: "{sort}"
+        per_page: "{per_page}"
+      headers:
+        Accept: application/vnd.github+json
+    response:
+      type: array
+    risk:
+      level: low
+      mutating: false
+  create-issue:
+    method: POST
+    path: /repos/{owner}/{repo}/issues
+    description: Create a new issue in a GitHub repository
+    args:
+      - name: owner
+        type: string
+        required: true
+      - name: repo
+        type: string
+        required: true
+      - name: title
+        type: string
+        required: true
+      - name: body
+        type: string
+        required: false
+      - name: labels
+        type: array
+        required: false
+    request:
+      path_params:
+        owner: "{owner}"
+        repo: "{repo}"
+      headers:
+        Accept: application/vnd.github+json
+      body:
+        title: "{title}"
+        body: "{body}"
+        labels: "{labels}"
+    response:
+      type: object
+    risk:
+      level: medium
+      mutating: true
+  get-issue:
+    method: GET
+    path: /repos/{owner}/{repo}/issues/{issue_number}
+    description: Get a specific issue from a repository
+    args:
+      - name: owner
+        type: string
+        required: true
+      - name: repo
+        type: string
+        required: true
+      - name: issue_number
+        type: integer
+        required: true
+    request:
+      path_params:
+        owner: "{owner}"
+        repo: "{repo}"
+        issue_number: "{issue_number}"
+      headers:
+        Accept: application/vnd.github+json
+    response:
+      type: object
+    risk:
+      level: low
+      mutating: false

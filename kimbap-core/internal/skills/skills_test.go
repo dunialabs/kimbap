@@ -1,6 +1,7 @@
 package skills
 
 import (
+	"crypto/ed25519"
 	"os"
 	"path/filepath"
 	"testing"
@@ -192,6 +193,102 @@ func TestInstallWithForceOverwritesExisting(t *testing.T) {
 	}
 }
 
+func TestInstallWritesLockfileAndVerifyPasses(t *testing.T) {
+	manifest, err := ParseManifest([]byte(braveSearchFixture))
+	if err != nil {
+		t.Fatalf("parse fixture: %v", err)
+	}
+
+	dir := t.TempDir()
+	installer := NewLocalInstaller(dir)
+
+	if _, err := installer.Install(manifest, "local"); err != nil {
+		t.Fatalf("install failed: %v", err)
+	}
+
+	lf, err := installer.readLockfile()
+	if err != nil {
+		t.Fatalf("read lockfile failed: %v", err)
+	}
+	entry, ok := lf.Skills["brave-search"]
+	if !ok {
+		t.Fatal("expected lock entry for brave-search")
+	}
+	if entry.Digest == "" {
+		t.Fatal("expected non-empty lock digest")
+	}
+
+	result, err := installer.Verify("brave-search")
+	if err != nil {
+		t.Fatalf("verify failed: %v", err)
+	}
+	if !result.Locked {
+		t.Fatal("expected locked result")
+	}
+	if !result.Verified {
+		t.Fatalf("expected verified=true, got %+v", result)
+	}
+	if result.ExpectedDigest != result.ActualDigest {
+		t.Fatalf("expected digest match, got expected=%q actual=%q", result.ExpectedDigest, result.ActualDigest)
+	}
+}
+
+func TestVerifyDetectsDigestMismatch(t *testing.T) {
+	manifest, err := ParseManifest([]byte(braveSearchFixture))
+	if err != nil {
+		t.Fatalf("parse fixture: %v", err)
+	}
+
+	dir := t.TempDir()
+	installer := NewLocalInstaller(dir)
+
+	if _, err := installer.Install(manifest, "local"); err != nil {
+		t.Fatalf("install failed: %v", err)
+	}
+
+	skillPath := filepath.Join(dir, "brave-search.yaml")
+	if err := os.WriteFile(skillPath, []byte(braveSearchFixture+"\n# tampered\n"), 0o644); err != nil {
+		t.Fatalf("tamper skill file failed: %v", err)
+	}
+
+	result, err := installer.Verify("brave-search")
+	if err != nil {
+		t.Fatalf("verify failed: %v", err)
+	}
+	if !result.Locked {
+		t.Fatal("expected locked=true for installed lock entry")
+	}
+	if result.Verified {
+		t.Fatalf("expected verified=false for digest mismatch, got %+v", result)
+	}
+}
+
+func TestRemoveDeletesLockEntry(t *testing.T) {
+	manifest, err := ParseManifest([]byte(braveSearchFixture))
+	if err != nil {
+		t.Fatalf("parse fixture: %v", err)
+	}
+
+	dir := t.TempDir()
+	installer := NewLocalInstaller(dir)
+
+	if _, err := installer.Install(manifest, "local"); err != nil {
+		t.Fatalf("install failed: %v", err)
+	}
+
+	if err := installer.Remove("brave-search"); err != nil {
+		t.Fatalf("remove failed: %v", err)
+	}
+
+	lf, err := installer.readLockfile()
+	if err != nil {
+		t.Fatalf("read lockfile failed: %v", err)
+	}
+	if _, ok := lf.Skills["brave-search"]; ok {
+		t.Fatal("expected brave-search lock entry to be removed")
+	}
+}
+
 func TestToActionDefinitions(t *testing.T) {
 	manifest, err := ParseManifest([]byte(braveSearchFixture))
 	if err != nil {
@@ -300,6 +397,40 @@ actions:
 	}
 }
 
+func TestParseManifestAcceptsNumberArgType(t *testing.T) {
+	manifest := `name: numeric-api
+version: 1.0.0
+description: Numeric API
+base_url: https://api.example.com
+auth:
+  type: none
+actions:
+  create_price:
+    method: POST
+    path: /prices
+    args:
+      - name: amount
+        type: number
+        required: true
+    request:
+      body:
+        amount: "{amount}"
+    response:
+      type: object
+    risk:
+      level: medium
+      mutating: true
+`
+
+	m, err := ParseManifest([]byte(manifest))
+	if err != nil {
+		t.Fatalf("expected number arg type to be valid, got: %v", err)
+	}
+	if got := m.Actions["create_price"].Args[0].Type; got != "number" {
+		t.Fatalf("expected parsed type number, got %q", got)
+	}
+}
+
 func TestConvertAuthNone(t *testing.T) {
 	manifest := &SkillManifest{
 		Name:    "public-api",
@@ -326,5 +457,141 @@ func TestConvertAuthNone(t *testing.T) {
 	}
 	if !defs[0].Auth.Optional {
 		t.Fatal("expected auth optional=true for none type")
+	}
+}
+
+func TestToActionDefinitionsUsesActionLevelAuthOverride(t *testing.T) {
+	manifest := &SkillManifest{
+		Name:    "svc",
+		Version: "1.0.0",
+		BaseURL: "https://api.example.com",
+		Auth: SkillAuth{
+			Type:          "header",
+			HeaderName:    "Authorization",
+			CredentialRef: "svc.token",
+		},
+		Actions: map[string]SkillAction{
+			"search": {
+				Method: "GET",
+				Path:   "/search",
+				Auth: &SkillAuth{
+					Type:          "query",
+					QueryParam:    "api_key",
+					CredentialRef: "svc.api_key",
+				},
+				Risk: RiskSpec{Level: "low"},
+			},
+		},
+	}
+
+	defs, err := ToActionDefinitions(manifest)
+	if err != nil {
+		t.Fatalf("convert failed: %v", err)
+	}
+	if len(defs) != 1 {
+		t.Fatalf("expected one action definition, got %d", len(defs))
+	}
+
+	if defs[0].Auth.Type != actions.AuthTypeQuery {
+		t.Fatalf("expected action-level query auth, got %s", defs[0].Auth.Type)
+	}
+	if defs[0].Auth.QueryName != "api_key" || defs[0].Auth.CredentialRef != "svc.api_key" {
+		t.Fatalf("unexpected overridden auth mapping: %+v", defs[0].Auth)
+	}
+}
+
+func TestSignAndVerifyRoundtrip(t *testing.T) {
+	manifest, err := ParseManifest([]byte(braveSearchFixture))
+	if err != nil {
+		t.Fatalf("parse: %v", err)
+	}
+
+	dir := t.TempDir()
+	installer := NewLocalInstaller(dir)
+	if _, err := installer.Install(manifest, "local"); err != nil {
+		t.Fatalf("install: %v", err)
+	}
+
+	pub, priv, err := ed25519.GenerateKey(nil)
+	if err != nil {
+		t.Fatalf("keygen: %v", err)
+	}
+
+	if err := installer.Sign(priv); err != nil {
+		t.Fatalf("sign: %v", err)
+	}
+
+	result, err := installer.VerifyWithKey("brave-search", pub)
+	if err != nil {
+		t.Fatalf("verify: %v", err)
+	}
+	if !result.Verified {
+		t.Fatal("expected digest verified")
+	}
+	if !result.Signed {
+		t.Fatal("expected signed")
+	}
+	if !result.SignatureValid {
+		t.Fatal("expected valid signature with pinned key")
+	}
+}
+
+func TestVerifyWithWrongPinnedKeyFails(t *testing.T) {
+	manifest, err := ParseManifest([]byte(braveSearchFixture))
+	if err != nil {
+		t.Fatalf("parse: %v", err)
+	}
+
+	dir := t.TempDir()
+	installer := NewLocalInstaller(dir)
+	if _, err := installer.Install(manifest, "local"); err != nil {
+		t.Fatalf("install: %v", err)
+	}
+
+	_, priv, _ := ed25519.GenerateKey(nil)
+	if err := installer.Sign(priv); err != nil {
+		t.Fatalf("sign: %v", err)
+	}
+
+	wrongPub, _, _ := ed25519.GenerateKey(nil)
+	result, err := installer.VerifyWithKey("brave-search", wrongPub)
+	if err != nil {
+		t.Fatalf("verify: %v", err)
+	}
+	if !result.Verified {
+		t.Fatal("digest should still be verified")
+	}
+	if !result.Signed {
+		t.Fatal("entry should be marked signed")
+	}
+	if result.SignatureValid {
+		t.Fatal("signature should be invalid with wrong pinned key")
+	}
+}
+
+func TestVerifyTamperedDigestDetected(t *testing.T) {
+	manifest, err := ParseManifest([]byte(braveSearchFixture))
+	if err != nil {
+		t.Fatalf("parse: %v", err)
+	}
+
+	dir := t.TempDir()
+	installer := NewLocalInstaller(dir)
+	if _, err := installer.Install(manifest, "local"); err != nil {
+		t.Fatalf("install: %v", err)
+	}
+
+	lf, _ := installer.readLockfile()
+	entry := lf.Skills["brave-search"]
+	entry.Digest = "sha256:0000000000000000000000000000000000000000000000000000000000000000"
+	lf.Skills["brave-search"] = entry
+	_ = installer.writeLockfile(lf)
+
+	result, err := installer.Verify("brave-search")
+	if err != nil {
+		t.Fatalf("verify: %v", err)
+	}
+	if result.Verified {
+		t.Fatal("tampered digest should fail verification")
 	}
 }

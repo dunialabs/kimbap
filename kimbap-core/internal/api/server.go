@@ -10,19 +10,21 @@ import (
 	"github.com/dunialabs/kimbap-core/internal/auth"
 	"github.com/dunialabs/kimbap-core/internal/runtime"
 	"github.com/dunialabs/kimbap-core/internal/store"
+	"github.com/dunialabs/kimbap-core/internal/webhooks"
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
 )
 
 type Server struct {
-	router          chi.Router
-	store           store.Store
-	addr            string
-	httpServer      *http.Server
-	tokenService    *auth.TokenService
-	runtime         *runtime.Runtime
-	approvalManager *approvals.ApprovalManager
-	skipConsole     bool
+	router            chi.Router
+	store             store.Store
+	addr              string
+	httpServer        *http.Server
+	tokenService      *auth.TokenService
+	runtime           *runtime.Runtime
+	approvalManager   *approvals.ApprovalManager
+	webhookDispatcher *webhooks.Dispatcher
+	skipConsole       bool
 }
 
 const (
@@ -41,6 +43,12 @@ func WithRuntime(rt *runtime.Runtime) ServerOption {
 func WithoutConsole() ServerOption {
 	return func(s *Server) {
 		s.skipConsole = true
+	}
+}
+
+func WithWebhookDispatcher(d *webhooks.Dispatcher) ServerOption {
+	return func(s *Server) {
+		s.webhookDispatcher = d
 	}
 }
 

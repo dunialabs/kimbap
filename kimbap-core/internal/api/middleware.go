@@ -23,13 +23,13 @@ func BearerAuth(tokenService *auth.TokenService) func(next http.Handler) http.Ha
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			if tokenService == nil {
-				writeExecutionError(w, actions.NewExecutionError(actions.ErrUnauthenticated, "token service unavailable", http.StatusUnauthorized, false, nil))
+				writeEnvelopeError(w, r, actions.NewExecutionError(actions.ErrUnauthenticated, "token service unavailable", http.StatusUnauthorized, false, nil))
 				return
 			}
 			authz := strings.TrimSpace(r.Header.Get("Authorization"))
 			parts := strings.Fields(authz)
 			if len(parts) != 2 || !strings.EqualFold(parts[0], "Bearer") || strings.TrimSpace(parts[1]) == "" {
-				writeExecutionError(w, actions.NewExecutionError(actions.ErrUnauthenticated, "bearer token required", http.StatusUnauthorized, false, nil))
+				writeEnvelopeError(w, r, actions.NewExecutionError(actions.ErrUnauthenticated, "bearer token required", http.StatusUnauthorized, false, nil))
 				return
 			}
 			principal, err := tokenService.Validate(r.Context(), strings.TrimSpace(parts[1]))
@@ -46,7 +46,7 @@ func BearerAuth(tokenService *auth.TokenService) func(next http.Handler) http.Ha
 				} else if errors.Is(err, auth.ErrInvalidToken) {
 					msg = "invalid token"
 				}
-				writeExecutionError(w, actions.NewExecutionError(actions.ErrUnauthenticated, msg, status, false, nil))
+				writeEnvelopeError(w, r, actions.NewExecutionError(actions.ErrUnauthenticated, msg, status, false, nil))
 				return
 			}
 			ctx := context.WithValue(r.Context(), contextKeyPrincipal, principal)
@@ -60,7 +60,7 @@ func TenantContext() func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			principal := principalFromContext(r.Context())
 			if principal == nil || strings.TrimSpace(principal.TenantID) == "" {
-				writeExecutionError(w, actions.NewExecutionError(actions.ErrUnauthorized, "tenant context unavailable", http.StatusForbidden, false, nil))
+				writeEnvelopeError(w, r, actions.NewExecutionError(actions.ErrUnauthorized, "tenant context unavailable", http.StatusForbidden, false, nil))
 				return
 			}
 			ctx := context.WithValue(r.Context(), contextKeyTenant, principal.TenantID)
@@ -72,7 +72,7 @@ func TenantContext() func(next http.Handler) http.Handler {
 func RequestID() func(next http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			id := strings.TrimSpace(r.Header.Get("X-Request-ID"))
+			id := sanitizeRequestID(r.Header.Get("X-Request-ID"))
 			if id == "" {
 				id = uuid.NewString()
 			}
@@ -81,6 +81,26 @@ func RequestID() func(next http.Handler) http.Handler {
 			next.ServeHTTP(w, r.WithContext(ctx))
 		})
 	}
+}
+
+const maxRequestIDLen = 128
+
+func sanitizeRequestID(raw string) string {
+	id := strings.TrimSpace(raw)
+	if id == "" || len(id) > maxRequestIDLen {
+		return ""
+	}
+	for _, c := range id {
+		if c < 0x20 || c == 0x7f {
+			return ""
+		}
+		isAlnum := (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9')
+		isSafe := c == '-' || c == '_' || c == '.'
+		if !isAlnum && !isSafe {
+			return ""
+		}
+	}
+	return id
 }
 
 func JSONContentType() func(next http.Handler) http.Handler {
@@ -115,11 +135,11 @@ func RequireScope(scope string) func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			principal := principalFromContext(r.Context())
 			if principal == nil {
-				writeExecutionError(w, actions.NewExecutionError(actions.ErrUnauthenticated, "authentication required", http.StatusUnauthorized, false, nil))
+				writeEnvelopeError(w, r, actions.NewExecutionError(actions.ErrUnauthenticated, "authentication required", http.StatusUnauthorized, false, nil))
 				return
 			}
 			if !principalHasScope(principal, scope) {
-				writeExecutionError(w, actions.NewExecutionError(actions.ErrUnauthorized, "insufficient scope: "+scope, http.StatusForbidden, false, nil))
+				writeEnvelopeError(w, r, actions.NewExecutionError(actions.ErrUnauthorized, "insufficient scope: "+scope, http.StatusForbidden, false, nil))
 				return
 			}
 			next.ServeHTTP(w, r)

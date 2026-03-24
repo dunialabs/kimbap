@@ -1,0 +1,79 @@
+name: brave-search
+version: 1.0.0
+description: Brave Search API for web search, news, and image results
+base_url: https://api.search.brave.com
+auth:
+  type: header
+  header_name: X-Subscription-Token
+  credential_ref: brave-search.api_key
+actions:
+  web-search:
+    method: GET
+    path: /res/v1/web/search
+    description: Search the web using Brave Search
+    args:
+      - name: q
+        type: string
+        required: true
+      - name: count
+        type: integer
+        required: false
+        default: 10
+      - name: offset
+        type: integer
+        required: false
+        default: 0
+      - name: country
+        type: string
+        required: false
+    request:
+      query:
+        q: "{q}"
+        count: "{count}"
+        offset: "{offset}"
+        country: "{country}"
+      headers:
+        Accept: application/json
+    response:
+      extract: web.results
+      type: array
+    risk:
+      level: low
+      mutating: false
+    retry:
+      max_attempts: 3
+      backoff_ms: 200
+      retry_on: [429, 500, 502, 503]
+    pagination:
+      type: offset
+      max_pages: 5
+      next_path: query.next_offset
+  news-search:
+    method: GET
+    path: /res/v1/news/search
+    description: Search news articles using Brave Search
+    args:
+      - name: q
+        type: string
+        required: true
+      - name: count
+        type: integer
+        required: false
+        default: 10
+      - name: freshness
+        type: string
+        required: false
+        enum: [pd, pw, pm]
+    request:
+      query:
+        q: "{q}"
+        count: "{count}"
+        freshness: "{freshness}"
+      headers:
+        Accept: application/json
+    response:
+      extract: results
+      type: array
+    risk:
+      level: low
+      mutating: false

@@ -19,6 +19,15 @@ func (m mockPolicyEvaluator) Evaluate(ctx context.Context, req PolicyRequest) (*
 	return m.decision, m.err
 }
 
+type countingPolicyEvaluator struct {
+	called int
+}
+
+func (m *countingPolicyEvaluator) Evaluate(ctx context.Context, req PolicyRequest) (*PolicyDecision, error) {
+	m.called++
+	return &PolicyDecision{Decision: "allow"}, nil
+}
+
 type mockCredentialResolver struct {
 	creds *actions.ResolvedCredentialSet
 	err   error
@@ -45,6 +54,58 @@ type mockApprovalManager struct {
 
 func (m mockApprovalManager) CreateRequest(ctx context.Context, req ApprovalRequest) (*ApprovalResult, error) {
 	return m.result, m.err
+}
+
+type mockPrincipalVerifier struct {
+	err    error
+	called int
+}
+
+func (m *mockPrincipalVerifier) Verify(ctx context.Context, principal actions.Principal) error {
+	m.called++
+	return m.err
+}
+
+type mockHeldExecutionStore struct {
+	held        map[string]actions.ExecutionRequest
+	holdErr     error
+	resumeErr   error
+	removeErr   error
+	holdCalls   int
+	removeCalls int
+}
+
+func (m *mockHeldExecutionStore) Hold(ctx context.Context, approvalRequestID string, req actions.ExecutionRequest) error {
+	m.holdCalls++
+	if m.holdErr != nil {
+		return m.holdErr
+	}
+	if m.held == nil {
+		m.held = map[string]actions.ExecutionRequest{}
+	}
+	m.held[approvalRequestID] = req
+	return nil
+}
+
+func (m *mockHeldExecutionStore) Resume(ctx context.Context, approvalRequestID string) (*actions.ExecutionRequest, error) {
+	if m.resumeErr != nil {
+		return nil, m.resumeErr
+	}
+	req, ok := m.held[approvalRequestID]
+	if !ok {
+		return nil, nil
+	}
+	copyReq := req
+	return &copyReq, nil
+}
+
+func (m *mockHeldExecutionStore) Remove(ctx context.Context, approvalRequestID string) error {
+	m.removeCalls++
+	if m.removeErr != nil {
+		return m.removeErr
+	}
+	delete(m.held, approvalRequestID)
+	return nil
 }
 
 type mockAdapter struct {
@@ -181,6 +242,32 @@ func TestRuntimeExecuteInputValidationFailure(t *testing.T) {
 	}
 }
 
+func TestRuntimeExecuteSanitizeFailureBeforePolicyEvaluation(t *testing.T) {
+	evaluator := &countingPolicyEvaluator{}
+	rt := Runtime{
+		PolicyEvaluator: evaluator,
+		Adapters:        map[string]adapters.Adapter{"http": mockAdapter{kind: "http"}},
+	}
+
+	req := baseRequest(actions.ActionDefinition{
+		Name:        "github.issues.create",
+		InputSchema: &actions.Schema{Type: "object", Required: []string{"owner"}, Properties: map[string]*actions.Schema{"owner": {Type: "string"}}},
+		Adapter:     actions.AdapterConfig{Type: "http", URLTemplate: "https://example.com"},
+	})
+	req.Input["owner"] = "../../etc/passwd"
+
+	res := rt.Execute(context.Background(), req)
+	if res.Status != actions.StatusError {
+		t.Fatalf("expected error status, got %s", res.Status)
+	}
+	if res.Error == nil || res.Error.Code != actions.ErrValidationFailed {
+		t.Fatalf("expected validation failed error, got %+v", res.Error)
+	}
+	if evaluator.called != 0 {
+		t.Fatalf("expected policy evaluator not called on sanitize failure, got %d", evaluator.called)
+	}
+}
+
 func TestRuntimeExecuteAdapterFailure(t *testing.T) {
 	rt := Runtime{
 		Adapters: map[string]adapters.Adapter{
@@ -265,6 +352,99 @@ func TestRuntimeExecuteRedactsSensitiveHeadersInMeta(t *testing.T) {
 	}
 	if headers["Content-Type"] != "application/json" {
 		t.Fatalf("expected non-sensitive header preserved, got %+v", headers)
+	}
+}
+
+func TestRuntimeExecutePrincipalVerifierRejects(t *testing.T) {
+	verifier := &mockPrincipalVerifier{err: errors.New("invalid principal token")}
+	rt := Runtime{
+		PrincipalVerifier: verifier,
+		Adapters: map[string]adapters.Adapter{
+			"http": mockAdapter{kind: "http", result: &adapters.AdapterResult{Output: map[string]any{"ok": true}, HTTPStatus: 200}},
+		},
+	}
+
+	res := rt.Execute(context.Background(), baseRequest(actions.ActionDefinition{
+		Name:    "github.issues.create",
+		Adapter: actions.AdapterConfig{Type: "http", URLTemplate: "https://example.com"},
+	}))
+
+	if res.Status != actions.StatusError {
+		t.Fatalf("expected error status, got %s", res.Status)
+	}
+	if res.Error == nil || res.Error.Code != actions.ErrUnauthenticated {
+		t.Fatalf("expected unauthenticated error, got %+v", res.Error)
+	}
+	if verifier.called != 1 {
+		t.Fatalf("expected verifier to be called once, got %d", verifier.called)
+	}
+}
+
+func TestRuntimeExecuteAuditRequiredFailClosed(t *testing.T) {
+	audit := &mockAuditWriter{err: errors.New("audit sink unavailable")}
+	rt := Runtime{
+		AuditWriter:   audit,
+		AuditRequired: true,
+		Adapters: map[string]adapters.Adapter{
+			"http": mockAdapter{kind: "http", result: &adapters.AdapterResult{Output: map[string]any{"ok": true}, HTTPStatus: 200}},
+		},
+	}
+
+	res := rt.Execute(context.Background(), baseRequest(actions.ActionDefinition{
+		Name:    "github.issues.create",
+		Adapter: actions.AdapterConfig{Type: "http", URLTemplate: "https://example.com"},
+	}))
+
+	if res.Status != actions.StatusError {
+		t.Fatalf("expected error status, got %s", res.Status)
+	}
+	if res.Error == nil || res.Error.Code != actions.ErrAuditRequired {
+		t.Fatalf("expected audit required error, got %+v", res.Error)
+	}
+	if res.HTTPStatus != 500 {
+		t.Fatalf("expected http status 500, got %d", res.HTTPStatus)
+	}
+	if len(audit.events) != 1 {
+		t.Fatalf("expected one attempted audit write, got %d", len(audit.events))
+	}
+}
+
+func TestRuntimeApprovalHoldAndResume(t *testing.T) {
+	store := &mockHeldExecutionStore{held: map[string]actions.ExecutionRequest{}}
+	rt := Runtime{
+		ApprovalManager:    mockApprovalManager{result: &ApprovalResult{Approved: false, RequestID: "apr-42"}},
+		HeldExecutionStore: store,
+		Adapters: map[string]adapters.Adapter{
+			"http": mockAdapter{kind: "http", result: &adapters.AdapterResult{Output: map[string]any{"resumed": true}, HTTPStatus: 200}},
+		},
+	}
+
+	req := baseRequest(actions.ActionDefinition{
+		Name:         "github.issues.create",
+		ApprovalHint: actions.ApprovalRequired,
+		Adapter:      actions.AdapterConfig{Type: "http", URLTemplate: "https://example.com"},
+	})
+
+	res := rt.Execute(context.Background(), req)
+	if res.Status != actions.StatusApprovalRequired {
+		t.Fatalf("expected approval_required status, got %s", res.Status)
+	}
+	if store.holdCalls != 1 {
+		t.Fatalf("expected held store Hold once, got %d", store.holdCalls)
+	}
+	if _, ok := store.held["apr-42"]; !ok {
+		t.Fatal("expected held request stored by approval request id")
+	}
+
+	resumed := rt.ResumeApproved(context.Background(), "apr-42")
+	if resumed.Status != actions.StatusSuccess {
+		t.Fatalf("expected resumed execution success, got %s", resumed.Status)
+	}
+	if resumed.Output["resumed"] != true {
+		t.Fatalf("expected resumed output marker, got %+v", resumed.Output)
+	}
+	if store.removeCalls != 1 {
+		t.Fatalf("expected held store Remove once, got %d", store.removeCalls)
 	}
 }
 

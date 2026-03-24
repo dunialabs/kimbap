@@ -20,6 +20,7 @@ type SkillAction struct {
 	Method       string         `yaml:"method"`
 	Path         string         `yaml:"path"`
 	Description  string         `yaml:"description"`
+	Auth         *SkillAuth     `yaml:"auth,omitempty"`
 	Args         []ActionArg    `yaml:"args"`
 	Request      RequestSpec    `yaml:"request"`
 	Response     ResponseSpec   `yaml:"response"`

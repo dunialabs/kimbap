@@ -94,12 +94,29 @@ type ApprovalManager interface {
 	CreateRequest(ctx context.Context, req ApprovalRequest) (*ApprovalResult, error)
 }
 
+// PrincipalVerifier validates that a principal is authentic.
+// CLI surfaces may use a no-op verifier for local-dev; server surfaces
+// must verify against issued tokens.
+type PrincipalVerifier interface {
+	Verify(ctx context.Context, principal actions.Principal) error
+}
+
+// HeldExecutionStore persists execution requests that are waiting for approval.
+type HeldExecutionStore interface {
+	Hold(ctx context.Context, approvalRequestID string, req actions.ExecutionRequest) error
+	Resume(ctx context.Context, approvalRequestID string) (*actions.ExecutionRequest, error)
+	Remove(ctx context.Context, approvalRequestID string) error
+}
+
 type Runtime struct {
+	PrincipalVerifier  PrincipalVerifier // nil = ID-only check (local dev)
 	PolicyEvaluator    PolicyEvaluator
 	CredentialResolver CredentialResolver
 	AuditWriter        AuditWriter
+	AuditRequired      bool // If true, audit write failure aborts execution
 	ActionRegistry     ActionRegistry
 	ApprovalManager    ApprovalManager
+	HeldExecutionStore HeldExecutionStore // nil = no resume support
 	Adapters           map[string]adapters.Adapter
 	Now                func() time.Time
 }
@@ -146,6 +163,66 @@ func (r *Runtime) ExecuteWithTrace(ctx context.Context, req actions.ExecutionReq
 	return result, tc.Steps
 }
 
+func (r *Runtime) ResumeApproved(ctx context.Context, approvalRequestID string) actions.ExecutionResult {
+	if r.HeldExecutionStore == nil {
+		return actions.ExecutionResult{
+			Status: actions.StatusError,
+			Error:  actions.NewExecutionError(actions.ErrApprovalRequired, "held execution store unavailable", 500, false, nil),
+		}
+	}
+
+	held, err := r.HeldExecutionStore.Resume(ctx, approvalRequestID)
+	if err != nil || held == nil {
+		msg := "held execution not found"
+		if err != nil {
+			msg = err.Error()
+		}
+		return actions.ExecutionResult{
+			Status:     actions.StatusError,
+			HTTPStatus: 404,
+			Error:      actions.NewExecutionError(actions.ErrActionNotFound, msg, 404, false, nil),
+		}
+	}
+
+	if principalErr := r.authenticatePrincipal(*held); principalErr != nil {
+		return actions.ExecutionResult{
+			Status: actions.StatusError,
+			Error:  principalErr,
+		}
+	}
+
+	if _, tenantErr := r.resolveTenant(*held); tenantErr != nil {
+		return actions.ExecutionResult{
+			Status: actions.StatusError,
+			Error:  tenantErr,
+		}
+	}
+
+	if validationErr := actions.ValidateInput(held.Action.InputSchema, held.Input); validationErr != nil {
+		return actions.ExecutionResult{
+			Status: actions.StatusError,
+			Error:  actions.NewExecutionError(actions.ErrValidationFailed, validationErr.Error(), 400, false, nil),
+		}
+	}
+
+	if sanitizeErr := SanitizeInput(held.Input); sanitizeErr != nil {
+		return actions.ExecutionResult{
+			Status: actions.StatusError,
+			Error:  actions.AsExecutionError(sanitizeErr),
+		}
+	}
+
+	result := r.executeFromCredentialsWithState(ctx, *held, nil, r.now(), "require_approval", approvalRequestID)
+
+	if result.Status == actions.StatusSuccess || result.Status == actions.StatusApprovalRequired {
+		if removeErr := r.HeldExecutionStore.Remove(ctx, approvalRequestID); removeErr != nil {
+			_, _ = fmt.Fprintf(os.Stderr, "warning: failed to remove held execution %s: %v\n", approvalRequestID, removeErr)
+		}
+	}
+
+	return result
+}
+
 func (r *Runtime) execute(ctx context.Context, req actions.ExecutionRequest, trace *TraceCollector) actions.ExecutionResult {
 	startedAt := r.now()
 	result := actions.ExecutionResult{
@@ -189,6 +266,13 @@ func (r *Runtime) execute(ctx context.Context, req actions.ExecutionRequest, tra
 		return r.finalizeWithError(ctx, &result, req, validationErr, startedAt, "deny", "")
 	}
 	trace.Record("validate_input", "ok", "")
+
+	if sanitizeErr := SanitizeInput(req.Input); sanitizeErr != nil {
+		mapped := actions.AsExecutionError(sanitizeErr)
+		trace.Record("sanitize_input", "error", mapped.Error())
+		return r.finalizeWithError(ctx, &result, req, mapped, startedAt, "deny", "")
+	}
+	trace.Record("sanitize_input", "ok", "")
 
 	if !req.Action.Idempotent && strings.TrimSpace(req.IdempotencyKey) == "" {
 		idempotencyErr := actions.NewExecutionError(actions.ErrIdempotencyRequired, "idempotency key required for non-idempotent action", 400, false, map[string]any{"action": req.Action.Name})
@@ -248,6 +332,11 @@ func (r *Runtime) execute(ctx context.Context, req actions.ExecutionRequest, tra
 				return r.finalizeWithStatus(ctx, &result, req, actions.StatusTimeout, timeoutErr, nil, 408, startedAt, "require_approval", approvalRes.RequestID)
 			}
 			if !approvalRes.Approved {
+				if r.HeldExecutionStore != nil {
+					if holdErr := r.HeldExecutionStore.Hold(ctx, approvalRes.RequestID, req); holdErr != nil {
+						_, _ = fmt.Fprintf(os.Stderr, "warning: failed to hold execution %s: %v\n", approvalRes.RequestID, holdErr)
+					}
+				}
 				approvalErr := actions.NewExecutionError(actions.ErrApprovalRequired, "approval required", 202, false, map[string]any{"approval_request_id": approvalRes.RequestID})
 				trace.Record("request_approval", "error", approvalErr.Error())
 				return r.finalizeWithStatus(ctx, &result, req, actions.StatusApprovalRequired, approvalErr, nil, 202, startedAt, "require_approval", approvalRes.RequestID)
@@ -256,6 +345,30 @@ func (r *Runtime) execute(ctx context.Context, req actions.ExecutionRequest, tra
 		}
 	} else {
 		trace.Record("request_approval", "skipped", "not required")
+	}
+
+	return r.executeFromCredentialsWithState(ctx, req, trace, startedAt, policyDecision, approvalRequestID)
+}
+
+func (r *Runtime) executeFromCredentials(ctx context.Context, req actions.ExecutionRequest, trace *TraceCollector) actions.ExecutionResult {
+	return r.executeFromCredentialsWithState(ctx, req, trace, r.now(), "allow", "")
+}
+
+func (r *Runtime) executeFromCredentialsWithState(
+	ctx context.Context,
+	req actions.ExecutionRequest,
+	trace *TraceCollector,
+	startedAt time.Time,
+	policyDecision string,
+	approvalRequestID string,
+) actions.ExecutionResult {
+	result := actions.ExecutionResult{
+		RequestID:      req.RequestID,
+		TraceID:        req.TraceID,
+		Status:         actions.StatusError,
+		HTTPStatus:     500,
+		IdempotencyKey: req.IdempotencyKey,
+		Meta:           map[string]any{},
 	}
 
 	authType := req.Action.Auth.Type
@@ -350,6 +463,11 @@ func (r *Runtime) execute(ctx context.Context, req actions.ExecutionRequest, tra
 func (r *Runtime) authenticatePrincipal(req actions.ExecutionRequest) *actions.ExecutionError {
 	if strings.TrimSpace(req.Principal.ID) == "" {
 		return actions.NewExecutionError(actions.ErrUnauthenticated, "principal identity required", 401, false, nil)
+	}
+	if r.PrincipalVerifier != nil {
+		if err := r.PrincipalVerifier.Verify(context.Background(), req.Principal); err != nil {
+			return actions.NewExecutionError(actions.ErrUnauthenticated, err.Error(), 401, false, nil)
+		}
 	}
 	return nil
 }
@@ -492,13 +610,22 @@ func (r *Runtime) finalizeWithStatus(
 	}
 	result.AuditRef = auditRef
 
-	r.writeAudit(ctx, req, *result)
+	if auditErr := r.writeAudit(ctx, req, *result); auditErr != nil {
+		result.Status = actions.StatusError
+		result.Error = auditErr
+		result.HTTPStatus = auditErr.HTTPStatus
+		result.Output = nil
+		result.Retryable = auditErr.Retryable
+	}
 	return *result
 }
 
-func (r *Runtime) writeAudit(ctx context.Context, req actions.ExecutionRequest, result actions.ExecutionResult) {
+func (r *Runtime) writeAudit(ctx context.Context, req actions.ExecutionRequest, result actions.ExecutionResult) *actions.ExecutionError {
 	if r.AuditWriter == nil {
-		return
+		if r.AuditRequired {
+			return actions.NewExecutionError(actions.ErrAuditRequired, "audit writer unavailable but audit is required", 500, false, nil)
+		}
+		return nil
 	}
 	event := AuditEvent{
 		RequestID:      req.RequestID,
@@ -521,8 +648,12 @@ func (r *Runtime) writeAudit(ctx context.Context, req actions.ExecutionRequest, 
 		event.ApprovalRequest = approvalID
 	}
 	if err := r.AuditWriter.Write(ctx, event); err != nil {
+		if r.AuditRequired {
+			return actions.NewExecutionError(actions.ErrAuditRequired, fmt.Sprintf("audit write failed: %v", err), 500, false, nil)
+		}
 		_, _ = fmt.Fprintf(os.Stderr, "warning: audit write failed for request %s: %v\n", req.RequestID, err)
 	}
+	return nil
 }
 
 func withTimeout(ctx context.Context, timeout time.Duration) (context.Context, context.CancelFunc) {

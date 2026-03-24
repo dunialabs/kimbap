@@ -3,6 +3,7 @@ package skills
 import (
 	"encoding/json"
 	"fmt"
+	"hash/fnv"
 	"io"
 	"maps"
 	"net/http"
@@ -21,6 +22,11 @@ var (
 	openAPIVersionPattern = regexp.MustCompile(`^(?:v)?(\d+)(?:\.(\d+))?(?:\.(\d+))?`)
 	nonAlphanumPattern    = regexp.MustCompile(`[^a-z0-9]+`)
 	multiDashPattern      = regexp.MustCompile(`-+`)
+)
+
+const (
+	schemaOpaqueKey   = "x-kimbap-opaque"
+	schemaWarningsKey = "x-kimbap-warnings"
 )
 
 func GenerateFromOpenAPI(spec []byte) (*SkillManifest, error) {
@@ -47,7 +53,7 @@ func GenerateFromOpenAPI(spec []byte) (*SkillManifest, error) {
 		return nil, err
 	}
 
-	actions, err := extractActions(root, resolver)
+	actions, err := extractActions(root, resolver, name)
 	if err != nil {
 		return nil, err
 	}
@@ -212,42 +218,9 @@ func extractAuth(root map[string]any, resolver *openAPIRefResolver, skillName st
 		return SkillAuth{}, fmt.Errorf("resolve security scheme %q: %w", schemeName, err)
 	}
 
-	auth := SkillAuth{}
-	t := strings.ToLower(strings.TrimSpace(stringAt(scheme, "type")))
-	switch t {
-	case "http":
-		httpScheme := strings.ToLower(strings.TrimSpace(stringAt(scheme, "scheme")))
-		switch httpScheme {
-		case "bearer":
-			auth.Type = "bearer"
-			auth.CredentialRef = credentialRef(skillName, "token")
-		case "basic":
-			auth.Type = "basic"
-			auth.CredentialRef = credentialRef(skillName, "basic")
-		default:
-			return SkillAuth{}, fmt.Errorf("unsupported HTTP auth scheme %q: only bearer and basic are supported", httpScheme)
-		}
-	case "apikey":
-		in := strings.ToLower(strings.TrimSpace(stringAt(scheme, "in")))
-		name := strings.TrimSpace(stringAt(scheme, "name"))
-		switch in {
-		case "query":
-			auth.Type = "query"
-			auth.QueryParam = nonEmptyString(name, "api_key")
-			auth.CredentialRef = credentialRef(skillName, "api_key")
-		default:
-			auth.Type = "header"
-			auth.HeaderName = nonEmptyString(name, "X-API-Key")
-			auth.CredentialRef = credentialRef(skillName, "api_key")
-		}
-	case "oauth2":
-		auth.Type = "bearer"
-		auth.CredentialRef = credentialRef(skillName, "oauth_token")
-	case "openidconnect":
-		auth.Type = "bearer"
-		auth.CredentialRef = credentialRef(skillName, "oidc_token")
-	default:
-		return SkillAuth{}, fmt.Errorf("unsupported security scheme type %q: only http, apiKey, oauth2, and openIdConnect are supported", t)
+	auth, err := authFromScheme(scheme, skillName)
+	if err != nil {
+		return SkillAuth{}, err
 	}
 
 	if auth.Type == "none" {
@@ -261,7 +234,7 @@ func extractAuth(root map[string]any, resolver *openAPIRefResolver, skillName st
 	return auth, nil
 }
 
-func extractActions(root map[string]any, resolver *openAPIRefResolver) (map[string]SkillAction, error) {
+func extractActions(root map[string]any, resolver *openAPIRefResolver, skillName string) (map[string]SkillAction, error) {
 	paths := mapAt(root, "paths")
 	actions := make(map[string]SkillAction)
 
@@ -284,13 +257,13 @@ func extractActions(root map[string]any, resolver *openAPIRefResolver) (map[stri
 				return nil, fmt.Errorf("resolve operation %s %s: %w", strings.ToUpper(method), p, err)
 			}
 
-			action, err := buildAction(strings.ToUpper(method), p, op, pathParams, resolver)
+			action, err := buildAction(strings.ToUpper(method), p, op, pathParams, root, resolver, skillName)
 			if err != nil {
 				return nil, err
 			}
 
 			key := normalizeActionKey(stringAt(op, "operationId"), method, p)
-			key = ensureUniqueActionKey(key, actions)
+			key = ensureUniqueActionKey(key, method, p, actions)
 			actions[key] = action
 		}
 	}
@@ -298,7 +271,7 @@ func extractActions(root map[string]any, resolver *openAPIRefResolver) (map[stri
 	return actions, nil
 }
 
-func buildAction(method, path string, op map[string]any, pathParams []any, resolver *openAPIRefResolver) (SkillAction, error) {
+func buildAction(method, path string, op map[string]any, pathParams []any, root map[string]any, resolver *openAPIRefResolver, skillName string) (SkillAction, error) {
 	description := strings.TrimSpace(stringAt(op, "summary"))
 	if description == "" {
 		description = strings.TrimSpace(stringAt(op, "description"))
@@ -340,6 +313,8 @@ func buildAction(method, path string, op map[string]any, pathParams []any, resol
 	if err := addRequestBodyArgs(&action, op, resolver, argIndex); err != nil {
 		return SkillAction{}, err
 	}
+
+	action.Auth = extractOperationAuth(op, root, resolver, skillName)
 
 	action.Args = sortArgs(action.Args)
 	action.Request.Query = nilIfEmptyStringMap(action.Request.Query)
@@ -413,6 +388,7 @@ func parameterToArg(param map[string]any, resolver *openAPIRefResolver) (ActionA
 		if err == nil {
 			schema = resolved
 		}
+		schema = resolveCompositeSchema(schema, resolver)
 	}
 
 	arg := ActionArg{
@@ -458,14 +434,17 @@ func addRequestBodyArgs(action *SkillAction, op map[string]any, resolver *openAP
 	if err != nil {
 		return fmt.Errorf("resolve request body schema ref: %w", err)
 	}
+	resolvedSchema = resolveCompositeSchema(resolvedSchema, resolver)
+	appendActionWarnings(action, schemaWarnings(resolvedSchema))
 
-	bodyRequired := boolAt(requestBody, "required")
+	if opaque, _ := resolvedSchema[schemaOpaqueKey].(bool); opaque {
+		return nil
+	}
+
 	requiredSet := make(map[string]struct{})
-	if bodyRequired {
-		for _, item := range anySliceAt(resolvedSchema, "required") {
-			if s, ok := item.(string); ok && strings.TrimSpace(s) != "" {
-				requiredSet[s] = struct{}{}
-			}
+	for _, item := range anySliceAt(resolvedSchema, "required") {
+		if s, ok := item.(string); ok && strings.TrimSpace(s) != "" {
+			requiredSet[s] = struct{}{}
 		}
 	}
 
@@ -478,12 +457,13 @@ func addRequestBodyArgs(action *SkillAction, op map[string]any, resolver *openAP
 				if resolved, resolveErr := resolver.resolveMap(propSchema); resolveErr == nil {
 					propSchema = resolved
 				}
+				propSchema = resolveCompositeSchema(propSchema, resolver)
 			}
 
 			arg := ActionArg{
 				Name:     propName,
 				Type:     schemaType(propSchema),
-				Required: bodyRequired && hasKey(requiredSet, propName),
+				Required: hasKey(requiredSet, propName),
 			}
 			if def, ok := valueAt(propSchema, "default"); ok {
 				arg.Default = def
@@ -654,16 +634,21 @@ func normalizeActionKey(operationID, method, path string) string {
 	return base
 }
 
-func ensureUniqueActionKey(base string, existing map[string]SkillAction) string {
+func ensureUniqueActionKey(base, method, path string, existing map[string]SkillAction) string {
 	if _, ok := existing[base]; !ok {
 		return base
 	}
-	for i := 2; ; i++ {
-		candidate := base + "-" + strconv.Itoa(i)
+
+	hashInput := strings.ToLower(strings.TrimSpace(method)) + " " + strings.TrimSpace(path)
+	sum := shortStableHash(hashInput)
+	for size := 6; size <= len(sum); size += 2 {
+		candidate := base + "-" + sum[:size]
 		if _, ok := existing[candidate]; !ok {
 			return candidate
 		}
 	}
+
+	return base + "-" + sum
 }
 
 func pickMediaType(content map[string]any) string {
@@ -716,10 +701,328 @@ func schemaType(schema map[string]any) string {
 	case "string", "integer", "boolean", "array", "object":
 		return t
 	case "number":
-		return "integer"
+		return "number"
 	default:
 		return "string"
 	}
+}
+
+func extractOperationAuth(op map[string]any, root map[string]any, resolver *openAPIRefResolver, skillName string) *SkillAuth {
+	securityAny, exists := op["security"]
+	if !exists {
+		return nil
+	}
+
+	security, ok := securityAny.([]any)
+	if !ok {
+		return nil
+	}
+
+	schemeName := firstReferencedSecuritySchemeFromList(security)
+	if schemeName == "" {
+		auth := SkillAuth{Type: "none"}
+		return &auth
+	}
+
+	schemes := mapAt(mapAt(root, "components"), "securitySchemes")
+	rawScheme := mapAt(schemes, schemeName)
+	if len(rawScheme) == 0 {
+		return nil
+	}
+
+	scheme, err := resolver.resolveMap(rawScheme)
+	if err != nil {
+		return nil
+	}
+
+	auth, err := authFromScheme(scheme, skillName)
+	if err != nil {
+		return nil
+	}
+
+	if auth.Type == "none" {
+		auth.CredentialRef = ""
+	}
+
+	return &auth
+}
+
+func firstReferencedSecuritySchemeFromList(security []any) string {
+	for _, item := range security {
+		req, ok := item.(map[string]any)
+		if !ok || len(req) == 0 {
+			continue
+		}
+		keys := sortedMapKeys(req)
+		return keys[0]
+	}
+	return ""
+}
+
+func authFromScheme(scheme map[string]any, skillName string) (SkillAuth, error) {
+	auth := SkillAuth{}
+	t := strings.ToLower(strings.TrimSpace(stringAt(scheme, "type")))
+	switch t {
+	case "http":
+		httpScheme := strings.ToLower(strings.TrimSpace(stringAt(scheme, "scheme")))
+		switch httpScheme {
+		case "bearer":
+			auth.Type = "bearer"
+			auth.CredentialRef = credentialRef(skillName, "token")
+		case "basic":
+			auth.Type = "basic"
+			auth.CredentialRef = credentialRef(skillName, "basic")
+		default:
+			return SkillAuth{}, fmt.Errorf("unsupported HTTP auth scheme %q: only bearer and basic are supported", httpScheme)
+		}
+	case "apikey":
+		in := strings.ToLower(strings.TrimSpace(stringAt(scheme, "in")))
+		name := strings.TrimSpace(stringAt(scheme, "name"))
+		switch in {
+		case "query":
+			auth.Type = "query"
+			auth.QueryParam = nonEmptyString(name, "api_key")
+			auth.CredentialRef = credentialRef(skillName, "api_key")
+		default:
+			auth.Type = "header"
+			auth.HeaderName = nonEmptyString(name, "X-API-Key")
+			auth.CredentialRef = credentialRef(skillName, "api_key")
+		}
+	case "oauth2":
+		auth.Type = "bearer"
+		auth.CredentialRef = credentialRef(skillName, "oauth_token")
+	case "openidconnect":
+		auth.Type = "bearer"
+		auth.CredentialRef = credentialRef(skillName, "oidc_token")
+	default:
+		return SkillAuth{}, fmt.Errorf("unsupported security scheme type %q: only http, apiKey, oauth2, and openIdConnect are supported", t)
+	}
+	return auth, nil
+}
+
+func resolveCompositeSchema(schema map[string]any, resolver *openAPIRefResolver) map[string]any {
+	if len(schema) == 0 {
+		return schema
+	}
+
+	resolved := schema
+	if next, err := resolver.resolveMap(schema); err == nil && len(next) > 0 {
+		resolved = next
+	}
+
+	if allOf := anySliceAt(resolved, "allOf"); len(allOf) > 0 {
+		merged := cloneAnyMap(resolved)
+		properties := map[string]any{}
+		requiredSet := map[string]struct{}{}
+		warnings := schemaWarnings(resolved)
+
+		for _, req := range anySliceAt(resolved, "required") {
+			if key, ok := req.(string); ok && strings.TrimSpace(key) != "" {
+				requiredSet[key] = struct{}{}
+			}
+		}
+		for key, value := range mapAt(resolved, "properties") {
+			properties[key] = value
+		}
+
+		for _, item := range allOf {
+			sub, ok := item.(map[string]any)
+			if !ok {
+				continue
+			}
+			subResolved := resolveCompositeSchema(sub, resolver)
+			if disc, hasDisc := subResolved["discriminator"]; hasDisc {
+				merged["discriminator"] = disc
+			}
+			warnings = append(warnings, schemaWarnings(subResolved)...)
+			for key, value := range mapAt(subResolved, "properties") {
+				if existing, hasExisting := properties[key]; hasExisting {
+					existingMap, existingOK := existing.(map[string]any)
+					newMap, newOK := value.(map[string]any)
+					if existingOK && newOK {
+						existingType := stringAt(existingMap, "type")
+						newType := stringAt(newMap, "type")
+						if existingType != "" && newType != "" && existingType != newType {
+							warnings = append(warnings, fmt.Sprintf("allOf conflict for property %q: overriding type %q with %q (last definition wins)", key, existingType, newType))
+							properties[key] = value
+							continue
+						}
+					}
+				}
+				properties[key] = value
+			}
+			for _, req := range anySliceAt(subResolved, "required") {
+				if key, ok := req.(string); ok && strings.TrimSpace(key) != "" {
+					requiredSet[key] = struct{}{}
+				}
+			}
+		}
+
+		delete(merged, "allOf")
+		if len(properties) > 0 {
+			merged["properties"] = properties
+			merged["type"] = "object"
+		}
+		required := make([]any, 0, len(requiredSet))
+		for _, key := range sortedStringKeys(requiredSet) {
+			required = append(required, key)
+		}
+		if len(required) > 0 {
+			merged["required"] = required
+		} else {
+			delete(merged, "required")
+		}
+		if len(warnings) > 0 {
+			warningAny := make([]any, 0, len(warnings))
+			for _, warning := range dedupeStrings(warnings) {
+				warningAny = append(warningAny, warning)
+			}
+			merged[schemaWarningsKey] = warningAny
+		} else {
+			delete(merged, schemaWarningsKey)
+		}
+
+		return merged
+	}
+
+	for _, keyword := range []string{"oneOf", "anyOf"} {
+		variants := anySliceAt(resolved, keyword)
+		if len(variants) == 0 {
+			continue
+		}
+		if isComplexComposition(variants, resolver) || hasKey(resolved, "discriminator") {
+			merged := cloneAnyMap(resolved)
+			delete(merged, keyword)
+			delete(merged, "required")
+			merged["type"] = "object"
+			merged[schemaOpaqueKey] = true
+			return merged
+		}
+		first, ok := variants[0].(map[string]any)
+		if !ok {
+			break
+		}
+		primary := resolveCompositeSchema(first, resolver)
+		merged := cloneAnyMap(resolved)
+		for key, value := range primary {
+			merged[key] = value
+		}
+		delete(merged, "oneOf")
+		delete(merged, "anyOf")
+		delete(merged, "required")
+		return merged
+	}
+
+	return resolved
+}
+
+func isComplexComposition(variants []any, resolver *openAPIRefResolver) bool {
+	if len(variants) >= 3 {
+		return true
+	}
+
+	for _, item := range variants {
+		v, ok := item.(map[string]any)
+		if !ok {
+			continue
+		}
+		resolved := v
+		if next, err := resolver.resolveMap(v); err == nil && len(next) > 0 {
+			resolved = next
+		}
+		if hasKey(resolved, "discriminator") {
+			return true
+		}
+
+		props := mapAt(resolved, "properties")
+		for _, propVal := range props {
+			propMap, ok := propVal.(map[string]any)
+			if !ok {
+				continue
+			}
+			propType := stringAt(propMap, "type")
+			if propType == "object" || propType == "array" {
+				return true
+			}
+			if hasKey(propMap, "oneOf") || hasKey(propMap, "anyOf") || hasKey(propMap, "allOf") {
+				return true
+			}
+		}
+	}
+
+	return false
+}
+
+func schemaWarnings(schema map[string]any) []string {
+	raw := anySliceAt(schema, schemaWarningsKey)
+	if len(raw) == 0 {
+		return nil
+	}
+	warnings := make([]string, 0, len(raw))
+	for _, item := range raw {
+		warning, ok := item.(string)
+		if !ok || strings.TrimSpace(warning) == "" {
+			continue
+		}
+		warnings = append(warnings, warning)
+	}
+	if len(warnings) == 0 {
+		return nil
+	}
+	return warnings
+}
+
+func dedupeStrings(values []string) []string {
+	if len(values) == 0 {
+		return nil
+	}
+	seen := map[string]struct{}{}
+	out := make([]string, 0, len(values))
+	for _, value := range values {
+		trimmed := strings.TrimSpace(value)
+		if trimmed == "" {
+			continue
+		}
+		if hasKey(seen, trimmed) {
+			continue
+		}
+		seen[trimmed] = struct{}{}
+		out = append(out, trimmed)
+	}
+	return out
+}
+
+func appendActionWarnings(action *SkillAction, warnings []string) {
+	uniqueWarnings := dedupeStrings(warnings)
+	if len(uniqueWarnings) == 0 {
+		return
+	}
+	lines := make([]string, 0, len(uniqueWarnings))
+	for _, warning := range uniqueWarnings {
+		lines = append(lines, "WARNING: "+warning)
+	}
+	warningBlock := strings.Join(lines, "\n")
+	description := strings.TrimSpace(action.Description)
+	if description == "" {
+		action.Description = warningBlock
+		return
+	}
+	action.Description = description + "\n" + warningBlock
+}
+
+func sortedStringKeys[V any](m map[string]V) []string {
+	keys := make([]string, 0, len(m))
+	for key := range m {
+		keys = append(keys, key)
+	}
+	sort.Strings(keys)
+	return keys
+}
+
+func shortStableHash(input string) string {
+	h := fnv.New32a()
+	_, _ = h.Write([]byte(input))
+	return fmt.Sprintf("%08x", h.Sum32())
 }
 
 func addOrUpdateArg(args *[]ActionArg, argIndex map[string]int, arg ActionArg) {
