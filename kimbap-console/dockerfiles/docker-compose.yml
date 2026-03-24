@@ -83,9 +83,8 @@ services:
       DATABASE_URL: postgresql://kimbap:kimbap123@postgres-console:5432/kimbap_console?schema=public
       PORT: ${CONSOLE_PORT:-3000}
       JWT_SECRET: ${CONSOLE_JWT_SECRET:-your-secret-key-change-in-production}
-      # Kimbap Core connection (Priority 2: environment variable)
-      # If only console runs, point to an external core service
-      MCP_GATEWAY_URL: ${MCP_GATEWAY_URL:-http://kimbap-core:3002}
+      # Kimbap Core connection
+      KIMBAP_CORE_URL: ${KIMBAP_CORE_URL:-${MCP_GATEWAY_URL:-http://kimbap-core:3002}}
       # Log sync configuration
       LOG_SYNC_ENABLED: ${LOG_SYNC_ENABLED:-true}
       LOG_SYNC_INTERVAL_MINUTES: ${LOG_SYNC_INTERVAL_MINUTES:-2}

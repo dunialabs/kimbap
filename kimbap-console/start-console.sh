@@ -112,7 +112,7 @@ services:
       DATABASE_URL: postgresql://${POSTGRES_USER:-kimbap}:${POSTGRES_PASSWORD:-kimbap123}@postgres-console:5432/${POSTGRES_DB:-kimbap_console}?schema=public
       PORT: ${CONSOLE_PORT:-3000}
       JWT_SECRET: ${CONSOLE_JWT_SECRET:-your-console-jwt-secret-change-in-production-min-32-chars}
-      MCP_GATEWAY_URL: ${MCP_GATEWAY_URL:-http://kimbap-core:3002}
+      KIMBAP_CORE_URL: ${KIMBAP_CORE_URL:-${MCP_GATEWAY_URL:-http://kimbap-core:3002}}
       PROXY_ADMIN_URL: ${PROXY_ADMIN_URL:-http://kimbap-core:3002/admin}
       LOG_SYNC_ENABLED: ${LOG_SYNC_ENABLED:-true}
       LOG_SYNC_INTERVAL_MINUTES: ${LOG_SYNC_INTERVAL_MINUTES:-2}
@@ -198,7 +198,7 @@ CONSOLE_JWT_SECRET=$JWT_SECRET
 # Kimbap Core Connection Configuration
 # Same machine: http://localhost:3002 or http://kimbap-core:3002
 # Different server: http://192.168.1.100:3002 or https://core.example.com
-MCP_GATEWAY_URL=http://kimbap-core:3002
+KIMBAP_CORE_URL=http://kimbap-core:3002
 PROXY_ADMIN_URL=http://kimbap-core:3002/admin
 
 # Log Sync Configuration
@@ -226,7 +226,7 @@ EOF
     echo ""
     echo -e "${BLUE}Important Configuration Notes:${NC}"
     echo "   1. Authentication secrets have been auto-generated (check .env file)"
-    echo "   2. Please modify MCP_GATEWAY_URL and PROXY_ADMIN_URL to your Kimbap Core address"
+    echo "   2. Please modify KIMBAP_CORE_URL to your Kimbap Core address"
     echo "   3. To enable HTTPS remote access, set CLOUDFLARE_TUNNEL_TOKEN in .env file"
     echo "   4. To modify ports or other settings, edit .env file"
     echo ""

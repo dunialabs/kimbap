@@ -100,7 +100,7 @@ if [ "$NODE_ENV" = "production" ]; then
 
     echo "✅ Frontend service started:"
     echo "   Frontend: http://localhost:3000"
-    echo "   Backend API (kimbap-core): configured via MCP_GATEWAY_URL"
+    echo "   Backend API (kimbap-core): configured via KIMBAP_CORE_URL"
 else
     echo "🔧 Starting development server..."
     # In development, use the start script

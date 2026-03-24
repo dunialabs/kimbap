@@ -9,7 +9,7 @@
 - `proxy-server/` contains the compiled backend bundle; `docs/` holds deployment and configuration guides.
 
 ## Architecture Overview & Runtime
-- Single Next.js 15 App Router app with co-located API routes under `app/api/v1`; protocol handlers live in `app/api/v1/handlers/*`.
+- Single Next.js 15 App Router app with co-located API routes under `app/api`. New API features go under `app/api/external/*` as RESTful endpoints. The legacy `app/api/v1/handlers/*` cmdId-based protocol system is **frozen** — no new handlers should be added there (see `app/api/v1/handlers/README.md` for migration guidance).
 - Custom entry `server.js` wraps Next for HTTP/HTTPS with graceful shutdown; override ports via `PORT`, `FRONTEND_PORT`, `FRONTEND_HTTPS_PORT`.
 - Default ports: app `3000`, Postgres `5432`, optional Adminer `8080`; auto-port scripts help avoid conflicts.
 

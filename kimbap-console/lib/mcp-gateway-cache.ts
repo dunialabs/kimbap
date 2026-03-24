@@ -1,6 +1,6 @@
 /**
- * MCP Gateway URL validation and caching utilities
- * Implements smart caching with different TTLs based on validation result
+ * KIMBAP Core URL validation and caching utilities
+ * Uses KIMBAP_CORE_URL as primary source, with MCP_GATEWAY_URL as a deprecated fallback.
  */
 
 interface CacheEntry {
@@ -48,7 +48,7 @@ function isCacheValid(entry: CacheEntry): boolean {
 }
 
 /**
- * Validate MCP_GATEWAY_URL format
+ * Validate KIMBAP_CORE_URL (or deprecated MCP_GATEWAY_URL) format
  * Returns validation result without making HTTP requests
  */
 function validateFormat(url: string): { isValid: boolean; errorMessage?: string } {
@@ -56,7 +56,7 @@ function validateFormat(url: string): { isValid: boolean; errorMessage?: string 
   if (!url || !url.trim()) {
     return {
       isValid: false,
-      errorMessage: 'MCP_GATEWAY_URL is empty',
+      errorMessage: 'KIMBAP_CORE_URL is empty',
     };
   }
 
@@ -64,7 +64,7 @@ function validateFormat(url: string): { isValid: boolean; errorMessage?: string 
   if (url.trim().endsWith('/admin')) {
     return {
       isValid: false,
-      errorMessage: 'MCP_GATEWAY_URL should not include /admin suffix (it will be added automatically)',
+      errorMessage: 'KIMBAP_CORE_URL should not include /admin suffix (it will be added automatically)',
     };
   }
 
@@ -84,7 +84,7 @@ function validateFormat(url: string): { isValid: boolean; errorMessage?: string 
     if (!urlObj.hostname) {
       return {
         isValid: false,
-        errorMessage: 'MCP_GATEWAY_URL does not contain a valid hostname',
+        errorMessage: 'KIMBAP_CORE_URL does not contain a valid hostname',
       };
     }
 
@@ -98,7 +98,7 @@ function validateFormat(url: string): { isValid: boolean; errorMessage?: string 
 }
 
 /**
- * Validate MCP_GATEWAY_URL availability and verify it's Kimbap Core service
+ * Validate availability of KIMBAP_CORE_URL (or deprecated MCP_GATEWAY_URL) and verify it's Kimbap Core service
  * Makes actual HTTP request to check if service is responding
  */
 async function validateAvailability(url: string): Promise<ValidationResult> {
@@ -129,7 +129,7 @@ async function validateAvailability(url: string): Promise<ValidationResult> {
           const host = urlObj.hostname;
           const port = urlObj.port ? parseInt(urlObj.port) : (urlObj.protocol === 'https:' ? 443 : 80);
 
-          console.log(`✓ MCP_GATEWAY_URL validation successful: ${url}`);
+          console.log(`✓ KIMBAP_CORE_URL validation successful: ${url}`);
           return {
             isValid: true,
             status: 'valid',
@@ -184,7 +184,7 @@ async function validateAvailability(url: string): Promise<ValidationResult> {
 }
 
 /**
- * Validate and cache MCP_GATEWAY_URL
+ * Validate and cache KIMBAP_CORE_URL (or MCP_GATEWAY_URL)
  *
  * Performs comprehensive validation:
  * 1. Format validation (URL syntax, protocol, no /admin suffix)
@@ -196,7 +196,7 @@ async function validateAvailability(url: string): Promise<ValidationResult> {
  * - invalid_format: Permanent cache (until service restart)
  * - unreachable: 1-minute cache, then retry
  *
- * @param url - MCP_GATEWAY_URL to validate
+ * @param url - KIMBAP_CORE_URL (or MCP_GATEWAY_URL) to validate
  * @returns Validation result with host and port if successful
  */
 export async function validateAndCacheMcpGatewayUrl(url: string): Promise<ValidationResult> {
@@ -212,7 +212,7 @@ export async function validateAndCacheMcpGatewayUrl(url: string): Promise<Valida
     };
   }
 
-  console.log(`[MCP CACHE] Validating MCP_GATEWAY_URL: ${url}`);
+    console.log(`[MCP CACHE] Validating KIMBAP_CORE_URL: ${url}`);
 
   // Step 1: Format validation
   const formatCheck = validateFormat(url);

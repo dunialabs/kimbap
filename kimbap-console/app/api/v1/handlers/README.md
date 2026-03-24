@@ -1,17 +1,58 @@
-# Protocol Handlers
+# Protocol Handlers (Legacy — Frozen)
 
-This directory contains individual protocol handlers for the centralized API system.
+> **DEPRECATION NOTICE:** The `cmdId`-based protocol system in this directory is **frozen**.
+> No new protocol handlers should be added here. All new API features MUST be implemented
+> as RESTful endpoints under `/api/external/*`.
+>
+> Existing handlers will be maintained for backward compatibility and will be incrementally
+> migrated to REST endpoints over time.
 
-## Architecture
+## Migration Guide
+
+### For new features
+
+Instead of creating a new `protocol-XXXXX.ts` handler, create a REST endpoint:
+
+```
+app/api/external/
+  └── your-resource/
+      └── route.ts          # GET, POST, PUT, DELETE handlers
+```
+
+Example:
+
+```typescript
+// app/api/external/tokens/route.ts
+import { NextRequest, NextResponse } from 'next/server';
+
+export async function GET(request: NextRequest) {
+  // List tokens
+  return NextResponse.json({ data: tokens });
+}
+
+export async function POST(request: NextRequest) {
+  // Create token
+  return NextResponse.json({ data: newToken }, { status: 201 });
+}
+```
+
+### For migrating existing handlers
+
+1. Create the equivalent REST endpoint under `/api/external/`
+2. Mark the old protocol handler with a `@deprecated` JSDoc comment
+3. Update the frontend to call the new REST endpoint
+4. Keep the old handler for backward compatibility (do not delete)
+
+---
+
+## Legacy Architecture (reference only)
 
 - All API requests go to `/api/v1` endpoint
 - The router extracts `cmdId` from `body.common.cmdId`
 - Each protocol is handled by a separate file named `protocol-XXXXX.ts`
 - Response formatting is handled centrally by the router
 
-## Adding a New Protocol
-
-1. Create a new file `protocol-XXXXX.ts` (where XXXXX is the cmdId)
+## Adding a New Protocol (DEPRECATED — do not follow this pattern)
 
 ```typescript
 // Example: protocol-10002.ts

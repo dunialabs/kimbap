@@ -79,9 +79,10 @@ This is the Kimbap Console — operations and observability console for the Kimb
 - `IpWhitelist` - IP access control
 
 ### API Routes Structure (`/app/api/`)
-- `/app/api/v1` - Main protocol handler for protocols 10001-10020
-- `/app/api/v1/handlers/` - Individual protocol handlers
-- Protocol handlers manage authentication, database operations, and MCP server interactions
+- `/app/api/external/*` - **Canonical** RESTful API endpoints (use for all new features)
+- `/app/api/auth/*` - Authentication endpoints (login, register, token refresh)
+- `/app/api/v1` - **Legacy (frozen)** cmdId-based protocol handler; no new handlers should be added
+- `/app/api/v1/handlers/` - Legacy protocol handlers (see README.md in that directory for migration guidance)
 
 ### Port Configuration
 - Application default: 3000 (can be configured via PORT environment variable)
@@ -93,4 +94,4 @@ This is the Kimbap Console — operations and observability console for the Kimb
 - All backend logic is implemented in Next.js API routes (`/app/api/*`)
 - Database migrations managed through Prisma CLI (`npm run db:migrate:create`)
 - Use `npm run db:studio` to inspect and manage database via Prisma Studio
-- Protocol handlers are located in `/app/api/v1/handlers/`
+- Legacy protocol handlers are in `/app/api/v1/handlers/` (frozen — new features go to `/app/api/external/*`)

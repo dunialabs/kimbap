@@ -182,14 +182,26 @@ npm run test-services
 - **Admin**: manage users/config
 - **Member**: limited access
 
-## 🔗 API Endpoints
-- Internal protocol API: `POST /api/v1` (`cmdId`-based)
-- External REST API: `/api/external/*`
-- Auth APIs: `/api/auth/*`
+## API Endpoints
+
+### Canonical (use for new integrations)
+
+| Endpoint | Method | Purpose |
+|---|---|---|
+| `/api/external/*` | REST | External REST API for automation and third-party clients |
+| `/api/auth/*` | REST | Authentication (login, register, token refresh) |
+
+### Legacy (frozen — no new features)
+
+| Endpoint | Method | Purpose |
+|---|---|---|
+| `/api/v1` | POST | Internal `cmdId`-based protocol. Being migrated to REST. |
+
+> **For contributors:** New features MUST use RESTful endpoints under `/api/external/*`. The `cmdId`-based `/api/v1` protocol is frozen. See [handlers README](./app/api/v1/handlers/README.md) for migration guidance.
 
 Detailed API references:
 - [External REST API](./app/api/external/API.md)
-- [Internal v1 Protocol API](./app/api/v1/API.md)
+- [Internal v1 Protocol API](./app/api/v1/API.md) (legacy)
 
 ## 🌐 Cloudflare Tunnel
 Expose services securely without opening firewall ports.
