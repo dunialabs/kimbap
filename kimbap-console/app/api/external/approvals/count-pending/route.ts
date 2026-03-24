@@ -34,7 +34,7 @@ async function countPending(request: NextRequest, input: CountPendingInput) {
     throwCoreAdminError(response.error?.message || 'Failed to count pending approvals', undefined, response.error?.code);
   }
 
-  return ApiResponse.success({ count: response.data?.count || 0 });
+  return ApiResponse.success({ count: response.data?.count || 0 }, 200, request);
 }
 
 export async function POST(request: NextRequest) {
@@ -50,7 +50,7 @@ export async function POST(request: NextRequest) {
     }
     return await countPending(request, normalizeCountPendingInput(body));
   } catch (error) {
-    return ApiResponse.handleError(error);
+    return ApiResponse.handleError(error, request);
   }
 }
 
@@ -59,6 +59,6 @@ export async function GET(request: NextRequest) {
     const userId = request.nextUrl.searchParams.get('userId') ?? undefined;
     return await countPending(request, normalizeCountPendingInput({ userId }));
   } catch (error) {
-    return ApiResponse.handleError(error);
+    return ApiResponse.handleError(error, request);
   }
 }

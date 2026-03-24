@@ -48,8 +48,8 @@ export async function POST(request: NextRequest) {
       throwCoreAdminError(response.error?.message || 'Failed to create policy', undefined, response.error?.code);
     }
 
-    return ApiResponse.success(response.data || null, 201);
+    return ApiResponse.success(response.data || null, 201, request);
   } catch (error) {
-    return ApiResponse.handleError(error);
+    return ApiResponse.handleError(error, request);
   }
 }

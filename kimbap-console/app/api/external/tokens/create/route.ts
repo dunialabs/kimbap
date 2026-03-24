@@ -207,8 +207,8 @@ export async function POST(request: NextRequest) {
 
     const responseData: BatchCreateResponse = { tokens: results };
 
-    return ApiResponse.success(responseData, 201);
+    return ApiResponse.success(responseData, 201, request);
   } catch (error) {
-    return ApiResponse.handleError(error);
+    return ApiResponse.handleError(error, request);
   }
 }

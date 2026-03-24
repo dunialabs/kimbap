@@ -76,8 +76,8 @@ export async function POST(request: NextRequest) {
       ownerToken
     );
 
-    return ApiResponse.success({ userId: body.userId });
+    return ApiResponse.success({ userId: body.userId }, 200, request);
   } catch (error) {
-    return ApiResponse.handleError(error);
+    return ApiResponse.handleError(error, request);
   }
 }

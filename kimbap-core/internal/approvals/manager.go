@@ -79,7 +79,7 @@ func (m *ApprovalManager) Approve(ctx context.Context, id string, approvedBy str
 		return err
 	}
 	if req == nil {
-		return errors.New("approval request not found")
+		return ErrNotFound
 	}
 	if err := validatePendingForResolution(req); err != nil {
 		return err
@@ -87,7 +87,7 @@ func (m *ApprovalManager) Approve(ctx context.Context, id string, approvedBy str
 
 	for _, v := range req.Votes {
 		if v.ApproverID == approvedBy {
-			return fmt.Errorf("approver %q has already voted", approvedBy)
+			return fmt.Errorf("%w: %s", ErrDuplicateVote, approvedBy)
 		}
 	}
 
@@ -124,7 +124,7 @@ func (m *ApprovalManager) Deny(ctx context.Context, id string, deniedBy string, 
 		return err
 	}
 	if req == nil {
-		return errors.New("approval request not found")
+		return ErrNotFound
 	}
 	if err := validatePendingForResolution(req); err != nil {
 		return err
@@ -159,10 +159,10 @@ func (m *ApprovalManager) ExpireStale(ctx context.Context) (int, error) {
 
 func validatePendingForResolution(req *ApprovalRequest) error {
 	if req.Status != StatusPending {
-		return fmt.Errorf("approval already resolved with status %s", req.Status)
+		return fmt.Errorf("%w: status is %s", ErrAlreadyResolved, req.Status)
 	}
 	if !req.ExpiresAt.IsZero() && time.Now().After(req.ExpiresAt) {
-		return errors.New("approval request has expired")
+		return ErrExpired
 	}
 	return nil
 }

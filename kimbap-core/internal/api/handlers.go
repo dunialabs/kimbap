@@ -389,9 +389,13 @@ func (s *Server) handleApprove(w http.ResponseWriter, r *http.Request) {
 			execMap["output"] = execResult.Output
 		}
 		if execResult.Error != nil {
+			msg := execResult.Error.Message
+			if execResult.HTTPStatus >= 500 {
+				msg = "internal server error"
+			}
 			execMap["error"] = map[string]any{
 				"code":      execResult.Error.Code,
-				"message":   execResult.Error.Message,
+				"message":   msg,
 				"retryable": execResult.Error.Retryable,
 			}
 		}
@@ -790,12 +794,12 @@ func (a *storeTokenAdapter) MarkUsed(ctx context.Context, tokenID string) error 
 
 func mapApprovalError(err error) *actions.ExecutionError {
 	switch {
-	case errors.Is(err, approvals.ErrAlreadyResolved):
-		return actions.NewExecutionError(actions.ErrValidationFailed, err.Error(), http.StatusConflict, false, nil)
-	case errors.Is(err, approvals.ErrExpired):
-		return actions.NewExecutionError(actions.ErrApprovalTimeout, err.Error(), http.StatusGone, false, nil)
+	case errors.Is(err, approvals.ErrAlreadyResolved), errors.Is(err, store.ErrApprovalAlreadyResolved):
+		return actions.NewExecutionError(actions.ErrValidationFailed, "approval already resolved", http.StatusConflict, false, nil)
+	case errors.Is(err, approvals.ErrExpired), errors.Is(err, store.ErrApprovalExpired):
+		return actions.NewExecutionError(actions.ErrApprovalTimeout, "approval has expired", http.StatusGone, false, nil)
 	case errors.Is(err, approvals.ErrDuplicateVote):
-		return actions.NewExecutionError(actions.ErrValidationFailed, err.Error(), http.StatusConflict, false, nil)
+		return actions.NewExecutionError(actions.ErrValidationFailed, "approver has already voted", http.StatusConflict, false, nil)
 	case errors.Is(err, approvals.ErrNotFound), errors.Is(err, store.ErrNotFound):
 		return actions.NewExecutionError(actions.ErrActionNotFound, "approval not found", http.StatusNotFound, false, nil)
 	default:

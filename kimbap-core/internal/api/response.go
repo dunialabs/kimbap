@@ -38,24 +38,6 @@ func writeSuccess(w http.ResponseWriter, r *http.Request, status int, data any) 
 	_ = json.NewEncoder(w).Encode(env)
 }
 
-// writeSuccessRaw writes a success response where the data is embedded directly.
-// Use this for simple confirmations like {"success": true, "revoked": true}.
-func writeSuccessRaw(w http.ResponseWriter, r *http.Request, status int, body map[string]any) {
-	out := make(map[string]any, len(body)+2)
-	out["success"] = true
-	if reqID := requestIDFromContext(r.Context()); reqID != "" {
-		out["request_id"] = reqID
-	}
-	for k, v := range body {
-		if k == "success" || k == "request_id" {
-			continue
-		}
-		out[k] = v
-	}
-	w.WriteHeader(status)
-	_ = json.NewEncoder(w).Encode(out)
-}
-
 // writeEnvelopeError writes a canonical error response with the unified envelope.
 func writeEnvelopeError(w http.ResponseWriter, r *http.Request, execErr *actions.ExecutionError) {
 	if execErr == nil {

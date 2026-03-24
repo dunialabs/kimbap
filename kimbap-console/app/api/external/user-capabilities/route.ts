@@ -20,7 +20,7 @@ async function getCapabilities(request: NextRequest, input: GetCapabilitiesInput
 
   const capabilities = await getUserAvailableServersCapabilities(input.userId, undefined, ownerToken);
 
-  return ApiResponse.success({ capabilities });
+  return ApiResponse.success({ capabilities }, 200, request);
 }
 
 export async function POST(request: NextRequest) {
@@ -34,7 +34,7 @@ export async function POST(request: NextRequest) {
 
     return await getCapabilities(request, body);
   } catch (error) {
-    return ApiResponse.handleError(error);
+    return ApiResponse.handleError(error, request);
   }
 }
 
@@ -46,6 +46,6 @@ export async function GET(request: NextRequest) {
     }
     return await getCapabilities(request, { userId });
   } catch (error) {
-    return ApiResponse.handleError(error);
+    return ApiResponse.handleError(error, request);
   }
 }

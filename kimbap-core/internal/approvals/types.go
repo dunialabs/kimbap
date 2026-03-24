@@ -1,6 +1,9 @@
 package approvals
 
-import "time"
+import (
+	"errors"
+	"time"
+)
 
 type ApprovalStatus string
 
@@ -9,6 +12,13 @@ const (
 	StatusApproved ApprovalStatus = "approved"
 	StatusDenied   ApprovalStatus = "denied"
 	StatusExpired  ApprovalStatus = "expired"
+)
+
+var (
+	ErrAlreadyResolved = errors.New("approval already resolved")
+	ErrExpired         = errors.New("approval request has expired")
+	ErrDuplicateVote   = errors.New("approver has already voted")
+	ErrNotFound        = errors.New("approval request not found")
 )
 
 type ApprovalVote struct {

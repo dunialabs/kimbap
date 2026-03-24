@@ -31,7 +31,7 @@ async function listPolicies(request: NextRequest, input: ListPoliciesInput) {
     throwCoreAdminError(response.error?.message || 'Failed to list policies', undefined, response.error?.code);
   }
 
-  return ApiResponse.success({ policySets: response.data?.policySets || [] });
+  return ApiResponse.success({ policySets: response.data?.policySets || [] }, 200, request);
 }
 
 export async function POST(request: NextRequest) {
@@ -47,7 +47,7 @@ export async function POST(request: NextRequest) {
     }
     return await listPolicies(request, normalizeListPoliciesInput(body));
   } catch (error) {
-    return ApiResponse.handleError(error);
+    return ApiResponse.handleError(error, request);
   }
 }
 
@@ -56,6 +56,6 @@ export async function GET(request: NextRequest) {
     const serverId = request.nextUrl.searchParams.get('serverId') ?? undefined;
     return await listPolicies(request, normalizeListPoliciesInput({ serverId }));
   } catch (error) {
-    return ApiResponse.handleError(error);
+    return ApiResponse.handleError(error, request);
   }
 }

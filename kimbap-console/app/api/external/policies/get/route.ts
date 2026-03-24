@@ -35,7 +35,7 @@ async function getPolicyById(request: NextRequest, idRaw: string) {
     throw new ExternalApiError(E3002, `Policy not found: ${id}`);
   }
 
-  return ApiResponse.success(target);
+  return ApiResponse.success(target, 200, request);
 }
 
 export async function POST(request: NextRequest) {
@@ -52,7 +52,7 @@ export async function POST(request: NextRequest) {
     }
     return await getPolicyById(request, body.id);
   } catch (error) {
-    return ApiResponse.handleError(error);
+    return ApiResponse.handleError(error, request);
   }
 }
 
@@ -64,6 +64,6 @@ export async function GET(request: NextRequest) {
     }
     return await getPolicyById(request, id);
   } catch (error) {
-    return ApiResponse.handleError(error);
+    return ApiResponse.handleError(error, request);
   }
 }

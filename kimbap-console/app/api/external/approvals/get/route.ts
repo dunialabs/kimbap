@@ -29,7 +29,7 @@ async function getApprovalById(request: NextRequest, idRaw: string) {
     throwCoreAdminError(response.error?.message || 'Failed to get approval request', E3002, response.error?.code);
   }
 
-  return ApiResponse.success(response.data || null);
+  return ApiResponse.success(response.data || null, 200, request);
 }
 
 export async function POST(request: NextRequest) {
@@ -46,7 +46,7 @@ export async function POST(request: NextRequest) {
     }
     return await getApprovalById(request, body.id);
   } catch (error) {
-    return ApiResponse.handleError(error);
+    return ApiResponse.handleError(error, request);
   }
 }
 
@@ -58,6 +58,6 @@ export async function GET(request: NextRequest) {
     }
     return await getApprovalById(request, id);
   } catch (error) {
-    return ApiResponse.handleError(error);
+    return ApiResponse.handleError(error, request);
   }
 }

@@ -28,14 +28,14 @@ async function getKimbapCoreConnection(request: NextRequest) {
     host: config.kimbap_core_host,
     port,
     connected: true,
-  });
+  }, 200, request);
 }
 
 export async function POST(request: NextRequest) {
   try {
     return await getKimbapCoreConnection(request);
   } catch (error) {
-    return ApiResponse.handleError(error);
+    return ApiResponse.handleError(error, request);
   }
 }
 
@@ -43,6 +43,6 @@ export async function GET(request: NextRequest) {
   try {
     return await getKimbapCoreConnection(request);
   } catch (error) {
-    return ApiResponse.handleError(error);
+    return ApiResponse.handleError(error, request);
   }
 }

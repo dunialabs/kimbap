@@ -93,7 +93,7 @@ async function listApprovals(request: NextRequest, input: ListApprovalsInput) {
     pageSize: response.data?.pageSize || 20,
     hasMore: response.data?.hasMore || false,
     requests: response.data?.requests || [],
-  });
+  }, 200, request);
 }
 
 export async function POST(request: NextRequest) {
@@ -109,7 +109,7 @@ export async function POST(request: NextRequest) {
     }
     return await listApprovals(request, normalizeListApprovalsInput(body));
   } catch (error) {
-    return ApiResponse.handleError(error);
+    return ApiResponse.handleError(error, request);
   }
 }
 
@@ -117,6 +117,6 @@ export async function GET(request: NextRequest) {
   try {
     return await listApprovals(request, normalizeListApprovalsInput(parseListApprovalsQuery(request)));
   } catch (error) {
-    return ApiResponse.handleError(error);
+    return ApiResponse.handleError(error, request);
   }
 }

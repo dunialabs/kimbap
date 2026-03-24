@@ -49,7 +49,7 @@ async function getTokenById(request: NextRequest, tokenIdRaw: string) {
     tags: metadata.tags,
   };
 
-  return ApiResponse.success(token);
+  return ApiResponse.success(token, 200, request);
 }
 
 /**
@@ -75,7 +75,7 @@ export async function POST(request: NextRequest) {
 
     return await getTokenById(request, body.tokenId);
   } catch (error) {
-    return ApiResponse.handleError(error);
+    return ApiResponse.handleError(error, request);
   }
 }
 
@@ -87,6 +87,6 @@ export async function GET(request: NextRequest) {
     }
     return await getTokenById(request, tokenId);
   } catch (error) {
-    return ApiResponse.handleError(error);
+    return ApiResponse.handleError(error, request);
   }
 }

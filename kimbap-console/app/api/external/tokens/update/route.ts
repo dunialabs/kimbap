@@ -127,8 +127,8 @@ export async function POST(request: NextRequest) {
     return ApiResponse.success({
       tokenId,
       message: 'Token updated successfully',
-    });
+    }, 200, request);
   } catch (error) {
-    return ApiResponse.handleError(error);
+    return ApiResponse.handleError(error, request);
   }
 }

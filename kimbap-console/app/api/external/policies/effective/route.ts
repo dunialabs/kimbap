@@ -31,7 +31,7 @@ async function getEffectivePolicy(request: NextRequest, input: EffectivePolicyIn
     throwCoreAdminError(response.error?.message || 'Failed to get effective policy', undefined, response.error?.code);
   }
 
-  return ApiResponse.success({ policySets: response.data?.policySets || [] });
+  return ApiResponse.success({ policySets: response.data?.policySets || [] }, 200, request);
 }
 
 export async function POST(request: NextRequest) {
@@ -47,7 +47,7 @@ export async function POST(request: NextRequest) {
     }
     return await getEffectivePolicy(request, normalizeEffectivePolicyInput(body));
   } catch (error) {
-    return ApiResponse.handleError(error);
+    return ApiResponse.handleError(error, request);
   }
 }
 
@@ -56,6 +56,6 @@ export async function GET(request: NextRequest) {
     const serverId = request.nextUrl.searchParams.get('serverId') ?? undefined;
     return await getEffectivePolicy(request, normalizeEffectivePolicyInput({ serverId }));
   } catch (error) {
-    return ApiResponse.handleError(error);
+    return ApiResponse.handleError(error, request);
   }
 }

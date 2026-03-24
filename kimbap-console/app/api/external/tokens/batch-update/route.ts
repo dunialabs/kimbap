@@ -203,8 +203,8 @@ export async function POST(request: NextRequest) {
       failures,
     };
 
-    return ApiResponse.success(responseData);
+    return ApiResponse.success(responseData, 200, request);
   } catch (error) {
-    return ApiResponse.handleError(error);
+    return ApiResponse.handleError(error, request);
   }
 }

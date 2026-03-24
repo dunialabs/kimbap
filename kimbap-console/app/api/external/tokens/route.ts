@@ -98,7 +98,7 @@ async function listTokens(request: NextRequest, filters: TokenFilters) {
   }
 
   const responseData: ListTokensResponse = { tokens: filteredTokens };
-  return ApiResponse.success(responseData);
+  return ApiResponse.success(responseData, 200, request);
 }
 
 /**
@@ -123,7 +123,7 @@ export async function POST(request: NextRequest) {
     }
     return await listTokens(request, parseTokenFiltersFromBody(body));
   } catch (error) {
-    return ApiResponse.handleError(error);
+    return ApiResponse.handleError(error, request);
   }
 }
 
@@ -131,6 +131,6 @@ export async function GET(request: NextRequest) {
   try {
     return await listTokens(request, parseTokenFiltersFromQuery(request));
   } catch (error) {
-    return ApiResponse.handleError(error);
+    return ApiResponse.handleError(error, request);
   }
 }

@@ -1,3 +1,4 @@
+import { type NextRequest } from 'next/server';
 import { getProxy } from '@/lib/proxy-api';
 import { ApiResponse } from '../lib/response';
 import { ExternalApiError, E3001 } from '../lib/error-codes';
@@ -12,7 +13,7 @@ interface ProxyResponse {
   fingerprint: string;
 }
 
-async function getProxyInfo() {
+async function getProxyInfo(request: NextRequest) {
   const proxy = await getProxy();
 
   if (!proxy) {
@@ -27,27 +28,21 @@ async function getProxyInfo() {
     fingerprint: '',
   };
 
-  return ApiResponse.success(responseData);
+  return ApiResponse.success(responseData, 200, request);
 }
 
-/**
- * GET|POST /api/external/proxy
- *
- * Get current proxy server information.
- * No authentication required.
- */
-export async function POST() {
+export async function POST(request: NextRequest) {
   try {
-    return await getProxyInfo();
+    return await getProxyInfo(request);
   } catch (error) {
-    return ApiResponse.handleError(error);
+    return ApiResponse.handleError(error, request);
   }
 }
 
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
-    return await getProxyInfo();
+    return await getProxyInfo(request);
   } catch (error) {
-    return ApiResponse.handleError(error);
+    return ApiResponse.handleError(error, request);
   }
 }

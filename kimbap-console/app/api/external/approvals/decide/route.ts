@@ -51,8 +51,8 @@ export async function POST(request: NextRequest) {
       throwCoreAdminError(response.error?.message || 'Failed to decide approval request', undefined, response.error?.code);
     }
 
-    return ApiResponse.success(response.data || null);
+    return ApiResponse.success(response.data || null, 200, request);
   } catch (error) {
-    return ApiResponse.handleError(error);
+    return ApiResponse.handleError(error, request);
   }
 }
