@@ -2,6 +2,8 @@ package main
 
 import (
 	"context"
+	"crypto/rand"
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"net"
@@ -10,7 +12,6 @@ import (
 	"path/filepath"
 	"strings"
 	"syscall"
-	"time"
 
 	"github.com/dunialabs/kimbap-core/internal/classifier"
 	"github.com/dunialabs/kimbap-core/internal/proxy"
@@ -67,7 +68,11 @@ func newRunCommand() *cobra.Command {
 			}
 			if proxyEnabled && strings.TrimSpace(agentToken) == "" {
 				// Generate ephemeral session token scoped to this run
-				sessionToken := fmt.Sprintf("kses_%d", time.Now().UnixNano())
+				tokenBytes := make([]byte, 32)
+				if _, err := rand.Read(tokenBytes); err != nil {
+					return fmt.Errorf("generate ephemeral session token: %w", err)
+				}
+				sessionToken := "kses_" + hex.EncodeToString(tokenBytes)
 				runCfg.AgentToken = sessionToken
 				_, _ = fmt.Fprintf(os.Stderr, "info: using ephemeral session token for this run\n")
 			} else {
@@ -107,12 +112,32 @@ func newRunCommand() *cobra.Command {
 				r.WithProxyServer(p)
 			}
 
-			runCtx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
+			caughtSig := make(chan syscall.Signal, 1)
+			sigCh := make(chan os.Signal, 1)
+			signal.Notify(sigCh, syscall.SIGINT, syscall.SIGTERM)
+			runCtx, stop := context.WithCancel(context.Background())
+			go func() {
+				select {
+				case sig := <-sigCh:
+					caughtSig <- sig.(syscall.Signal)
+					stop()
+				case <-runCtx.Done():
+				}
+			}()
 			defer stop()
+			defer signal.Stop(sigCh)
 
 			err = r.Start(runCtx)
-			if err == nil || errors.Is(err, context.Canceled) {
+			if err == nil {
 				return nil
+			}
+			if errors.Is(err, context.Canceled) {
+				select {
+				case sig := <-caughtSig:
+					os.Exit(128 + int(sig))
+				default:
+					os.Exit(130)
+				}
 			}
 
 			exitErr := &runner.ExitError{}
@@ -155,16 +180,12 @@ func withPort(addr string, port int) string {
 	}
 
 	host := ""
-	if strings.Contains(trimmed, ":") {
-		if strings.HasPrefix(trimmed, ":") {
-			host = ""
-		} else if h, _, err := net.SplitHostPort(trimmed); err == nil {
-			host = h
-		} else {
-			host = strings.TrimSpace(trimmed)
-		}
+	if strings.HasPrefix(trimmed, ":") {
+		host = ""
+	} else if h, _, err := net.SplitHostPort(trimmed); err == nil {
+		host = h
 	} else {
-		host = strings.TrimSpace(trimmed)
+		host = strings.Trim(trimmed, "[]")
 	}
 
 	if host == "" {

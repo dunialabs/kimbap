@@ -39,9 +39,10 @@ const defaultApprovalTTL = 30 * time.Minute
 var opts = cliOptions{}
 
 var rootCmd = &cobra.Command{
-	Use:   "kimbap",
-	Short: "Secure action runtime for AI agents",
-	Long:  "Kimbap lets AI agents use external services without handling raw credentials.",
+	Use:          "kimbap",
+	Short:        "Secure action runtime for AI agents",
+	Long:         "Kimbap lets AI agents use external services without handling raw credentials.",
+	SilenceUsage: true,
 }
 
 func init() {
@@ -240,7 +241,10 @@ func resolveVaultMasterKey(cfg *config.KimbapConfig) ([]byte, error) {
 		return nil, fmt.Errorf("vault master key is required: set KIMBAP_MASTER_KEY_HEX or enable dev mode (--mode dev or KIMBAP_DEV=true)")
 	}
 	devKeyPath := filepath.Join(cfg.DataDir, ".dev-master-key")
-	if existing, err := os.ReadFile(devKeyPath); err == nil && len(existing) == 32 {
+	if existing, err := os.ReadFile(devKeyPath); err == nil {
+		if len(existing) != 32 {
+			return nil, fmt.Errorf("invalid dev master key at %s: expected 32 bytes, got %d", devKeyPath, len(existing))
+		}
 		return existing, nil
 	}
 	key, err := corecrypto.GenerateRandomKey(32)

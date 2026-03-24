@@ -212,14 +212,15 @@ func readSecretInput(filePath string, readStdin bool) ([]byte, error) {
 }
 
 func parseSecretType(raw string) (vault.SecretType, error) {
-	switch vault.SecretType(strings.TrimSpace(raw)) {
+	trimmed := vault.SecretType(strings.TrimSpace(raw))
+	switch trimmed {
 	case vault.SecretTypeAPIKey,
 		vault.SecretTypeBearerToken,
 		vault.SecretTypeOAuthClient,
 		vault.SecretTypePassword,
 		vault.SecretTypeRefreshToken,
 		vault.SecretTypeCertificate:
-		return vault.SecretType(raw), nil
+		return trimmed, nil
 	default:
 		return "", fmt.Errorf("unsupported secret type %q", raw)
 	}

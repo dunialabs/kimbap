@@ -5,16 +5,14 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"fmt"
-	"os"
-	"path/filepath"
-	"sort"
 	"strings"
-	"sync"
 	"time"
 
 	"github.com/dunialabs/kimbap-core/internal/auth"
 	"github.com/dunialabs/kimbap-core/internal/config"
+	"github.com/dunialabs/kimbap-core/internal/store"
 	"github.com/spf13/cobra"
 )
 
@@ -51,10 +49,11 @@ func newTokenCreateCommand() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			tokenService, _, err := newTokenService(cfg)
+			tokenService, tokenStore, err := newTokenService(cfg)
 			if err != nil {
 				return err
 			}
+			defer tokenStore.Close()
 
 			if strings.TrimSpace(tenant) == "" {
 				tenant = defaultTenantID()
@@ -99,6 +98,7 @@ func newTokenInspectCommand() *cobra.Command {
 			if err != nil {
 				return err
 			}
+			defer store.Close()
 
 			tok, err := store.Inspect(contextBackground(), args[0])
 			if err != nil {
@@ -120,10 +120,11 @@ func newTokenRevokeCommand() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			tokenService, _, err := newTokenService(cfg)
+			tokenService, tokenStore, err := newTokenService(cfg)
 			if err != nil {
 				return err
 			}
+			defer tokenStore.Close()
 			if err := tokenService.Revoke(contextBackground(), args[0]); err != nil {
 				return err
 			}
@@ -147,6 +148,7 @@ func newTokenListCommand() *cobra.Command {
 			if err != nil {
 				return err
 			}
+			defer store.Close()
 
 			if strings.TrimSpace(tenant) == "" {
 				tenant = defaultTenantID()
@@ -162,193 +164,161 @@ func newTokenListCommand() *cobra.Command {
 	return cmd
 }
 
-func newTokenService(cfg *config.KimbapConfig) (*auth.TokenService, *fileTokenStore, error) {
-	return newTokenServiceFromConfig(cfg.DataDir)
-}
-
-type fileTokenStore struct {
-	path string
-	mu   sync.Mutex
-}
-
-type tokenStoreData struct {
-	Tokens map[string]auth.ServiceToken `json:"tokens"`
-}
-
-func newTokenServiceFromConfig(cfgDataDir string) (*auth.TokenService, *fileTokenStore, error) {
-	store := &fileTokenStore{path: filepath.Join(cfgDataDir, "tokens.json")}
-	if err := store.ensureFile(); err != nil {
+func newTokenService(cfg *config.KimbapConfig) (*auth.TokenService, *sqlTokenStoreAdapter, error) {
+	st, err := openRuntimeStore(cfg)
+	if err != nil {
 		return nil, nil, err
 	}
-	return auth.NewTokenService(store), store, nil
+	adapter := &sqlTokenStoreAdapter{st: st}
+	return auth.NewTokenService(adapter), adapter, nil
 }
 
-func (s *fileTokenStore) ensureFile() error {
-	if err := os.MkdirAll(filepath.Dir(s.path), 0o755); err != nil {
-		return err
-	}
-	if _, err := os.Stat(s.path); os.IsNotExist(err) {
-		initial := tokenStoreData{Tokens: map[string]auth.ServiceToken{}}
-		b, mErr := json.Marshal(initial)
-		if mErr != nil {
-			return mErr
-		}
-		return os.WriteFile(s.path, b, 0o600)
-	}
-	return nil
+type sqlTokenStoreAdapter struct {
+	st *store.SQLStore
 }
 
-func (s *fileTokenStore) load() (*tokenStoreData, error) {
-	b, err := os.ReadFile(s.path)
-	if err != nil {
-		return nil, err
+func (a *sqlTokenStoreAdapter) Close() error {
+	if a == nil || a.st == nil {
+		return nil
 	}
-	data := tokenStoreData{Tokens: map[string]auth.ServiceToken{}}
-	if len(b) == 0 {
-		return &data, nil
-	}
-	if err := json.Unmarshal(b, &data); err != nil {
-		return nil, err
-	}
-	if data.Tokens == nil {
-		data.Tokens = map[string]auth.ServiceToken{}
-	}
-	return &data, nil
+	return a.st.Close()
 }
 
-func (s *fileTokenStore) save(data *tokenStoreData) error {
-	b, err := json.MarshalIndent(data, "", "  ")
-	if err != nil {
-		return err
-	}
-	return os.WriteFile(s.path, b, 0o600)
-}
-
-func (s *fileTokenStore) Create(_ context.Context, token *auth.ServiceToken) error {
+func (a *sqlTokenStoreAdapter) Create(ctx context.Context, token *auth.ServiceToken) error {
 	if token == nil {
-		return fmt.Errorf("token is nil")
+		return errors.New("token is required")
 	}
-	s.mu.Lock()
-	defer s.mu.Unlock()
+	return a.st.CreateToken(ctx, &store.TokenRecord{
+		ID:          token.ID,
+		TenantID:    token.TenantID,
+		AgentName:   token.AgentName,
+		TokenHash:   token.TokenHash,
+		DisplayHint: token.DisplayHint,
+		Scopes:      marshalScopes(token.Scopes),
+		CreatedAt:   token.CreatedAt,
+		ExpiresAt:   token.ExpiresAt,
+		LastUsedAt:  token.LastUsedAt,
+		RevokedAt:   token.RevokedAt,
+		CreatedBy:   token.CreatedBy,
+	})
 
-	data, err := s.load()
-	if err != nil {
-		return err
-	}
-	data.Tokens[token.ID] = *token
-	return s.save(data)
 }
 
-func (s *fileTokenStore) ValidateAndResolve(_ context.Context, rawToken string) (*auth.Principal, error) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-
-	data, err := s.load()
+func (a *sqlTokenStoreAdapter) ValidateAndResolve(ctx context.Context, rawToken string) (*auth.Principal, error) {
+	hash := sha256.Sum256([]byte(rawToken))
+	token, err := a.st.GetTokenByHash(ctx, hex.EncodeToString(hash[:]))
 	if err != nil {
+		if errors.Is(err, store.ErrNotFound) {
+			return nil, auth.ErrInvalidToken
+		}
 		return nil, err
 	}
-
-	hash := hashRawToken(rawToken)
 	now := time.Now().UTC()
-	for _, token := range data.Tokens {
-		if token.TokenHash != hash {
-			continue
-		}
-		if token.RevokedAt != nil {
-			return nil, auth.ErrRevokedToken
-		}
-		if now.After(token.ExpiresAt) {
-			return nil, auth.ErrExpiredToken
-		}
-		return &auth.Principal{
-			ID:        token.AgentName,
-			Type:      auth.PrincipalTypeService,
-			TenantID:  token.TenantID,
-			AgentName: token.AgentName,
-			Scopes:    append([]string(nil), token.Scopes...),
-			TokenID:   token.ID,
-			IssuedAt:  token.CreatedAt,
-			ExpiresAt: token.ExpiresAt,
-		}, nil
+	if token.RevokedAt != nil {
+		return nil, auth.ErrRevokedToken
 	}
-
-	return nil, auth.ErrInvalidToken
+	if now.After(token.ExpiresAt) {
+		return nil, auth.ErrExpiredToken
+	}
+	return &auth.Principal{
+		ID:        token.AgentName,
+		Type:      auth.PrincipalTypeService,
+		TenantID:  token.TenantID,
+		AgentName: token.AgentName,
+		Scopes:    parseScopes(token.Scopes),
+		TokenID:   token.ID,
+		IssuedAt:  token.CreatedAt,
+		ExpiresAt: token.ExpiresAt,
+	}, nil
 }
 
-func (s *fileTokenStore) Revoke(_ context.Context, tokenID string) error {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-
-	data, err := s.load()
-	if err != nil {
-		return err
-	}
-	tok, ok := data.Tokens[tokenID]
-	if !ok {
+func (a *sqlTokenStoreAdapter) Revoke(ctx context.Context, tokenID string) error {
+	if strings.TrimSpace(tokenID) == "" {
 		return auth.ErrInvalidToken
 	}
-	now := time.Now().UTC()
-	tok.RevokedAt = &now
-	data.Tokens[tokenID] = tok
-	return s.save(data)
+	err := a.st.RevokeToken(ctx, tokenID)
+	if errors.Is(err, store.ErrNotFound) {
+		return auth.ErrInvalidToken
+	}
+	return err
 }
 
-func (s *fileTokenStore) List(_ context.Context, tenantID string) ([]auth.ServiceToken, error) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-
-	data, err := s.load()
+func (a *sqlTokenStoreAdapter) List(ctx context.Context, tenantID string) ([]auth.ServiceToken, error) {
+	items, err := a.st.ListTokens(ctx, tenantID)
 	if err != nil {
 		return nil, err
 	}
-
-	out := make([]auth.ServiceToken, 0)
-	for _, token := range data.Tokens {
-		if strings.TrimSpace(tenantID) == "" || token.TenantID == tenantID {
-			out = append(out, token)
-		}
+	out := make([]auth.ServiceToken, 0, len(items))
+	for i := range items {
+		it := items[i]
+		out = append(out, auth.ServiceToken{
+			ID:          it.ID,
+			TenantID:    it.TenantID,
+			AgentName:   it.AgentName,
+			TokenHash:   it.TokenHash,
+			DisplayHint: it.DisplayHint,
+			Scopes:      parseScopes(it.Scopes),
+			CreatedAt:   it.CreatedAt,
+			ExpiresAt:   it.ExpiresAt,
+			LastUsedAt:  it.LastUsedAt,
+			RevokedAt:   it.RevokedAt,
+			CreatedBy:   it.CreatedBy,
+		})
 	}
-	sort.Slice(out, func(i, j int) bool { return out[i].CreatedAt.After(out[j].CreatedAt) })
 	return out, nil
 }
 
-func (s *fileTokenStore) Inspect(_ context.Context, tokenID string) (*auth.ServiceToken, error) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-
-	data, err := s.load()
+func (a *sqlTokenStoreAdapter) Inspect(ctx context.Context, tokenID string) (*auth.ServiceToken, error) {
+	it, err := a.st.GetToken(ctx, tokenID)
 	if err != nil {
+		if errors.Is(err, store.ErrNotFound) {
+			return nil, auth.ErrInvalidToken
+		}
 		return nil, err
 	}
-	tok, ok := data.Tokens[tokenID]
-	if !ok {
-		return nil, auth.ErrInvalidToken
-	}
-	out := tok
-	return &out, nil
+	return &auth.ServiceToken{
+		ID:          it.ID,
+		TenantID:    it.TenantID,
+		AgentName:   it.AgentName,
+		TokenHash:   it.TokenHash,
+		DisplayHint: it.DisplayHint,
+		Scopes:      parseScopes(it.Scopes),
+		CreatedAt:   it.CreatedAt,
+		ExpiresAt:   it.ExpiresAt,
+		LastUsedAt:  it.LastUsedAt,
+		RevokedAt:   it.RevokedAt,
+		CreatedBy:   it.CreatedBy,
+	}, nil
 }
 
-func (s *fileTokenStore) MarkUsed(_ context.Context, tokenID string) error {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-
-	data, err := s.load()
-	if err != nil {
-		return err
-	}
-	tok, ok := data.Tokens[tokenID]
-	if !ok {
+func (a *sqlTokenStoreAdapter) MarkUsed(ctx context.Context, tokenID string) error {
+	err := a.st.UpdateTokenLastUsed(ctx, tokenID)
+	if errors.Is(err, store.ErrNotFound) {
 		return auth.ErrInvalidToken
 	}
-	now := time.Now().UTC()
-	tok.LastUsedAt = &now
-	data.Tokens[tokenID] = tok
-	return s.save(data)
+	return err
 }
 
-func hashRawToken(rawToken string) string {
-	sum := sha256.Sum256([]byte(rawToken))
-	return hex.EncodeToString(sum[:])
+func marshalScopes(scopes []string) string {
+	if len(scopes) == 0 {
+		return "[]"
+	}
+	b, err := json.Marshal(scopes)
+	if err != nil {
+		return "[]"
+	}
+	return string(b)
+}
+
+func parseScopes(raw string) []string {
+	if strings.TrimSpace(raw) == "" {
+		return nil
+	}
+	var scopes []string
+	if err := json.Unmarshal([]byte(raw), &scopes); err != nil {
+		return nil
+	}
+	return scopes
 }
 
 func parseCSV(raw string) []string {

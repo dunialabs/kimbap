@@ -60,13 +60,22 @@ func newCallCommand() *cobra.Command {
 
 			if isDryRun() {
 				preview := buildDryRunPreview(cfg, req)
-				return printOutput(preview)
+				if err := printOutput(preview); err != nil {
+					return err
+				}
+				// Exit non-zero if validation failed during dry-run
+				if validErr, ok := preview["input_valid"].(bool); ok && !validErr {
+					return fmt.Errorf("dry-run: input validation failed")
+				}
+				return nil
 			}
 
 			rt, buildErr := buildRuntimeFromConfig(cfg)
 			if buildErr != nil {
-				_, _ = fmt.Fprintf(os.Stderr, "warning: runtime unavailable (%v), falling back to dry-run preview\n", buildErr)
-				return printOutput(buildDryRunPreview(cfg, req))
+				_, _ = fmt.Fprintf(os.Stderr, "warning: runtime unavailable (%v), showing dry-run preview\n", buildErr)
+				preview := buildDryRunPreview(cfg, req)
+				_ = printOutput(preview)
+				return fmt.Errorf("runtime unavailable: %w", buildErr)
 			}
 
 			var result actions.ExecutionResult
@@ -79,7 +88,13 @@ func newCallCommand() *cobra.Command {
 			} else {
 				result = rt.Execute(contextBackground(), req)
 			}
-			return printOutput(result)
+			if err := printOutput(result); err != nil {
+				return err
+			}
+			if result.Status != actions.StatusSuccess && result.Error != nil {
+				return result.Error
+			}
+			return nil
 		},
 	}
 	return cmd
@@ -129,10 +144,7 @@ func splitGlobalCallFlags(tokens []string) ([]string, error) {
 		tok := strings.TrimSpace(tokens[i])
 		switch {
 		case tok == "--dry-run":
-			value, consumed, err := parseOptionalBoolFlagValue("--dry-run", tokens, i)
-			if err != nil {
-				return nil, err
-			}
+			value, consumed := parseOptionalBoolFlagValue(tokens, i)
 			opts.dryRun = value
 			i += consumed
 			continue
@@ -144,10 +156,7 @@ func splitGlobalCallFlags(tokens []string) ([]string, error) {
 			opts.dryRun = value
 			continue
 		case tok == "--trace":
-			value, consumed, err := parseOptionalBoolFlagValue("--trace", tokens, i)
-			if err != nil {
-				return nil, err
-			}
+			value, consumed := parseOptionalBoolFlagValue(tokens, i)
 			opts.trace = value
 			i += consumed
 			continue
@@ -165,20 +174,20 @@ func splitGlobalCallFlags(tokens []string) ([]string, error) {
 	return out, nil
 }
 
-func parseOptionalBoolFlagValue(flagName string, tokens []string, idx int) (bool, int, error) {
+func parseOptionalBoolFlagValue(tokens []string, idx int) (bool, int) {
 	nextIdx := idx + 1
 	if nextIdx >= len(tokens) {
-		return true, 0, nil
+		return true, 0
 	}
 	next := strings.TrimSpace(tokens[nextIdx])
 	if strings.HasPrefix(next, "--") {
-		return true, 0, nil
+		return true, 0
 	}
 	parsed, err := strconv.ParseBool(next)
 	if err != nil {
-		return false, 0, fmt.Errorf("invalid %s value %q", flagName, next)
+		return true, 0
 	}
-	return parsed, 1, nil
+	return parsed, 1
 }
 
 func printTraceSteps(steps []runtime.TraceStep) error {

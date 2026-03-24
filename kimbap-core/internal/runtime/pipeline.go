@@ -112,24 +112,28 @@ type TraceStep struct {
 }
 
 type TraceCollector struct {
-	Steps []TraceStep
-	start time.Time
+	Steps    []TraceStep
+	start    time.Time
+	lastStep time.Time
 }
 
 func NewTraceCollector() *TraceCollector {
-	return &TraceCollector{start: time.Now()}
+	now := time.Now()
+	return &TraceCollector{start: now, lastStep: now}
 }
 
 func (tc *TraceCollector) Record(step, status, detail string) {
 	if tc == nil {
 		return
 	}
+	now := time.Now()
 	tc.Steps = append(tc.Steps, TraceStep{
 		Step:       step,
 		Status:     status,
 		Detail:     detail,
-		DurationMS: time.Since(tc.start).Milliseconds(),
+		DurationMS: now.Sub(tc.lastStep).Milliseconds(),
 	})
+	tc.lastStep = now
 }
 
 func (r *Runtime) Execute(ctx context.Context, req actions.ExecutionRequest) actions.ExecutionResult {
@@ -206,7 +210,7 @@ func (r *Runtime) execute(ctx context.Context, req actions.ExecutionRequest, tra
 			Classification: req.Classification,
 		})
 		if evalErr != nil {
-			errResult := actions.NewExecutionError(actions.ErrUnauthorized, evalErr.Error(), 500, false, nil)
+			errResult := actions.NewExecutionError(actions.ErrDownstreamUnavailable, evalErr.Error(), 500, true, nil)
 			trace.Record("evaluate_policy", "error", errResult.Error())
 			return r.finalizeWithError(ctx, &result, req, errResult, startedAt, "deny", "")
 		}

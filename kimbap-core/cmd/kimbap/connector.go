@@ -3,13 +3,13 @@ package main
 import (
 	"context"
 	"database/sql"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"path/filepath"
 	"strings"
 
 	"github.com/dunialabs/kimbap-core/internal/config"
-	"github.com/dunialabs/kimbap-core/internal/connectors"
 	"github.com/spf13/cobra"
 )
 
@@ -56,16 +56,15 @@ func newConnectorListCommand() *cobra.Command {
 			}
 			states, err := listConnectorStates(contextBackground(), cfg, activeTenant)
 			if err != nil {
-				return printOutput(map[string]any{
-					"status":    "not_configured",
-					"operation": "connector.list",
-					"tenant_id": activeTenant,
-					"connectors": []map[string]any{
-						{"name": "gmail", "status": connectors.StatusPending, "provider": "oauth2"},
-					},
-					"message": fmt.Sprintf("Connector state store unavailable: %v", err),
-					"next":    "Configure database in ~/.kimbap/config.yaml and start runtime migrations.",
+				_ = printOutput(map[string]any{
+					"status":     "not_configured",
+					"operation":  "connector.list",
+					"tenant_id":  activeTenant,
+					"connectors": []map[string]any{},
+					"message":    fmt.Sprintf("Connector state store unavailable: %v", err),
+					"next":       "Configure database in ~/.kimbap/config.yaml and start runtime migrations.",
 				})
+				return fmt.Errorf("connector state store unavailable: %w", err)
 			}
 
 			connectorsOut := make([]map[string]any, 0, len(states))
@@ -114,21 +113,23 @@ func newConnectorStatusCommand() *cobra.Command {
 			state, err := getConnectorState(contextBackground(), cfg, activeTenant, name)
 			if err != nil {
 				if errors.Is(err, sql.ErrNoRows) {
-					return printOutput(map[string]any{
+					_ = printOutput(map[string]any{
 						"status":    "not_found",
 						"operation": "connector.status",
 						"tenant_id": activeTenant,
 						"connector": name,
 						"message":   fmt.Sprintf("No connector state found for %q.", name),
 					})
+					return fmt.Errorf("connector %q not found", name)
 				}
-				return printOutput(map[string]any{
+				_ = printOutput(map[string]any{
 					"status":    "not_configured",
 					"operation": "connector.status",
 					"tenant_id": activeTenant,
 					"connector": name,
 					"message":   fmt.Sprintf("Connector state store unavailable: %v", err),
 				})
+				return fmt.Errorf("connector state store unavailable: %w", err)
 			}
 
 			return printOutput(map[string]any{
@@ -169,10 +170,11 @@ func newConnectorRefreshCommand() *cobra.Command {
 }
 
 func connectorTenant(raw string) string {
-	if strings.TrimSpace(raw) == "" {
+	trimmed := strings.TrimSpace(raw)
+	if trimmed == "" {
 		return defaultTenantID()
 	}
-	return raw
+	return trimmed
 }
 
 type connectorStateRow struct {
@@ -274,19 +276,52 @@ func migrateConnectorTable(ctx context.Context, db *sql.DB, dialect string) erro
 		name TEXT NOT NULL,
 		provider TEXT NOT NULL,
 		status TEXT NOT NULL,
-		account TEXT NOT NULL,
+		account TEXT NOT NULL DEFAULT '',
 		expires_at TIMESTAMP NULL,
 		updated_at TIMESTAMP NULL,
 		last_refresh TIMESTAMP NULL,
-		scopes_json TEXT NOT NULL,
+		scopes_json TEXT NOT NULL DEFAULT '',
+		access_token TEXT NOT NULL DEFAULT '',
+		refresh_token TEXT NOT NULL DEFAULT '',
+		workspace_id TEXT NOT NULL DEFAULT '',
+		connected_principal TEXT NOT NULL DEFAULT '',
+		connection_scope TEXT NOT NULL DEFAULT 'user',
+		revoked_at TIMESTAMP NULL,
+		flow_used TEXT NOT NULL DEFAULT '',
+		last_refresh_error TEXT NOT NULL DEFAULT '',
+		last_used_at TIMESTAMP NULL,
+		created_at TIMESTAMP NULL,
 		PRIMARY KEY (tenant_id, name)
 	)`
 	if _, err := db.ExecContext(ctx, bindQuery(query, dialect)); err != nil {
 		return err
 	}
-	if _, err := db.ExecContext(ctx, bindQuery(`CREATE INDEX IF NOT EXISTS idx_connector_states_tenant_name ON connector_states(tenant_id, name)`, dialect)); err != nil {
-		return err
+
+	addColumns := []string{
+		"ALTER TABLE connector_states ADD COLUMN access_token TEXT NOT NULL DEFAULT ''",
+		"ALTER TABLE connector_states ADD COLUMN refresh_token TEXT NOT NULL DEFAULT ''",
+		"ALTER TABLE connector_states ADD COLUMN workspace_id TEXT NOT NULL DEFAULT ''",
+		"ALTER TABLE connector_states ADD COLUMN connected_principal TEXT NOT NULL DEFAULT ''",
+		"ALTER TABLE connector_states ADD COLUMN connection_scope TEXT NOT NULL DEFAULT 'user'",
+		"ALTER TABLE connector_states ADD COLUMN revoked_at TIMESTAMP NULL",
+		"ALTER TABLE connector_states ADD COLUMN flow_used TEXT NOT NULL DEFAULT ''",
+		"ALTER TABLE connector_states ADD COLUMN last_refresh_error TEXT NOT NULL DEFAULT ''",
+		"ALTER TABLE connector_states ADD COLUMN last_used_at TIMESTAMP NULL",
+		"ALTER TABLE connector_states ADD COLUMN created_at TIMESTAMP NULL",
 	}
+	for _, ddl := range addColumns {
+		if _, execErr := db.ExecContext(ctx, bindQuery(ddl, dialect)); execErr != nil {
+			errMsg := strings.ToLower(execErr.Error())
+			isDuplicate := strings.Contains(errMsg, "duplicate column") ||
+				strings.Contains(errMsg, "already exists") ||
+				strings.Contains(errMsg, "duplicate")
+			if !isDuplicate {
+				return fmt.Errorf("migrate connector table: %w", execErr)
+			}
+		}
+	}
+
+	_, _ = db.ExecContext(ctx, bindQuery(`CREATE INDEX IF NOT EXISTS idx_connector_states_tenant_name ON connector_states(tenant_id, name)`, dialect))
 	return nil
 }
 
@@ -313,7 +348,11 @@ func scanConnectorState(scanner interface{ Scan(dest ...any) error }) (connector
 		ts := lastRefresh.Time.UTC().Format(timeLayoutRFC3339)
 		item.LastRefresh = &ts
 	}
-	item.Scopes = strings.Fields(scopesJSON)
+	if trimmed := strings.TrimSpace(scopesJSON); trimmed != "" {
+		if json.Unmarshal([]byte(trimmed), &item.Scopes) != nil {
+			item.Scopes = strings.Fields(trimmed)
+		}
+	}
 	return item, nil
 }
 

@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"maps"
+	"net/url"
 	"os"
 	"os/exec"
 	"strings"
@@ -147,7 +148,7 @@ func (r *Runner) startProxyIfNeeded(ctx context.Context) (string, func(), error)
 		proxyErrCh <- r.proxy.Start(proxyCtx)
 	}()
 
-	resolvedAddr, err := waitProxyAddr(ctx, r.proxy)
+	resolvedAddr, err := waitProxyAddr(ctx, r.proxy, proxyErrCh)
 	if err != nil {
 		proxyCancel()
 		return "", func() {}, err
@@ -170,7 +171,7 @@ func (r *Runner) startProxyIfNeeded(ctx context.Context) (string, func(), error)
 	return normalizeProxyAddr(proxyAddr), stop, nil
 }
 
-func waitProxyAddr(ctx context.Context, p *proxy.ProxyServer) (string, error) {
+func waitProxyAddr(ctx context.Context, p *proxy.ProxyServer, proxyErrCh <-chan error) (string, error) {
 	deadline := time.NewTimer(2 * time.Second)
 	defer deadline.Stop()
 	tick := time.NewTicker(20 * time.Millisecond)
@@ -183,6 +184,11 @@ func waitProxyAddr(ctx context.Context, p *proxy.ProxyServer) (string, error) {
 		}
 
 		select {
+		case err := <-proxyErrCh:
+			if err != nil {
+				return "", fmt.Errorf("proxy startup failed: %w", err)
+			}
+			return "", errors.New("proxy exited unexpectedly during startup")
 		case <-ctx.Done():
 			return "", ctx.Err()
 		case <-deadline.C:
@@ -201,9 +207,29 @@ func buildEnv(base []string, extra map[string]string, proxyAddr, agentToken stri
 		}
 	}
 
+	sensitiveKeys := []string{
+		"KIMBAP_MASTER_KEY_HEX",
+		"KIMBAP_AGENT_TOKEN",
+		"KIMBAP_DEV",
+	}
+	for _, key := range sensitiveKeys {
+		delete(envMap, key)
+	}
 	if proxyAddr != "" {
-		envMap["HTTP_PROXY"] = proxyAddr
-		envMap["HTTPS_PROXY"] = proxyAddr
+		delete(envMap, "HTTP_PROXY")
+		delete(envMap, "HTTPS_PROXY")
+		delete(envMap, "http_proxy")
+		delete(envMap, "https_proxy")
+		delete(envMap, "SSL_CERT_FILE")
+	}
+
+	if proxyAddr != "" {
+		proxyURL := proxyAddr
+		if strings.TrimSpace(agentToken) != "" {
+			proxyURL = embedProxyAuth(proxyAddr, agentToken)
+		}
+		envMap["HTTP_PROXY"] = proxyURL
+		envMap["HTTPS_PROXY"] = proxyURL
 		loopback := "localhost,127.0.0.1,::1"
 		if existing, ok := envMap["NO_PROXY"]; ok && existing != "" {
 			if !strings.Contains(existing, "localhost") {
@@ -226,6 +252,18 @@ func buildEnv(base []string, extra map[string]string, proxyAddr, agentToken stri
 	return out
 }
 
+func embedProxyAuth(addr, token string) string {
+	if !strings.Contains(addr, "://") {
+		addr = "http://" + addr
+	}
+	u, err := url.Parse(addr)
+	if err != nil {
+		return addr
+	}
+	u.User = url.UserPassword("kimbap", strings.TrimSpace(token))
+	return u.String()
+}
+
 func normalizeProxyAddr(addr string) string {
 	a := strings.TrimSpace(addr)
 	if a == "" {
@@ -244,6 +282,9 @@ func mapExitError(err error) error {
 	exitErr := &exec.ExitError{}
 	if errors.As(err, &exitErr) {
 		if ws, ok := exitErr.Sys().(syscall.WaitStatus); ok {
+			if ws.Signaled() {
+				return &ExitError{Code: 128 + int(ws.Signal())}
+			}
 			return &ExitError{Code: ws.ExitStatus()}
 		}
 		return &ExitError{Code: 1}

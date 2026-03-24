@@ -1,9 +1,17 @@
 package api
 
-import "github.com/go-chi/chi/v5"
+import (
+	"net/http"
+
+	"github.com/dunialabs/kimbap-core/internal/console"
+	"github.com/go-chi/chi/v5"
+)
 
 func (s *Server) registerRoutes() {
 	r := s.router
+	r.Handle("/console", http.StripPrefix("/console", console.Handler()))
+	r.Handle("/console/*", http.StripPrefix("/console", console.Handler()))
+
 	r.Route("/v1", func(r chi.Router) {
 		r.Get("/health", s.handleHealth)
 		r.Get("/actions", s.handleListActions)

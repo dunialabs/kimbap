@@ -95,6 +95,20 @@ func (s *SQLStore) Migrate(ctx context.Context) error {
 			created_by TEXT NOT NULL
 		)`,
 		`CREATE INDEX IF NOT EXISTS idx_tokens_tenant_created ON tokens(tenant_id, created_at DESC)`,
+		`CREATE TABLE IF NOT EXISTS service_tokens (
+			id TEXT PRIMARY KEY,
+			tenant_id TEXT NOT NULL,
+			agent_name TEXT NOT NULL,
+			token_hash TEXT NOT NULL UNIQUE,
+			display_hint TEXT NOT NULL,
+			scopes TEXT NOT NULL,
+			created_at TIMESTAMP NOT NULL,
+			expires_at TIMESTAMP NOT NULL,
+			last_used_at TIMESTAMP NULL,
+			revoked_at TIMESTAMP NULL,
+			created_by TEXT NOT NULL
+		)`,
+		`CREATE INDEX IF NOT EXISTS idx_service_tokens_tenant_created ON service_tokens(tenant_id, created_at DESC)`,
 		`CREATE TABLE IF NOT EXISTS audit_events (
 			id TEXT PRIMARY KEY,
 			timestamp TIMESTAMP NOT NULL,
@@ -146,6 +160,17 @@ func (s *SQLStore) Migrate(ctx context.Context) error {
 		)`
 	}
 
+	backfillServiceTokens := `INSERT INTO service_tokens (id, tenant_id, agent_name, token_hash, display_hint, scopes, created_at, expires_at, last_used_at, revoked_at, created_by)
+		SELECT id, tenant_id, agent_name, token_hash, display_hint, scopes, created_at, expires_at, last_used_at, revoked_at, created_by
+		FROM tokens
+		ON CONFLICT (id) DO NOTHING`
+	if s.dialect == "sqlite" {
+		backfillServiceTokens = `INSERT OR IGNORE INTO service_tokens (id, tenant_id, agent_name, token_hash, display_hint, scopes, created_at, expires_at, last_used_at, revoked_at, created_by)
+			SELECT id, tenant_id, agent_name, token_hash, display_hint, scopes, created_at, expires_at, last_used_at, revoked_at, created_by
+			FROM tokens WHERE NOT EXISTS (SELECT 1 FROM service_tokens WHERE service_tokens.id = tokens.id)`
+	}
+	queries = append(queries, backfillServiceTokens)
+
 	for _, q := range queries {
 		if _, err := s.db.ExecContext(ctx, s.bind(q)); err != nil {
 			return err
@@ -175,7 +200,7 @@ func (s *SQLStore) CreateToken(ctx context.Context, token *TokenRecord) error {
 	}
 
 	_, err := s.db.ExecContext(ctx, s.bind(`
-		INSERT INTO tokens (
+		INSERT INTO service_tokens (
 			id, tenant_id, agent_name, token_hash, display_hint, scopes,
 			created_at, expires_at, last_used_at, revoked_at, created_by
 		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
@@ -199,7 +224,7 @@ func (s *SQLStore) GetToken(ctx context.Context, id string) (*TokenRecord, error
 	row := s.db.QueryRowContext(ctx, s.bind(`
 		SELECT id, tenant_id, agent_name, token_hash, display_hint, scopes,
 			created_at, expires_at, last_used_at, revoked_at, created_by
-		FROM tokens WHERE id = ?
+		FROM service_tokens WHERE id = ?
 	`), id)
 	rec, err := scanToken(row)
 	if err != nil {
@@ -215,7 +240,7 @@ func (s *SQLStore) GetTokenByHash(ctx context.Context, hash string) (*TokenRecor
 	row := s.db.QueryRowContext(ctx, s.bind(`
 		SELECT id, tenant_id, agent_name, token_hash, display_hint, scopes,
 			created_at, expires_at, last_used_at, revoked_at, created_by
-		FROM tokens WHERE token_hash = ?
+		FROM service_tokens WHERE token_hash = ?
 	`), hash)
 	rec, err := scanToken(row)
 	if err != nil {
@@ -234,7 +259,7 @@ func (s *SQLStore) ListTokens(ctx context.Context, tenantID string) ([]TokenReco
 	rows, err := s.db.QueryContext(ctx, s.bind(`
 		SELECT id, tenant_id, agent_name, token_hash, display_hint, scopes,
 			created_at, expires_at, last_used_at, revoked_at, created_by
-		FROM tokens
+		FROM service_tokens
 		WHERE tenant_id = ?
 		ORDER BY created_at DESC
 	`), tenantID)
@@ -255,7 +280,7 @@ func (s *SQLStore) ListTokens(ctx context.Context, tenantID string) ([]TokenReco
 }
 
 func (s *SQLStore) UpdateTokenLastUsed(ctx context.Context, id string) error {
-	res, err := s.db.ExecContext(ctx, s.bind(`UPDATE tokens SET last_used_at = ? WHERE id = ?`), time.Now().UTC(), id)
+	res, err := s.db.ExecContext(ctx, s.bind(`UPDATE service_tokens SET last_used_at = ? WHERE id = ?`), time.Now().UTC(), id)
 	if err != nil {
 		return err
 	}
@@ -266,7 +291,7 @@ func (s *SQLStore) UpdateTokenLastUsed(ctx context.Context, id string) error {
 }
 
 func (s *SQLStore) RevokeToken(ctx context.Context, id string) error {
-	res, err := s.db.ExecContext(ctx, s.bind(`UPDATE tokens SET revoked_at = ? WHERE id = ?`), time.Now().UTC(), id)
+	res, err := s.db.ExecContext(ctx, s.bind(`UPDATE service_tokens SET revoked_at = ? WHERE id = ?`), time.Now().UTC(), id)
 	if err != nil {
 		return err
 	}

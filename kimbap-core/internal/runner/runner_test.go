@@ -32,8 +32,11 @@ func TestRunnerSetsProxyEnvVars(t *testing.T) {
 	}
 
 	got := string(data)
-	if got != "http://127.0.0.1:18080|http://127.0.0.1:18080|agent-token-1" {
-		t.Fatalf("unexpected env output: %q", got)
+	wantProxy := "http://kimbap:agent-token-1@127.0.0.1:18080"
+	wantToken := "agent-token-1"
+	want := wantProxy + "|" + wantProxy + "|" + wantToken
+	if got != want {
+		t.Fatalf("unexpected env output:\n  got:  %q\n  want: %q", got, want)
 	}
 }
 

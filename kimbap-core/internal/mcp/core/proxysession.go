@@ -855,6 +855,9 @@ func (p *ProxySession) handleToolCall(ctx context.Context, params *mcp.CallToolP
 	proxyRequestID := p.requestIDMapper.RegisterClientRequest(upstreamRequestID, "tools/call", serverID)
 	defer p.requestIDMapper.RemoveMapping(proxyRequestID)
 
+	// TODO(runtime-adapter): Check if RuntimeAdapter.CanHandle(toolName) before
+	// proxying to downstream. If handled, use RuntimeAdapter.ExecuteToolCall()
+	// instead. This enables policy/vault/audit for MCP-initiated actions.
 	copyParams := *params
 	copyParams.Name = originalToolName
 	copyParams.Meta = p.withProxyContext(copyParams.Meta, proxyRequestID, uniformRequestID)

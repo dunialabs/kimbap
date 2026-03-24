@@ -23,6 +23,12 @@ func mapErrorToExitCode(err error) int {
 
 	var execErr *actions.ExecutionError
 	if errors.As(err, &execErr) {
+		if execErr.Code == actions.ErrUnauthorized {
+			msg := strings.ToLower(execErr.Message)
+			if strings.Contains(msg, "policy denied") || strings.Contains(msg, "policy") {
+				return ExitPolicy
+			}
+		}
 		return mapExecutionErrorCode(execErr.Code)
 	}
 

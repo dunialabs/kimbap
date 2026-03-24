@@ -7,6 +7,7 @@ import (
 	"crypto/rand"
 	"crypto/subtle"
 	"crypto/tls"
+	"encoding/base64"
 	"encoding/hex"
 	"encoding/json"
 	"errors"
@@ -557,22 +558,6 @@ func confidenceToFloat(confidence string) float64 {
 	}
 }
 
-func splitCSV(raw string) []string {
-	raw = strings.TrimSpace(raw)
-	if raw == "" {
-		return nil
-	}
-	parts := strings.Split(raw, ",")
-	out := make([]string, 0, len(parts))
-	for _, part := range parts {
-		part = strings.TrimSpace(part)
-		if part != "" {
-			out = append(out, part)
-		}
-	}
-	return out
-}
-
 func runtimeResultStatus(result actions.ExecutionResult) int {
 	if result.HTTPStatus > 0 {
 		return result.HTTPStatus
@@ -684,14 +669,32 @@ func (p *ProxyServer) validateProxyAuth(req *http.Request) bool {
 	if p.agentToken == "" {
 		return true
 	}
-	proxyAuth := strings.TrimSpace(req.Header.Get("Proxy-Authorization"))
-	if proxyAuth == "" {
-		proxyAuth = strings.TrimSpace(req.Header.Get("X-Kimbap-Agent-Token"))
+
+	if customToken := strings.TrimSpace(req.Header.Get("X-Kimbap-Agent-Token")); customToken != "" {
+		return subtle.ConstantTimeCompare([]byte(customToken), []byte(p.agentToken)) == 1
 	}
+
+	proxyAuth := strings.TrimSpace(req.Header.Get("Proxy-Authorization"))
 	if proxyAuth == "" {
 		return false
 	}
-	return subtle.ConstantTimeCompare([]byte(proxyAuth), []byte(p.agentToken)) == 1
+
+	if subtle.ConstantTimeCompare([]byte(proxyAuth), []byte(p.agentToken)) == 1 {
+		return true
+	}
+
+	if raw, ok := strings.CutPrefix(proxyAuth, "Basic "); ok {
+		raw = strings.TrimSpace(raw)
+		decoded, err := base64.StdEncoding.DecodeString(raw)
+		if err == nil {
+			parts := strings.SplitN(string(decoded), ":", 2)
+			if len(parts) == 2 {
+				return subtle.ConstantTimeCompare([]byte(parts[1]), []byte(p.agentToken)) == 1
+			}
+		}
+	}
+
+	return false
 }
 
 func (p *ProxyServer) proxyTenantID() string {
