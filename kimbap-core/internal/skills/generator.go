@@ -709,6 +709,31 @@ func schemaType(schema map[string]any) string {
 		if _, hasItems := schema["items"]; hasItems {
 			return "array"
 		}
+		if _, has := schema["oneOf"]; has {
+			return "string"
+		}
+		if _, has := schema["anyOf"]; has {
+			return "string"
+		}
+		if subs, has := schema["allOf"]; has {
+			if arr, ok := subs.([]any); ok {
+				var found string
+				for _, sub := range arr {
+					if m, ok := sub.(map[string]any); ok {
+						if st := schemaType(m); st != "string" {
+							if found == "" {
+								found = st
+							} else if found != st {
+								return "string"
+							}
+						}
+					}
+				}
+				if found != "" {
+					return found
+				}
+			}
+		}
 		return "string"
 	}
 }

@@ -54,16 +54,30 @@ func newDaemonCommand() *cobra.Command {
 			}
 
 			socketPath := daemonSocketPath(cfg.DataDir)
-			if conn, dialErr := net.Dial("unix", socketPath); dialErr == nil {
-				conn.Close()
-				return fmt.Errorf("daemon already running on %s", socketPath)
-			}
-			_ = os.Remove(socketPath)
 			if err := os.MkdirAll(filepath.Dir(socketPath), 0o755); err != nil {
 				return fmt.Errorf("create socket dir: %w", err)
 			}
 
+			lockPath := socketPath + ".lock"
+			lockFile, err := os.OpenFile(lockPath, os.O_CREATE|os.O_RDWR, 0o600)
+			if err != nil {
+				return fmt.Errorf("open daemon lock: %w", err)
+			}
+			defer lockFile.Close()
+			if err := syscall.Flock(int(lockFile.Fd()), syscall.LOCK_EX|syscall.LOCK_NB); err != nil {
+				return fmt.Errorf("daemon already starting on %s", socketPath)
+			}
+			defer syscall.Flock(int(lockFile.Fd()), syscall.LOCK_UN)
+
 			listener, err := net.Listen("unix", socketPath)
+			if err != nil {
+				if conn, dialErr := net.Dial("unix", socketPath); dialErr == nil {
+					conn.Close()
+					return fmt.Errorf("daemon already running on %s", socketPath)
+				}
+				_ = os.Remove(socketPath)
+				listener, err = net.Listen("unix", socketPath)
+			}
 			if err != nil {
 				return fmt.Errorf("listen unix socket: %w", err)
 			}

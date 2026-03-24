@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"net/http"
 	"strconv"
 	"strings"
@@ -30,7 +31,7 @@ type createTokenRequest struct {
 }
 
 func (s *Server) handleHealth(w http.ResponseWriter, r *http.Request) {
-	writeSuccessRaw(w, r, http.StatusOK, map[string]any{"status": "ok"})
+	writeSuccess(w, r, http.StatusOK, map[string]any{"status": "ok"})
 }
 
 func (s *Server) handleListActions(w http.ResponseWriter, r *http.Request) {
@@ -120,7 +121,7 @@ func (s *Server) handleValidateAction(w http.ResponseWriter, r *http.Request) {
 		writeEnvelopeError(w, r, verr)
 		return
 	}
-	writeSuccessRaw(w, r, http.StatusOK, map[string]any{"valid": true})
+	writeSuccess(w, r, http.StatusOK, map[string]any{"valid": true})
 }
 
 func (s *Server) handleListVaultKeys(w http.ResponseWriter, r *http.Request) {
@@ -237,7 +238,7 @@ func (s *Server) handleRevokeToken(w http.ResponseWriter, r *http.Request) {
 			"agent_name": tok.AgentName,
 		})
 	}
-	writeSuccessRaw(w, r, http.StatusOK, map[string]any{"revoked": true})
+	writeSuccess(w, r, http.StatusOK, map[string]any{"revoked": true})
 }
 
 func (s *Server) handleGetPolicy(w http.ResponseWriter, r *http.Request) {
@@ -284,7 +285,7 @@ func (s *Server) handleSetPolicy(w http.ResponseWriter, r *http.Request) {
 			"tenant_id": tenantID,
 		})
 	}
-	writeSuccessRaw(w, r, http.StatusOK, map[string]any{"updated": true})
+	writeSuccess(w, r, http.StatusOK, map[string]any{"updated": true})
 }
 
 func (s *Server) handleEvalPolicy(w http.ResponseWriter, r *http.Request) {
@@ -368,7 +369,7 @@ func (s *Server) handleApprove(w http.ResponseWriter, r *http.Request) {
 		err = s.store.UpdateApprovalStatus(r.Context(), id, "approved", principal.ID, "approved via api")
 	}
 	if err != nil {
-		writeEnvelopeError(w, r, actions.NewExecutionError(actions.ErrDownstreamUnavailable, "internal server error", http.StatusInternalServerError, false, nil))
+		writeEnvelopeError(w, r, mapApprovalError(err))
 		return
 	}
 
@@ -387,9 +388,16 @@ func (s *Server) handleApprove(w http.ResponseWriter, r *http.Request) {
 		if execResult.Output != nil {
 			execMap["output"] = execResult.Output
 		}
+		if execResult.Error != nil {
+			execMap["error"] = map[string]any{
+				"code":      execResult.Error.Code,
+				"message":   execResult.Error.Message,
+				"retryable": execResult.Error.Retryable,
+			}
+		}
 		resp["execution"] = execMap
 	}
-	writeSuccessRaw(w, r, http.StatusOK, resp)
+	writeSuccess(w, r, http.StatusOK, resp)
 }
 
 func (s *Server) handleDeny(w http.ResponseWriter, r *http.Request) {
@@ -425,18 +433,26 @@ func (s *Server) handleDeny(w http.ResponseWriter, r *http.Request) {
 		err = s.store.UpdateApprovalStatus(r.Context(), id, "denied", principal.ID, "denied via api")
 	}
 	if err != nil {
-		writeEnvelopeError(w, r, actions.NewExecutionError(actions.ErrDownstreamUnavailable, "internal server error", http.StatusInternalServerError, false, nil))
+		writeEnvelopeError(w, r, mapApprovalError(err))
 		return
 	}
-	writeSuccessRaw(w, r, http.StatusOK, map[string]any{"denied": true})
+	writeSuccess(w, r, http.StatusOK, map[string]any{"denied": true})
 }
 
 func (s *Server) handleQueryAudit(w http.ResponseWriter, r *http.Request) {
 	tenantID := tenantFromContext(r.Context())
 	limit, _ := strconv.Atoi(r.URL.Query().Get("limit"))
 	offset, _ := strconv.Atoi(r.URL.Query().Get("offset"))
-	from, _ := parseRFC3339Ptr(r.URL.Query().Get("from"))
-	to, _ := parseRFC3339Ptr(r.URL.Query().Get("to"))
+	from, fromErr := parseRFC3339Ptr(r.URL.Query().Get("from"))
+	if fromErr != nil {
+		writeEnvelopeError(w, r, actions.NewExecutionError(actions.ErrValidationFailed, "invalid 'from' timestamp: expected RFC3339 format", http.StatusBadRequest, false, nil))
+		return
+	}
+	to, toErr := parseRFC3339Ptr(r.URL.Query().Get("to"))
+	if toErr != nil {
+		writeEnvelopeError(w, r, actions.NewExecutionError(actions.ErrValidationFailed, "invalid 'to' timestamp: expected RFC3339 format", http.StatusBadRequest, false, nil))
+		return
+	}
 	items, err := s.store.QueryAuditEvents(r.Context(), store.AuditFilter{
 		TenantID:  tenantID,
 		AgentName: r.URL.Query().Get("agent_name"),
@@ -502,6 +518,10 @@ func decodeJSON(r *http.Request, out any) error {
 		default:
 			return errors.New("invalid request body")
 		}
+	}
+	var extra json.RawMessage
+	if dec.Decode(&extra) != io.EOF {
+		return errors.New("unexpected trailing content after JSON body")
 	}
 	return nil
 }
@@ -766,6 +786,21 @@ func (a *storeTokenAdapter) MarkUsed(ctx context.Context, tokenID string) error 
 		return auth.ErrInvalidToken
 	}
 	return err
+}
+
+func mapApprovalError(err error) *actions.ExecutionError {
+	switch {
+	case errors.Is(err, approvals.ErrAlreadyResolved):
+		return actions.NewExecutionError(actions.ErrValidationFailed, err.Error(), http.StatusConflict, false, nil)
+	case errors.Is(err, approvals.ErrExpired):
+		return actions.NewExecutionError(actions.ErrApprovalTimeout, err.Error(), http.StatusGone, false, nil)
+	case errors.Is(err, approvals.ErrDuplicateVote):
+		return actions.NewExecutionError(actions.ErrValidationFailed, err.Error(), http.StatusConflict, false, nil)
+	case errors.Is(err, approvals.ErrNotFound), errors.Is(err, store.ErrNotFound):
+		return actions.NewExecutionError(actions.ErrActionNotFound, "approval not found", http.StatusNotFound, false, nil)
+	default:
+		return actions.NewExecutionError(actions.ErrDownstreamUnavailable, "internal server error", http.StatusInternalServerError, false, nil)
+	}
 }
 
 func sanitizeErrMsg(err error, status int) string {
