@@ -197,11 +197,6 @@ export default function UsagePage() {
           Refresh
         </Button>
       </div>
-      <p className="text-xs text-muted-foreground">Showing data for: Last {timeRangeLabel}.</p>
-      <p className="text-xs text-muted-foreground">
-        Auto-refresh: summary every 30s, recent activity every 15s.
-      </p>
-
       {!loading && loadError ? (
         <div className="flex items-center gap-2 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700 dark:border-red-900/40 dark:bg-red-950/20 dark:text-red-300">
           <AlertTriangle className="h-4 w-4" aria-hidden="true" />
@@ -393,7 +388,7 @@ export default function UsagePage() {
         <Card>
           <CardHeader>
             <CardTitle><Link href={`/dashboard/logs?timeRange=${logsTimeRange}`} className="hover:underline">Recent Activity →</Link></CardTitle>
-            <CardDescription>Recent activity</CardDescription>
+            <CardDescription>Last {timeRangeLabel}</CardDescription>
           </CardHeader>
           <CardContent>
             {loading || !recentActivity || recentActivity.length === 0 ? (

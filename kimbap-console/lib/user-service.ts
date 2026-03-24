@@ -18,8 +18,8 @@ export class UserService {
           userid: userid
         },
         select: {
-          accessToken: true
-        }
+          accessTokenHash: true
+        } as any
       });
 
       if (!user) {
@@ -27,7 +27,7 @@ export class UserService {
         return null;
       }
 
-      return user.accessToken;
+      return (user as any).accessTokenHash;
     } catch (error) {
       console.error('Failed to get access token from local database:', error);
       return null;

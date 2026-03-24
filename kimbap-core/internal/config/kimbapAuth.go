@@ -26,5 +26,3 @@ func GetKimbapAuthConfig() kimbapAuthConfig {
 	})
 	return kimbapAuthCached
 }
-
-var KIMBAP_AUTH_CONFIG = GetKimbapAuthConfig

@@ -35,13 +35,13 @@ type AuthError struct {
 	Type    string
 	Message string
 	UserID  string
-	Details interface{}
+	Details any
 }
 
 func (e *AuthError) Error() string {
 	return e.Message
 }
 
-func NewAuthError(errType, message, userID string, details interface{}) *AuthError {
+func NewAuthError(errType, message, userID string, details any) *AuthError {
 	return &AuthError{Type: errType, Message: message, UserID: userID, Details: details}
 }

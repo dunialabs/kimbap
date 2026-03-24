@@ -103,9 +103,9 @@ type MCPServerCapability = ServerConfigWithEnabled
 type MCPServerCapabilities = Permissions
 
 type JSONRPCError struct {
-	Code    int         `json:"code"`
-	Message string      `json:"message"`
-	Data    interface{} `json:"data,omitempty"`
+	Code    int    `json:"code"`
+	Message string `json:"message"`
+	Data    any    `json:"data,omitempty"`
 }
 
 type ProxyContext struct {
@@ -148,10 +148,10 @@ type EventID = string
 
 type JSONRPCMessage struct {
 	JSONRPC string        `json:"jsonrpc"`
-	ID      interface{}   `json:"id,omitempty"`
+	ID      any           `json:"id,omitempty"`
 	Method  string        `json:"method,omitempty"`
-	Params  interface{}   `json:"params,omitempty"`
-	Result  interface{}   `json:"result,omitempty"`
+	Params  any           `json:"params,omitempty"`
+	Result  any           `json:"result,omitempty"`
 	Error   *JSONRPCError `json:"error,omitempty"`
 }
 

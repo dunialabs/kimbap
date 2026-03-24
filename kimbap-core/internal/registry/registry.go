@@ -275,7 +275,33 @@ func (r *Registry) fetchManifestYAML(ctx context.Context, source, ref string) ([
 		return b, nil
 	}
 
-	b, err := os.ReadFile(ref)
+	if r.skillsDir == "" {
+		return nil, fmt.Errorf("local manifest references require a configured skills directory")
+	}
+
+	absBase, baseErr := filepath.EvalSymlinks(r.skillsDir)
+	if baseErr != nil {
+		absBase, baseErr = filepath.Abs(r.skillsDir)
+		if baseErr != nil {
+			return nil, fmt.Errorf("resolve skills dir: %w", baseErr)
+		}
+	}
+
+	absRef, err := filepath.Abs(ref)
+	if err != nil {
+		return nil, fmt.Errorf("resolve local manifest path: %w", err)
+	}
+	realRef, symlinkErr := filepath.EvalSymlinks(absRef)
+	if symlinkErr != nil {
+		realRef = absRef
+	}
+
+	sep := string(filepath.Separator)
+	if realRef != absBase && !strings.HasPrefix(realRef, absBase+sep) {
+		return nil, fmt.Errorf("local manifest path is outside the allowed skills directory")
+	}
+
+	b, err := os.ReadFile(realRef)
 	if err != nil {
 		return nil, fmt.Errorf("read local manifest: %w", err)
 	}

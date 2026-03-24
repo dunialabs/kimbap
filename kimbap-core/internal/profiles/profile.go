@@ -12,6 +12,8 @@ type ProfileType string
 
 const (
 	ProfileClaudeCode ProfileType = "claude-code"
+	ProfileOpenCode   ProfileType = "opencode"
+	ProfileCodex      ProfileType = "codex"
 	ProfileGeneric    ProfileType = "generic"
 	ProfileCursor     ProfileType = "cursor"
 )
@@ -46,6 +48,18 @@ func GetProfile(name ProfileType) (*Profile, error) {
 			Name:        ProfileGeneric,
 			Template:    operatingRulesTemplate,
 			InstallPath: filepath.Join(".agents", "KIMBAP_OPERATING_RULES.md"),
+		}, nil
+	case ProfileOpenCode:
+		return &Profile{
+			Name:        ProfileOpenCode,
+			Template:    operatingRulesTemplate,
+			InstallPath: filepath.Join(".opencode", "KIMBAP_OPERATING_RULES.md"),
+		}, nil
+	case ProfileCodex:
+		return &Profile{
+			Name:        ProfileCodex,
+			Template:    operatingRulesTemplate,
+			InstallPath: filepath.Join(".codex", "KIMBAP_OPERATING_RULES.md"),
 		}, nil
 	case ProfileCursor:
 		return &Profile{

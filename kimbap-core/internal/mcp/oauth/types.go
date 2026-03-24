@@ -12,18 +12,18 @@ type ExchangeContext struct {
 }
 
 type TokenResponse struct {
-	AccessToken  string                 `json:"access_token"`
-	RefreshToken string                 `json:"refresh_token,omitempty"`
-	ExpiresIn    *int64                 `json:"expires_in,omitempty"`
-	Raw          map[string]interface{} `json:"raw,omitempty"`
+	AccessToken  string         `json:"access_token"`
+	RefreshToken string         `json:"refresh_token,omitempty"`
+	ExpiresIn    *int64         `json:"expires_in,omitempty"`
+	Raw          map[string]any `json:"raw,omitempty"`
 }
 
 type ExchangeResult struct {
-	AccessToken  string                 `json:"accessToken"`
-	RefreshToken string                 `json:"refreshToken,omitempty"`
-	ExpiresIn    *int64                 `json:"expiresIn,omitempty"`
-	ExpiresAt    *int64                 `json:"expiresAt,omitempty"`
-	Raw          map[string]interface{} `json:"raw"`
+	AccessToken  string         `json:"accessToken"`
+	RefreshToken string         `json:"refreshToken,omitempty"`
+	ExpiresIn    *int64         `json:"expiresIn,omitempty"`
+	ExpiresAt    *int64         `json:"expiresAt,omitempty"`
+	Raw          map[string]any `json:"raw"`
 }
 
 type ProviderRequest struct {
@@ -33,7 +33,7 @@ type ProviderRequest struct {
 
 type HTTPResponse struct {
 	Status int
-	Data   map[string]interface{}
+	Data   map[string]any
 	Raw    string
 	Header map[string][]string
 }

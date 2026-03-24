@@ -181,7 +181,7 @@ func (a AuthFactoryAdapter) Build(ctx context.Context, server database.Server, l
 		return nil, errors.New("missing OAuth configuration")
 	}
 
-	strategyConfig := make(map[string]interface{}, len(oauthConfig)+2)
+	strategyConfig := make(map[string]any, len(oauthConfig)+2)
 	for key, value := range oauthConfig {
 		strategyConfig[key] = value
 	}
@@ -242,11 +242,8 @@ func (a CoreAuthStrategyAdapter) RefreshToken(ctx context.Context) (string, int6
 	return tokenInfo.AccessToken, tokenInfo.ExpiresAt, nil
 }
 
-func (a CoreAuthStrategyAdapter) GetCurrentOAuthConfig() map[string]interface{} {
-	if a.strategy == nil {
-		return nil
-	}
-	return a.strategy.GetCurrentOAuthConfig()
+func (a CoreAuthStrategyAdapter) GetCurrentOAuthConfig() map[string]any {
+  $$$
 }
 
 func (a CoreAuthStrategyAdapter) MarkConfigAsPersisted() {

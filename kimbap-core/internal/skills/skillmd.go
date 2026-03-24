@@ -115,3 +115,67 @@ func sortedActionKeys(actions map[string]SkillAction) []string {
 	sort.Strings(keys)
 	return keys
 }
+
+// GenerateMetaSkillMD produces the thin Tier-1 meta-skill that teaches AI agents
+// how to connect to Kimbap and discover available actions at runtime.
+// This skill is stable and rarely changes — it does NOT list installed services.
+func GenerateMetaSkillMD() string {
+	var sb strings.Builder
+
+	sb.WriteString("---\n")
+	sb.WriteString("name: kimbap\n")
+	sb.WriteString("description: |\n")
+	sb.WriteString("  Use Kimbap when the user needs to interact with external services\n")
+	sb.WriteString("  (GitHub, Slack, Gmail, Stripe, Notion, internal APIs, etc.) through\n")
+	sb.WriteString("  a secure, governed runtime. Kimbap provides credential injection,\n")
+	sb.WriteString("  policy enforcement, approval workflows, and audit logging.\n")
+	sb.WriteString("  Trigger phrases: 'use GitHub', 'send email', 'create issue',\n")
+	sb.WriteString("  'call external API', 'interact with service', 'use kimbap'.\n")
+	sb.WriteString("allowed-tools: Bash\n")
+	sb.WriteString("---\n\n")
+
+	sb.WriteString("# Kimbap\n\n")
+	sb.WriteString("> Secure action runtime for AI agents.\n")
+	sb.WriteString("> Kimbap lets you use external services without handling raw credentials.\n\n")
+
+	sb.WriteString("## Quick Start\n\n")
+	sb.WriteString("```bash\n")
+	sb.WriteString("# 1. Discover what services are available\n")
+	sb.WriteString("kimbap actions list\n\n")
+	sb.WriteString("# 2. See all actions for a specific service\n")
+	sb.WriteString("kimbap actions list --service <service-name>\n\n")
+	sb.WriteString("# 3. Inspect an action before using it\n")
+	sb.WriteString("kimbap actions describe <service.action>\n\n")
+	sb.WriteString("# 4. Execute an action\n")
+	sb.WriteString("kimbap call <service>.<action> [--param value ...]\n")
+	sb.WriteString("```\n\n")
+
+	sb.WriteString("## Rules\n\n")
+	sb.WriteString("1. Always use `kimbap actions list` first to discover what is available.\n")
+	sb.WriteString("2. Use `kimbap actions describe <service.action>` to inspect parameters before calling.\n")
+	sb.WriteString("3. Never ask for, print, or store raw API keys, passwords, or tokens.\n")
+	sb.WriteString("4. If a capability is missing, request a new Kimbap skill instead of using direct credentials.\n")
+	sb.WriteString("5. Treat Kimbap as the only approved pathway for third-party API access.\n\n")
+
+	sb.WriteString("## Common Examples\n\n")
+	sb.WriteString("```bash\n")
+	sb.WriteString("# List all available actions\n")
+	sb.WriteString("kimbap actions list\n\n")
+	sb.WriteString("# List installed skills\n")
+	sb.WriteString("kimbap skill list\n\n")
+	sb.WriteString("# Dry-run to preview without executing\n")
+	sb.WriteString("kimbap call <service>.<action> --dry-run\n\n")
+	sb.WriteString("# Check what services are configured\n")
+	sb.WriteString("kimbap actions list --format json\n")
+	sb.WriteString("```\n\n")
+
+	sb.WriteString("## Installation\n\n")
+	sb.WriteString("```bash\n")
+	sb.WriteString("# Install Kimbap CLI\n")
+	sb.WriteString("# See https://kimbap.sh/quick-start\n\n")
+	sb.WriteString("# Sync skills to your AI agent\n")
+	sb.WriteString("kimbap agents setup\n")
+	sb.WriteString("```\n")
+
+	return sb.String()
+}

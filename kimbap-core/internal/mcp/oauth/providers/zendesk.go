@@ -5,7 +5,7 @@ import "encoding/json"
 var ZendeskAdapter = ProviderAdapter{
 	Name: "zendesk",
 	BuildRequest: func(ctx ExchangeContext) (ProviderRequest, error) {
-		body := map[string]interface{}{
+		body := map[string]any{
 			"grant_type":               "authorization_code",
 			"client_id":                ctx.ClientID,
 			"client_secret":            ctx.ClientSecret,

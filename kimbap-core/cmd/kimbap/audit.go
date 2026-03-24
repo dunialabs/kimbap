@@ -238,9 +238,6 @@ func parseAuditTime(raw string) (time.Time, error) {
 	layouts := []string{time.RFC3339Nano, time.RFC3339, "2006-01-02"}
 	for _, layout := range layouts {
 		if t, err := time.Parse(layout, raw); err == nil {
-			if layout == "2006-01-02" {
-				return t.UTC(), nil
-			}
 			return t.UTC(), nil
 		}
 	}

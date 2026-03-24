@@ -1,5 +1,5 @@
 'use client'
-import { Menu } from 'lucide-react'
+import { Menu, LogOut } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { Sheet, SheetContent, SheetTrigger, SheetTitle } from '@/components/ui/sheet'
@@ -7,13 +7,6 @@ import { Button } from '@/components/ui/button'
 import { SidebarNav } from './dashboard/sidebar-nav'
 import { api } from '@/lib/api-client'
 
-const LogoutIcon = () => (
-  <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 20 20" fill="none" aria-hidden="true">
-    <path d="M9.99654 2.5H2.5V17.5H10" stroke="currentColor" strokeWidth="1.66667" strokeLinejoin="round"/>
-    <path d="M13.75 13.75L17.5 10L13.75 6.25" stroke="currentColor" strokeWidth="1.66667" strokeLinejoin="round"/>
-    <path d="M6.6665 9.99707H17.4998" stroke="currentColor" strokeWidth="1.66667" strokeLinejoin="round"/>
-  </svg>
-)
 
 export function DashboardSidebar() {
   const router = useRouter()
@@ -75,7 +68,7 @@ export function DashboardSidebar() {
                 className="w-full justify-start py-2 px-3 rounded-lg"
                 onClick={handleLogout}
               >
-                <LogoutIcon />
+                <LogOut className="h-5 w-5" aria-hidden="true" />
                 <span className="ml-2">Logout</span>
               </Button>
             </div>
@@ -105,7 +98,7 @@ export function DashboardSidebar() {
               className="w-full justify-start py-2 px-3 rounded-lg"
               onClick={handleLogout}
             >
-              <LogoutIcon />
+              <LogOut className="h-5 w-5" aria-hidden="true" />
               <span className="ml-2">Logout</span>
             </Button>
           </div>

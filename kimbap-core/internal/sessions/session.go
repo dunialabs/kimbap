@@ -41,7 +41,7 @@ type SessionService struct {
 }
 
 func NewSessionService(ttl time.Duration) *SessionService {
-	return &SessionService{ttl: ttl}
+	return &SessionService{ttl: ttl, tokens: map[string]SessionToken{}}
 }
 
 func (s *SessionService) Exchange(_ context.Context, principal *auth.Principal) (*SessionToken, string, error) {
@@ -77,9 +77,11 @@ func (s *SessionService) Exchange(_ context.Context, principal *auth.Principal) 
 		ExpiresAt:   now.Add(ttl),
 	}
 
-	s.ensureMap()
 	hash := hashSession(rawSession)
 	s.mu.Lock()
+	if s.tokens == nil {
+		s.tokens = map[string]SessionToken{}
+	}
 	s.tokens[hash] = session
 	s.mu.Unlock()
 
@@ -105,14 +107,6 @@ func (s *SessionService) Validate(_ context.Context, rawSession string) (*Sessio
 
 	copySession := session
 	return &copySession, nil
-}
-
-func (s *SessionService) ensureMap() {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	if s.tokens == nil {
-		s.tokens = map[string]SessionToken{}
-	}
 }
 
 func hashSession(raw string) string {

@@ -83,7 +83,7 @@ func OAuthHTTPPost(url string, request ProviderRequest, provider string) (*HTTPR
 	}
 
 	raw := string(rawBytes)
-	data := map[string]interface{}{}
+	data := map[string]any{}
 	if strings.TrimSpace(raw) != "" {
 		if err := json.Unmarshal(rawBytes, &data); err != nil {
 			return nil, NewOAuthParseError(provider, raw, err)

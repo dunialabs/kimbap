@@ -85,7 +85,11 @@ func (s *Server) handleExecuteAction(w http.ResponseWriter, r *http.Request) {
 		Input map[string]any `json:"input"`
 	}
 	if err := decodeJSON(r, &body); err != nil {
-		writeEnvelopeError(w, r, actions.NewExecutionError(actions.ErrValidationFailed, err.Error(), http.StatusBadRequest, false, nil))
+		status := http.StatusBadRequest
+		if errors.Is(err, errRequestBodyTooLarge) {
+			status = http.StatusRequestEntityTooLarge
+		}
+		writeEnvelopeError(w, r, actions.NewExecutionError(actions.ErrValidationFailed, err.Error(), status, false, nil))
 		return
 	}
 	principal := principalFromContext(r.Context())
@@ -123,7 +127,11 @@ func (s *Server) handleValidateAction(w http.ResponseWriter, r *http.Request) {
 		Input  map[string]any  `json:"input"`
 	}
 	if err := decodeJSON(r, &body); err != nil {
-		writeEnvelopeError(w, r, actions.NewExecutionError(actions.ErrValidationFailed, err.Error(), http.StatusBadRequest, false, nil))
+		status := http.StatusBadRequest
+		if errors.Is(err, errRequestBodyTooLarge) {
+			status = http.StatusRequestEntityTooLarge
+		}
+		writeEnvelopeError(w, r, actions.NewExecutionError(actions.ErrValidationFailed, err.Error(), status, false, nil))
 		return
 	}
 	if verr := actions.ValidateInput(body.Schema, body.Input); verr != nil {
@@ -144,7 +152,11 @@ func (s *Server) handleCreateToken(w http.ResponseWriter, r *http.Request) {
 	}
 	var req createTokenRequest
 	if err := decodeJSON(r, &req); err != nil {
-		writeEnvelopeError(w, r, actions.NewExecutionError(actions.ErrValidationFailed, err.Error(), http.StatusBadRequest, false, nil))
+		status := http.StatusBadRequest
+		if errors.Is(err, errRequestBodyTooLarge) {
+			status = http.StatusRequestEntityTooLarge
+		}
+		writeEnvelopeError(w, r, actions.NewExecutionError(actions.ErrValidationFailed, err.Error(), status, false, nil))
 		return
 	}
 	if strings.TrimSpace(req.AgentName) == "" {
@@ -269,7 +281,11 @@ func (s *Server) handleSetPolicy(w http.ResponseWriter, r *http.Request) {
 		Document string `json:"document"`
 	}
 	if err := decodeJSON(r, &body); err != nil {
-		writeEnvelopeError(w, r, actions.NewExecutionError(actions.ErrValidationFailed, err.Error(), http.StatusBadRequest, false, nil))
+		status := http.StatusBadRequest
+		if errors.Is(err, errRequestBodyTooLarge) {
+			status = http.StatusRequestEntityTooLarge
+		}
+		writeEnvelopeError(w, r, actions.NewExecutionError(actions.ErrValidationFailed, err.Error(), status, false, nil))
 		return
 	}
 	tenantID := tenantFromContext(r.Context())
@@ -307,7 +323,11 @@ func (s *Server) handleEvalPolicy(w http.ResponseWriter, r *http.Request) {
 		Args      map[string]any `json:"args"`
 	}
 	if err := decodeJSON(r, &body); err != nil {
-		writeEnvelopeError(w, r, actions.NewExecutionError(actions.ErrValidationFailed, err.Error(), http.StatusBadRequest, false, nil))
+		status := http.StatusBadRequest
+		if errors.Is(err, errRequestBodyTooLarge) {
+			status = http.StatusRequestEntityTooLarge
+		}
+		writeEnvelopeError(w, r, actions.NewExecutionError(actions.ErrValidationFailed, err.Error(), status, false, nil))
 		return
 	}
 	tenantID := tenantFromContext(r.Context())
@@ -345,11 +365,7 @@ func (s *Server) handleListApprovals(w http.ResponseWriter, r *http.Request) {
 	writeSuccess(w, r, http.StatusOK, items)
 }
 
-func (s *Server) handleApprove(w http.ResponseWriter, r *http.Request) {
-	id := chi.URLParam(r, "id")
-	tenantID := tenantFromContext(r.Context())
-	principal := principalFromContext(r.Context())
-
+func (s *Server) requirePendingApproval(w http.ResponseWriter, r *http.Request, id, tenantID string) (*store.ApprovalRecord, bool) {
 	existing, err := s.store.GetApproval(r.Context(), id)
 	if err != nil {
 		status := http.StatusInternalServerError
@@ -357,23 +373,33 @@ func (s *Server) handleApprove(w http.ResponseWriter, r *http.Request) {
 			status = http.StatusNotFound
 		}
 		writeEnvelopeError(w, r, actions.NewExecutionError(actions.ErrActionNotFound, sanitizeErrMsg(err, status), status, false, nil))
-		return
+		return nil, false
 	}
 	if existing.TenantID != tenantID {
 		writeEnvelopeError(w, r, actions.NewExecutionError(actions.ErrUnauthorized, "approval not found", http.StatusNotFound, false, nil))
-		return
+		return nil, false
 	}
 	if existing.Status != "pending" {
 		writeEnvelopeError(w, r, actions.NewExecutionError(actions.ErrValidationFailed, "approval already resolved", http.StatusConflict, false, nil))
-		return
+		return nil, false
 	}
 	if time.Now().After(existing.ExpiresAt) {
 		writeEnvelopeError(w, r, actions.NewExecutionError(actions.ErrApprovalTimeout, "approval expired", http.StatusGone, false, nil))
+		return nil, false
+	}
+	return existing, true
+}
+
+func (s *Server) handleApprove(w http.ResponseWriter, r *http.Request) {
+	id := chi.URLParam(r, "id")
+	tenantID := tenantFromContext(r.Context())
+	principal := principalFromContext(r.Context())
+
+	if _, ok := s.requirePendingApproval(w, r, id, tenantID); !ok {
 		return
 	}
 
-	err = s.store.UpdateApprovalStatus(r.Context(), id, "approved", principal.ID, "approved via api")
-	if err != nil {
+	if err := s.store.UpdateApprovalStatus(r.Context(), id, "approved", principal.ID, "approved via api"); err != nil {
 		writeEnvelopeError(w, r, mapApprovalError(err))
 		return
 	}
@@ -414,30 +440,11 @@ func (s *Server) handleDeny(w http.ResponseWriter, r *http.Request) {
 	tenantID := tenantFromContext(r.Context())
 	principal := principalFromContext(r.Context())
 
-	existing, err := s.store.GetApproval(r.Context(), id)
-	if err != nil {
-		status := http.StatusInternalServerError
-		if errors.Is(err, store.ErrNotFound) {
-			status = http.StatusNotFound
-		}
-		writeEnvelopeError(w, r, actions.NewExecutionError(actions.ErrActionNotFound, sanitizeErrMsg(err, status), status, false, nil))
-		return
-	}
-	if existing.TenantID != tenantID {
-		writeEnvelopeError(w, r, actions.NewExecutionError(actions.ErrUnauthorized, "approval not found", http.StatusNotFound, false, nil))
-		return
-	}
-	if existing.Status != "pending" {
-		writeEnvelopeError(w, r, actions.NewExecutionError(actions.ErrValidationFailed, "approval already resolved", http.StatusConflict, false, nil))
-		return
-	}
-	if time.Now().After(existing.ExpiresAt) {
-		writeEnvelopeError(w, r, actions.NewExecutionError(actions.ErrApprovalTimeout, "approval expired", http.StatusGone, false, nil))
+	if _, ok := s.requirePendingApproval(w, r, id, tenantID); !ok {
 		return
 	}
 
-	err = s.store.UpdateApprovalStatus(r.Context(), id, "denied", principal.ID, "denied via api")
-	if err != nil {
+	if err := s.store.UpdateApprovalStatus(r.Context(), id, "denied", principal.ID, "denied via api"); err != nil {
 		writeEnvelopeError(w, r, mapApprovalError(err))
 		return
 	}
@@ -507,12 +514,21 @@ func (s *Server) handleExportAudit(w http.ResponseWriter, r *http.Request) {
 
 const maxAPIRequestBodyBytes int64 = 4 << 20
 
+var errRequestBodyTooLarge = errors.New("request body too large")
+
 func decodeJSON(r *http.Request, out any) error {
 	if r.Body == nil {
 		return errors.New("request body is required")
 	}
-	r.Body = http.MaxBytesReader(nil, r.Body, maxAPIRequestBodyBytes)
-	dec := json.NewDecoder(r.Body)
+	limited := io.LimitReader(r.Body, maxAPIRequestBodyBytes+1)
+	raw, readErr := io.ReadAll(limited)
+	if readErr != nil {
+		return errors.New("failed to read request body")
+	}
+	if int64(len(raw)) > maxAPIRequestBodyBytes {
+		return errRequestBodyTooLarge
+	}
+	dec := json.NewDecoder(bytes.NewReader(raw))
 	dec.DisallowUnknownFields()
 	if err := dec.Decode(out); err != nil {
 		var syntaxErr *json.SyntaxError

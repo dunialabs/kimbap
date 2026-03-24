@@ -8,6 +8,11 @@ import (
 
 var traditionalTokenPattern = regexp.MustCompile(`^[a-f0-9]{128}$`)
 
+// IsTraditionalTokenFormat reports whether token matches the 128-hex-char format.
+func IsTraditionalTokenFormat(token string) bool {
+	return traditionalTokenPattern.MatchString(token)
+}
+
 type TokenValidator struct{}
 
 func NewTokenValidator() *TokenValidator {
@@ -19,7 +24,7 @@ func (v *TokenValidator) ValidateToken(token string) (string, error) {
 	if token == "" {
 		return "", errors.New("authorization token is required")
 	}
-	if !traditionalTokenPattern.MatchString(token) {
+	if !IsTraditionalTokenFormat(token) {
 		return "", errors.New("invalid authorization token format")
 	}
 	return CalculateUserID(token), nil

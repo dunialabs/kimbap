@@ -55,12 +55,7 @@ import {
   TableHeader,
   TableRow
 } from '@/components/ui/table'
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger
-} from '@/components/ui/tooltip'
+
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible'
 import { Textarea } from '@/components/ui/textarea'
@@ -703,8 +698,7 @@ export default function LogsPage() {
             </CardHeader>
             <CardContent>
               <div className="overflow-x-auto">
-              <TooltipProvider>
-                <Table>
+              <Table>
                   <TableHeader>
                     <TableRow>
                       <TableHead className="w-[180px]">Timestamp</TableHead>
@@ -723,7 +717,8 @@ export default function LogsPage() {
                         </TableCell>
                       </TableRow>
                     ) : logs.map((log) => (
-                      <TableRow key={log.id}>
+                      <Dialog key={log.id}>
+                      <TableRow>
                         <TableCell className="font-mono text-xs">
                           {log.timestamp}
                         </TableCell>
@@ -753,20 +748,15 @@ export default function LogsPage() {
                           </Badge>
                         </TableCell>
                         <TableCell className="max-w-[300px]">
-                          <Tooltip>
-                            <TooltipTrigger asChild>
-                              <button
-                                type="button"
-                                className="truncate text-left w-full rounded focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
-                                aria-label={`View full log message: ${log.message}`}
-                              >
-                                {log.message}
-                              </button>
-                            </TooltipTrigger>
-                            <TooltipContent className="max-w-md">
-                              <p className="break-words">{log.message}</p>
-                            </TooltipContent>
-                          </Tooltip>
+                          <DialogTrigger asChild>
+                            <button
+                              type="button"
+                              className="truncate text-left w-full rounded focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 hover:text-foreground/80"
+                              aria-label="Open log details"
+                            >
+                              {log.message}
+                            </button>
+                          </DialogTrigger>
                         </TableCell>
                         <TableCell className="font-mono text-xs">
                           {log.requestId ? (
@@ -778,16 +768,15 @@ export default function LogsPage() {
                           )}
                         </TableCell>
                         <TableCell>
-                          <Dialog>
-                            <DialogTrigger asChild>
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                aria-label="View log details"
-                              >
-                                <Eye className="h-4 w-4" />
-                              </Button>
-                            </DialogTrigger>
+                          <DialogTrigger asChild>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              aria-label="View log details"
+                            >
+                              <Eye className="h-4 w-4" />
+                            </Button>
+                          </DialogTrigger>
                             <ScrollableDialogContent className="max-w-4xl">
                               <DialogHeader>
                                 <DialogTitle className="flex items-center gap-2">
@@ -893,9 +882,9 @@ export default function LogsPage() {
                                 </Button>
                               </DialogFooter>
                             </ScrollableDialogContent>
-                          </Dialog>
                         </TableCell>
                       </TableRow>
+                      </Dialog>
                     ))}
                     {logs.length === 0 && !loading && (
                       <TableRow>
@@ -924,7 +913,6 @@ export default function LogsPage() {
                     )}
                   </TableBody>
                 </Table>
-              </TooltipProvider>
               </div>
 
               {/* Pagination controls */}
@@ -967,14 +955,38 @@ export default function LogsPage() {
         </TabsContent>
 
         <TabsContent value="raw">
-          <Card>
-            <CardHeader>
-              <CardTitle>Raw Log View</CardTitle>
-              <CardDescription>
-                {loading
-                  ? 'Raw server logs for this filtered page (Loading...)'
-                  : `Raw server logs for this filtered page (${logs.length} rows on page ${currentPage} of ${Math.max(totalPages, 1)})`}
-              </CardDescription>
+            <Card>
+            <CardHeader className="flex flex-row items-start justify-between gap-2">
+              <div>
+                <CardTitle>Raw Log View</CardTitle>
+                <CardDescription>
+                  {loading
+                    ? 'Raw server logs for this filtered page (Loading...)'
+                    : `Raw server logs for this filtered page (${logs.length} rows on page ${currentPage} of ${Math.max(totalPages, 1)})`}
+                </CardDescription>
+              </div>
+              {!loading && logs.length > 0 && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="shrink-0"
+                  onClick={async () => {
+                    const rawText = logs.map((log) => log.rawData).join('\n\n')
+                    try {
+                      if (!navigator?.clipboard?.writeText) {
+                        toast.error('Clipboard not available')
+                        return
+                      }
+                      await navigator.clipboard.writeText(rawText)
+                      toast.success('Raw logs copied to clipboard')
+                    } catch {
+                      toast.error('Could not copy raw logs')
+                    }
+                  }}
+                >
+                  Copy All
+                </Button>
+              )}
             </CardHeader>
             <CardContent>
               {loading ? (

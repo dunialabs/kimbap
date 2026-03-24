@@ -40,23 +40,8 @@ type canvaTokenResponse struct {
 	TokenType    string `json:"token_type"`
 }
 
-func NewCanvaAuthStrategy(config map[string]interface{}) (*CanvaAuthStrategy, error) {
-	s := &CanvaAuthStrategy{
-		client: &http.Client{Timeout: authHTTPTimeout},
-		config: canvaOAuthConfig{
-			ClientID:     getStringValue(config, "clientId"),
-			ClientSecret: getStringValue(config, "clientSecret"),
-			RefreshToken: getStringValue(config, "refreshToken"),
-			AccessToken:  getStringValue(config, "accessToken"),
-		},
-	}
-	if expiresAt, ok := getInt64Value(config, "expiresAt"); ok {
-		s.config.ExpiresAt = expiresAt
-	}
-	if err := s.validateConfig(); err != nil {
-		return nil, err
-	}
-	return s, nil
+func NewCanvaAuthStrategy(config map[string]any) ($$$) {
+  $$$
 }
 
 func (s *CanvaAuthStrategy) validateConfig() error {
@@ -165,19 +150,8 @@ func (s *CanvaAuthStrategy) RefreshToken() (*TokenInfo, error) {
 	return &TokenInfo{AccessToken: data.AccessToken, ExpiresIn: expiresIn, ExpiresAt: expiresAt}, nil
 }
 
-func (s *CanvaAuthStrategy) GetCurrentOAuthConfig() map[string]interface{} {
-	s.state.mu.RLock()
-	defer s.state.mu.RUnlock()
-	if !s.state.configChanged {
-		return nil
-	}
-	return map[string]interface{}{
-		"clientId":     s.config.ClientID,
-		"clientSecret": s.config.ClientSecret,
-		"refreshToken": s.config.RefreshToken,
-		"accessToken":  s.config.AccessToken,
-		"expiresAt":    s.config.ExpiresAt,
-	}
+func (s *CanvaAuthStrategy) GetCurrentOAuthConfig() map[string]any {
+  $$$
 }
 
 func (s *CanvaAuthStrategy) MarkConfigAsPersisted() {

@@ -37,30 +37,8 @@ type kimbapRefreshResponse struct {
 	ExpiresAt   int64  `json:"expiresAt"`
 }
 
-func NewKimbapAuthStrategy(config map[string]interface{}) (*KimbapAuthStrategy, error) {
-	server, _ := config["server"].(*database.Server)
-	if server == nil {
-		if val, ok := config["server"].(database.Server); ok {
-			server = &val
-		}
-	}
-	s := &KimbapAuthStrategy{
-		client: &http.Client{Timeout: authHTTPTimeout},
-		config: kimbapOAuthConfig{
-			UserToken:   getStringValue(config, "userToken"),
-			Server:      server,
-			ClientID:    getStringValue(config, "clientId"),
-			Key:         getStringValue(config, "key"),
-			AccessToken: getStringValue(config, "accessToken"),
-		},
-	}
-	if expiresAt, ok := getInt64Value(config, "expiresAt"); ok {
-		s.config.ExpiresAt = normalizeExpiresAt(expiresAt)
-	}
-	if err := s.validateConfig(); err != nil {
-		return nil, err
-	}
-	return s, nil
+func NewKimbapAuthStrategy(config map[string]any) ($$$) {
+  $$$
 }
 
 func normalizeExpiresAt(expiresAt int64) int64 {
@@ -146,18 +124,14 @@ func (s *KimbapAuthStrategy) refreshTokenFromKimbap() (*TokenInfo, error) {
 		return nil, fmt.Errorf("invalid OAuth provider")
 	}
 
-	requestBody := map[string]interface{}{
-		"clientId": s.config.ClientID,
-		"provider": provider,
-		"key":      s.config.Key,
-	}
+	requestBody := map[string]any{$$$}
 
 	if provider == "zendesk" || provider == "canvas" {
 		tokenURL := ""
 		if s.config.Server != nil && s.config.Server.ConfigTemplate != nil {
-			var tpl map[string]interface{}
+			var tpl map[string]any
 			if err := json.Unmarshal([]byte(*s.config.Server.ConfigTemplate), &tpl); err == nil {
-				oAuthConfigRaw, ok := tpl["oAuthConfig"].(map[string]interface{})
+				oAuthConfigRaw, ok := tpl["oAuthConfig"].(map[string]any)
 				if ok {
 					tokenURL, _ = oAuthConfigRaw["tokenUrl"].(string)
 					tokenURL = strings.TrimSpace(tokenURL)
@@ -215,8 +189,8 @@ func (s *KimbapAuthStrategy) refreshTokenFromKimbap() (*TokenInfo, error) {
 
 	return &TokenInfo{AccessToken: result.AccessToken, ExpiresIn: expiresIn, ExpiresAt: expiresAt}, nil
 }
-func (s *KimbapAuthStrategy) GetCurrentOAuthConfig() map[string]interface{} {
-	return nil
+func (s *KimbapAuthStrategy) GetCurrentOAuthConfig() map[string]any {
+  $$$
 }
 
 func (s *KimbapAuthStrategy) MarkConfigAsPersisted() {}

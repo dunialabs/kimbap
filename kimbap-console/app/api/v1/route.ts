@@ -2,6 +2,7 @@ import { NextRequest } from 'next/server';
 import { ApiResponse } from '@/lib/api-response';
 import { getProtocolHandler } from './handlers';
 import { prisma } from '@/lib/prisma';
+import { hashToken } from '@/lib/auth';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -86,8 +87,8 @@ export async function POST(request: NextRequest) {
         return ApiResponse.error(cmdId, 429, 'Rate limit exceeded. Try again later.', 429);
       }
 
-      const user = await prisma.user.findFirst({
-        where: { accessToken: token }
+      const user = await prisma.user.findUnique({
+        where: { accessTokenHash: hashToken(token) }
       });
 
       if (!user) {

@@ -74,6 +74,7 @@ func init() {
 	rootCmd.AddCommand(newServeCommand())
 	rootCmd.AddCommand(newDaemonCommand())
 	rootCmd.AddCommand(newAgentProfileCommand())
+	rootCmd.AddCommand(newAgentsCommand())
 }
 
 func loadAppConfig() (*config.KimbapConfig, error) {
@@ -283,12 +284,10 @@ func buildRuntimeFromConfig(cfg *config.KimbapConfig) (*runtime.Runtime, error) 
 	if cfg == nil {
 		return nil, fmt.Errorf("config is required to build runtime")
 	}
-	var vaultStore vault.Store
-	st, err := initVaultStore(cfg)
+	vaultStore, err := initVaultStore(cfg)
 	if err != nil {
 		return nil, err
 	}
-	vaultStore = st
 
 	var auditWriter runtime.AuditWriter
 	auditPath := strings.TrimSpace(cfg.Audit.Path)

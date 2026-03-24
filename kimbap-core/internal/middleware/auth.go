@@ -9,7 +9,6 @@ import (
 	"io"
 	"net/http"
 	"net/url"
-	"regexp"
 	"strings"
 	"time"
 
@@ -21,8 +20,6 @@ import (
 	types "github.com/dunialabs/kimbap-core/internal/types"
 	"gorm.io/gorm"
 )
-
-var traditionalTokenPattern = regexp.MustCompile(`^[a-f0-9]{128}$`)
 
 const (
 	UserStatusEnabled        = 1
@@ -220,7 +217,7 @@ func GetAuthContext(ctx context.Context) (*types.AuthContext, bool) {
 
 func (m *AuthMiddleware) validateToken(ctx context.Context, token string) (userID, clientID string, scopes []string, err error) {
 	isJWTFormat := strings.Count(token, ".") == 2
-	isHexFormat := traditionalTokenPattern.MatchString(token)
+	isHexFormat := security.IsTraditionalTokenFormat(token)
 
 	if isJWTFormat {
 		if m.oauthValidator != nil {

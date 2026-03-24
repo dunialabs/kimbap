@@ -4,6 +4,7 @@ import (
 	"crypto/ed25519"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/dunialabs/kimbap-core/internal/actions"
@@ -566,6 +567,56 @@ func TestVerifyWithWrongPinnedKeyFails(t *testing.T) {
 	}
 	if result.SignatureValid {
 		t.Fatal("signature should be invalid with wrong pinned key")
+	}
+}
+
+func TestGenerateSkillMDContainsExpectedSections(t *testing.T) {
+	manifest, err := ParseManifest([]byte(braveSearchFixture))
+	if err != nil {
+		t.Fatalf("parse fixture: %v", err)
+	}
+
+	content, err := GenerateSkillMD(manifest)
+	if err != nil {
+		t.Fatalf("GenerateSkillMD: %v", err)
+	}
+
+	checks := []string{
+		"name: brave-search",
+		"allowed-tools: Bash",
+		"## Prerequisites",
+		"## Available Actions",
+		"### brave-search.web_search",
+		"kimbap call brave-search.web_search",
+		"## Discovery",
+		"kimbap actions list --service brave-search",
+	}
+	for _, want := range checks {
+		if !strings.Contains(content, want) {
+			t.Errorf("GenerateSkillMD output missing %q", want)
+		}
+	}
+}
+
+func TestGenerateMetaSkillMDContainsServiceActionSyntax(t *testing.T) {
+	content := GenerateMetaSkillMD()
+
+	checks := []string{
+		"name: kimbap",
+		"allowed-tools: Bash",
+		"kimbap actions list",
+		"kimbap actions describe <service.action>",
+		"kimbap call <service>.<action>",
+		"kimbap agents setup",
+	}
+	for _, want := range checks {
+		if !strings.Contains(content, want) {
+			t.Errorf("GenerateMetaSkillMD output missing %q", want)
+		}
+	}
+
+	if strings.Contains(content, "kimbap actions describe <action>") {
+		t.Error("GenerateMetaSkillMD must not use bare <action> — use <service.action>")
 	}
 }
 

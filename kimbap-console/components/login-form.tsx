@@ -4,7 +4,7 @@ import type React from 'react'
 import { useState, useEffect } from 'react'
 import { Button } from '@/components/ui/button'
 import { Alert, AlertDescription } from '@/components/ui/alert'
-import { Eye, EyeOff, Key } from 'lucide-react'
+import { Eye, EyeOff, LogIn } from 'lucide-react'
 import { MasterPasswordManager } from '@/lib/crypto'
 import { renderErrorMessageWithLinks } from '@/lib/error-utils'
 
@@ -159,39 +159,53 @@ export function LoginForm({
         </p>
       </div>
 
-      {/* Tabs */}
-      <div className="flex border-b border-border">
-        <button
-          type="button"
-          onClick={() => {
-            setLoginMode('password')
-            setLoginError('')
-            setTokenError('')
-          }}
-          className={`p-[12px] pl-[0] text-[14px] transition-colors ${
-            loginMode === 'password'
-              ? 'text-foreground font-bold'
-              : 'text-foreground/60 font-[400]'
-          }`}
-        >
-          Master Password
-        </button>
-        <button
-          type="button"
-          onClick={() => {
-            setLoginMode('token')
-            setLoginError('')
-            setTokenError('')
-          }}
-          className={`p-[12px] pl-[0] text-[14px] transition-colors ${
-            loginMode === 'token'
-              ? 'text-foreground font-bold'
-              : 'text-foreground/60 font-[400]'
-          }`}
-        >
-          Access Token
-        </button>
-      </div>
+      <fieldset className="border-0 p-0 m-0">
+        <legend className="sr-only">Login method</legend>
+        <div className="flex border-b border-border" role="radiogroup">
+          <label
+            className={`p-[12px] pl-[0] text-[14px] transition-colors cursor-pointer ${
+              loginMode === 'password'
+                ? 'text-foreground font-bold'
+                : 'text-foreground/60 font-[400]'
+            }`}
+          >
+            <input
+              type="radio"
+              name="login-method"
+              value="password"
+              checked={loginMode === 'password'}
+              onChange={() => {
+                setLoginMode('password')
+                setLoginError('')
+                setTokenError('')
+              }}
+              className="sr-only"
+            />
+            Master Password
+          </label>
+          <label
+            className={`p-[12px] pl-[0] text-[14px] transition-colors cursor-pointer ${
+              loginMode === 'token'
+                ? 'text-foreground font-bold'
+                : 'text-foreground/60 font-[400]'
+            }`}
+          >
+            <input
+              type="radio"
+              name="login-method"
+              value="token"
+              checked={loginMode === 'token'}
+              onChange={() => {
+                setLoginMode('token')
+                setLoginError('')
+                setTokenError('')
+              }}
+              className="sr-only"
+            />
+            Access Token
+          </label>
+        </div>
+      </fieldset>
 
       {/* Input Field */}
       <div className="space-y-[4px]">
@@ -209,6 +223,7 @@ export function LoginForm({
                 ? 'Enter Master Password'
                 : 'Enter Access Token'
             }
+            aria-label={loginMode === 'password' ? 'Master Password' : 'Access Token'}
             value={loginMode === 'password' ? loginMasterPassword : token}
             onChange={(e) => {
               if (loginMode === 'password') {
@@ -303,8 +318,8 @@ export function LoginForm({
           </>
         ) : (
           <>
-            <Key className="w-4 h-4 mr-2" />
-            Login
+            <LogIn className="w-4 h-4 mr-2" />
+            Log in
           </>
         )}
       </Button>

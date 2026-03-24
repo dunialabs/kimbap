@@ -192,12 +192,13 @@ export async function handleProtocol21010(body: Request21010): Promise<Response2
           userid: tokenId.trim()
         },
         select: {
-          accessToken: true
+          accessTokenHash: true
         }
       });
 
-      if (user?.accessToken && user.accessToken.length > 0) {
-        whereCondition.tokenMask = user.accessToken.substring(0, 16);
+      const accessTokenHash = user?.accessTokenHash;
+      if (accessTokenHash && accessTokenHash.length > 0) {
+        whereCondition.tokenMask = accessTokenHash.substring(0, 16);
       } else {
         return {
           auditLogs: [],

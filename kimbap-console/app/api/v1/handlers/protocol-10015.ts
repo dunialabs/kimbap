@@ -2,6 +2,7 @@ import { ApiError, ErrorCode } from '@/lib/error-codes';
 import { CryptoUtils } from '@/lib/crypto';
 import { getUserByAccessToken, getProxy, getOwner, connectAllServers } from '@/lib/proxy-api';
 import { prisma } from '@/lib/prisma';
+import { hashToken } from '@/lib/auth';
 
 interface Request10015 {
   common: {
@@ -87,13 +88,13 @@ export async function handleProtocol10015(body: Request10015): Promise<Response1
             userid: user.userId
           },
           update: {
-            accessToken: accessToken,
+            accessTokenHash: hashToken(accessToken),
             proxyKey: proxyKey,
             role: user.role
           },
           create: {
             userid: user.userId,
-            accessToken: accessToken,
+            accessTokenHash: hashToken(accessToken),
             proxyKey: proxyKey,
             role: user.role
           }
@@ -157,13 +158,13 @@ export async function handleProtocol10015(body: Request10015): Promise<Response1
               userid: owner.userId
             },
             update: {
-              accessToken: masterPwdAccessToken,
+              accessTokenHash: hashToken(masterPwdAccessToken),
               proxyKey: proxyKey,
               role: owner.role
             },
             create: {
               userid: owner.userId,
-              accessToken: masterPwdAccessToken,
+              accessTokenHash: hashToken(masterPwdAccessToken),
               proxyKey: proxyKey,
               role: owner.role
             }

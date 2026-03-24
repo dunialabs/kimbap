@@ -27,7 +27,7 @@ func ResolveExpires(responseExpiresIn *int64, defaultExpiresIn *int64) (*int64, 
 	return &clampedExpiresIn, &expiresAt
 }
 
-func NumberToInt64(v interface{}) (int64, bool) {
+func NumberToInt64(v any) (int64, bool) {
 	switch n := v.(type) {
 	case int:
 		return int64(n), true

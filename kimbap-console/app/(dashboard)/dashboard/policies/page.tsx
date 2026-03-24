@@ -687,6 +687,10 @@ export default function PoliciesPage() {
   }
 
   const handleSave = async () => {
+    if (formRules.length === 0) {
+      toast.error('Add at least one rule before saving.')
+      return
+    }
     setSaving(true)
     try {
       const orderedRules = formRules.map((r, i) => ({ ...r, priority: (i + 1) * 100 }))
@@ -781,19 +785,17 @@ export default function PoliciesPage() {
           <p className="text-base text-muted-foreground">
             Policies decide which tool calls run automatically, which are blocked, and which need approval.
           </p>
-          {policies.length > 0 && (
-            <div className="flex flex-wrap items-center gap-2">
-              <Badge variant="outline" className="bg-emerald-500/10 text-emerald-600 border-emerald-500/20">
-                Allow
-              </Badge>
-              <Badge variant="outline" className="bg-amber-500/10 text-amber-600 border-amber-500/20">
-                Needs approval
-              </Badge>
-              <Badge variant="outline" className="bg-red-500/10 text-red-600 border-red-500/20">
-                Block
-              </Badge>
-            </div>
-          )}
+          <div className="flex flex-wrap items-center gap-2">
+            <Badge variant="outline" className="bg-emerald-500/10 text-emerald-600 border-emerald-500/20">
+              Allow
+            </Badge>
+            <Badge variant="outline" className="bg-amber-500/10 text-amber-600 border-amber-500/20">
+              Needs approval
+            </Badge>
+            <Badge variant="outline" className="bg-red-500/10 text-red-600 border-red-500/20">
+              Block
+            </Badge>
+          </div>
         </div>
         <Button onClick={openCreate}>
           <Plus className="mr-2 h-4 w-4" />
@@ -846,12 +848,17 @@ export default function PoliciesPage() {
                   return (
                     <TableRow key={p.id}>
                       <TableCell>
-                        <div className="space-y-1">
-                          <p className="text-sm font-medium">{title}</p>
+                        <button
+                          type="button"
+                          className="text-left space-y-1 w-full rounded cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 group"
+                          onClick={() => openEdit(p)}
+                          aria-label={`Edit policy: ${title}`}
+                        >
+                          <p className="text-sm font-medium group-hover:underline group-focus-visible:underline">{title}</p>
                           <p className="text-xs text-muted-foreground">
                             {rules.length} rules · v{p.version}
                           </p>
-                        </div>
+                        </button>
                       </TableCell>
                       <TableCell>
                         {rules.length === 0 ? (
@@ -998,7 +1005,7 @@ export default function PoliciesPage() {
               <Button variant="outline" onClick={() => tryCloseDialog(false)}>
                 Cancel
               </Button>
-              <Button onClick={handleSave} disabled={saving}>
+              <Button onClick={handleSave} disabled={saving || formRules.length === 0}>
                 {saving ? 'Saving...' : editingId ? 'Save Changes' : 'Create Policy'}
               </Button>
             </div>

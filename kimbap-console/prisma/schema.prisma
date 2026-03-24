@@ -44,10 +44,10 @@ model Log {
 }
 
 model User {
-  userid      String @id @map("userid") @db.VarChar(256)
-  accessToken String @map("access_token") @db.VarChar(256)
-  proxyKey    String @map("proxy_key") @db.VarChar(64)
-  role        Int    @map("role")
+  userid          String @id @map("userid") @db.VarChar(256)
+  accessTokenHash  String @unique @map("access_token_hash") @db.VarChar(64)
+  proxyKey        String @map("proxy_key") @db.VarChar(64)
+  role            Int    @map("role")
 
   @@map("user")
 }

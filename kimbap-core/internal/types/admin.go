@@ -48,13 +48,13 @@ const (
 )
 
 type AdminRequest struct {
-	Action int         `json:"action"`
-	Data   interface{} `json:"data"`
+	Action int `json:"action"`
+	Data   any `json:"data"`
 }
 
 type AdminResponse struct {
 	Success bool                `json:"success"`
-	Data    interface{}         `json:"data,omitempty"`
+	Data    any                 `json:"data,omitempty"`
 	Error   *AdminResponseError `json:"error,omitempty"`
 }
 

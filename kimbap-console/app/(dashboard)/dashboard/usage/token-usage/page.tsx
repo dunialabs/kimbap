@@ -374,7 +374,7 @@ export default function TokenUsagePage() {
         </Select>
         <Button variant="outline" onClick={handleRefresh} disabled={loading || refreshing}><RefreshCw className={`mr-2 h-4 w-4 ${loading || refreshing ? 'animate-spin' : ''}`} />Refresh</Button>
       </div>
-      <p className="text-xs text-muted-foreground">Showing data for: Last {timeRangeLabel}. Minute-level patterns appear for tokens used in the last 24 hours.</p>
+      <p className="text-xs text-muted-foreground">Minute-level patterns are available only for the last 24 hours.</p>
       {!loading && loadError ? (
         <div className="flex items-center gap-2 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700 dark:border-red-900/40 dark:bg-red-950/20 dark:text-red-300">
           <span>{loadError}</span>

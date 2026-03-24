@@ -106,6 +106,8 @@ func newProfileListCommand() *cobra.Command {
 		RunE: func(_ *cobra.Command, _ []string) error {
 			available := []map[string]string{
 				{"name": "claude-code", "path": ".claude/KIMBAP_OPERATING_RULES.md"},
+				{"name": "opencode", "path": ".opencode/KIMBAP_OPERATING_RULES.md"},
+				{"name": "codex", "path": ".codex/KIMBAP_OPERATING_RULES.md"},
 				{"name": "generic", "path": ".agents/KIMBAP_OPERATING_RULES.md"},
 				{"name": "cursor", "path": ".cursor/KIMBAP_OPERATING_RULES.md"},
 			}

@@ -1,6 +1,7 @@
 import { NextRequest } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { ExternalApiError, E2001, E2002, E2003 } from './error-codes';
+import { hashToken } from '@/lib/auth';
 
 export interface AuthUser {
   userid: string;
@@ -31,9 +32,8 @@ export async function authenticate(request: NextRequest): Promise<AuthUser> {
     throw new ExternalApiError(E2002, 'Invalid access token');
   }
 
-  // Find user by access token
-  const user = await prisma.user.findFirst({
-    where: { accessToken: token },
+  const user = await prisma.user.findUnique({
+    where: { accessTokenHash: hashToken(token) },
   });
 
   if (!user) {
@@ -47,7 +47,7 @@ export async function authenticate(request: NextRequest): Promise<AuthUser> {
   return {
     userid: user.userid,
     role: user.role,
-    accessToken: user.accessToken,
+    accessToken: token,
     proxyKey: user.proxyKey,
   };
 }

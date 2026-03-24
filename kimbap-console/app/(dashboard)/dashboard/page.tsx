@@ -7,7 +7,8 @@ import {
   FileText,
   Eye,
   Globe,
-  MapPin
+  MapPin,
+  Users
 } from 'lucide-react'
 import Link from 'next/link'
 import { useEffect, useState } from 'react'
@@ -63,9 +64,9 @@ interface DashboardData {
 
 export default function DashboardPage() {
   const [serverInfo, setServerInfo] = useState<ServerInfo | null>(null)
+  const [isServerInfoLoading, setIsServerInfoLoading] = useState(true)
   const [isClientsDialogOpen, setIsClientsDialogOpen] = useState(false)
   const [dashboardData, setDashboardData] = useState<DashboardData | null>(null)
-  const [isLoading, setIsLoading] = useState(true)
   const [pendingApprovalCount, setPendingApprovalCount] = useState(0)
 
 
@@ -77,27 +78,30 @@ export default function DashboardPage() {
         // Try to get cached server info from localStorage first
         const selectedServer = localStorage.getItem('selectedServer')
         if (selectedServer) {
-          const parsedServer = JSON.parse(selectedServer)
+          try {
+            const parsedServer = JSON.parse(selectedServer)
 
+            // Use cached server info if available
+            if (parsedServer.proxyId && parsedServer.proxyName) {
+              // Normalize status: convert string 'running'/'stopped' to number 1/2
+              let normalizedStatus = parsedServer.status
+              if (typeof normalizedStatus === 'string') {
+                normalizedStatus = normalizedStatus.toLowerCase() === 'running' ? 1 : 2
+              } else if (typeof normalizedStatus !== 'number') {
+                normalizedStatus = 1 // Default to running if invalid
+              }
 
-          // Use cached server info if available
-          if (parsedServer.proxyId && parsedServer.proxyName) {
-            // Normalize status: convert string 'running'/'stopped' to number 1/2
-            let normalizedStatus = parsedServer.status
-            if (typeof normalizedStatus === 'string') {
-              normalizedStatus = normalizedStatus.toLowerCase() === 'running' ? 1 : 2
-            } else if (typeof normalizedStatus !== 'number') {
-              normalizedStatus = 1 // Default to running if invalid
+              setServerInfo({
+                proxyId: parsedServer.proxyId,
+                proxyName: parsedServer.proxyName,
+                proxyKey: parsedServer.proxyKey,
+                status: normalizedStatus,
+                createdAt: parsedServer.createdAt
+              })
+              return // Use cache, no need to call API
             }
-            
-            setServerInfo({
-              proxyId: parsedServer.proxyId,
-              proxyName: parsedServer.proxyName,
-              proxyKey: parsedServer.proxyKey,
-              status: normalizedStatus,
-              createdAt: parsedServer.createdAt
-            })
-            return // Use cache, no need to call API
+          } catch {
+            // Malformed localStorage — fall through to API fetch
           }
         }
 
@@ -123,13 +127,15 @@ export default function DashboardPage() {
                 'selectedServer',
                 JSON.stringify(parsedServer)
               )
-            } catch (error) {
-              // Failed to update localStorage cache:
+            } catch {
+              // Failed to update localStorage cache
             }
           }
         }
-      } catch (error) {
-        // Failed to fetch server info:
+      } catch {
+        // Failed to fetch server info
+      } finally {
+        setIsServerInfoLoading(false)
       }
     }
 
@@ -166,11 +172,8 @@ export default function DashboardPage() {
         if (overviewResponse.data?.data) {
           setDashboardData(overviewResponse.data.data)
         }
-      } catch (error) {
-        // Failed to fetch dashboard data:
+      } catch {
         setDashboardData(null)
-      } finally {
-        setIsLoading(false)
       }
     }
 
@@ -192,6 +195,18 @@ export default function DashboardPage() {
   const connectedClients = dashboardData?.connectedClients || []
   const recentActivity = dashboardData?.recentActivity || []
 
+  if (isServerInfoLoading) {
+    return (
+      <div className="flex items-center justify-center min-h-[400px]">
+        <div aria-live="polite" className="text-center">
+          <div className="w-8 h-8 border-2 border-muted-foreground/30 border-t-foreground rounded-full animate-spin mx-auto mb-4" aria-hidden="true" />
+          <h3 className="text-lg font-semibold mb-2">Loading Dashboard</h3>
+          <p className="text-muted-foreground">Loading server data…</p>
+        </div>
+      </div>
+    )
+  }
+
   if (!serverInfo) {
     return (
       <div className="flex items-center justify-center min-h-[400px]">
@@ -204,18 +219,6 @@ export default function DashboardPage() {
           <Link href="/">
             <Button>Set Up Connection</Button>
           </Link>
-        </div>
-      </div>
-    )
-  }
-
-  if (isLoading) {
-    return (
-      <div className="flex items-center justify-center min-h-[400px]">
-        <div aria-live="polite" className="text-center">
-          <div className="w-8 h-8 border-2 border-muted-foreground/30 border-t-foreground rounded-full animate-spin mx-auto mb-4" aria-hidden="true" />
-          <h3 className="text-lg font-semibold mb-2">Loading Dashboard</h3>
-          <p className="text-muted-foreground">Loading server data…</p>
         </div>
       </div>
     )
@@ -316,7 +319,7 @@ export default function DashboardPage() {
                     {dashboardData?.manualConnection || 'Not configured'}
                   </p>
                 </div>
-                <Globe className="h-5 w-5 text-muted-foreground" />
+                <MapPin className="h-5 w-5 text-muted-foreground" />
               </div>
           </Card>
 
@@ -334,24 +337,27 @@ export default function DashboardPage() {
             </div>
           </Card>
 
-          <Link
-            href="/dashboard/usage/token-usage"
-            className="block rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2"
+          <button
+            type="button"
+            className="block w-full rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2"
+            onClick={() => setIsClientsDialogOpen(true)}
+            aria-haspopup="dialog"
+            aria-controls="connected-clients-dialog"
           >
             <Card className="p-4 cursor-pointer hover:bg-muted/50 transition-colors h-full">
               <div className="flex items-center justify-between h-full">
                 <div className="flex flex-col gap-1 justify-center">
                   <p className="text-sm text-muted-foreground">
-                    Active Tokens
+                    Recent Clients (24h)
                   </p>
-                  <p className="font-mono text-sm font-normal text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300">
-                    {stats.activeTokens == null ? 'No data' : stats.activeTokens}
+                  <p className="font-mono text-sm font-normal">
+                    {stats.connectedClients == null ? '—' : stats.connectedClients}
                   </p>
                 </div>
-                <Shield className="h-5 w-5 text-blue-600 dark:text-blue-400" />
+                <Users className="h-5 w-5 text-muted-foreground" />
               </div>
             </Card>
-          </Link>
+          </button>
         </div>
       </div>
 
@@ -359,9 +365,7 @@ export default function DashboardPage() {
       <Card>
         <CardHeader className="pb-4">
           <CardTitle>Server Metrics</CardTitle>
-          <CardDescription>
-            Server performance overview
-          </CardDescription>
+          <CardDescription>Last 30 days</CardDescription>
         </CardHeader>
         <CardContent>
           <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
@@ -426,60 +430,10 @@ export default function DashboardPage() {
                 {stats.configuredTools == null ? '—' : stats.configuredTools}
               </div>
             </Link>
-            <button
-              type="button"
-              className="text-center p-3 rounded-lg border cursor-pointer hover:bg-blue-50 hover:border-blue-200 dark:hover:bg-blue-950/50 dark:hover:border-blue-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 transition-all duration-200 h-full flex flex-col gap-1 justify-center"
-              onClick={() => setIsClientsDialogOpen(true)}
-              aria-haspopup="dialog"
-              aria-controls="connected-clients-dialog"
-            >
-              <div className="text-sm text-muted-foreground">
-                Recent Clients (24h)
-              </div>
-              <div
-                className={
-                  stats.connectedClients == null
-                    ? 'text-sm text-muted-foreground'
-                    : 'font-mono text-sm font-normal text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300'
-                }
-              >
-                {stats.connectedClients == null ? '—' : stats.connectedClients}
-              </div>
-            </button>
+
           </div>
         </CardContent>
       </Card>
-
-      {/* Usage Overview */}
-      {/* <Card>
-        <CardContent className="p-4">
-          <div className="flex items-center gap-6">
-            <div className="flex-shrink-0">
-              <CardTitle className="text-base font-bold">
-                Monthly Usage
-              </CardTitle>
-              <CardDescription className="mt-1">
-                API requests this month
-              </CardDescription>
-            </div>
-            <div className="flex-1 flex flex-col gap-2">
-              <div className="flex items-center justify-between">
-                <div className="text-xs">{stats.monthlyUsage}% of limit</div>
-                <div className="text-xs text-muted-foreground whitespace-nowrap">
-                  {Math.round(
-                    (stats.apiRequests * 100) / stats.monthlyUsage
-                  ).toLocaleString()}{' '}
-                  / 100,000 requests
-                </div>
-              </div>
-              <Progress
-                value={stats.monthlyUsage}
-                className="h-[8px] [&>div]:bg-slate-900 dark:[&>div]:bg-slate-100"
-              />
-            </div>
-          </div>
-        </CardContent>
-      </Card> */}
 
       {/* Tools Usage */}
       <Card>
@@ -586,24 +540,21 @@ export default function DashboardPage() {
                 {recentActivity.map((activity: any) => (
                   <div key={`${activity.action}-${activity.time}`} className="flex items-center gap-3">
                     <div className="flex-shrink-0">
-                      {activity.status === 'success' && (
-                        <div className="flex items-center gap-2">
-                          <div className="w-2 h-2 bg-green-500 rounded-full"></div>
-                          <span className="text-[10px] text-muted-foreground">Success</span>
-                        </div>
-                      )}
-                      {activity.status === 'warning' && (
-                        <div className="flex items-center gap-2">
-                          <div className="w-2 h-2 bg-yellow-500 rounded-full"></div>
-                          <span className="text-[10px] text-muted-foreground">Warning</span>
-                        </div>
-                      )}
-                      {activity.status === 'info' && (
-                        <div className="flex items-center gap-2">
-                          <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
-                          <span className="text-[10px] text-muted-foreground">Info</span>
-                        </div>
-                      )}
+                      {(() => {
+                        const statusMap: Record<string, { dot: string; label: string }> = {
+                          success: { dot: 'bg-green-500', label: 'Success' },
+                          warning: { dot: 'bg-yellow-500', label: 'Warning' },
+                          info:    { dot: 'bg-blue-500',  label: 'Info' },
+                          error:   { dot: 'bg-red-500',   label: 'Error' },
+                        }
+                        const s = statusMap[activity.status] ?? { dot: 'bg-muted-foreground', label: activity.status }
+                        return (
+                          <div className="flex items-center gap-2">
+                            <div className={`w-2 h-2 rounded-full ${s.dot}`} />
+                            <span className="text-[10px] text-muted-foreground">{s.label}</span>
+                          </div>
+                        )
+                      })()}
                     </div>
                     <div className="flex-1 min-w-0">
                       <p className="text-sm">

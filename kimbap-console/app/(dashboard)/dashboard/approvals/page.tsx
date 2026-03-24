@@ -245,6 +245,7 @@ export default function ApprovalsPage() {
         loadedPagesRef.current = resolvedPages;
         setLoadedPages(resolvedPages);
         setLastUpdated(new Date());
+        setTimeAgo('just now');
         setRefreshFailed(false);
       } catch {
       if (isInitialLoad.current) toast.error('Could not load approval requests');
@@ -271,7 +272,9 @@ export default function ApprovalsPage() {
       setLastUpdated((prev) => {
         if (!prev) return prev;
         const secs = Math.floor((Date.now() - prev.getTime()) / 1000);
-        setTimeAgo(secs < 5 ? 'just now' : `${secs}s ago`);
+        if (secs < 30) setTimeAgo('just now');
+        else if (secs < 60) setTimeAgo('less than a minute ago');
+        else setTimeAgo(`${Math.floor(secs / 60)} min ago`);
         return prev;
       });
     }, 10000);
@@ -365,9 +368,6 @@ export default function ApprovalsPage() {
             <span className="text-sm font-medium">
               {pendingCount} pending approval{pendingCount !== 1 ? 's' : ''} awaiting review
             </span>
-            <Badge className="bg-amber-500/20 text-amber-700 border-amber-500/30 ml-auto">
-              {pendingCount}
-            </Badge>
           </CardContent>
         </Card>
       )}
@@ -450,7 +450,14 @@ export default function ApprovalsPage() {
                   {filteredRequests.map((r) => (
                     <TableRow key={r.id}>
                       <TableCell>
-                        <span className="font-mono text-sm">{r.toolName}</span>
+                        <button
+                          type="button"
+                          className="font-mono text-sm text-left rounded cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 hover:underline"
+                          onClick={() => setDetailDialog(r)}
+                          aria-label={`View details for ${r.toolName}`}
+                        >
+                          {r.toolName}
+                        </button>
                       </TableCell>
                       <TableCell>
                         <span className="text-sm text-muted-foreground truncate max-w-[120px] block">
@@ -650,16 +657,10 @@ export default function ApprovalsPage() {
                 </pre>
               </div>
 
-              <div className="grid grid-cols-2 gap-3 text-sm">
-                <div>
-                  <Label className="text-xs text-muted-foreground">Resume Token</Label>
-                  <p className="mt-1 font-mono text-xs truncate">
-                    {detailDialog.resumeToken || detailDialog.id}
-                  </p>
-                </div>
+              <div className="text-sm">
                 <div>
                   <Label className="text-xs text-muted-foreground">Policy Version</Label>
-                  <p className="mt-1 font-mono text-xs truncate">{detailDialog.policyVersion}</p>
+                  <p className="mt-1 font-mono text-xs">{detailDialog.policyVersion}</p>
                 </div>
               </div>
             </div>

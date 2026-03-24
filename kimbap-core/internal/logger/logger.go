@@ -9,7 +9,7 @@ import (
 	"github.com/rs/zerolog"
 )
 
-func CreateLogger(module string, fields ...map[string]interface{}) zerolog.Logger {
+func CreateLogger(module string, fields ...map[string]any) zerolog.Logger {
 	level := resolveLogLevel()
 	zerolog.SetGlobalLevel(level)
 

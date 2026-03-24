@@ -22,7 +22,7 @@ type TokenInfo struct {
 type AuthStrategy interface {
 	GetInitialToken() (*TokenInfo, error)
 	RefreshToken() (*TokenInfo, error)
-	GetCurrentOAuthConfig() map[string]interface{}
+	GetCurrentOAuthConfig() map[string]any
 	MarkConfigAsPersisted()
 }
 
@@ -32,7 +32,7 @@ type strategyState struct {
 	configChanged bool
 }
 
-func getStringValue(config map[string]interface{}, key string) string {
+func getStringValue(config map[string]any, key string) string {
 	v, ok := config[key]
 	if !ok || v == nil {
 		return ""
@@ -44,7 +44,7 @@ func getStringValue(config map[string]interface{}, key string) string {
 	return fmt.Sprintf("%v", v)
 }
 
-func getInt64Value(config map[string]interface{}, key string) (int64, bool) {
+func getInt64Value(config map[string]any, key string) (int64, bool) {
 	v, ok := config[key]
 	if !ok || v == nil {
 		return 0, false

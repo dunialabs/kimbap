@@ -39,23 +39,8 @@ type notionTokenResponse struct {
 	WorkspaceID  string `json:"workspace_id"`
 }
 
-func NewNotionAuthStrategy(config map[string]interface{}) (*NotionAuthStrategy, error) {
-	s := &NotionAuthStrategy{
-		client: &http.Client{Timeout: authHTTPTimeout},
-		config: notionOAuthConfig{
-			ClientID:     getStringValue(config, "clientId"),
-			ClientSecret: getStringValue(config, "clientSecret"),
-			RefreshToken: getStringValue(config, "refreshToken"),
-			AccessToken:  getStringValue(config, "accessToken"),
-		},
-	}
-	if expiresAt, ok := getInt64Value(config, "expiresAt"); ok {
-		s.config.ExpiresAt = expiresAt
-	}
-	if err := s.validateConfig(); err != nil {
-		return nil, err
-	}
-	return s, nil
+func NewNotionAuthStrategy(config map[string]any) ($$$) {
+  $$$
 }
 
 func (s *NotionAuthStrategy) validateConfig() error {
@@ -165,19 +150,8 @@ func (s *NotionAuthStrategy) RefreshToken() (*TokenInfo, error) {
 	return &TokenInfo{AccessToken: data.AccessToken, ExpiresIn: expiresIn, ExpiresAt: expiresAt}, nil
 }
 
-func (s *NotionAuthStrategy) GetCurrentOAuthConfig() map[string]interface{} {
-	s.state.mu.RLock()
-	defer s.state.mu.RUnlock()
-	if !s.state.configChanged {
-		return nil
-	}
-	return map[string]interface{}{
-		"clientId":     s.config.ClientID,
-		"clientSecret": s.config.ClientSecret,
-		"refreshToken": s.config.RefreshToken,
-		"accessToken":  s.config.AccessToken,
-		"expiresAt":    s.config.ExpiresAt,
-	}
+func (s *NotionAuthStrategy) GetCurrentOAuthConfig() map[string]any {
+  $$$
 }
 
 func (s *NotionAuthStrategy) MarkConfigAsPersisted() {

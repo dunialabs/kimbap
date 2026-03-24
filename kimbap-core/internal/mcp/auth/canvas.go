@@ -36,24 +36,8 @@ type canvasTokenResponse struct {
 	ExpiresIn    *int64 `json:"expires_in"`
 }
 
-func NewCanvasAuthStrategy(config map[string]interface{}) (*CanvasAuthStrategy, error) {
-	s := &CanvasAuthStrategy{
-		client: &http.Client{Timeout: authHTTPTimeout},
-		config: canvasOAuthConfig{
-			ClientID:     getStringValue(config, "clientId"),
-			ClientSecret: getStringValue(config, "clientSecret"),
-			RefreshToken: getStringValue(config, "refreshToken"),
-			TokenURL:     getStringValue(config, "tokenUrl"),
-			AccessToken:  getStringValue(config, "accessToken"),
-		},
-	}
-	if expiresAt, ok := getInt64Value(config, "expiresAt"); ok {
-		s.config.ExpiresAt = expiresAt
-	}
-	if err := s.validateConfig(); err != nil {
-		return nil, err
-	}
-	return s, nil
+func NewCanvasAuthStrategy(config map[string]any) ($$$) {
+  $$$
 }
 
 func (s *CanvasAuthStrategy) validateConfig() error {
@@ -165,20 +149,8 @@ func (s *CanvasAuthStrategy) RefreshToken() (*TokenInfo, error) {
 	return &TokenInfo{AccessToken: data.AccessToken, ExpiresIn: expiresIn, ExpiresAt: expiresAt}, nil
 }
 
-func (s *CanvasAuthStrategy) GetCurrentOAuthConfig() map[string]interface{} {
-	s.state.mu.RLock()
-	defer s.state.mu.RUnlock()
-	if !s.state.configChanged {
-		return nil
-	}
-	return map[string]interface{}{
-		"clientId":     s.config.ClientID,
-		"clientSecret": s.config.ClientSecret,
-		"refreshToken": s.config.RefreshToken,
-		"tokenUrl":     s.config.TokenURL,
-		"accessToken":  s.config.AccessToken,
-		"expiresAt":    s.config.ExpiresAt,
-	}
+func (s *CanvasAuthStrategy) GetCurrentOAuthConfig() map[string]any {
+  $$$
 }
 
 func (s *CanvasAuthStrategy) MarkConfigAsPersisted() {

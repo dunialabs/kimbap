@@ -19,7 +19,6 @@ import (
 	"github.com/dunialabs/kimbap-core/internal/observability"
 	"github.com/dunialabs/kimbap-core/internal/runtime"
 	"github.com/dunialabs/kimbap-core/internal/store"
-	"github.com/dunialabs/kimbap-core/internal/vault"
 	"github.com/spf13/cobra"
 )
 
@@ -99,12 +98,10 @@ func buildServeRuntime(cfg *config.KimbapConfig, st *store.SQLStore) (*runtime.R
 	if cfg == nil {
 		return nil, fmt.Errorf("config is required")
 	}
-	var vaultStore vault.Store
-	vs, err := initVaultStore(cfg)
+	vaultStore, err := initVaultStore(cfg)
 	if err != nil {
 		return nil, err
 	}
-	vaultStore = vs
 
 	var writers []audit.Writer
 	auditPath := strings.TrimSpace(cfg.Audit.Path)

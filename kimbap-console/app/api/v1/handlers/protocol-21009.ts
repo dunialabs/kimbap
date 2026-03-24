@@ -173,12 +173,12 @@ export async function handleProtocol21009(body: Request21009): Promise<Response2
           }
         },
         select: {
-          accessToken: true
+          accessTokenHash: true
         }
       });
 
       const targetTokenMasks = users
-        .map((user) => user.accessToken)
+        .map((user) => user.accessTokenHash)
         .filter((token) => token.length > 0)
         .map((token) => token.substring(0, 16));
       whereCondition.tokenMask = {

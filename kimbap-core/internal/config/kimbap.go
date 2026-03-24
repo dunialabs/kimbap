@@ -218,24 +218,20 @@ func setIfNotEmpty(dst *string, value string) {
 }
 
 func normalizeSkillVerifyMode(mode string) string {
-	switch strings.ToLower(strings.TrimSpace(mode)) {
-	case "", "warn", "off", "strict":
-		if strings.TrimSpace(mode) == "" {
-			return "warn"
-		}
-		return strings.ToLower(strings.TrimSpace(mode))
+	normalized := strings.ToLower(strings.TrimSpace(mode))
+	switch normalized {
+	case "off", "strict", "warn":
+		return normalized
 	default:
 		return "warn"
 	}
 }
 
 func normalizeSkillSignaturePolicy(policy string) string {
-	switch strings.ToLower(strings.TrimSpace(policy)) {
-	case "", "optional", "required", "off":
-		if strings.TrimSpace(policy) == "" {
-			return "optional"
-		}
-		return strings.ToLower(strings.TrimSpace(policy))
+	normalized := strings.ToLower(strings.TrimSpace(policy))
+	switch normalized {
+	case "off", "optional", "required":
+		return normalized
 	default:
 		return "optional"
 	}

@@ -3,6 +3,7 @@ import { randomUUID } from 'crypto';
 import { CryptoUtils } from '@/lib/crypto';
 import { getProxy, createProxy, createUser } from '@/lib/proxy-api';
 import { prisma } from '@/lib/prisma';
+import { hashToken } from '@/lib/auth';
 import { ApiResponse } from '../../lib/response';
 import { ExternalApiError, E1001, E2008, E3007, E5001 } from '../../lib/error-codes';
 
@@ -131,10 +132,10 @@ export async function POST(request: NextRequest) {
       await prisma.user.create({
         data: {
           userid: userId,
-          accessToken: accessToken,
+          accessTokenHash: hashToken(accessToken),
           proxyKey: proxyKey,
           role: 1, // 1-owner
-        },
+        } as any,
       });
     } catch (error) {
       console.error('Failed to save user to local table:', error);

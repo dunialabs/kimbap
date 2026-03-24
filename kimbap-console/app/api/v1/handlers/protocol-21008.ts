@@ -93,12 +93,12 @@ export async function handleProtocol21008(body: Request21008): Promise<Response2
           userid: tokenId.trim()
         },
         select: {
-          accessToken: true
+          accessTokenHash: true
         }
       });
       
       if (user) {
-        whereCondition.tokenMask = user.accessToken.substring(0, 16);
+        whereCondition.tokenMask = user.accessTokenHash.substring(0, 16);
       }
     }
     

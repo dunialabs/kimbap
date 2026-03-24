@@ -187,7 +187,7 @@ func (r *Runtime) ResumeApproved(ctx context.Context, approvalRequestID string) 
 		}
 	}
 
-	if principalErr := r.authenticatePrincipal(*held); principalErr != nil {
+	if principalErr := r.authenticatePrincipal(ctx, *held); principalErr != nil {
 		return actions.ExecutionResult{
 			Status: actions.StatusError,
 			Error:  principalErr,
@@ -241,7 +241,7 @@ func (r *Runtime) execute(ctx context.Context, req actions.ExecutionRequest, tra
 	ctx, cancel := withTimeout(ctx, req.Timeout)
 	defer cancel()
 
-	principalErr := r.authenticatePrincipal(req)
+	principalErr := r.authenticatePrincipal(ctx, req)
 	if principalErr != nil {
 		trace.Record("authenticate_principal", "error", principalErr.Error())
 		return r.finalizeWithError(ctx, &result, req, principalErr, startedAt, "deny", "")
@@ -465,12 +465,12 @@ func (r *Runtime) executeFromCredentialsWithState(
 	)
 }
 
-func (r *Runtime) authenticatePrincipal(req actions.ExecutionRequest) *actions.ExecutionError {
+func (r *Runtime) authenticatePrincipal(ctx context.Context, req actions.ExecutionRequest) *actions.ExecutionError {
 	if strings.TrimSpace(req.Principal.ID) == "" {
 		return actions.NewExecutionError(actions.ErrUnauthenticated, "principal identity required", 401, false, nil)
 	}
 	if r.PrincipalVerifier != nil {
-		if err := r.PrincipalVerifier.Verify(context.Background(), req.Principal); err != nil {
+		if err := r.PrincipalVerifier.Verify(ctx, req.Principal); err != nil {
 			return actions.NewExecutionError(actions.ErrUnauthenticated, err.Error(), 401, false, nil)
 		}
 	}

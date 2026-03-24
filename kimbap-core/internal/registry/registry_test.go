@@ -34,7 +34,10 @@ actions:
 func TestRegistryInstallCreatesLockEntryWithSHA256(t *testing.T) {
 	tempDir := t.TempDir()
 	skillsDir := filepath.Join(tempDir, "skills")
-	manifestPath := filepath.Join(tempDir, "skill.yaml")
+	if err := os.MkdirAll(skillsDir, 0o755); err != nil {
+		t.Fatalf("create skills dir: %v", err)
+	}
+	manifestPath := filepath.Join(skillsDir, "skill.yaml")
 	if err := os.WriteFile(manifestPath, []byte(sampleManifest), 0o644); err != nil {
 		t.Fatalf("write manifest fixture: %v", err)
 	}
@@ -75,7 +78,10 @@ func TestRegistryInstallCreatesLockEntryWithSHA256(t *testing.T) {
 func TestRegistryVerifyDetectsTamperedSkill(t *testing.T) {
 	tempDir := t.TempDir()
 	skillsDir := filepath.Join(tempDir, "skills")
-	manifestPath := filepath.Join(tempDir, "skill.yaml")
+	if err := os.MkdirAll(skillsDir, 0o755); err != nil {
+		t.Fatalf("create skills dir: %v", err)
+	}
+	manifestPath := filepath.Join(skillsDir, "skill.yaml")
 	if err := os.WriteFile(manifestPath, []byte(sampleManifest), 0o644); err != nil {
 		t.Fatalf("write manifest fixture: %v", err)
 	}
@@ -105,7 +111,10 @@ func TestRegistryVerifyDetectsTamperedSkill(t *testing.T) {
 func TestRegistryVerifyPassesUntamperedFiles(t *testing.T) {
 	tempDir := t.TempDir()
 	skillsDir := filepath.Join(tempDir, "skills")
-	manifestPath := filepath.Join(tempDir, "skill.yaml")
+	if err := os.MkdirAll(skillsDir, 0o755); err != nil {
+		t.Fatalf("create skills dir: %v", err)
+	}
+	manifestPath := filepath.Join(skillsDir, "skill.yaml")
 	if err := os.WriteFile(manifestPath, []byte(sampleManifest), 0o644); err != nil {
 		t.Fatalf("write manifest fixture: %v", err)
 	}

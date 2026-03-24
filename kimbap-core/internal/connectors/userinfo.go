@@ -41,7 +41,7 @@ func FetchUserInfo(ctx context.Context, endpoint, accessToken string) (*UserInfo
 	req.Header.Set("Authorization", "Bearer "+accessToken)
 	req.Header.Set("Accept", "application/json")
 
-	res, err := (&http.Client{Timeout: 10 * time.Second}).Do(req)
+	res, err := http.DefaultClient.Do(req)
 	if err != nil {
 		return nil, err
 	}

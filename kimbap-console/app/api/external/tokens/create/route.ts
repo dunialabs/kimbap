@@ -1,6 +1,7 @@
 import { NextRequest } from 'next/server';
 import { getProxy, createUser, countUsers } from '@/lib/proxy-api';
 import { CryptoUtils } from '@/lib/crypto';
+import { hashToken } from '@/lib/auth';
 
 import { prisma } from '@/lib/prisma';
 import {
@@ -175,10 +176,10 @@ export async function POST(request: NextRequest) {
         await prisma.user.create({
           data: {
             userid: userId,
-            accessToken: accessToken,
+            accessTokenHash: hashToken(accessToken),
             proxyKey: proxy.proxyKey,
             role: tokenInput.role,
-          },
+          } as any,
         });
       } catch (error) {
         console.error('Failed to save user to local table:', error);

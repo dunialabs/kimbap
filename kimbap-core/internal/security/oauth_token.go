@@ -155,7 +155,7 @@ func claimString(claims jwt.MapClaims, keys ...string) string {
 				if len(raw) > 0 {
 					return raw[0]
 				}
-			case []interface{}:
+			case []any:
 				if len(raw) > 0 {
 					if s, ok := raw[0].(string); ok {
 						return s
@@ -172,7 +172,7 @@ func claimScopes(claims jwt.MapClaims) []string {
 		switch v := raw.(type) {
 		case []string:
 			return append([]string(nil), v...)
-		case []interface{}:
+		case []any:
 			out := make([]string, 0, len(v))
 			for _, scope := range v {
 				if s, ok := scope.(string); ok {
@@ -206,7 +206,7 @@ func claimAudiences(claims jwt.MapClaims) []string {
 				}
 			}
 			return out
-		case []interface{}:
+		case []any:
 			out := make([]string, 0, len(v))
 			for _, item := range v {
 				if s, ok := item.(string); ok {

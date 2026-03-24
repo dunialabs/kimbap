@@ -80,7 +80,7 @@ type ServerContext struct {
 }
 
 type oauthConfigPersistenceStrategy interface {
-	GetCurrentOAuthConfig() map[string]interface{}
+	GetCurrentOAuthConfig() map[string]any
 	MarkConfigAsPersisted()
 }
 
@@ -699,7 +699,7 @@ func (s *ServerContext) notifyTokenUpdate(ctx context.Context, token string) {
 	log.Debug().Str("serverId", s.ServerID).Msg("sent token update notification to downstream")
 }
 
-func (s *ServerContext) updateRefreshTokenToDatabase(oauthConfig map[string]interface{}) error {
+func (s *ServerContext) updateRefreshTokenToDatabase(oauthConfig map[string]any) error {
 	if oauthConfig == nil {
 		return nil
 	}
@@ -723,7 +723,7 @@ func (s *ServerContext) updateRefreshTokenToDatabase(oauthConfig map[string]inte
 	return s.updateServerLaunchConfigOAuth(serverEntity, userToken, oauthConfig)
 }
 
-func (s *ServerContext) updateServerLaunchConfigOAuth(serverEntity database.Server, userToken string, oauthConfig map[string]interface{}) error {
+func (s *ServerContext) updateServerLaunchConfigOAuth(serverEntity database.Server, userToken string, oauthConfig map[string]any) error {
 	launchConfig, encryptedLaunchConfig, err := extractLaunchConfig(serverEntity.LaunchConfig, userToken)
 	if err != nil {
 		return err
@@ -749,7 +749,7 @@ func (s *ServerContext) updateServerLaunchConfigOAuth(serverEntity database.Serv
 	return nil
 }
 
-func (s *ServerContext) updateUserLaunchConfigOAuth(serverID string, userID string, userToken string, oauthConfig map[string]interface{}) error {
+func (s *ServerContext) updateUserLaunchConfigOAuth(serverID string, userID string, userToken string, oauthConfig map[string]any) error {
 	db := database.DB
 	if db == nil {
 		return errors.New("database unavailable")
@@ -823,24 +823,24 @@ func (s *ServerContext) updateUserLaunchConfigOAuth(serverID string, userID stri
 	})
 }
 
-func extractLaunchConfig(encryptedLaunchConfig string, userToken string) (map[string]interface{}, string, error) {
+func extractLaunchConfig(encryptedLaunchConfig string, userToken string) (map[string]any, string, error) {
 	decrypted, err := security.DecryptDataFromString(encryptedLaunchConfig, userToken)
 	if err != nil {
 		return nil, "", err
 	}
-	launchConfig := map[string]interface{}{}
+	launchConfig := map[string]any{}
 	if err := json.Unmarshal([]byte(decrypted), &launchConfig); err != nil {
 		return nil, "", err
 	}
 	if launchConfig == nil {
-		launchConfig = map[string]interface{}{}
+		launchConfig = map[string]any{}
 	}
 	return launchConfig, encryptedLaunchConfig, nil
 }
 
-func mergeOAuthConfig(existingOAuth any, updatedOAuth map[string]interface{}) map[string]interface{} {
-	merged := map[string]interface{}{}
-	if current, ok := existingOAuth.(map[string]interface{}); ok {
+func mergeOAuthConfig(existingOAuth any, updatedOAuth map[string]any) map[string]any {
+	merged := map[string]any{}
+	if current, ok := existingOAuth.(map[string]any); ok {
 		for key, value := range current {
 			merged[key] = value
 		}

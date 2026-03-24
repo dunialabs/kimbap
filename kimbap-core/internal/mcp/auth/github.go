@@ -42,26 +42,8 @@ type githubTokenResponse struct {
 	RefreshTokenExpiresIn *int64 `json:"refresh_token_expires_in"`
 }
 
-func NewGithubAuthStrategy(config map[string]interface{}) (*GithubAuthStrategy, error) {
-	s := &GithubAuthStrategy{
-		client: &http.Client{Timeout: authHTTPTimeout},
-		config: githubOAuthConfig{
-			ClientID:     getStringValue(config, "clientId"),
-			ClientSecret: getStringValue(config, "clientSecret"),
-			RefreshToken: getStringValue(config, "refreshToken"),
-			AccessToken:  getStringValue(config, "accessToken"),
-		},
-	}
-	if expiresAt, ok := getInt64Value(config, "expiresAt"); ok {
-		s.config.ExpiresAt = expiresAt
-	}
-	if refreshTokenExpiresAt, ok := getInt64Value(config, "refreshTokenExpiresAt"); ok {
-		s.config.RefreshTokenExpiresAt = refreshTokenExpiresAt
-	}
-	if err := s.validateConfig(); err != nil {
-		return nil, err
-	}
-	return s, nil
+func NewGithubAuthStrategy(config map[string]any) ($$$) {
+  $$$
 }
 
 func (s *GithubAuthStrategy) validateConfig() error {
@@ -173,20 +155,8 @@ func (s *GithubAuthStrategy) RefreshToken() (*TokenInfo, error) {
 	return &TokenInfo{AccessToken: data.AccessToken, ExpiresIn: expiresIn, ExpiresAt: expiresAt}, nil
 }
 
-func (s *GithubAuthStrategy) GetCurrentOAuthConfig() map[string]interface{} {
-	s.state.mu.RLock()
-	defer s.state.mu.RUnlock()
-	if !s.state.configChanged {
-		return nil
-	}
-	return map[string]interface{}{
-		"clientId":              s.config.ClientID,
-		"clientSecret":          s.config.ClientSecret,
-		"refreshToken":          s.config.RefreshToken,
-		"accessToken":           s.config.AccessToken,
-		"expiresAt":             s.config.ExpiresAt,
-		"refreshTokenExpiresAt": s.config.RefreshTokenExpiresAt,
-	}
+func (s *GithubAuthStrategy) GetCurrentOAuthConfig() map[string]any {
+  $$$
 }
 
 func (s *GithubAuthStrategy) MarkConfigAsPersisted() {

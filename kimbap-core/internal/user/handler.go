@@ -41,13 +41,9 @@ func (h *RequestHandler) GetCapabilities(userID string) (map[string]any, error) 
 	if err != nil {
 		return nil, err
 	}
-	b, err := json.Marshal(capabilities)
-	if err != nil {
-		return nil, err
-	}
-	out := map[string]any{}
-	if err := json.Unmarshal(b, &out); err != nil {
-		return nil, err
+	out := make(map[string]any, len(capabilities))
+	for k, v := range capabilities {
+		out[k] = v
 	}
 	return out, nil
 }

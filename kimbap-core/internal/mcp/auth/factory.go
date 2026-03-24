@@ -9,10 +9,10 @@ import (
 
 type AuthStrategyFactory struct{}
 
-func (f *AuthStrategyFactory) Create(authType int, oauthConfig map[string]interface{}) (AuthStrategy, error) {
+func (f *AuthStrategyFactory) Create(authType int, oauthConfig map[string]any) (AuthStrategy, error) {
 	switch authType {
 	case coretypes.ServerAuthTypeGoogleAuth, coretypes.ServerAuthTypeGoogleCalendarAuth:
-		return NewGoogleAuthStrategy(map[string]interface{}{
+		return NewGoogleAuthStrategy(map[string]any{
 			"clientId":     oauthConfig["clientId"],
 			"clientSecret": oauthConfig["clientSecret"],
 			"refreshToken": oauthConfig["refreshToken"],
@@ -37,6 +37,6 @@ func (f *AuthStrategyFactory) Create(authType int, oauthConfig map[string]interf
 	}
 }
 
-func Create(authType int, oauthConfig map[string]interface{}) (AuthStrategy, error) {
+func Create(authType int, oauthConfig map[string]any) (AuthStrategy, error) {
 	return (&AuthStrategyFactory{}).Create(authType, oauthConfig)
 }
