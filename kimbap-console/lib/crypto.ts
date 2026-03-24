@@ -89,8 +89,7 @@ export class CryptoUtils {
     // Take first 32 characters to simulate MD5 length, or adjust as needed
     return hashArray
       .map((b) => b.toString(16).padStart(2, "0"))
-      .join("")
-      .substring(0, 32);
+      .join("");
   }
 
   /**

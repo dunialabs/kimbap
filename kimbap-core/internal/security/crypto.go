@@ -33,7 +33,7 @@ type encryptedData struct {
 
 func CalculateUserID(token string) string {
 	h := sha256.Sum256([]byte(token))
-	return hex.EncodeToString(h[:])[:32]
+	return hex.EncodeToString(h[:])
 }
 
 func EncryptData(plaintext string, key string) (string, error) {

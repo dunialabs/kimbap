@@ -80,57 +80,41 @@ func actualInitialize(databaseURL string) error {
 			&OAuthClient{}, &OAuthAuthorizationCode{}, &OAuthToken{},
 			&ApprovalRequest{}, &ToolPolicySet{},
 		); err != nil {
-			if sqlDB, sqlErr := db.DB(); sqlErr == nil {
-				_ = sqlDB.Close()
-			}
+			_ = sqlDB.Close()
 			return fmt.Errorf("auto-migrate failed: %w", err)
 		}
 		// Create partial unique index for approval request dedup (GORM can't express partial indexes)
 		if err := db.Exec(`CREATE UNIQUE INDEX IF NOT EXISTS "approval_request_request_hash_active_uq" ON "approval_request" ("request_hash") WHERE "status" IN ('PENDING', 'APPROVED', 'EXECUTING')`).Error; err != nil {
-			if sqlDB, sqlErr := db.DB(); sqlErr == nil {
-				_ = sqlDB.Close()
-			}
+			_ = sqlDB.Close()
 			return fmt.Errorf("create approval request partial unique index failed: %w", err)
 		}
 
 		// Deduplicate existing rows before creating unique indexes
 		if err := db.Exec(`WITH numbered AS (SELECT id, ROW_NUMBER() OVER (PARTITION BY "server_id" ORDER BY "created_at", id) AS rn FROM "tool_policy_set" WHERE "server_id" IS NOT NULL) UPDATE "tool_policy_set" SET "version" = numbered.rn FROM numbered WHERE "tool_policy_set".id = numbered.id`).Error; err != nil {
-			if sqlDB, sqlErr := db.DB(); sqlErr == nil {
-				_ = sqlDB.Close()
-			}
+			_ = sqlDB.Close()
 			return fmt.Errorf("dedup tool policy set server versions failed: %w", err)
 		}
 		if err := db.Exec(`WITH numbered AS (SELECT id, ROW_NUMBER() OVER (ORDER BY "created_at", id) AS rn FROM "tool_policy_set" WHERE "server_id" IS NULL) UPDATE "tool_policy_set" SET "version" = numbered.rn FROM numbered WHERE "tool_policy_set".id = numbered.id`).Error; err != nil {
-			if sqlDB, sqlErr := db.DB(); sqlErr == nil {
-				_ = sqlDB.Close()
-			}
+			_ = sqlDB.Close()
 			return fmt.Errorf("dedup tool policy set global versions failed: %w", err)
 		}
 		if err := db.Exec(`CREATE UNIQUE INDEX IF NOT EXISTS "tool_policy_set_server_version_uq" ON "tool_policy_set" ("server_id", "version") WHERE "server_id" IS NOT NULL`).Error; err != nil {
-			if sqlDB, sqlErr := db.DB(); sqlErr == nil {
-				_ = sqlDB.Close()
-			}
+			_ = sqlDB.Close()
 			return fmt.Errorf("create tool policy set server/version unique index failed: %w", err)
 		}
 		if err := db.Exec(`CREATE UNIQUE INDEX IF NOT EXISTS "tool_policy_set_global_version_uq" ON "tool_policy_set" ("version") WHERE "server_id" IS NULL`).Error; err != nil {
-			if sqlDB, sqlErr := db.DB(); sqlErr == nil {
-				_ = sqlDB.Close()
-			}
+			_ = sqlDB.Close()
 			return fmt.Errorf("create tool policy set global version unique index failed: %w", err)
 		}
 		db.Config.DisableForeignKeyConstraintWhenMigrating = false
 	}
 
 	if err := ensureApprovalExecutionResultColumn(db); err != nil {
-		if sqlDB, sqlErr := db.DB(); sqlErr == nil {
-			_ = sqlDB.Close()
-		}
+		_ = sqlDB.Close()
 		return err
 	}
 	if err := ensureApprovalAuditColumns(db); err != nil {
-		if sqlDB, sqlErr := db.DB(); sqlErr == nil {
-			_ = sqlDB.Close()
-		}
+		_ = sqlDB.Close()
 		return err
 	}
 

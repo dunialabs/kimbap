@@ -62,8 +62,13 @@ export async function POST(request: NextRequest) {
 
     const { tokenIds, permissions, permissionsMode, namespace, tags, tagsMode } = body;
 
+    const MAX_BATCH_SIZE = 50;
+
     if (!tokenIds || !Array.isArray(tokenIds) || tokenIds.length === 0) {
       throw new ExternalApiError(E1001, 'Missing required field: tokenIds');
+    }
+    if (tokenIds.length > MAX_BATCH_SIZE) {
+      throw new ExternalApiError(E1003, `Invalid field value: tokenIds array exceeds maximum batch size of ${MAX_BATCH_SIZE}`);
     }
 
     if (tokenIds.some((tokenId) => typeof tokenId !== 'string' || !tokenId.trim())) {

@@ -258,23 +258,20 @@ export default function LogsPage() {
         return
       }
 
-      let appendedCount = 0
       setLogs((prevLogs) => {
         const existingIds = new Set(prevLogs.map((log) => log.id))
         const appended = data.newLogs.filter((log) => !existingIds.has(log.id))
         if (appended.length === 0) {
           return prevLogs
         }
-        appendedCount = appended.length
-        return [...appended.reverse(), ...prevLogs].slice(0, pageSize)
-      })
-      if (appendedCount > 0) {
+        const count = appended.length
         setTotalCount((prevCount) => {
-          const nextCount = prevCount + appendedCount
+          const nextCount = prevCount + count
           setTotalPages(Math.max(1, Math.ceil(nextCount / pageSize)))
           return nextCount
         })
-      }
+        return [...appended.reverse(), ...prevLogs].slice(0, pageSize)
+      })
 
       setLatestLogId((prevLatestLogId) => Math.max(prevLatestLogId, data.latestLogId))
       setRealtimeHealthy(true)

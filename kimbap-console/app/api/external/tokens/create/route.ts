@@ -77,10 +77,15 @@ export async function POST(request: NextRequest) {
       throw new ExternalApiError(E1001, 'Invalid request body');
     }
 
+    const MAX_BATCH_SIZE = 50;
+
     // Validate tokens array
     const { tokens } = body;
     if (!tokens || !Array.isArray(tokens) || tokens.length === 0) {
       throw new ExternalApiError(E1001, 'Missing required field: tokens');
+    }
+    if (tokens.length > MAX_BATCH_SIZE) {
+      throw new ExternalApiError(E1003, `Invalid field value: tokens array exceeds maximum batch size of ${MAX_BATCH_SIZE}`);
     }
 
     // Validate each token input

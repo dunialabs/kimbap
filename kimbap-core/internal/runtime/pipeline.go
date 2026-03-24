@@ -493,7 +493,10 @@ func (r *Runtime) resolveAction(ctx context.Context, req actions.ExecutionReques
 		if r.ActionRegistry != nil {
 			resolved, err := r.ActionRegistry.Lookup(ctx, req.Action.Name)
 			if err != nil {
-				return actions.ActionDefinition{}, actions.NewExecutionError(actions.ErrActionNotFound, err.Error(), 404, false, map[string]any{"action": req.Action.Name})
+				if errors.Is(err, actions.ErrLookupNotFound) {
+					return actions.ActionDefinition{}, actions.NewExecutionError(actions.ErrActionNotFound, "action not found", 404, false, map[string]any{"action": req.Action.Name})
+				}
+				return actions.ActionDefinition{}, actions.NewExecutionError(actions.ErrDownstreamUnavailable, "action lookup failed", 500, true, map[string]any{"action": req.Action.Name})
 			}
 			if resolved != nil {
 				return *resolved, nil
@@ -510,6 +513,9 @@ func (r *Runtime) resolveAction(ctx context.Context, req actions.ExecutionReques
 	}
 	resolved, err := r.ActionRegistry.Lookup(ctx, req.Classification.ActionName)
 	if err != nil {
+		if errors.Is(err, actions.ErrLookupNotFound) {
+			return actions.ActionDefinition{}, actions.NewExecutionError(actions.ErrActionNotFound, "action not found", 404, false, map[string]any{"action": req.Classification.ActionName})
+		}
 		return actions.ActionDefinition{}, actions.NewExecutionError(actions.ErrDownstreamUnavailable, "action resolution failed", 500, true, map[string]any{"action": req.Classification.ActionName})
 	}
 	if resolved == nil {

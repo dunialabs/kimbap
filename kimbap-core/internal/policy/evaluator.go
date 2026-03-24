@@ -57,7 +57,7 @@ func (rl *rateLimiter) check(key string, maxRequests int, windowSec int) *RateSt
 	cutoff := now.Add(-windowDur)
 
 	timestamps := rl.windows[key]
-	pruned := timestamps[:0]
+	pruned := make([]time.Time, 0, len(timestamps))
 	for _, ts := range timestamps {
 		if ts.After(cutoff) {
 			pruned = append(pruned, ts)

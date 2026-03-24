@@ -185,8 +185,9 @@ export async function handleProtocol20002(body: Request20002): Promise<Response2
         : 0;
       
       // 最后使用时间
-      const lastUsedTimestamp = Math.max(...logs.map(log => Number(log.addtime)));
-      const lastUsed = new Date(lastUsedTimestamp * 1000).toISOString();
+      const addtimes = logs.map(log => Number(log.addtime));
+      const lastUsedTimestamp = addtimes.length > 0 ? Math.max(...addtimes) : 0;
+      const lastUsed = lastUsedTimestamp > 0 ? new Date(lastUsedTimestamp * 1000).toISOString() : new Date().toISOString();
       
       // 错误统计
       const errorGroups: { [error: string]: number } = {};

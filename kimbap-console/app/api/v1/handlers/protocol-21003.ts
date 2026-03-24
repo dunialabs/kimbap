@@ -141,49 +141,49 @@ export async function handleProtocol21003(body: Request21003): Promise<Response2
     
     console.log('[Protocol-21003] Found unique user IDs in logs:', uniqueUserIds.length);
     
-    // 4. 为每个时间点和用户统计请求数
+    // 4. Fetch all matching logs in a single query, then aggregate in memory
+    const allLogs = await prisma.log.findMany({
+      where: logWhereCondition,
+      select: {
+        userid: true,
+        addtime: true,
+      },
+    });
+
+    // Build a lookup: bucketKey (timePoint + userId) -> count
+    const countMap = new Map<string, number>();
+    for (const log of allLogs) {
+      const uid = log.userid;
+      if (!uid || !uniqueUserIds.includes(uid)) continue;
+      const ts = Number(log.addtime);
+      const bucket = timePoints.findIndex((tp, i) => {
+        const next = timePoints[i + 1] ?? (tp + intervalSeconds);
+        return ts >= tp && ts < next;
+      });
+      if (bucket === -1) continue;
+      const key = `${timePoints[bucket]}:${uid}`;
+      countMap.set(key, (countMap.get(key) ?? 0) + 1);
+    }
+
     const trends: TrendPoint[] = [];
-    
+
     for (const timePoint of timePoints) {
-      const timePointEnd = timePoint + intervalSeconds;
       const dateStr = dateFormat(timePoint);
-      
-      const trendPoint: TrendPoint = {
-        date: dateStr
-      };
-      
-      // 为每个用户（包括已删除的）计算在该时间点的请求数
+      const trendPoint: TrendPoint = { date: dateStr };
+
       for (const userId of uniqueUserIds) {
         const user = usersMap.get(userId);
         let userName: string;
-        
         if (user) {
-          // 用户存在，显示name(userName)，如果userName和name相同或为空则只显示name
-          if (user.userName && user.userName !== user.name) {
-            userName = `${user.name}(${user.userName})`;
-          } else {
-            userName = user.name || userId;
-          }
+          userName = user.userName && user.userName !== user.name
+            ? `${user.name}(${user.userName})`
+            : (user.name || userId);
         } else {
-          // 用户已删除，显示userid + (Deleted)
           userName = `${userId} (Deleted)`;
         }
-        
-        // 查询该用户在该时间段的请求数
-        const requestCount = await prisma.log.count({
-          where: {
-            ...logWhereCondition,
-            userid: userId,
-            addtime: {
-              gte: BigInt(timePoint),
-              lt: BigInt(timePointEnd)
-            }
-          }
-        });
-        
-        trendPoint[userName] = requestCount;
+        trendPoint[userName] = countMap.get(`${timePoint}:${userId}`) ?? 0;
       }
-      
+
       trends.push(trendPoint);
     }
     

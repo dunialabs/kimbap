@@ -53,10 +53,10 @@ interface DashboardData {
   connectedClientsCount: number | null
   uptime: string | null
   monthlyUsage: number
-  toolsUsage: Array<{ name: string; count: number }>
-  tokenUsage: Array<{ name: string; requests: number; successRate: number }>
-  connectedClients: Array<{ name: string; ip: string; lastSeen: string }>
-  recentActivity: Array<{ action: string; time: string; user: string }>
+  toolsUsage: Array<{ name: string; percentage: number; requests: number }>
+  tokenUsage: Array<{ name: string; token: string; percentage: number; requests: number }>
+  connectedClients: Array<{ id: string; name: string; token: string; ip: string; location: string; lastActive: string; requests: number }>
+  recentActivity: Array<{ action: string; time: string; status: string }>
   manualConnection: string | null
   sshTunnelAddress: string | null
 }

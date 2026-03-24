@@ -4,9 +4,24 @@ import { CryptoUtils } from '@/lib/crypto';
 import { getProxy, createProxy, createUser } from '@/lib/proxy-api';
 import { prisma } from '@/lib/prisma';
 import { ApiResponse } from '../../lib/response';
-import { ExternalApiError, E1001, E3007, E5001 } from '../../lib/error-codes';
+import { ExternalApiError, E1001, E2008, E3007, E5001 } from '../../lib/error-codes';
 
 export const dynamic = 'force-dynamic';
+
+const INIT_RATE_LIMIT = 5;
+const INIT_RATE_WINDOW_MS = 60_000;
+const initBuckets = new Map<string, { count: number; resetAt: number }>();
+
+function checkInitRateLimit(ip: string): boolean {
+  const now = Date.now();
+  const bucket = initBuckets.get(ip);
+  if (!bucket || now >= bucket.resetAt) {
+    initBuckets.set(ip, { count: 1, resetAt: now + INIT_RATE_WINDOW_MS });
+    return true;
+  }
+  bucket.count++;
+  return bucket.count <= INIT_RATE_LIMIT;
+}
 
 interface InitRequest {
   masterPwd: string;
@@ -29,6 +44,14 @@ interface InitResponse {
  */
 export async function POST(request: NextRequest) {
   try {
+    const clientIp = request.headers.get('x-real-ip')
+      || request.headers.get('x-forwarded-for')?.split(',')[0]?.trim()
+      || 'unknown';
+
+    if (!checkInitRateLimit(clientIp)) {
+      throw new ExternalApiError(E2008, 'Rate limit exceeded. Try again later.');
+    }
+
     // Parse request body
     let body: InitRequest;
     try {
