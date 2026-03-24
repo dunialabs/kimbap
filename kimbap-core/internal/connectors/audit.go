@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/dunialabs/kimbap-core/internal/audit"
+	"github.com/rs/zerolog/log"
 )
 
 const auditServiceName = "auth"
@@ -36,7 +37,9 @@ func (e *AuditEmitter) Emit(ctx context.Context, action string, provider string,
 		Status:    status,
 		Meta:      meta,
 	}
-	_ = e.Writer.Write(ctx, event)
+	if err := e.Writer.Write(ctx, event); err != nil {
+		log.Error().Err(err).Str("action", action).Str("tenantID", tenantID).Msg("failed to write audit event")
+	}
 }
 
 func (e *AuditEmitter) ConnectStarted(ctx context.Context, provider, tenantID string, flow FlowType) {

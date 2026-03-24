@@ -38,11 +38,35 @@ import {
   TableRow
 } from '@/components/ui/table'
 
+interface ServerInfo {
+  proxyId: string
+  proxyName: string
+  proxyKey: string
+  status: number
+  createdAt: number
+}
+
+interface DashboardData {
+  apiRequests: number | null
+  activeTokens: number | null
+  configuredTools: number | null
+  connectedClientsCount: number | null
+  uptime: string | null
+  monthlyUsage: number
+  toolsUsage: Array<{ name: string; count: number }>
+  tokenUsage: Array<{ name: string; requests: number; successRate: number }>
+  connectedClients: Array<{ name: string; ip: string; lastSeen: string }>
+  recentActivity: Array<{ action: string; time: string; user: string }>
+  manualConnection: string | null
+  sshTunnelAddress: string | null
+}
+
 export default function DashboardPage() {
-  const [serverInfo, setServerInfo] = useState<any>(null)
+  const [serverInfo, setServerInfo] = useState<ServerInfo | null>(null)
   const [isClientsDialogOpen, setIsClientsDialogOpen] = useState(false)
-  const [dashboardData, setDashboardData] = useState<any>(null)
+  const [dashboardData, setDashboardData] = useState<DashboardData | null>(null)
   const [isLoading, setIsLoading] = useState(true)
+  const [pendingApprovalCount, setPendingApprovalCount] = useState(0)
 
 
   useEffect(() => {
@@ -110,6 +134,20 @@ export default function DashboardPage() {
     }
 
     fetchServerInfo()
+  }, [])
+
+  useEffect(() => {
+    const fetchPendingApprovals = async () => {
+      try {
+        const { api } = await import('@/lib/api-client')
+        const res = await api.approvals.countPending()
+        const data = res.data?.data || res.data
+        setPendingApprovalCount(data?.count || 0)
+      } catch {
+        // Non-critical — don't block dashboard
+      }
+    }
+    fetchPendingApprovals()
   }, [])
 
   useEffect(() => {
@@ -234,11 +272,17 @@ export default function DashboardPage() {
           </Link>
           <Link
             href="/dashboard/approvals"
+            aria-label={pendingApprovalCount > 0 ? `Review Approvals, ${pendingApprovalCount} pending` : undefined}
             className="block rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2"
           >
             <Card className="w-full flex items-center gap-1 justify-center h-[44px] cursor-pointer hover:bg-muted/50 transition-colors">
               <CheckCircle className="h-4 w-4" />
               <div className="action-content">Review Approvals</div>
+              {pendingApprovalCount > 0 && (
+                <span className="inline-flex items-center justify-center rounded-full bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-300 text-xs font-medium min-w-[20px] h-5 px-1.5">
+                  {pendingApprovalCount > 99 ? '99+' : pendingApprovalCount}
+                </span>
+              )}
             </Card>
           </Link>
           <Link

@@ -10,17 +10,14 @@ import { renderErrorMessageWithLinks } from '@/lib/error-utils'
 
 interface LoginFormProps {
   onSuccess: () => void
-  onManualConnect: () => void
   defaultToken?: string
 }
 
 export function LoginForm({
   onSuccess,
-  onManualConnect,
   defaultToken = ''
 }: LoginFormProps) {
-  const [hasMasterPassword, setHasMasterPassword] = useState(false)
-  const [loginMode, setLoginMode] = useState<'token' | 'password'>('password')
+  const [loginMode, setLoginMode] = useState<'token' | 'password' | null>(null)
   const [token, setToken] = useState(defaultToken)
   const [loginMasterPassword, setLoginMasterPassword] = useState('')
   const [showLoginPassword, setShowLoginPassword] = useState(false)
@@ -29,15 +26,11 @@ export function LoginForm({
   const [isLoggingIn, setIsLoggingIn] = useState(false)
 
   useEffect(() => {
-    const checkMasterPassword = MasterPasswordManager.hasMasterPassword()
-    setHasMasterPassword(checkMasterPassword)
-    // If no master password is set, switch to token mode
-    if (!checkMasterPassword) {
-      setLoginMode('token')
-    }
+    setLoginMode(MasterPasswordManager.hasMasterPassword() ? 'password' : 'token')
   }, [])
 
   const handleLogin = async () => {
+    if (!loginMode) return
     setIsLoggingIn(true)
     setLoginError('')
     setTokenError('')
@@ -145,6 +138,18 @@ export function LoginForm({
       }}
       className="space-y-[12px] w-full max-w-[460px] py-[32px] px-[24px] min-h-[480px]"
     >
+      {loginMode === null ? (
+        <div className="space-y-[12px]">
+          <div>
+            <h2 className="text-[24px] font-bold mb-[4px]">Login to Server</h2>
+            <p className="text-muted-foreground text-[14px]">&nbsp;</p>
+          </div>
+          <div className="h-[44px] border-b border-border" />
+          <div className="h-12 rounded-lg bg-muted/40 animate-pulse" />
+          <div className="h-12 rounded-[8px] bg-muted/30" />
+        </div>
+      ) : (
+      <>
       <div>
         <h2 className="text-[24px] font-bold mb-[4px]">Login to Server</h2>
         <p className="text-muted-foreground text-[14px]">
@@ -283,6 +288,7 @@ export function LoginForm({
         type="submit"
         disabled={
           isLoggingIn ||
+          loginMode === null ||
           (loginMode === 'password'
             ? !loginMasterPassword.trim()
             : !token.trim())
@@ -303,18 +309,7 @@ export function LoginForm({
         )}
       </Button>
 
-      {/* Manual Server Connection Link - Show if has master password */}
-      {hasMasterPassword && (
-        <div className="text-center">
-          <button
-            type="button"
-            onClick={onManualConnect}
-            disabled={isLoggingIn}
-            className="px-6 w-full py-3 text-[14px] text-foreground bg-white border border-border rounded-lg shadow-sm hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors dark:bg-slate-800 dark:hover:bg-slate-700"
-          >
-            Manual Connection
-          </button>
-        </div>
+      </>
       )}
     </form>
   )

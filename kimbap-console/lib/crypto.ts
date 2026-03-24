@@ -351,6 +351,35 @@ export class MasterPasswordManager {
   private static readonly STORAGE_KEY = "kimbap_master_data";
   private static readonly CACHE_KEY = "kimbap_master_cache";
   private static readonly CACHE_DURATION = 10 * 60 * 1000; // 10 minutes in milliseconds
+  private static cacheKey: Uint8Array | null = null;
+
+  private static getOrCreateCacheKey(): Uint8Array {
+    if (!this.cacheKey) {
+      this.cacheKey = new Uint8Array(64);
+      (typeof window !== 'undefined' ? window.crypto : (globalThis as any).crypto)
+        .getRandomValues(this.cacheKey);
+    }
+    return this.cacheKey;
+  }
+
+  private static xorMask(input: string, key: Uint8Array): string {
+    const encoder = new TextEncoder();
+    const bytes = encoder.encode(input);
+    let chars = '';
+    for (let i = 0; i < bytes.length; i++) {
+      chars += String.fromCharCode(bytes[i] ^ key[i % key.length]);
+    }
+    return btoa(chars);
+  }
+
+  private static xorUnmask(encoded: string, key: Uint8Array): string {
+    const raw = atob(encoded);
+    const bytes = new Uint8Array(raw.length);
+    for (let i = 0; i < raw.length; i++) {
+      bytes[i] = raw.charCodeAt(i) ^ key[i % key.length];
+    }
+    return new TextDecoder().decode(bytes);
+  }
 
   /**
    * Check if master password is set
@@ -415,8 +444,9 @@ export class MasterPasswordManager {
    * Cache master password for 10 minutes
    */
   private static cacheMasterPassword(password: string): void {
+    const key = this.getOrCreateCacheKey();
     const cacheData = {
-      password: btoa(password), // Simple encoding (not for security, just obfuscation)
+      masked: this.xorMask(password, key),
       timestamp: Date.now()
     };
     sessionStorage.setItem(this.CACHE_KEY, JSON.stringify(cacheData));
@@ -426,6 +456,11 @@ export class MasterPasswordManager {
    * Get cached master password if still valid (within 10 minutes)
    */
   static getCachedMasterPassword(): string | null {
+    if (!this.cacheKey) {
+      this.clearCache();
+      return null;
+    }
+
     const cacheDataStr = sessionStorage.getItem(this.CACHE_KEY);
     if (!cacheDataStr) return null;
 
@@ -434,16 +469,15 @@ export class MasterPasswordManager {
       const now = Date.now();
       const elapsed = now - cacheData.timestamp;
 
-      // Check if cache is still valid (within 10 minutes)
-      if (elapsed < this.CACHE_DURATION) {
-        return atob(cacheData.password);
+      if (elapsed < this.CACHE_DURATION && cacheData.masked) {
+        return this.xorUnmask(cacheData.masked, this.cacheKey);
       } else {
-        // Cache expired, remove it
         this.clearCache();
         return null;
       }
     } catch (error) {
       console.error('Failed to parse cached master password:', error);
+      this.clearCache();
       return null;
     }
   }
@@ -460,11 +494,12 @@ export class MasterPasswordManager {
    */
   static clearCache(): void {
     sessionStorage.removeItem(this.CACHE_KEY);
+    if (this.cacheKey) {
+      this.cacheKey.fill(0);
+      this.cacheKey = null;
+    }
   }
 
-  /**
-   * Clear master password (for logout or reset)
-   */
   static clearMasterPassword(): void {
     localStorage.removeItem(this.STORAGE_KEY);
     this.clearCache();

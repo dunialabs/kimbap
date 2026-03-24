@@ -20,6 +20,7 @@ import (
 	"github.com/dunialabs/kimbap-core/internal/security"
 	coretypes "github.com/dunialabs/kimbap-core/internal/types"
 	"github.com/dunialabs/kimbap-core/internal/utils"
+	"github.com/rs/zerolog/log"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
 )
@@ -309,7 +310,9 @@ func (h *RequestHandler) ConfigureServer(userID, userToken string, data map[stri
 	serverCopy.LaunchConfig = encryptedStr
 	serverContext, err := core.ServerManagerInstance().CreateTemporaryServer(context.Background(), userID, serverCopy, userToken, false)
 	if err != nil {
-		h.rollbackLaunchConfig(userID, serverID)
+		if rbErr := h.rollbackLaunchConfig(userID, serverID); rbErr != nil {
+			log.Error().Err(rbErr).Str("userID", userID).Str("serverID", serverID).Msg("failed to rollback launch config after server creation failure")
+		}
 		return nil, err
 	}
 
@@ -335,7 +338,9 @@ func (h *RequestHandler) ConfigureServer(userID, userToken string, data map[stri
 		return tx.Model(&database.User{}).Where("user_id = ?", userID).Updates(map[string]any{"user_preferences": prefsJSON, "updated_at": int(time.Now().Unix())}).Error
 	}); err != nil {
 		_, _ = core.ServerManagerInstance().CloseTemporaryServer(context.Background(), serverID, userID)
-		h.rollbackLaunchConfig(userID, serverID)
+		if rbErr := h.rollbackLaunchConfig(userID, serverID); rbErr != nil {
+			log.Error().Err(rbErr).Str("userID", userID).Str("serverID", serverID).Msg("failed to rollback launch config after preferences update failure")
+		}
 		return nil, err
 	}
 
@@ -1104,8 +1109,9 @@ func applyOAuthExpirationDefaults(template map[string]any, launchConfig map[stri
 	launchConfig["oauth"] = oauthCfg
 }
 
-func (h *RequestHandler) rollbackLaunchConfig(userID, serverID string) {
-	_ = h.db.Transaction(func(tx *gorm.DB) error {
+func (h *RequestHandler) rollbackLaunchConfig(userID, serverID string) error {
+	var lcJSON string
+	if err := h.db.Transaction(func(tx *gorm.DB) error {
 		var freshUser database.User
 		if err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).Where("user_id = ?", userID).First(&freshUser).Error; err != nil {
 			return err
@@ -1115,13 +1121,13 @@ func (h *RequestHandler) rollbackLaunchConfig(userID, serverID string) {
 			return err
 		}
 		delete(lc, serverID)
-		lcJSON := string(mustJSON(lc))
-		if err := tx.Model(&database.User{}).Where("user_id = ?", userID).Updates(map[string]any{"launch_configs": lcJSON, "updated_at": int(time.Now().Unix())}).Error; err != nil {
-			return err
-		}
-		syncLaunchConfigsToSessions(userID, lcJSON)
-		return nil
-	})
+		lcJSON = string(mustJSON(lc))
+		return tx.Model(&database.User{}).Where("user_id = ?", userID).Updates(map[string]any{"launch_configs": lcJSON, "updated_at": int(time.Now().Unix())}).Error
+	}); err != nil {
+		return err
+	}
+	syncLaunchConfigsToSessions(userID, lcJSON)
+	return nil
 }
 
 func isDangerousEnvKey(key string) bool {

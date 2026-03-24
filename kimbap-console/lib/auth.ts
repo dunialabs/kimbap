@@ -1,8 +1,17 @@
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
+import crypto from 'crypto';
 import { prisma } from '@/lib/prisma';
 
-const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key-change-in-production';
+const JWT_SECRET = process.env.JWT_SECRET;
+
+if (!JWT_SECRET) {
+  throw new Error(
+    'FATAL: JWT_SECRET environment variable is not set. ' +
+    'The application cannot start without a secure JWT secret. ' +
+    'Set JWT_SECRET in your .env.local file or environment configuration.'
+  );
+}
 
 export interface JWTPayload {
   userId: string;
@@ -27,15 +36,12 @@ export const verifyToken = (token: string): JWTPayload => {
 };
 
 export const generateVerificationCode = (): string => {
-  return Math.floor(100000 + Math.random() * 900000).toString();
+  return crypto.randomInt(100000, 1000000).toString();
 };
 
 export const generateAccessToken = (): string => {
   const prefix = 'kimbap_';
-  const randomString = Array.from({ length: 32 }, () =>
-    Math.random().toString(36).charAt(2)
-  ).join('');
-  return prefix + randomString;
+  return prefix + crypto.randomBytes(24).toString('hex');
 };
 
 export const maskToken = (token: string): string => {

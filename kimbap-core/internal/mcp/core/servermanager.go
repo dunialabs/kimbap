@@ -11,6 +11,7 @@ import (
 	"sort"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/dunialabs/kimbap-core/internal/config"
@@ -64,6 +65,7 @@ type serverManager struct {
 	idleTicker   *time.Ticker
 	idleStop     chan struct{}
 	shutdownOnce sync.Once
+	shuttingDown atomic.Bool
 
 	// Reconciliation loop state
 	reconcileTicker *time.Ticker
@@ -1911,6 +1913,7 @@ func (m *serverManager) isLazyStartApplicable(server database.Server) bool {
 
 func (m *serverManager) Shutdown(ctx context.Context) {
 	m.shutdownOnce.Do(func() {
+		m.shuttingDown.Store(true)
 		const hardShutdownTimeout = 30 * time.Second
 
 		// Stop reconciliation loop if running
@@ -2235,7 +2238,7 @@ func (m *serverManager) attachCapabilitiesPersistHook(sc *ServerContext) {
 }
 
 func (m *serverManager) reconnectServerAsync(sc *ServerContext) {
-	if sc == nil {
+	if sc == nil || m.shuttingDown.Load() {
 		return
 	}
 	go func() {
@@ -2244,6 +2247,9 @@ func (m *serverManager) reconnectServerAsync(sc *ServerContext) {
 				log.Error().Interface("panic", r).Str("serverId", sc.ServerID).Msg("recovered panic during async server reconnect")
 			}
 		}()
+		if m.shuttingDown.Load() {
+			return
+		}
 		server := sc.ServerEntitySnapshot()
 		token := sc.UserTokenSnapshot()
 		userID := sc.UserIDSnapshot()

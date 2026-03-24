@@ -112,7 +112,9 @@ func (h *ServerHandler) StartServer(data map[string]any, ownerToken string) (any
 		return nil, nil
 	}
 	if _, err := h.serverManager.AddServer(context.Background(), server, ownerToken); err != nil {
-		_ = h.db.Model(&database.Server{}).Where("server_id = ?", id).Update("enabled", false).Error
+		if dbErr := h.db.Model(&database.Server{}).Where("server_id = ?", id).Update("enabled", false).Error; dbErr != nil {
+			log.Error().Err(dbErr).Str("serverID", id).Msg("failed to disable server after AddServer failure")
+		}
 		return nil, err
 	}
 	affectedSessions := h.sessionStore.GetSessionsUsingServer(id)

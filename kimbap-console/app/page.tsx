@@ -59,7 +59,6 @@ export default function WelcomePage() {
                 onSuccess={() => {
                   router.push('/dashboard')
                 }}
-                onManualConnect={() => {}}
               />
             </div>
           </div>

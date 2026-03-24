@@ -1,6 +1,13 @@
 package actions
 
-import "fmt"
+import (
+	"errors"
+	"fmt"
+)
+
+// ErrLookupNotFound is the sentinel error returned by ActionRegistry.Lookup
+// when the requested action does not exist.
+var ErrLookupNotFound = errors.New("action not found")
 
 // Spec §7.4 stable error codes (13 canonical).
 const (

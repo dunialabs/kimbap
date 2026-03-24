@@ -57,9 +57,7 @@ export function PersonalSettingsDialog({ children }: PersonalSettingsDialogProps
     setIsLoggedIn(authStatus === "true")
   }, [])
 
-  const handleMasterPasswordUpdate = () => {
-    const storedMasterPassword = localStorage.getItem("clientManagementMasterPassword")
-
+  const handleMasterPasswordUpdate = async () => {
     if (!oldMasterPassword || !newMasterPassword) {
       alert("Both old and new passwords are required")
       return
@@ -70,17 +68,40 @@ export function PersonalSettingsDialog({ children }: PersonalSettingsDialogProps
       return
     }
 
-    // Verify old password matches stored password
-    if (storedMasterPassword && oldMasterPassword !== storedMasterPassword) {
-      alert("Old master password is incorrect")
-      return
+    const storedDataStr = localStorage.getItem("clientManagementMasterPassword")
+    if (storedDataStr) {
+      try {
+        const { CryptoUtils } = await import("@/lib/crypto")
+        const storedData = JSON.parse(storedDataStr)
+        if (storedData.hash && storedData.salt) {
+          const salt = new Uint8Array(atob(storedData.salt).split("").map(c => c.charCodeAt(0)))
+          const isValid = await CryptoUtils.verifyPasswordWithSalt(oldMasterPassword, storedData.hash, salt)
+          if (!isValid) {
+            alert("Old master password is incorrect")
+            return
+          }
+        } else if (oldMasterPassword !== storedDataStr) {
+          alert("Old master password is incorrect")
+          return
+        }
+      } catch {
+        if (oldMasterPassword !== storedDataStr) {
+          alert("Old master password is incorrect")
+          return
+        }
+      }
     }
 
-    // Update the master password
-    localStorage.setItem("clientManagementMasterPassword", newMasterPassword)
+    const { CryptoUtils } = await import("@/lib/crypto")
+    const salt = CryptoUtils.generateSalt()
+    const hash = await CryptoUtils.hashPasswordWithSalt(newMasterPassword, salt)
+    const hashedData = {
+      hash,
+      salt: btoa(String.fromCharCode.apply(null, Array.from(salt)))
+    }
+    localStorage.setItem("clientManagementMasterPassword", JSON.stringify(hashedData))
     localStorage.setItem("clientManagementMasterAuth", "true")
 
-    // Clear the form and close dialog
     setOldMasterPassword("")
     setNewMasterPassword("")
     setShowMasterPasswordDialog(false)
@@ -113,19 +134,16 @@ export function PersonalSettingsDialog({ children }: PersonalSettingsDialogProps
       return
     }
 
-    // Clear all local storage data except master password
     const masterAuth = localStorage.getItem("clientManagementMasterAuth")
-    const masterPassword = localStorage.getItem("clientManagementMasterPassword")
+    const masterPasswordData = localStorage.getItem("clientManagementMasterPassword")
 
     localStorage.clear()
 
-    // Restore master password if it existed
-    if (masterAuth && masterPassword) {
+    if (masterAuth && masterPasswordData) {
       localStorage.setItem("clientManagementMasterAuth", masterAuth)
-      localStorage.setItem("clientManagementMasterPassword", masterPassword)
+      localStorage.setItem("clientManagementMasterPassword", masterPasswordData)
     }
 
-    // Set to guest mode
     localStorage.setItem("clientManagementAuth", "guest")
     setIsLoggedIn(false)
     setShowClearDataDialog(false)

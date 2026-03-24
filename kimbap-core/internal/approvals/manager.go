@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"sync"
 	"time"
 
 	"github.com/google/uuid"
@@ -29,6 +30,7 @@ type ApprovalManager struct {
 	store    ApprovalStore
 	notifier Notifier
 	ttl      time.Duration
+	mu       sync.Mutex
 }
 
 func NewApprovalManager(store ApprovalStore, notifier Notifier, ttl time.Duration) *ApprovalManager {
@@ -74,6 +76,9 @@ func (m *ApprovalManager) Submit(ctx context.Context, req *ApprovalRequest) erro
 }
 
 func (m *ApprovalManager) Approve(ctx context.Context, id string, approvedBy string) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
 	req, err := m.store.Get(ctx, id)
 	if err != nil {
 		return err
@@ -119,6 +124,9 @@ func (m *ApprovalManager) Approve(ctx context.Context, id string, approvedBy str
 }
 
 func (m *ApprovalManager) Deny(ctx context.Context, id string, deniedBy string, reason string) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
 	req, err := m.store.Get(ctx, id)
 	if err != nil {
 		return err
@@ -154,6 +162,8 @@ func (m *ApprovalManager) ListPending(ctx context.Context, tenantID string) ([]A
 }
 
 func (m *ApprovalManager) ExpireStale(ctx context.Context) (int, error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
 	return m.store.ExpireOld(ctx)
 }
 

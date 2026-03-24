@@ -9,6 +9,32 @@ export const runtime = 'nodejs';
 
 const PUBLIC_CMD_IDS = new Set([10015]);
 
+const LOGIN_RATE_LIMIT = 10;
+const GENERAL_RATE_LIMIT = 120;
+const RATE_WINDOW_MS = 60_000;
+
+const rateBuckets = new Map<string, { count: number; resetAt: number }>();
+
+function checkRateLimit(key: string, limit: number): boolean {
+  const now = Date.now();
+  const bucket = rateBuckets.get(key);
+  if (!bucket || now >= bucket.resetAt) {
+    rateBuckets.set(key, { count: 1, resetAt: now + RATE_WINDOW_MS });
+    return true;
+  }
+  bucket.count++;
+  return bucket.count <= limit;
+}
+
+if (typeof globalThis !== 'undefined') {
+  setInterval(() => {
+    const now = Date.now();
+    rateBuckets.forEach((bucket, key) => {
+      if (now >= bucket.resetAt) rateBuckets.delete(key);
+    });
+  }, RATE_WINDOW_MS * 2).unref?.();
+}
+
 function getBearerToken(request: NextRequest): string | null {
   const authHeader = request.headers.get('authorization') || request.headers.get('Authorization');
   if (!authHeader || !authHeader.startsWith('Bearer ')) return null;
@@ -16,31 +42,48 @@ function getBearerToken(request: NextRequest): string | null {
   return token ? token : null;
 }
 
-// Central API endpoint that routes based on cmdId
+function getClientIdentity(request: NextRequest): string {
+  return request.headers.get('x-real-ip')
+    || request.headers.get('x-forwarded-for')?.split(',')[0]?.trim()
+    || 'unknown';
+}
+
 export async function POST(request: NextRequest) {
   let cmdId = 0;
   
   try {
     const body = await request.json();
     
-    // Extract cmdId from request
     cmdId = body.common?.cmdId || 0;
     
     if (!cmdId) {
       return ApiResponse.missingCmdId();
     }
 
-    // Get the appropriate handler for this cmdId
     const handler = getProtocolHandler(cmdId);
     
     if (!handler) {
       return ApiResponse.protocolNotImplemented(cmdId);
     }
 
-    if (!PUBLIC_CMD_IDS.has(cmdId)) {
+    const isPublic = PUBLIC_CMD_IDS.has(cmdId);
+
+    if (isPublic) {
+      const clientIp = getClientIdentity(request);
+      if (!checkRateLimit(`login:${clientIp}`, LOGIN_RATE_LIMIT)) {
+        return ApiResponse.error(cmdId, 429, 'Rate limit exceeded. Try again later.', 429);
+      }
+    }
+
+    if (!isPublic) {
       const token = getBearerToken(request);
       if (!token) {
         return ApiResponse.unauthorized(cmdId);
+      }
+
+      const tokenPrefix = token.substring(0, 16);
+      if (!checkRateLimit(`api:${tokenPrefix}`, GENERAL_RATE_LIMIT)) {
+        return ApiResponse.error(cmdId, 429, 'Rate limit exceeded. Try again later.', 429);
       }
 
       const user = await prisma.user.findFirst({
@@ -55,14 +98,11 @@ export async function POST(request: NextRequest) {
       body.common.userid = user.userid;
     }
 
-    // Execute the handler
     const responseData = await handler(body);
     
-    // Return success response with handler data
     return ApiResponse.success(cmdId, responseData);
     
   } catch (error) {
-    // Return error response
     return ApiResponse.handleError(cmdId, error);
   }
 }

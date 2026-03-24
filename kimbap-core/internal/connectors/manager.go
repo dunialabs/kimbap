@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/dunialabs/kimbap-core/internal/security"
+	"github.com/rs/zerolog/log"
 )
 
 type ConnectorStore interface {
@@ -293,7 +294,9 @@ func (m *Manager) GetAccessToken(ctx context.Context, tenantID, name string) (st
 	}
 	now := time.Now().UTC()
 	state.LastUsedAt = &now
-	_ = m.store.Save(ctx, state)
+	if err := m.store.Save(ctx, state); err != nil {
+		log.Warn().Err(err).Str("connector", state.Name).Msg("failed to persist connector last-used timestamp")
+	}
 
 	return accessToken, nil
 }

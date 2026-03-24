@@ -87,6 +87,14 @@ interface ToolMetricsResponse {
   totalCount: number
 }
 
+interface ToolUsageSummary {
+  totalTools: number
+  activeTools: number
+  totalRequests: number
+  avgSuccessRate: number
+  avgResponseTime: number
+}
+
 const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884D8', '#82CA9D', '#FF6B6B', '#4ECDC4', '#A855F7', '#F97316']
 const HEALTHY_SUCCESS_RATE_THRESHOLD = 95
 
@@ -107,7 +115,7 @@ export default function ToolUsagePage() {
   const [errorDataError, setErrorDataError] = useState<string | null>(null)
   const [actionLogsError, setActionLogsError] = useState<string | null>(null)
   const [actionTypeOptionsError, setActionTypeOptionsError] = useState<string | null>(null)
-  const [summary, setSummary] = useState<any>(null)
+  const [summary, setSummary] = useState<ToolUsageSummary | null>(null)
   const [toolUsageData, setToolUsageData] = useState<ToolUsageData[]>([])
   const [trendData, setTrendData] = useState<ToolTrendData[]>([])
   const [errorData, setErrorData] = useState<ToolErrorAnalysis[]>([])

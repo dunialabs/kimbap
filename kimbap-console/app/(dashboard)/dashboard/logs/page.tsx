@@ -10,7 +10,9 @@ import {
   XCircle,
   Activity,
   RefreshCw,
-  Loader2
+  Loader2,
+  ChevronDown,
+  ChevronUp
 } from 'lucide-react'
 import { useState, useEffect, useCallback } from 'react'
 import { useSearchParams } from 'next/navigation'
@@ -60,6 +62,7 @@ import {
   TooltipTrigger
 } from '@/components/ui/tooltip'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible'
 import { Textarea } from '@/components/ui/textarea'
 import { getDomainLabel } from '@/lib/log-utils'
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer, Legend } from 'recharts'
@@ -142,6 +145,7 @@ export default function LogsPage() {
   const tableScopedFiltersEnabled = activeTab !== 'statistics'
   const [latestLogId, setLatestLogId] = useState<number>(0)
   const [realtimeHealthy, setRealtimeHealthy] = useState<boolean>(true)
+  const [filtersOpen, setFiltersOpen] = useState<boolean>(false)
 
   // Function to load log data
   const loadLogs = useCallback(async (options?: { silent?: boolean }) => {
@@ -254,19 +258,23 @@ export default function LogsPage() {
         return
       }
 
+      let appendedCount = 0
       setLogs((prevLogs) => {
         const existingIds = new Set(prevLogs.map((log) => log.id))
         const appended = data.newLogs.filter((log) => !existingIds.has(log.id))
         if (appended.length === 0) {
           return prevLogs
         }
+        appendedCount = appended.length
+        return [...appended.reverse(), ...prevLogs].slice(0, pageSize)
+      })
+      if (appendedCount > 0) {
         setTotalCount((prevCount) => {
-          const nextCount = prevCount + appended.length
+          const nextCount = prevCount + appendedCount
           setTotalPages(Math.max(1, Math.ceil(nextCount / pageSize)))
           return nextCount
         })
-        return [...appended.reverse(), ...prevLogs].slice(0, pageSize)
-      })
+      }
 
       setLatestLogId((prevLatestLogId) => Math.max(prevLatestLogId, data.latestLogId))
       setRealtimeHealthy(true)
@@ -517,128 +525,149 @@ export default function LogsPage() {
       </div>
 
       {/* Filters */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Filters</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className={`grid grid-cols-1 ${tableScopedFiltersEnabled ? 'md:grid-cols-5' : 'md:grid-cols-2'} gap-3`}>
-            {tableScopedFiltersEnabled ? (
-            <div className="space-y-2">
-              <Label htmlFor="search">Search</Label>
-              <div className="relative">
-                <Search
-                  className="absolute left-3 top-3 h-4 w-4 text-muted-foreground pointer-events-none"
-                  aria-hidden="true"
-                  focusable="false"
-                />
-                <Input
-                  id="search"
-                  placeholder="Search request ID, user ID, error text, or user agent"
-                  value={searchTerm}
-                  onChange={(e) => { setSearchTerm(e.target.value); setCurrentPage(1) }}
-                  className="pl-10"
-                />
-              </div>
+      <Collapsible open={filtersOpen} onOpenChange={setFiltersOpen}>
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between py-3">
+            <div className="flex items-center gap-2 flex-wrap">
+              <CardTitle>Filters</CardTitle>
+              {!filtersOpen && (
+                hasActiveFilters
+                  ? activeFilterBadges.map((badge) => (
+                      <Badge key={badge} variant="outline" className="text-xs max-w-[160px] truncate">
+                        {badge}
+                      </Badge>
+                    ))
+                  : <span className="text-xs text-muted-foreground">{getTimeRangeLabel(selectedTimeRange)}</span>
+              )}
             </div>
-            ) : null}
-
-            <div className="space-y-2">
-              <Label htmlFor="time-range-filter">Time Range</Label>
-              <Select
-                value={activeTab === 'statistics' ? statisticsTimeFilter : timeFilter}
-                onValueChange={(value) => {
-                  if (activeTab === 'statistics') {
-                    setStatisticsTimeFilter(getStatisticsTimeRange(value))
-                  } else {
-                    setTimeFilter(value)
-                  }
-                  setCurrentPage(1)
-                }}
-              >
-                <SelectTrigger id="time-range-filter">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {activeTab === 'statistics' ? null : <SelectItem value="all">All Time</SelectItem>}
-                  <SelectItem value="1h">Last Hour</SelectItem>
-                  <SelectItem value="6h">Last 6 Hours</SelectItem>
-                  <SelectItem value="24h">Last 24 Hours</SelectItem>
-                  <SelectItem value="7d">Last 7 Days</SelectItem>
-                  {activeTab === 'statistics' ? null : <SelectItem value="30d">Last 30 Days</SelectItem>}
-                </SelectContent>
-              </Select>
-            </div>
-
-            {tableScopedFiltersEnabled ? (
-            <div className="space-y-2">
-              <Label htmlFor="level-filter">Level</Label>
-              <Select value={levelFilter} onValueChange={(value) => { setLevelFilter(value); setCurrentPage(1) }}>
-                <SelectTrigger id="level-filter">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Levels</SelectItem>
-                  <SelectItem value="ERROR">Error</SelectItem>
-                  <SelectItem value="WARN">Warning</SelectItem>
-                  <SelectItem value="INFO">Info</SelectItem>
-                  <SelectItem value="DEBUG">Debug</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            ) : null}
-
-            {tableScopedFiltersEnabled ? (
-            <div className="space-y-2">
-              <Label htmlFor="source-filter">Source</Label>
-              <Select value={sourceFilter} onValueChange={(value) => { setSourceFilter(value); setCurrentPage(1) }}>
-                <SelectTrigger id="source-filter">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Sources</SelectItem>
-                  {availableSources.map((source) => (
-                    <SelectItem key={source} value={source}>
-                      {getDomainLabel(source)}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            ) : null}
-
-            {tableScopedFiltersEnabled ? (
-            <div className="flex items-end">
-              <Button variant="outline" onClick={clearFilters}>
-                Reset filters
+            <CollapsibleTrigger asChild>
+              <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
+                {filtersOpen ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+                <span className="sr-only">{filtersOpen ? 'Collapse filters' : 'Expand filters'}</span>
               </Button>
-            </div>
-            ) : null}
-          </div>
+            </CollapsibleTrigger>
+          </CardHeader>
+          <CollapsibleContent>
+            <CardContent>
+              <div className={`grid grid-cols-1 ${tableScopedFiltersEnabled ? 'md:grid-cols-5' : 'md:grid-cols-2'} gap-3`}>
+                {tableScopedFiltersEnabled ? (
+                <div className="space-y-2">
+                  <Label htmlFor="search">Search</Label>
+                  <div className="relative">
+                    <Search
+                      className="absolute left-3 top-3 h-4 w-4 text-muted-foreground pointer-events-none"
+                      aria-hidden="true"
+                      focusable="false"
+                    />
+                    <Input
+                      id="search"
+                      placeholder="Search request ID, user ID, error text, or user agent"
+                      value={searchTerm}
+                      onChange={(e) => { setSearchTerm(e.target.value); setCurrentPage(1) }}
+                      className="pl-10"
+                    />
+                  </div>
+                </div>
+                ) : null}
 
-          <div className="mt-3">
-            {hasActiveFilters ? (
-              <div className="flex flex-wrap items-center gap-2">
-                <span className="text-xs text-muted-foreground">Active filters:</span>
-                {activeFilterBadges.map((badge) => (
-                  <Badge key={badge} variant="outline" className="text-xs">
-                    {badge}
-                  </Badge>
-                ))}
-                <Button variant="ghost" size="sm" className="h-7 px-2 text-xs" onClick={clearFilters}>
-                  Reset filters
-                </Button>
+                <div className="space-y-2">
+                  <Label htmlFor="time-range-filter">Time Range</Label>
+                  <Select
+                    value={activeTab === 'statistics' ? statisticsTimeFilter : timeFilter}
+                    onValueChange={(value) => {
+                      if (activeTab === 'statistics') {
+                        setStatisticsTimeFilter(getStatisticsTimeRange(value))
+                      } else {
+                        setTimeFilter(value)
+                      }
+                      setCurrentPage(1)
+                    }}
+                  >
+                    <SelectTrigger id="time-range-filter">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {activeTab === 'statistics' ? null : <SelectItem value="all">All Time</SelectItem>}
+                      <SelectItem value="1h">Last Hour</SelectItem>
+                      <SelectItem value="6h">Last 6 Hours</SelectItem>
+                      <SelectItem value="24h">Last 24 Hours</SelectItem>
+                      <SelectItem value="7d">Last 7 Days</SelectItem>
+                      {activeTab === 'statistics' ? null : <SelectItem value="30d">Last 30 Days</SelectItem>}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                {tableScopedFiltersEnabled ? (
+                <div className="space-y-2">
+                  <Label htmlFor="level-filter">Level</Label>
+                  <Select value={levelFilter} onValueChange={(value) => { setLevelFilter(value); setCurrentPage(1) }}>
+                    <SelectTrigger id="level-filter">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All Levels</SelectItem>
+                      <SelectItem value="ERROR">Error</SelectItem>
+                      <SelectItem value="WARN">Warning</SelectItem>
+                      <SelectItem value="INFO">Info</SelectItem>
+                      <SelectItem value="DEBUG">Debug</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                ) : null}
+
+                {tableScopedFiltersEnabled ? (
+                <div className="space-y-2">
+                  <Label htmlFor="source-filter">Source</Label>
+                  <Select value={sourceFilter} onValueChange={(value) => { setSourceFilter(value); setCurrentPage(1) }}>
+                    <SelectTrigger id="source-filter">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All Sources</SelectItem>
+                      {availableSources.map((source) => (
+                        <SelectItem key={source} value={source}>
+                          {getDomainLabel(source)}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                ) : null}
+
+                {tableScopedFiltersEnabled ? (
+                <div className="flex items-end">
+                  <Button variant="outline" onClick={clearFilters}>
+                    Reset filters
+                  </Button>
+                </div>
+                ) : null}
               </div>
-            ) : (
-              <p className="text-xs text-muted-foreground">
-                {tableScopedFiltersEnabled
-                  ? 'Showing the last hour with all levels and all sources.'
-                  : 'Statistics view uses only the time range filter. Search, level, and source resume in Table View.'}
-              </p>
-            )}
-          </div>
-        </CardContent>
-      </Card>
+
+              <div className="mt-3">
+                {hasActiveFilters ? (
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="text-xs text-muted-foreground">Active filters:</span>
+                    {activeFilterBadges.map((badge) => (
+                      <Badge key={badge} variant="outline" className="text-xs">
+                        {badge}
+                      </Badge>
+                    ))}
+                    <Button variant="ghost" size="sm" className="h-7 px-2 text-xs" onClick={clearFilters}>
+                      Reset filters
+                    </Button>
+                  </div>
+                ) : (
+                  <p className="text-xs text-muted-foreground">
+                    {tableScopedFiltersEnabled
+                      ? 'Showing the last hour with all levels and all sources.'
+                      : 'Statistics view uses only the time range filter. Search, level, and source resume in Table View.'}
+                  </p>
+                )}
+              </div>
+            </CardContent>
+          </CollapsibleContent>
+        </Card>
+      </Collapsible>
 
       {/* Logs Display */}
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">

@@ -1,10 +1,11 @@
 'use client'
 import { Menu } from 'lucide-react'
 import { useRouter } from 'next/navigation'
-import { useState } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import { Sheet, SheetContent, SheetTrigger, SheetTitle } from '@/components/ui/sheet'
 import { Button } from '@/components/ui/button'
 import { SidebarNav } from './dashboard/sidebar-nav'
+import { api } from '@/lib/api-client'
 
 const LogoutIcon = () => (
   <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 20 20" fill="none" aria-hidden="true">
@@ -17,6 +18,26 @@ const LogoutIcon = () => (
 export function DashboardSidebar() {
   const router = useRouter()
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
+  const [pendingApprovalCount, setPendingApprovalCount] = useState(0)
+  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null)
+
+  const fetchPendingCount = useCallback(async () => {
+    try {
+      const res = await api.approvals.countPending()
+      const data = res.data?.data || res.data
+      setPendingApprovalCount(data?.count || 0)
+    } catch {
+      // Silently fail — sidebar should never show errors
+    }
+  }, [])
+
+  useEffect(() => {
+    fetchPendingCount()
+    timerRef.current = setInterval(fetchPendingCount, 30_000)
+    return () => {
+      if (timerRef.current) clearInterval(timerRef.current)
+    }
+  }, [fetchPendingCount])
 
   const handleLogout = () => {
     localStorage.removeItem('userid')
@@ -46,7 +67,7 @@ export function DashboardSidebar() {
               <img src="/darklogo.svg" width={237} alt="Kimbap Logo" className="hidden dark:block" />
             </div>
             <div className="flex-1 overflow-y-auto py-2">
-              <SidebarNav onNavigate={() => setMobileMenuOpen(false)} />
+              <SidebarNav onNavigate={() => setMobileMenuOpen(false)} pendingApprovalCount={pendingApprovalCount} />
             </div>
             <div className="mt-auto p-4">
               <Button
@@ -76,7 +97,7 @@ export function DashboardSidebar() {
             </div>
           </div>
           <div className="flex-1">
-            <SidebarNav />
+            <SidebarNav pendingApprovalCount={pendingApprovalCount} />
           </div>
           <div className="mt-auto p-4">
             <Button

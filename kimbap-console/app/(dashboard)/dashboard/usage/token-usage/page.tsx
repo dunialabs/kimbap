@@ -96,6 +96,14 @@ interface TokenMetricsResponse {
   totalCount: number
 }
 
+interface TokenUsageSummary {
+  totalTokens: number
+  activeTokens: number
+  totalRequests: number
+  avgSuccessRate: number
+  totalClients: number
+}
+
 const COLORS = [
   '#0088FE',
   '#00C49F',
@@ -124,7 +132,7 @@ export default function TokenUsagePage() {
   const [tokenDataError, setTokenDataError] = useState<string | null>(null)
   const [trendDataError, setTrendDataError] = useState<string | null>(null)
   const [geoUsageError, setGeoUsageError] = useState<string | null>(null)
-  const [summary, setSummary] = useState<any>(null)
+  const [summary, setSummary] = useState<TokenUsageSummary | null>(null)
   const [tokenUsageData, setTokenUsageData] = useState<TokenUsageData[]>([])
   const [trendData, setTrendData] = useState<TokenTrendData[]>([])
   const [geoUsage, setGeoUsage] = useState<GeoUsageItem[]>([])

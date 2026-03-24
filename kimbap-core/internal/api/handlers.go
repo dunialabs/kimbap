@@ -61,15 +61,16 @@ func (s *Server) handleDescribeAction(w http.ResponseWriter, r *http.Request) {
 	}
 	name := chi.URLParam(r, "service") + "." + chi.URLParam(r, "action")
 	def, err := s.runtime.ActionRegistry.Lookup(r.Context(), name)
-	if def == nil && err == nil {
-		err = fmt.Errorf("action %q not found", name)
-	}
 	if err != nil {
-		if err.Error() == fmt.Sprintf("action %q not found", name) {
+		if errors.Is(err, actions.ErrLookupNotFound) {
 			writeEnvelopeError(w, r, actions.NewExecutionError(actions.ErrActionNotFound, "action not found", http.StatusNotFound, false, map[string]any{"action": name}))
 		} else {
 			writeEnvelopeError(w, r, actions.NewExecutionError(actions.ErrDownstreamUnavailable, "action lookup failed", http.StatusInternalServerError, true, map[string]any{"action": name}))
 		}
+		return
+	}
+	if def == nil {
+		writeEnvelopeError(w, r, actions.NewExecutionError(actions.ErrActionNotFound, "action not found", http.StatusNotFound, false, map[string]any{"action": name}))
 		return
 	}
 	writeSuccess(w, r, http.StatusOK, def)

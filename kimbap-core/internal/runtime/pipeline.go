@@ -615,6 +615,13 @@ func (r *Runtime) finalizeWithStatus(
 	result.AuditRef = auditRef
 
 	if auditErr := r.writeAudit(ctx, req, *result); auditErr != nil {
+		if result.Meta == nil {
+			result.Meta = map[string]any{}
+		}
+		if result.Error != nil {
+			result.Meta["original_error"] = result.Error.Message
+			result.Meta["original_error_code"] = result.Error.Code
+		}
 		result.Status = actions.StatusError
 		result.Error = auditErr
 		result.HTTPStatus = auditErr.HTTPStatus

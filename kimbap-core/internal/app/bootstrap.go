@@ -10,6 +10,7 @@ import (
 	"strings"
 
 	"github.com/dunialabs/kimbap-core/internal/actions"
+	"github.com/rs/zerolog/log"
 	"github.com/dunialabs/kimbap-core/internal/adapters"
 	"github.com/dunialabs/kimbap-core/internal/approvals"
 	"github.com/dunialabs/kimbap-core/internal/audit"
@@ -121,7 +122,7 @@ func (r *skillsActionRegistry) Lookup(_ context.Context, name string) (*actions.
 			return &defs[i], nil
 		}
 	}
-	return nil, fmt.Errorf("action %q not found", name)
+	return nil, fmt.Errorf("%w: %s", actions.ErrLookupNotFound, name)
 }
 
 func (r *skillsActionRegistry) List(_ context.Context, opts runtime.ListOptions) ([]actions.ActionDefinition, error) {
@@ -306,7 +307,9 @@ func (r *vaultCredentialResolver) Resolve(ctx context.Context, tenantID string, 
 	if err != nil {
 		return nil, err
 	}
-	_ = r.store.MarkUsed(ctx, tenantID, secretName)
+	if err := r.store.MarkUsed(ctx, tenantID, secretName); err != nil {
+		log.Warn().Err(err).Str("tenantID", tenantID).Str("secret", secretName).Msg("failed to mark credential as used")
+	}
 
 	set := parseCredentialSet(raw, req)
 	if set == nil && !req.Optional {

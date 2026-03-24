@@ -48,9 +48,10 @@ export const navItems = [
 
 interface SidebarNavProps {
   onNavigate?: () => void
+  pendingApprovalCount?: number
 }
 
-export function SidebarNav({ onNavigate }: SidebarNavProps) {
+export function SidebarNav({ onNavigate, pendingApprovalCount = 0 }: SidebarNavProps) {
   const pathname = usePathname()
   const [expandedItems, setExpandedItems] = useState<string[]>([])
 
@@ -121,6 +122,7 @@ export function SidebarNav({ onNavigate }: SidebarNavProps) {
               href={item.href}
               onClick={onNavigate}
               aria-current={pathname === item.href ? 'page' : undefined}
+              aria-label={item.label === 'Approvals' && pendingApprovalCount > 0 ? `Approvals, ${pendingApprovalCount} pending` : undefined}
               className={cn(
                 'flex items-center gap-3 rounded-lg px-3 py-2 text-foreground transition-all hover:bg-slate-100 dark:hover:bg-slate-800',
                 'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2',
@@ -129,6 +131,11 @@ export function SidebarNav({ onNavigate }: SidebarNavProps) {
             >
               <item.icon className="h-4 w-4" aria-hidden="true" focusable="false" />
               {item.label}
+              {item.label === 'Approvals' && pendingApprovalCount > 0 && (
+                <span className="ml-auto inline-flex items-center justify-center rounded-full bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-300 text-xs font-medium min-w-[20px] h-5 px-1.5">
+                  {pendingApprovalCount > 99 ? '99+' : pendingApprovalCount}
+                </span>
+              )}
             </Link>
           )}
         </div>
