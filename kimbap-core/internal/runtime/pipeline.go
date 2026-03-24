@@ -334,7 +334,9 @@ func (r *Runtime) execute(ctx context.Context, req actions.ExecutionRequest, tra
 			if !approvalRes.Approved {
 				if r.HeldExecutionStore != nil {
 					if holdErr := r.HeldExecutionStore.Hold(ctx, approvalRes.RequestID, req); holdErr != nil {
-						_, _ = fmt.Fprintf(os.Stderr, "warning: failed to hold execution %s: %v\n", approvalRes.RequestID, holdErr)
+						holdFailErr := actions.NewExecutionError(actions.ErrDownstreamUnavailable, fmt.Sprintf("failed to hold execution for approval: %v", holdErr), 500, false, nil)
+						trace.Record("hold_execution", "error", holdFailErr.Error())
+						return r.finalizeWithError(ctx, &result, req, holdFailErr, startedAt, "require_approval", approvalRes.RequestID)
 					}
 				}
 				approvalErr := actions.NewExecutionError(actions.ErrApprovalRequired, "approval required", 202, false, map[string]any{"approval_request_id": approvalRes.RequestID})

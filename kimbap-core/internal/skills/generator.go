@@ -904,12 +904,12 @@ func resolveCompositeSchema(schema map[string]any, resolver *openAPIRefResolver)
 		}
 		primary := resolveCompositeSchema(first, resolver)
 		merged := cloneAnyMap(resolved)
+		delete(merged, "required")
 		for key, value := range primary {
 			merged[key] = value
 		}
 		delete(merged, "oneOf")
 		delete(merged, "anyOf")
-		delete(merged, "required")
 		return merged
 	}
 

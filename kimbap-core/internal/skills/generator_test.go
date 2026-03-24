@@ -461,8 +461,8 @@ paths:
 	if len(choose.Args) != 1 {
 		t.Fatalf("expected one arg from oneOf primary schema, got %d", len(choose.Args))
 	}
-	if choose.Args[0].Name != "mode" || choose.Args[0].Required {
-		t.Fatalf("expected oneOf primary arg mode to be optional, got %+v", choose.Args[0])
+	if choose.Args[0].Name != "mode" || !choose.Args[0].Required {
+		t.Fatalf("expected oneOf primary arg mode to be required (from primary schema), got %+v", choose.Args[0])
 	}
 
 	list := manifest.Actions["listitems"]

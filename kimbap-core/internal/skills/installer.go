@@ -108,6 +108,7 @@ func (i *LocalInstaller) InstallWithForce(manifest *SkillManifest, source string
 		LockedAt: time.Now().UTC(),
 	}
 	if err := i.writeLockfile(lf); err != nil {
+		_ = os.Remove(p)
 		return nil, fmt.Errorf("write lockfile: %w", err)
 	}
 
