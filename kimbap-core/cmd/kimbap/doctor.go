@@ -25,7 +25,7 @@ func newDoctorCommand() *cobra.Command {
 		Use:   "doctor",
 		Short: "Run runtime diagnostics",
 		RunE: func(_ *cobra.Command, _ []string) error {
-			cfg, err := loadAppConfig()
+			cfg, err := loadDoctorConfig()
 			if err != nil {
 				return err
 			}
@@ -80,6 +80,43 @@ func checkConfigFile() doctorCheck {
 		return doctorCheck{Name: "config file", Status: "fail", Detail: err.Error()}
 	}
 	return doctorCheck{Name: "config file", Status: "ok", Detail: path}
+}
+
+func loadDoctorConfig() (*config.KimbapConfig, error) {
+	var (
+		cfg *config.KimbapConfig
+		err error
+	)
+	if strings.TrimSpace(opts.configPath) == "" {
+		cfg, err = config.LoadKimbapConfig()
+	} else {
+		cfg, err = config.LoadKimbapConfigWithoutDefault(opts.configPath)
+	}
+	if err != nil {
+		return nil, err
+	}
+
+	if strings.TrimSpace(opts.dataDir) != "" {
+		prevDataDir := cfg.DataDir
+		cfg.DataDir = opts.dataDir
+		if cfg.Vault.Path == filepath.Join(prevDataDir, "vault.db") {
+			cfg.Vault.Path = filepath.Join(cfg.DataDir, "vault.db")
+		}
+		if cfg.Skills.Dir == filepath.Join(prevDataDir, "skills") {
+			cfg.Skills.Dir = filepath.Join(cfg.DataDir, "skills")
+		}
+		if cfg.Audit.Path == filepath.Join(prevDataDir, "audit.jsonl") {
+			cfg.Audit.Path = filepath.Join(cfg.DataDir, "audit.jsonl")
+		}
+		if cfg.Policy.Path == filepath.Join(prevDataDir, "policy.yaml") {
+			cfg.Policy.Path = filepath.Join(cfg.DataDir, "policy.yaml")
+		}
+		if cfg.Database.DSN == filepath.Join(prevDataDir, "kimbap.db") {
+			cfg.Database.DSN = filepath.Join(cfg.DataDir, "kimbap.db")
+		}
+	}
+
+	return cfg, nil
 }
 
 func resolveConfigPath() (string, error) {
