@@ -87,6 +87,46 @@ func TestRemoveTemporaryServerIfUnchangedProtectsReplacement(t *testing.T) {
 	}
 }
 
+func TestCloseTemporaryServerWaitsForInProgressStartup(t *testing.T) {
+	mgr := &serverManager{
+		temporaryServers: map[string]*ServerContext{},
+		serverLoggers:    map[string]*serverlog.ServerLogger{},
+	}
+
+	serverID := "srv-starting"
+	userID := "user-starting"
+	key := tempServerKey(serverID, userID)
+
+	startupDone := make(chan struct{})
+	mgr.serverConnecting.Store(key, startupDone)
+
+	ctxObj := NewServerContext(database.Server{ServerID: serverID})
+	mgr.temporaryServers[key] = ctxObj
+
+	closeDone := make(chan error, 1)
+	go func() {
+		_, err := mgr.CloseTemporaryServer(context.Background(), serverID, userID)
+		closeDone <- err
+	}()
+
+	select {
+	case <-closeDone:
+		t.Fatal("CloseTemporaryServer returned before startup completed")
+	case <-time.After(50 * time.Millisecond):
+	}
+
+	close(startupDone)
+
+	select {
+	case err := <-closeDone:
+		if err != nil {
+			t.Fatalf("unexpected close error: %v", err)
+		}
+	case <-time.After(2 * time.Second):
+		t.Fatal("timed out waiting for CloseTemporaryServer after startup release")
+	}
+}
+
 type blockingTerminateTransport struct {
 	release chan struct{}
 	closed  chan struct{}

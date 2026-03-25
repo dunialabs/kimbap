@@ -412,11 +412,15 @@ func (m *serverManager) wakeupServer(ctx context.Context, contextObj *ServerCont
 		token = session.Token
 	}
 
+	connectKey := serverID
+	if allowUserInput {
+		connectKey = tempServerKey(serverID, userID)
+	}
 	connectDone := make(chan struct{})
-	m.serverConnecting.Store(serverID, connectDone)
+	m.serverConnecting.Store(connectKey, connectDone)
 	connectErr := m.createServerConnection(ctx, contextObj, token)
 	close(connectDone)
-	m.serverConnecting.Delete(serverID)
+	m.serverConnecting.Delete(connectKey)
 
 	if connectErr != nil {
 		return connectErr
@@ -1309,10 +1313,10 @@ func (m *serverManager) CreateTemporaryServer(ctx context.Context, userID string
 	}
 
 	connectDone := make(chan struct{})
-	m.serverConnecting.Store(server.ServerID, connectDone)
+	m.serverConnecting.Store(internalKey, connectDone)
 	connectErr := m.createServerConnection(ctx, contextObj, token)
 	close(connectDone)
-	m.serverConnecting.Delete(server.ServerID)
+	m.serverConnecting.Delete(internalKey)
 
 	if connectErr != nil {
 		m.removeTemporaryServerIfUnchanged(internalKey, contextObj, contextLogger)
@@ -1342,6 +1346,19 @@ func (m *serverManager) CloseTemporaryServer(ctx context.Context, serverID, user
 		ctx = context.Background()
 	}
 	key := tempServerKey(serverID, userID)
+
+	if ch, loaded := m.serverConnecting.Load(key); loaded {
+		if waitCh, ok := ch.(chan struct{}); ok {
+			select {
+			case <-waitCh:
+			case <-ctx.Done():
+				return nil, ctx.Err()
+			case <-time.After(30 * time.Second):
+				return nil, errors.New("timed out waiting for temporary server connection to complete")
+			}
+		}
+	}
+
 	m.mu.Lock()
 	contextObj := m.temporaryServers[key]
 	serverLogger := m.serverLoggers[key]
