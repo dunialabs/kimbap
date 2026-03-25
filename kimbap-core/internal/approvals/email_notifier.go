@@ -58,6 +58,9 @@ func (e *EmailNotifier) Notify(ctx context.Context, req *ApprovalRequest) error 
 		"\r\n" + body)
 
 	addr := fmt.Sprintf("%s:%d", e.host, e.port)
+	if e.port == 465 {
+		return fmt.Errorf("email notifier: implicit TLS SMTP on port 465 is not supported; use a server/port that supports STARTTLS (commonly 587)")
+	}
 
 	if _, hasDeadline := ctx.Deadline(); !hasDeadline {
 		var cancel context.CancelFunc
@@ -83,13 +86,18 @@ func (e *EmailNotifier) Notify(ctx context.Context, req *ApprovalRequest) error 
 		_ = conn.Close()
 	}()
 
+	tlsActive := false
 	if ok, _ := client.Extension("STARTTLS"); ok {
 		if err := client.StartTLS(&tls.Config{ServerName: e.host}); err != nil {
 			return fmt.Errorf("email notifier: STARTTLS: %w", err)
 		}
+		tlsActive = true
 	}
 
 	if strings.TrimSpace(e.username) != "" {
+		if !tlsActive {
+			return fmt.Errorf("email notifier: STARTTLS not available; refusing to send credentials over plaintext")
+		}
 		auth := smtp.PlainAuth("", e.username, e.password, e.host)
 		if err := client.Auth(auth); err != nil {
 			return fmt.Errorf("email notifier: auth: %w", err)

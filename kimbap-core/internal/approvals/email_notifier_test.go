@@ -138,3 +138,34 @@ func TestEmailNotifierContextCancellation(t *testing.T) {
 		t.Errorf("expected context-canceled or dial error, got: %v", err)
 	}
 }
+
+func TestEmailNotifierRejectsAuthWithoutTLS(t *testing.T) {
+	addr, _ := startMockSMTPServer(t)
+	parts := strings.SplitN(addr, ":", 2)
+	host := parts[0]
+	var port int
+	fmt.Sscanf(parts[1], "%d", &port)
+
+	notifier := NewEmailNotifier(host, port, "kimbap@example.com", []string{"ops@example.com"}, "user", "pass")
+	err := notifier.Notify(context.Background(), &ApprovalRequest{ID: "x", Service: "s", Action: "a"})
+	if err == nil {
+		t.Fatal("expected error when auth credentials supplied but STARTTLS unavailable")
+	}
+	if !strings.Contains(err.Error(), "STARTTLS not available") {
+		t.Fatalf("expected STARTTLS-not-available error, got: %v", err)
+	}
+}
+
+func TestEmailNotifierRejectsImplicitTLSPort(t *testing.T) {
+	notifier := NewEmailNotifier("smtp.example.com", 465, "from@x.com", []string{"to@x.com"}, "user", "pass")
+	err := notifier.Notify(context.Background(), &ApprovalRequest{ID: "x", Service: "s", Action: "a"})
+	if err == nil {
+		t.Fatal("expected explicit error for unsupported implicit TLS port")
+	}
+	if !strings.Contains(err.Error(), "port 465") {
+		t.Fatalf("expected port 465 guidance error, got: %v", err)
+	}
+	if !strings.Contains(err.Error(), "supports STARTTLS") {
+		t.Fatalf("expected STARTTLS guidance in error, got: %v", err)
+	}
+}
