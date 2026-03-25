@@ -190,7 +190,9 @@ func (r *Runtime) ResumeApproved(ctx context.Context, approvalRequestID string) 
 	}
 
 	earlyFail := func(result actions.ExecutionResult) actions.ExecutionResult {
-		if removeErr := r.HeldExecutionStore.Remove(ctx, approvalRequestID); removeErr != nil {
+		removeCtx, removeCancel := context.WithTimeout(context.WithoutCancel(ctx), 3*time.Second)
+		defer removeCancel()
+		if removeErr := r.HeldExecutionStore.Remove(removeCtx, approvalRequestID); removeErr != nil {
 			_, _ = fmt.Fprintf(os.Stderr, "warning: failed to remove held execution %s: %v\n", approvalRequestID, removeErr)
 		}
 		if r.AuditWriter != nil {
@@ -222,7 +224,9 @@ func (r *Runtime) ResumeApproved(ctx context.Context, approvalRequestID string) 
 
 	result := r.executeFromCredentialsWithState(ctx, *held, nil, r.now(), "require_approval", approvalRequestID)
 
-	if removeErr := r.HeldExecutionStore.Remove(ctx, approvalRequestID); removeErr != nil {
+	removeCtx, removeCancel := context.WithTimeout(context.WithoutCancel(ctx), 3*time.Second)
+	defer removeCancel()
+	if removeErr := r.HeldExecutionStore.Remove(removeCtx, approvalRequestID); removeErr != nil {
 		_, _ = fmt.Fprintf(os.Stderr, "warning: failed to remove held execution %s: %v\n", approvalRequestID, removeErr)
 	}
 

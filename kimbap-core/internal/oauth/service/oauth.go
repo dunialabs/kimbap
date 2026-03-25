@@ -718,13 +718,12 @@ func (s *OAuthService) handleRefreshTokenGrant(ctx context.Context, req oauthtyp
 	}
 
 	response := &oauthtypes.TokenResponse{
-		AccessToken:  hashRefreshToken(access),
+		AccessToken:  access,
 		TokenType:    "Bearer",
 		ExpiresIn:    oauthtypes.AccessTokenLifetime,
 		RefreshToken: req.RefreshToken,
 		Scope:        strings.Join(newScopes, " "),
 	}
-	response.AccessToken = access
 	if token.Resource != nil {
 		response.Resource = *token.Resource
 	}

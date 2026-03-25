@@ -2,6 +2,7 @@ import { NextRequest } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { ExternalApiError, E2001, E2002, E2003 } from './error-codes';
 import { hashToken } from '@/lib/auth';
+import { getUserByAccessToken } from '@/lib/proxy-api';
 
 export interface AuthUser {
   userid: string;
@@ -40,13 +41,39 @@ export async function authenticate(request: NextRequest): Promise<AuthUser> {
     throw new ExternalApiError(E2002, 'Invalid access token');
   }
 
-  if (user.role !== 1 && user.role !== 2) {
+  let resolvedRole = user.role;
+  try {
+    const upstreamUser = await getUserByAccessToken(user.userid, token);
+    const currentTime = Math.floor(Date.now() / 1000);
+
+    if (upstreamUser?.status !== 1) {
+      throw new ExternalApiError(E2002, 'Invalid access token');
+    }
+
+    if (typeof upstreamUser?.expiresAt === 'number' && upstreamUser.expiresAt > 0 && upstreamUser.expiresAt < currentTime) {
+      throw new ExternalApiError(E2002, 'Invalid access token');
+    }
+
+    if (typeof upstreamUser?.role === 'number') {
+      resolvedRole = upstreamUser.role;
+    }
+  } catch (err: unknown) {
+    if (err instanceof ExternalApiError) {
+      throw err;
+    }
+    const status = (err as { status?: number })?.status;
+    if (status === 401 || status === 403 || status === 404) {
+      throw new ExternalApiError(E2002, 'Invalid access token');
+    }
+  }
+
+  if (resolvedRole !== 1 && resolvedRole !== 2) {
     throw new ExternalApiError(E2003, 'Permission denied: only owner or admin can access external API');
   }
 
   return {
     userid: user.userid,
-    role: user.role,
+    role: resolvedRole,
     accessToken: token,
     proxyKey: user.proxyKey,
   };

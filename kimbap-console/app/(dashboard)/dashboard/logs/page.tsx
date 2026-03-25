@@ -228,12 +228,16 @@ function LogsPageContent() {
   }, [currentPage, pageSize, timeFilter, levelFilter, sourceFilter, debouncedSearchTerm])
 
   const loadRealtimeLogs = useCallback(async () => {
+    const realtimeSeq = logsRequestSeqRef.current
     if (currentPage !== 1 || activeTab !== 'table' || debouncedSearchTerm) {
       return
     }
 
     if (timeFilter !== 'all') {
       const reloaded = await loadLogs({ silent: true })
+      if (realtimeSeq !== logsRequestSeqRef.current) {
+        return
+      }
       setRealtimeHealthy(reloaded)
       return
     }
@@ -247,19 +251,32 @@ function LogsPageContent() {
       })
 
       if (response.data?.common?.code !== 0 || !response.data?.data) {
+        if (realtimeSeq !== logsRequestSeqRef.current) {
+          return
+        }
         setRealtimeHealthy(false)
         return
       }
 
       const data: RealtimeLogsApiResponse = response.data.data
       if (data.newLogs.length === 0) {
+        if (realtimeSeq !== logsRequestSeqRef.current) {
+          return
+        }
         setRealtimeHealthy(true)
         return
       }
 
       if (data.hasMore) {
         const reloaded = await loadLogs({ silent: true })
+        if (realtimeSeq !== logsRequestSeqRef.current) {
+          return
+        }
         setRealtimeHealthy(reloaded)
+        return
+      }
+
+      if (realtimeSeq !== logsRequestSeqRef.current) {
         return
       }
 
@@ -278,9 +295,15 @@ function LogsPageContent() {
         return [...appended.reverse(), ...prevLogs].slice(0, pageSize)
       })
 
+      if (realtimeSeq !== logsRequestSeqRef.current) {
+        return
+      }
       setLatestLogId((prevLatestLogId) => Math.max(prevLatestLogId, data.latestLogId))
       setRealtimeHealthy(true)
     } catch {
+      if (realtimeSeq !== logsRequestSeqRef.current) {
+        return
+      }
       setRealtimeHealthy(false)
     }
   }, [activeTab, currentPage, debouncedSearchTerm, latestLogId, levelFilter, loadLogs, pageSize, sourceFilter, timeFilter])

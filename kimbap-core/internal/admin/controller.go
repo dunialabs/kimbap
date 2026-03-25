@@ -252,7 +252,15 @@ func (c *Controller) HandleAdminRequest(w http.ResponseWriter, r *http.Request) 
 }
 
 func isPublicAdminAction(action int) bool {
-	_ = action
+	switch action {
+	case types.AdminActionGetOwner,
+		types.AdminActionGetProxy,
+		types.AdminActionCreateProxy,
+		types.AdminActionCreateUser,
+		types.AdminActionCountUsers,
+		types.AdminActionCountServers:
+		return true
+	}
 	return false
 }
 

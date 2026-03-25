@@ -272,7 +272,7 @@ func (m *Manager) GetAccessToken(ctx context.Context, tenantID, name string) (st
 		return "", ErrConnectorNotFound
 	}
 
-	if state.ExpiresAt != nil && time.Now().After(*state.ExpiresAt) {
+	if state.ExpiresAt != nil && time.Now().Add(30*time.Second).After(*state.ExpiresAt) {
 		if err := m.refreshOnce(ctx, tenantID, name); err != nil {
 			return "", err
 		}

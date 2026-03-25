@@ -1,0 +1,75 @@
+name: slack
+version: 1.0.0
+description: Slack API integration for messaging and channel management
+base_url: https://slack.com/api
+auth:
+  type: bearer
+  credential_ref: slack.token
+actions:
+  post-message:
+    method: POST
+    path: /chat.postMessage
+    description: Post a message to a Slack channel or thread
+    args:
+      - name: channel
+        type: string
+        required: true
+      - name: text
+        type: string
+        required: true
+      - name: thread_ts
+        type: string
+        required: false
+    request:
+      body:
+        channel: "{channel}"
+        text: "{text}"
+        thread_ts: "{thread_ts}"
+    response:
+      type: object
+    risk:
+      level: medium
+      mutating: true
+  list-channels:
+    method: GET
+    path: /conversations.list
+    description: List channels in the Slack workspace
+    args:
+      - name: limit
+        type: integer
+        required: false
+        default: 100
+      - name: types
+        type: string
+        required: false
+        default: public_channel
+    request:
+      query:
+        limit: "{limit}"
+        types: "{types}"
+    response:
+      type: object
+    risk:
+      level: low
+      mutating: false
+  get-channel-history:
+    method: GET
+    path: /conversations.history
+    description: Retrieve message history from a Slack channel
+    args:
+      - name: channel
+        type: string
+        required: true
+      - name: limit
+        type: integer
+        required: false
+        default: 100
+    request:
+      query:
+        channel: "{channel}"
+        limit: "{limit}"
+    response:
+      type: object
+    risk:
+      level: low
+      mutating: false
