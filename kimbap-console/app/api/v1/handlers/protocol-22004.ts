@@ -103,11 +103,6 @@ export async function handleProtocol22004(body: Request22004): Promise<Response2
     // 辅助函数：生成事件描述
     const generateEventDescription = (log: typeof recentLogs[0], eventType: string): string => {
       const actionLabel = getActionLabel(log.action);
-      const formattedAction = actionLabel.includes('_') 
-        ? actionLabel.split('_').map(word => 
-            word.charAt(0).toUpperCase() + word.slice(1).toLowerCase()
-          ).join(' ')
-        : actionLabel;
       const lowercaseActionLabel = actionLabel.toLowerCase();
       
       switch (eventType) {
@@ -121,7 +116,7 @@ export async function handleProtocol22004(body: Request22004): Promise<Response2
           } else if (lowercaseActionLabel.includes('postgres') || lowercaseActionLabel.includes('sql')) {
             return 'PostgreSQL query executed';
           } else {
-            return `${formattedAction} request completed`;
+            return `${actionLabel} request completed`;
           }
         case 'token_auth':
           return 'Token authentication successful';
@@ -130,7 +125,7 @@ export async function handleProtocol22004(body: Request22004): Promise<Response2
         case 'error':
           return `Request failed - ${log.error && log.error.trim() ? log.error.substring(0, 60) : `HTTP ${log.statusCode ?? 'unknown'}`}`;
         case 'system':
-          return `${formattedAction} event recorded`;
+          return `${actionLabel} event recorded`;
         default:
           return 'System activity';
       }
@@ -237,7 +232,7 @@ export async function handleProtocol22004(body: Request22004): Promise<Response2
     }
     
     const response: Response22004Data = {
-      activities: recentEvents.slice(0, limit)  // Changed from recentEvents to activities
+      activities: recentEvents
     };
     
     console.log('Protocol 22004 response:', {

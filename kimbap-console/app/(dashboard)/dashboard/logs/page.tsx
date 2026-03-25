@@ -681,7 +681,7 @@ function LogsPageContent() {
             <CardHeader>
               <CardTitle className="flex items-center justify-between">
                 <span>
-                  {loading ? 'Server Logs' : `Server Logs (${totalCount} total, showing ${logs.length})`}
+                  {loading ? 'Server Logs' : `Server Logs (${totalCount.toLocaleString()} total, showing ${logs.length.toLocaleString()})`}
                 </span>
                 <Badge variant="outline" className={currentPage !== 1 || activeTab !== 'table' || debouncedSearchTerm ? 'border-yellow-500 text-yellow-600 dark:text-yellow-400' : realtimeHealthy ? 'border-green-500 text-green-600 dark:text-green-400' : 'border-red-500 text-red-600 dark:text-red-400'}>
                   <Clock className="mr-1 h-3 w-3" />
@@ -971,7 +971,7 @@ function LogsPageContent() {
                 <CardDescription>
                   {loading
                     ? 'Raw server logs for this filtered page (Loading...)'
-                    : `Raw server logs for this filtered page (${logs.length} rows on page ${currentPage} of ${Math.max(totalPages, 1)})`}
+                    : `Raw server logs for this filtered page (${logs.length.toLocaleString()} rows on page ${currentPage} of ${Math.max(totalPages, 1)})`}
                 </CardDescription>
               </div>
               {!loading && logs.length > 0 && (
