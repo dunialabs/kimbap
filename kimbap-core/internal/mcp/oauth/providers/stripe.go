@@ -7,7 +7,7 @@ import (
 
 var StripeAdapter = ProviderAdapter{
 	Name:     "stripe",
-	TokenURL: "https://api.stripe.com/v1/oauth/token",
+	TokenURL: "https://connect.stripe.com/oauth/token",
 	BuildRequest: func(ctx ExchangeContext) (ProviderRequest, error) {
 		credentials := base64.StdEncoding.EncodeToString([]byte(ctx.ClientSecret + ":"))
 		params := url.Values{}

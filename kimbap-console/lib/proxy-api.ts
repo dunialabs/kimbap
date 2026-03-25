@@ -440,7 +440,7 @@ interface CoreLogEntry {
   error: string;
   duration: number | null;
   statusCode: number | null;
-  proxyKey: string;
+  proxyKey?: string;
 }
 
 /**

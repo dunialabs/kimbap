@@ -293,8 +293,12 @@ func respondError(w http.ResponseWriter, err *types.AdminError) {
 
 func adminHTTPStatusFromCode(code int) int {
 	switch code {
-	case types.AdminErrorCodeInvalidRequest:
+	case types.AdminErrorCodeInvalidRequest,
+		types.AdminErrorCodeInvalidCredentialsFormat,
+		types.AdminErrorCodeInvalidSkillFormat:
 		return http.StatusBadRequest
+	case types.AdminErrorCodeUnauthorized:
+		return http.StatusUnauthorized
 	case types.AdminErrorCodeForbidden:
 		return http.StatusForbidden
 	case types.AdminErrorCodeUserNotFound,
@@ -302,6 +306,10 @@ func adminHTTPStatusFromCode(code int) int {
 		types.AdminErrorCodeProxyNotFound,
 		types.AdminErrorCodeSkillNotFound:
 		return http.StatusNotFound
+	case types.AdminErrorCodeUserAlreadyExists,
+		types.AdminErrorCodeServerAlreadyExists,
+		types.AdminErrorCodeProxyAlreadyExists:
+		return http.StatusConflict
 	default:
 		return http.StatusInternalServerError
 	}

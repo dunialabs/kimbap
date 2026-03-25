@@ -484,17 +484,18 @@ func (h *UserHandler) GetOwner() (any, error) {
 		return nil, err
 	}
 	return map[string]any{"owner": map[string]any{
-		"userId":      user.UserID,
-		"status":      user.Status,
-		"role":        user.Role,
-		"permissions": user.Permissions,
-		"expiresAt":   user.ExpiresAt,
-		"createdAt":   user.CreatedAt,
-		"updatedAt":   user.UpdatedAt,
-		"ratelimit":   user.Ratelimit,
-		"name":        user.Name,
-		"proxyId":     user.ProxyID,
-		"notes":       user.Notes,
+		"userId":         user.UserID,
+		"status":         user.Status,
+		"role":           user.Role,
+		"permissions":    user.Permissions,
+		"expiresAt":      user.ExpiresAt,
+		"createdAt":      user.CreatedAt,
+		"updatedAt":      user.UpdatedAt,
+		"ratelimit":      user.Ratelimit,
+		"name":           user.Name,
+		"proxyId":        user.ProxyID,
+		"notes":          user.Notes,
+		"encryptedToken": user.EncryptedToken,
 	}}, nil
 }
 
