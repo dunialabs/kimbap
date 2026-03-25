@@ -139,14 +139,14 @@ Kimbap is early-stage. The action runtime and REST v1 API are available now. The
 | Audit trail | Available | Structured events, export |
 | Tier 1 skills (YAML) | Available | Declarative REST API integration |
 | Console (admin UI) | Available | Monitoring, approvals, audit viewer |
-| `kimbap call` (CLI) | In progress | Explicit action execution |
-| `kimbap run` (subprocess) | In progress | Agent process wrapper |
-| `kimbap proxy` (transparent) | In progress | HTTP/HTTPS proxy mode |
-| `kimbap serve` (connected) | In progress | Multi-tenant REST server |
-| Embedded mode (local-only) | Planned | Single-user, no server required |
+| `kimbap call` (CLI) | Available | Explicit action execution |
+| `kimbap run` (subprocess) | Available | Agent process wrapper |
+| `kimbap proxy` (transparent) | Available | HTTP/HTTPS proxy mode |
+| `kimbap serve` (connected) | Available | Multi-tenant REST server |
+| Embedded mode (local-only) | Available | SQLite-backed, no external DB required |
 | SDKs | Planned | Python, TypeScript, Go |
 | Skill registry | Planned | Install, publish, verify |
-| Webhook notifications (Slack, Telegram, WhatsApp) | Planned | Approval notification channels |
+| Webhook notifications (Slack, Telegram, Email, Webhook) | Available | Approval notification channels; configure via YAML |
 
 ### API interfaces
 
@@ -159,6 +159,27 @@ For all new integrations, use `/api/v1`:
 | User API | `/user` | Legacy (frozen) | Console uses this today |
 | Socket.IO | `/socket.io` | Stable | Real-time events (approvals, notifications) |
 | Health | `/health`, `/ready` | Stable | Liveness and readiness probes |
+
+### Notification configuration
+
+Configure approval notification channels in `~/.kimbap/config.yaml` or via environment variables:
+
+```yaml
+notifications:
+  slack:
+    webhook_url: ""        # KIMBAP_NOTIFICATIONS_SLACK_WEBHOOK_URL
+  telegram:
+    bot_token: ""          # KIMBAP_NOTIFICATIONS_TELEGRAM_BOT_TOKEN
+    chat_id: ""            # KIMBAP_NOTIFICATIONS_TELEGRAM_CHAT_ID
+  email:
+    smtp_host: ""          # KIMBAP_NOTIFICATIONS_EMAIL_SMTP_HOST
+    smtp_port: 587         # KIMBAP_NOTIFICATIONS_EMAIL_SMTP_PORT
+    from: ""               # KIMBAP_NOTIFICATIONS_EMAIL_FROM
+    to: []                 # KIMBAP_NOTIFICATIONS_EMAIL_TO (comma-separated in env)
+  webhook:
+    url: ""                # KIMBAP_NOTIFICATIONS_WEBHOOK_URL
+    sign_key: ""           # KIMBAP_NOTIFICATIONS_WEBHOOK_SIGN_KEY
+```
 
 ---
 
