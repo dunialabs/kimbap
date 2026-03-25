@@ -25,7 +25,6 @@ import (
 	"github.com/dunialabs/kimbap-core/internal/oauth"
 	"github.com/dunialabs/kimbap-core/internal/repository"
 	"github.com/dunialabs/kimbap-core/internal/security"
-	"github.com/dunialabs/kimbap-core/internal/socket"
 	"github.com/dunialabs/kimbap-core/internal/store"
 	"github.com/dunialabs/kimbap-core/internal/user"
 	"github.com/dunialabs/kimbap-core/internal/webhooks"
@@ -87,13 +86,7 @@ func run() error {
 	sessions := core.SessionStoreInstance()
 	eventRepo := app.NewEventRepoAdapter()
 	sessions.SetEventRepository(eventRepo)
-	socketService := socket.NewSocketService(tokenValidator, repository.NewUserRepository(nil))
-	socketBootstrapServer := &http.Server{Handler: http.NotFoundHandler()}
-	if err := socketService.Initialize(socketBootstrapServer); err != nil {
-		appLog.Warn().Err(err).Msg("socket.io initialization failed")
-	}
-	notifier := socket.GetSocketNotifier()
-	notifier.SetSocketService(socketService)
+	notifier := core.NewNoopSocketNotifier()
 	sessions.SetNotifier(notifier)
 	servers := core.ServerManagerInstance()
 	servers.Configure(app.ServerRepoAdapter{}, app.ManagerUserRepoAdapter{}, app.AuthFactoryAdapter{}, notifier)
@@ -229,11 +222,6 @@ func run() error {
 		})
 	})
 
-	if socketBootstrapServer.Handler != nil {
-		r.Handle("/socket.io/", socketBootstrapServer.Handler)
-		r.Handle("/socket.io/*", socketBootstrapServer.Handler)
-	}
-
 	mcpservices.ApprovalServiceInstance().StartExpirySweeper(notifier)
 
 	r.Get("/health", func(w http.ResponseWriter, req *http.Request) {
@@ -342,7 +330,7 @@ func run() error {
 			}
 		}()
 		for sig := range signalCh {
-			shutdown(sig.String(), httpServer, httpsServer, socketService, eventCleanup, sessions, servers, rateLimitService, logSyncSvc, managementStore)
+			shutdown(sig.String(), httpServer, httpsServer, eventCleanup, sessions, servers, rateLimitService, logSyncSvc, managementStore)
 		}
 	}()
 
@@ -353,7 +341,6 @@ func shutdown(
 	sig string,
 	httpServer *http.Server,
 	httpsServer *http.Server,
-	socketSvc *socket.SocketService,
 	eventCleanup *core.EventCleanupService,
 	sessions *core.SessionStore,
 	servers shutdownServerManager,
@@ -376,19 +363,6 @@ func shutdown(
 		_ = httpsServer.Shutdown(httpCtx)
 	}
 	httpCancel()
-
-	if socketSvc != nil {
-		socketSvc.DisconnectAll()
-		socketShutdownDone := make(chan struct{})
-		go func() {
-			_ = socketSvc.Shutdown()
-			close(socketShutdownDone)
-		}()
-		select {
-		case <-socketShutdownDone:
-		case <-time.After(2 * time.Second):
-		}
-	}
 
 	eventCleanup.Stop()
 	sessions.RemoveAllSessions(mcptypes.DisconnectReasonServerShutdown)
