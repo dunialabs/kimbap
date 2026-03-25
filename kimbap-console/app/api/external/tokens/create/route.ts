@@ -1,5 +1,5 @@
 import { NextRequest } from 'next/server';
-import { getProxy, createUser, countUsers } from '@/lib/proxy-api';
+import { getProxy, createUser } from '@/lib/proxy-api';
 import { CryptoUtils } from '@/lib/crypto';
 import { hashToken } from '@/lib/auth';
 
@@ -13,7 +13,7 @@ import {
 } from '@/lib/token-metadata';
 import { ApiResponse } from '../../lib/response';
 import { authenticate } from '../../lib/auth';
-import { ExternalApiError, E1001, E1003, E4002, E4007 } from '../../lib/error-codes';
+import { ExternalApiError, E1001, E1003, E4007 } from '../../lib/error-codes';
 
 export const dynamic = 'force-dynamic';
 
@@ -179,10 +179,11 @@ export async function POST(request: NextRequest) {
             accessTokenHash: hashToken(accessToken),
             proxyKey: proxy.proxyKey,
             role: tokenInput.role,
-          } as any,
+          },
         });
       } catch (error) {
         console.error('Failed to save user to local table:', error);
+        throw new ExternalApiError('E5001' as any, `Failed to save token ${tokenInput.name.trim()} to local database`);
       }
 
       let namespace = 'default';

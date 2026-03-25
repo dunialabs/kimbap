@@ -164,36 +164,13 @@ async function getProxyKey() {
 /**
  * Get owner's access token
  */
-async function getOwnerToken(proxyKey) {
-  const stepStartTime = Date.now();
-
-  if (!proxyKey) {
-    console.error('[LogSync] ProxyKey is empty, cannot get owner token');
-    return null;
+async function getOwnerToken() {
+  const envToken = process.env.LOG_SYNC_TOKEN;
+  if (envToken) {
+    return envToken;
   }
-
-  try {
-    // 查询本地user表，找到role=1且proxyKey匹配的记录
-    const ownerUser = await prisma.user.findFirst({
-      where: {
-        proxyKey: proxyKey,
-        role: 1 // owner role
-      }
-    });
-
-    const elapsed = Date.now() - stepStartTime;
-
-    if (!ownerUser) {
-      console.error(`\x1b[33m[LogSync] ❌ Owner user not found (${elapsed}ms), may need to create user first\x1b[0m`);
-      return null;
-    }
-
-    return ownerUser.accessToken;
-  } catch (error) {
-    const elapsed = Date.now() - stepStartTime;
-    console.error(`[LogSync] Failed to query owner token (${elapsed}ms):`, error.message);
-    return null;
-  }
+  console.error('[LogSync] LOG_SYNC_TOKEN env var is not set. Log sync requires a valid owner access token.');
+  return null;
 }
 
 /**
@@ -463,7 +440,7 @@ async function syncLogs() {
     }
 
     // 2. Find owner's access token (retry every time, don't give up)
-    const ownerToken = await getOwnerToken(proxyKey);
+    const ownerToken = await getOwnerToken();
     if (!ownerToken) {
       console.log('\x1b[33m[LogSync] ❌ Failed to get owner token\x1b[0m');
       return;  // Return but will retry on next interval

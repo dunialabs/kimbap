@@ -10,6 +10,7 @@ interface Request22002 {
   common: {
     cmdId: number;
     userid: string;
+    rawToken?: string;
   };
   params: {
     timeRange: number; // 时间范围: 1-今天, 7-最近7天, 30-最近30天
@@ -36,6 +37,7 @@ interface Response22002Data {
  */
 export async function handleProtocol22002(body: Request22002): Promise<Response22002Data> {
   try {
+    const rawToken = body.common?.rawToken;
     const parsedTimeRange = Number(body.params?.timeRange);
     const normalizedTimeRange = Math.floor(parsedTimeRange);
     const timeRange = Number.isFinite(normalizedTimeRange) && normalizedTimeRange >= 1 ? normalizedTimeRange : 1;
@@ -78,7 +80,7 @@ export async function handleProtocol22002(body: Request22002): Promise<Response2
     // 2. 获取有效的server列表
     let serversMap: Record<string, any> = {};
     try {
-      const serversResult = await getServers({}, body.common.userid);
+      const serversResult = await getServers({}, body.common.userid, rawToken);
       const serversList = serversResult.servers || [];
       serversList.forEach((server: any) => {
         if (server.serverId) serversMap[server.serverId] = server;

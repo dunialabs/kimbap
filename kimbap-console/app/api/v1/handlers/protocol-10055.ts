@@ -5,6 +5,7 @@ interface Request10055 {
   common: {
     cmdId: number;
     userid: string;
+    rawToken?: string;
   };
   params: {
     userId?: string;
@@ -54,6 +55,7 @@ interface Response10055Data {
 export async function handleProtocol10055(body: Request10055): Promise<Response10055Data> {
   const { userId, serverId, toolName, status, page, pageSize } = body.params || {};
   const userid = body.common?.userid;
+  const rawToken = body.common?.rawToken;
 
   console.log('[Protocol 10055] List approval requests:', {
     userId,
@@ -70,6 +72,7 @@ export async function handleProtocol10055(body: Request10055): Promise<Response1
       AdminActionType.LIST_APPROVAL_REQUESTS,
       { userId, serverId, toolName, status, page, pageSize },
       userid,
+      rawToken,
     );
 
     if (!response.success) {

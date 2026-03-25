@@ -5,6 +5,7 @@ interface Request10056 {
   common: {
     cmdId: number;
     userid: string;
+    rawToken?: string;
   };
   params: {
     id: string;
@@ -41,6 +42,7 @@ interface Response10056Data {
 export async function handleProtocol10056(body: Request10056): Promise<Response10056Data> {
   const { id } = body.params || {};
   const userid = body.common?.userid;
+  const rawToken = body.common?.rawToken;
 
   console.log('[Protocol 10056] Get approval request:', { id, userid });
 
@@ -53,6 +55,7 @@ export async function handleProtocol10056(body: Request10056): Promise<Response1
       AdminActionType.GET_APPROVAL_REQUEST,
       { id },
       userid,
+      rawToken,
     );
 
     if (!response.success) {

@@ -8,6 +8,7 @@ interface Request21005 {
   common: {
     cmdId: number;
     userid: string;
+    rawToken?: string;
   };
   params: {
     tokenId: string;      // 令牌ID，必填
@@ -36,6 +37,7 @@ interface Response21005Data {
 export async function handleProtocol21005(body: Request21005): Promise<Response21005Data> {
   try {
     const { tokenId, patternType } = body.params;
+    const rawToken = body.common?.rawToken;
     
     if (!tokenId || !tokenId.trim()) {
       throw new ApiError(ErrorCode.MISSING_REQUIRED_FIELD, 400, { field: 'tokenId', details: 'Token ID cannot be empty' });
@@ -57,7 +59,7 @@ export async function handleProtocol21005(body: Request21005): Promise<Response2
     // 2. 从proxy-api验证用户是否有效
     let validUser: any = null;
     try {
-      const usersResult = await getUsers({ userId: tokenId }, body.common.userid);
+      const usersResult = await getUsers({ userId: tokenId }, body.common.userid, rawToken);
       validUser = (usersResult.users || []).find((u: any) => u.userId === tokenId);
       
       if (!validUser) {

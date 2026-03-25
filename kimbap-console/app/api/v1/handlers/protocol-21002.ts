@@ -8,6 +8,7 @@ interface Request21002 {
   common: {
     cmdId: number;
     userid: string;
+    rawToken?: string;
   };
   params: {
     timeRange: number;  // 时间范围: 1-今天, 7-最近7天, 30-最近30天, 90-最近90天
@@ -55,6 +56,7 @@ interface Response21002Data {
 export async function handleProtocol21002(body: Request21002): Promise<Response21002Data> {
   try {
     const { timeRange, tokenIds, page = 1, pageSize = 50 } = body.params;
+    const rawToken = body.common?.rawToken;
     const normalizedTokenIds = Array.isArray(tokenIds)
       ? tokenIds.map((id) => String(id).trim()).filter(Boolean)
       : [];
@@ -81,7 +83,7 @@ export async function handleProtocol21002(body: Request21002): Promise<Response2
         filters.userId = normalizedTokenIds[0];
       }
       
-      const usersResult = await getUsers(filters, body.common.userid);
+      const usersResult = await getUsers(filters, body.common.userid, rawToken);
       validUsers = usersResult.users || [];
       console.log('[Protocol-21002] Got valid users from proxy-api:', validUsers.length);
     } catch (error) {

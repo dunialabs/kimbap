@@ -390,7 +390,7 @@ export default function ApprovalsPage() {
                   value={statusFilter}
                   onValueChange={(v) => setStatusFilter(v as StatusFilter)}
                 >
-                  <SelectTrigger className="h-8 w-[130px] text-sm">
+                  <SelectTrigger className="h-8 w-[130px] text-sm" aria-label="Filter by status">
                     <SelectValue placeholder="Status" />
                   </SelectTrigger>
                   <SelectContent>
@@ -417,9 +417,9 @@ export default function ApprovalsPage() {
         </CardHeader>
         <CardContent>
           {loading ? (
-            <div className="flex items-center justify-center min-h-[200px]">
+            <div className="flex items-center justify-center min-h-[200px]" role="status">
               <div className="text-center">
-                <Loader2 className="h-8 w-8 animate-spin mx-auto mb-3 text-muted-foreground" />
+                <Loader2 className="h-8 w-8 animate-spin mx-auto mb-3 text-muted-foreground" aria-hidden="true" />
                 <p className="text-sm text-muted-foreground">Loading approval requests...</p>
               </div>
             </div>
@@ -647,12 +647,12 @@ export default function ApprovalsPage() {
               {detailDialog.executionResultAvailable && (
                 <div>
                   <Label className="text-xs text-muted-foreground">Execution Result</Label>
-                  <p className="mt-1 text-sm">Result is available for replay via resume token.</p>
+                  <p className="mt-1 text-sm">Execution result is available.</p>
                 </div>
               )}
 
               <div>
-                <Label className="text-xs text-muted-foreground">Tool Arguments (redacted)</Label>
+                <Label className="text-xs text-muted-foreground">Tool Arguments (Redacted)</Label>
                 <pre className="mt-1 text-xs bg-muted/50 p-3 rounded-md overflow-x-auto font-mono max-h-48 whitespace-pre-wrap break-all">
                   {JSON.stringify(redactArgs(detailDialog.redactedArgs || {}), null, 2)}
                 </pre>

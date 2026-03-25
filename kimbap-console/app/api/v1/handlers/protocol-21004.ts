@@ -65,20 +65,8 @@ export async function handleProtocol21004(body: Request21004): Promise<Response2
       }
     };
     
-    // 如果指定了tokenId，查找对应的tokenMask
     if (tokenId && tokenId.trim()) {
-      const user = await prisma.user.findFirst({
-        where: {
-          userid: tokenId.trim()
-        },
-        select: {
-          accessTokenHash: true
-        }
-      });
-      
-      if (user) {
-        whereCondition.tokenMask = user.accessTokenHash.substring(0, 16);
-      }
+      whereCondition.userid = tokenId.trim();
     }
     
     // 获取所有相关的日志数据

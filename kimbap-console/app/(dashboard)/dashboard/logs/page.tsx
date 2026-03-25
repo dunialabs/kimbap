@@ -14,7 +14,7 @@ import {
   ChevronDown,
   ChevronUp
 } from 'lucide-react'
-import { useState, useEffect, useCallback } from 'react'
+import { Suspense, useState, useEffect, useCallback } from 'react'
 import { useSearchParams } from 'next/navigation'
 import { toast } from 'sonner'
 
@@ -112,7 +112,7 @@ interface LogStatistics {
   hourlyStats: { hour: string; totalCount: number; errorCount: number; timestamp: number }[]
 }
 
-export default function LogsPage() {
+function LogsPageContent() {
   const searchParams = useSearchParams()
   const [logs, setLogs] = useState<LogEntry[]>([])
   const [totalCount, setTotalCount] = useState<number>(0)
@@ -1177,5 +1177,26 @@ export default function LogsPage() {
         </TabsContent>
       </Tabs>
     </div>
+  )
+}
+
+export default function LogsPage() {
+  return (
+    <Suspense
+      fallback={(
+        <div className="space-y-6 p-6">
+          <Card>
+            <CardContent className="py-10">
+              <div className="flex items-center justify-center gap-2 text-sm text-muted-foreground" role="status">
+                <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
+                <span>Loading logs...</span>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      )}
+    >
+      <LogsPageContent />
+    </Suspense>
   )
 }

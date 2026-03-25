@@ -1,7 +1,7 @@
 "use client"
 
-import { Wrench, TrendingUp, CheckCircle, XCircle, Clock, Activity, Zap, RefreshCw } from "lucide-react"
-import { useState, useEffect, useCallback, useRef } from "react"
+import { Wrench, TrendingUp, CheckCircle, XCircle, Clock, Activity, Zap, RefreshCw, AlertTriangle } from "lucide-react"
+import { Suspense, useState, useEffect, useCallback, useRef } from "react"
 import { useSearchParams } from "next/navigation"
 import {
   BarChart,
@@ -98,7 +98,7 @@ interface ToolUsageSummary {
 const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884D8', '#82CA9D', '#FF6B6B', '#4ECDC4', '#A855F7', '#F97316']
 const HEALTHY_SUCCESS_RATE_THRESHOLD = 95
 
-export default function ToolUsagePage() {
+function ToolUsagePageContent() {
   const searchParams = useSearchParams()
   const [timeRange, setTimeRange] = useState(() => {
     const param = searchParams.get('timeRange')
@@ -429,6 +429,7 @@ export default function ToolUsagePage() {
 
       {!loading && loadError ? (
         <div className="flex items-center gap-2 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700 dark:border-red-900/40 dark:bg-red-950/20 dark:text-red-300">
+          <AlertTriangle className="h-4 w-4 shrink-0" aria-hidden="true" />
           <span>{loadError}</span>
           <Button variant="outline" size="sm" className="ml-auto" onClick={handleRefresh}>Retry</Button>
         </div>
@@ -944,5 +945,26 @@ export default function ToolUsagePage() {
         </TabsContent>
       </Tabs>
     </div>
+  )
+}
+
+export default function ToolUsagePage() {
+  return (
+    <Suspense
+      fallback={(
+        <div className="space-y-6 p-6">
+          <Card>
+            <CardContent className="py-10">
+              <div className="flex items-center justify-center gap-2 text-sm text-muted-foreground" role="status">
+                <RefreshCw className="h-4 w-4 animate-spin" aria-hidden="true" />
+                <span>Loading tool usage...</span>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      )}
+    >
+      <ToolUsagePageContent />
+    </Suspense>
   )
 }

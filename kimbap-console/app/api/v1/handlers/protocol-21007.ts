@@ -72,20 +72,8 @@ export async function handleProtocol21007(body: Request21007): Promise<Response2
       statusCode: 429 // HTTP 429 Too Many Requests
     };
     
-    // 如果指定了tokenId，查找对应的tokenMask
     if (tokenId && tokenId.trim()) {
-      const user = await prisma.user.findFirst({
-        where: {
-          userid: tokenId.trim()
-        },
-        select: {
-          accessTokenHash: true
-        }
-      });
-      
-      if (user) {
-        whereCondition.tokenMask = user.accessTokenHash.substring(0, 16);
-      }
+      whereCondition.userid = tokenId.trim();
     }
     
     // 获取所有速率限制相关的日志

@@ -9,6 +9,7 @@ interface Request21001 {
   common: {
     cmdId: number;
     userid: string;
+    rawToken?: string;
   };
   params: {
     timeRange: number; // 时间范围: 1-今天, 7-最近7天, 30-最近30天, 90-最近90天
@@ -34,6 +35,7 @@ interface Response21001Data {
 export async function handleProtocol21001(body: Request21001): Promise<Response21001Data> {
   try {
     const { timeRange } = body.params;
+    const rawToken = body.common?.rawToken;
     
     // 1. 获取当前proxy的proxyKey（不用token）
     let proxyKey = '';
@@ -56,7 +58,7 @@ export async function handleProtocol21001(body: Request21001): Promise<Response2
     // 2. 从proxy-api获取用户列表（过滤删除的用户）
     let validUserIds = new Set<string>();
     try {
-      const usersResult = await getUsers({}, body.common.userid);
+      const usersResult = await getUsers({}, body.common.userid, rawToken);
       const usersList = usersResult.users || [];
       usersList.forEach((user: any) => {
         if (user.userId) {

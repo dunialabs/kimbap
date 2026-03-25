@@ -1,4 +1,4 @@
-export function getApiErrorMessage(error: any, fallback = '请求失败，请稍后重试'): string {
+export function getApiErrorMessage(error: any, fallback = 'Request failed, please try again later'): string {
   const data = error?.response?.data
 
   // 统一解析 /api/v1 返回格式：{ common: { code, message, cmdId, errorCode }, data }

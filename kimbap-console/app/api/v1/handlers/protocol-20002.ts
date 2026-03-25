@@ -7,6 +7,7 @@ interface Request20002 {
   common: {
     cmdId: number;
     userid: string;
+    rawToken?: string;
   };
   params: {
     timeRange: number;  // 时间范围: 1-今天, 7-最近7天, 30-最近30天, 90-最近90天
@@ -44,6 +45,7 @@ interface Response20002Data {
 export async function handleProtocol20002(body: Request20002): Promise<Response20002Data> {
   try {
     const { timeRange, toolIds, page = 1, pageSize = 50 } = body.params;
+    const rawToken = body.common?.rawToken;
     
     // 1. 获取当前proxy的proxyKey（不用token）
     let proxyKey = '';
@@ -67,7 +69,7 @@ export async function handleProtocol20002(body: Request20002): Promise<Response2
     let serversMap: { [serverId: string]: any } = {};
     let validServerIds = new Set<string>();
     try {
-      const serversResult = await getServers({ enabled: true }, body.common.userid);
+      const serversResult = await getServers({ enabled: true }, body.common.userid, rawToken);
       const serversList = serversResult.servers || [];
       serversList.forEach((server: any) => {
         if (server.serverId) {

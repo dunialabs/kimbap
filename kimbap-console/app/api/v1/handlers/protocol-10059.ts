@@ -5,6 +5,7 @@ interface Request10059 {
   common: {
     cmdId: number;
     userid: string;
+    rawToken?: string;
   };
   params: {
     serverId?: string;
@@ -33,6 +34,7 @@ interface Response10059Data {
 export async function handleProtocol10059(body: Request10059): Promise<Response10059Data> {
   const { serverId } = body.params || {};
   const userid = body.common?.userid;
+  const rawToken = body.common?.rawToken;
 
   console.log('[Protocol 10059] Get effective policy request:', { serverId, userid });
 
@@ -40,7 +42,8 @@ export async function handleProtocol10059(body: Request10059): Promise<Response1
     const response = await makeProxyRequestWithUserId<Response10059Data>(
       AdminActionType.GET_EFFECTIVE_POLICY,
       { serverId },
-      userid
+      userid,
+      rawToken,
     );
 
     if (!response.success) {

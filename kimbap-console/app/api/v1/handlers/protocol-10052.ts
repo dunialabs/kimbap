@@ -5,6 +5,7 @@ interface Request10052 {
   common: {
     cmdId: number;
     userid: string;
+    rawToken?: string;
   };
   params: {
     id: string;
@@ -35,6 +36,7 @@ interface Response10052Data {
 export async function handleProtocol10052(body: Request10052): Promise<Response10052Data> {
   const { id, dsl, status } = body.params || {};
   const userid = body.common?.userid;
+  const rawToken = body.common?.rawToken;
 
   console.log('[Protocol 10052] Update tool policy request:', { id, userid });
 
@@ -50,7 +52,8 @@ export async function handleProtocol10052(body: Request10052): Promise<Response1
     const response = await makeProxyRequestWithUserId<Response10052Data>(
       AdminActionType.UPDATE_TOOL_POLICY,
       { id, dsl, status },
-      userid
+      userid,
+      rawToken,
     );
 
     if (!response.success) {

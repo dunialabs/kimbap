@@ -13,6 +13,15 @@ const INIT_RATE_LIMIT = 5;
 const INIT_RATE_WINDOW_MS = 60_000;
 const initBuckets = new Map<string, { count: number; resetAt: number }>();
 
+if (typeof globalThis !== 'undefined') {
+  setInterval(() => {
+    const now = Date.now();
+    initBuckets.forEach((bucket, key) => {
+      if (now >= bucket.resetAt) initBuckets.delete(key);
+    });
+  }, INIT_RATE_WINDOW_MS * 2).unref?.();
+}
+
 function checkInitRateLimit(ip: string): boolean {
   const now = Date.now();
   const bucket = initBuckets.get(ip);
@@ -135,11 +144,11 @@ export async function POST(request: NextRequest) {
           accessTokenHash: hashToken(accessToken),
           proxyKey: proxyKey,
           role: 1, // 1-owner
-        } as any,
+        },
       });
     } catch (error) {
       console.error('Failed to save user to local table:', error);
-      // Continue execution even if local save fails
+      throw new ExternalApiError(E5001, 'Failed to save owner record to local database');
     }
 
     // Return success response

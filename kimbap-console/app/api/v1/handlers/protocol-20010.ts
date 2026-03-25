@@ -10,6 +10,7 @@ interface Request20010 {
   common: {
     cmdId: number;
     userid: string;
+    rawToken?: string;
   };
   params: {
     timeRange: number;       // 时间范围: 1-今天, 7-最近7天, 30-最近30天
@@ -48,6 +49,7 @@ interface Response20010Data {
  */
 export async function handleProtocol20010(body: Request20010): Promise<Response20010Data> {
   try {
+    const rawToken = body.common?.rawToken;
     const parsedTimeRange = Number(body.params?.timeRange);
     const normalizedTimeRange = Math.floor(parsedTimeRange);
     const timeRange = Number.isFinite(normalizedTimeRange) && normalizedTimeRange >= 1 ? normalizedTimeRange : 1;
@@ -167,8 +169,8 @@ export async function handleProtocol20010(body: Request20010): Promise<Response2
     let serversMap: Record<string, string> = {};
     try {
       const [usersResult, serversResult] = await Promise.all([
-        getUsers({}, body.common.userid),
-        getServers({}, body.common.userid)
+        getUsers({}, body.common.userid, rawToken),
+        getServers({}, body.common.userid, rawToken)
       ]);
 
       const usersList = usersResult.users || [];

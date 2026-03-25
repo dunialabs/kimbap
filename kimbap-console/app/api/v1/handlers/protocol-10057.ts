@@ -5,6 +5,7 @@ interface Request10057 {
   common: {
     cmdId: number;
     userid: string;
+    rawToken?: string;
   };
   params: {
     id: string;
@@ -30,6 +31,7 @@ interface Response10057Data {
 export async function handleProtocol10057(body: Request10057): Promise<Response10057Data> {
   const { id, decision, reason } = body.params || {};
   const userid = body.common?.userid;
+  const rawToken = body.common?.rawToken;
 
   console.log('[Protocol 10057] Decide approval request:', { id, decision, userid });
 
@@ -46,6 +48,7 @@ export async function handleProtocol10057(body: Request10057): Promise<Response1
       AdminActionType.DECIDE_APPROVAL_REQUEST,
       { id, decision, reason },
       userid,
+      rawToken,
     );
 
     if (!response.success) {

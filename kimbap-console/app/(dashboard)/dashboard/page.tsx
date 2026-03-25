@@ -265,7 +265,7 @@ export default function DashboardPage() {
           >
             <Card className="w-full flex items-center gap-1 justify-center h-[44px] cursor-pointer hover:bg-muted/50 transition-colors">
               <Shield className="h-4 w-4" />
-              <div className="action-content">Manage Policies</div>
+              <span className="text-sm font-medium">Manage Policies</span>
             </Card>
           </Link>
           <Link
@@ -275,7 +275,7 @@ export default function DashboardPage() {
           >
             <Card className="w-full flex items-center gap-1 justify-center h-[44px] cursor-pointer hover:bg-muted/50 transition-colors">
               <CheckCircle className="h-4 w-4" />
-              <div className="action-content">Review Approvals</div>
+              <span className="text-sm font-medium">Review Approvals</span>
               {pendingApprovalCount > 0 && (
                 <span className="inline-flex items-center justify-center rounded-full bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-300 text-xs font-medium min-w-[20px] h-5 px-1.5">
                   {pendingApprovalCount > 99 ? '99+' : pendingApprovalCount}
@@ -289,7 +289,7 @@ export default function DashboardPage() {
           >
             <Card className="w-full flex items-center gap-1 justify-center h-[44px] cursor-pointer hover:bg-muted/50 transition-colors">
               <TrendingUp className="h-4 w-4" />
-              <div className="action-content">View Usage</div>
+              <span className="text-sm font-medium">View Usage</span>
             </Card>
           </Link>
           <Link
@@ -298,7 +298,7 @@ export default function DashboardPage() {
           >
             <Card className="w-full flex items-center gap-1 justify-center h-[44px] cursor-pointer hover:bg-muted/50 transition-colors">
               <Activity className="h-4 w-4" />
-              <div className="action-content">View Logs</div>
+              <span className="text-sm font-medium">View Logs</span>
             </Card>
           </Link>
         </div>

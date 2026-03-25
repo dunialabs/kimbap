@@ -9,6 +9,7 @@ interface Request22003 {
   common: {
     cmdId: number;
     userid: string;
+    rawToken?: string;
   };
   params: {
     timeRange: number; // 时间范围: 1-今天, 7-最近7天, 30-最近30天
@@ -34,6 +35,7 @@ interface Response22003Data {
  */
 export async function handleProtocol22003(body: Request22003): Promise<Response22003Data> {
   try {
+    const rawToken = body.common?.rawToken;
     const parsedTimeRange = Number(body.params?.timeRange);
     const normalizedTimeRange = Math.floor(parsedTimeRange);
     const timeRange = Number.isFinite(normalizedTimeRange) && normalizedTimeRange >= 1 ? normalizedTimeRange : 1;
@@ -57,7 +59,7 @@ export async function handleProtocol22003(body: Request22003): Promise<Response2
     // 2. 从proxy-api获取用户列表（过滤删除的用户）
     let allUsers: any[] = [];
     try {
-      const usersResult = await getUsers({}, body.common.userid);
+      const usersResult = await getUsers({}, body.common.userid, rawToken);
       allUsers = usersResult.users || [];
       console.log('[Protocol-22003] Got valid users count:', allUsers.length);
     } catch (error) {

@@ -68,6 +68,11 @@ export async function POST(request: NextRequest) {
     }
 
     const isPublic = PUBLIC_CMD_IDS.has(cmdId);
+    body.common = body.common || {};
+
+    if (isPublic && 'rawToken' in body.common) {
+      delete body.common.rawToken;
+    }
 
     if (isPublic) {
       const clientIp = getClientIdentity(request);
@@ -95,8 +100,8 @@ export async function POST(request: NextRequest) {
         return ApiResponse.unauthorized(cmdId);
       }
 
-      body.common = body.common || {};
       body.common.userid = user.userid;
+      body.common.rawToken = token;
     }
 
     const responseData = await handler(body);

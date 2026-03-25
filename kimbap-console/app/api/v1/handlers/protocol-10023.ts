@@ -11,6 +11,7 @@ interface Request10023 {
   common: {
     cmdId: number;
     userid?: string;
+    rawToken?: string;
   };
   params: {
     timeRange?: string; // "24h", "7d", "30d", "90d"
@@ -74,6 +75,7 @@ interface Response10023Data {
 export async function handleProtocol10023(body: Request10023): Promise<Response10023Data> {
   const { timeRange = '30d' } = body.params || {};
   const userid = body.common.userid;
+  const rawToken = body.common?.rawToken;
   
   try {
     const sshTunnelAddress = '';
@@ -177,8 +179,8 @@ export async function handleProtocol10023(body: Request10023): Promise<Response1
 
     if (userid) {
       const [usersResult, serversResult] = await Promise.allSettled([
-        getUsers({}, userid),
-        getServers({}, userid),
+        getUsers({}, userid, rawToken),
+        getServers({}, userid, rawToken),
       ]);
 
       if (usersResult.status === 'fulfilled') {

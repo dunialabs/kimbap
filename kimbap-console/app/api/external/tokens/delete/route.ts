@@ -60,28 +60,32 @@ export async function POST(request: NextRequest) {
       await disableUser(tokenId, undefined, ownerToken);
     } catch (error) {
       console.error('Failed to disable user in proxy:', error);
-      // Continue with deletion even if disable fails
     }
 
     // Delete the user via proxy API (from Kimbap Core)
     await deleteUser(tokenId, undefined, ownerToken);
 
-    // Clean up local data
+    // Clean up local data — track partial failures
+    const cleanupErrors: string[] = [];
+
     try {
       await deleteTokenMetadata(proxy.id, tokenId);
     } catch (error) {
       console.error('Failed to delete token metadata:', error);
+      cleanupErrors.push('token_metadata');
     }
 
     try {
       await prisma.user.deleteMany({ where: { userid: tokenId } });
     } catch (error) {
       console.error('Failed to delete user from local table:', error);
+      cleanupErrors.push('local_user');
     }
 
     return ApiResponse.success({
       tokenId,
       message: 'Token deleted successfully',
+      ...(cleanupErrors.length > 0 && { warnings: [`Partial cleanup failure: ${cleanupErrors.join(', ')}`] }),
     }, 200, request);
   } catch (error) {
     return ApiResponse.handleError(error, request);

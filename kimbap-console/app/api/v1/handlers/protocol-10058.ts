@@ -5,6 +5,7 @@ interface Request10058 {
   common: {
     cmdId: number;
     userid: string;
+    rawToken?: string;
   };
   params: {
     userId?: string;
@@ -23,6 +24,7 @@ interface Response10058Data {
 export async function handleProtocol10058(body: Request10058): Promise<Response10058Data> {
   const { userId } = body.params || {};
   const userid = body.common?.userid;
+  const rawToken = body.common?.rawToken;
 
   console.log('[Protocol 10058] Count pending approvals request:', { userId, userid });
 
@@ -30,7 +32,8 @@ export async function handleProtocol10058(body: Request10058): Promise<Response1
     const response = await makeProxyRequestWithUserId<Response10058Data>(
       AdminActionType.COUNT_PENDING_APPROVALS,
       { userId },
-      userid
+      userid,
+      rawToken,
     );
 
     if (!response.success) {

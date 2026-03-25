@@ -55,7 +55,7 @@ services:
       DATABASE_URL: ${KIMBAP_CORE_DATABASE_URL:-postgresql://kimbap:kimbap123@postgres:5432/kimbap_db?schema=public}
       PORT: 3002
       BACKEND_PORT: 3002
-      JWT_SECRET: ${KIMBAP_CORE_JWT_SECRET:-kimbap-core-secret-key-change-this}
+      JWT_SECRET: ${JWT_SECRET:-kimbap-default-jwt-secret-change-in-production}
     ports:
       - '${KIMBAP_CORE_PORT:-3002}:3002'
     networks:

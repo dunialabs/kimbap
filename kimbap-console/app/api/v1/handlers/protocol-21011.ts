@@ -7,6 +7,7 @@ interface Request21011 {
   common: {
     cmdId: number;
     userid: string;
+    rawToken?: string;
   };
   params: {
     limit?: number; // 返回记录数，默认50
@@ -49,6 +50,7 @@ interface Response21011Data {
  */
 export async function handleProtocol21011(body: Request21011): Promise<Response21011Data> {
   try {
+    const rawToken = body.common?.rawToken;
     const parsedLimit = Number(body.params?.limit);
     const normalizedLimit = Math.floor(parsedLimit);
     const limit = Number.isFinite(normalizedLimit) && normalizedLimit >= 1 ? normalizedLimit : 50;
@@ -143,7 +145,7 @@ export async function handleProtocol21011(body: Request21011): Promise<Response2
 
     let usersMap: Record<string, string> = {};
     try {
-      const usersResult = await getUsers({}, body.common.userid);
+      const usersResult = await getUsers({}, body.common.userid, rawToken);
       const usersList = usersResult.users || [];
       usersList.forEach((user: any) => {
         if (!user?.userId) return;

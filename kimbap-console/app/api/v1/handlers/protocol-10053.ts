@@ -5,6 +5,7 @@ interface Request10053 {
   common: {
     cmdId: number;
     userid: string;
+    rawToken?: string;
   };
   params: {
     id: string;
@@ -23,6 +24,7 @@ interface Response10053Data {
 export async function handleProtocol10053(body: Request10053): Promise<Response10053Data> {
   const { id } = body.params || {};
   const userid = body.common?.userid;
+  const rawToken = body.common?.rawToken;
 
   console.log('[Protocol 10053] Delete tool policy request:', { id, userid });
 
@@ -34,7 +36,8 @@ export async function handleProtocol10053(body: Request10053): Promise<Response1
     const response = await makeProxyRequestWithUserId<Response10053Data>(
       AdminActionType.DELETE_TOOL_POLICY,
       { id },
-      userid
+      userid,
+      rawToken,
     );
 
     if (!response.success) {

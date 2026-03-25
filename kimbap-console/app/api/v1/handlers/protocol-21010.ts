@@ -186,35 +186,7 @@ export async function handleProtocol21010(body: Request21010): Promise<Response2
     };
 
     if (tokenId && tokenId.trim()) {
-      const user = await prisma.user.findFirst({
-        where: {
-          proxyKey: proxy.proxyKey,
-          userid: tokenId.trim()
-        },
-        select: {
-          accessTokenHash: true
-        }
-      });
-
-      const accessTokenHash = user?.accessTokenHash;
-      if (accessTokenHash && accessTokenHash.length > 0) {
-        whereCondition.tokenMask = accessTokenHash.substring(0, 16);
-      } else {
-        return {
-          auditLogs: [],
-          pagination: {
-            page,
-            pageSize,
-            total: 0,
-            totalPages: 0
-          },
-          statistics: {
-            totalEvents: 0,
-            eventTypeDistribution: [],
-            riskDistribution: []
-          }
-        };
-      }
+      whereCondition.userid = tokenId.trim();
     }
 
     const logs: AuditRawLog[] = await prisma.log.findMany({

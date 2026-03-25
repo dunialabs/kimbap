@@ -30,8 +30,11 @@ async function cleanupExpiredExports(exportDir: string, now: number): Promise<vo
   );
 }
 
-export async function GET(_request: NextRequest, { params }: { params: { filename: string } }) {
-  const filename = params?.filename || '';
+export async function GET(
+  _request: NextRequest,
+  { params }: { params: Promise<{ filename: string }> },
+) {
+  const { filename = '' } = await params;
   if (!filename || filename.includes('/') || filename.includes('\\')) {
     return NextResponse.json({ error: 'Invalid filename' }, { status: 400 });
   }

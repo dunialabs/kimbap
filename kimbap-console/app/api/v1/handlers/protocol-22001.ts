@@ -10,6 +10,7 @@ interface Request22001 {
   common: {
     cmdId: number;
     userid: string;
+    rawToken?: string;
   };
   params: {
     timeRange?: number;
@@ -33,6 +34,7 @@ interface Response22001Data {
  */
 export async function handleProtocol22001(body: Request22001): Promise<Response22001Data> {
   try {
+    const rawToken = body.common?.rawToken;
     const parsedTimeRange = Number(body.params?.timeRange);
     const normalizedTimeRange = Math.floor(parsedTimeRange);
     const timeRange = Number.isFinite(normalizedTimeRange) && normalizedTimeRange >= 1 ? normalizedTimeRange : 1;
@@ -94,7 +96,7 @@ export async function handleProtocol22001(body: Request22001): Promise<Response2
     // 2. 从proxy-api获取用户列表（过滤删除的用户）
     let validUserIds: Set<string> | null = null;
     try {
-      const usersResult = await getUsers({}, body.common.userid);
+      const usersResult = await getUsers({}, body.common.userid, rawToken);
       const usersList = usersResult.users || [];
       validUserIds = new Set<string>();
       usersList.forEach((user: any) => {
@@ -167,7 +169,7 @@ export async function handleProtocol22001(body: Request22001): Promise<Response2
       // 获取工具列表用于名称映射
       let serversMap: { [serverId: string]: any } = {};
       try {
-        const serversResult = await getServers({}, body.common.userid);
+        const serversResult = await getServers({}, body.common.userid, rawToken);
         const serversList = serversResult.servers || [];
         serversList.forEach((server: any) => {
           serversMap[server.serverId] = server;

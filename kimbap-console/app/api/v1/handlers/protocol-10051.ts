@@ -5,6 +5,7 @@ interface Request10051 {
   common: {
     cmdId: number;
     userid: string;
+    rawToken?: string;
   };
   params: {
     id: string;
@@ -31,6 +32,7 @@ interface Response10051Data {
 export async function handleProtocol10051(body: Request10051): Promise<Response10051Data> {
   const { id } = body.params || {};
   const userid = body.common?.userid;
+  const rawToken = body.common?.rawToken;
 
   console.log('[Protocol 10051] Get tool policy request:', { id, userid });
 
@@ -42,7 +44,8 @@ export async function handleProtocol10051(body: Request10051): Promise<Response1
     const response = await makeProxyRequestWithUserId<Response10051Data>(
       AdminActionType.GET_TOOL_POLICY,
       { id },
-      userid
+      userid,
+      rawToken,
     );
 
     if (!response.success) {

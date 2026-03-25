@@ -5,9 +5,10 @@ import {
   TrendingUp,
   Zap,
   Globe,
-  RefreshCw
+  RefreshCw,
+  AlertTriangle
 } from 'lucide-react'
-import { useState, useEffect, useCallback, useRef } from 'react'
+import { Suspense, useState, useEffect, useCallback, useRef } from 'react'
 import { useSearchParams } from 'next/navigation'
 import {
   XAxis,
@@ -118,7 +119,7 @@ const COLORS = [
 ]
 const HEALTHY_SUCCESS_RATE_THRESHOLD = 95
 
-export default function TokenUsagePage() {
+function TokenUsagePageContent() {
   const searchParams = useSearchParams()
   const [timeRange, setTimeRange] = useState(() => {
     const param = searchParams.get('timeRange')
@@ -377,6 +378,7 @@ export default function TokenUsagePage() {
       <p className="text-xs text-muted-foreground">Minute-level patterns are available only for the last 24 hours.</p>
       {!loading && loadError ? (
         <div className="flex items-center gap-2 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700 dark:border-red-900/40 dark:bg-red-950/20 dark:text-red-300">
+          <AlertTriangle className="h-4 w-4 shrink-0" aria-hidden="true" />
           <span>{loadError}</span>
           <Button variant="outline" size="sm" className="ml-auto" onClick={handleRefresh}>Retry</Button>
         </div>
@@ -851,5 +853,26 @@ export default function TokenUsagePage() {
         </TabsContent>
       </Tabs>
     </div>
+  )
+}
+
+export default function TokenUsagePage() {
+  return (
+    <Suspense
+      fallback={(
+        <div className="space-y-6 p-6">
+          <Card>
+            <CardContent className="py-10">
+              <div className="flex items-center justify-center gap-2 text-sm text-muted-foreground" role="status">
+                <RefreshCw className="h-4 w-4 animate-spin" aria-hidden="true" />
+                <span>Loading token usage...</span>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      )}
+    >
+      <TokenUsagePageContent />
+    </Suspense>
   )
 }

@@ -165,24 +165,8 @@ export async function handleProtocol21009(body: Request21009): Promise<Response2
     };
 
     if (tokenIds && tokenIds.length > 0) {
-      const users = await prisma.user.findMany({
-        where: {
-          proxyKey: proxy.proxyKey,
-          userid: {
-            in: tokenIds
-          }
-        },
-        select: {
-          accessTokenHash: true
-        }
-      });
-
-      const targetTokenMasks = users
-        .map((user) => user.accessTokenHash)
-        .filter((token) => token.length > 0)
-        .map((token) => token.substring(0, 16));
-      whereCondition.tokenMask = {
-        in: targetTokenMasks
+      whereCondition.userid = {
+        in: tokenIds.map((id: string) => id.trim()).filter((id: string) => id.length > 0)
       };
     }
 

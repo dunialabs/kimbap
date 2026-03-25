@@ -6,6 +6,7 @@ interface Request21003 {
   common: {
     cmdId: number;
     userid: string;
+    rawToken?: string;
   };
   params: {
     timeRange: number;      // 时间范围: 7-最近7天, 30-最近30天, 90-最近90天
@@ -30,6 +31,7 @@ interface Response21003Data {
 export async function handleProtocol21003(body: Request21003): Promise<Response21003Data> {
   try {
     const { timeRange, tokenIds, granularity } = body.params;
+    const rawToken = body.common?.rawToken;
     
     // 1. 获取当前proxy的proxyKey（不用token）
     let proxyKey = '';
@@ -53,7 +55,7 @@ export async function handleProtocol21003(body: Request21003): Promise<Response2
         filters.userIds = tokenIds;
       }
       
-      const usersResult = await getUsers(filters, body.common.userid);
+      const usersResult = await getUsers(filters, body.common.userid, rawToken);
       validUsers = usersResult.users || [];
       console.log('[Protocol-21003] Got valid users:', validUsers.length);
     } catch (error) {
