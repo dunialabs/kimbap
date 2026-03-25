@@ -39,8 +39,14 @@ func NewSkillsService() *SkillsService {
 }
 
 func (s *SkillsService) ListSkills(serverID string) ([]SkillInfo, error) {
-	serverDir, err := s.ensureServerSkillsDir(serverID)
-	if err != nil {
+	if err := validateName(serverID); err != nil {
+		return nil, err
+	}
+	serverDir := s.serverSkillsDirPath(serverID)
+	if _, err := os.Stat(serverDir); err != nil {
+		if errors.Is(err, os.ErrNotExist) {
+			return nil, ErrNoSkillsDirectoryFound
+		}
 		return nil, err
 	}
 	entries, err := os.ReadDir(serverDir)
@@ -176,11 +182,15 @@ func (s *SkillsService) ensureServerSkillsDir(serverID string) (string, error) {
 	if err := validateName(serverID); err != nil {
 		return "", err
 	}
-	dir := filepath.Join(s.skillsDir, serverID)
+	dir := s.serverSkillsDirPath(serverID)
 	if err := os.MkdirAll(dir, 0o755); err != nil {
 		return "", err
 	}
 	return dir, nil
+}
+
+func (s *SkillsService) serverSkillsDirPath(serverID string) string {
+	return filepath.Join(s.skillsDir, serverID)
 }
 
 func validateName(name string) error {

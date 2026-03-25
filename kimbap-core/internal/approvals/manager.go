@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log"
 	"sync"
 	"time"
 
@@ -68,7 +69,7 @@ func (m *ApprovalManager) Submit(ctx context.Context, req *ApprovalRequest) erro
 	}
 	if m.notifier != nil {
 		if err := m.notifier.Notify(ctx, req); err != nil {
-			return err
+			log.Printf("approvals notifier failed for request %s: %v", req.ID, err)
 		}
 	}
 
@@ -136,6 +137,12 @@ func (m *ApprovalManager) Deny(ctx context.Context, id string, deniedBy string, 
 	}
 	if err := validatePendingForResolution(req); err != nil {
 		return err
+	}
+
+	for _, v := range req.Votes {
+		if v.ApproverID == deniedBy {
+			return fmt.Errorf("%w: %s", ErrDuplicateVote, deniedBy)
+		}
 	}
 
 	now := time.Now().UTC()

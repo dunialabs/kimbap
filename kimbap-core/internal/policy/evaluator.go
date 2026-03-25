@@ -68,7 +68,11 @@ func (rl *rateLimiter) check(key string, maxRequests int, windowSec int) *RateSt
 	if allowed {
 		pruned = append(pruned, now)
 	}
-	rl.windows[key] = pruned
+	if len(pruned) == 0 {
+		delete(rl.windows, key)
+	} else {
+		rl.windows[key] = pruned
+	}
 
 	remaining := maxRequests - len(pruned)
 	if remaining < 0 {
@@ -118,7 +122,11 @@ func (e *Evaluator) Evaluate(_ context.Context, req EvalRequest) (*EvalResult, e
 			Reason:      "matched rule " + rule.ID,
 		}
 		if rule.RateLimit != nil && rule.RateLimit.MaxRequests > 0 && rule.RateLimit.WindowSec > 0 {
-			key := fmt.Sprintf("%s:%s:%s:%s", req.TenantID, req.AgentName, req.Service, rule.ID)
+			keyPart := fmt.Sprintf("%s:%s:%s", req.TenantID, req.AgentName, req.Service)
+			if rule.RateLimit.Scope != "" {
+				keyPart = rule.RateLimit.Scope
+			}
+			key := fmt.Sprintf("%s:%s", keyPart, rule.ID)
 			status := e.rl.check(key, rule.RateLimit.MaxRequests, rule.RateLimit.WindowSec)
 			res.RateStatus = status
 			if !status.Allowed {

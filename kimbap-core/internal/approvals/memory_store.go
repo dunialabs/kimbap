@@ -22,6 +22,9 @@ func (s *MemoryApprovalStore) Create(_ context.Context, req *ApprovalRequest) er
 	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	if _, exists := s.items[req.ID]; exists {
+		return fmt.Errorf("%w: %s", ErrAlreadyResolved, req.ID)
+	}
 	s.items[req.ID] = deepCopyApprovalRequest(*req)
 	return nil
 }
@@ -59,6 +62,10 @@ func deepCopyApprovalRequest(src ApprovalRequest) ApprovalRequest {
 		cp.Votes = make([]ApprovalVote, len(src.Votes))
 		copy(cp.Votes, src.Votes)
 	}
+	if src.ResolvedAt != nil {
+		t := *src.ResolvedAt
+		cp.ResolvedAt = &t
+	}
 	return cp
 }
 
@@ -68,7 +75,7 @@ func (s *MemoryApprovalStore) ListPending(_ context.Context, tenantID string) ([
 	out := make([]ApprovalRequest, 0)
 	for _, item := range s.items {
 		if item.TenantID == tenantID && item.Status == StatusPending {
-			out = append(out, item)
+			out = append(out, deepCopyApprovalRequest(item))
 		}
 	}
 	return out, nil
@@ -91,7 +98,7 @@ func (s *MemoryApprovalStore) ListAll(_ context.Context, tenantID string, filter
 		if filter.Service != "" && item.Service != filter.Service {
 			continue
 		}
-		out = append(out, item)
+		out = append(out, deepCopyApprovalRequest(item))
 		if filter.Limit > 0 && len(out) >= filter.Limit {
 			break
 		}
