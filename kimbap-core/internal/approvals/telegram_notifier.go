@@ -48,13 +48,12 @@ func (t *TelegramNotifier) Notify(ctx context.Context, req *ApprovalRequest) err
 		return fmt.Errorf("telegram notifier: chat ID is required")
 	}
 
-	text := fmt.Sprintf("*[Kimbap] Approval Required*\nService: `%s.%s`\nAgent: `%s` | Risk: `%s`\nID: `%s`\n\n`kimbap approve %s`",
+	text := fmt.Sprintf("[Kimbap] Approval Required\nService: %s.%s\nAgent: %s | Risk: %s\nID: %s\n\nkimbap approve %s",
 		req.Service, req.Action, req.AgentName, req.Risk, req.ID, req.ID)
 
 	payload, err := json.Marshal(map[string]string{
-		"chat_id":    t.chatID,
-		"text":       text,
-		"parse_mode": "Markdown",
+		"chat_id": t.chatID,
+		"text":    text,
 	})
 	if err != nil {
 		return fmt.Errorf("telegram notifier: marshal payload: %w", err)

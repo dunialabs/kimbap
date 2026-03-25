@@ -35,8 +35,8 @@ func TestTelegramNotifierSendsCorrectPayload(t *testing.T) {
 	if body["chat_id"] != "mychat456" {
 		t.Errorf("wrong chat_id: %q", body["chat_id"])
 	}
-	if body["parse_mode"] != "Markdown" {
-		t.Errorf("expected Markdown parse_mode, got %q", body["parse_mode"])
+	if body["parse_mode"] != "" {
+		t.Errorf("expected no parse_mode (plain text), got %q", body["parse_mode"])
 	}
 	if !strings.Contains(body["text"], "appr_tg1") {
 		t.Errorf("text missing approval ID")
