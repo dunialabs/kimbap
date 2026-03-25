@@ -109,40 +109,29 @@ export async function handleProtocol22001(body: Request22001): Promise<Response2
       console.warn('[Protocol-22001] Failed to get users from proxy-api:', error);
     }
     
-    // 查询24小时内活跃令牌数（基于userid，与Protocol 21001保持一致）
+    const validUserIdList = validUserIds && validUserIds.size > 0 ? Array.from(validUserIds) : null;
+    const useridFilter = validUserIdList ? { in: validUserIdList, not: '' } : { not: '' };
+
     const activeTokensResult = await prisma.log.findMany({
       where: {
         ...logWhereCondition,
-        addtime: {
-          gte: BigInt(currentRangeStart)
-        },
-        userid: validUserIds && validUserIds.size > 0
-          ? { in: Array.from(validUserIds), not: '' }
-          : { not: '' }
+        addtime: { gte: BigInt(currentRangeStart) },
+        userid: useridFilter,
       },
-      select: {
-        userid: true
-      },
-      distinct: ['userid']
+      select: { userid: true },
+      distinct: ['userid'],
     });
     
     const activeTokensCount = activeTokensResult.length;
     
-    // 查询最近1小时使用的令牌数（基于userid，与Protocol 21001保持一致）
     const tokensUsedLastHourResult = await prisma.log.findMany({
       where: {
         ...logWhereCondition,
-        addtime: {
-          gte: BigInt(oneHourAgo)
-        },
-        userid: validUserIds && validUserIds.size > 0
-          ? { in: Array.from(validUserIds), not: '' }
-          : { not: '' }
+        addtime: { gte: BigInt(oneHourAgo) },
+        userid: useridFilter,
       },
-      select: {
-        userid: true
-      },
-      distinct: ['userid']
+      select: { userid: true },
+      distinct: ['userid'],
     });
     
     const tokensUsedLastHourCount = tokensUsedLastHourResult.length;
