@@ -175,17 +175,13 @@ func (s *Server) handleCreateToken(w http.ResponseWriter, r *http.Request) {
 		writeEnvelopeError(w, r, actions.NewExecutionError(actions.ErrValidationFailed, "agent_name is required", http.StatusBadRequest, false, nil))
 		return
 	}
-	tenantID, ok := requireTenantContext(w, r)
+	principal, tenantID, ok := requirePrincipalWithTenantContext(w, r)
 	if !ok {
 		return
 	}
 	requestedTenantID := strings.TrimSpace(req.TenantID)
 	if requestedTenantID != "" && requestedTenantID != tenantID {
 		writeEnvelopeError(w, r, actions.NewExecutionError(actions.ErrUnauthorized, "tenant_id does not match authenticated tenant context", http.StatusForbidden, false, nil))
-		return
-	}
-	principal, _, ok := requirePrincipalWithTenantContext(w, r)
-	if !ok {
 		return
 	}
 	if len(req.Scopes) > 0 {
@@ -198,12 +194,12 @@ func (s *Server) handleCreateToken(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 	}
-	if req.TTLSeconds < 0 || req.TTLSeconds > maxCreateTokenTTLSeconds {
-		writeEnvelopeError(w, r, actions.NewExecutionError(actions.ErrValidationFailed, auth.ErrInvalidTTL.Error(), http.StatusBadRequest, false, nil))
-		return
-	}
 	ttl := 30 * 24 * time.Hour
-	if req.TTLSeconds > 0 {
+	if req.TTLSeconds != 0 {
+		if req.TTLSeconds < 0 || req.TTLSeconds > maxCreateTokenTTLSeconds {
+			writeEnvelopeError(w, r, actions.NewExecutionError(actions.ErrValidationFailed, "ttl_seconds must be between 1 and 31536000", http.StatusBadRequest, false, nil))
+			return
+		}
 		ttl = time.Duration(req.TTLSeconds) * time.Second
 	}
 	raw, issued, err := s.tokenService.Issue(r.Context(), tenantID, req.AgentName, req.Scopes, ttl)

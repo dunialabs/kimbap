@@ -25,8 +25,7 @@ func BearerAuth(tokenService *auth.TokenService) func(next http.Handler) http.Ha
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			if tokenService == nil {
-				setBearerAuthHeader(w, "invalid_token", "token service unavailable", "")
-				writeEnvelopeError(w, r, actions.NewExecutionError(actions.ErrUnauthenticated, "token service unavailable", http.StatusUnauthorized, false, nil))
+				writeEnvelopeError(w, r, actions.NewExecutionError(actions.ErrDownstreamUnavailable, "token service unavailable", http.StatusInternalServerError, false, nil))
 				return
 			}
 			authz := strings.TrimSpace(r.Header.Get("Authorization"))
@@ -43,17 +42,19 @@ func BearerAuth(tokenService *auth.TokenService) func(next http.Handler) http.Ha
 			}
 			principal, err := tokenService.Validate(r.Context(), strings.TrimSpace(parts[1]))
 			if err != nil {
-				status := http.StatusUnauthorized
-				msg := "authentication failed"
-				if errors.Is(err, auth.ErrExpiredToken) {
-					msg = "token expired"
-				} else if errors.Is(err, auth.ErrRevokedToken) {
-					msg = "token revoked"
-				} else if errors.Is(err, auth.ErrInvalidToken) {
-					msg = "invalid token"
+				switch {
+				case errors.Is(err, auth.ErrExpiredToken):
+					setBearerAuthHeader(w, "invalid_token", "token expired", "")
+					writeEnvelopeError(w, r, actions.NewExecutionError(actions.ErrUnauthenticated, "token expired", http.StatusUnauthorized, false, nil))
+				case errors.Is(err, auth.ErrRevokedToken):
+					setBearerAuthHeader(w, "invalid_token", "token revoked", "")
+					writeEnvelopeError(w, r, actions.NewExecutionError(actions.ErrUnauthenticated, "token revoked", http.StatusUnauthorized, false, nil))
+				case errors.Is(err, auth.ErrInvalidToken):
+					setBearerAuthHeader(w, "invalid_token", "invalid token", "")
+					writeEnvelopeError(w, r, actions.NewExecutionError(actions.ErrUnauthenticated, "invalid token", http.StatusUnauthorized, false, nil))
+				default:
+					writeEnvelopeError(w, r, actions.NewExecutionError(actions.ErrDownstreamUnavailable, "authentication service error", http.StatusInternalServerError, false, nil))
 				}
-				setBearerAuthHeader(w, "invalid_token", msg, "")
-				writeEnvelopeError(w, r, actions.NewExecutionError(actions.ErrUnauthenticated, msg, status, false, nil))
 				return
 			}
 			ctx := context.WithValue(r.Context(), contextKeyPrincipal, principal)
