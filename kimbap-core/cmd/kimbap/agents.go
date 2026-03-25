@@ -104,7 +104,7 @@ func newAgentsStatusCommand() *cobra.Command {
 }
 
 func runAgentsSync(projectDir string, rawAgentKinds string, force bool, dryRun bool) (agentSetupResult, error) {
-	cfg, err := loadAppConfig()
+	cfg, err := loadAppConfigReadOnly()
 	if err != nil {
 		return agentSetupResult{}, err
 	}

@@ -170,6 +170,17 @@ func vaultStatusFromConfig(cfg *config.KimbapConfig) string {
 }
 
 func loadAppConfig() (*config.KimbapConfig, error) {
+	cfg, err := loadAppConfigReadOnly()
+	if err != nil {
+		return nil, err
+	}
+	if err := os.MkdirAll(cfg.DataDir, 0o755); err != nil {
+		return nil, fmt.Errorf("create data dir: %w", err)
+	}
+	return cfg, nil
+}
+
+func loadAppConfigReadOnly() (*config.KimbapConfig, error) {
 	var (
 		cfg *config.KimbapConfig
 		err error
@@ -198,10 +209,6 @@ func loadAppConfig() (*config.KimbapConfig, error) {
 	}
 	if strings.TrimSpace(opts.mode) != "" {
 		cfg.Mode = opts.mode
-	}
-
-	if err := os.MkdirAll(cfg.DataDir, 0o755); err != nil {
-		return nil, fmt.Errorf("create data dir: %w", err)
 	}
 
 	return cfg, nil
