@@ -17,18 +17,20 @@ type TelegramNotifier struct {
 	client  *http.Client
 }
 
-type telegramOption func(*TelegramNotifier)
+// TelegramOption is a functional option for TelegramNotifier.
+type TelegramOption func(*TelegramNotifier)
 
-func WithBaseURL(baseURL string) telegramOption {
+// WithBaseURL overrides the Telegram API base URL. Intended for testing.
+func WithBaseURL(baseURL string) TelegramOption {
 	return func(t *TelegramNotifier) {
 		t.baseURL = strings.TrimRight(baseURL, "/")
 	}
 }
 
-func NewTelegramNotifier(token, chatID string, opts ...telegramOption) *TelegramNotifier {
+func NewTelegramNotifier(token, chatID string, opts ...TelegramOption) *TelegramNotifier {
 	n := &TelegramNotifier{
-		token:   token,
-		chatID:  chatID,
+		token:   strings.TrimSpace(token),
+		chatID:  strings.TrimSpace(chatID),
 		baseURL: "https://api.telegram.org",
 		client:  &http.Client{Timeout: 10 * time.Second},
 	}

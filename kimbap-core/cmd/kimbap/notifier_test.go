@@ -19,8 +19,8 @@ func TestBuildNotifierFromConfigSlack(t *testing.T) {
 	cfg := config.DefaultConfig()
 	cfg.Notifications.Slack.WebhookURL = "https://hooks.slack.com/test"
 	n := buildNotifierFromConfig(cfg)
-	if _, ok := n.(*approvals.SlackNotifier); !ok {
-		t.Errorf("expected SlackNotifier for slack config, got %T", n)
+	if _, ok := n.(*approvals.MultiNotifier); !ok {
+		t.Errorf("expected MultiNotifier for single adapter config, got %T", n)
 	}
 }
 
