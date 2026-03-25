@@ -21,6 +21,7 @@ import (
 	corecrypto "github.com/dunialabs/kimbap-core/internal/crypto"
 	"github.com/dunialabs/kimbap-core/internal/runtime"
 	"github.com/dunialabs/kimbap-core/internal/skills"
+	"github.com/dunialabs/kimbap-core/internal/splash"
 	"github.com/dunialabs/kimbap-core/internal/vault"
 	"github.com/spf13/cobra"
 )
@@ -34,6 +35,7 @@ type cliOptions struct {
 	jsonInput  string
 	dryRun     bool
 	trace      bool
+	noSplash   bool
 }
 
 const defaultApprovalTTL = 30 * time.Minute
@@ -45,7 +47,12 @@ var rootCmd = &cobra.Command{
 	Short:        "Secure action runtime for AI agents",
 	Long:         "Kimbap lets AI agents use external services without handling raw credentials.",
 	SilenceUsage: true,
+	PersistentPreRun: func(cmd *cobra.Command, args []string) {
+		showSplashOnce()
+	},
 }
+
+var splashShown bool
 
 func init() {
 	flags := rootCmd.PersistentFlags()
@@ -56,6 +63,14 @@ func init() {
 	flags.StringVar(&opts.format, "format", "text", "output format (text, json)")
 	flags.BoolVar(&opts.dryRun, "dry-run", false, "validate and preview without executing (returns JSON)")
 	flags.BoolVar(&opts.trace, "trace", false, "print execution pipeline trace to stderr")
+	flags.BoolVar(&opts.noSplash, "no-splash", false, "disable startup splash output")
+	rootCmd.Version = strings.TrimSpace(config.AppInfo.Version)
+	rootCmd.SetVersionTemplate("kimbap {{.Version}}\n")
+	defaultHelp := rootCmd.HelpFunc()
+	rootCmd.SetHelpFunc(func(cmd *cobra.Command, args []string) {
+		showSplashOnce()
+		defaultHelp(cmd, args)
+	})
 
 	rootCmd.AddCommand(newCallCommand())
 	rootCmd.AddCommand(newActionsCommand())
@@ -75,6 +90,83 @@ func init() {
 	rootCmd.AddCommand(newDaemonCommand())
 	rootCmd.AddCommand(newAgentProfileCommand())
 	rootCmd.AddCommand(newAgentsCommand())
+}
+
+func showSplashOnce() {
+	if splashShown || opts.noSplash {
+		return
+	}
+	if outputAsJSON() {
+		return
+	}
+	if fi, err := os.Stdout.Stat(); err != nil || (fi.Mode()&os.ModeCharDevice) == 0 {
+		return
+	}
+	splash.Print(splashOptions())
+	splashShown = true
+}
+
+func splashOptions() splash.Options {
+	cfg, err := loadSplashConfig()
+	if err != nil {
+		return splash.Options{
+			Version:     strings.TrimSpace(config.AppInfo.Version),
+			Mode:        modeFromRaw(opts.mode),
+			VaultStatus: vaultStatusFromRaw(opts.mode),
+			Server:      strings.TrimSpace(os.Getenv("KIMBAP_AUTH_SERVER_URL")),
+		}
+	}
+
+	if strings.TrimSpace(opts.mode) != "" {
+		cfg.Mode = strings.TrimSpace(opts.mode)
+	}
+
+	return splash.Options{
+		Version:     strings.TrimSpace(config.AppInfo.Version),
+		Mode:        modeFromRaw(cfg.Mode),
+		VaultStatus: vaultStatusFromConfig(cfg),
+		Server:      strings.TrimSpace(cfg.Auth.ServerURL),
+	}
+}
+
+func loadSplashConfig() (*config.KimbapConfig, error) {
+	if strings.TrimSpace(opts.configPath) == "" {
+		return config.LoadKimbapConfig()
+	}
+	return config.LoadKimbapConfig(opts.configPath)
+}
+
+func modeFromRaw(raw string) splash.Mode {
+	if strings.EqualFold(strings.TrimSpace(raw), string(splash.ModeConnected)) {
+		return splash.ModeConnected
+	}
+	return splash.ModeEmbedded
+}
+
+func vaultStatusFromRaw(mode string) string {
+	if strings.TrimSpace(os.Getenv("KIMBAP_MASTER_KEY_HEX")) != "" {
+		return "ready"
+	}
+	devEnabled := strings.EqualFold(strings.TrimSpace(mode), "dev")
+	if !devEnabled {
+		if rawDev, ok := os.LookupEnv("KIMBAP_DEV"); ok {
+			parsed, err := strconv.ParseBool(strings.TrimSpace(rawDev))
+			if err == nil {
+				devEnabled = parsed
+			}
+		}
+	}
+	if devEnabled {
+		return "ready"
+	}
+	return "locked"
+}
+
+func vaultStatusFromConfig(cfg *config.KimbapConfig) string {
+	if cfg == nil {
+		return vaultStatusFromRaw("")
+	}
+	return vaultStatusFromRaw(cfg.Mode)
 }
 
 func loadAppConfig() (*config.KimbapConfig, error) {

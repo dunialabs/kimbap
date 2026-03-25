@@ -17,6 +17,7 @@ import (
 	"github.com/dunialabs/kimbap-core/internal/actions"
 	"github.com/dunialabs/kimbap-core/internal/approvals"
 	"github.com/dunialabs/kimbap-core/internal/auth"
+	"github.com/dunialabs/kimbap-core/internal/config"
 	"github.com/dunialabs/kimbap-core/internal/policy"
 	runtimepkg "github.com/dunialabs/kimbap-core/internal/runtime"
 	"github.com/dunialabs/kimbap-core/internal/store"
@@ -32,7 +33,10 @@ type createTokenRequest struct {
 }
 
 func (s *Server) handleHealth(w http.ResponseWriter, r *http.Request) {
-	writeSuccess(w, r, http.StatusOK, map[string]any{"status": "ok"})
+	writeSuccess(w, r, http.StatusOK, map[string]any{
+		"status":  "ok",
+		"version": strings.TrimSpace(config.AppInfo.Version),
+	})
 }
 
 func (s *Server) handleListActions(w http.ResponseWriter, r *http.Request) {

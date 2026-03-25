@@ -1,16 +1,21 @@
-.PHONY: build run dev test clean deps lint vet
+.PHONY: build kimbap run dev test clean deps lint vet
 
 VERSION ?= 1.1.0
 LDFLAGS ?= -X github.com/dunialabs/kimbap-core/internal/config.version=$(VERSION)
 
 build:
+	@mkdir -p bin
 	go build -ldflags "$(LDFLAGS)" -o bin/kimbap-core ./cmd/server
+
+kimbap:
+	@mkdir -p bin
+	go build -ldflags "$(LDFLAGS)" -o bin/kimbap ./cmd/kimbap
 
 run: build
 	./bin/kimbap-core
 
 dev:
-	go run ./cmd/server
+	go run -ldflags "$(LDFLAGS)" ./cmd/server
 
 test:
 	go test ./...

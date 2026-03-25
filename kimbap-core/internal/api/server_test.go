@@ -14,6 +14,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/dunialabs/kimbap-core/internal/config"
 	"github.com/dunialabs/kimbap-core/internal/store"
 	"github.com/google/uuid"
 )
@@ -47,6 +48,10 @@ func TestServerHealthAndRequestID(t *testing.T) {
 	}
 	if data["status"] != "ok" {
 		t.Fatalf("expected data.status=ok, got %v", data["status"])
+	}
+	expectedVersion := strings.TrimSpace(config.AppInfo.Version)
+	if data["version"] != expectedVersion {
+		t.Fatalf("expected data.version=%q, got %v", expectedVersion, data["version"])
 	}
 }
 
