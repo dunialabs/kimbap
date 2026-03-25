@@ -165,6 +165,14 @@ kimbap serve --port 8080
 
 ---
 
+## Shared deployments
+
+Kimbap Core carries tenant context through the full runtime pipeline — policy, approvals, audit, vault, and encryption. For shared server deployments, vault keys are derived per tenant for cryptographic separation.
+
+Connected server mode (`kimbap serve`) is in progress.
+
+---
+
 ## Agent onboarding
 
 `kimbap agents setup` auto-detects Claude Code, OpenCode, Codex, and Cursor, then writes skill files and operating rules into their config directories.
@@ -178,18 +186,6 @@ kimbap agents sync --dry-run                  # preview without writing
 ```
 
 Each agent gets per-service `SKILL.md` files in its skill directory (e.g. `.claude/skills/github/SKILL.md`), a meta-skill for runtime discovery, and `KIMBAP_OPERATING_RULES.md` for credential handling policies. Agents can also discover actions at runtime via `kimbap actions list` without synced skill files — the meta-skill teaches that fallback.
-
----
-
-## Multi-tenant by design
-
-Tenant isolation runs three layers deep:
-
-1. **Namespace isolation** — vault entries, policy, approvals, and audit are tenant-scoped
-2. **Policy isolation** — every decision is evaluated in tenant context
-3. **Cryptographic isolation** — each tenant has its own key hierarchy
-
-Token rotation and key rotation are independent.
 
 ---
 
@@ -325,9 +321,8 @@ Kimbap Console is a web-based administration UI for operators and security teams
   - Configure per-user rate limits.
 
 - **Credential security**
-  - Store per-user tokens and credentials encrypted locally with a master password chosen by the user.
-  - Optionally unlock the local vault with platform biometrics (Touch ID / Windows Hello) instead of retyping the password.
-  - The master key never leaves the device and is never sent to Kimbap Core; only encrypted blobs are stored on disk.
+  - Kimbap Console supports an owner master-password flow: during initialization, the owner access token is encrypted with PBKDF2 + AES-256-GCM using the master password, and the encrypted blob is stored in Kimbap Core.
+  - Kimbap Core stores runtime credentials server-side and injects them only at execution time. Vault secrets use per-tenant envelope encryption (AES-256-GCM, per-record DEK wrapped by a tenant-scoped KEK).
 
 - **Action and connector management**
   - Register and configure connectors and downstream services.
