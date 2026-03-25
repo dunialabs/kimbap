@@ -115,39 +115,29 @@ export async function handleProtocol20002(body: Request20002): Promise<Response2
     console.log('[Protocol-20002] Found', allLogs.length, 'total logs');
     
     // 5. 按工具分类统计（现在所有log都有有效的serverId）
-    const toolGroups: { [toolName: string]: { serverId: string; logs: any[] } } = {};
-    
+    const INVALID_IDS = new Set(['Unknown', 'unknown', 'null', 'undefined', '0']);
+    const toolGroups: { [serverId: string]: { toolName: string; logs: any[] } } = {};
+
     allLogs.forEach(log => {
       const serverId = log.serverId!;
-      // 跳过没有serverId或无效serverId的错误数据
-      if (!serverId || serverId === 'Unknown' || serverId === 'unknown' || serverId === 'null' || serverId === 'undefined' || serverId === '0') {
-        return;
-      }
-      
+      if (!serverId || INVALID_IDS.has(serverId)) return;
+
       const server = serversMap[serverId];
-      let toolName: string;
-      
-      if (server) {
-        // 服务器存在，显示serverName
-        toolName = server.serverName;
-      } else {
-        // 服务器已删除，但serverId是有效的，显示serverId + (Deleted)
-        toolName = `${serverId} (Deleted)`;
+      const toolName = server ? server.serverName : `${serverId} (Deleted)`;
+
+      if (!toolGroups[serverId]) {
+        toolGroups[serverId] = { toolName, logs: [] };
       }
-      
-      if (!toolGroups[toolName]) {
-        toolGroups[toolName] = { serverId, logs: [] };
-      }
-      toolGroups[toolName].logs.push(log);
+      toolGroups[serverId].logs.push(log);
     });
     
     // 按请求数量排序
     const toolGroupsArray = Object.entries(toolGroups)
-      .map(([toolName, group]) => ({
-        toolName,
-        serverId: group.serverId,
+      .map(([serverId, group]) => ({
+        toolName: group.toolName,
+        serverId,
         requestCount: group.logs.length,
-        logs: group.logs
+        logs: group.logs,
       }))
       .sort((a, b) => b.requestCount - a.requestCount);
     
