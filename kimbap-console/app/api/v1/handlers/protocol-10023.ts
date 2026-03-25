@@ -1,5 +1,6 @@
 import { prisma } from '@/lib/prisma';
 import { Prisma } from '@prisma/client';
+import { getActionLabel } from '@/lib/log-utils';
 import { 
   getServers,
   getUsers,
@@ -576,22 +577,8 @@ function formatTimeAgo(timestampSeconds: number): string {
 }
 
 function formatAction(action: number, userid: string, userNamesMap?: Map<string, string>): string {
-  // Map action codes to descriptions
-  const actionMap: Record<number, string> = {
-    10001: 'User login',
-    10002: 'Tool configuration',
-    10003: 'Server start',
-    10004: 'Server stop',
-    10005: 'Token created',
-    10006: 'Token deleted',
-    // Add more action mappings as needed
-  };
-  
-  const actionDesc = actionMap[action] || `Action ${action}`;
-  
-  // Get user name if available, otherwise use userid(Deleted)
+  const actionDesc = getActionLabel(action);
   const userName = userNamesMap?.get(userid);
   const displayUser = userName || `${userid}(Deleted)`;
-  
   return `${displayUser} - ${actionDesc}`;
 }
