@@ -808,7 +808,7 @@ export default function PoliciesPage() {
         {policies.length > 0 && (
           <CardHeader>
             <CardDescription>
-              {policies.length} {policies.length === 1 ? 'policy' : 'policies'}
+              {policies.length.toLocaleString()} {policies.length === 1 ? 'policy' : 'policies'}
             </CardDescription>
           </CardHeader>
         )}
