@@ -6,12 +6,11 @@ This document provides an overview and navigation for all APIs in Kimbap Core.
 
 - [Authentication](#authentication)
 - [API Categories](#api-categories)
-  - [MCP Protocol Interface](#1-mcp-protocol-interface)
-  - [OAuth 2.0 Authentication](#2-oauth-20-authentication)
+  - [OAuth 2.0 Authentication](#1-oauth-20-authentication)
     - [OAuth Client Management (Admin)](#oauth-client-management-admin)
-  - [Admin API](#3-admin-api)
-  - [User API](#4-user-api)
-  - [Socket.IO Real-time Communication](#5-socketio-real-time-communication)
+  - [Admin API](#2-admin-api)
+  - [User API](#3-user-api)
+  - [Socket.IO Real-time Communication](#4-socketio-real-time-communication)
 - [Error Handling](#error-handling)
 - [Complete Examples](#complete-examples)
 
@@ -21,84 +20,18 @@ This document provides an overview and navigation for all APIs in Kimbap Core.
 
 Kimbap Core uses two kinds of bearer tokens:
 
-- **OAuth 2.0 access tokens (JWT)** issued by Kimbap Core: accepted by `/mcp`.
-- **Kimbap access tokens (opaque)** associated with a user: used by `/admin` and `/socket.io`, and also accepted by `/mcp`.
+- **OAuth 2.0 access tokens (JWT)** issued by Kimbap Core: accepted by Kimbap Core API endpoints that require OAuth bearer authentication.
+- **Kimbap access tokens (opaque)** associated with a user: used by `/admin`, `/user`, and `/socket.io`.
 
-### MCP Initialization
-
-For the initial `initialize` call to `POST /mcp`, provide a token via:
-
-```http
-Authorization: Bearer <token>
-```
-
-Or (for `POST /mcp` only):
-
-```http
-POST /mcp?token=<token>
-POST /mcp?api_key=<token>
-```
-
-After initialization, Kimbap Core returns `Mcp-Session-Id`; include it for subsequent `/mcp` requests and SSE stream connections.
-
-**Get an OAuth token**: Obtain an OAuth 2.0 access token through the OAuth endpoints. See [OAuth 2.0 Authentication](#2-oauth-20-authentication) for details.
+**Get an OAuth token**: Obtain an OAuth 2.0 access token through the OAuth endpoints. See [OAuth 2.0 Authentication](#1-oauth-20-authentication) for details.
 
 ---
 
 ## API Categories
 
-### 1. MCP Protocol Interface
+### 1. OAuth 2.0 Authentication
 
-Kimbap Core fully implements the **Model Context Protocol (MCP)** standard protocol.
-
-#### Core Endpoints
-
-| Method | Endpoint | Description |
-|------|------|------|
-| `GET` | `/mcp` | Establish SSE (Server-Sent Events) connection |
-| `POST` | `/mcp` | Send MCP JSON-RPC 2.0 request |
-| `DELETE` | `/mcp` | Close current session |
-
-#### Main MCP Methods
-
-- `initialize` - Initialize session
-- `tools/list` - List available tools
-- `tools/call` - Call tool
-- `resources/list` - List resources
-- `resources/read` - Read resource
-- `prompts/list` - List prompts
-- `prompts/get` - Get prompt
-
-#### Resource Namespace
-
-Kimbap Gateway uses namespaces to isolate resources from different servers:
-
-```
-Primary format (tools/resources/prompts): {name}_-_{serverId}
-
-Examples:
-- read_file_-_filesystem
-- users_-_database
-- search_-_web-search
-```
-
-`::` is used for subscription keys in `GlobalRequestRouter`/`ServerManager` internals (format: `{serverId}::{resourceURI}`), not as the primary namespace prefix for tool/resource/prompt names.
-
-#### Official Documentation
-
-For complete MCP protocol specifications and examples, please refer to:
-
-📚 **[MCP Official Documentation](https://modelcontextprotocol.io/docs/)**
-
-- [Quick Start](https://modelcontextprotocol.io/docs/getting-started/intro)
-- [Protocol Specification](https://modelcontextprotocol.io/docs/specification/)
-- [Client Implementations](https://modelcontextprotocol.io/docs/tools/clients)
-
----
-
-### 2. OAuth 2.0 Authentication
-
-Kimbap Core exposes an OAuth 2.0 authorization server for obtaining access tokens used to authenticate to the `/mcp` gateway.
+Kimbap Core exposes an OAuth 2.0 authorization server for obtaining access tokens used to authenticate to Kimbap Core.
 
 These endpoints are separate from downstream connector OAuth tokens used by downstream MCP servers to access third-party APIs. Those credentials are brokered internally by Kimbap Core and are not exposed here.
 
@@ -219,7 +152,7 @@ curl -X DELETE http://localhost:3002/oauth/admin/clients/client_abc123 \
 
 ---
 
-### 3. Admin API
+### 2. Admin API
 
 Admin API provides user management, server configuration, IP whitelist, log querying, and other functions.
 
@@ -278,7 +211,7 @@ curl -X POST http://localhost:3002/admin \
 
 ---
 
-### 4. User API
+### 3. User API
 
 User API provides user-facing operations for capability management, server configuration, and session queries.
 
@@ -334,7 +267,7 @@ curl -X POST http://localhost:3002/user \
 
 ---
 
-### 5. Socket.IO Real-time Communication
+### 4. Socket.IO Real-time Communication
 
 Socket.IO provides bidirectional real-time communication between server and clients.
 
@@ -487,67 +420,6 @@ See [USER_API.md - Error Code Reference](./USER_API.md#appendix-error-code-refer
 
 ## Complete Examples
 
-### OAuth + MCP Complete Workflow
-
-```bash
-#!/bin/bash
-
-# 1. Obtain an access token
-# - OAuth (authorization_code + PKCE): see the OAuth section above
-# - Or use a Kimbap access token (opaque bearer token)
-TOKEN="YOUR_OAUTH_ACCESS_TOKEN_OR_KIMBAP_ACCESS_TOKEN"
-
-echo "Token: $TOKEN"
-
-# 2. Initialize MCP session
-curl -X POST http://localhost:3002/mcp \
-  -H "Authorization: Bearer $TOKEN" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "jsonrpc": "2.0",
-    "id": 1,
-    "method": "initialize",
-    "params": {
-      "protocolVersion": "1.0.0",
-      "capabilities": {},
-      "clientInfo": {
-        "name": "cli-client",
-        "version": "1.0.0"
-      }
-    }
-  }'
-
-# 3. List available tools
-curl -X POST http://localhost:3002/mcp \
-  -H "Authorization: Bearer $TOKEN" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "jsonrpc": "2.0",
-    "id": 2,
-    "method": "tools/list"
-  }'
-
-# 4. Call tool (with namespace)
-curl -X POST http://localhost:3002/mcp \
-  -H "Authorization: Bearer $TOKEN" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "jsonrpc": "2.0",
-    "id": 3,
-    "method": "tools/call",
-    "params": {
-      "name": "read_file_-_filesystem",
-      "arguments": {
-        "path": "/path/to/file.txt"
-      }
-    }
-  }'
-
-# 5. Close session
-curl -X DELETE http://localhost:3002/mcp \
-  -H "Authorization: Bearer $TOKEN"
-```
-
 ### Admin API Example
 
 ```bash
@@ -627,7 +499,6 @@ socket.on('notification', (data) => {
 - **[ADMIN_API.md](./ADMIN_API.md)** - Complete Admin API protocol documentation
 - **[USER_API.md](./USER_API.md)** - Complete User API protocol documentation
 - **[SOCKET_USAGE.md](./SOCKET_USAGE.md)** - Socket.IO real-time communication documentation
-- **[MCP Official Documentation](https://modelcontextprotocol.io/docs/)** - Model Context Protocol standard
 - **[OAuth 2.0 RFC 6749](https://datatracker.ietf.org/doc/html/rfc6749)** - OAuth 2.0 Authorization Framework
 - **[CLAUDE.md](../../CLAUDE.md)** - Project architecture and development guide
 

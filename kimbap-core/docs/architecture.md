@@ -211,7 +211,6 @@ kimbap serve --port 8080
 Exposes:
 
 - `/api/v1` — canonical REST management API (tokens, policies, approvals, audit, actions)
-- `/mcp` — MCP JSON-RPC adapter surface
 - `/health`, `/ready` — liveness and readiness probes
 - OAuth2 endpoints
 - Socket.IO for real-time push (approval requests, status changes, session updates)
@@ -225,7 +224,7 @@ HTTP request arrives
 chi router (internal/middleware/: IP check → auth → rate limit)
   │
   ▼
-Route handler (api/, mcp/, oauth/, socket/)
+Route handler (api/, oauth/, socket/)
   │
   ▼
 Action Runtime pipeline
@@ -607,19 +606,11 @@ Most integrations should be YAML skill files, not Go code. The skill loader inte
 
 Every pipeline execution writes an audit record, including denied requests and approval-gated requests that were never executed. The audit trail is complete by construction, not by convention.
 
-### MCP as an Adapter
-
-MCP (`internal/mcp/`) is one way to expose the Action Runtime to MCP-compatible clients. It is not the core. An MCP tool call arrives at the `/mcp` endpoint, gets translated into a standard action request, and enters the pipeline at the identify stage like any other request.
-
----
-
 ## HTTP Endpoints (Connected Server)
 
 ```
 GET  /health                    liveness probe
 GET  /ready                     readiness probe
-
-POST /mcp                       MCP JSON-RPC (adapter surface)
 
 POST /oauth/token               OAuth2 token endpoint
 GET  /oauth/authorize           OAuth2 authorization endpoint

@@ -34,14 +34,14 @@ The input secret and the derived AES keys never leave process memory and are not
 
 Kimbap Core handles two distinct OAuth-related concerns:
 
-- **Gateway OAuth 2.0 access tokens (JWT).** Used by MCP clients to authenticate to the `/mcp` gateway. These are issued by Kimbap Core and can be revoked server-side.
+- **Gateway OAuth 2.0 access tokens (JWT).** Used by clients to authenticate to Kimbap Core. These are issued by Kimbap Core and can be revoked server-side.
 - **Downstream connector OAuth credentials (third-party providers).** Used by downstream MCP servers to call external APIs. Kimbap Core stores the full OAuth configuration encrypted at rest (including refresh tokens where applicable), refreshes access tokens server-side, and injects only access tokens into the downstream runtime.
 
 The Admin API (`/admin`) and Socket.IO (`/socket.io`) currently authenticate using Kimbap access tokens (opaque bearer tokens) validated against the user database.
 
 **Security properties**:
 
-- Refresh tokens and client secrets for downstream providers are never forwarded to upstream MCP clients.
+- Refresh tokens and client secrets for downstream providers are never forwarded to upstream clients.
 - Long-lived credentials remain inside Kimbap Core; downstream runtimes receive only short-lived access tokens.
 
 ---
@@ -56,7 +56,7 @@ Instead of baking access rules into each MCP server, you express policy in the g
 
 ```text
 ┌─────────────────────────────────────────────────────────────┐
-│ Layer 1: MCP Server Level (Global Configuration)            │
+│ Layer 1: Server Level (Global Configuration)                │
 │ - Enable/disable entire MCP servers                         │
 │ - Configure which tools/resources/prompts are available      │
 │ - Set default access permissions for all users               │
@@ -77,7 +77,7 @@ Instead of baking access rules into each MCP server, you express policy in the g
 └─────────────────────────────────────────────────────────────┘
                           ↓ (final filter)
 ┌─────────────────────────────────────────────────────────────┐
-│ Upstream MCP Clients (Claude Desktop, Cursor, etc.)          │
+│ Upstream Clients (Claude Desktop, Cursor, etc.)              │
 │ - Only see filtered tools/resources/prompts lists            │
 │ - Cannot access capabilities not in their filtered list      │
 └─────────────────────────────────────────────────────────────┘
@@ -85,7 +85,7 @@ Instead of baking access rules into each MCP server, you express policy in the g
 
 Kimbap Core supports a three-layer permission model:
 
-1. **MCP server level (global configuration)**  
+1. **Server level (global configuration)**  
    Configured via Kimbap Console.
    - Enable or disable entire MCP servers.
    - Decide which tools, resources, and prompts are exposed from each server.

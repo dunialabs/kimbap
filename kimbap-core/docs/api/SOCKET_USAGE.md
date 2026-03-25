@@ -35,8 +35,8 @@ Socket.IO server is attached to the existing HTTP/HTTPS server (port 3002), comp
 │        │                               │                    │
 │        ▼                               ▼                    │
 │  ┌──────────┐              ┌──────────────────┐             │
-│  │  /mcp    │              │  /socket.io      │             │
-│  │  (SSE)   │              │  (WebSocket)     │             │
+│  │ /api/v1  │              │  /socket.io      │             │
+│  │  (REST)  │              │  (WebSocket)     │             │
 │  └──────────┘              └──────────────────┘             │
 │        │                               │                    │
 └────────┼───────────────────────────────┼────────────────────┘

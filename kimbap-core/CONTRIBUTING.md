@@ -126,7 +126,6 @@ actions:
 
 - Kimbap Core vars use the `KIMBAP_*` prefix where possible
 - `KIMBAP_CORE_URL` is the canonical name for the Core connection URL
-- `MCP_GATEWAY_URL` is accepted as a deprecated alias
 - `JWT_SECRET` must match between Core and Console
 
 ## Testing

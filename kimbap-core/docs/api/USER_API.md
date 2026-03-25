@@ -636,7 +636,6 @@ type PromptCapabilityInput struct {
 3. Return array (empty if user has no active sessions)
 
 **Important Notes**:
-- Sessions are created when client connects to `/mcp` endpoint
 - Sessions expire after 30 minutes of inactivity (configurable)
 - Closing browser/app doesn't immediately remove session (waits for timeout or explicit DELETE)
 

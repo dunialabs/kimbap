@@ -58,7 +58,7 @@ See `api/SOCKET_USAGE.md` for the full event list and payload schemas.
 
 ### OAuth 2.0
 
-Kimbap Core exposes an OAuth 2.0 service for obtaining access tokens that can be used with MCP clients.
+Kimbap Core exposes an OAuth 2.0 service for obtaining access tokens that can be used with Kimbap Core interfaces.
 
 These OAuth endpoints issue access tokens for authenticating to Kimbap Core. They are separate from downstream connector OAuth credentials (for example Google/Notion/Figma) which are stored encrypted and refreshed internally by Kimbap Core.
 
@@ -115,11 +115,6 @@ curl -X POST http://localhost:3002/introspect \
 
 Kimbap Core exposes different APIs for different roles:
 
-- **MCP protocol interface** (`/mcp`)
-  Standard MCP endpoints for MCP-compatible clients such as Claude Desktop, ChatGPT MCP, or Cursor.
-  Authentication: bearer token (OAuth access token (JWT) or Kimbap access token (opaque)).
-  Transport: HTTP/SSE depending on your MCP host.
-
 - **Admin API** (`/admin`)
   Used by Kimbap Console and automation scripts to manage users, servers, permissions, and quotas.
   Authentication: bearer token (Kimbap access token (opaque)).
@@ -135,18 +130,16 @@ Kimbap Core exposes different APIs for different roles:
 
 | Document | Target Users | Description | Link |
 |----------|-------------|-------------|------|
-| **API.md** | End Users | API overview, authentication, MCP protocol, OAuth 2.0 | [View](./api/API.md) |
+| **API.md** | End Users | API overview, authentication, OAuth 2.0 | [View](./api/API.md) |
 | **ADMIN_API.md** | Administrators | Complete admin API protocol (47 operations) | [View](./api/ADMIN_API.md) |
 | **SOCKET_USAGE.md** | Kimbap Desk Users | Complete Socket.IO real-time communication guide | [View](./api/SOCKET_USAGE.md) |
-| **MCP Official Docs** | Developers | Model Context Protocol standard | [View](https://modelcontextprotocol.io/docs/) |
 
 ### Quick Links
 
-- **[OAuth 2.0 Authentication](./api/API.md#2-oauth-20-authentication)** - Get access tokens for MCP connections
-- **[MCP Protocol](./api/API.md#1-mcp-protocol-interface)** - MCP endpoints and namespaces
+- **[OAuth 2.0 Authentication](./api/API.md#2-oauth-20-authentication)** - Get access tokens for Kimbap Core authentication
 - **[Admin API](./api/ADMIN_API.md)** - User, server, permission management (for Kimbap Console)
 - **[Socket.IO](./api/SOCKET_USAGE.md)** - Real-time notifications and request-response (for Kimbap Desk)
-- **[Complete Examples](./api/API.md#complete-examples)** - OAuth + MCP workflow
+- **[Complete Examples](./api/API.md#complete-examples)** - OAuth workflow examples
 
 ---
 

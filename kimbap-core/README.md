@@ -400,7 +400,7 @@ Existing CLIs assume a human operator. Kimbap assumes:
 
 ## Status
 
-Kimbap is an active, early-stage product. Today it operates as a **server runtime** with REST and MCP interfaces. The CLI surface (`kimbap call`, `kimbap run`, etc.) is under development as a thin client over the same runtime.
+Kimbap is an active, early-stage product. Today it operates as a **server runtime** with REST interface. The CLI surface (`kimbap call`, `kimbap run`, etc.) is under development as a thin client over the same runtime.
 
 ### Current availability
 
@@ -436,13 +436,15 @@ For all new integrations, use the canonical interfaces:
 | Socket.IO | `/socket.io` | Stable | Real-time events (approvals, notifications) |
 | Health | `/health`, `/ready` | Stable | Liveness and readiness probes |
 
+**Console Integration:** Kimbap Console currently communicates with Core via the legacy `/admin` and `/user` endpoints. New external integrations should use `/api/v1`.
+
 ---
 
 ## Roadmap
 
 ### Phase 1 (current)
 
-- Action runtime with REST v1 + MCP interfaces
+- Action runtime with REST v1 API
 - Vault and token lifecycle
 - Tier 1 skill execution via YAML
 - OAuth connectors (Google, GitHub, Slack)
@@ -555,6 +557,8 @@ make dev
 ```
 
 The server will start on `http://localhost:3002` by default.
+
+Connection precedence: **1. Database config → 2. `KIMBAP_CORE_URL` env var → 3. Error (no auto-detection)**.
 
 ### Common Commands
 

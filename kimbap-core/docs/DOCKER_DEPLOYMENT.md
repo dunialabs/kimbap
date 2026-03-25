@@ -16,11 +16,11 @@ Welcome to Kimbap Core! This guide will help you quickly deploy the Kimbap-Core 
 
 ## 🎯 System Overview
 
-Kimbap Core is an enterprise-grade **MCP (Model Context Protocol) proxy server** that provides a unified authentication, authorization, and session management layer for AI applications.
+Kimbap Core is an enterprise-grade **secure action runtime for AI agents** that provides a unified authentication, authorization, and session management layer for AI applications.
 
 ### Key Features
 
-- ✅ Transparent MCP protocol proxy with support for multiple downstream servers
+- ✅ Secure action runtime with support for multiple downstream servers
 - ✅ Complete authentication system (JWT + OAuth 2.0)
 - ✅ Rate limiting and IP whitelist protection
 - ✅ Event persistence storage with Last-Event-ID reconnection support
@@ -128,7 +128,7 @@ services:
     networks:
       - kimbap-network
 
-  # Kimbap Core Service (MCP Gateway)
+  # Kimbap Core Service (Action Runtime)
   kimbap-core:
     image: dunialabs/kimbap-core:latest
     container_name: kimbap-core
@@ -147,7 +147,7 @@ services:
     ports:
       - '${BACKEND_PORT}:${BACKEND_PORT}'
     volumes:
-      - /var/run/docker.sock:/var/run/docker.sock  # Mount Docker socket for starting downstream MCP service containers
+      - /var/run/docker.sock:/var/run/docker.sock  # Mount Docker socket for starting downstream service containers
       - ./cloudflared:/app/cloudflared  # Shared cloudflared configuration directory
     networks:
       - kimbap-network
@@ -309,7 +309,7 @@ curl http://localhost:3002/health
 
 Kimbap Core supports OAuth 2.0 authorization code + PKCE for user-interactive clients and refresh tokens for renewal.
 
-For non-interactive automation, you can also authenticate to `/mcp` and `/admin` using a Kimbap access token (opaque bearer token) associated with a user.
+For non-interactive automation, you can authenticate to Kimbap Core APIs using a Kimbap access token (opaque bearer token) associated with a user.
 
 #### Authorization Code Grant with PKCE
 
@@ -332,41 +332,6 @@ curl -X POST http://localhost:3002/token \
     "client_id": "your_client_id",
     "redirect_uri": "http://localhost:3000/callback",
     "code_verifier": "'$CODE_VERIFIER'"
-  }'
-```
-
-### MCP Protocol Interface
-
-#### Using EventSource Connection
-
-```javascript
-const token = "YOUR_ACCESS_TOKEN";
-const eventSource = new EventSource(
-  `http://localhost:3002/mcp?token=${token}`
-);
-
-eventSource.onmessage = (event) => {
-  const data = JSON.parse(event.data);
-  console.log("Received MCP event:", data);
-};
-```
-
-#### Calling MCP Tools
-
-```bash
-curl -X POST http://localhost:3002/mcp \
-  -H "Authorization: Bearer YOUR_ACCESS_TOKEN" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "jsonrpc": "2.0",
-    "id": 1,
-    "method": "tools/call",
-    "params": {
-      "name": "filesystem::read_file",
-      "arguments": {
-        "path": "/path/to/file.txt"
-      }
-    }
   }'
 ```
 
