@@ -67,6 +67,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
+import { useUserRole } from '@/hooks/use-user-role'
 
 function ToolPatternInput({
   value,
@@ -646,6 +647,7 @@ function RuleCard({
 }
 
 export default function PoliciesPage() {
+  const { isOwner, isAdmin } = useUserRole()
   const [policies, setPolicies] = useState<PolicySet[]>([])
   const [loading, setLoading] = useState(true)
   const [dialogOpen, setDialogOpen] = useState(false)
@@ -657,6 +659,8 @@ export default function PoliciesPage() {
   const [editingId, setEditingId] = useState<string | null>(null)
   const [formRules, setFormRules] = useState<PolicyRule[]>([])
   const [discardDialogOpen, setDiscardDialogOpen] = useState(false)
+  const canManagePolicies = isOwner || isAdmin
+  const canTogglePolicy = isAdmin
 
   const fetchPolicies = useCallback(async () => {
     try {
@@ -802,10 +806,12 @@ export default function PoliciesPage() {
             </Badge>
           </div>
         </div>
-        <Button onClick={openCreate}>
-          <Plus className="mr-2 h-4 w-4" />
-          Create Policy
-        </Button>
+        {canManagePolicies ? (
+          <Button onClick={openCreate}>
+            <Plus className="mr-2 h-4 w-4" />
+            Create Policy
+          </Button>
+        ) : null}
       </div>
 
       <Card>
@@ -828,10 +834,12 @@ export default function PoliciesPage() {
             <div className="flex flex-col items-center justify-center py-12 text-center">
               <Shield className="mb-3 h-10 w-10 text-muted-foreground/40" />
               <p className="text-sm text-muted-foreground">No access policies yet</p>
-              <Button variant="outline" className="mt-4" onClick={openCreate}>
-                <Plus className="mr-2 h-4 w-4" />
-                Create your first policy
-              </Button>
+              {canManagePolicies ? (
+                <Button variant="outline" className="mt-4" onClick={openCreate}>
+                  <Plus className="mr-2 h-4 w-4" />
+                  Create your first policy
+                </Button>
+              ) : null}
             </div>
           ) : (
             <Table>
@@ -853,17 +861,26 @@ export default function PoliciesPage() {
                   return (
                     <TableRow key={p.id}>
                       <TableCell>
-                        <button
-                          type="button"
-                          className="text-left space-y-1 w-full rounded cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 group"
-                          onClick={() => openEdit(p)}
-                          aria-label={`Edit policy: ${title}`}
-                        >
-                          <p className="text-sm font-medium group-hover:underline group-focus-visible:underline">{title}</p>
-                          <p className="text-xs text-muted-foreground">
-                            {rules.length} rules · v{p.version}
-                          </p>
-                        </button>
+                        {canManagePolicies ? (
+                          <button
+                            type="button"
+                            className="text-left space-y-1 w-full rounded cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 group"
+                            onClick={() => openEdit(p)}
+                            aria-label={`Edit policy: ${title}`}
+                          >
+                            <p className="text-sm font-medium group-hover:underline group-focus-visible:underline">{title}</p>
+                            <p className="text-xs text-muted-foreground">
+                              {rules.length} rules · v{p.version}
+                            </p>
+                          </button>
+                        ) : (
+                          <div className="space-y-1">
+                            <p className="text-sm font-medium">{title}</p>
+                            <p className="text-xs text-muted-foreground">
+                              {rules.length} rules · v{p.version}
+                            </p>
+                          </div>
+                        )}
                       </TableCell>
                       <TableCell>
                         {rules.length === 0 ? (
@@ -899,30 +916,33 @@ export default function PoliciesPage() {
                         <Switch
                           checked={p.status === 'active'}
                           onCheckedChange={() => handleToggle(p)}
+                          disabled={!canTogglePolicy}
                           aria-label={p.status === 'active' ? 'Deactivate policy' : 'Activate policy'}
                         />
                       </TableCell>
                       <TableCell className="text-right">
-                        <div className="flex items-center justify-end gap-1">
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-8 w-8"
-                            onClick={() => openEdit(p)}
-                            aria-label="Edit policy"
-                          >
-                            <Pencil className="h-3.5 w-3.5" />
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-8 w-8 text-destructive hover:bg-destructive/10 hover:text-destructive"
-                            onClick={() => confirmDelete(p)}
-                            aria-label="Delete policy"
-                          >
-                            <Trash2 className="h-3.5 w-3.5" />
-                          </Button>
-                        </div>
+                        {canManagePolicies ? (
+                          <div className="flex items-center justify-end gap-1">
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-8 w-8"
+                              onClick={() => openEdit(p)}
+                              aria-label="Edit policy"
+                            >
+                              <Pencil className="h-3.5 w-3.5" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-8 w-8 text-destructive hover:bg-destructive/10 hover:text-destructive"
+                              onClick={() => confirmDelete(p)}
+                              aria-label="Delete policy"
+                            >
+                              <Trash2 className="h-3.5 w-3.5" />
+                            </Button>
+                          </div>
+                        ) : null}
                       </TableCell>
                     </TableRow>
                   )

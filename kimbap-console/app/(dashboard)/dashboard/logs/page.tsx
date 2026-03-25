@@ -14,7 +14,7 @@ import {
   ChevronDown,
   ChevronUp
 } from 'lucide-react'
-import { Suspense, useState, useEffect, useCallback } from 'react'
+import { Suspense, useState, useEffect, useCallback, useRef } from 'react'
 import { useSearchParams } from 'next/navigation'
 import { toast } from 'sonner'
 
@@ -141,10 +141,12 @@ function LogsPageContent() {
   const [latestLogId, setLatestLogId] = useState<number>(0)
   const [realtimeHealthy, setRealtimeHealthy] = useState<boolean>(true)
   const [filtersOpen, setFiltersOpen] = useState<boolean>(false)
+  const logsRequestSeqRef = useRef(0)
 
   // Function to load log data
   const loadLogs = useCallback(async (options?: { silent?: boolean }) => {
     const silent = options?.silent === true
+    const requestSeq = ++logsRequestSeqRef.current
     if (!silent) {
       setLoading(true)
     }
@@ -158,6 +160,10 @@ function LogsPageContent() {
         source: sourceFilter === 'all' ? undefined : sourceFilter,
         search: debouncedSearchTerm || undefined
       })
+
+      if (requestSeq !== logsRequestSeqRef.current) {
+        return false
+      }
 
       if (response.data?.common?.code === 0) {
         const data: LogsApiResponse = response.data.data
@@ -198,6 +204,9 @@ function LogsPageContent() {
         return false
       }
     } catch (error) {
+      if (requestSeq !== logsRequestSeqRef.current) {
+        return false
+      }
       // Network/fetch error, toast shown below
       if (!silent) {
         toast.error('Error loading logs')
@@ -211,7 +220,7 @@ function LogsPageContent() {
       setRealtimeHealthy(false)
       return false
     } finally {
-      if (!silent) {
+      if (!silent && requestSeq === logsRequestSeqRef.current) {
         setLoading(false)
       }
     }

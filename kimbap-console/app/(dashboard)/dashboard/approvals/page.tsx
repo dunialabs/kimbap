@@ -368,7 +368,7 @@ export default function ApprovalsPage() {
           </p>
         </div>
         <div className="flex items-center gap-3">
-          {refreshFailed && <span className="text-xs text-amber-600">Auto-refresh paused</span>}
+          {refreshFailed && <span className="text-xs text-amber-600">Last refresh failed</span>}
           {!refreshFailed && lastUpdated && (
             <span className="text-xs text-muted-foreground">Updated {timeAgo || 'just now'}</span>
           )}

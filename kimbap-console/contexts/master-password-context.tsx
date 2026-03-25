@@ -2,7 +2,6 @@
 
 import { createContext, useContext, useState, ReactNode } from 'react'
 import { MasterPasswordDialog } from '@/components/master-password-dialog'
-import { useUserRole } from '@/hooks/use-user-role'
 
 interface MasterPasswordContextType {
   requestMasterPassword: (options: {
@@ -21,8 +20,6 @@ export function MasterPasswordProvider({ children }: { children: ReactNode }) {
   const [description, setDescription] = useState('Please enter your master password to continue.')
   const [onConfirmCallback, setOnConfirmCallback] = useState<((password: string) => void | Promise<void>) | null>(null)
   const [isLoading, setIsLoading] = useState(false)
-
-  const { isOwner } = useUserRole()
 
   const requestMasterPassword = (options: {
     title?: string
@@ -69,7 +66,6 @@ export function MasterPasswordProvider({ children }: { children: ReactNode }) {
         title={title}
         description={description}
         isLoading={isLoading}
-        showForgotPassword={isOwner}
       />
     </MasterPasswordContext.Provider>
   )

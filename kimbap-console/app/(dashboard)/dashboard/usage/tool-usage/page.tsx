@@ -234,105 +234,45 @@ function ToolUsagePageContent() {
         page: actionLogsPage,
         pageSize: 20
       }
-      const actionTypeOptionFilters: { timeRange: number; page: number; pageSize: number; toolIds?: string[]; status?: number } = {
-        timeRange,
-        page: 1,
-        pageSize: 200
-      }
 
       if (actionLogToolId !== 'all') {
         actionFilters.toolIds = [actionLogToolId]
-        actionTypeOptionFilters.toolIds = [actionLogToolId]
       }
       if (actionLogStatus === 'success') {
         actionFilters.status = 1
-        actionTypeOptionFilters.status = 1
       }
       if (actionLogStatus === 'failed') {
         actionFilters.status = 2
-        actionTypeOptionFilters.status = 2
       }
       if (actionLogType !== 'all') {
         actionFilters.actionTypes = [Number(actionLogType)]
       }
 
-      const [logsResult, optionsResult] = await Promise.allSettled([
-        api.usage.getToolOperationLogs(actionFilters),
-        api.usage.getToolOperationLogs(actionTypeOptionFilters)
-      ])
+      const actionLogsRes = await api.usage.getToolOperationLogs(actionFilters)
 
-      if (logsResult.status === 'fulfilled') {
-        const actionLogsRes = logsResult.value
-        if (actionLogsRes.data?.common?.code === 0 && actionLogsRes.data?.data) {
-          const actionData = actionLogsRes.data.data as ActionLogsResponse
-          const safeTotalPages = Math.max(Math.ceil((actionData.totalCount || 0) / 20), 1)
-          const clampedActionPage = Math.min(Math.max(actionLogsPage, 1), safeTotalPages)
-          if (clampedActionPage !== actionLogsPage) {
-            setActionLogsPage(clampedActionPage)
-            return
-          }
-          setActionLogs(actionData.logs)
-          setActionLogsTotal(actionData.totalCount)
-          setActionLogsError(null)
-        } else {
-          setActionLogs([])
-          setActionLogsTotal(0)
-          setActionLogsError('Unable to load tool action logs. Check your connection and try again.')
+      if (actionLogsRes.data?.common?.code === 0 && actionLogsRes.data?.data) {
+        const actionData = actionLogsRes.data.data as ActionLogsResponse
+        const safeTotalPages = Math.max(Math.ceil((actionData.totalCount || 0) / 20), 1)
+        const clampedActionPage = Math.min(Math.max(actionLogsPage, 1), safeTotalPages)
+        if (clampedActionPage !== actionLogsPage) {
+          setActionLogsPage(clampedActionPage)
+          return
         }
+        setActionLogs(actionData.logs)
+        setActionLogsTotal(actionData.totalCount)
+        setActionLogsError(null)
+
+        const typeSet = new Set<number>()
+        for (const log of actionData.logs) {
+          typeSet.add(log.actionType)
+        }
+        setActionTypeOptions(Array.from(typeSet).sort((a, b) => a - b))
+        setActionTypeOptionsError(null)
       } else {
         setActionLogs([])
         setActionLogsTotal(0)
-        setActionLogsError('Unable to load tool action logs. Check your connection and try again.')
-      }
-
-      if (optionsResult.status === 'fulfilled') {
-        const actionTypeOptionsRes = optionsResult.value
-        if (actionTypeOptionsRes.data?.common?.code === 0 && actionTypeOptionsRes.data?.data) {
-          const optionData = actionTypeOptionsRes.data.data as ActionLogsResponse
-          const typeSet = new Set<number>()
-          let optionFetchFailed = false
-
-          for (const log of optionData.logs) {
-            typeSet.add(log.actionType)
-          }
-
-          const optionTotalCount = optionData.totalCount ?? optionData.logs.length
-          if (optionTotalCount > optionData.logs.length) {
-            const totalPages = Math.ceil(optionTotalCount / actionTypeOptionFilters.pageSize)
-            for (let page = 2; page <= totalPages; page += 1) {
-              try {
-                const pageRes = await api.usage.getToolOperationLogs({
-                  ...actionTypeOptionFilters,
-                  page
-                })
-                if (pageRes.data?.common?.code !== 0 || !pageRes.data?.data) {
-                  optionFetchFailed = true
-                  break
-                }
-                const pageData = pageRes.data.data as ActionLogsResponse
-                for (const log of pageData.logs) {
-                  typeSet.add(log.actionType)
-                }
-              } catch {
-                optionFetchFailed = true
-                break
-              }
-            }
-          }
-
-          if (optionFetchFailed) {
-            setActionTypeOptions([])
-            setActionTypeOptionsError('Unable to load action filter options. Check your connection and try again.')
-          } else {
-            setActionTypeOptions(Array.from(typeSet).sort((a, b) => a - b))
-            setActionTypeOptionsError(null)
-          }
-        } else {
-          setActionTypeOptions([])
-          setActionTypeOptionsError('Unable to load action filter options. Check your connection and try again.')
-        }
-      } else {
         setActionTypeOptions([])
+        setActionLogsError('Unable to load tool action logs. Check your connection and try again.')
         setActionTypeOptionsError('Unable to load action filter options. Check your connection and try again.')
       }
     } catch {
