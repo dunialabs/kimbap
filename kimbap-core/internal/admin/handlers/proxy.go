@@ -63,8 +63,8 @@ func (h *ProxyHandler) GetProxy() (any, error) {
 }
 
 func (h *ProxyHandler) CreateProxy(data map[string]any) (any, error) {
-	name := toString(data["name"])
-	proxyKey := toString(data["proxyKey"])
+	name := strings.TrimSpace(toString(data["name"]))
+	proxyKey := strings.TrimSpace(toString(data["proxyKey"]))
 	if name == "" {
 		return nil, &types.AdminError{Message: "Missing required field: name", Code: types.AdminErrorCodeInvalidRequest}
 	}
@@ -107,7 +107,10 @@ func (h *ProxyHandler) UpdateProxy(data map[string]any) (any, error) {
 	if !hasName {
 		return nil, &types.AdminError{Message: "missing name", Code: types.AdminErrorCodeInvalidRequest}
 	}
-	name := toString(rawName)
+	name := strings.TrimSpace(toString(rawName))
+	if name == "" {
+		return nil, &types.AdminError{Message: "missing name", Code: types.AdminErrorCodeInvalidRequest}
+	}
 	res := h.db.Model(&database.Proxy{}).Where("id = ?", proxyID).Update("name", name)
 	if res.Error != nil {
 		return nil, res.Error
@@ -134,7 +137,7 @@ func backendStartPort() int {
 		return 3002
 	}
 	port, err := strconv.Atoi(raw)
-	if err != nil {
+	if err != nil || port < 1 || port > 65535 {
 		return 3002
 	}
 	return port

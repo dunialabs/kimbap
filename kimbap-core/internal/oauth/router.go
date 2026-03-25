@@ -66,7 +66,7 @@ func requireAdminContext(next http.Handler) http.Handler {
 		auth, _ := middleware.GetAuthContext(r.Context())
 		if auth == nil {
 			w.Header().Set("Content-Type", "application/json")
-			w.Header().Set("WWW-Authenticate", middleware.BuildWWWAuthenticateHeader(r, "invalid_request", "Authorization header with Bearer token is required"))
+			w.Header().Set("WWW-Authenticate", `Bearer realm="kimbap-core"`)
 			w.WriteHeader(http.StatusUnauthorized)
 			_ = json.NewEncoder(w).Encode(map[string]string{
 				"error":             "invalid_request",

@@ -139,7 +139,10 @@ func (d *Dispatcher) ListSubscriptionsByTenant(tenantID string) []Subscription {
 func (d *Dispatcher) RecentEventsByTenant(tenantID string, limit int) []Event {
 	d.mu.RLock()
 	defer d.mu.RUnlock()
-	out := make([]Event, 0)
+	if limit <= 0 {
+		limit = len(d.events)
+	}
+	out := make([]Event, 0, min(limit, len(d.events)))
 	for i := len(d.events) - 1; i >= 0 && len(out) < limit; i-- {
 		if d.events[i].TenantID == tenantID {
 			out = append(out, d.events[i])

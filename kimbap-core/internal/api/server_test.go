@@ -149,6 +149,61 @@ func TestServerRejectsInvalidAuditTimestamp(t *testing.T) {
 	}
 }
 
+func TestServerRejectsNegativeAuditPagination(t *testing.T) {
+	ts, rawBootstrap := newTestAPIServer(t)
+
+	req, _ := http.NewRequest(http.MethodGet, ts.URL+"/v1/audit?limit=-1&offset=-2", nil)
+	req.Header.Set("Authorization", "Bearer "+rawBootstrap)
+
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatalf("audit request: %v", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusBadRequest {
+		b, _ := io.ReadAll(resp.Body)
+		t.Fatalf("expected 400, got %d body=%s", resp.StatusCode, string(b))
+	}
+	var payload map[string]any
+	if err := json.NewDecoder(resp.Body).Decode(&payload); err != nil {
+		t.Fatalf("decode error payload: %v", err)
+	}
+	errBody, ok := payload["error"].(map[string]any)
+	if !ok {
+		t.Fatalf("expected error object, got %T", payload["error"])
+	}
+	if errBody["code"] != "ERR_VALIDATION_FAILED" {
+		t.Fatalf("expected ERR_VALIDATION_FAILED, got %v", errBody["code"])
+	}
+}
+
+func TestServerRejectsNegativeActionLimit(t *testing.T) {
+	ts, _ := newTestAPIServer(t)
+
+	resp, err := http.Get(ts.URL + "/v1/actions?limit=-1")
+	if err != nil {
+		t.Fatalf("actions request: %v", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusBadRequest {
+		b, _ := io.ReadAll(resp.Body)
+		t.Fatalf("expected 400, got %d body=%s", resp.StatusCode, string(b))
+	}
+	var payload map[string]any
+	if err := json.NewDecoder(resp.Body).Decode(&payload); err != nil {
+		t.Fatalf("decode error payload: %v", err)
+	}
+	errBody, ok := payload["error"].(map[string]any)
+	if !ok {
+		t.Fatalf("expected error object, got %T", payload["error"])
+	}
+	if errBody["code"] != "ERR_VALIDATION_FAILED" {
+		t.Fatalf("expected ERR_VALIDATION_FAILED, got %v", errBody["code"])
+	}
+}
+
 func TestServerAcceptsTrailingWhitespaceAfterJSONPayload(t *testing.T) {
 	ts, rawBootstrap := newTestAPIServer(t)
 
@@ -721,6 +776,52 @@ func TestServerCreateTokenRejectsMismatchedTenantID(t *testing.T) {
 	defer createResp.Body.Close()
 	if createResp.StatusCode != http.StatusForbidden {
 		t.Fatalf("expected 403, got %d", createResp.StatusCode)
+	}
+}
+
+func TestServerCreateTokenRejectsNegativeTTL(t *testing.T) {
+	ts, rawBootstrap := newTestAPIServer(t)
+
+	body := map[string]any{
+		"agent_name":  "agent-created",
+		"ttl_seconds": -1,
+	}
+	b, _ := json.Marshal(body)
+	createReq, _ := http.NewRequest(http.MethodPost, ts.URL+"/v1/tokens", bytes.NewReader(b))
+	createReq.Header.Set("Authorization", "Bearer "+rawBootstrap)
+	createReq.Header.Set("Content-Type", "application/json")
+
+	createResp, err := http.DefaultClient.Do(createReq)
+	if err != nil {
+		t.Fatalf("create token request: %v", err)
+	}
+	defer createResp.Body.Close()
+	if createResp.StatusCode != http.StatusBadRequest {
+		b, _ := io.ReadAll(createResp.Body)
+		t.Fatalf("expected 400, got %d body=%s", createResp.StatusCode, string(b))
+	}
+}
+
+func TestServerCreateTokenRejectsOverflowTTL(t *testing.T) {
+	ts, rawBootstrap := newTestAPIServer(t)
+
+	body := map[string]any{
+		"agent_name":  "agent-created",
+		"ttl_seconds": int64(31536001),
+	}
+	b, _ := json.Marshal(body)
+	createReq, _ := http.NewRequest(http.MethodPost, ts.URL+"/v1/tokens", bytes.NewReader(b))
+	createReq.Header.Set("Authorization", "Bearer "+rawBootstrap)
+	createReq.Header.Set("Content-Type", "application/json")
+
+	createResp, err := http.DefaultClient.Do(createReq)
+	if err != nil {
+		t.Fatalf("create token request: %v", err)
+	}
+	defer createResp.Body.Close()
+	if createResp.StatusCode != http.StatusBadRequest {
+		b, _ := io.ReadAll(createResp.Body)
+		t.Fatalf("expected 400, got %d body=%s", createResp.StatusCode, string(b))
 	}
 }
 

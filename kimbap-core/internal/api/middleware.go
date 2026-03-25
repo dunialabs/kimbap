@@ -30,10 +30,15 @@ func BearerAuth(tokenService *auth.TokenService) func(next http.Handler) http.Ha
 				return
 			}
 			authz := strings.TrimSpace(r.Header.Get("Authorization"))
+			if authz == "" {
+				setBearerAuthHeader(w, "", "", "")
+				writeEnvelopeError(w, r, actions.NewExecutionError(actions.ErrUnauthenticated, "bearer token required", http.StatusUnauthorized, false, nil))
+				return
+			}
 			parts := strings.Fields(authz)
 			if len(parts) != 2 || !strings.EqualFold(parts[0], "Bearer") || strings.TrimSpace(parts[1]) == "" {
 				setBearerAuthHeader(w, "invalid_request", "bearer token required", "")
-				writeEnvelopeError(w, r, actions.NewExecutionError(actions.ErrUnauthenticated, "bearer token required", http.StatusUnauthorized, false, nil))
+				writeEnvelopeError(w, r, actions.NewExecutionError(actions.ErrValidationFailed, "malformed authorization header", http.StatusBadRequest, false, nil))
 				return
 			}
 			principal, err := tokenService.Validate(r.Context(), strings.TrimSpace(parts[1]))

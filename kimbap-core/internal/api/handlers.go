@@ -42,7 +42,11 @@ func (s *Server) handleHealth(w http.ResponseWriter, r *http.Request) {
 func (s *Server) handleListActions(w http.ResponseWriter, r *http.Request) {
 	defs := make([]actions.ActionDefinition, 0)
 	if s.runtime != nil && s.runtime.ActionRegistry != nil {
-		limit, _ := strconv.Atoi(r.URL.Query().Get("limit"))
+		limit, err := parseNonNegativeIntParam(r.URL.Query().Get("limit"), "limit")
+		if err != nil {
+			writeEnvelopeError(w, r, actions.NewExecutionError(actions.ErrValidationFailed, err.Error(), http.StatusBadRequest, false, nil))
+			return
+		}
 		items, err := s.runtime.ActionRegistry.List(r.Context(), runtimepkg.ListOptions{
 			Namespace: r.URL.Query().Get("namespace"),
 			Resource:  r.URL.Query().Get("resource"),
@@ -194,9 +198,13 @@ func (s *Server) handleCreateToken(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 	}
-	ttl := time.Duration(req.TTLSeconds) * time.Second
-	if ttl <= 0 {
-		ttl = 30 * 24 * time.Hour
+	if req.TTLSeconds < 0 || req.TTLSeconds > maxCreateTokenTTLSeconds {
+		writeEnvelopeError(w, r, actions.NewExecutionError(actions.ErrValidationFailed, auth.ErrInvalidTTL.Error(), http.StatusBadRequest, false, nil))
+		return
+	}
+	ttl := 30 * 24 * time.Hour
+	if req.TTLSeconds > 0 {
+		ttl = time.Duration(req.TTLSeconds) * time.Second
 	}
 	raw, issued, err := s.tokenService.Issue(r.Context(), tenantID, req.AgentName, req.Scopes, ttl)
 	if err != nil {
@@ -640,8 +648,16 @@ func (s *Server) handleQueryAudit(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	limit, _ := strconv.Atoi(r.URL.Query().Get("limit"))
-	offset, _ := strconv.Atoi(r.URL.Query().Get("offset"))
+	limit, err := parseNonNegativeIntParam(r.URL.Query().Get("limit"), "limit")
+	if err != nil {
+		writeEnvelopeError(w, r, actions.NewExecutionError(actions.ErrValidationFailed, err.Error(), http.StatusBadRequest, false, nil))
+		return
+	}
+	offset, err := parseNonNegativeIntParam(r.URL.Query().Get("offset"), "offset")
+	if err != nil {
+		writeEnvelopeError(w, r, actions.NewExecutionError(actions.ErrValidationFailed, err.Error(), http.StatusBadRequest, false, nil))
+		return
+	}
 	from, fromErr := parseRFC3339Ptr(r.URL.Query().Get("from"))
 	if fromErr != nil {
 		writeEnvelopeError(w, r, actions.NewExecutionError(actions.ErrValidationFailed, "invalid 'from' timestamp: expected RFC3339 format", http.StatusBadRequest, false, nil))
@@ -703,6 +719,7 @@ func (s *Server) handleExportAudit(w http.ResponseWriter, r *http.Request) {
 }
 
 const maxAPIRequestBodyBytes int64 = 4 << 20
+const maxCreateTokenTTLSeconds int64 = int64((365 * 24 * time.Hour) / time.Second)
 
 var errRequestBodyTooLarge = errors.New("request body too large")
 
@@ -751,6 +768,18 @@ func parseRFC3339Ptr(v string) (*time.Time, error) {
 		return nil, err
 	}
 	return &ts, nil
+}
+
+func parseNonNegativeIntParam(raw string, field string) (int, error) {
+	raw = strings.TrimSpace(raw)
+	if raw == "" {
+		return 0, nil
+	}
+	value, err := strconv.Atoi(raw)
+	if err != nil || value < 0 {
+		return 0, fmt.Errorf("%s must be a non-negative integer", field)
+	}
+	return value, nil
 }
 
 type storeTokenAdapter struct {

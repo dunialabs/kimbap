@@ -47,7 +47,7 @@ export async function handleProtocol20002(body: Request20002): Promise<Response2
     const { timeRange, toolIds, page = 1, pageSize = 50 } = body.params;
     const rawToken = body.common?.rawToken;
     const safePage = Math.max(1, Math.floor(Number(page) || 1));
-    const safePageSize = Math.min(100, Math.max(1, Math.floor(Number(pageSize) || 50)));
+    const safePageSize = Math.min(1000, Math.max(1, Math.floor(Number(pageSize) || 50)));
     
     // 1. 获取当前proxy的proxyKey（不用token）
     let proxyKey = '';

@@ -660,7 +660,7 @@ export default function PoliciesPage() {
   const [formRules, setFormRules] = useState<PolicyRule[]>([])
   const [discardDialogOpen, setDiscardDialogOpen] = useState(false)
   const canManagePolicies = isOwner || isAdmin
-  const canTogglePolicy = isAdmin
+  const canTogglePolicy = isOwner || isAdmin
 
   const fetchPolicies = useCallback(async () => {
     try {

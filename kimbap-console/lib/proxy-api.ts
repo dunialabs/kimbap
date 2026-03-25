@@ -679,6 +679,7 @@ export async function updateProxy(
   const result = await dispatchRequest<{ proxy: any }>(
     AdminActionType.UPDATE_PROXY, { proxyId, ...data }, userid, token,
   );
+  invalidateProxyAdminUrlCache();
   return unwrapResponse(result, 'Failed to update proxy');
 }
 

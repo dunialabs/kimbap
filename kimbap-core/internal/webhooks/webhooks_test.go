@@ -396,3 +396,29 @@ func TestApprovalEventFilteredBySubscription(t *testing.T) {
 	case <-time.After(200 * time.Millisecond):
 	}
 }
+
+func TestDispatcherRecentEventsByTenantZeroLimitReturnsAllMatches(t *testing.T) {
+	d := NewDispatcher()
+	d.EmitForTenant("t1", EventTokenCreated, nil)
+	d.EmitForTenant("t2", EventTokenDeleted, nil)
+	d.EmitForTenant("t1", EventPolicyCreated, nil)
+
+	events := d.RecentEventsByTenant("t1", 0)
+	if len(events) != 2 {
+		t.Fatalf("expected 2 events for t1, got %d", len(events))
+	}
+	if events[0].Type != EventTokenCreated || events[1].Type != EventPolicyCreated {
+		t.Fatalf("expected chronological tenant events, got %+v", events)
+	}
+}
+
+func TestDispatcherRecentEventsByTenantNegativeLimitReturnsAllMatches(t *testing.T) {
+	d := NewDispatcher()
+	d.EmitForTenant("t1", EventTokenCreated, nil)
+	d.EmitForTenant("t1", EventPolicyCreated, nil)
+
+	events := d.RecentEventsByTenant("t1", -1)
+	if len(events) != 2 {
+		t.Fatalf("expected 2 events for t1, got %d", len(events))
+	}
+}

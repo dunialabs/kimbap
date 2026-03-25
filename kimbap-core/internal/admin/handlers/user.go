@@ -141,6 +141,9 @@ func (h *UserHandler) CreateUser(data map[string]any, adminToken string) (any, e
 	}
 
 	role := toInt(data["role"], types.UserRoleUser)
+	if !isValidUserRole(role) {
+		return nil, &types.AdminError{Message: "invalid role", Code: types.AdminErrorCodeInvalidRequest}
+	}
 	if role == types.UserRoleOwner {
 		var ownerCount int64
 		if err := h.db.Model(&database.User{}).Where("role = ?", types.UserRoleOwner).Count(&ownerCount).Error; err != nil {
@@ -216,9 +219,13 @@ func (h *UserHandler) CreateUser(data map[string]any, adminToken string) (any, e
 		permissions = normalizedPermissions
 	}
 	now := int(time.Now().Unix())
+	status := toInt(data["status"], types.UserStatusEnabled)
+	if !isValidUserStatus(status) {
+		return nil, &types.AdminError{Message: "invalid status", Code: types.AdminErrorCodeInvalidRequest}
+	}
 	user := database.User{
 		UserID:          userID,
-		Status:          toInt(data["status"], types.UserStatusEnabled),
+		Status:          status,
 		Role:            role,
 		Permissions:     permissions,
 		UserPreferences: "{}",
@@ -333,7 +340,11 @@ func (h *UserHandler) UpdateUser(data map[string]any) (any, error) {
 		normalizedPermissions = parsedPermissions
 	}
 	if _, ok := data["status"]; ok {
-		updates["status"] = toInt(data["status"], types.UserStatusEnabled)
+		status := toInt(data["status"], types.UserStatusEnabled)
+		if !isValidUserStatus(status) {
+			return nil, &types.AdminError{Message: "invalid status", Code: types.AdminErrorCodeInvalidRequest}
+		}
+		updates["status"] = status
 	}
 	if _, ok := data["encryptedToken"]; ok {
 		v := toString(data["encryptedToken"])
@@ -594,6 +605,24 @@ func normalizeUnix(v any) int {
 		return i / 1000
 	}
 	return i
+}
+
+func isValidUserRole(role int) bool {
+	switch role {
+	case types.UserRoleOwner, types.UserRoleAdmin, types.UserRoleUser, types.UserRoleGuest:
+		return true
+	default:
+		return false
+	}
+}
+
+func isValidUserStatus(status int) bool {
+	switch status {
+	case types.UserStatusEnabled, types.UserStatusDisabled:
+		return true
+	default:
+		return false
+	}
 }
 
 func ptrIfNotEmpty(v string) *string {
