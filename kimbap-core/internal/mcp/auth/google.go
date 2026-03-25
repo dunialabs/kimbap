@@ -36,8 +36,23 @@ type googleTokenResponse struct {
 
 const googleTokenEndpoint = "https://oauth2.googleapis.com/token"
 
-func NewGoogleAuthStrategy(config map[string]any) ($$$) {
-  $$$
+func NewGoogleAuthStrategy(config map[string]any) (*GoogleAuthStrategy, error) {
+	s := &GoogleAuthStrategy{
+		client: &http.Client{Timeout: authHTTPTimeout},
+		config: googleOAuthConfig{
+			ClientID:     getStringValue(config, "clientId"),
+			ClientSecret: getStringValue(config, "clientSecret"),
+			RefreshToken: getStringValue(config, "refreshToken"),
+			AccessToken:  getStringValue(config, "accessToken"),
+		},
+	}
+	if expiresAt, ok := getInt64Value(config, "expiresAt"); ok {
+		s.config.ExpiresAt = expiresAt
+	}
+	if err := s.validateConfig(); err != nil {
+		return nil, err
+	}
+	return s, nil
 }
 
 func (s *GoogleAuthStrategy) validateConfig() error {
@@ -139,7 +154,18 @@ func (s *GoogleAuthStrategy) RefreshToken() (*TokenInfo, error) {
 }
 
 func (s *GoogleAuthStrategy) GetCurrentOAuthConfig() map[string]any {
-  $$$
+	s.state.mu.RLock()
+	defer s.state.mu.RUnlock()
+	if !s.state.configChanged {
+		return nil
+	}
+	return map[string]any{
+		"clientId":     s.config.ClientID,
+		"clientSecret": s.config.ClientSecret,
+		"refreshToken": s.config.RefreshToken,
+		"accessToken":  s.config.AccessToken,
+		"expiresAt":    s.config.ExpiresAt,
+	}
 }
 
 func (s *GoogleAuthStrategy) MarkConfigAsPersisted() {

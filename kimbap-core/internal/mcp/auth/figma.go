@@ -36,8 +36,23 @@ type figmaTokenResponse struct {
 	ExpiresIn   int64  `json:"expires_in"`
 }
 
-func NewFigmaAuthStrategy(config map[string]any) ($$$) {
-  $$$
+func NewFigmaAuthStrategy(config map[string]any) (*FigmaAuthStrategy, error) {
+	s := &FigmaAuthStrategy{
+		client: &http.Client{Timeout: authHTTPTimeout},
+		config: figmaOAuthConfig{
+			ClientID:     getStringValue(config, "clientId"),
+			ClientSecret: getStringValue(config, "clientSecret"),
+			RefreshToken: getStringValue(config, "refreshToken"),
+			AccessToken:  getStringValue(config, "accessToken"),
+		},
+	}
+	if expiresAt, ok := getInt64Value(config, "expiresAt"); ok {
+		s.config.ExpiresAt = expiresAt
+	}
+	if err := s.validateConfig(); err != nil {
+		return nil, err
+	}
+	return s, nil
 }
 
 func (s *FigmaAuthStrategy) validateConfig() error {
@@ -139,7 +154,18 @@ func (s *FigmaAuthStrategy) RefreshToken() (*TokenInfo, error) {
 }
 
 func (s *FigmaAuthStrategy) GetCurrentOAuthConfig() map[string]any {
-  $$$
+	s.state.mu.RLock()
+	defer s.state.mu.RUnlock()
+	if !s.state.configChanged {
+		return nil
+	}
+	return map[string]any{
+		"clientId":     s.config.ClientID,
+		"clientSecret": s.config.ClientSecret,
+		"refreshToken": s.config.RefreshToken,
+		"accessToken":  s.config.AccessToken,
+		"expiresAt":    s.config.ExpiresAt,
+	}
 }
 
 func (s *FigmaAuthStrategy) MarkConfigAsPersisted() {

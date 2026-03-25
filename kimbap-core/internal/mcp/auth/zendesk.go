@@ -45,8 +45,34 @@ type zendeskTokenResponse struct {
 	RefreshTokenExpiresIn *int64 `json:"refresh_token_expires_in"`
 }
 
-func NewZendeskAuthStrategy(config map[string]any) ($$$) {
-  $$$
+func NewZendeskAuthStrategy(config map[string]any) (*ZendeskAuthStrategy, error) {
+	s := &ZendeskAuthStrategy{
+		client: &http.Client{Timeout: authHTTPTimeout},
+		config: zendeskOAuthConfig{
+			ClientID:     getStringValue(config, "clientId"),
+			ClientSecret: getStringValue(config, "clientSecret"),
+			RefreshToken: getStringValue(config, "refreshToken"),
+			TokenURL:     getStringValue(config, "tokenUrl"),
+			Scope:        getStringValue(config, "scope"),
+			AccessToken:  getStringValue(config, "accessToken"),
+		},
+	}
+	if expiresAt, ok := getInt64Value(config, "expiresAt"); ok {
+		s.config.ExpiresAt = expiresAt
+	}
+	if refreshTokenExpiresAt, ok := getInt64Value(config, "refreshTokenExpiresAt"); ok {
+		s.config.RefreshTokenExpiresAt = refreshTokenExpiresAt
+	}
+	if expiresInSeconds, ok := getInt64Value(config, "expiresInSeconds"); ok {
+		s.config.ExpiresInSeconds = expiresInSeconds
+	}
+	if refreshTokenExpiresInSeconds, ok := getInt64Value(config, "refreshTokenExpiresInSeconds"); ok {
+		s.config.RefreshTokenExpiresInSeconds = refreshTokenExpiresInSeconds
+	}
+	if err := s.validateConfig(); err != nil {
+		return nil, err
+	}
+	return s, nil
 }
 
 func (s *ZendeskAuthStrategy) validateConfig() error {
@@ -114,7 +140,14 @@ func (s *ZendeskAuthStrategy) RefreshToken() (*TokenInfo, error) {
 		refreshTokenExpiresInSeconds = zendeskDefaultRefreshTokenExpiresIn
 	}
 
-	body := map[string]any{$$$}
+	body := map[string]any{
+		"grant_type":               "refresh_token",
+		"refresh_token":            refreshToken,
+		"client_id":                clientID,
+		"client_secret":            clientSecret,
+		"expires_in":               expiresInSeconds,
+		"refresh_token_expires_in": refreshTokenExpiresInSeconds,
+	}
 	if scope != "" {
 		body["scope"] = scope
 	}
@@ -180,7 +213,23 @@ func (s *ZendeskAuthStrategy) RefreshToken() (*TokenInfo, error) {
 }
 
 func (s *ZendeskAuthStrategy) GetCurrentOAuthConfig() map[string]any {
-  $$$
+	s.state.mu.RLock()
+	defer s.state.mu.RUnlock()
+	if !s.state.configChanged {
+		return nil
+	}
+	return map[string]any{
+		"clientId":                     s.config.ClientID,
+		"clientSecret":                 s.config.ClientSecret,
+		"refreshToken":                 s.config.RefreshToken,
+		"tokenUrl":                     s.config.TokenURL,
+		"scope":                        s.config.Scope,
+		"accessToken":                  s.config.AccessToken,
+		"expiresAt":                    s.config.ExpiresAt,
+		"refreshTokenExpiresAt":        s.config.RefreshTokenExpiresAt,
+		"expiresInSeconds":             s.config.ExpiresInSeconds,
+		"refreshTokenExpiresInSeconds": s.config.RefreshTokenExpiresInSeconds,
+	}
 }
 
 func (s *ZendeskAuthStrategy) MarkConfigAsPersisted() {

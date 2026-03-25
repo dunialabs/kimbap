@@ -37,8 +37,35 @@ type kimbapRefreshResponse struct {
 	ExpiresAt   int64  `json:"expiresAt"`
 }
 
-func NewKimbapAuthStrategy(config map[string]any) ($$$) {
-  $$$
+func NewKimbapAuthStrategy(config map[string]any) (*KimbapAuthStrategy, error) {
+	var server *database.Server
+	if rawServer, ok := config["server"]; ok && rawServer != nil {
+		switch v := rawServer.(type) {
+		case *database.Server:
+			server = v
+		case database.Server:
+			copy := v
+			server = &copy
+		}
+	}
+
+	s := &KimbapAuthStrategy{
+		client: &http.Client{Timeout: authHTTPTimeout},
+		config: kimbapOAuthConfig{
+			UserToken:   getStringValue(config, "userToken"),
+			Server:      server,
+			ClientID:    getStringValue(config, "clientId"),
+			Key:         getStringValue(config, "key"),
+			AccessToken: getStringValue(config, "accessToken"),
+		},
+	}
+	if expiresAt, ok := getInt64Value(config, "expiresAt"); ok {
+		s.config.ExpiresAt = expiresAt
+	}
+	if err := s.validateConfig(); err != nil {
+		return nil, err
+	}
+	return s, nil
 }
 
 func normalizeExpiresAt(expiresAt int64) int64 {
@@ -124,7 +151,11 @@ func (s *KimbapAuthStrategy) refreshTokenFromKimbap() (*TokenInfo, error) {
 		return nil, fmt.Errorf("invalid OAuth provider")
 	}
 
-	requestBody := map[string]any{$$$}
+	requestBody := map[string]any{
+		"provider": provider,
+		"clientId": s.config.ClientID,
+		"key":      s.config.Key,
+	}
 
 	if provider == "zendesk" || provider == "canvas" {
 		tokenURL := ""
@@ -190,7 +221,14 @@ func (s *KimbapAuthStrategy) refreshTokenFromKimbap() (*TokenInfo, error) {
 	return &TokenInfo{AccessToken: result.AccessToken, ExpiresIn: expiresIn, ExpiresAt: expiresAt}, nil
 }
 func (s *KimbapAuthStrategy) GetCurrentOAuthConfig() map[string]any {
-  $$$
+	s.state.mu.RLock()
+	defer s.state.mu.RUnlock()
+	return map[string]any{
+		"clientId":    s.config.ClientID,
+		"key":         s.config.Key,
+		"accessToken": s.config.AccessToken,
+		"expiresAt":   s.config.ExpiresAt,
+	}
 }
 
 func (s *KimbapAuthStrategy) MarkConfigAsPersisted() {}

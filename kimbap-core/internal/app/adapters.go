@@ -243,7 +243,10 @@ func (a CoreAuthStrategyAdapter) RefreshToken(ctx context.Context) (string, int6
 }
 
 func (a CoreAuthStrategyAdapter) GetCurrentOAuthConfig() map[string]any {
-  $$$
+	if a.strategy == nil {
+		return nil
+	}
+	return a.strategy.GetCurrentOAuthConfig()
 }
 
 func (a CoreAuthStrategyAdapter) MarkConfigAsPersisted() {
