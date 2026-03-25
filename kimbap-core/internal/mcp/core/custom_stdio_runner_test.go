@@ -41,6 +41,21 @@ func TestBuildCustomStdioRunnerLaunchPlanAcceptsValidCwd(t *testing.T) {
 	}
 }
 
+func TestBuildCustomStdioRunnerLaunchPlanRejectsRelativeCwdInDockerMode(t *testing.T) {
+	t.Setenv("KIMBAP_CORE_IN_DOCKER", "true")
+
+	_, err := BuildCustomStdioRunnerLaunchPlan(map[string]any{
+		"command": "node",
+		"cwd":     "relative/path",
+	}, "")
+	if err == nil {
+		t.Fatal("expected error for relative cwd in Docker mode")
+	}
+	if !strings.Contains(err.Error(), "absolute path") {
+		t.Fatalf("expected absolute-path error, got %v", err)
+	}
+}
+
 func TestBuildCustomStdioRunnerLaunchPlanRejectsFileCwd(t *testing.T) {
 	base := t.TempDir()
 	cwdFile := filepath.Join(base, "cwd.txt")

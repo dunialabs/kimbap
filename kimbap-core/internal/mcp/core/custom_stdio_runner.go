@@ -94,6 +94,9 @@ func BuildCustomStdioRunnerLaunchPlan(originalLaunchConfig map[string]any, runne
 	if cwd, ok := originalLaunchConfig["cwd"].(string); ok && strings.TrimSpace(cwd) != "" {
 		containerCwd := strings.TrimSpace(cwd)
 		if !filepath.IsAbs(containerCwd) {
+			if os.Getenv("KIMBAP_CORE_IN_DOCKER") == "true" {
+				return CustomStdioRunnerLaunchPlan{}, fmt.Errorf("CustomStdio launchConfig.cwd must be an absolute path when running inside Docker")
+			}
 			if absCwd, err := filepath.Abs(containerCwd); err == nil {
 				containerCwd = absCwd
 			}
