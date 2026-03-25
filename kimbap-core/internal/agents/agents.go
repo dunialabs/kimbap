@@ -95,6 +95,7 @@ type SyncResult struct {
 	Written      []string  `json:"written"`
 	Skipped      []string  `json:"skipped"`
 	Failed       []string  `json:"failed"`
+	Pruned       []string  `json:"pruned,omitempty"`
 	RulesWritten bool      `json:"rules_written"`
 	Errors       []string  `json:"errors,omitempty"`
 }
@@ -190,6 +191,16 @@ func SyncSkills(installer SkillInstaller, rulesContent string, opts SyncOptions)
 			}
 
 			result.Written = append(result.Written, skill.Name)
+		}
+
+		pruned, pruneErrs := pruneStaleSkills(
+			filepath.Join(projectDir, selected.cfg.SkillsDir),
+			installedSkills,
+			opts.DryRun,
+		)
+		result.Pruned = pruned
+		for _, e := range pruneErrs {
+			result.Errors = append(result.Errors, e)
 		}
 
 		if !opts.SkipRules {
@@ -380,6 +391,41 @@ func listSyncedSkills(skillsDir string) ([]string, error) {
 
 	sort.Strings(out)
 	return out, nil
+}
+
+func pruneStaleSkills(skillsDir string, installed []InstalledSkill, dryRun bool) ([]string, []string) {
+	entries, err := os.ReadDir(skillsDir)
+	if err != nil {
+		return nil, nil
+	}
+
+	active := map[string]bool{"kimbap": true}
+	for _, s := range installed {
+		active[s.Name] = true
+	}
+
+	var pruned []string
+	var errs []string
+	for _, entry := range entries {
+		if !entry.IsDir() || active[entry.Name()] {
+			continue
+		}
+		skillFile := filepath.Join(skillsDir, entry.Name(), "SKILL.md")
+		if _, err := os.Stat(skillFile); os.IsNotExist(err) {
+			continue
+		}
+		if dryRun {
+			pruned = append(pruned, entry.Name())
+			continue
+		}
+		if err := os.RemoveAll(filepath.Join(skillsDir, entry.Name())); err != nil {
+			errs = append(errs, fmt.Sprintf("prune %q: %v", entry.Name(), err))
+		} else {
+			pruned = append(pruned, entry.Name())
+		}
+	}
+	sort.Strings(pruned)
+	return pruned, errs
 }
 
 func validateSkillName(name string) error {

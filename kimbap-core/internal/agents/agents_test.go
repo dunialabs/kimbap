@@ -290,3 +290,38 @@ func TestSyncSkillsForceOverwritesUnchanged(t *testing.T) {
 		t.Fatalf("expected 0 skipped on force sync, got %d", len(forced[0].Skipped))
 	}
 }
+
+func TestSyncSkillsPrunesRemovedSkills(t *testing.T) {
+	dir := t.TempDir()
+	both := fakeInstaller{skills: []InstalledSkill{
+		{Name: "github", Content: "# github\n"},
+		{Name: "slack", Content: "# slack\n"},
+	}}
+
+	if _, err := SyncSkills(both, "# rules\n", SyncOptions{
+		ProjectDir: dir,
+		Agents:     []AgentKind{AgentClaudeCode},
+	}); err != nil {
+		t.Fatalf("first sync: %v", err)
+	}
+
+	githubOnly := fakeInstaller{skills: []InstalledSkill{
+		{Name: "github", Content: "# github\n"},
+	}}
+	results, err := SyncSkills(githubOnly, "# rules\n", SyncOptions{
+		ProjectDir: dir,
+		Agents:     []AgentKind{AgentClaudeCode},
+	})
+	if err != nil {
+		t.Fatalf("second sync: %v", err)
+	}
+
+	if len(results[0].Pruned) != 1 || results[0].Pruned[0] != "slack" {
+		t.Fatalf("expected slack to be pruned, got %+v", results[0].Pruned)
+	}
+
+	slackDir := filepath.Join(dir, ".claude", "skills", "slack")
+	if _, err := os.Stat(slackDir); !os.IsNotExist(err) {
+		t.Fatal("expected slack directory to be removed after prune")
+	}
+}
