@@ -199,6 +199,16 @@ export function applyTagsOperation(
   return result;
 }
 
+function parseTagsJson(raw: string, ctx: { proxyId: number; userid: string }): string[] {
+  try {
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? parsed.filter((t: unknown) => typeof t === 'string') : [];
+  } catch (error) {
+    console.error('Failed to parse token metadata tags', { ...ctx, error });
+    return [];
+  }
+}
+
 export async function getTokenMetadataMap(
   proxyId: number,
   userids: string[]
@@ -211,19 +221,7 @@ export async function getTokenMetadataMap(
 
   const map = new Map<string, TokenMetadataOutput>();
   for (const row of rows) {
-    let tags: string[] = [];
-    try {
-      const parsed = JSON.parse(row.tags);
-      tags = Array.isArray(parsed) ? parsed.filter((t: unknown) => typeof t === 'string') : [];
-    } catch (error) {
-      console.error('Failed to parse token metadata tags', {
-        proxyId,
-        userid: row.userid,
-        error,
-      });
-      tags = [];
-    }
-    map.set(row.userid, { namespace: row.namespace, tags });
+    map.set(row.userid, { namespace: row.namespace, tags: parseTagsJson(row.tags, { proxyId, userid: row.userid }) });
   }
 
   for (const userid of userids) {
@@ -244,19 +242,7 @@ export async function getTokenMetadata(
   });
   if (!row) return { namespace: 'default', tags: [] };
 
-  let tags: string[] = [];
-  try {
-    const parsed = JSON.parse(row.tags);
-    tags = Array.isArray(parsed) ? parsed.filter((t: unknown) => typeof t === 'string') : [];
-  } catch (error) {
-    console.error('Failed to parse token metadata tags', {
-      proxyId,
-      userid,
-      error,
-    });
-    tags = [];
-  }
-  return { namespace: row.namespace, tags };
+  return { namespace: row.namespace, tags: parseTagsJson(row.tags, { proxyId, userid }) };
 }
 
 export async function upsertTokenMetadata(

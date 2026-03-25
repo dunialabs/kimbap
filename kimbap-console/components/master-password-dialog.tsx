@@ -135,6 +135,7 @@ export function MasterPasswordDialog({
                 <Input
                   id="masterPassword"
                   type={showPassword ? 'text' : 'password'}
+                  autoComplete="current-password"
                   value={password}
                   onChange={(e) => {
                     setPassword(e.target.value)
@@ -240,6 +241,7 @@ export function MasterPasswordDialog({
                 <Input
                   id="newPassword"
                   type={showNewPassword ? 'text' : 'password'}
+                  autoComplete="new-password"
                   value={newPassword}
                   onChange={(e) => {
                     setNewPassword(e.target.value)
@@ -276,6 +278,7 @@ export function MasterPasswordDialog({
                 <Input
                   id="confirmNewPassword"
                   type={showConfirmPassword ? 'text' : 'password'}
+                  autoComplete="new-password"
                   value={confirmNewPassword}
                   onChange={(e) => {
                     setConfirmNewPassword(e.target.value)
