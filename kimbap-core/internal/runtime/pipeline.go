@@ -189,32 +189,35 @@ func (r *Runtime) ResumeApproved(ctx context.Context, approvalRequestID string) 
 		}
 	}
 
-	if principalErr := r.authenticatePrincipal(ctx, *held); principalErr != nil {
-		return actions.ExecutionResult{
-			Status: actions.StatusError,
-			Error:  principalErr,
+	earlyFail := func(result actions.ExecutionResult) actions.ExecutionResult {
+		if removeErr := r.HeldExecutionStore.Remove(ctx, approvalRequestID); removeErr != nil {
+			_, _ = fmt.Fprintf(os.Stderr, "warning: failed to remove held execution %s: %v\n", approvalRequestID, removeErr)
 		}
+		if r.AuditWriter != nil {
+			auditCtx, auditCancel := context.WithTimeout(context.WithoutCancel(ctx), 3*time.Second)
+			defer auditCancel()
+			_ = r.writeAudit(auditCtx, *held, result)
+		}
+		return result
+	}
+
+	if principalErr := r.authenticatePrincipal(ctx, *held); principalErr != nil {
+		return earlyFail(actions.ExecutionResult{Status: actions.StatusError, Error: principalErr})
 	}
 
 	if _, tenantErr := r.resolveTenant(*held); tenantErr != nil {
-		return actions.ExecutionResult{
-			Status: actions.StatusError,
-			Error:  tenantErr,
-		}
+		return earlyFail(actions.ExecutionResult{Status: actions.StatusError, Error: tenantErr})
 	}
 
 	if validationErr := actions.ValidateInput(held.Action.InputSchema, held.Input); validationErr != nil {
-		return actions.ExecutionResult{
+		return earlyFail(actions.ExecutionResult{
 			Status: actions.StatusError,
 			Error:  actions.NewExecutionError(actions.ErrValidationFailed, validationErr.Error(), 400, false, nil),
-		}
+		})
 	}
 
 	if sanitizeErr := SanitizeInput(held.Input); sanitizeErr != nil {
-		return actions.ExecutionResult{
-			Status: actions.StatusError,
-			Error:  actions.AsExecutionError(sanitizeErr),
-		}
+		return earlyFail(actions.ExecutionResult{Status: actions.StatusError, Error: actions.AsExecutionError(sanitizeErr)})
 	}
 
 	result := r.executeFromCredentialsWithState(ctx, *held, nil, r.now(), "require_approval", approvalRequestID)

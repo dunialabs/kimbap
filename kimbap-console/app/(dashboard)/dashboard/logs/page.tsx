@@ -142,6 +142,7 @@ function LogsPageContent() {
   const [realtimeHealthy, setRealtimeHealthy] = useState<boolean>(true)
   const [filtersOpen, setFiltersOpen] = useState<boolean>(false)
   const logsRequestSeqRef = useRef(0)
+  const statsRequestSeqRef = useRef(0)
 
   // Function to load log data
   const loadLogs = useCallback(async (options?: { silent?: boolean }) => {
@@ -291,12 +292,15 @@ function LogsPageContent() {
 
   const loadStatistics = useCallback(async () => {
     if (activeTab !== 'statistics') return true
+    const statsSeq = ++statsRequestSeqRef.current
     setStatsLoading(true)
 
     try {
       const response = await api.logs.getStatistics({
         timeRange: statisticsTimeFilter,
       })
+
+      if (statsSeq !== statsRequestSeqRef.current) return true
 
       if (response.data?.common?.code === 0) {
         setStatistics(response.data.data.statistics)
@@ -308,12 +312,14 @@ function LogsPageContent() {
         return false
       }
     } catch (error) {
-      // Statistics fetch failed
+      if (statsSeq !== statsRequestSeqRef.current) return false
       setStatistics(null)
       setStatsError('Unable to load statistics. Check your connection and try again.')
       return false
     } finally {
-      setStatsLoading(false)
+      if (statsSeq === statsRequestSeqRef.current) {
+        setStatsLoading(false)
+      }
     }
   }, [activeTab, statisticsTimeFilter])
 

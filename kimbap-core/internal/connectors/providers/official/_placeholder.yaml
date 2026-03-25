@@ -1,0 +1,9 @@
+# This file exists solely to satisfy //go:embed official/*.yaml before real manifests are added.
+# It will be removed when Task 10 (delete hardcoded fallback) runs.
+# DO NOT use this as a provider definition.
+id: _placeholder
+display_name: _placeholder
+supported_flows: []
+auth_endpoint: ""
+token_endpoint: ""
+auth_lanes: []

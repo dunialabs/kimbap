@@ -559,7 +559,7 @@ func (s *OAuthService) GenerateAuthorizationServerMetadata(issuer string) oautht
 		ResponseTypesSupported:                 []string{"code"},
 		GrantTypesSupported:                    []string{"authorization_code", "refresh_token"},
 		TokenEndpointAuthMethodsSupported:      []string{"client_secret_basic", "client_secret_post", "none"},
-		RevocationEndpointAuthMethodsSupported: []string{"client_secret_basic", "client_secret_post", "none"},
+		RevocationEndpointAuthMethodsSupported: []string{"client_secret_basic", "client_secret_post"},
 		TokenEndpointAuthSigningAlgsSupported:  []string{"HS256"},
 		CodeChallengeMethodsSupported:          []string{"S256", "plain"},
 		ClientIDMetadataDocumentSupported:      true,

@@ -110,14 +110,16 @@ export async function POST(request: NextRequest) {
 
     if (isPublic) {
       const clientIp = getClientIdentity(request);
-      if (clientIp !== 'unknown' && !checkRateLimit(`login:${clientIp}`, LOGIN_RATE_LIMIT)) {
+      const rateLimitKey = `login:${clientIp !== 'unknown' ? clientIp : `unknown:${cmdId}`}`;
+      if (!checkRateLimit(rateLimitKey, LOGIN_RATE_LIMIT)) {
         return ApiResponse.error(cmdId, 429, 'Rate limit exceeded. Try again later.', 429);
       }
     }
 
     if (!isPublic) {
       const clientIp = getClientIdentity(request);
-      if (clientIp !== 'unknown' && !checkRateLimit(`anon:${clientIp}`, GENERAL_RATE_LIMIT)) {
+      const rateLimitKey = `anon:${clientIp !== 'unknown' ? clientIp : `unknown:${cmdId}`}`;
+      if (!checkRateLimit(rateLimitKey, GENERAL_RATE_LIMIT)) {
         return ApiResponse.error(cmdId, 429, 'Rate limit exceeded. Try again later.', 429);
       }
 
@@ -155,8 +157,12 @@ export async function POST(request: NextRequest) {
         if (typeof upstreamUser?.role === 'number') {
           resolvedRole = upstreamUser.role;
         }
-      } catch {
-        return ApiResponse.unauthorized(cmdId);
+      } catch (err: unknown) {
+        const status = (err as { status?: number })?.status;
+        if (status === 401 || status === 403 || status === 404) {
+          return ApiResponse.unauthorized(cmdId);
+        }
+        return ApiResponse.error(cmdId, 502, 'Upstream validation unavailable', 502);
       }
 
       if (resolvedRole !== 1 && resolvedRole !== 2) {
