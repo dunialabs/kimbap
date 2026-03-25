@@ -15,14 +15,7 @@ async function getKimbapCoreConnection(request: NextRequest) {
     throw new ExternalApiError(E4014, 'Kimbap Core not configured');
   }
 
-  const currentPort = Reflect.get(config, 'kimbap_core_port');
-  const legacyPort = Reflect.get(config, 'kimbap_core_prot');
-  const port =
-    typeof currentPort === 'number'
-      ? currentPort
-      : typeof legacyPort === 'number'
-        ? legacyPort
-        : null;
+  const port: number | null = config.kimbap_core_port || null;
 
   return ApiResponse.success({
     host: config.kimbap_core_host,
