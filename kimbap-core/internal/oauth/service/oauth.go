@@ -362,7 +362,7 @@ func (s *OAuthService) generateTokenPair(ctx context.Context, clientID, userID s
 	scopeJSON, _ := json.Marshal(scopes)
 	token := database.OAuthToken{
 		TokenID:               generateCUIDLikeID(),
-		AccessToken:           accessToken,
+		AccessToken:           hashRefreshToken(accessToken),
 		RefreshToken:          &hashedRefreshToken,
 		ClientID:              clientID,
 		UserID:                userID,
@@ -377,6 +377,7 @@ func (s *OAuthService) generateTokenPair(ctx context.Context, clientID, userID s
 	if err := s.db.WithContext(ctx).Create(&token).Error; err != nil {
 		return nil, err
 	}
+	token.AccessToken = accessToken
 	token.RefreshToken = &rawRefreshToken
 	return &token, nil
 }
