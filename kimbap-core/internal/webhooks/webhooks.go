@@ -24,6 +24,16 @@ const (
 	EventPolicyDeleted  EventType = "policy.deleted"
 	EventSkillInstalled EventType = "skill.installed"
 	EventSkillRemoved   EventType = "skill.removed"
+
+	// Approval events are fired by the REST API when approval lifecycle transitions occur.
+	// These are intended for management webhook subscribers that want to react to approval
+	// state changes (e.g., audit systems, external ticketing).
+	// Note: these are separate from approvals.Notifier which handles synchronous notification
+	// to human approvers (Slack, Telegram, email).
+	EventApprovalRequested EventType = "approval.requested"
+	EventApprovalApproved  EventType = "approval.approved"
+	EventApprovalDenied    EventType = "approval.denied"
+	EventApprovalExpired   EventType = "approval.expired"
 )
 
 type Event struct {

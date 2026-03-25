@@ -266,3 +266,98 @@ func TestUnsubscribeDeactivatesAllMatches(t *testing.T) {
 		t.Fatalf("expected all matches deactivated, got %d active", len(subs))
 	}
 }
+
+func TestApprovalEventTypesExist(t *testing.T) {
+	if EventApprovalRequested != "approval.requested" {
+		t.Errorf("unexpected value: %q", EventApprovalRequested)
+	}
+	if EventApprovalApproved != "approval.approved" {
+		t.Errorf("unexpected value: %q", EventApprovalApproved)
+	}
+	if EventApprovalDenied != "approval.denied" {
+		t.Errorf("unexpected value: %q", EventApprovalDenied)
+	}
+	if EventApprovalExpired != "approval.expired" {
+		t.Errorf("unexpected value: %q", EventApprovalExpired)
+	}
+}
+
+func TestDispatcherDeliversApprovalEvent(t *testing.T) {
+	received := make(chan Event, 1)
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		var e Event
+		if err := json.NewDecoder(r.Body).Decode(&e); err == nil {
+			received <- e
+		}
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer srv.Close()
+
+	d := NewDispatcher()
+	d.Subscribe(Subscription{
+		ID:       "sub-approval-test",
+		URL:      srv.URL,
+		Events:   []EventType{EventApprovalRequested},
+		TenantID: "tenant1",
+		Active:   true,
+	})
+
+	d.EmitForTenant("tenant1", EventApprovalRequested, map[string]any{"approval_id": "appr_1"})
+
+	select {
+	case e := <-received:
+		if e.Type != EventApprovalRequested {
+			t.Errorf("expected %q, got %q", EventApprovalRequested, e.Type)
+		}
+	case <-time.After(2 * time.Second):
+		t.Fatal("timeout waiting for approval event delivery")
+	}
+}
+
+func TestApprovalEventFilteredBySubscription(t *testing.T) {
+	policyReceived := make(chan struct{}, 1)
+	approvalReceived := make(chan struct{}, 1)
+
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		var e Event
+		if err := json.NewDecoder(r.Body).Decode(&e); err == nil {
+			switch e.Type {
+			case EventPolicyCreated:
+				select {
+				case policyReceived <- struct{}{}:
+				default:
+				}
+			case EventApprovalRequested:
+				select {
+				case approvalReceived <- struct{}{}:
+				default:
+				}
+			}
+		}
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer srv.Close()
+
+	d := NewDispatcher()
+	d.Subscribe(Subscription{
+		ID:     "sub-filter-test",
+		URL:    srv.URL,
+		Events: []EventType{EventApprovalRequested},
+		Active: true,
+	})
+
+	d.Emit(EventPolicyCreated, map[string]any{"policy_id": "p1"})
+	d.EmitForTenant("", EventApprovalRequested, map[string]any{"approval_id": "a1"})
+
+	select {
+	case <-approvalReceived:
+	case <-time.After(2 * time.Second):
+		t.Fatal("timeout: approval event should have been delivered")
+	}
+
+	select {
+	case <-policyReceived:
+		t.Error("policy event should not have been delivered to approval-only subscription")
+	case <-time.After(200 * time.Millisecond):
+	}
+}
