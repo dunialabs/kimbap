@@ -1289,7 +1289,9 @@ func (m *serverManager) CreateTemporaryServer(ctx context.Context, userID string
 		if status == types.ServerStatusOnline {
 			return existing, nil
 		}
-		_, _ = m.CloseTemporaryServer(ctx, server.ServerID, userID)
+		if _, closeErr := m.CloseTemporaryServer(ctx, server.ServerID, userID); closeErr != nil {
+			return nil, fmt.Errorf("close existing temporary server before replacement: %w", closeErr)
+		}
 		m.mu.Lock()
 	}
 
