@@ -80,9 +80,7 @@ func buildInitConfig() *config.KimbapConfig {
 		cfg.Skills.Dir = filepath.Join(cfg.DataDir, "skills")
 		cfg.Audit.Path = filepath.Join(cfg.DataDir, "audit.jsonl")
 		cfg.Database.DSN = filepath.Join(cfg.DataDir, "kimbap.db")
-		if strings.HasSuffix(cfg.Policy.Path, ".rego") || strings.TrimSpace(cfg.Policy.Path) == "" {
-			cfg.Policy.Path = filepath.Join(cfg.DataDir, "policy.yaml")
-		}
+		cfg.Policy.Path = filepath.Join(cfg.DataDir, "policy.yaml")
 	}
 	if strings.TrimSpace(opts.logLevel) != "" {
 		cfg.LogLevel = opts.logLevel
@@ -95,10 +93,10 @@ func buildInitConfig() *config.KimbapConfig {
 
 func validateInitMode(mode string) error {
 	switch strings.ToLower(strings.TrimSpace(mode)) {
-	case "embedded", "dev":
+	case "embedded", "dev", "connected":
 		return nil
 	default:
-		return fmt.Errorf("unsupported mode %q: expected dev or embedded", mode)
+		return fmt.Errorf("unsupported mode %q: expected dev, embedded, or connected", mode)
 	}
 }
 
