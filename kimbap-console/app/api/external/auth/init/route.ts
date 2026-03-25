@@ -72,11 +72,7 @@ export async function POST(request: NextRequest) {
 
     // Validate required parameters
     const { masterPwd } = body;
-    if (!masterPwd) {
-      throw new ExternalApiError(E1001, 'Missing required field: masterPwd');
-    }
-
-    if (typeof masterPwd !== 'string') {
+    if (typeof masterPwd !== 'string' || !masterPwd.trim()) {
       throw new ExternalApiError(E1001, 'Missing required field: masterPwd');
     }
 

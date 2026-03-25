@@ -173,12 +173,16 @@ export async function POST(request: NextRequest) {
           });
         } catch (error) {
           console.error('Failed to save user to local table:', error);
+          let rolledBack = false;
           try {
             await deleteUser(userId, undefined, ownerToken);
+            rolledBack = true;
           } catch (cleanupErr) {
             console.error('Compensation delete also failed:', cleanupErr);
           }
-          throw new Error(`Local database save failed for token ${tokenInput.name.trim()}`);
+          throw new Error(rolledBack
+            ? `Local database save failed for token ${tokenInput.name.trim()}`
+            : `Local database save failed for token ${tokenInput.name.trim()}; remote cleanup failed and manual cleanup may be required`);
         }
 
         let namespace = 'default';

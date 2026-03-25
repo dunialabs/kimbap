@@ -14,13 +14,16 @@ function WelcomePageContent() {
   useEffect(() => {
     const userid = localStorage.getItem('userid')
     const authToken = localStorage.getItem('auth_token')
+    const hasSessionCookie = document.cookie
+      .split('; ')
+      .some((cookie) => cookie.startsWith('kimbap_session='))
 
-    if (userid && authToken) {
+    if (userid && authToken && hasSessionCookie) {
       router.push('/dashboard')
       return
     }
 
-    if (userid && !authToken) {
+    if (userid && (!authToken || !hasSessionCookie)) {
       clearAuthState()
     }
 

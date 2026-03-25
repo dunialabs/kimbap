@@ -12,18 +12,18 @@ const https = require('https');
 
 const prisma = new PrismaClient();
 
-// 同步状态管理
+// Sync state tracking
 let isSyncInProgress = false;
 let syncStartTime = null;
 
-// 配置
+// Configuration
 const CONFIG = {
-  SYNC_INTERVAL_MINUTES: parseInt(process.env.LOG_SYNC_INTERVAL_MINUTES) || 2,  // 2分钟间隔
-  MAX_LOGS_PER_REQUEST: parseInt(process.env.MAX_LOGS_PER_REQUEST) || 5000,     // 5000条最大获取
-  BATCH_SIZE: parseInt(process.env.LOG_BATCH_SIZE) || 500,                      // 批量保存500条
+  SYNC_INTERVAL_MINUTES: parseInt(process.env.LOG_SYNC_INTERVAL_MINUTES) || 2,  // 2 minute interval
+  MAX_LOGS_PER_REQUEST: parseInt(process.env.MAX_LOGS_PER_REQUEST) || 5000,     // max fetch size: 5000 logs
+  BATCH_SIZE: parseInt(process.env.LOG_BATCH_SIZE) || 500,                      // save 500 logs per batch
   ENABLED: process.env.LOG_SYNC_ENABLED !== 'false',
-  REQUEST_TIMEOUT: parseInt(process.env.LOG_SYNC_TIMEOUT) || 180000,            // 3分钟超时
-  RETRY_ATTEMPTS: parseInt(process.env.LOG_SYNC_RETRY_ATTEMPTS) || 2           // 2次重试
+  REQUEST_TIMEOUT: parseInt(process.env.LOG_SYNC_TIMEOUT) || 180000,            // 3 minute timeout
+  RETRY_ATTEMPTS: parseInt(process.env.LOG_SYNC_RETRY_ATTEMPTS) || 2           // retry twice
 };
 
 /**
@@ -165,7 +165,7 @@ async function getProxyKey() {
  * Get owner's access token
  */
 async function getOwnerToken() {
-  const envToken = process.env.LOG_SYNC_TOKEN;
+  const envToken = process.env.LOG_SYNC_TOKEN?.trim();
   if (envToken) {
     return envToken;
   }
@@ -253,7 +253,7 @@ async function fetchLogsFromProxyOnce(token, startId = null, attempt = 1) {
         limit: CONFIG.MAX_LOGS_PER_REQUEST
       };
 
-      // 如果有startId，添加到请求参数中用于增量同步
+      // If startId exists, include it for incremental sync
       if (startId !== null) {
         requestData.id = startId;
       }
@@ -343,7 +343,7 @@ async function saveLogsToDatabase(logs, currentProxyKey) {
 
   let savedCount = 0;
 
-  // 首先批量查询已存在的记录
+  // First, query existing records in bulk
   const logIds = logs.map(log => BigInt(log.id));
   const existingLogs = await prisma.log.findMany({
     where: {
@@ -357,22 +357,22 @@ async function saveLogsToDatabase(logs, currentProxyKey) {
     }
   });
 
-  // 创建已存在ID的Set以便快速查找
+  // Build a Set of existing IDs for quick lookup
   const existingIdSet = new Set(existingLogs.map(log => log.idInCore.toString()));
 
-  // 过滤出需要插入的新记录
+  // Filter down to new records that still need insertion
   const logsToInsert = logs.filter(log => !existingIdSet.has(log.id.toString()));
 
   if (logsToInsert.length === 0) {
     return 0;
   }
 
-  // 分批处理插入，使用配置的批次大小
+  // Insert in batches using the configured batch size
   for (let i = 0; i < logsToInsert.length; i += CONFIG.BATCH_SIZE) {
     const batch = logsToInsert.slice(i, Math.min(i + CONFIG.BATCH_SIZE, logsToInsert.length));
 
     try {
-      // 准备批量插入的数据，简化字段映射
+      // Prepare batch insert data with simplified field mapping
       const dataToInsert = batch.map(log => ({
         idInCore: BigInt(log.id),
         addtime: BigInt(log.createdAt || log.addtime || Math.floor(Date.now() / 1000)),
@@ -395,7 +395,7 @@ async function saveLogsToDatabase(logs, currentProxyKey) {
         proxyKey: currentProxyKey
       }));
 
-      // 使用createMany批量插入
+      // Insert the batch with createMany
       const result = await prisma.log.createMany({
         data: dataToInsert,
         skipDuplicates: true
@@ -409,8 +409,8 @@ async function saveLogsToDatabase(logs, currentProxyKey) {
       const firstId = batch[0]?.id ?? 'unknown';
       const lastId = batch[batch.length - 1]?.id ?? 'unknown';
       console.error(`\x1b[31m[LogSync] Batch insert failed (records ${batchStart}-${batchEnd}, idInCore ${firstId}-${lastId}): ${error.message}\x1b[0m`);
-      console.error(`\x1b[33m[LogSync] ⚠️ ${batch.length} logs dropped. They will be re-fetched on the next sync cycle if idInCore cursor has not advanced.\x1b[0m`);
-      continue;
+      console.error(`\x1b[33m[LogSync] ⚠️ Stopping sync after this batch failure so the next cycle re-fetches from the last contiguous saved log.\x1b[0m`);
+      break;
     }
   }
 
@@ -422,14 +422,14 @@ async function saveLogsToDatabase(logs, currentProxyKey) {
  * Execute one log sync
  */
 async function syncLogs() {
-  // 检查是否已有同步在进行中
+  // Skip if a sync is already running
   if (isSyncInProgress) {
     const elapsed = syncStartTime ? Math.floor((Date.now() - syncStartTime) / 1000) : 0;
     console.log(`\x1b[33m[LogSync] Sync in progress (${elapsed}s), skipping\x1b[0m`);
     return;
   }
 
-  // 设置同步状态
+  // Mark sync as running
   isSyncInProgress = true;
   syncStartTime = Date.now();
 
@@ -465,7 +465,7 @@ async function syncLogs() {
     const syncDuration = Math.floor((Date.now() - syncStartTime) / 1000);
     console.log(`\x1b[31m[LogSync] Failed: ${error.message} (${syncDuration}s)\x1b[0m`);
   } finally {
-    // 重置同步状态
+    // Reset sync state
     isSyncInProgress = false;
     syncStartTime = null;
   }
