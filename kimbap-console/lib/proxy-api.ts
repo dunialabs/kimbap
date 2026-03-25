@@ -141,39 +141,11 @@ export enum ServerStatus {
  */
 async function getKimbapCoreConfig(): Promise<{ host: string; port: number | null }> {
   try {
-    // Check if prisma is properly initialized
-    if (!prisma) {
-      console.error('[PROXY API] Prisma client is not initialized');
-      throw new ApiError(ErrorCode.INTERNAL_SERVER_ERROR, 500);
-    }
-
-    // Use type assertion for config model since TypeScript doesn't recognize it
-    const prismaClient = prisma as any;
-
-    // Check if config model exists at runtime
-    if (!prismaClient.config) {
-      console.error(
-        '[PROXY API] Config model not found on Prisma client. Please run: npx prisma generate',
-      );
-      console.error(
-        '[PROXY API] Available models:',
-        Object.keys(prismaClient).filter((key) => !key.startsWith('_') && !key.startsWith('$')),
-      );
-      throw new ApiError(ErrorCode.INTERNAL_SERVER_ERROR, 500);
-    }
-
-    const dbConfig = await prismaClient.config.findFirst();
+    const dbConfig = await prisma.config.findFirst();
 
     if (dbConfig && dbConfig.kimbap_core_host) {
       const host = dbConfig.kimbap_core_host;
-      const currentPort = Reflect.get(dbConfig, 'kimbap_core_port');
-      const legacyPort = Reflect.get(dbConfig, 'kimbap_core_prot');
-      const port =
-        typeof currentPort === 'number'
-          ? currentPort
-          : typeof legacyPort === 'number'
-            ? legacyPort
-            : undefined;
+      const port: number | undefined = dbConfig.kimbap_core_port || undefined;
 
       const displayStr = port === 443 || !port ? host : `${host}:${port}`;
       console.log(`[PROXY API] Using Kimbap Core config from database: ${displayStr}`);
@@ -354,19 +326,6 @@ async function makeProxyRequest<T = any>(
     token ? '[WITH_TOKEN]' : '[NO_TOKEN]',
   );
 
-  if (!url) {
-    throw new Error('Proxy admin URL not configured');
-  }
-
-  // Token is required only for START_SERVER and UPDATE_SERVER_LAUNCH_CMD
-  if (
-    (action === AdminActionType.START_SERVER ||
-      action === AdminActionType.UPDATE_SERVER_LAUNCH_CMD) &&
-    !authToken
-  ) {
-    throw new Error('Token is required for START_SERVER and UPDATE_SERVER_LAUNCH_CMD actions');
-  }
-
   try {
     const startTime = Date.now();
     const response = await axios.post<AdminResponse<T>>(
@@ -426,6 +385,71 @@ async function makeProxyRequest<T = any>(
   }
 }
 
+interface ToolCapability { enabled: boolean; dangerLevel?: number; description?: string }
+
+interface ServerCapabilities {
+  tools: Record<string, ToolCapability>;
+  resources: Record<string, { enabled: boolean }>;
+  prompts: Record<string, { enabled: boolean }>;
+}
+
+interface ServerCapabilitiesWithMeta extends ServerCapabilities {
+  serverName: string;
+  enabled: boolean;
+}
+
+interface CoreLogEntry {
+  id: number;
+  idInCore: bigint | null;
+  action: number;
+  userid: string;
+  serverId: string | null;
+  createdAt: number;
+  sessionId: string;
+  upstreamRequestId: string;
+  uniformRequestId: string | null;
+  parentUniformRequestId: string | null;
+  proxyRequestId: string | null;
+  ip: string;
+  ua: string;
+  tokenMask: string;
+  requestParams: string;
+  responseResult: string;
+  error: string;
+  duration: number | null;
+  statusCode: number | null;
+  proxyKey: string;
+}
+
+/**
+ * Dispatch an admin request with 3-way auth resolution:
+ *   1. token provided → use directly
+ *   2. userid provided → resolve via makeProxyRequestWithUserId
+ *   3. neither → unauthenticated call
+ */
+async function dispatchRequest<T>(
+  action: AdminActionType,
+  data: any,
+  userid?: string,
+  token?: string,
+  timeout?: number,
+): Promise<AdminResponse<T>> {
+  if (token) {
+    return makeProxyRequest<T>(action, data, token, timeout);
+  }
+  if (userid) {
+    return makeProxyRequestWithUserId<T>(action, data, userid, token, timeout);
+  }
+  return makeProxyRequest<T>(action, data, undefined, timeout);
+}
+
+function unwrapResponse<T>(result: AdminResponse<T>, errorPrefix: string): T {
+  if (!result.success) {
+    throw new Error(`${errorPrefix}: ${result.error?.message || 'Unknown error'}`);
+  }
+  return result.data!;
+}
+
 /**
  * Start a server on the proxy
  * @param serverId - The ID of the server to start
@@ -457,48 +481,14 @@ export async function startProxyServer(serverId: string, token: string): Promise
   console.log(`[PROXY API] startProxyServer success - ServerId: ${serverId}`);
 }
 
-/**
- * Start an MCP server (alias for startProxyServer for clarity in 10005 context)
- * @param serverId - The ID of the MCP server to start
- * @param token - The authentication token for starting the server
- * @returns Promise that resolves when the MCP server is started
- */
-export async function startMCPServer(serverId: string, token: string): Promise<void> {
-  console.log(`[PROXY API] startMCPServer called - ServerId: ${serverId}`);
-  return startProxyServer(serverId, token);
-}
-
-/**
- * Stop an MCP server
- * @param serverId - The ID of the MCP server to stop
- * @param userid - User ID (for token retrieval)
- * @returns Promise that resolves when the MCP server is stopped
- */
 export async function stopMCPServer(
   serverId: string,
   userid?: string,
   token?: string,
 ): Promise<void> {
   console.log(`[PROXY API] stopMCPServer called - ServerId: ${serverId}`);
-
-  const result = token
-    ? await makeProxyRequest(AdminActionType.STOP_SERVER, { targetId: serverId }, token)
-    : userid
-      ? await makeProxyRequestWithUserId(
-          AdminActionType.STOP_SERVER,
-          { targetId: serverId },
-          userid,
-          token,
-        )
-      : await makeProxyRequest(AdminActionType.STOP_SERVER, { targetId: serverId });
-
-  if (!result.success) {
-    console.error(`[PROXY API] stopMCPServer failed - ServerId: ${serverId}, Error:`, result.error);
-    throw new Error(
-      `Failed to stop server ${serverId}: ${result.error?.message || 'Unknown error'}`,
-    );
-  }
-
+  const result = await dispatchRequest(AdminActionType.STOP_SERVER, { targetId: serverId }, userid, token);
+  unwrapResponse(result, `Failed to stop server ${serverId}`);
   console.log(`[PROXY API] stopMCPServer success - ServerId: ${serverId}`);
 }
 
@@ -511,36 +501,10 @@ export async function getServersStatus(
   userid?: string,
   token?: string,
 ): Promise<{ [serverId: string]: ServerStatus }> {
-  console.log(`[PROXY API] getServersStatus called`);
-
-  const result = token
-    ? await makeProxyRequest<{ serversStatus: { [serverId: string]: ServerStatus } }>(
-        AdminActionType.GET_SERVERS_STATUS,
-        {},
-        token,
-      )
-    : userid
-      ? await makeProxyRequestWithUserId<{ serversStatus: { [serverId: string]: ServerStatus } }>(
-          AdminActionType.GET_SERVERS_STATUS,
-          {},
-          userid,
-          token,
-        )
-    : await makeProxyRequest<{ serversStatus: { [serverId: string]: ServerStatus } }>(
-        AdminActionType.GET_SERVERS_STATUS,
-        {},
-      );
-
-  if (!result.success) {
-    console.error(`[PROXY API] getServersStatus failed - Error:`, result.error);
-    throw new Error(`Failed to get servers status: ${result.error?.message || 'Unknown error'}`);
-  }
-
-  const statusMap = result.data?.serversStatus || {};
-  console.log(
-    `[PROXY API] getServersStatus success - Status count: ${Object.keys(statusMap).length}`,
+  const result = await dispatchRequest<{ serversStatus: { [serverId: string]: ServerStatus } }>(
+    AdminActionType.GET_SERVERS_STATUS, {}, userid, token,
   );
-  return statusMap;
+  return unwrapResponse(result, 'Failed to get servers status')?.serversStatus ?? {};
 }
 
 /**
@@ -556,40 +520,11 @@ export async function connectAllServers(
   successServers: any[];
   failedServers: any[];
 }> {
-  console.log(`[PROXY API] connectAllServers called`);
-
-  const result = token
-    ? await makeProxyRequest<{ successServers: any[]; failedServers: any[] }>(
-        AdminActionType.CONNECT_ALL_SERVERS,
-        {},
-        token,
-        120000,
-      )
-    : userid
-      ? await makeProxyRequestWithUserId<{ successServers: any[]; failedServers: any[] }>(
-          AdminActionType.CONNECT_ALL_SERVERS,
-          {},
-          userid,
-          token,
-          120000,
-        )
-      : await makeProxyRequest<{ successServers: any[]; failedServers: any[] }>(
-          AdminActionType.CONNECT_ALL_SERVERS,
-          {},
-          undefined,
-          120000,
-        );
-
-  if (!result.success) {
-    console.error(`[PROXY API] connectAllServers failed - Error:`, result.error);
-    throw new Error(`Failed to connect servers: ${result.error?.message || 'Unknown error'}`);
-  }
-
-  const data = result.data || { successServers: [], failedServers: [] };
-  console.log(
-    `[PROXY API] connectAllServers success - Success: ${data.successServers.length}, Failed: ${data.failedServers.length}`,
+  const result = await dispatchRequest<{ successServers: any[]; failedServers: any[] }>(
+    AdminActionType.CONNECT_ALL_SERVERS, {}, userid, token, 120000,
   );
-  return data;
+  const data = unwrapResponse(result, 'Failed to connect servers');
+  return data || { successServers: [], failedServers: [] };
 }
 
 /**
@@ -604,30 +539,8 @@ export async function disableUser(
   requestUserId?: string,
   token?: string,
 ): Promise<void> {
-  console.log(`[PROXY API] disableUser called - UserId: ${userId}`);
-
-  let result: AdminResponse<any>;
-  if (token) {
-    result = await makeProxyRequest(AdminActionType.DISABLE_USER, { targetId: userId }, token);
-  } else if (requestUserId) {
-    result = await makeProxyRequestWithUserId(
-      AdminActionType.DISABLE_USER,
-      { targetId: userId },
-      requestUserId,
-      token,
-    );
-  } else {
-    result = await makeProxyRequest(AdminActionType.DISABLE_USER, { targetId: userId });
-  }
-
-  if (!result.success) {
-    console.error(`[PROXY API] disableUser failed - UserId: ${userId}, Error:`, result.error);
-    throw new Error(
-      `Failed to disable user ${userId}: ${result.error?.message || 'Unknown error'}`,
-    );
-  }
-
-  console.log(`[PROXY API] disableUser success - UserId: ${userId}`);
+  const result = await dispatchRequest(AdminActionType.DISABLE_USER, { targetId: userId }, requestUserId, token);
+  unwrapResponse(result, `Failed to disable user ${userId}`);
 }
 
 /**
@@ -639,86 +552,11 @@ export async function disableUser(
 export async function getAvailableServersCapabilities(
   userid?: string,
   token?: string,
-): Promise<{
-  [serverId: string]: {
-    serverName: string;
-    enabled: boolean;
-    tools: { [toolName: string]: { enabled: boolean; dangerLevel?: number; description?: string } };
-    resources: { [resourceName: string]: { enabled: boolean } };
-    prompts: { [promptName: string]: { enabled: boolean } };
-  };
-}> {
-  console.log(`[PROXY API] getAvailableServersCapabilities called`);
-
-  let result: AdminResponse<{
-    capabilities: {
-      [serverId: string]: {
-        serverName: string;
-        enabled: boolean;
-        tools: {
-          [toolName: string]: { enabled: boolean; dangerLevel?: number; description?: string };
-        };
-        resources: { [resourceName: string]: { enabled: boolean } };
-        prompts: { [promptName: string]: { enabled: boolean } };
-      };
-    };
-  }>;
-  if (token) {
-    result = await makeProxyRequest<{
-      capabilities: {
-        [serverId: string]: {
-          serverName: string;
-          enabled: boolean;
-          tools: {
-            [toolName: string]: { enabled: boolean; dangerLevel?: number; description?: string };
-          };
-          resources: { [resourceName: string]: { enabled: boolean } };
-          prompts: { [promptName: string]: { enabled: boolean } };
-        };
-      };
-    }>(AdminActionType.GET_AVAILABLE_SERVERS_CAPABILITIES, {}, token);
-  } else if (userid) {
-    result = await makeProxyRequestWithUserId<{
-      capabilities: {
-        [serverId: string]: {
-          serverName: string;
-          enabled: boolean;
-          tools: {
-            [toolName: string]: { enabled: boolean; dangerLevel?: number; description?: string };
-          };
-          resources: { [resourceName: string]: { enabled: boolean } };
-          prompts: { [promptName: string]: { enabled: boolean } };
-        };
-      };
-    }>(AdminActionType.GET_AVAILABLE_SERVERS_CAPABILITIES, {}, userid, token);
-  } else {
-    result = await makeProxyRequest<{
-      capabilities: {
-        [serverId: string]: {
-          serverName: string;
-          enabled: boolean;
-          tools: {
-            [toolName: string]: { enabled: boolean; dangerLevel?: number; description?: string };
-          };
-          resources: { [resourceName: string]: { enabled: boolean } };
-          prompts: { [promptName: string]: { enabled: boolean } };
-        };
-      };
-    }>(AdminActionType.GET_AVAILABLE_SERVERS_CAPABILITIES, {});
-  }
-
-  if (!result.success) {
-    console.error(`[PROXY API] getAvailableServersCapabilities failed - Error:`, result.error);
-    throw new Error(
-      `Failed to get available servers capabilities: ${result.error?.message || 'Unknown error'}`,
-    );
-  }
-
-  const capabilities = result.data?.capabilities || {};
-  console.log(
-    `[PROXY API] getAvailableServersCapabilities success - Server count: ${Object.keys(capabilities).length}`,
+): Promise<Record<string, ServerCapabilitiesWithMeta>> {
+  const result = await dispatchRequest<{ capabilities: Record<string, ServerCapabilitiesWithMeta> }>(
+    AdminActionType.GET_AVAILABLE_SERVERS_CAPABILITIES, {}, userid, token,
   );
-  return capabilities;
+  return unwrapResponse(result, 'Failed to get available servers capabilities')?.capabilities ?? {};
 }
 
 /**
@@ -732,92 +570,11 @@ export async function getUserAvailableServersCapabilities(
   userId: string,
   requestUserId?: string,
   token?: string,
-): Promise<{
-  [serverId: string]: {
-    enabled: boolean;
-    tools: { [toolName: string]: { enabled: boolean; dangerLevel?: number; description?: string } };
-    resources: { [resourceName: string]: { enabled: boolean } };
-    prompts: { [promptName: string]: { enabled: boolean } };
-  };
-}> {
-  console.log(`[PROXY API] getUserAvailableServersCapabilities called - UserId: ${userId}`);
-
-  let result: AdminResponse<{
-    capabilities: {
-      [serverId: string]: {
-        enabled: boolean;
-        tools: {
-          [toolName: string]: { enabled: boolean; dangerLevel?: number; description?: string };
-        };
-        resources: { [resourceName: string]: { enabled: boolean } };
-        prompts: { [promptName: string]: { enabled: boolean } };
-      };
-    };
-  }>;
-  if (token) {
-    // Priority 1: Use token directly if provided
-    result = await makeProxyRequest<{
-      capabilities: {
-        [serverId: string]: {
-          enabled: boolean;
-          tools: {
-            [toolName: string]: { enabled: boolean; dangerLevel?: number; description?: string };
-          };
-          resources: { [resourceName: string]: { enabled: boolean } };
-          prompts: { [promptName: string]: { enabled: boolean } };
-        };
-      };
-    }>(AdminActionType.GET_USER_AVAILABLE_SERVERS_CAPABILITIES, { targetId: userId }, token);
-  } else if (requestUserId) {
-    // Priority 2: Use requestUserId to lookup token from local database
-    result = await makeProxyRequestWithUserId<{
-      capabilities: {
-        [serverId: string]: {
-          enabled: boolean;
-          tools: {
-            [toolName: string]: { enabled: boolean; dangerLevel?: number; description?: string };
-          };
-          resources: { [resourceName: string]: { enabled: boolean } };
-          prompts: { [promptName: string]: { enabled: boolean } };
-        };
-      };
-    }>(
-      AdminActionType.GET_USER_AVAILABLE_SERVERS_CAPABILITIES,
-      { targetId: userId },
-      requestUserId,
-      token,
-    );
-  } else {
-    // Fallback: No auth
-    result = await makeProxyRequest<{
-      capabilities: {
-        [serverId: string]: {
-          enabled: boolean;
-          tools: {
-            [toolName: string]: { enabled: boolean; dangerLevel?: number; description?: string };
-          };
-          resources: { [resourceName: string]: { enabled: boolean } };
-          prompts: { [promptName: string]: { enabled: boolean } };
-        };
-      };
-    }>(AdminActionType.GET_USER_AVAILABLE_SERVERS_CAPABILITIES, { targetId: userId });
-  }
-
-  if (!result.success) {
-    console.error(
-      `[PROXY API] getUserAvailableServersCapabilities failed - UserId: ${userId}, Error:`,
-      result.error,
-    );
-    throw new Error(
-      `Failed to get user available servers capabilities for ${userId}: ${result.error?.message || 'Unknown error'}`,
-    );
-  }
-
-  const capabilities = result.data?.capabilities || {};
-  console.log(
-    `[PROXY API] getUserAvailableServersCapabilities success - UserId: ${userId}, Server count: ${Object.keys(capabilities).length}`,
+): Promise<Record<string, ServerCapabilities & { enabled: boolean }>> {
+  const result = await dispatchRequest<{ capabilities: Record<string, ServerCapabilities & { enabled: boolean }> }>(
+    AdminActionType.GET_USER_AVAILABLE_SERVERS_CAPABILITIES, { targetId: userId }, requestUserId, token,
   );
-  return capabilities;
+  return unwrapResponse(result, `Failed to get user available servers capabilities for ${userId}`)?.capabilities ?? {};
 }
 
 /**
@@ -831,69 +588,12 @@ export async function getServersCapabilities(
   serverId: string,
   userid?: string,
   token?: string,
-): Promise<{
-  tools: { [toolName: string]: { enabled: boolean; dangerLevel?: number; description?: string } };
-  resources: { [resourceName: string]: { enabled: boolean } };
-  prompts: { [promptName: string]: { enabled: boolean } };
-}> {
-  console.log(`[PROXY API] getServersCapabilities called - ServerId: ${serverId}`);
-
-  let result: AdminResponse<{
-    capabilities: {
-      tools: {
-        [toolName: string]: { enabled: boolean; dangerLevel?: number; description?: string };
-      };
-      resources: { [resourceName: string]: { enabled: boolean } };
-      prompts: { [promptName: string]: { enabled: boolean } };
-    };
-  }>;
-  if (token) {
-    result = await makeProxyRequest<{
-      capabilities: {
-        tools: {
-          [toolName: string]: { enabled: boolean; dangerLevel?: number; description?: string };
-        };
-        resources: { [resourceName: string]: { enabled: boolean } };
-        prompts: { [promptName: string]: { enabled: boolean } };
-      };
-    }>(AdminActionType.GET_SERVERS_CAPABILITIES, { targetId: serverId }, token);
-  } else if (userid) {
-    result = await makeProxyRequestWithUserId<{
-      capabilities: {
-        tools: {
-          [toolName: string]: { enabled: boolean; dangerLevel?: number; description?: string };
-        };
-        resources: { [resourceName: string]: { enabled: boolean } };
-        prompts: { [promptName: string]: { enabled: boolean } };
-      };
-    }>(AdminActionType.GET_SERVERS_CAPABILITIES, { targetId: serverId }, userid, token);
-  } else {
-    result = await makeProxyRequest<{
-      capabilities: {
-        tools: {
-          [toolName: string]: { enabled: boolean; dangerLevel?: number; description?: string };
-        };
-        resources: { [resourceName: string]: { enabled: boolean } };
-        prompts: { [promptName: string]: { enabled: boolean } };
-      };
-    }>(AdminActionType.GET_SERVERS_CAPABILITIES, { targetId: serverId });
-  }
-
-  if (!result.success) {
-    console.error(
-      `[PROXY API] getServersCapabilities failed - ServerId: ${serverId}, Error:`,
-      result.error,
-    );
-    throw new Error(
-      `Failed to get capabilities for server ${serverId}: ${result.error?.message || 'Unknown error'}`,
-    );
-  }
-
-  const capabilities = result.data?.capabilities || { tools: {}, resources: {}, prompts: {} };
-  console.log(
-    `[PROXY API] getServersCapabilities success - ServerId: ${serverId}, Tools: ${Object.keys(capabilities.tools).length}, Resources: ${Object.keys(capabilities.resources).length}, Prompts: ${Object.keys(capabilities.prompts).length}`,
+): Promise<ServerCapabilities> {
+  const result = await dispatchRequest<{ capabilities: ServerCapabilities }>(
+    AdminActionType.GET_SERVERS_CAPABILITIES, { targetId: serverId }, userid, token,
   );
-  return capabilities;
+  return unwrapResponse(result, `Failed to get capabilities for server ${serverId}`)?.capabilities
+    ?? { tools: {}, resources: {}, prompts: {} };
 }
 
 // ============================================================================
@@ -954,35 +654,10 @@ export async function updateProxy(
   userid?: string,
   token?: string,
 ): Promise<{ proxy: any }> {
-  let result: AdminResponse<{ proxy: any }>;
-  if (token) {
-    // Priority 1: Use token directly if provided
-    result = await makeProxyRequest<{ proxy: any }>(
-      AdminActionType.UPDATE_PROXY,
-      { proxyId, ...data },
-      token,
-    );
-  } else if (userid) {
-    // Priority 2: Use userid to lookup token from local database
-    result = await makeProxyRequestWithUserId<{ proxy: any }>(
-      AdminActionType.UPDATE_PROXY,
-      { proxyId, ...data },
-      userid,
-      token,
-    );
-  } else {
-    // Fallback: No auth
-    result = await makeProxyRequest<{ proxy: any }>(AdminActionType.UPDATE_PROXY, {
-      proxyId,
-      ...data,
-    });
-  }
-
-  if (!result.success) {
-    throw new Error(`Failed to update proxy: ${result.error?.message || 'Unknown error'}`);
-  }
-
-  return result.data!;
+  const result = await dispatchRequest<{ proxy: any }>(
+    AdminActionType.UPDATE_PROXY, { proxyId, ...data }, userid, token,
+  );
+  return unwrapResponse(result, 'Failed to update proxy');
 }
 
 /**
@@ -998,18 +673,8 @@ export async function deleteProxy(
 ): Promise<{ message: string }> {
   const result = token
     ? await makeProxyRequest<{ message: string }>(AdminActionType.DELETE_PROXY, { proxyId }, token)
-    : await makeProxyRequestWithUserId<{ message: string }>(
-        AdminActionType.DELETE_PROXY,
-        { proxyId },
-        userid,
-        token,
-      );
-
-  if (!result.success) {
-    throw new Error(`Failed to delete proxy: ${result.error?.message || 'Unknown error'}`);
-  }
-
-  return result.data!;
+    : await makeProxyRequestWithUserId<{ message: string }>(AdminActionType.DELETE_PROXY, { proxyId }, userid, token);
+  return unwrapResponse(result, 'Failed to delete proxy');
 }
 
 // -------------------- USER OPERATIONS --------------------
@@ -1062,41 +727,10 @@ export async function getUsers(
   userid?: string,
   token?: string,
 ): Promise<{ users: any[] }> {
-  // Priority 1: Use token directly if provided
-  if (token) {
-    const result = await makeProxyRequest<{ users: any[] }>(
-      AdminActionType.GET_USERS,
-      filters || {},
-      token,
-    );
-    if (!result.success) {
-      throw new Error(`Failed to get users: ${result.error?.message || 'Unknown error'}`);
-    }
-    return result.data!;
-  }
-
-  // Priority 2: Use userid to lookup token from local database
-  if (userid) {
-    const result = await makeProxyRequestWithUserId<{ users: any[] }>(
-      AdminActionType.GET_USERS,
-      filters || {},
-      userid,
-      token,
-    );
-    if (!result.success) {
-      throw new Error(`Failed to get users: ${result.error?.message || 'Unknown error'}`);
-    }
-    return result.data!;
-  }
-
-  // Fallback to old approach for backward compatibility (no auth)
-  const result = await makeProxyRequest<{ users: any[] }>(AdminActionType.GET_USERS, filters || {});
-
-  if (!result.success) {
-    throw new Error(`Failed to get users: ${result.error?.message || 'Unknown error'}`);
-  }
-
-  return result.data!;
+  const result = await dispatchRequest<{ users: any[] }>(
+    AdminActionType.GET_USERS, filters || {}, userid, token,
+  );
+  return unwrapResponse(result, 'Failed to get users');
 }
 
 /**
@@ -1169,47 +803,10 @@ export async function updateUser(
   requestUserId?: string,
   token?: string,
 ): Promise<{ user: any }> {
-  if (token) {
-    const result = await makeProxyRequest<{ user: any }>(
-      AdminActionType.UPDATE_USER,
-      {
-        userId,
-        ...data,
-      },
-      token,
-    );
-    if (!result.success) {
-      throw new Error(`Failed to update user: ${result.error?.message || 'Unknown error'}`);
-    }
-    return result.data!;
-  }
-
-  if (requestUserId) {
-    const result = await makeProxyRequestWithUserId<{ user: any }>(
-      AdminActionType.UPDATE_USER,
-      {
-        userId,
-        ...data,
-      },
-      requestUserId,
-      token,
-    );
-    if (!result.success) {
-      throw new Error(`Failed to update user: ${result.error?.message || 'Unknown error'}`);
-    }
-    return result.data!;
-  }
-
-  const result = await makeProxyRequest<{ user: any }>(AdminActionType.UPDATE_USER, {
-    userId,
-    ...data,
-  });
-
-  if (!result.success) {
-    throw new Error(`Failed to update user: ${result.error?.message || 'Unknown error'}`);
-  }
-
-  return result.data!;
+  const result = await dispatchRequest<{ user: any }>(
+    AdminActionType.UPDATE_USER, { userId, ...data }, requestUserId, token,
+  );
+  return unwrapResponse(result, 'Failed to update user');
 }
 
 /**
@@ -1224,40 +821,10 @@ export async function deleteUser(
   requestUserId?: string,
   token?: string,
 ): Promise<{ message: string }> {
-  if (token) {
-    const result = await makeProxyRequest<{ message: string }>(
-      AdminActionType.DELETE_USER,
-      { userId },
-      token,
-    );
-    if (!result.success) {
-      throw new Error(`Failed to delete user: ${result.error?.message || 'Unknown error'}`);
-    }
-    return result.data!;
-  }
-
-  if (requestUserId) {
-    const result = await makeProxyRequestWithUserId<{ message: string }>(
-      AdminActionType.DELETE_USER,
-      { userId },
-      requestUserId,
-      token,
-    );
-    if (!result.success) {
-      throw new Error(`Failed to delete user: ${result.error?.message || 'Unknown error'}`);
-    }
-    return result.data!;
-  }
-
-  const result = await makeProxyRequest<{ message: string }>(AdminActionType.DELETE_USER, {
-    userId,
-  });
-
-  if (!result.success) {
-    throw new Error(`Failed to delete user: ${result.error?.message || 'Unknown error'}`);
-  }
-
-  return result.data!;
+  const result = await dispatchRequest<{ message: string }>(
+    AdminActionType.DELETE_USER, { userId }, requestUserId, token,
+  );
+  return unwrapResponse(result, 'Failed to delete user');
 }
 
 /**
@@ -1271,28 +838,10 @@ export async function countUsers(
   },
   requestUserId?: string,
 ): Promise<{ count: number }> {
-  if (requestUserId) {
-    const result = await makeProxyRequestWithUserId<{ count: number }>(
-      AdminActionType.COUNT_USERS,
-      filters || {},
-      requestUserId,
-    );
-    if (!result.success) {
-      throw new Error(`Failed to count users: ${result.error?.message || 'Unknown error'}`);
-    }
-    return result.data!;
-  }
-
-  const result = await makeProxyRequest<{ count: number }>(
-    AdminActionType.COUNT_USERS,
-    filters || {},
+  const result = await dispatchRequest<{ count: number }>(
+    AdminActionType.COUNT_USERS, filters || {}, requestUserId,
   );
-
-  if (!result.success) {
-    throw new Error(`Failed to count users: ${result.error?.message || 'Unknown error'}`);
-  }
-
-  return result.data!;
+  return unwrapResponse(result, 'Failed to count users');
 }
 
 // -------------------- SERVER OPERATIONS --------------------
@@ -1327,38 +876,10 @@ export async function createServer(
   requestUserId?: string,
   token?: string,
 ): Promise<{ server: any }> {
-  if (token) {
-    const result = await makeProxyRequest<{ server: any }>(
-      AdminActionType.CREATE_SERVER,
-      data,
-      token,
-    );
-    if (!result.success) {
-      throw new Error(`Failed to create server: ${result.error?.message || 'Unknown error'}`);
-    }
-    return result.data!;
-  }
-
-  if (requestUserId) {
-    const result = await makeProxyRequestWithUserId<{ server: any }>(
-      AdminActionType.CREATE_SERVER,
-      data,
-      requestUserId,
-      token,
-    );
-    if (!result.success) {
-      throw new Error(`Failed to create server: ${result.error?.message || 'Unknown error'}`);
-    }
-    return result.data!;
-  }
-
-  const result = await makeProxyRequest<{ server: any }>(AdminActionType.CREATE_SERVER, data);
-
-  if (!result.success) {
-    throw new Error(`Failed to create server: ${result.error?.message || 'Unknown error'}`);
-  }
-
-  return result.data!;
+  const result = await dispatchRequest<{ server: any }>(
+    AdminActionType.CREATE_SERVER, data, requestUserId, token,
+  );
+  return unwrapResponse(result, 'Failed to create server');
 }
 
 /**
@@ -1377,44 +898,10 @@ export async function getServers(
   userid?: string,
   token?: string,
 ): Promise<{ servers: any[] }> {
-  // Priority 1: Use token directly if provided
-  if (token) {
-    const result = await makeProxyRequest<{ servers: any[] }>(
-      AdminActionType.GET_SERVERS,
-      filters || {},
-      token,
-    );
-    if (!result.success) {
-      throw new Error(`Failed to get servers: ${result.error?.message || 'Unknown error'}`);
-    }
-    return result.data!;
-  }
-
-  // Priority 2: Use userid to lookup token from local database
-  if (userid) {
-    const result = await makeProxyRequestWithUserId<{ servers: any[] }>(
-      AdminActionType.GET_SERVERS,
-      filters || {},
-      userid,
-      token,
-    );
-    if (!result.success) {
-      throw new Error(`Failed to get servers: ${result.error?.message || 'Unknown error'}`);
-    }
-    return result.data!;
-  }
-
-  // Fallback to old approach for backward compatibility (no auth)
-  const result = await makeProxyRequest<{ servers: any[] }>(
-    AdminActionType.GET_SERVERS,
-    filters || {},
+  const result = await dispatchRequest<{ servers: any[] }>(
+    AdminActionType.GET_SERVERS, filters || {}, userid, token,
   );
-
-  if (!result.success) {
-    throw new Error(`Failed to get servers: ${result.error?.message || 'Unknown error'}`);
-  }
-
-  return result.data!;
+  return unwrapResponse(result, 'Failed to get servers');
 }
 
 /**
@@ -1441,29 +928,10 @@ export async function updateServer(
   userid?: string,
   token?: string,
 ): Promise<{ server: any }> {
-  const result = token
-    ? await makeProxyRequest<{ server: any }>(
-        AdminActionType.UPDATE_SERVER,
-        { serverId, ...data },
-        token,
-      )
-    : userid
-      ? await makeProxyRequestWithUserId<{ server: any }>(
-          AdminActionType.UPDATE_SERVER,
-          { serverId, ...data },
-          userid,
-          token,
-        )
-      : await makeProxyRequest<{ server: any }>(AdminActionType.UPDATE_SERVER, {
-          serverId,
-          ...data,
-        });
-
-  if (!result.success) {
-    throw new Error(`Failed to update server: ${result.error?.message || 'Unknown error'}`);
-  }
-
-  return result.data!;
+  const result = await dispatchRequest<{ server: any }>(
+    AdminActionType.UPDATE_SERVER, { serverId, ...data }, userid, token,
+  );
+  return unwrapResponse(result, 'Failed to update server');
 }
 
 /**
@@ -1477,26 +945,10 @@ export async function deleteServer(
   userid?: string,
   token?: string,
 ): Promise<{ message: string }> {
-  const result = token
-    ? await makeProxyRequest<{ message: string }>(
-        AdminActionType.DELETE_SERVER,
-        { serverId },
-        token,
-      )
-    : userid
-      ? await makeProxyRequestWithUserId<{ message: string }>(
-          AdminActionType.DELETE_SERVER,
-          { serverId },
-          userid,
-          token,
-        )
-      : await makeProxyRequest<{ message: string }>(AdminActionType.DELETE_SERVER, { serverId });
-
-  if (!result.success) {
-    throw new Error(`Failed to delete server: ${result.error?.message || 'Unknown error'}`);
-  }
-
-  return result.data!;
+  const result = await dispatchRequest<{ message: string }>(
+    AdminActionType.DELETE_SERVER, { serverId }, userid, token,
+  );
+  return unwrapResponse(result, 'Failed to delete server');
 }
 
 /**
@@ -1513,21 +965,10 @@ export async function countServers(
   userid?: string,
   token?: string,
 ): Promise<{ count: number }> {
-  const result = token
-    ? await makeProxyRequest<{ count: number }>(AdminActionType.COUNT_SERVERS, filters || {}, token)
-    : userid
-      ? await makeProxyRequestWithUserId<{ count: number }>(
-          AdminActionType.COUNT_SERVERS,
-          filters || {},
-          userid,
-        )
-      : await makeProxyRequest<{ count: number }>(AdminActionType.COUNT_SERVERS, filters || {});
-
-  if (!result.success) {
-    throw new Error(`Failed to count servers: ${result.error?.message || 'Unknown error'}`);
-  }
-
-  return result.data!;
+  const result = await dispatchRequest<{ count: number }>(
+    AdminActionType.COUNT_SERVERS, filters || {}, userid, token,
+  );
+  return unwrapResponse(result, 'Failed to count servers');
 }
 
 // -------------------- LOG OPERATIONS --------------------
@@ -1546,121 +987,15 @@ export async function getLogs(
   userid?: string,
   token?: string,
 ): Promise<{
-  logs: Array<{
-    id: number;
-    idInCore: bigint | null;
-    action: number;
-    userid: string;
-    serverId: string | null;
-    createdAt: number;
-    sessionId: string;
-    upstreamRequestId: string;
-    uniformRequestId: string | null;
-    parentUniformRequestId: string | null;
-    proxyRequestId: string | null;
-    ip: string;
-    ua: string;
-    tokenMask: string;
-    requestParams: string;
-    responseResult: string;
-    error: string;
-    duration: number | null;
-    statusCode: number | null;
-    proxyKey: string;
-  }>;
+  logs: CoreLogEntry[];
   count: number;
   startId: number;
   limit: number;
 }> {
-  const result = token
-    ? await makeProxyRequest<{
-        logs: Array<{
-          id: number;
-          idInCore: bigint | null;
-          action: number;
-          userid: string;
-          serverId: string | null;
-          createdAt: number;
-          sessionId: string;
-          upstreamRequestId: string;
-          uniformRequestId: string | null;
-          parentUniformRequestId: string | null;
-          proxyRequestId: string | null;
-          ip: string;
-          ua: string;
-          tokenMask: string;
-          requestParams: string;
-          responseResult: string;
-          error: string;
-          duration: number | null;
-          statusCode: number | null;
-          proxyKey: string;
-        }>;
-        count: number;
-        startId: number;
-        limit: number;
-      }>(AdminActionType.GET_LOGS, params || {}, token)
-    : userid
-      ? await makeProxyRequestWithUserId<{
-        logs: Array<{
-          id: number;
-          idInCore: bigint | null;
-          action: number;
-          userid: string;
-          serverId: string | null;
-          createdAt: number;
-          sessionId: string;
-          upstreamRequestId: string;
-          uniformRequestId: string | null;
-          parentUniformRequestId: string | null;
-          proxyRequestId: string | null;
-          ip: string;
-          ua: string;
-          tokenMask: string;
-          requestParams: string;
-          responseResult: string;
-          error: string;
-          duration: number | null;
-          statusCode: number | null;
-          proxyKey: string;
-        }>;
-        count: number;
-        startId: number;
-        limit: number;
-      }>(AdminActionType.GET_LOGS, params || {}, userid, token)
-    : await makeProxyRequest<{
-        logs: Array<{
-          id: number;
-          idInCore: bigint | null;
-          action: number;
-          userid: string;
-          serverId: string | null;
-          createdAt: number;
-          sessionId: string;
-          upstreamRequestId: string;
-          uniformRequestId: string | null;
-          parentUniformRequestId: string | null;
-          proxyRequestId: string | null;
-          ip: string;
-          ua: string;
-          tokenMask: string;
-          requestParams: string;
-          responseResult: string;
-          error: string;
-          duration: number | null;
-          statusCode: number | null;
-          proxyKey: string;
-        }>;
-        count: number;
-        startId: number;
-        limit: number;
-      }>(AdminActionType.GET_LOGS, params || {});
-
-  if (!result.success) {
-    throw new Error(`Failed to get logs: ${result.error?.message || 'Unknown error'}`);
-  }
-
-  return result.data!;
+  const result = await dispatchRequest<{ logs: CoreLogEntry[]; count: number; startId: number; limit: number }>(
+    AdminActionType.GET_LOGS, params || {}, userid, token,
+  );
+  return unwrapResponse(result, 'Failed to get logs');
 }
 
 // -------------------- USER API OPERATIONS --------------------

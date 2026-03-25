@@ -612,7 +612,7 @@ function ToolUsagePageContent() {
                       </div>
                       <div className="flex flex-col gap-1 justify-center">
                         <p className="text-muted-foreground">Failed Requests</p>
-                        <p className="font-semibold text-red-600 dark:text-red-400">{tool.failedRequests}</p>
+                        <p className="font-semibold text-red-600 dark:text-red-400">{tool.failedRequests.toLocaleString()}</p>
                       </div>
                       <div className="flex flex-col gap-1 justify-center">
                         <p className="text-muted-foreground">Average Response</p>
@@ -620,7 +620,7 @@ function ToolUsagePageContent() {
                       </div>
                       <div className="flex flex-col gap-1 justify-center">
                         <p className="text-muted-foreground">Usage Status</p>
-                        <p className="font-semibold">{tool.status === 'active' ? 'Recently used' : tool.status === 'inactive' ? 'Inactive' : tool.status === 'error' ? 'High failure rate' : 'Unknown'}</p>
+                        <p className="font-semibold">{tool.status === 'active' ? 'Active' : tool.status === 'inactive' ? 'Inactive' : tool.status === 'error' ? 'High failure rate' : 'Unknown'}</p>
                       </div>
                     </div>
 
@@ -739,13 +739,13 @@ function ToolUsagePageContent() {
                 <Card key={tool.toolId}>
                   <CardHeader>
                     <CardTitle>{tool.toolName} - Error Analysis</CardTitle>
-                    <CardDescription>{tool.totalErrors} total errors</CardDescription>
+                    <CardDescription>{tool.totalErrors.toLocaleString()} total errors</CardDescription>
                   </CardHeader>
                   <CardContent className="space-y-3">
                     {tool.errorTypes.map((error) => (
                       <div key={`${tool.toolId}-${error.errorCode}`} className="flex items-center justify-between gap-3">
                         <span className="text-sm">{error.errorMessage}</span>
-                        <span className="text-xs text-muted-foreground">{error.count} ({error.percentage.toFixed(1)}%)</span>
+                        <span className="text-xs text-muted-foreground">{error.count.toLocaleString()} ({error.percentage.toFixed(1)}%)</span>
                       </div>
                     ))}
                   </CardContent>
@@ -859,7 +859,9 @@ function ToolUsagePageContent() {
                       </Badge>
                     ) : null}
                     {actionLogStatus !== 'all' ? (
-                      <Badge variant="outline" className="text-xs">Status: {actionLogStatus}</Badge>
+                      <Badge variant="outline" className="text-xs">
+                        Status: {actionLogStatus.charAt(0).toUpperCase() + actionLogStatus.slice(1)}
+                      </Badge>
                     ) : null}
                     {actionLogType !== 'all' ? (
                       <Badge variant="outline" className="text-xs">Action: {getActionLabel(Number(actionLogType))}</Badge>

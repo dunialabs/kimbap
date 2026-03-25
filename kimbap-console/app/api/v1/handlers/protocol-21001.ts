@@ -85,6 +85,8 @@ export async function handleProtocol21001(body: Request21001): Promise<Response2
       }
     };
 
+    const validUserIdList = Array.from(validUserIds);
+
     // 4. 并行查询统计数据
     const [
       totalRequests,
@@ -94,7 +96,7 @@ export async function handleProtocol21001(body: Request21001): Promise<Response2
       prisma.log.count({
         where: {
           ...logWhereCondition,
-          userid: { in: Array.from(validUserIds) }
+          userid: { in: validUserIdList }
         }
       }),
       
@@ -102,7 +104,7 @@ export async function handleProtocol21001(body: Request21001): Promise<Response2
       prisma.log.findMany({
         where: {
           ...logWhereCondition,
-          userid: { in: Array.from(validUserIds) }
+          userid: { in: validUserIdList }
         },
         select: {
           userid: true
@@ -110,8 +112,6 @@ export async function handleProtocol21001(body: Request21001): Promise<Response2
         distinct: ['userid']
       })
     ]);
-
-    const validUserIdList = Array.from(validUserIds);
     let successRequests = 0;
 
     if (validUserIdList.length > 0) {
@@ -141,7 +141,7 @@ export async function handleProtocol21001(body: Request21001): Promise<Response2
     const uniqueClients = await prisma.log.findMany({
       where: {
         ...logWhereCondition,
-        userid: { in: Array.from(validUserIds) },
+        userid: { in: validUserIdList },
         sessionId: { not: '' }
       },
       select: {

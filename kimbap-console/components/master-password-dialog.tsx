@@ -294,7 +294,7 @@ export function MasterPasswordDialog({
                   className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
                   onClick={() => setShowConfirmPassword(!showConfirmPassword)}
                   disabled={isResetting}
-                  aria-label={showConfirmPassword ? 'Hide password' : 'Show password'}
+                  aria-label={showConfirmPassword ? 'Hide confirm password' : 'Show confirm password'}
                 >
 
                   {showConfirmPassword ? (

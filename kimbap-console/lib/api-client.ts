@@ -6,63 +6,6 @@ import { hasUrls, renderErrorMessageWithLinks } from './error-utils';
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || '';
 const isDev = process.env.NODE_ENV === 'development';
 
-/**
- * Helper function to add userid to common layer for protocol requests
- * Use this when making fetch requests directly instead of using axios
- */
-export function addUserIdToRequest(requestBody: any): any {
-  if (typeof window !== 'undefined' && requestBody?.common) {
-    const userid = localStorage.getItem('userid');
-    if (isDev) {
-      console.log('[addUserIdToRequest] userid from localStorage:', userid);
-    }
-    if (userid) {
-      const result = {
-        ...requestBody,
-        common: {
-          ...requestBody.common,
-          userid,
-        },
-      };
-      if (isDev) {
-        console.log('[addUserIdToRequest] Added userid to request. cmdId:', result.common?.cmdId);
-      }
-      return result;
-    }
-  }
-  return requestBody;
-}
-
-/**
- * Wrapper for fetch that automatically adds userid to v1 protocol requests
- * Use this instead of fetch() for /api/v1 calls
- */
-export async function fetchWithUserId(url: string, options?: RequestInit): Promise<Response> {
-  // If it's a v1 API call with a body, add userid
-  if (url.includes('/api/v1') && options?.body) {
-    try {
-      const body = JSON.parse(options.body as string);
-      const bodyWithUserId = addUserIdToRequest(body);
-      if (isDev && bodyWithUserId.common?.userid) {
-        console.log(
-          '[fetchWithUserId] Added userid to request. cmdId:',
-          bodyWithUserId.common.cmdId,
-        );
-      }
-      options = {
-        ...options,
-        body: JSON.stringify(bodyWithUserId),
-      };
-    } catch (e) {
-      // If body is not JSON, continue without modification
-      if (isDev) {
-        console.warn('Failed to parse request body for userid injection:', e);
-      }
-    }
-  }
-  return fetch(url, options);
-}
-
 // Create axios instance with default config
 const apiClient = axios.create({
   baseURL: API_BASE_URL,
@@ -901,9 +844,6 @@ export const clearAuthState = () => {
     .then(({ MasterPasswordManager }) => MasterPasswordManager.clearCache())
     .catch(() => {});
 };
-
-/** @deprecated Use clearAuthState() instead */
-export const clearAuthToken = clearAuthState;
 
 export const getAuthToken = () => {
   if (typeof window === 'undefined') {

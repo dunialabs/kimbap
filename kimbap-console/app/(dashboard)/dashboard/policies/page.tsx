@@ -341,6 +341,7 @@ function RuleCard({
         <button
           type="button"
           onClick={() => setExpanded((prev) => !prev)}
+          aria-expanded={expanded}
           className="flex min-w-0 flex-1 items-center gap-2 text-left"
         >
           {expanded ? <ChevronUp className="h-4 w-4 shrink-0" /> : <ChevronDown className="h-4 w-4 shrink-0" />}

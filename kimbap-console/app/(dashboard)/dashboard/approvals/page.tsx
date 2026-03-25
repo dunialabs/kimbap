@@ -119,7 +119,7 @@ function statusBadge(status: string) {
     case 'EXECUTING':
       return (
         <Badge className="bg-blue-100 text-blue-800 border-blue-200 dark:bg-blue-900 dark:text-blue-300 dark:border-blue-800 hover:bg-blue-200">
-          <Clock className="h-3 w-3 mr-1" />
+          <Loader2 className="h-3 w-3 mr-1 animate-spin" />
           Executing
         </Badge>
       );
@@ -132,8 +132,8 @@ function statusBadge(status: string) {
       );
     case 'FAILED':
       return (
-        <Badge className="bg-red-100 text-red-800 border-red-200 dark:bg-red-900 dark:text-red-300 dark:border-red-800 hover:bg-red-200">
-          <XCircle className="h-3 w-3 mr-1" />
+        <Badge className="bg-orange-100 text-orange-800 border-orange-200 dark:bg-orange-900 dark:text-orange-300 dark:border-orange-800 hover:bg-orange-200">
+          <AlertTriangle className="h-3 w-3 mr-1" />
           Failed
         </Badge>
       );
@@ -173,15 +173,23 @@ function redactArgs(args: Record<string, any>): Record<string, any> {
 function roleLabel(role?: number | null): string {
   switch (role) {
     case 1:
-      return 'OWNER';
+      return 'Owner';
     case 2:
-      return 'ADMIN';
+      return 'Admin';
     case 3:
-      return 'USER';
+      return 'User';
     case 4:
-      return 'GUEST';
+      return 'Guest';
     default:
       return String(role ?? '');
+  }
+}
+
+function channelLabel(channel: string | null | undefined): string {
+  switch (channel) {
+    case 'admin_api': return 'Admin API';
+    case 'socket': return 'WebSocket';
+    default: return channel || '—';
   }
 }
 
@@ -628,7 +636,7 @@ export default function ApprovalsPage() {
                   <div>
                     <Label className="text-xs text-muted-foreground">Decision Source</Label>
                     <p className="mt-1 text-sm">
-                      {detailDialog.decisionChannel || '—'}
+                      {channelLabel(detailDialog.decisionChannel)}
                       {detailDialog.decidedByRole != null
                         ? ` (${roleLabel(detailDialog.decidedByRole)})`
                         : ''}

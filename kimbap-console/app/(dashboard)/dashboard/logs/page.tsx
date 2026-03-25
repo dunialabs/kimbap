@@ -458,6 +458,13 @@ function LogsPageContent() {
   const isRealtimePaused = currentPage !== 1 || activeTab !== 'table' || !!debouncedSearchTerm
   const liveStatusText = loading ? 'Loading...' : isRealtimePaused ? 'Paused' : realtimeHealthy ? 'Live' : 'Refresh needed'
   const selectedTimeRange = activeTab === 'statistics' ? statisticsTimeFilter : timeFilter
+  const levelDisplayLabel: Record<string, string> = {
+    ERROR: 'Error',
+    WARN: 'Warning',
+    INFO: 'Info',
+    DEBUG: 'Debug',
+  }
+
   const activeFilterBadges: string[] = []
 
   if (selectedTimeRange !== '1h') {
@@ -470,7 +477,7 @@ function LogsPageContent() {
     }
 
     if (levelFilter !== 'all') {
-      activeFilterBadges.push(`Level: ${levelFilter}`)
+      activeFilterBadges.push(`Level: ${levelDisplayLabel[levelFilter] || levelFilter}`)
     }
 
     if (sourceFilter !== 'all') {
@@ -1019,6 +1026,7 @@ function LogsPageContent() {
             <Card className="h-full">
               <CardHeader className="pb-2">
                 <CardTitle className="text-sm font-medium">Total Logs</CardTitle>
+                <CardDescription className="text-xs">{getTimeRangeLabel(statisticsTimeFilter)}</CardDescription>
               </CardHeader>
               <CardContent className="flex flex-col gap-1 justify-center">
                 <div className={statsLoading || !statistics ? "text-sm text-muted-foreground" : "text-2xl font-bold"}>
@@ -1028,15 +1036,13 @@ function LogsPageContent() {
                     ? (statsError ? 'Unavailable' : '—')
                     : statistics.totalLogs.toLocaleString()}
                 </div>
-                <p className="text-xs text-muted-foreground">
-                  {getTimeRangeLabel(statisticsTimeFilter)}
-                </p>
               </CardContent>
             </Card>
 
             <Card className="h-full">
               <CardHeader className="pb-2">
                 <CardTitle className="text-sm font-medium">Errors</CardTitle>
+                <CardDescription className="text-xs">{getTimeRangeLabel(statisticsTimeFilter)}</CardDescription>
               </CardHeader>
               <CardContent className="flex flex-col gap-1 justify-center">
                 <div className={statsLoading || !statistics ? "text-sm text-muted-foreground" : "text-2xl font-bold"}>
@@ -1055,6 +1061,7 @@ function LogsPageContent() {
             <Card className="h-full">
               <CardHeader className="pb-2">
                 <CardTitle className="text-sm font-medium">Warnings</CardTitle>
+                <CardDescription className="text-xs">{getTimeRangeLabel(statisticsTimeFilter)}</CardDescription>
               </CardHeader>
               <CardContent className="flex flex-col gap-1 justify-center">
                 <div className={statsLoading || !statistics ? "text-sm text-muted-foreground" : "text-2xl font-bold"}>
@@ -1071,6 +1078,7 @@ function LogsPageContent() {
             <Card className="h-full">
               <CardHeader className="pb-2">
                 <CardTitle className="text-sm font-medium">Info</CardTitle>
+                <CardDescription className="text-xs">{getTimeRangeLabel(statisticsTimeFilter)}</CardDescription>
               </CardHeader>
               <CardContent className="flex flex-col gap-1 justify-center">
                 <div className={statsLoading || !statistics ? "text-sm text-muted-foreground" : "text-2xl font-bold"}>

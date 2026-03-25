@@ -387,7 +387,7 @@ export default function DashboardPage() {
           <CardDescription>Last 30 days</CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
             <div className="text-center p-3 rounded-lg border bg-muted/20 h-full flex flex-col gap-1 justify-center">
               <div className="text-sm text-muted-foreground">Uptime</div>
               <div
@@ -488,7 +488,7 @@ export default function DashboardPage() {
                     />
                   </div>
                   <div className="text-sm text-muted-foreground text-right whitespace-nowrap">
-                    {tool.requests}
+                    {typeof tool.requests === 'number' ? tool.requests.toLocaleString() : tool.requests}
                   </div>
                 </div>
               ))}
@@ -530,7 +530,7 @@ export default function DashboardPage() {
                     />
                   </div>
                   <div className="text-sm text-muted-foreground text-right whitespace-nowrap">
-                    {token.requests}
+                    {typeof token.requests === 'number' ? token.requests.toLocaleString() : token.requests}
                   </div>
                   <div className="text-xs text-muted-foreground font-mono text-right whitespace-nowrap hidden md:block">
                     {token.token}
@@ -542,9 +542,8 @@ export default function DashboardPage() {
         </CardContent>
       </Card>
 
-      {/* Recent Activity & Quick Actions */}
-      <div className="grid grid-cols-1">
-        <Card>
+      {/* Recent Activity */}
+      <Card>
           <CardHeader>
             <CardTitle>Recent Activity</CardTitle>
             <CardDescription>Last 30 days</CardDescription>
@@ -588,8 +587,7 @@ export default function DashboardPage() {
               </div>
             )}
           </CardContent>
-        </Card>
-      </div>
+      </Card>
 
       <Dialog open={isClientsDialogOpen} onOpenChange={setIsClientsDialogOpen}>
         <DialogContent id="connected-clients-dialog" className="max-w-4xl max-h-[80vh] overflow-y-auto">

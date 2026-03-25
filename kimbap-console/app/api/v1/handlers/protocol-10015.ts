@@ -222,23 +222,7 @@ export async function handleProtocol10015(body: Request10015): Promise<Response1
       try {
         console.log(`[Protocol 10015] Owner ${user.userId} logged in, reconnecting all servers...`);
         
-        // Get the owner's token for reconnection
-        let ownerToken: string | null = null;
-        if (accessToken) {
-          // For access token login, use the provided token
-          ownerToken = accessToken;
-        } else if (masterPwd) {
-          // For master password login, we already have the decrypted token
-          // from the login process above
-          const ownerResponse = await getOwner();
-          const owner = ownerResponse.owner;
-          if (owner?.encryptedToken) {
-            ownerToken = await CryptoUtils.decryptDataFromString(
-              owner.encryptedToken,
-              masterPwd
-            );
-          }
-        }
+        const ownerToken: string | null = accessToken ?? masterPwdAccessToken ?? null;
         
         if (ownerToken) {
           const reconnectResult = await connectAllServers(undefined, ownerToken);

@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 
 	"gopkg.in/yaml.v3"
@@ -18,12 +19,13 @@ type KimbapConfig struct {
 	LogLevel   string `yaml:"log_level"`
 	LogFormat  string `yaml:"log_format"`
 
-	Vault    VaultConfig    `yaml:"vault"`
-	Auth     AuthConfig     `yaml:"auth"`
-	Audit    AuditConfig    `yaml:"audit"`
-	Policy   PolicyConfig   `yaml:"policy"`
-	Skills   SkillsConfig   `yaml:"skills"`
-	Database DatabaseConfig `yaml:"database"`
+	Vault         VaultConfig         `yaml:"vault"`
+	Auth          AuthConfig          `yaml:"auth"`
+	Audit         AuditConfig         `yaml:"audit"`
+	Policy        PolicyConfig        `yaml:"policy"`
+	Skills        SkillsConfig        `yaml:"skills"`
+	Database      DatabaseConfig      `yaml:"database"`
+	Notifications NotificationsConfig `yaml:"notifications"`
 }
 
 type VaultConfig struct {
@@ -56,6 +58,36 @@ type SkillsConfig struct {
 type DatabaseConfig struct {
 	Driver string `yaml:"driver"`
 	DSN    string `yaml:"dsn"`
+}
+
+type SlackNotificationConfig struct {
+	WebhookURL string `yaml:"webhook_url"`
+}
+
+type TelegramNotificationConfig struct {
+	BotToken string `yaml:"bot_token"`
+	ChatID   string `yaml:"chat_id"`
+}
+
+type EmailNotificationConfig struct {
+	SMTPHost string   `yaml:"smtp_host"`
+	SMTPPort int      `yaml:"smtp_port"`
+	From     string   `yaml:"from"`
+	To       []string `yaml:"to"`
+	Username string   `yaml:"username"`
+	Password string   `yaml:"password"`
+}
+
+type WebhookNotificationConfig struct {
+	URL     string `yaml:"url"`
+	SignKey string `yaml:"sign_key"`
+}
+
+type NotificationsConfig struct {
+	Slack    SlackNotificationConfig    `yaml:"slack"`
+	Telegram TelegramNotificationConfig `yaml:"telegram"`
+	Email    EmailNotificationConfig    `yaml:"email"`
+	Webhook  WebhookNotificationConfig  `yaml:"webhook"`
 }
 
 func DefaultConfig() *KimbapConfig {
@@ -257,6 +289,34 @@ func applyKimbapEnv(cfg *KimbapConfig) {
 
 	setIfNotEmpty(&cfg.Database.Driver, os.Getenv("KIMBAP_DATABASE_DRIVER"))
 	setIfNotEmpty(&cfg.Database.DSN, os.Getenv("KIMBAP_DATABASE_DSN"))
+
+	setIfNotEmpty(&cfg.Notifications.Slack.WebhookURL, os.Getenv("KIMBAP_NOTIFICATIONS_SLACK_WEBHOOK_URL"))
+
+	setIfNotEmpty(&cfg.Notifications.Telegram.BotToken, os.Getenv("KIMBAP_NOTIFICATIONS_TELEGRAM_BOT_TOKEN"))
+	setIfNotEmpty(&cfg.Notifications.Telegram.ChatID, os.Getenv("KIMBAP_NOTIFICATIONS_TELEGRAM_CHAT_ID"))
+
+	setIfNotEmpty(&cfg.Notifications.Email.SMTPHost, os.Getenv("KIMBAP_NOTIFICATIONS_EMAIL_SMTP_HOST"))
+	if v := os.Getenv("KIMBAP_NOTIFICATIONS_EMAIL_SMTP_PORT"); v != "" {
+		if port, err := strconv.Atoi(v); err == nil {
+			cfg.Notifications.Email.SMTPPort = port
+		}
+	}
+	setIfNotEmpty(&cfg.Notifications.Email.From, os.Getenv("KIMBAP_NOTIFICATIONS_EMAIL_FROM"))
+	if v := os.Getenv("KIMBAP_NOTIFICATIONS_EMAIL_TO"); v != "" {
+		parts := strings.Split(v, ",")
+		trimmed := make([]string, 0, len(parts))
+		for _, p := range parts {
+			if s := strings.TrimSpace(p); s != "" {
+				trimmed = append(trimmed, s)
+			}
+		}
+		cfg.Notifications.Email.To = trimmed
+	}
+	setIfNotEmpty(&cfg.Notifications.Email.Username, os.Getenv("KIMBAP_NOTIFICATIONS_EMAIL_USERNAME"))
+	setIfNotEmpty(&cfg.Notifications.Email.Password, os.Getenv("KIMBAP_NOTIFICATIONS_EMAIL_PASSWORD"))
+
+	setIfNotEmpty(&cfg.Notifications.Webhook.URL, os.Getenv("KIMBAP_NOTIFICATIONS_WEBHOOK_URL"))
+	setIfNotEmpty(&cfg.Notifications.Webhook.SignKey, os.Getenv("KIMBAP_NOTIFICATIONS_WEBHOOK_SIGN_KEY"))
 }
 
 func mergeConfig(dst, src *KimbapConfig) {
@@ -286,6 +346,25 @@ func mergeConfig(dst, src *KimbapConfig) {
 
 	setIfNotEmpty(&dst.Database.Driver, src.Database.Driver)
 	setIfNotEmpty(&dst.Database.DSN, src.Database.DSN)
+
+	setIfNotEmpty(&dst.Notifications.Slack.WebhookURL, src.Notifications.Slack.WebhookURL)
+
+	setIfNotEmpty(&dst.Notifications.Telegram.BotToken, src.Notifications.Telegram.BotToken)
+	setIfNotEmpty(&dst.Notifications.Telegram.ChatID, src.Notifications.Telegram.ChatID)
+
+	setIfNotEmpty(&dst.Notifications.Email.SMTPHost, src.Notifications.Email.SMTPHost)
+	if src.Notifications.Email.SMTPPort != 0 {
+		dst.Notifications.Email.SMTPPort = src.Notifications.Email.SMTPPort
+	}
+	setIfNotEmpty(&dst.Notifications.Email.From, src.Notifications.Email.From)
+	if len(src.Notifications.Email.To) > 0 {
+		dst.Notifications.Email.To = src.Notifications.Email.To
+	}
+	setIfNotEmpty(&dst.Notifications.Email.Username, src.Notifications.Email.Username)
+	setIfNotEmpty(&dst.Notifications.Email.Password, src.Notifications.Email.Password)
+
+	setIfNotEmpty(&dst.Notifications.Webhook.URL, src.Notifications.Webhook.URL)
+	setIfNotEmpty(&dst.Notifications.Webhook.SignKey, src.Notifications.Webhook.SignKey)
 }
 
 func setIfNotEmpty(dst *string, value string) {

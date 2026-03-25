@@ -4,6 +4,8 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+
+	"gopkg.in/yaml.v3"
 )
 
 func TestDefaultConfigHasCoreDefaults(t *testing.T) {
@@ -266,5 +268,176 @@ func TestLoadKimbapConfigPreservesExplicitPathOverridesWhenDataDirChanges(t *tes
 	}
 	if cfg.Policy.Path != filepath.Join(dataDir, "policy.yaml") {
 		t.Fatalf("expected policy path rebased, got %q", cfg.Policy.Path)
+	}
+}
+
+func TestNotificationConfigYAMLParsing(t *testing.T) {
+	yamlContent := `
+notifications:
+  slack:
+    webhook_url: https://hooks.slack.com/test
+  telegram:
+    bot_token: bot123
+    chat_id: "-100456"
+  email:
+    smtp_host: smtp.example.com
+    smtp_port: 587
+    from: sender@example.com
+    to:
+      - alice@example.com
+      - bob@example.com
+    username: user
+    password: pass
+  webhook:
+    url: https://webhook.example.com/hook
+    sign_key: mysecret
+`
+	var cfg KimbapConfig
+	if err := yaml.Unmarshal([]byte(yamlContent), &cfg); err != nil {
+		t.Fatalf("yaml.Unmarshal: %v", err)
+	}
+
+	if cfg.Notifications.Slack.WebhookURL != "https://hooks.slack.com/test" {
+		t.Errorf("slack.webhook_url: got %q", cfg.Notifications.Slack.WebhookURL)
+	}
+	if cfg.Notifications.Telegram.BotToken != "bot123" {
+		t.Errorf("telegram.bot_token: got %q", cfg.Notifications.Telegram.BotToken)
+	}
+	if cfg.Notifications.Telegram.ChatID != "-100456" {
+		t.Errorf("telegram.chat_id: got %q", cfg.Notifications.Telegram.ChatID)
+	}
+	if cfg.Notifications.Email.SMTPHost != "smtp.example.com" {
+		t.Errorf("email.smtp_host: got %q", cfg.Notifications.Email.SMTPHost)
+	}
+	if cfg.Notifications.Email.SMTPPort != 587 {
+		t.Errorf("email.smtp_port: got %d", cfg.Notifications.Email.SMTPPort)
+	}
+	if cfg.Notifications.Email.From != "sender@example.com" {
+		t.Errorf("email.from: got %q", cfg.Notifications.Email.From)
+	}
+	if len(cfg.Notifications.Email.To) != 2 || cfg.Notifications.Email.To[0] != "alice@example.com" || cfg.Notifications.Email.To[1] != "bob@example.com" {
+		t.Errorf("email.to: got %v", cfg.Notifications.Email.To)
+	}
+	if cfg.Notifications.Email.Username != "user" {
+		t.Errorf("email.username: got %q", cfg.Notifications.Email.Username)
+	}
+	if cfg.Notifications.Email.Password != "pass" {
+		t.Errorf("email.password: got %q", cfg.Notifications.Email.Password)
+	}
+	if cfg.Notifications.Webhook.URL != "https://webhook.example.com/hook" {
+		t.Errorf("webhook.url: got %q", cfg.Notifications.Webhook.URL)
+	}
+	if cfg.Notifications.Webhook.SignKey != "mysecret" {
+		t.Errorf("webhook.sign_key: got %q", cfg.Notifications.Webhook.SignKey)
+	}
+}
+
+func TestNotificationEnvVarSlack(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	t.Setenv("KIMBAP_NOTIFICATIONS_SLACK_WEBHOOK_URL", "https://hooks.slack.com/env-test")
+
+	cfg, err := LoadKimbapConfigWithoutDefault()
+	if err != nil {
+		t.Fatalf("LoadKimbapConfigWithoutDefault: %v", err)
+	}
+	if cfg.Notifications.Slack.WebhookURL != "https://hooks.slack.com/env-test" {
+		t.Errorf("slack webhook url: got %q, want %q", cfg.Notifications.Slack.WebhookURL, "https://hooks.slack.com/env-test")
+	}
+}
+
+func TestNotificationEnvVarTelegram(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	t.Setenv("KIMBAP_NOTIFICATIONS_TELEGRAM_BOT_TOKEN", "token-abc")
+	t.Setenv("KIMBAP_NOTIFICATIONS_TELEGRAM_CHAT_ID", "-100789")
+
+	cfg, err := LoadKimbapConfigWithoutDefault()
+	if err != nil {
+		t.Fatalf("LoadKimbapConfigWithoutDefault: %v", err)
+	}
+	if cfg.Notifications.Telegram.BotToken != "token-abc" {
+		t.Errorf("telegram bot token: got %q, want %q", cfg.Notifications.Telegram.BotToken, "token-abc")
+	}
+	if cfg.Notifications.Telegram.ChatID != "-100789" {
+		t.Errorf("telegram chat id: got %q, want %q", cfg.Notifications.Telegram.ChatID, "-100789")
+	}
+}
+
+func TestNotificationEnvVarEmail(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	t.Setenv("KIMBAP_NOTIFICATIONS_EMAIL_SMTP_HOST", "smtp.test.com")
+	t.Setenv("KIMBAP_NOTIFICATIONS_EMAIL_SMTP_PORT", "465")
+	t.Setenv("KIMBAP_NOTIFICATIONS_EMAIL_FROM", "from@test.com")
+	t.Setenv("KIMBAP_NOTIFICATIONS_EMAIL_TO", "a@b.com,c@d.com")
+	t.Setenv("KIMBAP_NOTIFICATIONS_EMAIL_USERNAME", "testuser")
+	t.Setenv("KIMBAP_NOTIFICATIONS_EMAIL_PASSWORD", "testpass")
+
+	cfg, err := LoadKimbapConfigWithoutDefault()
+	if err != nil {
+		t.Fatalf("LoadKimbapConfigWithoutDefault: %v", err)
+	}
+	if cfg.Notifications.Email.SMTPHost != "smtp.test.com" {
+		t.Errorf("email smtp host: got %q", cfg.Notifications.Email.SMTPHost)
+	}
+	if cfg.Notifications.Email.SMTPPort != 465 {
+		t.Errorf("email smtp port: got %d, want 465", cfg.Notifications.Email.SMTPPort)
+	}
+	if cfg.Notifications.Email.From != "from@test.com" {
+		t.Errorf("email from: got %q", cfg.Notifications.Email.From)
+	}
+	if len(cfg.Notifications.Email.To) != 2 || cfg.Notifications.Email.To[0] != "a@b.com" || cfg.Notifications.Email.To[1] != "c@d.com" {
+		t.Errorf("email to: got %v, want [a@b.com c@d.com]", cfg.Notifications.Email.To)
+	}
+	if cfg.Notifications.Email.Username != "testuser" {
+		t.Errorf("email username: got %q", cfg.Notifications.Email.Username)
+	}
+	if cfg.Notifications.Email.Password != "testpass" {
+		t.Errorf("email password: got %q", cfg.Notifications.Email.Password)
+	}
+}
+
+func TestNotificationEnvVarWebhook(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	t.Setenv("KIMBAP_NOTIFICATIONS_WEBHOOK_URL", "https://webhook.test.com/hook")
+	t.Setenv("KIMBAP_NOTIFICATIONS_WEBHOOK_SIGN_KEY", "signkey123")
+
+	cfg, err := LoadKimbapConfigWithoutDefault()
+	if err != nil {
+		t.Fatalf("LoadKimbapConfigWithoutDefault: %v", err)
+	}
+	if cfg.Notifications.Webhook.URL != "https://webhook.test.com/hook" {
+		t.Errorf("webhook url: got %q", cfg.Notifications.Webhook.URL)
+	}
+	if cfg.Notifications.Webhook.SignKey != "signkey123" {
+		t.Errorf("webhook sign key: got %q", cfg.Notifications.Webhook.SignKey)
+	}
+}
+
+func TestNotificationConfigEmpty(t *testing.T) {
+	var cfg KimbapConfig
+	if err := yaml.Unmarshal([]byte("mode: embedded\n"), &cfg); err != nil {
+		t.Fatalf("yaml.Unmarshal: %v", err)
+	}
+
+	if cfg.Notifications.Slack.WebhookURL != "" {
+		t.Errorf("expected empty slack webhook url, got %q", cfg.Notifications.Slack.WebhookURL)
+	}
+	if cfg.Notifications.Telegram.BotToken != "" {
+		t.Errorf("expected empty telegram bot token, got %q", cfg.Notifications.Telegram.BotToken)
+	}
+	if cfg.Notifications.Email.SMTPHost != "" {
+		t.Errorf("expected empty email smtp host, got %q", cfg.Notifications.Email.SMTPHost)
+	}
+	if cfg.Notifications.Email.SMTPPort != 0 {
+		t.Errorf("expected 0 email smtp port, got %d", cfg.Notifications.Email.SMTPPort)
+	}
+	if len(cfg.Notifications.Email.To) != 0 {
+		t.Errorf("expected empty email to, got %v", cfg.Notifications.Email.To)
+	}
+	if cfg.Notifications.Webhook.URL != "" {
+		t.Errorf("expected empty webhook url, got %q", cfg.Notifications.Webhook.URL)
 	}
 }

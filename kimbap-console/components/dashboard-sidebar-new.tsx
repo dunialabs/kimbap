@@ -80,9 +80,9 @@ export function DashboardSidebar() {
       <div className="hidden border-r bg-background md:block fixed h-full w-[220px] lg:w-[280px]">
         <div className="flex h-full max-h-screen flex-col gap-2">
           <div className="flex h-14 items-center border-b px-4 lg:h-[60px] lg:px-6">
-            <div className="flex items-center gap-2 font-semibold flex-1">
-              <img src="/new_logo.svg" width={237} height={34} alt="Kimbap Logo" className="block dark:hidden" />
-              <img src="/darklogo.svg" width={237} height={34} alt="Kimbap Logo" className="hidden dark:block" />
+            <div className="flex items-center gap-2 font-semibold flex-1 min-w-0">
+              <img src="/new_logo.svg" width={237} height={34} alt="Kimbap Logo" className="block dark:hidden max-w-full h-auto" />
+              <img src="/darklogo.svg" width={237} height={34} alt="Kimbap Logo" className="hidden dark:block max-w-full h-auto" />
             </div>
           </div>
           <div className="flex-1">

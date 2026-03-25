@@ -79,6 +79,8 @@ export async function handleProtocol20001(body: Request20001): Promise<Response2
       console.warn('[Protocol-20001] Failed to get servers from proxy-api:', error);
     }
 
+    const validServerIdList = Array.from(validServerIds);
+
     // 3. 构建where条件：基于proxyKey、action 1000-1099和有效serverId
     const whereCondition: any = {
       proxyKey: proxyKey,
@@ -90,7 +92,7 @@ export async function handleProtocol20001(body: Request20001): Promise<Response2
         lte: 1099
       },
       serverId: {
-        in: Array.from(validServerIds),
+        in: validServerIdList,
         not: ''
       }
     };
@@ -116,7 +118,6 @@ export async function handleProtocol20001(body: Request20001): Promise<Response2
       })
     ]);
 
-    const validServerIdList = Array.from(validServerIds);
     let successRequestsCount = 0;
     let avgDuration = 0;
 
@@ -151,9 +152,6 @@ export async function handleProtocol20001(body: Request20001): Promise<Response2
       successRequestsCount = typeof successCountValue === 'bigint' ? Number(successCountValue) : Number(successCountValue || 0);
       avgDuration = Number(avgDurationRows[0]?.avg_duration || 0);
     }
-    
-    // 5. 计算统计结果
-    const totalTools = totalToolsCount;
     
     // 活跃工具数：基于proxy-api 3004获取真正启动的服务器数量
     let activeToolsCount = 0;
@@ -200,7 +198,7 @@ export async function handleProtocol20001(body: Request20001): Promise<Response2
     const totalUsers = uniqueUsers.filter(u => u.userid).length;
     
     const response: Response20001Data = {
-      totalTools,
+      totalTools: totalToolsCount,
       activeTools: activeToolsCount,
       totalRequests,
       successRequests,

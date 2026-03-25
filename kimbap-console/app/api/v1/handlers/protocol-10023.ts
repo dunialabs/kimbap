@@ -86,14 +86,7 @@ export async function handleProtocol10023(body: Request10023): Promise<Response1
       const configData = await prisma.config.findFirst();
       if (configData && configData.kimbap_core_host) {
         const host = configData.kimbap_core_host;
-        const currentPort = Reflect.get(configData, 'kimbap_core_port');
-        const legacyPort = Reflect.get(configData, 'kimbap_core_prot');
-        const port =
-          typeof currentPort === 'number'
-            ? currentPort
-            : typeof legacyPort === 'number'
-              ? legacyPort
-              : undefined;
+        const port: number | undefined = configData.kimbap_core_port || undefined;
         
         // Build the connection string
         if (host.startsWith('http://') || host.startsWith('https://')) {
@@ -206,16 +199,15 @@ export async function handleProtocol10023(body: Request10023): Promise<Response1
     const [
       uptime,
       dashboardLogMetrics,
-      configuredToolsCount,
       connectedClients,
       recentActivity,
     ] = await Promise.all([
       getServerUptime(proxyKey),
       getDashboardLogMetrics(startTimeSeconds, monthStartSeconds, proxyKey),
-      getConfiguredToolsCount(serversMap),
       getConnectedClientsList(usersMap, proxyKey),
       getRecentActivity(usersMap, proxyKey),
     ]);
+    const configuredToolsCount = serversMap.size;
 
     const apiRequestsCount = dashboardLogMetrics.apiRequestsCount;
     const activeTokensCount = dashboardLogMetrics.activeTokensCount;
@@ -399,16 +391,6 @@ async function getDashboardLogMetrics(startTimeSeconds: number, monthStartSecond
     tokenUsageRows,
   };
 }
-
-async function getConfiguredToolsCount(serversMap: Map<string, string>): Promise<number> {
-  try {
-    return serversMap.size;
-  } catch (error) {
-    console.error('Failed to get configured tools count:', error);
-    return 0;
-  }
-}
-
 
 function formatToolsUsage(toolUsageRows: DashboardToolUsageRow[], serversMap: Map<string, string>): ToolUsage[] {
   const validToolUsageRows = toolUsageRows.filter((item) =>

@@ -238,6 +238,7 @@ export default function UsagePage() {
         <Card className="h-full">
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-medium">Active Tokens</CardTitle>
+            <CardDescription className="text-xs">Last {timeRangeLabel}</CardDescription>
           </CardHeader>
           <CardContent className="flex flex-col gap-1 justify-center">
             <div className={loading || overviewSummary?.activeTokens == null ? "text-sm text-muted-foreground" : "text-2xl font-bold"}>
@@ -248,7 +249,7 @@ export default function UsagePage() {
                 : overviewSummary.activeTokens}
             </div>
             <p className="text-xs text-muted-foreground">
-              {!loading && overviewSummary && `${overviewSummary.tokensUsedLastHour} tokens used in last hour`}
+              {!loading && overviewSummary && `${overviewSummary.tokensUsedLastHour.toLocaleString()} tokens used in last hour`}
             </p>
           </CardContent>
         </Card>
@@ -256,6 +257,7 @@ export default function UsagePage() {
         <Card className="h-full">
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-medium">Tools in Use</CardTitle>
+            <CardDescription className="text-xs">Last {timeRangeLabel}</CardDescription>
           </CardHeader>
           <CardContent className="flex flex-col gap-1 justify-center">
             <div className={loading || overviewSummary?.toolsInUse == null ? "text-sm text-muted-foreground" : "text-2xl font-bold"}>
@@ -263,7 +265,7 @@ export default function UsagePage() {
                 ? 'Loading...'
                 : overviewSummary?.toolsInUse == null
                 ? (loadError ? 'Load failed' : '—')
-                : overviewSummary.toolsInUse}
+                    : overviewSummary.toolsInUse.toLocaleString()}
             </div>
             <p className="text-xs text-muted-foreground">
               {loading
@@ -278,6 +280,7 @@ export default function UsagePage() {
         <Card className="h-full">
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-medium">Average Response Time</CardTitle>
+            <CardDescription className="text-xs">Last {timeRangeLabel}</CardDescription>
           </CardHeader>
           <CardContent className="flex flex-col gap-1 justify-center">
             <div className={loading || overviewSummary?.avgResponseTime == null ? "text-sm text-muted-foreground" : "text-2xl font-bold"}>

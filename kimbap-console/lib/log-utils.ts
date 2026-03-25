@@ -266,154 +266,61 @@ export function parseTimeRange(timeRange: string): number {
 
 // ========== Action Label ==========
 
-/** Human-readable label for a specific MCPEventLogType action code. */
+const ACTION_MAP: Record<number, [label: string, machineName: string]> = {
+  1001: ['Tool Call', 'RequestTool'],
+  1002: ['Resource Read', 'RequestResource'],
+  1003: ['Prompt Get', 'RequestPrompt'],
+  1004: ['Tool Response', 'ResponseTool'],
+  1005: ['Resource Response', 'ResponseResource'],
+  1006: ['Prompt Response', 'ResponsePrompt'],
+  1007: ['Tool List', 'RequestToolList'],
+  1008: ['Resource List', 'RequestResourceList'],
+  1009: ['Prompt List', 'RequestPromptList'],
+  1201: ['Sampling Request', 'ReverseSamplingRequest'],
+  1202: ['Sampling Response', 'ReverseSamplingResponse'],
+  1203: ['Roots Request', 'ReverseRootsRequest'],
+  1204: ['Roots Response', 'ReverseRootsResponse'],
+  1205: ['Elicit Request', 'ReverseElicitRequest'],
+  1206: ['Elicit Response', 'ReverseElicitResponse'],
+  1301: ['Session Init', 'SessionInit'],
+  1302: ['Session Close', 'SessionClose'],
+  1310: ['Server Init', 'ServerInit'],
+  1311: ['Server Close', 'ServerClose'],
+  1312: ['Status Change', 'ServerStatusChange'],
+  1313: ['Capability Update', 'ServerCapabilityUpdate'],
+  1314: ['Server Notification', 'ServerNotification'],
+  2001: ['OAuth Register', 'OAuthRegister'],
+  2002: ['OAuth Authorize', 'OAuthAuthorize'],
+  2003: ['OAuth Token', 'OAuthToken'],
+  2004: ['OAuth Refresh', 'OAuthRefresh'],
+  2005: ['OAuth Revoke', 'OAuthRevoke'],
+  2010: ['OAuth Error', 'OAuthError'],
+  3001: ['Token Validation', 'AuthTokenValidation'],
+  3002: ['Permission Check', 'AuthPermissionCheck'],
+  3003: ['Rate Limit', 'AuthRateLimit'],
+  3010: ['Auth Error', 'AuthError'],
+  4001: ['Internal Error', 'ErrorInternal'],
+  5001: ['User Create', 'AdminUserCreate'],
+  5002: ['User Edit', 'AdminUserEdit'],
+  5003: ['User Delete', 'AdminUserDelete'],
+  5004: ['Server Create', 'AdminServerCreate'],
+  5005: ['Server Edit', 'AdminServerEdit'],
+  5006: ['Server Delete', 'AdminServerDelete'],
+  5007: ['Proxy Reset', 'AdminProxyReset'],
+  5008: ['DB Backup', 'AdminBackupDatabase'],
+  5009: ['DB Restore', 'AdminRestoreDatabase'],
+  5010: ['DNS Create', 'AdminDNSCreate'],
+  5011: ['DNS Delete', 'AdminDNSDelete'],
+};
+
 export function getActionLabel(action: number | null | undefined): string {
   if (action == null) return 'Unknown';
-  switch (action) {
-    case 1001:
-      return 'Tool Call';
-    case 1002:
-      return 'Resource Read';
-    case 1003:
-      return 'Prompt Get';
-    case 1004:
-      return 'Tool Response';
-    case 1005:
-      return 'Resource Response';
-    case 1006:
-      return 'Prompt Response';
-    case 1007:
-      return 'Tool List';
-    case 1008:
-      return 'Resource List';
-    case 1009:
-      return 'Prompt List';
-    case 1201:
-      return 'Sampling Request';
-    case 1202:
-      return 'Sampling Response';
-    case 1203:
-      return 'Roots Request';
-    case 1204:
-      return 'Roots Response';
-    case 1205:
-      return 'Elicit Request';
-    case 1206:
-      return 'Elicit Response';
-    case 1301:
-      return 'Session Init';
-    case 1302:
-      return 'Session Close';
-    case 1310:
-      return 'Server Init';
-    case 1311:
-      return 'Server Close';
-    case 1312:
-      return 'Status Change';
-    case 1313:
-      return 'Capability Update';
-    case 1314:
-      return 'Server Notification';
-    case 2001:
-      return 'OAuth Register';
-    case 2002:
-      return 'OAuth Authorize';
-    case 2003:
-      return 'OAuth Token';
-    case 2004:
-      return 'OAuth Refresh';
-    case 2005:
-      return 'OAuth Revoke';
-    case 2010:
-      return 'OAuth Error';
-    case 3001:
-      return 'Token Validation';
-    case 3002:
-      return 'Permission Check';
-    case 3003:
-      return 'Rate Limit';
-    case 3010:
-      return 'Auth Error';
-    case 4001:
-      return 'Internal Error';
-    case 5001:
-      return 'User Create';
-    case 5002:
-      return 'User Edit';
-    case 5003:
-      return 'User Delete';
-    case 5004:
-      return 'Server Create';
-    case 5005:
-      return 'Server Edit';
-    case 5006:
-      return 'Server Delete';
-    case 5007:
-      return 'Proxy Reset';
-    case 5008:
-      return 'DB Backup';
-    case 5009:
-      return 'DB Restore';
-    case 5010:
-      return 'DNS Create';
-    case 5011:
-      return 'DNS Delete';
-    default:
-      return `Action ${action}`;
-  }
+  return ACTION_MAP[action]?.[0] ?? `Action ${action}`;
 }
 
 export function getActionMachineName(action: number | null | undefined): string {
   if (action == null) return 'Unknown';
-
-  const actionMap: Record<number, string> = {
-    1001: 'RequestTool',
-    1002: 'RequestResource',
-    1003: 'RequestPrompt',
-    1004: 'ResponseTool',
-    1005: 'ResponseResource',
-    1006: 'ResponsePrompt',
-    1007: 'RequestToolList',
-    1008: 'RequestResourceList',
-    1009: 'RequestPromptList',
-    1201: 'ReverseSamplingRequest',
-    1202: 'ReverseSamplingResponse',
-    1203: 'ReverseRootsRequest',
-    1204: 'ReverseRootsResponse',
-    1205: 'ReverseElicitRequest',
-    1206: 'ReverseElicitResponse',
-    1301: 'SessionInit',
-    1302: 'SessionClose',
-    1310: 'ServerInit',
-    1311: 'ServerClose',
-    1312: 'ServerStatusChange',
-    1313: 'ServerCapabilityUpdate',
-    1314: 'ServerNotification',
-    2001: 'OAuthRegister',
-    2002: 'OAuthAuthorize',
-    2003: 'OAuthToken',
-    2004: 'OAuthRefresh',
-    2005: 'OAuthRevoke',
-    2010: 'OAuthError',
-    3001: 'AuthTokenValidation',
-    3002: 'AuthPermissionCheck',
-    3003: 'AuthRateLimit',
-    3010: 'AuthError',
-    4001: 'ErrorInternal',
-    5001: 'AdminUserCreate',
-    5002: 'AdminUserEdit',
-    5003: 'AdminUserDelete',
-    5004: 'AdminServerCreate',
-    5005: 'AdminServerEdit',
-    5006: 'AdminServerDelete',
-    5007: 'AdminProxyReset',
-    5008: 'AdminBackupDatabase',
-    5009: 'AdminRestoreDatabase',
-    5010: 'AdminDNSCreate',
-    5011: 'AdminDNSDelete',
-  };
-
-  return actionMap[action] || `Action${action}`;
+  return ACTION_MAP[action]?.[1] ?? `Action${action}`;
 }
 
 // ========== Log Formatting ==========

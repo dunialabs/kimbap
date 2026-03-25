@@ -258,7 +258,7 @@ export async function handleProtocol23004(body: Request23004): Promise<Response2
     const dateStr = new Date().toISOString().split('T')[0];
     const timeStr = new Date().toTimeString().split(' ')[0].replace(/:/g, '-');
     const expiresAt = Math.floor(Date.now() / 1000) + (24 * 60 * 60);
-    const fileName = path.basename(`exp${expiresAt}-kimbap-logs-${dateStr}-${timeStr}-${timeRange}-${randomUUID()}.${fileExtension}`);
+    const fileName = `exp${expiresAt}-kimbap-logs-${dateStr}-${timeStr}-${timeRange}-${randomUUID()}.${fileExtension}`;
 
     const exportDir = path.join(process.cwd(), '.exports');
     await fs.promises.mkdir(exportDir, { recursive: true });

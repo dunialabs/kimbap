@@ -264,17 +264,19 @@ export async function handleProtocol21002(body: Request21002): Promise<Response2
         });
       }
       
+      const createdAt = user?.createdAt;
+      const expiresAt = user?.expiresAt;
       tokenMetrics.push({
         tokenId: userId,
         tokenName: userName,
         totalRequests,
         successfulRequests: successRequests,
         failedRequests,
-        rateLimit: 100,
+        rateLimit: user?.ratelimit ?? 100,
         lastUsed: lastUsedDate,
         status: statusStr,
-        createdDate: "2024-01-01",
-        expiryDate: null,
+        createdDate: createdAt ? new Date(createdAt * 1000).toISOString() : '',
+        expiryDate: expiresAt && expiresAt > 0 ? new Date(expiresAt * 1000).toISOString() : null,
         clientCount: uniqueSessionIds.size,
         topLocations,
         minuteUsage

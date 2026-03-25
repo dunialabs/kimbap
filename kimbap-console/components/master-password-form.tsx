@@ -149,7 +149,7 @@ export function MasterPasswordForm({ onSuccess }: MasterPasswordFormProps) {
               type="button"
               onClick={() => setShowConfirmPassword(!showConfirmPassword)}
               className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 rounded"
-              aria-label={showConfirmPassword ? 'Hide password' : 'Show password'}
+              aria-label={showConfirmPassword ? 'Hide confirm password' : 'Show confirm password'}
             >
 
               {showConfirmPassword ? (

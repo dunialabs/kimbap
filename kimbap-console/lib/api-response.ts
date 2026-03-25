@@ -85,9 +85,7 @@ export class ApiResponse {
       return this.errorWithCode(cmdId, error.code, error.params);
     }
     
-    // Otherwise, log and return generic error
     console.error(`Error in protocol ${cmdId}:`, error);
-    const message = error instanceof Error ? error.message : 'Internal server error';
     return this.errorWithCode(cmdId, ErrorCode.INTERNAL_SERVER_ERROR);
   }
 

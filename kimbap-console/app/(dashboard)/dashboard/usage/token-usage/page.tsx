@@ -414,7 +414,7 @@ function TokenUsagePageContent() {
                     ? 'Loading...'
                     : summary?.totalTokens == null
                     ? (loadError ? 'Unavailable' : '—')
-                    : summary.totalTokens}
+                    : summary.totalTokens.toLocaleString()}
                 </div>
                 <p className="text-xs text-muted-foreground">
                   {loading
@@ -423,7 +423,7 @@ function TokenUsagePageContent() {
                     ? 'Unavailable'
                     : summary?.activeTokens == null
                     ? '—'
-                    : `${summary.activeTokens} active`}
+                    : `${summary.activeTokens.toLocaleString()} active`}
                 </p>
               </CardContent>
             </Card>
@@ -503,7 +503,7 @@ function TokenUsagePageContent() {
                     ? 'Loading...'
                     : summary?.totalClients == null
                     ? (loadError ? 'Unavailable' : '—')
-                    : summary.totalClients}
+                    : summary.totalClients.toLocaleString()}
                 </div>
                 <p className="text-xs text-muted-foreground">
                   Clients seen in the last {timeRangeLabel}
@@ -588,7 +588,7 @@ function TokenUsagePageContent() {
                   <TableHeader>
                     <TableRow>
                       <TableHead>Token Name</TableHead>
-                      <TableHead>Recent Activity</TableHead>
+                      <TableHead>Status</TableHead>
                       <TableHead>Token ID</TableHead>
                       <TableHead>Total Requests</TableHead>
                       <TableHead>Success Rate</TableHead>
@@ -641,7 +641,7 @@ function TokenUsagePageContent() {
                         </TableCell>
                         <TableCell>
                           <span className="font-semibold">
-                            {token.clientCount}
+                            {token.clientCount.toLocaleString()}
                           </span>
                         </TableCell>
                         <TableCell className="text-right">
