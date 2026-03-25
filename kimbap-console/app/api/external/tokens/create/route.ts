@@ -126,8 +126,21 @@ export async function POST(request: NextRequest) {
           throw new ExternalApiError(E1003, `Invalid field value: tokens[${i}] metadata - ${metadataValidationError}`);
         }
       }
-      if (t.permissions !== undefined && !Array.isArray(t.permissions)) {
-        throw new ExternalApiError(E1003, `Invalid field value: tokens[${i}].permissions must be an array`);
+      if (t.permissions !== undefined) {
+        if (!Array.isArray(t.permissions)) {
+          throw new ExternalApiError(E1003, `Invalid field value: tokens[${i}].permissions must be an array`);
+        }
+        for (const perm of t.permissions) {
+          if (!perm || typeof perm.toolId !== 'string' || !perm.toolId.trim()) {
+            throw new ExternalApiError(E1003, `Invalid field value: tokens[${i}].permissions[] items must have a non-empty toolId string`);
+          }
+        }
+      }
+      if (t.expiresAt !== undefined && (typeof t.expiresAt !== 'number' || !Number.isInteger(t.expiresAt) || t.expiresAt < 0)) {
+        throw new ExternalApiError(E1003, `Invalid field value: tokens[${i}].expiresAt must be a non-negative integer`);
+      }
+      if (t.rateLimit !== undefined && (typeof t.rateLimit !== 'number' || !Number.isInteger(t.rateLimit) || t.rateLimit < 0)) {
+        throw new ExternalApiError(E1003, `Invalid field value: tokens[${i}].rateLimit must be a non-negative integer`);
       }
     }
 
