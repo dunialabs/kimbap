@@ -123,7 +123,7 @@ func buildServeRuntime(cfg *config.KimbapConfig, st *store.SQLStore) (*runtime.R
 
 	approvalMgr := approvals.NewApprovalManager(
 		&storeApprovalStoreAdapter{st: st},
-		&approvals.LogNotifier{},
+		buildNotifierFromConfig(cfg),
 		defaultApprovalTTL,
 	)
 

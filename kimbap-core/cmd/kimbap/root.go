@@ -403,7 +403,7 @@ func buildRuntimeFromConfig(cfg *config.KimbapConfig) (*runtime.Runtime, error) 
 	if runtimeStore, rsErr := openRuntimeStore(cfg); rsErr == nil {
 		approvalMgr := approvals.NewApprovalManager(
 			&storeApprovalStoreAdapter{st: runtimeStore},
-			&approvals.LogNotifier{},
+			buildNotifierFromConfig(cfg),
 			defaultApprovalTTL,
 		)
 		approvalManager = app.NewApprovalManagerAdapter(approvalMgr)
@@ -438,4 +438,40 @@ func buildRuntimeFromConfig(cfg *config.KimbapConfig) (*runtime.Runtime, error) 
 		AuditWriter:      auditWriter,
 		ApprovalManager:  approvalManager,
 	})
+}
+
+// buildNotifierFromConfig constructs an approval notifier from the kimbap configuration.
+// If no notification adapters are configured, it returns a LogNotifier as fallback.
+// Uses best-effort delivery: individual adapter failures are logged but do not block approval creation.
+func buildNotifierFromConfig(cfg *config.KimbapConfig) approvals.Notifier {
+	if cfg == nil {
+		return &approvals.LogNotifier{}
+	}
+	var notifiers []approvals.Notifier
+
+	if n := cfg.Notifications; true {
+		if strings.TrimSpace(n.Slack.WebhookURL) != "" {
+			notifiers = append(notifiers, approvals.NewSlackNotifier(n.Slack.WebhookURL))
+		}
+		if strings.TrimSpace(n.Telegram.BotToken) != "" && strings.TrimSpace(n.Telegram.ChatID) != "" {
+			notifiers = append(notifiers, approvals.NewTelegramNotifier(n.Telegram.BotToken, n.Telegram.ChatID))
+		}
+		if strings.TrimSpace(n.Email.SMTPHost) != "" && strings.TrimSpace(n.Email.From) != "" && len(n.Email.To) > 0 {
+			notifiers = append(notifiers, approvals.NewEmailNotifier(
+				n.Email.SMTPHost, n.Email.SMTPPort, n.Email.From, n.Email.To,
+				n.Email.Username, n.Email.Password,
+			))
+		}
+		if strings.TrimSpace(n.Webhook.URL) != "" {
+			notifiers = append(notifiers, approvals.NewWebhookNotifier(n.Webhook.URL, []byte(n.Webhook.SignKey)))
+		}
+	}
+
+	if len(notifiers) == 0 {
+		return &approvals.LogNotifier{}
+	}
+	if len(notifiers) == 1 {
+		return notifiers[0]
+	}
+	return approvals.NewMultiNotifier(notifiers...)
 }

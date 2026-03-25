@@ -111,7 +111,7 @@ func NewMultiNotifier(notifiers ...Notifier) *MultiNotifier {
 func (m *MultiNotifier) Notify(ctx context.Context, req *ApprovalRequest) error {
 	for _, notifier := range m.notifiers {
 		if err := notifier.Notify(ctx, req); err != nil {
-			return err
+			log.Printf("approval notifier: adapter error (continuing): %v", err)
 		}
 	}
 	return nil
