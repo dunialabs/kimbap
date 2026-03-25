@@ -301,12 +301,18 @@ func isLoopbackRequest(r *http.Request) bool {
 	if r == nil {
 		return false
 	}
-	clientIP := middleware.ClientIPFromRequest(r)
-	ip := net.ParseIP(strings.TrimSpace(clientIP))
-	if ip == nil {
+	host, _, err := net.SplitHostPort(strings.TrimSpace(r.RemoteAddr))
+	if err != nil {
+		host = strings.TrimSpace(r.RemoteAddr)
+	}
+	ip := net.ParseIP(host)
+	if ip == nil || !ip.IsLoopback() {
 		return false
 	}
-	return ip.IsLoopback()
+	if r.Header.Get("X-Forwarded-For") != "" || r.Header.Get("X-Real-IP") != "" {
+		return false
+	}
+	return true
 }
 
 func isLoopbackHost(rawHost string) bool {
