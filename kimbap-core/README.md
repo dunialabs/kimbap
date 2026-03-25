@@ -186,7 +186,25 @@ Each agent gets:
 - **A meta-skill** — a thin "how to discover Kimbap actions" guide at `.claude/skills/kimbap/SKILL.md`
 - **Operating rules** — credential handling and access policies at `.claude/KIMBAP_OPERATING_RULES.md`
 
-Skills are auto-generated from installed skill manifests. When a skill is updated, `kimbap agents sync` regenerates the files. Unchanged files are skipped unless `--force` is used.
+Skills are auto-generated from installed skill manifests. Unchanged files are skipped unless `--force` is used.
+
+#### Keeping agents up to date
+
+When you add, update, or remove a skill, connected agents won't know about the change until you re-sync:
+
+```bash
+# Install a new skill → agents don't know yet
+kimbap skill install notion.yaml
+
+# Sync propagates the new skill to all detected agents
+kimbap agents sync
+
+# Remove a skill → its SKILL.md stays until you force-sync or delete manually
+kimbap skill remove notion
+kimbap agents sync --force
+```
+
+The source of truth is always the Kimbap runtime. Agents can also discover actions dynamically at any time via `kimbap actions list`, even without synced skill files. Synced SKILL.md files are a speed-up for agent onboarding, not a requirement — the meta-skill teaches agents to use runtime discovery as the authoritative fallback.
 
 One binary. One install. One runtime model.
 
