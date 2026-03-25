@@ -684,7 +684,7 @@ func (s *ClientSession) ConnectionInitialized(conn *mcp.Server) {
 	notifier := ServerManagerInstance().Notifier()
 	if notifier != nil {
 		if ok := notifier.NotifyOnlineSessions(userID); !ok {
-			log.Warn().Str("userId", userID).Msg("failed to notify online sessions after session connection initialization")
+			log.Debug().Str("userId", userID).Msg("notify online sessions after session connection initialization returned false")
 		}
 	}
 
@@ -790,7 +790,7 @@ func (s *ClientSession) Close(reason mcptypes.DisconnectReason) {
 		notifier := ServerManagerInstance().Notifier()
 		if notifier != nil {
 			if ok := notifier.NotifyOnlineSessions(userID); !ok {
-				log.Warn().Str("userId", userID).Msg("failed to notify online sessions after session close")
+				log.Debug().Str("userId", userID).Msg("notify online sessions after session close returned false")
 			}
 		}
 

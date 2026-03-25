@@ -13,7 +13,6 @@ import (
 	"github.com/dunialabs/kimbap-core/internal/mcp/core"
 	"github.com/dunialabs/kimbap-core/internal/middleware"
 	"github.com/dunialabs/kimbap-core/internal/service"
-	"github.com/dunialabs/kimbap-core/internal/socket"
 	types "github.com/dunialabs/kimbap-core/internal/types"
 )
 
@@ -33,7 +32,10 @@ const maxAdminRequestBodyBytes int64 = 1 << 20
 func NewController() *Controller {
 	serverManager := core.ServerManagerInstance()
 	sessionStore := core.SessionStoreInstance()
-	socketNotifier := socket.GetSocketNotifier()
+	socketNotifier := serverManager.Notifier()
+	if socketNotifier == nil {
+		socketNotifier = core.NewNoopSocketNotifier()
+	}
 	return &Controller{
 		userHandler:     handlers.NewUserHandler(database.DB, sessionStore, socketNotifier, serverManager),
 		serverHandler:   handlers.NewServerHandler(database.DB, serverManager, sessionStore, socketNotifier),
@@ -42,7 +44,7 @@ func NewController() *Controller {
 		logHandler:      handlers.NewLogHandler(database.DB),
 		skillsHandler:   handlers.NewSkillsHandler(service.NewSkillsService(), database.DB, serverManager),
 		policyHandler:   handlers.NewPolicyHandler(database.DB),
-		approvalHandler: handlers.NewApprovalHandler(),
+		approvalHandler: handlers.NewApprovalHandler(socketNotifier),
 	}
 }
 
