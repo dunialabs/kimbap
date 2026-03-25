@@ -5,6 +5,7 @@ import (
 	"io"
 	"os"
 	"path"
+	"path/filepath"
 	"strings"
 	"sync"
 )
@@ -91,11 +92,24 @@ func BuildCustomStdioRunnerLaunchPlan(originalLaunchConfig map[string]any, runne
 	}
 
 	if cwd, ok := originalLaunchConfig["cwd"].(string); ok && strings.TrimSpace(cwd) != "" {
-		dockerArgs = append(dockerArgs, "-w", cwd)
+		containerCwd := strings.TrimSpace(cwd)
+		if !filepath.IsAbs(containerCwd) {
+			if absCwd, err := filepath.Abs(containerCwd); err == nil {
+				containerCwd = absCwd
+			}
+		}
+		stat, err := os.Stat(containerCwd)
+		if err != nil {
+			return CustomStdioRunnerLaunchPlan{}, fmt.Errorf("CustomStdio launchConfig.cwd is invalid: %w", err)
+		}
+		if !stat.IsDir() {
+			return CustomStdioRunnerLaunchPlan{}, fmt.Errorf("CustomStdio launchConfig.cwd is invalid: not a directory")
+		}
+		dockerArgs = append(dockerArgs, "-v", containerCwd+":"+containerCwd, "-w", containerCwd)
 	}
 
 	for _, entry := range toStringEnvEntries(originalLaunchConfig["env"]) {
-		dockerArgs = append(dockerArgs, "-e", entry.Key+"="+entry.Value)
+		dockerArgs = append(dockerArgs, "-e", entry.Key)
 	}
 
 	dockerArgs = append(dockerArgs, runnerImage, originalCommand)
@@ -108,7 +122,6 @@ func BuildCustomStdioRunnerLaunchPlan(originalLaunchConfig map[string]any, runne
 	launchConfig["command"] = "docker"
 	launchConfig["args"] = toAnySlice(dockerArgs)
 	delete(launchConfig, "cwd")
-	delete(launchConfig, "env")
 
 	return CustomStdioRunnerLaunchPlan{
 		LaunchConfig: launchConfig,
