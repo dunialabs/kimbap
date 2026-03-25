@@ -580,35 +580,6 @@ export const api = {
       }),
   },
 
-  audit: {
-    getRecords: (params?: {
-      page?: number;
-      pageSize?: number;
-      timeRange?: string;
-      level?: string;
-      source?: string;
-      search?: string;
-      userId?: string;
-    }) =>
-      api.logs.getLogs({
-        page: params?.page ?? 1,
-        pageSize: params?.pageSize ?? 25,
-        timeRange: params?.timeRange ?? '24h',
-        level: params?.level ?? 'all',
-        source: params?.source ?? 'admin',
-        ...(params?.search ? { search: params.search } : {}),
-        ...(params?.userId ? { userId: params.userId } : {}),
-      }),
-
-    getRecentActivity: (params?: { limit?: number; timeRange?: string }) =>
-      api.logs.getLogs({
-        page: 1,
-        pageSize: params?.limit ?? 10,
-        timeRange: params?.timeRange ?? '24h',
-        level: 'all',
-        source: 'admin',
-      }),
-  },
 };
 
 // Utility functions
