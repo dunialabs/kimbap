@@ -51,6 +51,9 @@ export async function GET(
 
   const now = Math.floor(Date.now() / 1000);
   if (now > expiresAt) {
+    const exportDir = path.join(process.cwd(), '.exports');
+    fs.promises.unlink(path.join(exportDir, path.basename(filename))).catch(() => {});
+    cleanupExpiredExports(exportDir, now).catch(() => {});
     return NextResponse.json({ error: 'Export link expired' }, { status: 410 });
   }
 

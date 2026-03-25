@@ -201,9 +201,13 @@ function serializeRules(rules: PolicyRule[]): SerializedRule[] {
     if (r.extract.length > 0) {
       const extractEntries: Record<string, { path: string; type: string }> = {}
       r.extract.forEach((e) => {
-        extractEntries[e.name] = { path: e.path, type: e.type }
+        if (e.name && e.name.trim()) {
+          extractEntries[e.name.trim()] = { path: e.path, type: e.type }
+        }
       })
-      rule.extract = extractEntries
+      if (Object.keys(extractEntries).length > 0) {
+        rule.extract = extractEntries
+      }
     }
     if (r.when.length > 0) {
       rule.when = r.when.map((w) => {

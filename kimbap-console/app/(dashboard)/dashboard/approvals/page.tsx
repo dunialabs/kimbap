@@ -232,7 +232,12 @@ export default function ApprovalsPage() {
 
       try {
         const [listRes, countRes] = await Promise.all([
-          api.approvals.list({ page, pageSize }),
+          api.approvals.list({
+            page,
+            pageSize,
+            ...(statusFilter !== 'all' ? { status: statusFilter } : {}),
+            ...(userFilter.trim() ? { userId: userFilter.trim() } : {}),
+          }),
           api.approvals.countPending(),
         ]);
         const listData = listRes.data?.data || listRes.data;
@@ -264,7 +269,7 @@ export default function ApprovalsPage() {
         isInitialLoad.current = false;
       }
     },
-    [],
+    [statusFilter, userFilter],
   );
 
   // eslint-disable-next-line react-hooks/exhaustive-deps

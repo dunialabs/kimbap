@@ -82,6 +82,11 @@ export async function POST(request: NextRequest) {
     }
 
     if (!isPublic) {
+      const clientIp = getClientIdentity(request);
+      if (!checkRateLimit(`anon:${clientIp}`, GENERAL_RATE_LIMIT)) {
+        return ApiResponse.error(cmdId, 429, 'Rate limit exceeded. Try again later.', 429);
+      }
+
       const token = getBearerToken(request);
       if (!token) {
         return ApiResponse.unauthorized(cmdId);
