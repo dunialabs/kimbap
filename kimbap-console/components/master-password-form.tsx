@@ -118,9 +118,9 @@ export function MasterPasswordForm({ onSuccess }: MasterPasswordFormProps) {
             >
 
               {showPassword ? (
-                <EyeOff className="h-5 w-5" />
+                <EyeOff className="h-5 w-5" aria-hidden="true" />
               ) : (
-                <Eye className="h-5 w-5" />
+                <Eye className="h-5 w-5" aria-hidden="true" />
               )}
             </button>
           </div>
@@ -153,9 +153,9 @@ export function MasterPasswordForm({ onSuccess }: MasterPasswordFormProps) {
             >
 
               {showConfirmPassword ? (
-                <EyeOff className="h-5 w-5" />
+                <EyeOff className="h-5 w-5" aria-hidden="true" />
               ) : (
-                <Eye className="h-5 w-5" />
+                <Eye className="h-5 w-5" aria-hidden="true" />
               )}
             </button>
           </div>

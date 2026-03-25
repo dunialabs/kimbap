@@ -92,15 +92,15 @@ export function AccessTokenDialog({
               >
 
                 {showToken ? (
-                  <EyeOff className="h-4 w-4 text-gray-500 dark:text-gray-400" />
+                  <EyeOff className="h-4 w-4 text-gray-500 dark:text-gray-400" aria-hidden="true" />
                 ) : (
-                  <Eye className="h-4 w-4 text-gray-500 dark:text-gray-400" />
+                  <Eye className="h-4 w-4 text-gray-500 dark:text-gray-400" aria-hidden="true" />
                 )}
               </Button>
             </div>
             {error && (
               <div className="flex items-center gap-2 text-sm text-red-600 dark:text-red-400 mt-1">
-                <AlertCircle className="h-4 w-4" />
+                <AlertCircle className="h-4 w-4" aria-hidden="true" />
                 <span>{error}</span>
               </div>
             )}

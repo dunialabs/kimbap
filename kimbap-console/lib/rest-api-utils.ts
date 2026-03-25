@@ -160,59 +160,6 @@ export interface RestApiValidationReport {
 }
 
 /**
- * Detect and parse input string as JSON or YAML format
- */
-export type DetectFormatResult =
-  | { format: 'json'; data: any }
-  | { format: 'yaml'; data: any }
-  | { format: 'unknown'; data: null; error?: string };
-
-export async function detectFormat(input: string): Promise<DetectFormatResult> {
-  const text = input.trim();
-  const errors: string[] = [];
-
-  // First try JSON
-  if (text.startsWith('{') || text.startsWith('[')) {
-    try {
-      const parsed = JSON.parse(text);
-      return { format: 'json', data: parsed };
-    } catch (e) {
-      errors.push(`JSON parse failed: ${e instanceof Error ? e.message : 'Unknown error'}`);
-    }
-  }
-
-  // Then try YAML
-  try {
-    // Dynamic import to avoid bundling issues
-    const yaml = await import('js-yaml');
-    const loaded = yaml.load(text);
-    return { format: 'yaml', data: loaded };
-  } catch (e) {
-    errors.push(
-      `YAML parse failed: ${
-        e instanceof Error ? e.message : 'Unknown error'
-      }`
-    );
-  }
-
-  return { format: 'unknown', data: null, error: errors.join(' | ') };
-}
-
-/**
- * Parse YAML string to JSON object
- * Note: Requires js-yaml library
- */
-export async function parseYamlToJson(yamlString: string): Promise<any> {
-  try {
-    // Dynamic import to avoid bundling issues
-    const yaml = await import('js-yaml');
-    return yaml.load(yamlString);
-  } catch (error) {
-    throw new Error(`Failed to parse YAML: ${error instanceof Error ? error.message : 'Unknown error'}`);
-  }
-}
-
-/**
  * Validate REST API configuration structure
  */
 export function validateRestApiConfig(config: any): { valid: boolean; error?: string } {
@@ -245,10 +192,19 @@ export function validateHttpsBaseUrl(baseUrl: string): string | null {
   }
 }
 
-/**
- * Generate a detailed validation report for a raw REST API configuration string
- */
-export async function generateRestApiValidationReport(rawInput: string): Promise<RestApiValidationReport> {
+async function detectFormat(input: string): Promise<{ format: 'json' | 'yaml' | 'unknown'; data: any; error?: string }> {
+  const text = input.trim();
+  if (text.startsWith('{') || text.startsWith('[')) {
+    try { return { format: 'json', data: JSON.parse(text) }; } catch {}
+  }
+  try {
+    const yaml = await import('js-yaml');
+    return { format: 'yaml', data: yaml.load(text) };
+  } catch (e) {}
+  return { format: 'unknown', data: null, error: 'Unable to parse as JSON or YAML' };
+}
+
+async function generateRestApiValidationReport(rawInput: string): Promise<RestApiValidationReport> {
   const trimmed = rawInput.trim();
   const rawConfigSize = new TextEncoder().encode(rawInput || '').length;
   const report: RestApiValidationReport = {
@@ -428,10 +384,7 @@ function deriveValidationSummary(report: RestApiValidationReport): RestApiValida
   return 'valid';
 }
 
-/**
- * Check for environment variable placeholders in configuration
- */
-export function checkEnvironmentVariables(config: any): string[] {
+function checkEnvironmentVariables(config: any): string[] {
   if (!config || typeof config !== 'object') {
     return [];
   }
@@ -582,7 +535,7 @@ export function applyResponseTransform(data: any, transform?: ResponseTransform)
 /**
  * Detect if configuration is OpenAPI format
  */
-export function isOpenApiFormat(config: any): boolean {
+function isOpenApiFormat(config: any): boolean {
   return !!(
     config &&
     typeof config === 'object' &&

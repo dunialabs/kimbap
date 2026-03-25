@@ -469,7 +469,7 @@ export default function ApprovalsPage() {
                         </button>
                       </TableCell>
                       <TableCell>
-                        <span className="text-sm text-muted-foreground truncate max-w-[120px] block">
+                        <span className="text-sm text-muted-foreground truncate max-w-[120px] block" title={r.serverId || undefined}>
                           {r.serverId || '—'}
                         </span>
                       </TableCell>

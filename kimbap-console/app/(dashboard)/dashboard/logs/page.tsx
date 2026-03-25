@@ -532,7 +532,7 @@ function LogsPageContent() {
               {!filtersOpen && (
                 hasActiveFilters
                   ? activeFilterBadges.map((badge) => (
-                      <Badge key={badge} variant="outline" className="text-xs max-w-[160px] truncate">
+                      <Badge key={badge} variant="outline" className="text-xs max-w-[160px] truncate" title={badge}>
                         {badge}
                       </Badge>
                     ))
@@ -762,6 +762,7 @@ function LogsPageContent() {
                               type="button"
                               className="truncate text-left w-full rounded focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 hover:text-foreground/80"
                               aria-label="Open log details"
+                              title={log.message}
                             >
                               {log.message}
                             </button>

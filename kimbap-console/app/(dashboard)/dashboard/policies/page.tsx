@@ -349,7 +349,7 @@ function RuleCard({
           <Badge variant="outline" className={`shrink-0 text-xs ${decisionMeta?.color || ''}`}>
             {decisionMeta?.label || rule.effect.decision}
           </Badge>
-          <span className="truncate text-xs text-muted-foreground">{generateRuleSummary(rule)}</span>
+          <span className="truncate text-xs text-muted-foreground" title={generateRuleSummary(rule)}>{generateRuleSummary(rule)}</span>
         </button>
 
         <div className="flex items-center gap-1">

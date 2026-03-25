@@ -606,7 +606,7 @@ function TokenUsagePageContent() {
                         </TableCell>
                         <TableCell>{getStatusBadge(token.status)}</TableCell>
                         <TableCell>
-                          <p className="font-mono text-xs truncate max-w-[200px]">
+                          <p className="font-mono text-xs truncate max-w-[200px]" title={token.tokenId}>
                             {token.tokenId}
                           </p>
                         </TableCell>

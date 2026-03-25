@@ -167,7 +167,7 @@ export function LoginForm({
         <legend className="sr-only">Login method</legend>
         <div className="flex border-b border-border" role="radiogroup">
           <label
-            className={`p-[12px] pl-[0] text-[14px] transition-colors cursor-pointer ${
+            className={`p-[12px] pl-[0] text-[14px] transition-colors cursor-pointer rounded focus-within:ring-2 focus-within:ring-blue-500 focus-within:ring-offset-2 ${
               loginMode === 'password'
                 ? 'text-foreground font-bold'
                 : 'text-foreground/60 font-[400]'
@@ -188,7 +188,7 @@ export function LoginForm({
             Master Password
           </label>
           <label
-            className={`p-[12px] pl-[0] text-[14px] transition-colors cursor-pointer ${
+            className={`p-[12px] pl-[0] text-[14px] transition-colors cursor-pointer rounded focus-within:ring-2 focus-within:ring-blue-500 focus-within:ring-offset-2 ${
               loginMode === 'token'
                 ? 'text-foreground font-bold'
                 : 'text-foreground/60 font-[400]'
@@ -251,9 +251,9 @@ export function LoginForm({
             >
 
               {showLoginPassword ? (
-                <EyeOff className="h-5 w-5" />
+                <EyeOff className="h-5 w-5" aria-hidden="true" />
               ) : (
-                <Eye className="h-5 w-5" />
+                <Eye className="h-5 w-5" aria-hidden="true" />
               )}
             </button>
           )}
