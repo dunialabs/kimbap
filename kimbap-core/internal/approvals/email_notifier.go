@@ -2,6 +2,7 @@ package approvals
 
 import (
 	"context"
+	"crypto/tls"
 	"fmt"
 	"net"
 	"net/smtp"
@@ -68,6 +69,12 @@ func (e *EmailNotifier) Notify(ctx context.Context, req *ApprovalRequest) error 
 		return fmt.Errorf("email notifier: smtp client: %w", err)
 	}
 	defer func() { _ = client.Quit() }()
+
+	if ok, _ := client.Extension("STARTTLS"); ok {
+		if err := client.StartTLS(&tls.Config{ServerName: e.host}); err != nil {
+			return fmt.Errorf("email notifier: STARTTLS: %w", err)
+		}
+	}
 
 	if strings.TrimSpace(e.username) != "" {
 		auth := smtp.PlainAuth("", e.username, e.password, e.host)
