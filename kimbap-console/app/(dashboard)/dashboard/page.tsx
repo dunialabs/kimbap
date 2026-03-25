@@ -38,6 +38,7 @@ import {
   TableHeader,
   TableRow
 } from '@/components/ui/table'
+import { GettingStartedCard } from '@/components/getting-started-card'
 
 interface ServerInfo {
   proxyId: string
@@ -258,6 +259,8 @@ export default function DashboardPage() {
       </div>
       {/* Header */}
       <div className="space-y-4">
+        <GettingStartedCard />
+
         <div className="actions grid grid-cols-2 md:grid-cols-4 gap-3">
           <Link
             href="/dashboard/policies"
