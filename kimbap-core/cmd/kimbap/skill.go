@@ -9,6 +9,8 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/dunialabs/kimbap-core/internal/agents"
+	"github.com/dunialabs/kimbap-core/internal/config"
 	"github.com/dunialabs/kimbap-core/internal/skills"
 	"github.com/spf13/cobra"
 	"gopkg.in/yaml.v3"
@@ -53,6 +55,7 @@ func newSkillInstallCommand() *cobra.Command {
 			if err != nil {
 				return err
 			}
+			printStaleWarningIfNeeded(cfg)
 			return printOutput(installed)
 		},
 	}
@@ -92,6 +95,7 @@ func newSkillRemoveCommand() *cobra.Command {
 			if err := installerFromConfig(cfg).Remove(args[0]); err != nil {
 				return err
 			}
+			printStaleWarningIfNeeded(cfg)
 			return printOutput(map[string]any{"removed": true, "name": args[0]})
 		},
 	}
@@ -360,4 +364,32 @@ func isHTTPURL(value string) bool {
 		return false
 	}
 	return parsed.Scheme == "http" || parsed.Scheme == "https"
+}
+
+func printStaleWarningIfNeeded(cfg *config.KimbapConfig) {
+	installer := installerFromConfig(cfg)
+	installed, err := installer.List()
+	if err != nil {
+		return
+	}
+
+	names := make([]string, 0, len(installed))
+	contents := make([]string, 0, len(installed))
+	for _, s := range installed {
+		md, genErr := skills.GenerateSkillMD(&s.Manifest)
+		if genErr != nil {
+			continue
+		}
+		names = append(names, s.Manifest.Name)
+		contents = append(contents, md)
+	}
+
+	result, err := agents.CheckStaleness(names, contents)
+	if err != nil {
+		return
+	}
+
+	if warning := agents.FormatStaleWarning(result); warning != "" {
+		_, _ = fmt.Fprint(os.Stderr, warning)
+	}
 }

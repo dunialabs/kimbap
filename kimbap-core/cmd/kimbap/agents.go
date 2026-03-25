@@ -27,31 +27,92 @@ func newAgentsCommand() *cobra.Command {
 	cmd.AddCommand(newAgentsSetupCommand())
 	cmd.AddCommand(newAgentsSyncCommand())
 	cmd.AddCommand(newAgentsStatusCommand())
+	cmd.AddCommand(newAgentsUninstallGlobalCommand())
 	return cmd
 }
 
 func newAgentsSetupCommand() *cobra.Command {
 	var (
-		dir      string
 		agentRaw string
+		force    bool
 		dryRun   bool
 	)
 
 	cmd := &cobra.Command{
 		Use:   "setup",
-		Short: "Set up agent skills and operating rules",
+		Short: "Install global kimbap discovery hints for detected AI agents",
 		RunE: func(_ *cobra.Command, _ []string) error {
-			result, err := runAgentsSync(dir, agentRaw, false, dryRun)
+			metaContent := skills.GenerateMetaSkillMD()
+			results, err := agents.GlobalSetup(metaContent, agents.GlobalSetupOptions{
+				Agents: parseAgentKinds(agentRaw),
+				Force:  force,
+				DryRun: dryRun,
+			})
 			if err != nil {
 				return err
 			}
-			return printOutput(result)
+
+			if err := printOutput(results); err != nil {
+				return err
+			}
+
+			var errs []string
+			for _, r := range results {
+				if r.Error != "" {
+					errs = append(errs, fmt.Sprintf("[%s] %s", r.Agent, r.Error))
+				}
+			}
+			if len(errs) > 0 {
+				return fmt.Errorf("setup errors: %s", strings.Join(errs, "; "))
+			}
+			return nil
 		},
 	}
 
-	cmd.Flags().StringVar(&dir, "dir", ".", "target project directory")
 	cmd.Flags().StringVar(&agentRaw, "agent", "", "comma-separated agent kinds")
+	cmd.Flags().BoolVar(&force, "force", false, "overwrite unchanged files")
 	cmd.Flags().BoolVar(&dryRun, "dry-run", false, "show planned changes without writing files")
+
+	return cmd
+}
+
+func newAgentsUninstallGlobalCommand() *cobra.Command {
+	var (
+		agentRaw string
+		dryRun   bool
+	)
+
+	cmd := &cobra.Command{
+		Use:   "uninstall-global",
+		Short: "Remove global kimbap discovery hints from AI agent configs",
+		RunE: func(_ *cobra.Command, _ []string) error {
+			results, err := agents.GlobalTeardown(agents.GlobalSetupOptions{
+				Agents: parseAgentKinds(agentRaw),
+				DryRun: dryRun,
+			})
+			if err != nil {
+				return err
+			}
+
+			if err := printOutput(results); err != nil {
+				return err
+			}
+
+			var errs []string
+			for _, r := range results {
+				if r.Error != "" {
+					errs = append(errs, fmt.Sprintf("[%s] %s", r.Agent, r.Error))
+				}
+			}
+			if len(errs) > 0 {
+				return fmt.Errorf("uninstall errors: %s", strings.Join(errs, "; "))
+			}
+			return nil
+		},
+	}
+
+	cmd.Flags().StringVar(&agentRaw, "agent", "", "comma-separated agent kinds")
+	cmd.Flags().BoolVar(&dryRun, "dry-run", false, "show planned changes without removing files")
 
 	return cmd
 }
@@ -84,6 +145,11 @@ func newAgentsSyncCommand() *cobra.Command {
 	return cmd
 }
 
+type combinedStatusResult struct {
+	Global  []agents.GlobalStatusResult `json:"global"`
+	Project []agents.StatusResult       `json:"project"`
+}
+
 func newAgentsStatusCommand() *cobra.Command {
 	var dir string
 
@@ -91,11 +157,20 @@ func newAgentsStatusCommand() *cobra.Command {
 		Use:   "status",
 		Short: "Show sync status for known AI agents",
 		RunE: func(_ *cobra.Command, _ []string) error {
-			result, err := agents.Status(dir)
-			if err != nil {
-				return err
+			globalResults, globalErr := agents.GlobalStatus()
+			if globalErr != nil {
+				_, _ = fmt.Fprintf(os.Stderr, "warning: global status: %v\n", globalErr)
 			}
-			return printOutput(result)
+
+			projectResults, projectErr := agents.Status(dir)
+			if projectErr != nil {
+				return projectErr
+			}
+
+			return printOutput(combinedStatusResult{
+				Global:  globalResults,
+				Project: projectResults,
+			})
 		},
 	}
 
@@ -188,6 +263,10 @@ func runAgentsSync(projectDir string, rawAgentKinds string, force bool, dryRun b
 		return agentSetupResult{}, fmt.Errorf("sync errors: %s", strings.Join(syncErrs, "; "))
 	}
 
+	if !dryRun {
+		recordProjectSyncState(installedSkills)
+	}
+
 	return agentSetupResult{
 		SyncResults:    syncResults,
 		MetaSkillPaths: metaPaths,
@@ -263,3 +342,18 @@ type staticSkillInstaller struct {
 func (i staticSkillInstaller) List() ([]agents.InstalledSkill, error) {
 	return i.skills, nil
 }
+
+func recordProjectSyncState(installedSkills []agents.InstalledSkill) {
+	names := make([]string, 0, len(installedSkills))
+	contents := make([]string, 0, len(installedSkills))
+	for _, s := range installedSkills {
+		names = append(names, s.Name)
+		contents = append(contents, s.Content)
+	}
+
+	if err := agents.RecordSync(names, contents); err != nil {
+		_, _ = fmt.Fprintf(os.Stderr, "warning: failed to record sync state: %v\n", err)
+	}
+}
+
+
