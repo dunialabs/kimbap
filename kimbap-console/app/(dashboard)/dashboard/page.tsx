@@ -594,7 +594,7 @@ export default function DashboardPage() {
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <Users className="h-5 w-5" />
-              Recent Clients (24h) ({connectedClients.length})
+              Recent Clients (24h) ({connectedClients.length.toLocaleString()})
             </DialogTitle>
             <DialogDescription>
               Clients seen in the last 24 hours on your{' '}

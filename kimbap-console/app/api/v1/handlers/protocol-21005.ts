@@ -69,6 +69,7 @@ export async function handleProtocol21005(body: Request21005): Promise<Response2
       console.log('[Protocol-21005] Found valid user:', validUser.userId);
     } catch (error) {
       console.error('[Protocol-21005] Failed to get user from proxy-api:', error);
+      if (error instanceof ApiError) throw error;
       throw new ApiError(ErrorCode.RECORD_NOT_FOUND, 404, { details: 'Specified token not found' });
     }
     
