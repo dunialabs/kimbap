@@ -23,18 +23,28 @@ function parseDatabaseUrl() {
     throw new Error('DATABASE_URL environment variable is not set');
   }
 
-  // Parse: postgresql://user:password@host:port/database
-  const match = dbUrl.match(/postgresql:\/\/([^:]+):([^@]+)@([^:]+):(\d+)\/(.+)(\?.*)?$/);
-  if (!match) {
+  let parsed;
+  try {
+    parsed = new URL(dbUrl);
+  } catch {
     throw new Error('Invalid DATABASE_URL format');
   }
 
+  if (!['postgresql:', 'postgres:'].includes(parsed.protocol)) {
+    throw new Error('Invalid DATABASE_URL protocol');
+  }
+
+  const database = parsed.pathname.replace(/^\/+/, '');
+  if (!database) {
+    throw new Error('Invalid DATABASE_URL database name');
+  }
+
   return {
-    user: match[1],
-    password: match[2],
-    host: match[3],
-    port: match[4],
-    database: match[5]
+    user: decodeURIComponent(parsed.username),
+    password: decodeURIComponent(parsed.password),
+    host: parsed.hostname,
+    port: parsed.port || '5432',
+    database
   };
 }
 
@@ -250,4 +260,3 @@ async function main() {
 
 // Run the reset
 main();
-

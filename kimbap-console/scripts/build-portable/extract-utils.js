@@ -116,11 +116,12 @@ class ExtractUtils {
     
     // 如果解压后只有一个目录，将其内容移到上级
     if (files.length === 1 && fs.statSync(path.join(extractDir, files[0])).isDirectory()) {
-      const singleDir = path.join(extractDir, files[0]);
       const tempDir = extractDir + '_temp';
       
       // 重命名原目录
       fs.renameSync(extractDir, tempDir);
+
+      const singleDir = path.join(tempDir, files[0]);
       
       // 将单个子目录重命名为目标目录
       fs.renameSync(singleDir, extractDir);

@@ -113,6 +113,44 @@ func TestSQLiteStoreAuditWriteAndQueryWithFilters(t *testing.T) {
 	}
 }
 
+func TestSQLiteStoreAuditQueryOffsetWithoutLimit(t *testing.T) {
+	st := newTestSQLiteStore(t)
+	ctx := context.Background()
+	now := time.Now().UTC()
+
+	for i, id := range []string{"a1", "a2", "a3"} {
+		if err := st.WriteAuditEvent(ctx, &AuditRecord{
+			ID:             id,
+			Timestamp:      now.Add(time.Duration(i) * time.Minute),
+			TenantID:       "tenant-a",
+			AgentName:      "agent-a",
+			Service:        "github",
+			Action:         "issues.list",
+			Status:         "success",
+			RequestID:      "r" + id,
+			TraceID:        "t" + id,
+			PrincipalID:    "p" + id,
+			Mode:           "call",
+			PolicyDecision: "allow",
+			InputJSON:      `{}`,
+			MetaJSON:       `{}`,
+		}); err != nil {
+			t.Fatalf("write audit event %s: %v", id, err)
+		}
+	}
+
+	got, err := st.QueryAuditEvents(ctx, AuditFilter{TenantID: "tenant-a", Offset: 1})
+	if err != nil {
+		t.Fatalf("query audit events with offset only: %v", err)
+	}
+	if len(got) != 2 {
+		t.Fatalf("expected 2 results after offset, got %d", len(got))
+	}
+	if got[0].ID != "a2" || got[1].ID != "a1" {
+		t.Fatalf("unexpected offset order: %+v", got)
+	}
+}
+
 func TestSQLiteStoreApprovalCreateAndUpdateStatus(t *testing.T) {
 	st := newTestSQLiteStore(t)
 	ctx := context.Background()

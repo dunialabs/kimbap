@@ -57,7 +57,7 @@ async function initializeDatabase() {
   
   try {
     // Run the database initialization script
-    execSync('node scripts/db-init.js', { stdio: 'inherit' });
+    execSync('node scripts/unified-db-init.js', { stdio: 'inherit' });
     return true;
   } catch (error) {
     log('❌ Failed to initialize database', colors.red);
@@ -100,19 +100,8 @@ async function startDevelopmentEnvironment() {
   
   log('\n🚀 Starting services...', colors.bright);
   
-  // Start backend
-  log('\n📦 Starting backend service...', colors.yellow);
-  const backend = spawn('npm', ['run', 'dev:backend-only'], {
-    env,
-    stdio: 'inherit'
-  });
-  
-  // Wait a bit for backend to start
-  await new Promise(resolve => setTimeout(resolve, 3000));
-  
-  // Start frontend
-  log('\n🎨 Starting frontend service...', colors.yellow);
-  const frontend = spawn('npm', ['run', 'dev:frontend-only'], {
+  log('\n📦 Starting application service...', colors.yellow);
+  const app = spawn('npm', ['run', 'dev:next'], {
     env,
     stdio: 'inherit'
   });
@@ -120,8 +109,7 @@ async function startDevelopmentEnvironment() {
   // Handle process termination
   const cleanup = () => {
     log('\n🛑 Shutting down services...', colors.yellow);
-    backend.kill();
-    frontend.kill();
+    app.kill();
     process.exit(0);
   };
   

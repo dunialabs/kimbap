@@ -381,6 +381,12 @@ func (s *SQLStore) QueryAuditEvents(ctx context.Context, filter AuditFilter) ([]
 	if filter.Limit > 0 {
 		query += " LIMIT ?"
 		args = append(args, filter.Limit)
+	} else if filter.Offset > 0 {
+		if s.dialect == "postgres" {
+			query += " LIMIT ALL"
+		} else {
+			query += " LIMIT -1"
+		}
 	}
 	if filter.Offset > 0 {
 		query += " OFFSET ?"

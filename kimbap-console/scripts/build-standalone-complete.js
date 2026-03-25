@@ -13,6 +13,7 @@ const http = require('http');
 const { promisify } = require('util');
 const { pipeline } = require('stream');
 const zlib = require('zlib');
+const crypto = require('crypto');
 
 class CompleteStandaloneBuilder {
   constructor(targetArch = null, targetPlatform = null) {
@@ -21,6 +22,7 @@ class CompleteStandaloneBuilder {
     this.arch = targetArch || process.arch;
     this.outputDir = path.join(this.rootDir, 'dist', `kimbap-console-${this.platform}-${this.arch}`);
     this.tempDir = path.join(this.rootDir, '.temp-build');
+    this.dbPassword = process.env.STANDALONE_DB_PASSWORD || crypto.randomBytes(16).toString('hex');
     
     console.log(`🚀 Building complete standalone package for ${this.platform}-${this.arch}`);
     
@@ -143,7 +145,7 @@ class CompleteStandaloneBuilder {
 
   async buildBackend() {
     console.log('🔨 Building backend...');
-    execSync('npm run build:backend', { stdio: 'inherit' });
+    execSync('npm run build', { stdio: 'inherit' });
   }
 
   async buildFrontend() {
@@ -162,7 +164,7 @@ class CompleteStandaloneBuilder {
       fs.writeFileSync(configPath, config);
     }
     
-    execSync('npm run build:frontend', { stdio: 'inherit' });
+    execSync('npm run build', { stdio: 'inherit' });
   }
 
   async prepareOutput() {
@@ -174,6 +176,13 @@ class CompleteStandaloneBuilder {
     
     fs.mkdirSync(this.outputDir, { recursive: true });
     fs.mkdirSync(path.join(this.outputDir, 'app'), { recursive: true });
+
+    const passwordFile = path.join(this.outputDir, '.standalone-db-password');
+    fs.writeFileSync(passwordFile, `${this.dbPassword}\n`);
+    if (this.platform !== 'win32') {
+      fs.chmodSync(passwordFile, 0o600);
+    }
+    console.log(`🔐 Standalone database password saved to ${passwordFile}`);
   }
 
   async setupNodeRuntime() {
@@ -508,7 +517,7 @@ if pg_isready -h localhost -p 5432 2>/dev/null; then
     echo "Creating database and user..."
     # 使用当前用户创建数据库和用户
     createdb -h localhost -p 5432 kimbap_db 2>/dev/null || echo "Database kimbap_db might already exist"
-    psql -h localhost -p 5432 -d postgres -c "CREATE USER kimbap WITH PASSWORD 'kimbap123';" 2>/dev/null || echo "User kimbap might already exist"
+    psql -h localhost -p 5432 -d postgres -c "CREATE USER kimbap WITH PASSWORD '${this.dbPassword}';" 2>/dev/null || echo "User kimbap might already exist"
     psql -h localhost -p 5432 -d postgres -c "GRANT ALL PRIVILEGES ON DATABASE kimbap_db TO kimbap;" 2>/dev/null
     psql -h localhost -p 5432 -d postgres -c "ALTER DATABASE kimbap_db OWNER TO kimbap;" 2>/dev/null
     
@@ -528,7 +537,7 @@ if [ -f "$PGDIR/bin/postgres" ]; then
   # 初始化数据库（如果需要）
   if [ ! -f "$PGDATA/PG_VERSION" ]; then
     echo "Initializing database..."
-    "$PGDIR/bin/initdb" -D "$PGDATA" --auth-local=trust --auth-host=trust
+    "$PGDIR/bin/initdb" -D "$PGDATA" --auth-local=scram-sha-256 --auth-host=scram-sha-256
     
     # 创建配置文件
     cat >> "$PGDATA/postgresql.conf" <<EOF
@@ -546,7 +555,7 @@ EOF
     
     # 创建数据库和用户
     "$PGDIR/bin/createdb" -h localhost -p 5432 kimbap_db 2>/dev/null || echo "Database might already exist"
-    "$PGDIR/bin/psql" -h localhost -p 5432 -d postgres -c "CREATE USER kimbap WITH PASSWORD 'kimbap123';" 2>/dev/null || echo "User might already exist"
+    "$PGDIR/bin/psql" -h localhost -p 5432 -d postgres -c "CREATE USER kimbap WITH PASSWORD '${this.dbPassword}';" 2>/dev/null || echo "User might already exist"
     "$PGDIR/bin/psql" -h localhost -p 5432 -d postgres -c "GRANT ALL PRIVILEGES ON DATABASE kimbap_db TO kimbap;" 2>/dev/null
     "$PGDIR/bin/psql" -h localhost -p 5432 -d postgres -c "ALTER DATABASE kimbap_db OWNER TO kimbap;" 2>/dev/null
     
@@ -570,11 +579,11 @@ else
   if command -v pg_ctl &> /dev/null; then
     # 使用系统PostgreSQL
     if [ ! -f "$PGDATA/PG_VERSION" ]; then
-      initdb -D "$PGDATA" -U kimbap --auth-local=trust --auth-host=md5
+      initdb -D "$PGDATA" -U kimbap --auth-local=scram-sha-256 --auth-host=scram-sha-256
       pg_ctl -D "$PGDATA" -l "$PGLOG" start
       sleep 3
       createdb -U kimbap kimbap_db
-      psql -U kimbap -c "ALTER USER kimbap PASSWORD 'kimbap123';"
+      psql -U kimbap -c "ALTER USER kimbap PASSWORD '${this.dbPassword}';"
     else
       pg_ctl -D "$PGDATA" -l "$PGLOG" start
     fi
@@ -591,7 +600,7 @@ else
     docker run -d \\
       --name kimbap-postgres-embedded \\
       -e POSTGRES_USER=kimbap \\
-      -e POSTGRES_PASSWORD=kimbap123 \\
+      -e POSTGRES_PASSWORD=${this.dbPassword} \\
       -e POSTGRES_DB=kimbap_db \\
       -p 5432:5432 \\
       -v "$PGDATA:/var/lib/postgresql/data" \\
@@ -656,11 +665,11 @@ if exist "%PGDIR%bin\\postgres.exe" (
   
   if not exist "%PGDATA%\\PG_VERSION" (
     echo Initializing database...
-    "%PGDIR%bin\\initdb.exe" -D "%PGDATA%" -U kimbap --auth-local=trust --auth-host=md5
+    "%PGDIR%bin\\initdb.exe" -D "%PGDATA%" -U kimbap --auth-local=scram-sha-256 --auth-host=scram-sha-256
     "%PGDIR%bin\\pg_ctl.exe" -D "%PGDATA%" -l "%PGLOG%" start
     timeout /t 3 /nobreak >nul
     "%PGDIR%bin\\createdb.exe" -U kimbap kimbap_db
-    "%PGDIR%bin\\psql.exe" -U kimbap -c "ALTER USER kimbap PASSWORD 'kimbap123';"
+    "%PGDIR%bin\\psql.exe" -U kimbap -c "ALTER USER kimbap PASSWORD '${this.dbPassword}';"
   ) else (
     "%PGDIR%bin\\pg_ctl.exe" -D "%PGDATA%" -l "%PGLOG%" start
   )
@@ -834,7 +843,7 @@ if command -v docker &> /dev/null; then
   docker run -d \\
     --name kimbap-postgres-embedded \\
     -e POSTGRES_USER=kimbap \\
-    -e POSTGRES_PASSWORD=kimbap123 \\
+    -e POSTGRES_PASSWORD=${this.dbPassword} \\
     -e POSTGRES_DB=kimbap_db \\
     -p 5432:5432 \\
     -v "$PGDATA:/var/lib/postgresql/data" \\
@@ -859,7 +868,7 @@ else
   echo "   Manual PostgreSQL setup:"
   echo "   1. Install PostgreSQL 16"
   echo "   2. Create database: CREATE DATABASE kimbap_db;"
-  echo "   3. Create user: CREATE USER kimbap WITH PASSWORD 'kimbap123';"
+   echo "   3. Create user: CREATE USER kimbap WITH PASSWORD '${this.dbPassword}';"
   echo "   4. Grant privileges: GRANT ALL ON DATABASE kimbap_db TO kimbap;"
   exit 1
 fi
@@ -895,7 +904,7 @@ echo Starting PostgreSQL with Docker...
 docker run -d ^
   --name kimbap-postgres-embedded ^
   -e POSTGRES_USER=kimbap ^
-  -e POSTGRES_PASSWORD=kimbap123 ^
+  -e POSTGRES_PASSWORD=${this.dbPassword} ^
   -e POSTGRES_DB=kimbap_db ^
   -p 5432:5432 ^
   postgres:16-alpine
@@ -1007,7 +1016,7 @@ echo PostgreSQL started on port 5432
       version: '1.0.0',
       private: true,
       scripts: {
-        start: 'node .next/standalone/server.js',
+        start: 'node server.js',
         'start:backend': 'node proxy-server/index.js'
       }
     };
@@ -1021,7 +1030,7 @@ echo PostgreSQL started on port 5432
     
     // 8. 创建环境配置
     const envConfig = `NODE_ENV=production
-DATABASE_URL=postgresql://kimbap:kimbap123@localhost:5432/kimbap_db`;
+DATABASE_URL=postgresql://kimbap:${this.dbPassword}@localhost:5432/kimbap_db`;
     
     fs.writeFileSync(path.join(appDir, '.env.local'), envConfig);
   }
@@ -1057,7 +1066,7 @@ class DatabaseConfig {
         port: 5432,
         database: 'kimbap_db',
         username: 'kimbap',
-        password: 'kimbap123'
+        password: '${this.dbPassword}'
       }
     };
   }
@@ -1356,7 +1365,7 @@ The application will auto-detect PostgreSQL. If not found, install using:
 \`\`\`bash
 docker run --name kimbap-postgres \\
   -e POSTGRES_USER=kimbap \\
-  -e POSTGRES_PASSWORD=kimbap123 \\
+  -e POSTGRES_PASSWORD=${this.dbPassword} \\
   -e POSTGRES_DB=kimbap_db \\
   -p 5432:5432 -d postgres:16
 \`\`\`

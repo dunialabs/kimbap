@@ -156,6 +156,26 @@ func TestSQLiteStoreListWithFilters(t *testing.T) {
 	}
 }
 
+func TestSQLiteStoreListOffsetWithoutLimit(t *testing.T) {
+	store := newTestStore(t)
+	ctx := context.Background()
+
+	_, _ = store.Create(ctx, "tenant-a", "A", SecretTypeAPIKey, []byte("a"), nil, "tester")
+	_, _ = store.Create(ctx, "tenant-a", "B", SecretTypeAPIKey, []byte("b"), nil, "tester")
+	_, _ = store.Create(ctx, "tenant-a", "C", SecretTypeAPIKey, []byte("c"), nil, "tester")
+
+	list, err := store.List(ctx, "tenant-a", ListOptions{Offset: 1})
+	if err != nil {
+		t.Fatalf("list with offset only: %v", err)
+	}
+	if len(list) != 2 {
+		t.Fatalf("expected 2 secrets after offset, got %d", len(list))
+	}
+	if list[0].Name != "B" || list[1].Name != "C" {
+		t.Fatalf("unexpected offset list: %+v", list)
+	}
+}
+
 func TestSQLiteStoreMarkUsedUpdatesTimestamp(t *testing.T) {
 	store := newTestStore(t)
 	ctx := context.Background()

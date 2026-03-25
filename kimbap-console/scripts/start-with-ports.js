@@ -34,18 +34,18 @@ async function startWithPortAllocation() {
     
     console.log('✅ Database initialized\n');
     
-    console.log('🔨 Building backend...');
-    const buildResult = spawnSync('npm', ['run', 'build:backend'], {
+    console.log('🔨 Building application...');
+    const buildResult = spawnSync('npm', ['run', 'build'], {
       stdio: 'inherit',
       cwd: process.cwd()
     });
     
     if (buildResult.status !== 0) {
-      console.error('❌ Failed to build backend');
+      console.error('❌ Failed to build application');
       process.exit(1);
     }
     
-    console.log('✅ Backend built successfully\n');
+    console.log('✅ Application built successfully\n');
     
     // 分配可用端口
     const { frontendPort, backendPort } = await allocatePorts();
@@ -62,15 +62,14 @@ async function startWithPortAllocation() {
 
     // 判断是否使用自定义服务器（支持HTTPS）
     const useCustomServer = process.env.ENABLE_HTTPS === 'true';
-    const frontendCommand = useCustomServer ? 'npm run dev:next:custom' : 'npm run dev:next';
+    const frontendCommand = useCustomServer ? 'npm run dev:custom' : 'npm run dev:next';
 
     // 构建 concurrently 命令
     const concurrentlyArgs = [
       '--kill-others-on-fail',
-      '-n', 'DB,Backend,Frontend',
-      '-c', 'yellow,green,blue',
+      '-n', 'DB,Frontend',
+      '-c', 'yellow,blue',
       'npm run db:start',
-      `BACKEND_PORT=${backendPort} BACKEND_HTTPS_PORT=${backendPort} npm run dev:backend`,
       `PORT=${frontendPort} FRONTEND_PORT=${frontendPort} FRONTEND_HTTPS_PORT=${frontendPort} ${frontendCommand}`
     ];
     

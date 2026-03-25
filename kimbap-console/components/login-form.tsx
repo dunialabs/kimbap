@@ -13,6 +13,12 @@ interface LoginFormProps {
   defaultToken?: string
 }
 
+const generateSessionCookieValue = () => {
+  const bytes = new Uint8Array(16)
+  window.crypto.getRandomValues(bytes)
+  return Array.from(bytes, (byte) => byte.toString(16).padStart(2, '0')).join('')
+}
+
 export function LoginForm({
   onSuccess,
   defaultToken = ''
@@ -118,7 +124,7 @@ export function LoginForm({
         localStorage.removeItem('accessToken')
       }
 
-      document.cookie = `kimbap_session=active; path=/; max-age=${60 * 60 * 24 * 7}; SameSite=Lax`
+      document.cookie = `kimbap_session=${generateSessionCookieValue()}; path=/; max-age=${60 * 60 * 24 * 7}; SameSite=Lax`
 
       onSuccess()
     } catch (error: any) {

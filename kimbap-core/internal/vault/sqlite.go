@@ -171,6 +171,8 @@ func (s *SQLiteStore) List(ctx context.Context, tenantID string, opts ListOption
 	if opts.Limit > 0 {
 		query += " LIMIT ?"
 		args = append(args, opts.Limit)
+	} else if opts.Offset > 0 {
+		query += " LIMIT -1"
 	}
 	if opts.Offset > 0 {
 		query += " OFFSET ?"

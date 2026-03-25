@@ -241,7 +241,9 @@ class DatabaseConfig {
    */
   generateDatabaseUrl(type) {
     const config = this.configs[type];
-    return `postgresql://${config.username}:${config.password}@${config.host}:${config.port}/${config.database}`;
+    const encodedUsername = encodeURIComponent(config.username);
+    const encodedPassword = encodeURIComponent(config.password);
+    return `postgresql://${encodedUsername}:${encodedPassword}@${config.host}:${config.port}/${config.database}`;
   }
 
   /**
