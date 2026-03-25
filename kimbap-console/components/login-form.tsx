@@ -118,6 +118,11 @@ export function LoginForm({
         localStorage.setItem('auth_token', masterPwdAccessToken)
       }
 
+      // Set session cookie for server-side middleware route protection
+      if (tokenInfo.userid) {
+        document.cookie = `kimbap_session=${tokenInfo.userid}; path=/; max-age=${60 * 60 * 24 * 7}; SameSite=Lax`
+      }
+
       onSuccess()
     } catch (error: any) {
       // Error handled below via UI state

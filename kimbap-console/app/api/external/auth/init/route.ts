@@ -1,7 +1,7 @@
 import { NextRequest } from 'next/server';
 import { randomUUID } from 'crypto';
 import { CryptoUtils } from '@/lib/crypto';
-import { getProxy, createProxy, createUser } from '@/lib/proxy-api';
+import { getProxy, createProxy, createUser, deleteProxy } from '@/lib/proxy-api';
 import { prisma } from '@/lib/prisma';
 import { hashToken } from '@/lib/auth';
 import { ApiResponse } from '../../lib/response';
@@ -133,7 +133,16 @@ export async function POST(request: NextRequest) {
       });
     } catch (error) {
       console.error('Failed to create user in proxy service:', error);
-      throw new ExternalApiError(E5001, 'Database error');
+      let rolledBack = false;
+      try {
+        await deleteProxy(proxy.id, '', accessToken);
+        rolledBack = true;
+      } catch (cleanupErr) {
+        console.error('Compensation proxy delete failed:', cleanupErr);
+      }
+      throw new ExternalApiError(E5001, rolledBack
+        ? 'Failed to create owner user. Proxy has been rolled back.'
+        : 'Failed to create owner user. Manual cleanup may be required.');
     }
 
     // Save token and userid to local user table
@@ -148,7 +157,17 @@ export async function POST(request: NextRequest) {
       });
     } catch (error) {
       console.error('Failed to save user to local table:', error);
-      throw new ExternalApiError(E5001, 'Failed to save owner record to local database');
+      // Compensation: deleteProxy cascades to remove associated users in Core
+      let rolledBack = false;
+      try {
+        await deleteProxy(proxy.id, userId, accessToken);
+        rolledBack = true;
+      } catch (cleanupErr) {
+        console.error('Compensation proxy delete failed:', cleanupErr);
+      }
+      throw new ExternalApiError(E5001, rolledBack
+        ? 'Failed to save owner record to local database. Core state has been rolled back.'
+        : 'Failed to save owner record to local database. Core cleanup failed — manual intervention may be required.');
     }
 
     // Return success response

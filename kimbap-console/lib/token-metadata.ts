@@ -186,10 +186,13 @@ export function applyTagsOperation(
       result = existingTags;
   }
   if (result.length > TAG_MAX_COUNT) {
-    console.warn('Tag operation result exceeded max count; truncating', {
+    const dropped = result.length - TAG_MAX_COUNT;
+    const droppedSample = result.slice(TAG_MAX_COUNT, TAG_MAX_COUNT + 5);
+    console.warn(`Tag operation result exceeded max count (${TAG_MAX_COUNT}); truncating ${dropped} tags`, {
       max: TAG_MAX_COUNT,
       current: result.length,
       mode,
+      droppedSample,
     });
     result = result.slice(0, TAG_MAX_COUNT);
   }
@@ -287,11 +290,8 @@ export async function deleteTokenMetadata(
     await prisma.tokenMetadata.delete({
       where: { proxyId_userid: { proxyId, userid } },
     });
-  } catch (error) {
-    console.warn('Failed to delete token metadata', {
-      proxyId,
-      userid,
-      error,
-    });
+  } catch (error: any) {
+    if (error?.code === 'P2025') return;
+    throw error;
   }
 }

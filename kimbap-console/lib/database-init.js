@@ -37,13 +37,13 @@ async function initializeDatabase() {
       const errorOutput = deployError.stderr ? deployError.stderr.toString() : deployError.toString();
       
       if (errorOutput.includes('Drift detected')) {
-        console.log('[Database] ⚠️ Schema drift detected, but continuing...');
-        return true;  // Don't block server startup for drift
+        console.error('[Database] ❌ Schema drift detected — database schema does not match migrations. Run "npx prisma migrate dev" to fix.');
+        return false;
       }
       
       if (errorOutput.includes('P3018')) {
-        console.log('[Database] ⚠️ Shadow database issue (P3018), but continuing...');
-        return true;  // Don't block server startup for shadow DB issues
+        console.error('[Database] ❌ Shadow database error (P3018) — migration history is corrupted. See: https://pris.ly/d/migrate-shadow');
+        return false;
       }
       
       if (errorOutput.includes('does not exist')) {
@@ -56,15 +56,13 @@ async function initializeDatabase() {
         return true;
       }
       
-      // For other errors, log but don't block startup
-      console.log('[Database] ⚠️ Migration warning:', errorOutput.substring(0, 300));
-      return true;
+      console.error('[Database] ❌ Migration failed:', errorOutput.substring(0, 300));
+      return false;
     }
     
   } catch (error) {
-    console.error('[Database] ⚠️ Migration check error:', error.message ? error.message.substring(0, 200) : 'Unknown error');
-    // Don't block server startup for migration errors
-    return true;
+    console.error('[Database] ❌ Migration check error:', error.message ? error.message.substring(0, 200) : 'Unknown error');
+    return false;
   }
 }
 

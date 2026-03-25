@@ -173,7 +173,12 @@ async function startServer() {
   try {
     // Initialize database (apply migrations if needed)
     const { initializeDatabase } = require('./lib/database-init');
-    await initializeDatabase();
+    const dbReady = await initializeDatabase();
+    if (!dbReady) {
+      console.error('❌ Database initialization failed. Server cannot start with an inconsistent schema.');
+      console.error('   Fix the migration issues above, then restart.');
+      process.exit(1);
+    }
     
     // Prepare Next.js app
     await app.prepare();

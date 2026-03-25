@@ -148,11 +148,22 @@ apiClient.interceptors.response.use(
     const status = error?.response?.status;
     const config: any = error?.config || {};
 
-    // 统一处理 401：清理 token 并回到首页
     if (status === 401) {
       if (typeof window !== 'undefined') {
-        localStorage.removeItem('auth_token');
-        window.location.href = '/';
+        // Only clear auth if the failed request used the current token (prevent race with re-login)
+        const failedToken = error?.config?.headers?.Authorization;
+        const currentToken = localStorage.getItem('auth_token');
+        const tokenStillCurrent = failedToken === `Bearer ${currentToken}`;
+
+        if (tokenStillCurrent || !currentToken) {
+          clearAuthState();
+          window.dispatchEvent(new CustomEvent('kimbap:session-expired'));
+          setTimeout(() => {
+            if (window.location.pathname.startsWith('/dashboard')) {
+              window.location.href = '/login';
+            }
+          }, 100);
+        }
       }
     }
 
@@ -875,12 +886,24 @@ export const setAuthToken = (token: string) => {
   localStorage.setItem('auth_token', token);
 };
 
-export const clearAuthToken = () => {
+export const clearAuthState = () => {
   if (typeof window === 'undefined') {
     return;
   }
   localStorage.removeItem('auth_token');
+  localStorage.removeItem('userid');
+  localStorage.removeItem('token');
+  localStorage.removeItem('accessToken');
+  localStorage.removeItem('manualAccessToken');
+  localStorage.removeItem('selectedServer');
+  document.cookie = 'kimbap_session=; path=/; max-age=0';
+  import('@/lib/crypto')
+    .then(({ MasterPasswordManager }) => MasterPasswordManager.clearCache())
+    .catch(() => {});
 };
+
+/** @deprecated Use clearAuthState() instead */
+export const clearAuthToken = clearAuthState;
 
 export const getAuthToken = () => {
   if (typeof window === 'undefined') {

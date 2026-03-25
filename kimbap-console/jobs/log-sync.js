@@ -169,7 +169,8 @@ async function getOwnerToken() {
   if (envToken) {
     return envToken;
   }
-  console.error('[LogSync] LOG_SYNC_TOKEN env var is not set. Log sync requires a valid owner access token.');
+  console.error('\x1b[31m[LogSync] ❌ LOG_SYNC_TOKEN env var is not set. Log sync will not work until a valid owner access token is configured.\x1b[0m');
+  console.error('\x1b[31m[LogSync] Set LOG_SYNC_TOKEN in your environment or .env file. See: https://docs.kimbap.sh/configuration#log-sync\x1b[0m');
   return null;
 }
 
@@ -403,8 +404,12 @@ async function saveLogsToDatabase(logs, currentProxyKey) {
       savedCount += result.count;
 
     } catch (error) {
-      console.error(`[LogSync] Batch insert failed:`, error.message);
-      // 如果批量插入失败，跳过这批数据，继续处理下一批
+      const batchStart = i;
+      const batchEnd = Math.min(i + CONFIG.BATCH_SIZE, logsToInsert.length);
+      const firstId = batch[0]?.id ?? 'unknown';
+      const lastId = batch[batch.length - 1]?.id ?? 'unknown';
+      console.error(`\x1b[31m[LogSync] Batch insert failed (records ${batchStart}-${batchEnd}, idInCore ${firstId}-${lastId}): ${error.message}\x1b[0m`);
+      console.error(`\x1b[33m[LogSync] ⚠️ ${batch.length} logs dropped. They will be re-fetched on the next sync cycle if idInCore cursor has not advanced.\x1b[0m`);
       continue;
     }
   }

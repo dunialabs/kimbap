@@ -1,12 +1,14 @@
 'use client'
 
-import { useRouter } from 'next/navigation'
-import { useEffect, useState } from 'react'
+import { useRouter, useSearchParams } from 'next/navigation'
+import { Suspense, useEffect, useState } from 'react'
 
 import { LoginForm } from '@/components/login-form'
+import { clearAuthState } from '@/lib/api-client'
 
-export default function WelcomePage() {
+function WelcomePageContent() {
   const router = useRouter()
+  const searchParams = useSearchParams()
   const [checkingAuth, setCheckingAuth] = useState(true)
 
   useEffect(() => {
@@ -19,7 +21,7 @@ export default function WelcomePage() {
     }
 
     if (userid && !authToken) {
-      localStorage.removeItem('userid')
+      clearAuthState()
     }
 
     setCheckingAuth(false)
@@ -61,7 +63,8 @@ export default function WelcomePage() {
             <div className="flex-1 flex flex-col justify-center items-center">
               <LoginForm
                 onSuccess={() => {
-                  router.push('/dashboard')
+                  const redirectTo = searchParams.get('redirect')
+                  router.push(redirectTo?.startsWith('/dashboard') ? redirectTo : '/dashboard')
                 }}
               />
             </div>
@@ -84,5 +87,13 @@ export default function WelcomePage() {
         </div>
       </footer>
     </div>
+  )
+}
+
+export default function WelcomePage() {
+  return (
+    <Suspense>
+      <WelcomePageContent />
+    </Suspense>
   )
 }

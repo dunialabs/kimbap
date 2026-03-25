@@ -11,6 +11,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
+import { clearAuthState } from "@/lib/api-client"
 
 export interface UserData {
   email: string
@@ -48,12 +49,7 @@ export function UserMenu({
         </DropdownMenuLabel>
         <DropdownMenuSeparator />
         <DropdownMenuItem onSelect={() => {
-          localStorage.removeItem('userid')
-          localStorage.removeItem('token')
-          localStorage.removeItem('auth_token')
-          localStorage.removeItem('accessToken')
-          localStorage.removeItem('manualAccessToken')
-          localStorage.removeItem('selectedServer')
+          clearAuthState()
           onLogout()
         }}>
           Log Out

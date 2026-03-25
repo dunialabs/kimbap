@@ -1,6 +1,7 @@
 'use client'
 import { Menu, LogOut } from 'lucide-react'
 import { useRouter } from 'next/navigation'
+import { clearAuthState } from '@/lib/api-client'
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { Sheet, SheetContent, SheetTrigger, SheetTitle } from '@/components/ui/sheet'
 import { Button } from '@/components/ui/button'
@@ -33,12 +34,7 @@ export function DashboardSidebar() {
   }, [fetchPendingCount])
 
   const handleLogout = () => {
-    localStorage.removeItem('userid')
-    localStorage.removeItem('token')
-    localStorage.removeItem('auth_token')
-    localStorage.removeItem('accessToken')
-    localStorage.removeItem('manualAccessToken')
-    localStorage.removeItem('selectedServer')
+    clearAuthState()
     router.push('/')
   }
 

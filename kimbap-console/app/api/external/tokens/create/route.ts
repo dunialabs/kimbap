@@ -1,5 +1,5 @@
 import { NextRequest } from 'next/server';
-import { getProxy, createUser } from '@/lib/proxy-api';
+import { getProxy, createUser, deleteUser } from '@/lib/proxy-api';
 import { CryptoUtils } from '@/lib/crypto';
 import { hashToken } from '@/lib/auth';
 
@@ -13,7 +13,7 @@ import {
 } from '@/lib/token-metadata';
 import { ApiResponse } from '../../lib/response';
 import { authenticate } from '../../lib/auth';
-import { ExternalApiError, E1001, E1003, E4007 } from '../../lib/error-codes';
+import { ExternalApiError, E1001, E1003, E4007, E5001 } from '../../lib/error-codes';
 
 export const dynamic = 'force-dynamic';
 
@@ -48,6 +48,7 @@ interface CreateTokenResult {
   createdAt: number;
   namespace: string;
   tags: string[];
+  warning?: string;
 }
 
 interface BatchCreateRequest {
@@ -130,91 +131,103 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Get proxy info
     const proxy = await getProxy();
-
-    // Get proxy info
-
     // The owner token from the Authorization header
     const ownerToken = user.accessToken;
 
-    // Create tokens
+    // Create tokens — per-token errors are caught so partial results are returned
     const results: CreateTokenResult[] = [];
+    const errors: Array<{ index: number; name: string; error: string }> = [];
 
-    for (const tokenInput of tokens) {
-      // Generate access token
-      const accessToken = CryptoUtils.generateToken();
-
-      // Calculate userId from access token
-      const userId = await CryptoUtils.calculateUserId(accessToken);
-
-      // Encrypt access token with owner token
-      const encryptedToken = await CryptoUtils.encryptData(accessToken, ownerToken);
-
-      // Parse permissions
-      const parsedPermissions = parseExternalTokenPermissions(tokenInput.permissions);
-
-      const createdAt = Math.floor(Date.now() / 1000);
-
-      // Create user record via proxy API using owner token directly
-      await createUser({
-        userId,
-        status: 1,
-        role: tokenInput.role,
-        permissions: JSON.stringify(parsedPermissions),
-        serverApiKeys: JSON.stringify({}),
-        ratelimit: tokenInput.rateLimit || 10,
-        name: tokenInput.name.trim(),
-        encryptedToken: JSON.stringify(encryptedToken),
-        proxyId: proxy.id,
-        notes: tokenInput.notes || '',
-        expiresAt: tokenInput.expiresAt || 0,
-      }, ownerToken);
-
-      // Save to local prisma user table
+    for (let idx = 0; idx < tokens.length; idx++) {
+      const tokenInput = tokens[idx];
       try {
-        await prisma.user.create({
-          data: {
-            userid: userId,
-            accessTokenHash: hashToken(accessToken),
-            proxyKey: proxy.proxyKey,
-            role: tokenInput.role,
-          },
+        const accessToken = CryptoUtils.generateToken();
+        const userId = await CryptoUtils.calculateUserId(accessToken);
+        const encryptedToken = await CryptoUtils.encryptData(accessToken, ownerToken);
+        const parsedPermissions = parseExternalTokenPermissions(tokenInput.permissions);
+        const createdAt = Math.floor(Date.now() / 1000);
+
+        await createUser({
+          userId,
+          status: 1,
+          role: tokenInput.role,
+          permissions: JSON.stringify(parsedPermissions),
+          serverApiKeys: JSON.stringify({}),
+          ratelimit: tokenInput.rateLimit || 10,
+          name: tokenInput.name.trim(),
+          encryptedToken: JSON.stringify(encryptedToken),
+          proxyId: proxy.id,
+          notes: tokenInput.notes || '',
+          expiresAt: tokenInput.expiresAt || 0,
+        }, ownerToken);
+
+        try {
+          await prisma.user.create({
+            data: {
+              userid: userId,
+              accessTokenHash: hashToken(accessToken),
+              proxyKey: proxy.proxyKey,
+              role: tokenInput.role,
+            },
+          });
+        } catch (error) {
+          console.error('Failed to save user to local table:', error);
+          try {
+            await deleteUser(userId, undefined, ownerToken);
+          } catch (cleanupErr) {
+            console.error('Compensation delete also failed:', cleanupErr);
+          }
+          throw new Error(`Local database save failed for token ${tokenInput.name.trim()}`);
+        }
+
+        let namespace = 'default';
+        let tags: string[] = [];
+        let metadataPersisted = true;
+
+        if (tokenInput.namespace !== undefined || tokenInput.tags !== undefined) {
+          const metadataInput = {
+            ...(tokenInput.namespace !== undefined ? { namespace: normalizeNamespace(tokenInput.namespace) } : {}),
+            ...(tokenInput.tags !== undefined ? { tags: normalizeTags(tokenInput.tags) } : {}),
+          };
+
+          try {
+            await upsertTokenMetadata(proxy.id, userId, metadataInput);
+          } catch (metaErr) {
+            console.error('Failed to save token metadata (token was created successfully):', metaErr);
+            metadataPersisted = false;
+          }
+          namespace = metadataInput.namespace ?? 'default';
+          tags = metadataInput.tags ?? [];
+        }
+
+        results.push({
+          tokenId: userId,
+          accessToken,
+          name: tokenInput.name.trim(),
+          role: tokenInput.role,
+          createdAt,
+          namespace,
+          tags,
+          ...(!metadataPersisted && { warning: 'Token created but metadata (namespace/tags) failed to persist' }),
         });
-      } catch (error) {
-        console.error('Failed to save user to local table:', error);
-        throw new ExternalApiError('E5001' as any, `Failed to save token ${tokenInput.name.trim()} to local database`);
+      } catch (tokenErr) {
+        const msg = tokenErr instanceof Error ? tokenErr.message : 'Unknown error';
+        console.error(`Failed to create token [${idx}] "${tokenInput.name}":`, msg);
+        errors.push({ index: idx, name: tokenInput.name.trim(), error: msg });
       }
-
-      let namespace = 'default';
-      let tags: string[] = [];
-
-      if (tokenInput.namespace !== undefined || tokenInput.tags !== undefined) {
-        const metadataInput = {
-          ...(tokenInput.namespace !== undefined ? { namespace: normalizeNamespace(tokenInput.namespace) } : {}),
-          ...(tokenInput.tags !== undefined ? { tags: normalizeTags(tokenInput.tags) } : {}),
-        };
-
-        await upsertTokenMetadata(proxy.id, userId, metadataInput);
-
-        namespace = metadataInput.namespace ?? 'default';
-        tags = metadataInput.tags ?? [];
-      }
-
-      results.push({
-        tokenId: userId,
-        accessToken,
-        name: tokenInput.name.trim(),
-        role: tokenInput.role,
-        createdAt,
-        namespace,
-        tags,
-      });
     }
 
-    const responseData: BatchCreateResponse = { tokens: results };
+    if (results.length === 0) {
+      throw new ExternalApiError(E5001, `All ${tokens.length} token(s) failed to create. First error: ${errors[0]?.error}`);
+    }
 
-    return ApiResponse.success(responseData, 201, request);
+    const responseData: BatchCreateResponse & { errors?: typeof errors } = { tokens: results };
+    if (errors.length > 0) {
+      responseData.errors = errors;
+    }
+
+    return ApiResponse.success(responseData, results.length === tokens.length ? 201 : 207, request);
   } catch (error) {
     return ApiResponse.handleError(error, request);
   }
