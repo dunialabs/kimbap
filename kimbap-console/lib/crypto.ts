@@ -66,11 +66,7 @@ export class CryptoUtils {
    */
   static generateToken(length: number = 64): string {
     const randomBytes = this.getCrypto().getRandomValues(new Uint8Array(length));
-    const bytes: number[] = [];
-    for (let i = 0; i < randomBytes.length; i++) {
-      bytes.push(randomBytes[i]);
-    }
-    return bytes.map((b) => b.toString(16).padStart(2, "0")).join("");
+    return Array.from(randomBytes).map((b) => b.toString(16).padStart(2, "0")).join("");
   }
 
   /**
@@ -84,10 +80,7 @@ export class CryptoUtils {
 
     // Use SHA-256 instead of MD5 (more secure)
     const hashBuffer = await this.getCrypto().subtle.digest("SHA-256", data);
-    const hashArray = Array.from(new Uint8Array(hashBuffer));
-
-    // Take first 32 characters to simulate MD5 length, or adjust as needed
-    return hashArray
+    return Array.from(new Uint8Array(hashBuffer))
       .map((b) => b.toString(16).padStart(2, "0"))
       .join("");
   }
@@ -163,11 +156,12 @@ export class CryptoUtils {
     const encryptedData = encryptedArray.slice(0, -16); // All but last 16 bytes
     const tag = encryptedArray.slice(-16); // Last 16 bytes are the tag
 
+    const toBase64 = (arr: Uint8Array) => btoa(Array.from(arr).map(b => String.fromCharCode(b)).join(''));
     return {
-      data: btoa(String.fromCharCode.apply(null, Array.from(encryptedData))),
-      iv: btoa(String.fromCharCode.apply(null, Array.from(iv))),
-      salt: btoa(String.fromCharCode.apply(null, Array.from(usedSalt))),
-      tag: btoa(String.fromCharCode.apply(null, Array.from(tag))),
+      data: toBase64(encryptedData),
+      iv: toBase64(iv),
+      salt: toBase64(usedSalt),
+      tag: toBase64(tag),
     };
   }
 
@@ -326,7 +320,7 @@ export class CryptoUtils {
     ); // Make extractable for hashing
     const keyBuffer = await this.getCrypto().subtle.exportKey("raw", key);
     const keyArray = new Uint8Array(keyBuffer);
-    return btoa(String.fromCharCode.apply(null, Array.from(keyArray)));
+    return btoa(Array.from(keyArray).map(b => String.fromCharCode(b)).join(''));
   }
 
 
@@ -400,7 +394,7 @@ export class MasterPasswordManager {
     // Store hash and salt
     const masterData: MasterPasswordData = {
       hash: hash,
-      salt: btoa(String.fromCharCode.apply(null, Array.from(salt)))
+      salt: btoa(Array.from(salt).map(b => String.fromCharCode(b)).join(''))
     };
 
     localStorage.setItem(this.STORAGE_KEY, JSON.stringify(masterData));
