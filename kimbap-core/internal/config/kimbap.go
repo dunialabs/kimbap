@@ -116,20 +116,26 @@ func loadKimbapConfig(includeDefault bool, paths ...string) (*KimbapConfig, erro
 		if err != nil {
 			return nil, err
 		}
+		prev := *cfg
 		if err := mergeConfigFromFile(cfg, defaultPath, false); err != nil {
 			return nil, err
 		}
+		rebaseDerivedPathsForDataDir(&prev, cfg)
 	}
 
+	prev := *cfg
 	applyKimbapEnv(cfg)
+	rebaseDerivedPathsForDataDir(&prev, cfg)
 
 	for _, p := range paths {
 		if p == "" {
 			continue
 		}
+		prev = *cfg
 		if err := mergeConfigFromFile(cfg, p, true); err != nil {
 			return nil, err
 		}
+		rebaseDerivedPathsForDataDir(&prev, cfg)
 	}
 
 	cfg.Skills.Verify = normalizeSkillVerifyMode(cfg.Skills.Verify)
@@ -200,6 +206,28 @@ func mergeConfigFromFile(cfg *KimbapConfig, path string, required bool) error {
 
 	mergeConfig(cfg, &loaded)
 	return nil
+}
+
+func rebaseDerivedPathsForDataDir(prev *KimbapConfig, cfg *KimbapConfig) {
+	if prev == nil || cfg == nil || prev.DataDir == cfg.DataDir || cfg.DataDir == "" {
+		return
+	}
+
+	if cfg.Vault.Path == prev.Vault.Path && prev.Vault.Path == filepath.Join(prev.DataDir, "vault.db") {
+		cfg.Vault.Path = filepath.Join(cfg.DataDir, "vault.db")
+	}
+	if cfg.Audit.Path == prev.Audit.Path && prev.Audit.Path == filepath.Join(prev.DataDir, "audit.jsonl") {
+		cfg.Audit.Path = filepath.Join(cfg.DataDir, "audit.jsonl")
+	}
+	if cfg.Policy.Path == prev.Policy.Path && prev.Policy.Path == filepath.Join(prev.DataDir, "policy.yaml") {
+		cfg.Policy.Path = filepath.Join(cfg.DataDir, "policy.yaml")
+	}
+	if cfg.Skills.Dir == prev.Skills.Dir && prev.Skills.Dir == filepath.Join(prev.DataDir, "skills") {
+		cfg.Skills.Dir = filepath.Join(cfg.DataDir, "skills")
+	}
+	if cfg.Database.DSN == prev.Database.DSN && prev.Database.DSN == filepath.Join(prev.DataDir, "kimbap.db") {
+		cfg.Database.DSN = filepath.Join(cfg.DataDir, "kimbap.db")
+	}
 }
 
 func applyKimbapEnv(cfg *KimbapConfig) {

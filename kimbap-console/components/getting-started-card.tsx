@@ -14,14 +14,22 @@ export function GettingStartedCard() {
   const [isReady, setIsReady] = useState(false)
 
   useEffect(() => {
-    setDismissed(localStorage.getItem(STORAGE_KEY) === 'true')
-    setIsReady(true)
-  }, [])
+      try {
+        setDismissed(localStorage.getItem(STORAGE_KEY) === 'true')
+      } catch {
+        setDismissed(false)
+      }
+      setIsReady(true)
+    }, [])
 
   const handleDismiss = () => {
-    setDismissed(true)
-    localStorage.setItem(STORAGE_KEY, 'true')
-  }
+      setDismissed(true)
+      try {
+        localStorage.setItem(STORAGE_KEY, 'true')
+      } catch {
+        return
+      }
+    }
 
   if (!isReady || dismissed) {
     return null

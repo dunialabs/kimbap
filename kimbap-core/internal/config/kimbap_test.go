@@ -189,3 +189,82 @@ func TestLoadKimbapConfigWithoutDefaultIgnoresBrokenDefaultConfig(t *testing.T) 
 		t.Fatalf("expected explicit config mode, got %q", cfg.Mode)
 	}
 }
+
+func TestLoadKimbapConfigRebasesDerivedPathsWhenExplicitDataDirChanges(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+
+	dataDir := filepath.Join(t.TempDir(), "custom-data")
+	explicitPath := filepath.Join(t.TempDir(), "explicit.yaml")
+	if err := os.WriteFile(explicitPath, []byte("data_dir: "+dataDir+"\n"), 0o644); err != nil {
+		t.Fatalf("write explicit config: %v", err)
+	}
+
+	cfg, err := LoadKimbapConfigWithoutDefault(explicitPath)
+	if err != nil {
+		t.Fatalf("load config without default: %v", err)
+	}
+
+	if cfg.Vault.Path != filepath.Join(dataDir, "vault.db") {
+		t.Fatalf("expected rebased vault path, got %q", cfg.Vault.Path)
+	}
+	if cfg.Audit.Path != filepath.Join(dataDir, "audit.jsonl") {
+		t.Fatalf("expected rebased audit path, got %q", cfg.Audit.Path)
+	}
+	if cfg.Policy.Path != filepath.Join(dataDir, "policy.yaml") {
+		t.Fatalf("expected rebased policy path, got %q", cfg.Policy.Path)
+	}
+	if cfg.Skills.Dir != filepath.Join(dataDir, "skills") {
+		t.Fatalf("expected rebased skills dir, got %q", cfg.Skills.Dir)
+	}
+	if cfg.Database.DSN != filepath.Join(dataDir, "kimbap.db") {
+		t.Fatalf("expected rebased database dsn, got %q", cfg.Database.DSN)
+	}
+}
+
+func TestLoadKimbapConfigRebasesDerivedPathsWhenEnvDataDirChanges(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+
+	dataDir := filepath.Join(t.TempDir(), "env-data")
+	t.Setenv("KIMBAP_DATA_DIR", dataDir)
+
+	cfg, err := LoadKimbapConfigWithoutDefault()
+	if err != nil {
+		t.Fatalf("load config without default: %v", err)
+	}
+
+	if cfg.Vault.Path != filepath.Join(dataDir, "vault.db") {
+		t.Fatalf("expected rebased vault path, got %q", cfg.Vault.Path)
+	}
+	if cfg.Skills.Dir != filepath.Join(dataDir, "skills") {
+		t.Fatalf("expected rebased skills dir, got %q", cfg.Skills.Dir)
+	}
+}
+
+func TestLoadKimbapConfigPreservesExplicitPathOverridesWhenDataDirChanges(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+
+	dataDir := filepath.Join(t.TempDir(), "custom-data")
+	customVaultPath := filepath.Join(t.TempDir(), "custom-vault.db")
+	explicitPath := filepath.Join(t.TempDir(), "explicit.yaml")
+	content := "data_dir: " + dataDir + "\n" +
+		"vault:\n" +
+		"  path: " + customVaultPath + "\n"
+	if err := os.WriteFile(explicitPath, []byte(content), 0o644); err != nil {
+		t.Fatalf("write explicit config: %v", err)
+	}
+
+	cfg, err := LoadKimbapConfigWithoutDefault(explicitPath)
+	if err != nil {
+		t.Fatalf("load config without default: %v", err)
+	}
+
+	if cfg.Vault.Path != customVaultPath {
+		t.Fatalf("expected custom vault path preserved, got %q", cfg.Vault.Path)
+	}
+	if cfg.Policy.Path != filepath.Join(dataDir, "policy.yaml") {
+		t.Fatalf("expected policy path rebased, got %q", cfg.Policy.Path)
+	}
+}
