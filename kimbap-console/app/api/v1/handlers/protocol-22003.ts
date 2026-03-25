@@ -93,18 +93,8 @@ export async function handleProtocol22003(body: Request22003): Promise<Response2
     const tokenUsageStats = await prisma.log.groupBy({
       by: ['userid'],
       where: tokenWhereCondition,
-      _count: {
-        id: true
-      },
-      _max: {
-        addtime: true
-      },
-      orderBy: {
-        _count: {
-          id: 'desc'
-        }
-      },
-      take: limit
+      _count: { id: true },
+      _max: { addtime: true },
     });
     
     // 创建用户映射表
@@ -150,7 +140,7 @@ export async function handleProtocol22003(body: Request22003): Promise<Response2
     });
     
     const response: Response22003Data = {
-      tokens: activeTokens  // Changed from activeTokens to tokens to match interface
+      tokens: activeTokens.slice(0, limit)
     };
     
     console.log('Protocol 22003 response:', {

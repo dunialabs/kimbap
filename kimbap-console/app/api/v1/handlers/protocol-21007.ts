@@ -133,10 +133,8 @@ export async function handleProtocol21007(body: Request21007): Promise<Response2
           .sort(([a], [b]) => b - a) // 按时间倒序
           .slice(0, 5) // 最多5个最近事件
           .forEach(([timestamp, group]) => {
-            // 模拟配置的限制（实际应该从配置中读取）
-            const configuredLimit = 100; // 假设每分钟100次请求限制
             const requests = group.logs.length;
-            const blockedRequests = Math.max(0, requests - configuredLimit);
+            const blockedRequests = requests;
             
             // 选择主要的客户端IP
             const primaryIP = group.ips.size > 0 ? Array.from(group.ips)[0] : 'unknown';
@@ -152,7 +150,7 @@ export async function handleProtocol21007(body: Request21007): Promise<Response2
         return {
           tokenId: tokenMask.substring(0, 8) + '...',
           tokenName: `Token ${tokenMask.substring(0, 8)}...`,
-          configuredLimit: 100, // 模拟配置值，实际应该从配置中读取
+          configuredLimit: 0,
           totalHits: logs.length,
           peakHitsPerMinute,
           recentEvents

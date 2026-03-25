@@ -1,6 +1,7 @@
 import { NextRequest } from 'next/server';
 import { getProxy, getUsers, getServers } from '@/lib/proxy-api';
 import { getTokenMetadata } from '@/lib/token-metadata';
+import { prisma } from '@/lib/prisma';
 import { ApiResponse } from '../../lib/response';
 import { authenticate } from '../../lib/auth';
 import { ExternalApiError, E1001, E3003 } from '../../lib/error-codes';
@@ -32,15 +33,22 @@ async function getTokenById(request: NextRequest, tokenIdRaw: string) {
   servers.forEach((server) => {
     serverNameMap[server.serverId] = server.serverName;
   });
-  const permissions = await getUserPermissions(targetUser.userId, user.accessToken, serverNameMap);
-  const metadata = await getTokenMetadata(proxy.id, targetUser.userId);
+  const [permissions, metadata, lastLog] = await Promise.all([
+    getUserPermissions(targetUser.userId, user.accessToken, serverNameMap),
+    getTokenMetadata(proxy.id, targetUser.userId),
+    prisma.log.findFirst({
+      where: { userid: targetUser.userId },
+      orderBy: { addtime: 'desc' },
+      select: { addtime: true },
+    }),
+  ]);
 
   const token: TokenItem = {
     tokenId: targetUser.userId,
     name: targetUser.name,
     role: targetUser.role,
     notes: (targetUser as Record<string, unknown>).notes as string || '',
-    lastUsed: 0,
+    lastUsed: lastLog ? Number(lastLog.addtime) : 0,
     createdAt: targetUser.createdAt || 0,
     expiresAt: targetUser.expiresAt || 0,
     rateLimit: targetUser.ratelimit,

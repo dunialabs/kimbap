@@ -16,10 +16,25 @@ const IP_GEO_MAP: Record<string, GeoLocation> = {
   '34.': { country: 'United States', city: 'Google Cloud US', countryCode: 'US' },
   '35.': { country: 'United States', city: 'Google Cloud US', countryCode: 'US' },
   
-  // Common IP ranges
-  '172.': { country: 'Private Network', city: 'Local Network', countryCode: 'LO' },
   '192.168.': { country: 'Private Network', city: 'Local Network', countryCode: 'LO' },
   '10.': { country: 'Private Network', city: 'Local Network', countryCode: 'LO' },
+  // 172.16.0.0/12 is private (172.16–172.31 only)
+  '172.16.': { country: 'Private Network', city: 'Local Network', countryCode: 'LO' },
+  '172.17.': { country: 'Private Network', city: 'Local Network', countryCode: 'LO' },
+  '172.18.': { country: 'Private Network', city: 'Local Network', countryCode: 'LO' },
+  '172.19.': { country: 'Private Network', city: 'Local Network', countryCode: 'LO' },
+  '172.20.': { country: 'Private Network', city: 'Local Network', countryCode: 'LO' },
+  '172.21.': { country: 'Private Network', city: 'Local Network', countryCode: 'LO' },
+  '172.22.': { country: 'Private Network', city: 'Local Network', countryCode: 'LO' },
+  '172.23.': { country: 'Private Network', city: 'Local Network', countryCode: 'LO' },
+  '172.24.': { country: 'Private Network', city: 'Local Network', countryCode: 'LO' },
+  '172.25.': { country: 'Private Network', city: 'Local Network', countryCode: 'LO' },
+  '172.26.': { country: 'Private Network', city: 'Local Network', countryCode: 'LO' },
+  '172.27.': { country: 'Private Network', city: 'Local Network', countryCode: 'LO' },
+  '172.28.': { country: 'Private Network', city: 'Local Network', countryCode: 'LO' },
+  '172.29.': { country: 'Private Network', city: 'Local Network', countryCode: 'LO' },
+  '172.30.': { country: 'Private Network', city: 'Local Network', countryCode: 'LO' },
+  '172.31.': { country: 'Private Network', city: 'Local Network', countryCode: 'LO' },
   
   // Some example public ranges
   '194.50.': { country: 'Netherlands', city: 'Amsterdam', countryCode: 'NL' },

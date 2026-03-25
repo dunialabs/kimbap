@@ -1,4 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { prisma } from '@/lib/prisma';
+import { hashToken } from '@/lib/auth';
 
 import {
   executeHttpRequest,
@@ -18,6 +20,16 @@ export const revalidate = 0;
 
 export async function POST(request: NextRequest) {
   try {
+    const authHeader = request.headers.get('authorization') || '';
+    const token = authHeader.startsWith('Bearer ') ? authHeader.slice(7).trim() : null;
+    if (!token) {
+      return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
+    }
+    const authUser = await prisma.user.findUnique({ where: { accessTokenHash: hashToken(token) } });
+    if (!authUser) {
+      return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
+    }
+
     const body = await request.json();
     const apiConfig = body?.apiConfig as APIDefinition | undefined;
 
