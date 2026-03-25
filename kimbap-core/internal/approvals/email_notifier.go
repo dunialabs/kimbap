@@ -7,6 +7,8 @@ import (
 	"strings"
 )
 
+const defaultSMTPPort = 587
+
 type EmailNotifier struct {
 	host     string
 	port     int
@@ -17,6 +19,9 @@ type EmailNotifier struct {
 }
 
 func NewEmailNotifier(host string, port int, from string, to []string, username, password string) *EmailNotifier {
+	if port <= 0 {
+		port = defaultSMTPPort
+	}
 	return &EmailNotifier{
 		host:     strings.TrimSpace(host),
 		port:     port,
@@ -27,7 +32,7 @@ func NewEmailNotifier(host string, port int, from string, to []string, username,
 	}
 }
 
-func (e *EmailNotifier) Notify(_ context.Context, req *ApprovalRequest) error {
+func (e *EmailNotifier) Notify(ctx context.Context, req *ApprovalRequest) error {
 	if e.host == "" {
 		return fmt.Errorf("email notifier: smtp host is required")
 	}
@@ -51,5 +56,16 @@ func (e *EmailNotifier) Notify(_ context.Context, req *ApprovalRequest) error {
 	if strings.TrimSpace(e.username) != "" {
 		auth = smtp.PlainAuth("", e.username, e.password, e.host)
 	}
-	return smtp.SendMail(addr, auth, e.from, e.to, msg)
+
+	type sendResult struct{ err error }
+	ch := make(chan sendResult, 1)
+	go func() {
+		ch <- sendResult{smtp.SendMail(addr, auth, e.from, e.to, msg)}
+	}()
+	select {
+	case r := <-ch:
+		return r.err
+	case <-ctx.Done():
+		return ctx.Err()
+	}
 }

@@ -113,3 +113,25 @@ func TestEmailNotifierErrorOnEmptyTo(t *testing.T) {
 		t.Fatal("expected error for empty recipients")
 	}
 }
+
+func TestEmailNotifierDefaultPort(t *testing.T) {
+	addr, _ := startMockSMTPServer(t)
+	parts := strings.SplitN(addr, ":", 2)
+	host := parts[0]
+
+	notifier := NewEmailNotifier(host, 0, "from@x.com", []string{"to@x.com"}, "", "")
+	if notifier.port != defaultSMTPPort {
+		t.Errorf("expected default port %d, got %d", defaultSMTPPort, notifier.port)
+	}
+}
+
+func TestEmailNotifierContextCancellation(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+
+	notifier := NewEmailNotifier("198.51.100.1", 587, "from@x.com", []string{"to@x.com"}, "", "")
+	err := notifier.Notify(ctx, &ApprovalRequest{ID: "x", Service: "s", Action: "a"})
+	if err == nil {
+		t.Fatal("expected error for cancelled context")
+	}
+}
