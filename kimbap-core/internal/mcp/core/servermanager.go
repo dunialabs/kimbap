@@ -1296,8 +1296,10 @@ func (m *serverManager) CreateTemporaryServer(ctx context.Context, userID string
 	contextObj.UserToken = token
 	contextObj.mu.Unlock()
 	m.temporaryServers[internalKey] = contextObj
-	if _, ok := m.serverLoggers[internalKey]; !ok {
-		m.serverLoggers[internalKey] = serverlog.NewServerLogger(internalKey)
+	contextLogger, ok := m.serverLoggers[internalKey]
+	if !ok {
+		contextLogger = serverlog.NewServerLogger(internalKey)
+		m.serverLoggers[internalKey] = contextLogger
 	}
 	m.mu.Unlock()
 
@@ -1313,10 +1315,7 @@ func (m *serverManager) CreateTemporaryServer(ctx context.Context, userID string
 	m.serverConnecting.Delete(server.ServerID)
 
 	if connectErr != nil {
-		m.mu.Lock()
-		delete(m.temporaryServers, internalKey)
-		delete(m.serverLoggers, internalKey)
-		m.mu.Unlock()
+		m.removeTemporaryServerIfUnchanged(internalKey, contextObj, contextLogger)
 		return nil, connectErr
 	}
 	return contextObj, nil
@@ -1339,13 +1338,13 @@ func (m *serverManager) GetTemporaryServers() []*ServerContext {
 }
 
 func (m *serverManager) CloseTemporaryServer(ctx context.Context, serverID, userID string) (*ServerContext, error) {
-	_ = ctx
+	if ctx == nil {
+		ctx = context.Background()
+	}
 	key := tempServerKey(serverID, userID)
 	m.mu.Lock()
 	contextObj := m.temporaryServers[key]
-	delete(m.temporaryServers, key)
 	serverLogger := m.serverLoggers[key]
-	delete(m.serverLoggers, key)
 	m.mu.Unlock()
 	if contextObj == nil {
 		return nil, nil
@@ -1354,7 +1353,38 @@ func (m *serverManager) CloseTemporaryServer(ctx context.Context, serverID, user
 		serverLogger.LogServerLifecycle(types.MCPEventLogTypeServerClose, "")
 	}
 	contextObj.StopTokenRefresh()
-	return contextObj, contextObj.CloseConnection(types.ServerStatusOffline)
+	errCh := make(chan error, 1)
+	go func() {
+		errCh <- contextObj.CloseConnection(types.ServerStatusOffline)
+	}()
+
+	cleanup := func() {
+		m.removeTemporaryServerIfUnchanged(key, contextObj, serverLogger)
+	}
+
+	select {
+	case err := <-errCh:
+		cleanup()
+		return contextObj, err
+	case <-ctx.Done():
+		go func() {
+			<-errCh
+			cleanup()
+		}()
+		return contextObj, ctx.Err()
+	}
+}
+
+func (m *serverManager) removeTemporaryServerIfUnchanged(key string, contextObj *ServerContext, logger *serverlog.ServerLogger) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	if m.temporaryServers[key] != contextObj {
+		return
+	}
+	delete(m.temporaryServers, key)
+	if m.serverLoggers[key] == logger {
+		delete(m.serverLoggers, key)
+	}
 }
 
 func (m *serverManager) CloseUserTemporaryServers(ctx context.Context, userID string) {
