@@ -211,3 +211,82 @@ func TestSyncSkillsRejectsFileProjectDir(t *testing.T) {
 		t.Fatal("expected error when ProjectDir is a file")
 	}
 }
+
+func TestSyncSkillsUnknownAgentReturnsError(t *testing.T) {
+	dir := t.TempDir()
+	installer := fakeInstaller{skills: []InstalledSkill{{Name: "github-pr", Content: "# SKILL\n"}}}
+
+	results, err := SyncSkills(installer, "# rules\n", SyncOptions{
+		ProjectDir: dir,
+		Agents:     []AgentKind{"nonexistent-agent"},
+	})
+	if err != nil {
+		t.Fatalf("SyncSkills returned unexpected top-level error: %v", err)
+	}
+	if len(results) != 1 {
+		t.Fatalf("expected 1 result, got %d", len(results))
+	}
+	if len(results[0].Errors) == 0 {
+		t.Fatal("expected errors for unknown agent kind")
+	}
+	if len(results[0].Written) != 0 {
+		t.Fatalf("expected no written skills for unknown agent, got %+v", results[0].Written)
+	}
+}
+
+func TestSyncSkillsSkipsUnchangedContent(t *testing.T) {
+	dir := t.TempDir()
+	installer := fakeInstaller{skills: []InstalledSkill{{Name: "github-pr", Content: "# SKILL\n"}}}
+
+	first, err := SyncSkills(installer, "# rules\n", SyncOptions{
+		ProjectDir: dir,
+		Agents:     []AgentKind{AgentClaudeCode},
+	})
+	if err != nil {
+		t.Fatalf("first sync: %v", err)
+	}
+	if len(first[0].Written) != 1 {
+		t.Fatalf("expected 1 written on first sync, got %d", len(first[0].Written))
+	}
+
+	second, err := SyncSkills(installer, "# rules\n", SyncOptions{
+		ProjectDir: dir,
+		Agents:     []AgentKind{AgentClaudeCode},
+	})
+	if err != nil {
+		t.Fatalf("second sync: %v", err)
+	}
+	if len(second[0].Written) != 0 {
+		t.Fatalf("expected 0 written on unchanged second sync, got %d", len(second[0].Written))
+	}
+	if len(second[0].Skipped) != 1 {
+		t.Fatalf("expected 1 skipped on unchanged second sync, got %d", len(second[0].Skipped))
+	}
+}
+
+func TestSyncSkillsForceOverwritesUnchanged(t *testing.T) {
+	dir := t.TempDir()
+	installer := fakeInstaller{skills: []InstalledSkill{{Name: "github-pr", Content: "# SKILL\n"}}}
+
+	if _, err := SyncSkills(installer, "# rules\n", SyncOptions{
+		ProjectDir: dir,
+		Agents:     []AgentKind{AgentClaudeCode},
+	}); err != nil {
+		t.Fatalf("first sync: %v", err)
+	}
+
+	forced, err := SyncSkills(installer, "# rules\n", SyncOptions{
+		ProjectDir: dir,
+		Agents:     []AgentKind{AgentClaudeCode},
+		Force:      true,
+	})
+	if err != nil {
+		t.Fatalf("force sync: %v", err)
+	}
+	if len(forced[0].Written) != 1 {
+		t.Fatalf("expected 1 written on force sync, got %d", len(forced[0].Written))
+	}
+	if len(forced[0].Skipped) != 0 {
+		t.Fatalf("expected 0 skipped on force sync, got %d", len(forced[0].Skipped))
+	}
+}
