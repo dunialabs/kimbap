@@ -68,7 +68,10 @@ func (e *EmailNotifier) Notify(ctx context.Context, req *ApprovalRequest) error 
 		_ = conn.Close()
 		return fmt.Errorf("email notifier: smtp client: %w", err)
 	}
-	defer func() { _ = client.Quit() }()
+	defer func() {
+		_ = client.Quit()
+		_ = conn.Close()
+	}()
 
 	if ok, _ := client.Extension("STARTTLS"); ok {
 		if err := client.StartTLS(&tls.Config{ServerName: e.host}); err != nil {

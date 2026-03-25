@@ -115,13 +115,13 @@ func TestEmailNotifierErrorOnEmptyTo(t *testing.T) {
 }
 
 func TestEmailNotifierDefaultPort(t *testing.T) {
-	addr, _ := startMockSMTPServer(t)
-	parts := strings.SplitN(addr, ":", 2)
-	host := parts[0]
-
-	notifier := NewEmailNotifier(host, 0, "from@x.com", []string{"to@x.com"}, "", "")
+	notifier := NewEmailNotifier("smtp.example.com", 0, "from@x.com", []string{"to@x.com"}, "", "")
 	if notifier.port != defaultSMTPPort {
 		t.Errorf("expected default port %d, got %d", defaultSMTPPort, notifier.port)
+	}
+	notifier2 := NewEmailNotifier("smtp.example.com", -1, "from@x.com", []string{"to@x.com"}, "", "")
+	if notifier2.port != defaultSMTPPort {
+		t.Errorf("expected default port %d for negative port, got %d", defaultSMTPPort, notifier2.port)
 	}
 }
 
