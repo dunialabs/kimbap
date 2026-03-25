@@ -121,12 +121,16 @@ func SyncSkills(installer SkillInstaller, rulesContent string, opts SyncOptions)
 		return nil, fmt.Errorf("installer is nil")
 	}
 
+	projectDir := normalizeProjectDir(opts.ProjectDir)
+	if info, err := os.Stat(projectDir); err == nil && !info.IsDir() {
+		return nil, fmt.Errorf("project path %q is not a directory", projectDir)
+	}
+
 	installedSkills, err := installer.List()
 	if err != nil {
 		return nil, fmt.Errorf("list installed skills: %w", err)
 	}
 
-	projectDir := normalizeProjectDir(opts.ProjectDir)
 	agentsToProcess := selectedAgents(projectDir, opts.Agents)
 	results := make([]SyncResult, 0, len(agentsToProcess))
 

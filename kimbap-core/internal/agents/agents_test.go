@@ -197,3 +197,17 @@ func TestIsAgentDetectedDetailedReturnsErrorOnNonDirectoryPath(t *testing.T) {
 		t.Fatal("expected detection error for non-directory project path")
 	}
 }
+
+func TestSyncSkillsRejectsFileProjectDir(t *testing.T) {
+	dir := t.TempDir()
+	filePath := filepath.Join(dir, "not-a-dir")
+	if err := os.WriteFile(filePath, []byte("x"), 0o644); err != nil {
+		t.Fatalf("create file: %v", err)
+	}
+
+	installer := fakeInstaller{skills: []InstalledSkill{{Name: "s", Content: "# S\n"}}}
+	_, err := SyncSkills(installer, "# rules\n", SyncOptions{ProjectDir: filePath})
+	if err == nil {
+		t.Fatal("expected error when ProjectDir is a file")
+	}
+}

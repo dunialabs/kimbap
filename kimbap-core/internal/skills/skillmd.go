@@ -30,8 +30,9 @@ func GenerateSkillMD(manifest *SkillManifest) (string, error) {
 	sb.WriteString("## Prerequisites\n\n")
 	sb.WriteString("- Kimbap CLI installed and in PATH\n")
 	sb.WriteString(fmt.Sprintf("- Skill installed: `kimbap skill install %s.yaml`\n", manifest.Name))
-	if manifest.Auth.Type != "none" {
-		sb.WriteString(fmt.Sprintf("- Credential configured: `kimbap vault set %s`\n", manifest.Auth.CredentialRef))
+	credRefs := collectCredentialRefs(manifest)
+	for _, ref := range credRefs {
+		sb.WriteString(fmt.Sprintf("- Credential configured: `kimbap vault set %s`\n", ref))
 	}
 	sb.WriteString("\n")
 
@@ -114,6 +115,24 @@ func sortedActionKeys(actions map[string]SkillAction) []string {
 	}
 	sort.Strings(keys)
 	return keys
+}
+
+func collectCredentialRefs(m *SkillManifest) []string {
+	seen := map[string]bool{}
+	if m.Auth.Type != "none" && m.Auth.CredentialRef != "" {
+		seen[m.Auth.CredentialRef] = true
+	}
+	for _, action := range m.Actions {
+		if action.Auth != nil && action.Auth.Type != "none" && action.Auth.CredentialRef != "" {
+			seen[action.Auth.CredentialRef] = true
+		}
+	}
+	refs := make([]string, 0, len(seen))
+	for ref := range seen {
+		refs = append(refs, ref)
+	}
+	sort.Strings(refs)
+	return refs
 }
 
 // metaSkillTemplate is the thin Tier-1 meta-skill that teaches AI agents

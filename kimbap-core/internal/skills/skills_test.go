@@ -501,6 +501,35 @@ func TestToActionDefinitionsUsesActionLevelAuthOverride(t *testing.T) {
 	}
 }
 
+func TestGenerateSkillMDIncludesActionLevelCredentials(t *testing.T) {
+	manifest := &SkillManifest{
+		Name:    "multi-auth",
+		Version: "1.0.0",
+		BaseURL: "https://api.example.com",
+		Auth:    SkillAuth{Type: "none"},
+		Actions: map[string]SkillAction{
+			"search": {
+				Method: "GET",
+				Path:   "/search",
+				Auth: &SkillAuth{
+					Type:          "query",
+					QueryParam:    "api_key",
+					CredentialRef: "multi-auth.api_key",
+				},
+				Risk: RiskSpec{Level: "low"},
+			},
+		},
+	}
+
+	content, err := GenerateSkillMD(manifest)
+	if err != nil {
+		t.Fatalf("GenerateSkillMD: %v", err)
+	}
+	if !strings.Contains(content, "kimbap vault set multi-auth.api_key") {
+		t.Error("GenerateSkillMD must list action-level credential refs in prerequisites")
+	}
+}
+
 func TestSignAndVerifyRoundtrip(t *testing.T) {
 	manifest, err := ParseManifest([]byte(braveSearchFixture))
 	if err != nil {
