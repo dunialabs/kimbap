@@ -223,6 +223,7 @@ export async function handleProtocol20004(body: Request20004): Promise<Response2
     return response;
     
   } catch (error) {
+    if (error instanceof ApiError) throw error;
     console.error('Protocol 20004 error:', error);
     throw new ApiError(ErrorCode.INTERNAL_SERVER_ERROR, 500, { details: 'Failed to get tool error analysis' });
   }

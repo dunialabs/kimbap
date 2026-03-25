@@ -205,6 +205,7 @@ export async function handleProtocol20005(body: Request20005): Promise<Response2
     return response;
     
   } catch (error) {
+    if (error instanceof ApiError) throw error;
     console.error('Protocol 20005 error:', error);
     throw new ApiError(ErrorCode.INTERNAL_SERVER_ERROR, 500, { details: 'Failed to get tool usage distribution' });
   }

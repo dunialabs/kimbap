@@ -121,6 +121,7 @@ export async function handleProtocol20003(body: Request20003): Promise<Response2
     return response;
     
   } catch (error) {
+    if (error instanceof ApiError) throw error;
     console.error('Protocol 20003 error:', error);
     throw new ApiError(ErrorCode.INTERNAL_SERVER_ERROR, 500, { details: 'Failed to get tool usage trends' });
   }

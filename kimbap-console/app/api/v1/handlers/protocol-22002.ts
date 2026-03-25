@@ -162,6 +162,7 @@ export async function handleProtocol22002(body: Request22002): Promise<Response2
     
   } catch (error) {
     console.error('[Protocol-22002] error:', error);
+    if (error instanceof ApiError) throw error;
     throw new ApiError(ErrorCode.INTERNAL_SERVER_ERROR, 500, { 
       details: 'Failed to get top usage tools' 
     });

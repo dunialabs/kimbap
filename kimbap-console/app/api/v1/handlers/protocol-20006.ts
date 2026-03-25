@@ -235,6 +235,7 @@ export async function handleProtocol20006(body: Request20006): Promise<Response2
     return response;
     
   } catch (error) {
+    if (error instanceof ApiError) throw error;
     console.error('Protocol 20006 error:', error);
     throw new ApiError(ErrorCode.INTERNAL_SERVER_ERROR, 500, { details: 'Failed to get tool performance comparison' });
   }

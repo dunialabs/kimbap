@@ -249,6 +249,7 @@ export async function handleProtocol21008(body: Request21008): Promise<Response2
     return response;
     
   } catch (error) {
+    if (error instanceof ApiError) throw error;
     console.error('Protocol 21008 error:', error);
     throw new ApiError(ErrorCode.INTERNAL_SERVER_ERROR, 500, { details: 'Failed to get token client analysis' });
   }

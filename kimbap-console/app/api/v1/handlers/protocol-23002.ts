@@ -279,6 +279,7 @@ export async function handleProtocol23002(body: Request23002): Promise<Response2
 
     return { statistics };
   } catch (error) {
+    if (error instanceof ApiError) throw error;
     console.error('[Protocol-23002] Error:', error);
     throw new ApiError(ErrorCode.INTERNAL_SERVER_ERROR, 500, {
       details: 'Failed to get log statistics',

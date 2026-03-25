@@ -298,6 +298,7 @@ export async function handleProtocol21002(body: Request21002): Promise<Response2
     return response;
     
   } catch (error) {
+    if (error instanceof ApiError) throw error;
     console.error('Protocol 21002 error:', error);
     throw new ApiError(ErrorCode.INTERNAL_SERVER_ERROR, 500, { details: 'Failed to get token detailed metrics' });
   }
