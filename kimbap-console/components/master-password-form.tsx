@@ -107,6 +107,7 @@ export function MasterPasswordForm({ onSuccess }: MasterPasswordFormProps) {
                 setError('')
               }}
               disabled={isLoading || !cryptoAvailable}
+              autoComplete="new-password"
               className="h-12 w-full pl-3 pr-10 rounded-lg border border-input bg-background focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
               required
             />
@@ -142,6 +143,7 @@ export function MasterPasswordForm({ onSuccess }: MasterPasswordFormProps) {
                 setError('')
               }}
               disabled={isLoading || !cryptoAvailable}
+              autoComplete="new-password"
               className="h-12 w-full pl-3 pr-10 rounded-lg border border-input bg-background focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
               required
             />
