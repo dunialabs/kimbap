@@ -7,6 +7,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"log"
 	"net/http"
 	"slices"
 	"sync"
@@ -198,11 +199,13 @@ func (d *Dispatcher) RecentEvents(limit int) []Event {
 func (d *Dispatcher) deliver(sub Subscription, event Event) {
 	body, err := json.Marshal(event)
 	if err != nil {
+		log.Printf("webhook deliver: marshal event %s: %v", event.ID, err)
 		return
 	}
 
 	req, err := http.NewRequest(http.MethodPost, sub.URL, bytes.NewReader(body))
 	if err != nil {
+		log.Printf("webhook deliver: build request id=%s url=%s: %v", sub.ID, sub.URL, err)
 		return
 	}
 	req.Header.Set("Content-Type", "application/json")
@@ -217,9 +220,13 @@ func (d *Dispatcher) deliver(sub Subscription, event Event) {
 
 	resp, err := d.client.Do(req)
 	if err != nil {
+		log.Printf("webhook deliver: post id=%s url=%s: %v", sub.ID, sub.URL, err)
 		return
 	}
 	_ = resp.Body.Close()
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		log.Printf("webhook deliver: id=%s url=%s status=%d", sub.ID, sub.URL, resp.StatusCode)
+	}
 }
 
 func matchesEvent(events []EventType, target EventType) bool {

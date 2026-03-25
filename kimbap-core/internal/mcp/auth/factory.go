@@ -12,11 +12,7 @@ type AuthStrategyFactory struct{}
 func (f *AuthStrategyFactory) Create(authType int, oauthConfig map[string]any) (AuthStrategy, error) {
 	switch authType {
 	case coretypes.ServerAuthTypeGoogleAuth, coretypes.ServerAuthTypeGoogleCalendarAuth:
-		return NewGoogleAuthStrategy(map[string]any{
-			"clientId":     oauthConfig["clientId"],
-			"clientSecret": oauthConfig["clientSecret"],
-			"refreshToken": oauthConfig["refreshToken"],
-		})
+		return NewGoogleAuthStrategy(oauthConfig)
 	case coretypes.ServerAuthTypeNotionAuth:
 		return NewNotionAuthStrategy(oauthConfig)
 	case coretypes.ServerAuthTypeFigmaAuth:
