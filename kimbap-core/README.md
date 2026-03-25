@@ -157,6 +157,37 @@ kimbap audit ...
 kimbap skill ...
 ```
 
+### Agent onboarding
+
+Kimbap can sync skill files and operating rules directly into your AI agent's project directory, so the agent knows how to discover and call Kimbap actions without manual setup.
+
+```bash
+# Auto-detect installed agents and sync skills + rules
+kimbap agents setup
+
+# Re-sync after installing a new skill
+kimbap skill install slack.yaml
+kimbap agents sync
+
+# Target specific agents
+kimbap agents sync --agent claude-code,opencode
+
+# Check current sync status
+kimbap agents status
+
+# Preview changes without writing
+kimbap agents sync --dry-run
+```
+
+Supported agents: Claude Code, OpenCode, Codex, Cursor, and a generic fallback.
+
+Each agent gets:
+- **Per-service SKILL.md files** — generated from installed skills, placed in the agent's skill directory (e.g. `.claude/skills/github/SKILL.md`)
+- **A meta-skill** — a thin "how to discover Kimbap actions" guide at `.claude/skills/kimbap/SKILL.md`
+- **Operating rules** — credential handling and access policies at `.claude/KIMBAP_OPERATING_RULES.md`
+
+Skills are auto-generated from installed skill manifests. When a skill is updated, `kimbap agents sync` regenerates the files. Unchanged files are skipped unless `--force` is used.
+
 One binary. One install. One runtime model.
 
 ---
@@ -449,7 +480,7 @@ No. If a service has a usable REST API, Kimbap should usually expose it as actio
 
 ### How do agents learn to use Kimbap?
 
-Through an official Kimbap operating skill/profile plus runtime enforcement such as `kimbap run`, proxying, and policy.
+Run `kimbap agents setup` in your project directory. This auto-detects installed AI agents (Claude Code, OpenCode, Codex, Cursor) and writes skill files and operating rules into their config directories. Agents then discover available actions via `kimbap actions list` at runtime. For enforcement, combine with `kimbap run`, proxying, and policy.
 
 ---
 
