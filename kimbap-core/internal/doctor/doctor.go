@@ -44,10 +44,15 @@ func (d *Doctor) RunAll(ctx context.Context) []CheckResult {
 	}
 
 	if strings.TrimSpace(d.dataDir) != "" {
+		prevDataDir := cfg.DataDir
 		cfg.DataDir = d.dataDir
-		cfg.Vault.Path = filepath.Join(cfg.DataDir, "vault.db")
-		cfg.Skills.Dir = filepath.Join(cfg.DataDir, "skills")
-		if strings.TrimSpace(cfg.Policy.Path) == "" {
+		if cfg.Vault.Path == filepath.Join(prevDataDir, "vault.db") {
+			cfg.Vault.Path = filepath.Join(cfg.DataDir, "vault.db")
+		}
+		if cfg.Skills.Dir == filepath.Join(prevDataDir, "skills") {
+			cfg.Skills.Dir = filepath.Join(cfg.DataDir, "skills")
+		}
+		if cfg.Policy.Path == filepath.Join(prevDataDir, "policy.yaml") {
 			cfg.Policy.Path = filepath.Join(cfg.DataDir, "policy.yaml")
 		}
 	}

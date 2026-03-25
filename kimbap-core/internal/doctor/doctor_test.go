@@ -228,3 +228,44 @@ func TestRunAllWithExplicitConfigIgnoresBrokenDefaultConfig(t *testing.T) {
 		t.Fatalf("expected ok status, got %s (%s)", configCheck.Status, configCheck.Message)
 	}
 }
+
+func TestRunAllRebasesDefaultDerivedPolicyPathForDataDirOverride(t *testing.T) {
+	configDataDir := t.TempDir()
+	if err := os.MkdirAll(filepath.Join(configDataDir, "skills"), 0o755); err != nil {
+		t.Fatalf("create config skills dir: %v", err)
+	}
+
+	overrideDataDir := t.TempDir()
+	if err := os.MkdirAll(filepath.Join(overrideDataDir, "skills"), 0o755); err != nil {
+		t.Fatalf("create override skills dir: %v", err)
+	}
+	overridePolicyPath := filepath.Join(overrideDataDir, "policy.yaml")
+	if err := os.WriteFile(overridePolicyPath, []byte(`version: "1.0.0"
+rules:
+  - id: allow-all
+    priority: 1
+    match:
+      actions: ["*"]
+    decision: allow
+`), 0o644); err != nil {
+		t.Fatalf("write override policy file: %v", err)
+	}
+
+	configPath := filepath.Join(t.TempDir(), "config.yaml")
+	if err := os.WriteFile(configPath, []byte(validConfigYAML(configDataDir)), 0o644); err != nil {
+		t.Fatalf("write config file: %v", err)
+	}
+
+	d := NewDoctor(overrideDataDir, configPath)
+	results := d.RunAll(context.Background())
+	policyCheck := findCheck(results, "policy file valid")
+	if policyCheck == nil {
+		t.Fatal("missing policy file check")
+	}
+	if policyCheck.Status != "ok" {
+		t.Fatalf("expected ok status, got %s (%s)", policyCheck.Status, policyCheck.Message)
+	}
+	if policyCheck.Message != overridePolicyPath {
+		t.Fatalf("expected override policy path %q, got %q", overridePolicyPath, policyCheck.Message)
+	}
+}

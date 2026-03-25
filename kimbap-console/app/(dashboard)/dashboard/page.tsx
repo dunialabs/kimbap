@@ -65,6 +65,7 @@ interface DashboardData {
 
 export default function DashboardPage() {
   const [serverInfo, setServerInfo] = useState<ServerInfo | null>(null)
+  const [serverFetchError, setServerFetchError] = useState(false)
   const [isServerInfoLoading, setIsServerInfoLoading] = useState(true)
   const [isClientsDialogOpen, setIsClientsDialogOpen] = useState(false)
   const [dashboardData, setDashboardData] = useState<DashboardData | null>(null)
@@ -73,11 +74,17 @@ export default function DashboardPage() {
 
   useEffect(() => {
     const fetchServerInfo = async () => {
+      setServerFetchError(false)
       try {
         const { api } = await import('@/lib/api-client')
 
         // Try to get cached server info from localStorage first
-        const selectedServer = localStorage.getItem('selectedServer')
+        let selectedServer: string | null = null
+        try {
+          selectedServer = localStorage.getItem('selectedServer')
+        } catch {
+          selectedServer = null
+        }
         if (selectedServer) {
           try {
             const parsedServer = JSON.parse(selectedServer)
@@ -112,7 +119,6 @@ export default function DashboardPage() {
           setServerInfo(data)
 
           // Update localStorage cache with fresh server info
-          const selectedServer = localStorage.getItem('selectedServer')
           if (selectedServer) {
             try {
               const parsedServer = JSON.parse(selectedServer)
@@ -134,6 +140,7 @@ export default function DashboardPage() {
         }
       } catch {
         // Failed to fetch server info
+        setServerFetchError(true)
       } finally {
         setIsServerInfoLoading(false)
       }
@@ -207,17 +214,32 @@ export default function DashboardPage() {
     )
   }
 
+  if (serverFetchError && !serverInfo) {
+    return (
+      <div className="flex items-center justify-center min-h-[400px]">
+        <div className="text-center">
+          <Server className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
+          <h3 className="text-lg font-semibold mb-2">Could not reach server</h3>
+          <p className="text-muted-foreground mb-4">
+            Check your connection and try refreshing. If the problem persists, reconnect from the home screen.
+          </p>
+          <Button onClick={() => window.location.reload()}>Refresh</Button>
+        </div>
+      </div>
+    )
+  }
+
   if (!serverInfo) {
     return (
       <div className="flex items-center justify-center min-h-[400px]">
         <div className="text-center">
           <Server className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
-          <h3 className="text-lg font-semibold mb-2">No Server Connected</h3>
+          <h3 className="text-lg font-semibold mb-2">No server connected yet</h3>
           <p className="text-muted-foreground mb-4">
-            Connect to a server to view your dashboard.
+            Connect a server from the home screen to start using the dashboard.
           </p>
           <Link href="/">
-            <Button>Set Up Connection</Button>
+            <Button>Go to Home</Button>
           </Link>
         </div>
       </div>
