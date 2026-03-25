@@ -3,9 +3,11 @@ package proxy
 import (
 	"crypto/rand"
 	"crypto/rsa"
+	"crypto/sha256"
 	"crypto/tls"
 	"crypto/x509"
 	"crypto/x509/pkix"
+	"encoding/hex"
 	"encoding/pem"
 	"fmt"
 	"math/big"
@@ -15,19 +17,18 @@ import (
 	"time"
 )
 
-var hostCertCache sync.Map
+const maxHostCertCacheEntries = 512
+
+var (
+	hostCertCacheMu    sync.Mutex
+	hostCertCache      = make(map[string]*tls.Certificate)
+	hostCertCacheOrder []string
+)
 
 func GenerateHostCert(ca *CAConfig, host string) (*tls.Certificate, error) {
 	host = normalizeCertHost(host)
 	if host == "" {
 		return nil, fmt.Errorf("host required")
-	}
-
-	if cached, ok := hostCertCache.Load(host); ok {
-		cert, _ := cached.(*tls.Certificate)
-		if cert != nil {
-			return cert, nil
-		}
 	}
 
 	if ca == nil {
@@ -38,6 +39,15 @@ func GenerateHostCert(ca *CAConfig, host string) (*tls.Certificate, error) {
 	if err != nil {
 		return nil, err
 	}
+	cacheKey := hostCertCacheKey(caCert, host)
+
+	hostCertCacheMu.Lock()
+	if cert := hostCertCache[cacheKey]; cert != nil {
+		hostCertCacheMu.Unlock()
+		return cert, nil
+	}
+	hostCertCacheMu.Unlock()
+
 	caKey, err := parseCAPrivateKey(ca.KeyPEM)
 	if err != nil {
 		return nil, err
@@ -84,8 +94,30 @@ func GenerateHostCert(ca *CAConfig, host string) (*tls.Certificate, error) {
 		return nil, fmt.Errorf("build key pair: %w", err)
 	}
 
-	hostCertCache.Store(host, &cert)
+	hostCertCacheMu.Lock()
+	if existing := hostCertCache[cacheKey]; existing != nil {
+		hostCertCacheMu.Unlock()
+		return existing, nil
+	}
+	hostCertCache[cacheKey] = &cert
+	hostCertCacheOrder = append(hostCertCacheOrder, cacheKey)
+	for len(hostCertCacheOrder) > maxHostCertCacheEntries {
+		evictKey := hostCertCacheOrder[0]
+		hostCertCacheOrder = hostCertCacheOrder[1:]
+		delete(hostCertCache, evictKey)
+	}
+	hostCertCacheMu.Unlock()
+
 	return &cert, nil
+}
+
+func hostCertCacheKey(caCert *x509.Certificate, host string) string {
+	fingerprint := ""
+	if caCert != nil {
+		sum := sha256.Sum256(caCert.Raw)
+		fingerprint = hex.EncodeToString(sum[:])
+	}
+	return fingerprint + "|" + host
 }
 
 func normalizeCertHost(rawHost string) string {

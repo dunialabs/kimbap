@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"net/http"
+	"os"
 	"strings"
 
 	"github.com/dunialabs/kimbap-core/internal/actions"
@@ -17,6 +18,7 @@ const (
 	contextKeyPrincipal contextKey = "principal"
 	contextKeyTenant    contextKey = "tenant"
 	contextKeyRequestID contextKey = "request_id"
+	defaultTenantID                = "default"
 )
 
 func BearerAuth(tokenService *auth.TokenService) func(next http.Handler) http.Handler {
@@ -59,14 +61,38 @@ func TenantContext() func(next http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			principal := principalFromContext(r.Context())
-			if principal == nil || strings.TrimSpace(principal.TenantID) == "" {
-				writeEnvelopeError(w, r, actions.NewExecutionError(actions.ErrUnauthorized, "tenant context unavailable", http.StatusForbidden, false, nil))
+			if principal == nil {
+				writeEnvelopeError(w, r, actions.NewExecutionError(actions.ErrUnauthenticated, "tenant context unavailable", http.StatusUnauthorized, false, nil))
 				return
 			}
-			ctx := context.WithValue(r.Context(), contextKeyTenant, principal.TenantID)
+			if principal.Type == auth.PrincipalTypeService && strings.TrimSpace(principal.TenantID) == "" {
+				writeEnvelopeError(w, r, actions.NewExecutionError(actions.ErrUnauthenticated, "service principal missing tenant context", http.StatusUnauthorized, false, nil))
+				return
+			}
+			tenantID := effectiveTenantID(principal)
+			if tenantID == "" {
+				writeEnvelopeError(w, r, actions.NewExecutionError(actions.ErrUnauthenticated, "tenant context unavailable", http.StatusUnauthorized, false, nil))
+				return
+			}
+			ctx := context.WithValue(r.Context(), contextKeyTenant, tenantID)
 			next.ServeHTTP(w, r.WithContext(ctx))
 		})
 	}
+}
+
+func effectiveTenantID(principal *auth.Principal) string {
+	if principal != nil {
+		if tenantID := strings.TrimSpace(principal.TenantID); tenantID != "" {
+			return tenantID
+		}
+	}
+	if tenantID := strings.TrimSpace(os.Getenv("KIMBAP_API_DEFAULT_TENANT_ID")); tenantID != "" {
+		return tenantID
+	}
+	if tenantID := strings.TrimSpace(os.Getenv("KIMBAP_TENANT_ID")); tenantID != "" {
+		return tenantID
+	}
+	return defaultTenantID
 }
 
 func RequestID() func(next http.Handler) http.Handler {

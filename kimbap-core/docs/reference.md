@@ -24,37 +24,9 @@ curl -X POST http://localhost:3002/admin \
 
 The exact action codes and payloads are defined in `api/ADMIN_API.md`.
 
-### Socket.IO (Kimbap Desk)
+### Approval & Notification Flow
 
-Kimbap Desk uses Socket.IO for real-time communication with Kimbap Core.
-
-**Example: connect and fetch capabilities**
-
-```javascript
-import { io } from "socket.io-client";
-
-const socket = io("http://localhost:3002", {
-  auth: { token: "USER_ACCESS_TOKEN" },
-});
-
-socket.on("connect", () => {
-  console.log("connected", socket.id);
-
-  socket.emit("get_capabilities", { requestId: "req-123" });
-});
-
-socket.on("socket_response", (response) => {
-  if (response.requestId === "req-123" && response.success) {
-    console.log("capabilities", response.data);
-  }
-});
-
-socket.on("notification", (payload) => {
-  // handle capability changes, approval requests, etc.
-});
-```
-
-See `api/SOCKET_USAGE.md` for the full event list and payload schemas.
+Kimbap Console handles HITL approvals via Admin/User APIs and receives user-facing updates through configured webhook channels (Slack, Telegram, Email, Webhook).
 
 ### OAuth 2.0
 
@@ -119,10 +91,6 @@ Kimbap Core exposes different APIs for different roles:
   Used by Kimbap Console and automation scripts to manage users, servers, permissions, and quotas.
   Authentication: bearer token (Kimbap access token (opaque)).
 
-- **Socket.IO channel** (`/socket.io`)
-  Used by Kimbap Desk for real-time notifications, capability configuration, and approval workflows.
-  Authentication: bearer token (Kimbap access token (opaque)).
-
 - **OAuth 2.0 endpoints** (`/.well-known/*`, `/register`, `/authorize`, `/token`, `/introspect`, `/revoke`)
   Used by clients to obtain access tokens (dynamic client registration, authorization code with PKCE, refresh tokens) and check token validity.
 
@@ -132,13 +100,11 @@ Kimbap Core exposes different APIs for different roles:
 |----------|-------------|-------------|------|
 | **API.md** | End Users | API overview, authentication, OAuth 2.0 | [View](./api/API.md) |
 | **ADMIN_API.md** | Administrators | Complete admin API protocol (47 operations) | [View](./api/ADMIN_API.md) |
-| **SOCKET_USAGE.md** | Kimbap Desk Users | Complete Socket.IO real-time communication guide | [View](./api/SOCKET_USAGE.md) |
 
 ### Quick Links
 
 - **[OAuth 2.0 Authentication](./api/API.md#2-oauth-20-authentication)** - Get access tokens for Kimbap Core authentication
 - **[Admin API](./api/ADMIN_API.md)** - User, server, permission management (for Kimbap Console)
-- **[Socket.IO](./api/SOCKET_USAGE.md)** - Real-time notifications and request-response (for Kimbap Desk)
 - **[Complete Examples](./api/API.md#complete-examples)** - OAuth workflow examples
 
 ---
@@ -148,7 +114,7 @@ Kimbap Core exposes different APIs for different roles:
 - **Runtime**: Go 1.24+
 - **Framework**: chi v5
 - **Database**: PostgreSQL with GORM v2
-- **Real-time**: go-socket.io
+- **Notifications**: webhook dispatch (Slack/Telegram/Email/Webhook)
 - **Logging**: zerolog + database audit logs
 - **Containerization**: Docker and Docker Compose
 
@@ -250,7 +216,6 @@ Unit tests exist for several core packages:
 - `internal/oauth/controller/` — OAuth metadata controller
 - `internal/repository/` — User repository
 - `internal/security/` — Rate limiting
-- `internal/socket/` — Socket.IO service
 - `internal/user/` — User handler
 
 Additional test contributions are especially useful for:
@@ -258,7 +223,7 @@ Additional test contributions are especially useful for:
 - `GlobalRequestRouter` routing behavior.
 - Concurrency tests for the persistent event store.
 - OAuth 2.0 flows.
-- Socket.IO connection and notification scenarios.
+- Webhook delivery and approval-list polling scenarios.
 - End-to-end integration tests.
 
 See `../CONTRIBUTING.md` for details.

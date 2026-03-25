@@ -224,6 +224,7 @@ func (p *ProxyServer) handleHTTP(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 	if !p.validateProxyAuth(req) {
+		w.Header().Set("Proxy-Authenticate", `Basic realm="kimbap"`)
 		http.Error(w, "proxy authentication required", http.StatusProxyAuthRequired)
 		return
 	}
@@ -268,6 +269,7 @@ func (p *ProxyServer) handleHTTP(w http.ResponseWriter, req *http.Request) {
 
 func (p *ProxyServer) handleConnect(w http.ResponseWriter, req *http.Request) {
 	if !p.validateProxyAuth(req) {
+		w.Header().Set("Proxy-Authenticate", `Basic realm="kimbap"`)
 		http.Error(w, "proxy authentication required", http.StatusProxyAuthRequired)
 		return
 	}
@@ -595,6 +597,7 @@ func (p *ProxyServer) forwardRequest(in *http.Request) (*http.Response, error) {
 	outReq := in.Clone(in.Context())
 	outReq.RequestURI = ""
 	clearHopHeaders(outReq.Header)
+	outReq.Header.Del("X-Kimbap-Agent-Token")
 
 	resp, err := proxyForwardTransport.RoundTrip(outReq)
 	if err != nil {
@@ -671,7 +674,11 @@ func (p *ProxyServer) validateProxyAuth(req *http.Request) bool {
 	}
 
 	if customToken := strings.TrimSpace(req.Header.Get("X-Kimbap-Agent-Token")); customToken != "" {
-		return subtle.ConstantTimeCompare([]byte(customToken), []byte(p.agentToken)) == 1
+		if subtle.ConstantTimeCompare([]byte(customToken), []byte(p.agentToken)) == 1 {
+			req.Header.Del("X-Kimbap-Agent-Token")
+			return true
+		}
+		return false
 	}
 
 	proxyAuth := strings.TrimSpace(req.Header.Get("Proxy-Authorization"))

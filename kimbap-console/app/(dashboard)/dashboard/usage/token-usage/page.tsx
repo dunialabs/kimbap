@@ -119,6 +119,13 @@ const COLORS = [
 ]
 const HEALTHY_SUCCESS_RATE_THRESHOLD = 95
 
+function maskIdentifier(value: string | null | undefined): string {
+  const normalized = value?.trim() || ''
+  if (!normalized) return '-'
+  if (normalized.length <= 8) return `${normalized.slice(0, 2)}***${normalized.slice(-2)}`
+  return `${normalized.slice(0, 4)}****${normalized.slice(-4)}`
+}
+
 function TokenUsagePageContent() {
   const searchParams = useSearchParams()
   const [timeRange, setTimeRange] = useState(() => {
@@ -606,8 +613,8 @@ function TokenUsagePageContent() {
                         </TableCell>
                         <TableCell>{getStatusBadge(token.status)}</TableCell>
                         <TableCell>
-                          <p className="font-mono text-xs truncate max-w-[200px]" title={token.tokenId}>
-                            {token.tokenId}
+                          <p className="font-mono text-xs truncate max-w-[200px]" title={maskIdentifier(token.tokenId)}>
+                            {maskIdentifier(token.tokenId)}
                           </p>
                         </TableCell>
                         <TableCell>

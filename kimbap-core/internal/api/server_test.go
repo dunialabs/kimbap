@@ -785,8 +785,8 @@ func TestTenantContextRejectsServicePrincipalWithoutTenant(t *testing.T) {
 
 	h.ServeHTTP(rr, req)
 
-	if rr.Code != http.StatusForbidden {
-		t.Fatalf("expected 403, got %d", rr.Code)
+	if rr.Code != http.StatusUnauthorized {
+		t.Fatalf("expected 401, got %d", rr.Code)
 	}
 }
 
@@ -814,6 +814,30 @@ func TestHandleExecuteActionRejectsPrincipalTenantMismatch(t *testing.T) {
 
 	if rr.Code != http.StatusForbidden {
 		t.Fatalf("expected 403, got %d", rr.Code)
+	}
+}
+
+func TestHandleListTokensRequiresTenantContext(t *testing.T) {
+	server := &Server{}
+	req := httptest.NewRequest(http.MethodGet, "/v1/tokens", nil)
+	rr := httptest.NewRecorder()
+
+	server.handleListTokens(rr, req)
+
+	if rr.Code != http.StatusUnauthorized {
+		t.Fatalf("expected 401, got %d", rr.Code)
+	}
+}
+
+func TestHandleListWebhooksRequiresTenantContext(t *testing.T) {
+	server := &Server{webhookDispatcher: webhooks.NewDispatcher()}
+	req := httptest.NewRequest(http.MethodGet, "/v1/webhooks", nil)
+	rr := httptest.NewRecorder()
+
+	server.handleListWebhooks(rr, req)
+
+	if rr.Code != http.StatusUnauthorized {
+		t.Fatalf("expected 401, got %d", rr.Code)
 	}
 }
 

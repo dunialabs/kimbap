@@ -33,6 +33,8 @@ type LogSyncService struct {
 	isSyncing      bool
 	tickerRunning  bool
 	shutdownOnce   sync.Once
+	syncCtx        context.Context
+	syncCancel     context.CancelFunc
 	log            zerolog.Logger
 }
 
@@ -87,10 +89,12 @@ func (s *LogSyncService) startTickerLocked() {
 	s.syncTicker = time.NewTicker(time.Duration(SyncIntervalMS) * time.Millisecond)
 	s.stopCh = make(chan struct{})
 	s.doneCh = make(chan struct{})
+	s.syncCtx, s.syncCancel = context.WithCancel(context.Background())
 	s.tickerRunning = true
 	stopCh := s.stopCh
 	doneCh := s.doneCh
 	ticker := s.syncTicker
+	syncCtx := s.syncCtx
 	go func() {
 		defer close(doneCh)
 		for {
@@ -98,27 +102,42 @@ func (s *LogSyncService) startTickerLocked() {
 			case <-stopCh:
 				return
 			case <-ticker.C:
-				_ = s.syncLogs(context.Background())
+				_ = s.syncLogs(syncCtx)
 			}
 		}
 	}()
 }
 
-func (s *LogSyncService) stopTickerLocked() {
+func (s *LogSyncService) stopTickerLocked() chan struct{} {
 	if !s.tickerRunning {
-		return
+		return nil
 	}
+	doneCh := s.doneCh
 	if s.syncTicker != nil {
 		s.syncTicker.Stop()
 		s.syncTicker = nil
 	}
-	close(s.stopCh)
+	if s.syncCancel != nil {
+		s.syncCancel()
+		s.syncCancel = nil
+		s.syncCtx = nil
+	}
+	if s.stopCh != nil {
+		close(s.stopCh)
+		s.stopCh = nil
+	}
+	s.doneCh = nil
 	s.tickerRunning = false
+	return doneCh
 }
 
 func (s *LogSyncService) syncLogs(ctx context.Context) error {
+	return s.syncLogsInternal(ctx, false)
+}
+
+func (s *LogSyncService) syncLogsInternal(ctx context.Context, allowDuringShutdown bool) error {
 	s.mu.Lock()
-	if s.isShuttingDown || s.isSyncing || s.webhookURL == "" || s.proxyID == 0 {
+	if (s.isShuttingDown && !allowDuringShutdown) || s.isSyncing || s.webhookURL == "" || s.proxyID == 0 {
 		s.mu.Unlock()
 		return nil
 	}
@@ -228,56 +247,71 @@ func (s *LogSyncService) ReloadWebhookURL() error {
 	if err != nil {
 		return err
 	}
-	if proxy == nil {
-		s.mu.Lock()
-		s.webhookURL = ""
-		s.stopTickerLocked()
-		s.mu.Unlock()
+
+	webhookURL := ""
+	if proxy != nil && proxy.LogWebhookURL != nil {
+		webhookURL = *proxy.LogWebhookURL
+	}
+
+	s.mu.Lock()
+	s.webhookURL = webhookURL
+	doneCh := s.stopTickerLocked()
+	s.mu.Unlock()
+
+	if err := waitForWorkerDone(doneCh); err != nil {
+		return err
+	}
+	if webhookURL == "" {
 		return nil
 	}
 
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	if proxy.LogWebhookURL != nil {
-		s.webhookURL = *proxy.LogWebhookURL
-	} else {
-		s.webhookURL = ""
+	if s.isShuttingDown || s.webhookURL != webhookURL {
+		return nil
 	}
-
-	s.stopTickerLocked()
-	if s.webhookURL != "" {
-		s.startTickerLocked()
-	}
+	s.startTickerLocked()
 	return nil
 }
 
 func (s *LogSyncService) Shutdown() error {
 	var doneCh chan struct{}
+	runDrain := false
 	s.shutdownOnce.Do(func() {
 		s.mu.Lock()
-		s.stopTickerLocked()
-		doneCh = s.doneCh
+		s.isShuttingDown = true
+		doneCh = s.stopTickerLocked()
 		s.mu.Unlock()
+		runDrain = true
 	})
+	if !runDrain {
+		return nil
+	}
 
-	if doneCh != nil {
-		ctx, cancel := context.WithTimeout(context.Background(), time.Duration(ShutdownTimeout)*time.Millisecond)
-		defer cancel()
-		select {
-		case <-doneCh:
-		case <-ctx.Done():
-		}
+	if err := waitForWorkerDone(doneCh); err != nil {
+		return err
 	}
 
 	drainCtx, drainCancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer drainCancel()
-	_ = s.syncLogs(drainCtx)
-
-	s.mu.Lock()
-	s.isShuttingDown = true
-	s.mu.Unlock()
+	if err := s.syncLogsInternal(drainCtx, true); err != nil {
+		return err
+	}
 
 	return nil
+}
+func waitForWorkerDone(doneCh chan struct{}) error {
+	if doneCh == nil {
+		return nil
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), time.Duration(ShutdownTimeout)*time.Millisecond)
+	defer cancel()
+	select {
+	case <-doneCh:
+		return nil
+	case <-ctx.Done():
+		return fmt.Errorf("log sync worker shutdown timed out: %w", ctx.Err())
+	}
 }
 
 func (s *LogSyncService) recordSyncFailure(err error) {

@@ -10,7 +10,6 @@ This document provides an overview and navigation for all APIs in Kimbap Core.
     - [OAuth Client Management (Admin)](#oauth-client-management-admin)
   - [Admin API](#2-admin-api)
   - [User API](#3-user-api)
-  - [Socket.IO Real-time Communication](#4-socketio-real-time-communication)
 - [Error Handling](#error-handling)
 - [Complete Examples](#complete-examples)
 
@@ -21,7 +20,7 @@ This document provides an overview and navigation for all APIs in Kimbap Core.
 Kimbap Core uses two kinds of bearer tokens:
 
 - **OAuth 2.0 access tokens (JWT)** issued by Kimbap Core: accepted by Kimbap Core API endpoints that require OAuth bearer authentication.
-- **Kimbap access tokens (opaque)** associated with a user: used by `/admin`, `/user`, and `/socket.io`.
+- **Kimbap access tokens (opaque)** associated with a user: used by `/admin` and `/user`.
 
 **Get an OAuth token**: Obtain an OAuth 2.0 access token through the OAuth endpoints. See [OAuth 2.0 Authentication](#1-oauth-20-authentication) for details.
 
@@ -227,9 +226,9 @@ User API provides user-facing operations for capability management, server confi
 
 **Key Features**:
 - ✅ Action-based routing (same pattern as Admin API)
-- ✅ Transport-agnostic (HTTP + Socket.IO)
+- ✅ HTTP-based API surface
 - ✅ No role checking (any valid user can access)
-- ✅ Shared business logic with Socket.IO layer
+- ✅ Shared business logic across Admin/User API handlers
 - ✅ Real-time capability updates
 
 #### Unified Request Format
@@ -267,69 +266,6 @@ curl -X POST http://localhost:3002/user \
 
 ---
 
-### 4. Socket.IO Real-time Communication
-
-Socket.IO provides bidirectional real-time communication between server and clients.
-
-**Complete Documentation**: 📚 **[SOCKET_USAGE.md](./SOCKET_USAGE.md)**
-
-#### Core Features
-
-- ✅ Server-initiated push notifications
-- ✅ Multi-device login support
-- ✅ Request-response pattern (similar to RPC)
-- ✅ User capability configuration management
-- ✅ Online session list synchronization
-- ✅ Token authentication
-- ✅ Auto-reconnection
-
-#### Connection Example
-
-```javascript
-import { io } from 'socket.io-client';
-
-const socket = io('http://localhost:3002', {
-  auth: {
-    token: 'YOUR_KIMBAP_ACCESS_TOKEN'
-  }
-});
-
-// Listen for successful connection
-socket.on('connect', () => {
-  console.log('Connected:', socket.id);
-});
-
-// Listen for server notifications
-socket.on('notification', (data) => {
-  console.log('Notification received:', data);
-  // { type: 'system_message', message: '...', timestamp: ... }
-});
-```
-
-#### Main Events
-
-**Server → Client**:
-- `notification` - Notification push
-- `socket_response` - Response to client action requests
-- `server_info` - Server information (sent on connect)
-- `ack` - Message acknowledgment (for `client-message` only)
-- `ask_user_confirm` - Request user confirmation
-- `get_client_status` - Get client status
-
-**Client → Server**:
-- `client-info` - Send device information
-- `client-message` - Client message
-- `get_capabilities` - Get capability configuration
-- `set_capabilities` - Set capability configuration
-- `configure_server` - Configure a server for user
-- `unconfigure_server` - Unconfigure a server for user
-- `socket_response` - Respond to server request
-
-> **Note**: `socket_response` is bidirectional — used by both server (replying to client actions) and client (replying to server requests). Always correlate with `requestId`.
-
-**Detailed Documentation**: See [SOCKET_USAGE.md](./SOCKET_USAGE.md) for complete API and examples.
-
----
 
 ## Error Handling
 
@@ -472,33 +408,11 @@ curl -X POST http://localhost:3002/user \
   }'
 ```
 
-### Socket.IO Example
-
-```javascript
-import { io } from 'socket.io-client';
-
-const socket = io('http://localhost:3002', {
-  auth: { token: 'YOUR_TOKEN' }
-});
-
-socket.on('connect', () => {
-  console.log('✅ Connected');
-});
-
-socket.on('notification', (data) => {
-  if (data.type === 'online_sessions') {
-    console.log(`Currently have ${data.data.sessions.length} active sessions`);
-  }
-});
-```
-
----
 
 ## Related Documentation
 
 - **[ADMIN_API.md](./ADMIN_API.md)** - Complete Admin API protocol documentation
 - **[USER_API.md](./USER_API.md)** - Complete User API protocol documentation
-- **[SOCKET_USAGE.md](./SOCKET_USAGE.md)** - Socket.IO real-time communication documentation
 - **[OAuth 2.0 RFC 6749](https://datatracker.ietf.org/doc/html/rfc6749)** - OAuth 2.0 Authorization Framework
 - **[CLAUDE.md](../../CLAUDE.md)** - Project architecture and development guide
 

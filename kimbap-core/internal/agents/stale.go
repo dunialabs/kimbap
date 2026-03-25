@@ -98,7 +98,10 @@ func WriteSyncState(scope string, state *SyncState) error {
 // RecordSync updates the sync state with current skill names and artifact hash.
 // skillNames and artifactContents must be parallel slices of equal length.
 func RecordSync(scope string, skillNames []string, artifactContents []string) error {
-	sortedNames, sortedContents := sortByName(skillNames, artifactContents)
+	sortedNames, sortedContents, err := sortByName(skillNames, artifactContents)
+	if err != nil {
+		return err
+	}
 	state := &SyncState{
 		Version:      1,
 		LastSync:     time.Now().UTC(),
@@ -148,7 +151,10 @@ func CheckStaleness(scope string, currentSkillNames []string, currentArtifactCon
 
 	namesDiffer := len(newSkills) > 0 || len(removedSkills) > 0
 
-	_, sortedContents := sortByName(currentSkillNames, currentArtifactContents)
+	_, sortedContents, sortErr := sortByName(currentSkillNames, currentArtifactContents)
+	if sortErr != nil {
+		return nil, sortErr
+	}
 	contentDiffers := state.ArtifactHash != computeArtifactHash(sortedContents)
 
 	return &StaleCheckResult{
@@ -172,27 +178,26 @@ func FormatStaleWarning(result *StaleCheckResult) string {
 	changes := len(result.NewSkills) + len(result.RemovedSkills)
 	switch {
 	case changes > 0:
-		sb.WriteString(fmt.Sprintf(" (%d change(s))", changes))
+		_, _ = fmt.Fprintf(&sb, " (%d change(s))", changes)
 	default:
 		sb.WriteString(" (skill content changed)")
 	}
 	sb.WriteString(".\n")
 
 	for _, name := range result.NewSkills {
-		sb.WriteString(fmt.Sprintf("  + %s (new)\n", name))
+		_, _ = fmt.Fprintf(&sb, "  + %s (new)\n", name)
 	}
 	for _, name := range result.RemovedSkills {
-		sb.WriteString(fmt.Sprintf("  - %s (removed)\n", name))
+		_, _ = fmt.Fprintf(&sb, "  - %s (removed)\n", name)
 	}
-
-	sb.WriteString("  Run: kimbap agents sync    (this project)\n")
+	_, _ = fmt.Fprintf(&sb, "  Run: kimbap agents sync    (this project)\n")
 
 	return sb.String()
 }
 
-func sortByName(names []string, contents []string) ([]string, []string) {
+func sortByName(names []string, contents []string) ([]string, []string, error) {
 	if len(names) != len(contents) {
-		panic(fmt.Sprintf("sortByName: names (%d) and contents (%d) must have equal length", len(names), len(contents)))
+		return nil, nil, fmt.Errorf("sortByName: names (%d) and contents (%d) must have equal length", len(names), len(contents))
 	}
 	type pair struct {
 		name    string
@@ -209,7 +214,7 @@ func sortByName(names []string, contents []string) ([]string, []string) {
 		sortedNames[i] = p.name
 		sortedContents[i] = p.content
 	}
-	return sortedNames, sortedContents
+	return sortedNames, sortedContents, nil
 }
 
 func computeArtifactHash(contents []string) string {

@@ -26,7 +26,7 @@ Endpoints:
 - `/api/v1` - canonical REST management API (tokens, policies, approvals, audit, actions)
 - `/health`, `/ready` - liveness/readiness
 - OAuth2 endpoints
-- Socket.IO for real-time communication
+- Webhook notifications + Console polling for approval updates
 
 ## Project Structure
 - `cmd/server/` - Server entry point
@@ -35,7 +35,7 @@ Endpoints:
 - `internal/api/` - REST v1 API
 - `internal/config/`, `internal/database/`, `internal/mcp/` (MCP core), `internal/middleware/`,
   `internal/oauth/`, `internal/repository/`, `internal/security/`, `internal/service/`,
-  `internal/skills/`, `internal/socket/`, `internal/store/`, `internal/types/`, `internal/user/`
+  `internal/skills/`, `internal/store/`, `internal/types/`, `internal/user/`
 
 ## Key Patterns
 - Action-code routing on `/admin` and `/user` (legacy, frozen)

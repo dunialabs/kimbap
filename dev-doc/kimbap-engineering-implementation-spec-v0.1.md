@@ -264,7 +264,7 @@ kimbap/
 **Replace where coupling is structural**
 - inbound MCP gateway/session layer
 - request-id mapping for MCP reverse routing
-- Socket.IO-first notification model
+- Webhook-first notification model with console polling fallback
 - MCP capability filtering surfaces
 - event resumption protocol specifics
 

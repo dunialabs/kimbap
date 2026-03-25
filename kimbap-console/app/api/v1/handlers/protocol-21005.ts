@@ -161,12 +161,8 @@ export async function handleProtocol21005(body: Request21005): Promise<Response2
           successRequests++;
         } else {
           failedRequests++;
-          // 检查是否为速率限制错误 (HTTP 429)
-          if (log.statusCode === 429) {
-            rateLimitHits++;
-          }
-          // 也可以从error字段检查速率限制
-          if (log.error && log.error.includes('rate limit')) {
+          const isRateLimitHit = log.statusCode === 429 || (log.error && log.error.includes('rate limit'));
+          if (isRateLimitHit) {
             rateLimitHits++;
           }
         }

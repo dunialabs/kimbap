@@ -4,11 +4,7 @@
 
 This document describes the complete protocol specification for Kimbap Core User API. All user operations are provided through a unified `/user` endpoint using an action-based request routing mechanism.
 
-**Architecture Note**: The User API is part of a transport-agnostic architecture where business logic (UserRequestHandler) is shared between two communication layers:
-- **HTTP API** (`POST /user`) - RESTful interface (this document)
-- **Socket.IO** (events) - Real-time bidirectional communication
-
-Both protocols execute the same business logic and produce identical results.
+**Architecture Note**: The User API is HTTP-first. User operations are exposed through `POST /user`, and approval/user notifications are delivered via webhook + Console polling flows.
 
 ## Basic Information
 
@@ -514,8 +510,8 @@ type PromptCapabilityInput struct {
    - Temporary server is isolated to this user
    - Extract and store server capabilities to `user.UserPreferences`
 5. **Notification**:
-   - Push permission change notification to all user's connected clients (Socket.IO)
    - Notify all active MCP sessions to reload capabilities
+   - Console can reflect updates via subsequent API polling
 
 **Error Cases**:
 - `SERVER_NOT_FOUND (2001)`: Specified serverId doesn't exist
@@ -582,8 +578,8 @@ type PromptCapabilityInput struct {
    - Remove from `user.LaunchConfigs` database field
    - Remove from `user.UserPreferences` database field
 4. **Notification**:
-   - Notify all related users via Socket.IO (if server affects multiple users)
    - Notify all active MCP sessions to reload capabilities
+   - Console can reflect updates via subsequent API polling
 
 **Important Notes**:
 - Operation is idempotent - safe to call multiple times
@@ -700,7 +696,7 @@ The User API uses standard HTTP status codes in addition to application-level er
 - **Release Notes**:
   - Updated to match the current Go User API implementation
   - Support for 5 core operations: capabilities management, server configuration, session queries
-  - Transport-agnostic architecture (HTTP + Socket.IO)
+  - HTTP-first architecture for user operations
   - Follows Admin API design patterns for consistency
   - Built with chi v5 router and GORM v2
 
@@ -715,7 +711,7 @@ The User API uses standard HTTP status codes in addition to application-level er
 | **Role Checking** | No (any valid user) | Yes (Owner/Admin only) |
 | **Operations** | 5 user-facing operations | 47 admin operations |
 | **Scope** | User's own data and preferences | System-wide management |
-| **Transport** | HTTP + Socket.IO | HTTP only |
+| **Transport** | HTTP | HTTP |
 
 ---
 
@@ -748,9 +744,8 @@ The User API uses standard HTTP status codes in addition to application-level er
    }
    ```
 
-3. **Listen for Real-time Updates**:
-   - If using Socket.IO, listen for `notification` events with `type: 'permission_changed'`
-   - Re-fetch capabilities when permissions change
+3. **Refresh Capabilities After Mutations**:
+   - Re-fetch capabilities after write operations (`SET_CAPABILITIES`, `CONFIGURE_SERVER`, `UNCONFIGURE_SERVER`)
    - Update UI to reflect new capabilities
 
 4. **Use Idempotent Operations**:
@@ -780,7 +775,6 @@ The User API uses standard HTTP status codes in addition to application-level er
 
 - **Admin API**: `docs/api/ADMIN_API.md` - System administration operations
 - **MCP API**: `docs/api/API.md` - Model Context Protocol endpoints
-- **Socket.IO**: `docs/api/SOCKET_USAGE.md` - Real-time communication layer
 - **Architecture**: `docs/architecture.md` - System architecture and design patterns
 
 ---

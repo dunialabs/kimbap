@@ -67,7 +67,7 @@ func (i *LocalInstaller) InstallWithForce(manifest *SkillManifest, source string
 	if manifest == nil {
 		return nil, fmt.Errorf("manifest is nil")
 	}
-	if err := validateSkillName(manifest.Name); err != nil {
+	if err := ValidateSkillName(manifest.Name); err != nil {
 		return nil, err
 	}
 	if errs := ValidateManifest(manifest); len(errs) > 0 {
@@ -124,7 +124,7 @@ func (i *LocalInstaller) Remove(name string) error {
 	if i == nil {
 		return fmt.Errorf("installer is nil")
 	}
-	if err := validateSkillName(name); err != nil {
+	if err := ValidateSkillName(name); err != nil {
 		return err
 	}
 
@@ -180,7 +180,7 @@ func (i *LocalInstaller) List() ([]InstalledSkill, error) {
 	return out, nil
 }
 
-func validateSkillName(name string) error {
+func ValidateSkillName(name string) error {
 	if strings.TrimSpace(name) == "" {
 		return fmt.Errorf("skill name is required")
 	}
@@ -194,7 +194,7 @@ func (i *LocalInstaller) Get(name string) (*InstalledSkill, error) {
 	if i == nil {
 		return nil, fmt.Errorf("installer is nil")
 	}
-	if err := validateSkillName(name); err != nil {
+	if err := ValidateSkillName(name); err != nil {
 		return nil, err
 	}
 	p := filepath.Join(i.skillsDir, name+".yaml")
@@ -225,7 +225,7 @@ func (i *LocalInstaller) Verify(name string) (*VerifyResult, error) {
 	if i == nil {
 		return nil, fmt.Errorf("installer is nil")
 	}
-	if err := validateSkillName(name); err != nil {
+	if err := ValidateSkillName(name); err != nil {
 		return nil, err
 	}
 
@@ -277,7 +277,7 @@ func (i *LocalInstaller) VerifyWithKey(name string, pinnedPubKey ed25519.PublicK
 	if i == nil {
 		return nil, fmt.Errorf("installer is nil")
 	}
-	if err := validateSkillName(name); err != nil {
+	if err := ValidateSkillName(name); err != nil {
 		return nil, err
 	}
 

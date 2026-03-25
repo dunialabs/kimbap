@@ -37,7 +37,7 @@ Kimbap Core handles two distinct OAuth-related concerns:
 - **Gateway OAuth 2.0 access tokens (JWT).** Used by clients to authenticate to Kimbap Core. These are issued by Kimbap Core and can be revoked server-side.
 - **Downstream connector OAuth credentials (third-party providers).** Used by downstream MCP servers to call external APIs. Kimbap Core stores the full OAuth configuration encrypted at rest (including refresh tokens where applicable), refreshes access tokens server-side, and injects only access tokens into the downstream runtime.
 
-The Admin API (`/admin`) and Socket.IO (`/socket.io`) currently authenticate using Kimbap access tokens (opaque bearer tokens) validated against the user database.
+The Admin API (`/admin`) and User API (`/user`) currently authenticate using Kimbap access tokens (opaque bearer tokens) validated against the user database.
 
 **Security properties**:
 
@@ -126,7 +126,7 @@ Beyond the three-layer permission system, Kimbap Core provides additional contro
 **Behavior**: When a client attempts to call a tool with `dangerLevel: Approval`, the gateway:
 
 - Pauses the tool call execution
-- Sends a confirmation request to Kimbap Desk via Socket.IO
+- Creates an approval record and waits for operator action from Kimbap Console
 - Waits for user approval or rejection
 - Proceeds with execution only if user confirms
 
@@ -166,7 +166,7 @@ Final Permission = Server-Level Enabled
 On top of static permissions, Kimbap Core supports tool-level approvals:
 
 - Mark tools as **approval required** based on risk or context.
-- Pause execution and route an approval request to Kimbap Desk via Socket.IO.
+- Pause execution and route an approval request to Kimbap Console and webhook channels.
 - Let humans approve, reject, or request changes before the tool proceeds.
 - Optionally require stronger controls (for example additional authentication) for particularly sensitive operations.
 

@@ -54,7 +54,6 @@ Kimbap Core exposes multiple API surfaces. Use the canonical ones for all new wo
 | **REST v1 API** | `/api/v1/*` | **Canonical** | Programmatic access, automation, new integrations |
 | Admin API | `/admin` | Legacy (frozen) | Internal use only; do not build new features against this |
 | User API | `/user` | Legacy (frozen) | Internal use only; do not build new features against this |
-| Socket.IO | `/socket.io` | Stable | Real-time events (approvals, notifications) |
 | Health | `/health`, `/ready` | Stable | Liveness and readiness probes |
 
 **For new integrations, always use `/api/v1`.**

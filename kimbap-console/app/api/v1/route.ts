@@ -3,6 +3,7 @@ import { ApiResponse } from '@/lib/api-response';
 import { getProtocolHandler } from './handlers';
 import { prisma } from '@/lib/prisma';
 import { hashToken } from '@/lib/auth';
+import { getUserByAccessToken } from '@/lib/proxy-api';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -44,9 +45,42 @@ function getBearerToken(request: NextRequest): string | null {
 }
 
 function getClientIdentity(request: NextRequest): string {
-  return request.headers.get('x-real-ip')
-    || request.headers.get('x-forwarded-for')?.split(',')[0]?.trim()
-    || 'unknown';
+  const directIp = (request as NextRequest & { ip?: string }).ip?.trim();
+  if (directIp) {
+    return directIp;
+  }
+
+  const trustForwarded = process.env.TRUST_PROXY_HEADERS === 'true' || process.env.KIMBAP_TRUST_PROXY === 'true';
+  if (!trustForwarded) {
+    return 'unknown';
+  }
+
+  const forwarded = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim();
+  if (!forwarded) {
+    return 'unknown';
+  }
+
+  const bracketedIpv6 = forwarded.match(/^\[([0-9a-fA-F:.]+)\](?::\d+)?$/);
+  if (bracketedIpv6?.[1]) {
+    return bracketedIpv6[1];
+  }
+
+  const ipv4WithPort = forwarded.match(/^((?:\d{1,3}\.){3}\d{1,3}):\d+$/);
+  if (ipv4WithPort?.[1]) {
+    return ipv4WithPort[1];
+  }
+
+  const hostnameWithPort = forwarded.match(/^([a-zA-Z0-9.-]+):\d+$/);
+  if (hostnameWithPort?.[1]) {
+    return hostnameWithPort[1];
+  }
+
+  const sanitizedForwarded = forwarded.trim();
+  if (!/^[0-9a-zA-Z:.[\]%-]+$/.test(sanitizedForwarded)) {
+    return 'unknown';
+  }
+
+  return sanitizedForwarded || 'unknown';
 }
 
 export async function POST(request: NextRequest) {
@@ -76,14 +110,14 @@ export async function POST(request: NextRequest) {
 
     if (isPublic) {
       const clientIp = getClientIdentity(request);
-      if (!checkRateLimit(`login:${clientIp}`, LOGIN_RATE_LIMIT)) {
+      if (clientIp !== 'unknown' && !checkRateLimit(`login:${clientIp}`, LOGIN_RATE_LIMIT)) {
         return ApiResponse.error(cmdId, 429, 'Rate limit exceeded. Try again later.', 429);
       }
     }
 
     if (!isPublic) {
       const clientIp = getClientIdentity(request);
-      if (!checkRateLimit(`anon:${clientIp}`, GENERAL_RATE_LIMIT)) {
+      if (clientIp !== 'unknown' && !checkRateLimit(`anon:${clientIp}`, GENERAL_RATE_LIMIT)) {
         return ApiResponse.error(cmdId, 429, 'Rate limit exceeded. Try again later.', 429);
       }
 
@@ -105,7 +139,32 @@ export async function POST(request: NextRequest) {
         return ApiResponse.unauthorized(cmdId);
       }
 
+      let resolvedRole = user.role;
+      try {
+        const upstreamUser = await getUserByAccessToken(user.userid, token);
+        const currentTime = Math.floor(Date.now() / 1000);
+
+        if (upstreamUser?.status !== 1) {
+          return ApiResponse.unauthorized(cmdId);
+        }
+
+        if (typeof upstreamUser?.expiresAt === 'number' && upstreamUser.expiresAt > 0 && upstreamUser.expiresAt < currentTime) {
+          return ApiResponse.unauthorized(cmdId);
+        }
+
+        if (typeof upstreamUser?.role === 'number') {
+          resolvedRole = upstreamUser.role;
+        }
+      } catch {
+        return ApiResponse.unauthorized(cmdId);
+      }
+
+      if (resolvedRole !== 1 && resolvedRole !== 2) {
+        return ApiResponse.unauthorized(cmdId);
+      }
+
       body.common.userid = user.userid;
+      body.common.userRole = resolvedRole;
       body.common.rawToken = token;
     }
 

@@ -151,7 +151,7 @@ However, the public surface of Peta is built around the MCP gateway model:
 - request-id mapping
 - reverse routing
 - event persistence and resumption
-- Socket.IO push for desk/approval flows
+- Webhook notification + console polling for approval flows
 - per-client capability filtering
 
 Those concerns are valuable for MCP infrastructure, but they are not the right center of gravity for a CLI-first runtime.
@@ -2055,7 +2055,7 @@ Deliver:
 - reverse routing
 - request-id mapping for upstream/downstream MCP sessions
 - event resumption as a core requirement
-- Socket.IO as a mandatory runtime dependency
+- Webhook delivery and console polling as default notification dependency
 - numeric `/admin` control plane
 - per-client capability filtering as the main policy model
 - desktop app as the main approval surface

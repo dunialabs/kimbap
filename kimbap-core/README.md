@@ -135,7 +135,7 @@ Kimbap is early-stage. The action runtime and REST v1 API are available now. The
 | Vault (encrypted credential storage) | Available | AES-256-GCM, per-record encryption |
 | OAuth connectors | Available | Google, GitHub, Slack |
 | Policy engine | Available | YAML DSL, dry-run simulation |
-| Approval workflow | Available | Console + Socket.IO real-time |
+| Approval workflow | Available | Console + webhook notification |
 | Audit trail | Available | Structured events, export |
 | Tier 1 skills (YAML) | Available | Declarative REST API integration |
 | Console (admin UI) | Available | Monitoring, approvals, audit viewer |
@@ -157,7 +157,6 @@ For all new integrations, use `/api/v1`:
 | **REST v1 API** | `/api/v1/*` | Canonical | Programmatic access, automation, SDKs |
 | Admin API | `/admin` | Legacy (frozen) | Console uses this today |
 | User API | `/user` | Legacy (frozen) | Console uses this today |
-| Socket.IO | `/socket.io` | Stable | Real-time events (approvals, notifications) |
 | Health | `/health`, `/ready` | Stable | Liveness and readiness probes |
 
 ### Notification configuration
@@ -246,7 +245,6 @@ kimbap-core/
 │   ├── repository/       # Data access layer (GORM)
 │   ├── security/         # Authentication & authorization
 │   ├── service/          # Application services
-│   ├── socket/           # Socket.IO real-time communication
 │   ├── types/            # Shared types
 │   ├── user/             # User API handlers
 │   └── utils/            # Utility functions

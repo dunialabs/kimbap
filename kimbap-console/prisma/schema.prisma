@@ -72,3 +72,24 @@ model TokenMetadata {
   @@index([proxyId])
   @@map("token_metadata")
 }
+
+model DnsConf {
+  id         Int    @id @default(autoincrement())
+  subdomain  String @default("") @db.VarChar(128)
+  type       Int    @default(0)
+  publicIp   String @default("") @map("public_ip") @db.VarChar(128)
+  addtime    Int    @default(0)
+  updateTime Int    @default(0) @map("update_time")
+  tunnelId   String @default("") @map("tunnel_id") @db.VarChar(256)
+
+  @@map("dns_conf")
+}
+
+model License {
+  id         Int    @id @default(autoincrement())
+  licenseStr String @map("license_str") @db.Text
+  addtime    Int
+  status     Int
+
+  @@map("license")
+}

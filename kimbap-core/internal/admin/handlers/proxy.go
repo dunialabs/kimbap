@@ -13,7 +13,6 @@ import (
 	internallog "github.com/dunialabs/kimbap-core/internal/log"
 	"github.com/dunialabs/kimbap-core/internal/mcp/core"
 	mcptypes "github.com/dunialabs/kimbap-core/internal/mcp/types"
-	"github.com/dunialabs/kimbap-core/internal/socket"
 	types "github.com/dunialabs/kimbap-core/internal/types"
 	"github.com/rs/zerolog/log"
 	"gorm.io/gorm"
@@ -41,7 +40,7 @@ func NewProxyHandler(db *gorm.DB, sessionStore *core.SessionStore, serverManager
 		serverManager = core.ServerManagerInstance()
 	}
 	if socketNotifier == nil {
-		socketNotifier = socket.GetSocketNotifier()
+		socketNotifier = core.NewNoopSocketNotifier()
 	}
 	return &ProxyHandler{
 		db:             db,

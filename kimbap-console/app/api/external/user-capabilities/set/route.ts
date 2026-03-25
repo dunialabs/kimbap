@@ -1,5 +1,6 @@
 import { NextRequest } from 'next/server';
 import { updateUser } from '@/lib/proxy-api';
+import { parseExternalTokenPermissions } from '@/lib/token-metadata';
 import { ApiResponse } from '../../lib/response';
 import { authenticate } from '../../lib/auth';
 import { ExternalApiError, E1001, E1003 } from '../../lib/error-codes';
@@ -37,35 +38,29 @@ export async function POST(request: NextRequest) {
       throw new ExternalApiError(E1001, 'Missing required field: permissions');
     }
 
-    const parsedPermissions: Record<string, { tools: Record<string, { enabled: boolean }>; resources: Record<string, { enabled: boolean }> }> = {};
-
     for (const perm of body.permissions) {
       if (!perm.toolId || typeof perm.toolId !== 'string') {
         throw new ExternalApiError(E1003, 'Invalid permission: toolId is required');
       }
 
-      const tools: Record<string, { enabled: boolean }> = {};
       if (perm.functions && Array.isArray(perm.functions)) {
         for (const func of perm.functions) {
           if (!func.funcName || typeof func.funcName !== 'string') {
             throw new ExternalApiError(E1003, 'Invalid function: funcName is required');
           }
-          tools[func.funcName] = { enabled: Boolean(func.enabled) };
         }
       }
 
-      const resources: Record<string, { enabled: boolean }> = {};
       if (perm.resources && Array.isArray(perm.resources)) {
         for (const res of perm.resources) {
           if (!res.uri || typeof res.uri !== 'string') {
             throw new ExternalApiError(E1003, 'Invalid resource: uri is required');
           }
-          resources[res.uri] = { enabled: Boolean(res.enabled) };
         }
       }
-
-      parsedPermissions[perm.toolId] = { tools, resources };
     }
+
+    const parsedPermissions = parseExternalTokenPermissions(body.permissions);
 
     await updateUser(
       body.userId,

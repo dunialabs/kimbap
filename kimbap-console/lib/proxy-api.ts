@@ -18,13 +18,6 @@ function formatErrorForLog(error: unknown): string {
     if (axios.isAxiosError(error)) {
       if (error.code) s += ` [code: ${error.code}]`;
       if (error.response?.status) s += ` [status: ${error.response.status}]`;
-      if (error.response?.data !== undefined) {
-        try {
-          s += `\nResponse: ${JSON.stringify(error.response.data)}`;
-        } catch {
-          s += `\nResponse: (non-serializable)`;
-        }
-      }
     }
     return s;
   }
@@ -36,6 +29,44 @@ function formatErrorForLog(error: unknown): string {
     }
   }
   return String(error);
+}
+
+function redactHeaders(headers: Record<string, unknown>): Record<string, unknown> {
+  const redacted: Record<string, unknown> = {};
+  for (const [key, value] of Object.entries(headers)) {
+    if (/authorization|token|cookie|x-api-key/i.test(key)) {
+      redacted[key] = '[REDACTED]';
+      continue;
+    }
+    redacted[key] = value;
+  }
+  return redacted;
+}
+
+function logProxyRequest(actionName: string, action: number, url: string, withToken: boolean): void {
+  console.log(
+    `[PROXY API] Request start - Action: ${actionName} (${action}), URL: ${url}, Auth: ${withToken ? 'token' : 'none'}`,
+  );
+}
+
+function logProxyResponse(actionName: string, action: number, duration: number, success: boolean, status?: number): void {
+  console.log(
+    `[PROXY API] Request done - Action: ${actionName} (${action}), Duration: ${duration}ms, Status: ${status ?? 'n/a'}, Success: ${success}`,
+  );
+}
+
+function logProxyFailure(actionName: string, action: number, url: string, duration: number, error: unknown): void {
+  if (axios.isAxiosError(error)) {
+    const safeHeaders = redactHeaders((error.config?.headers || {}) as Record<string, unknown>);
+    console.error(
+      `[PROXY API] Request failed - Action: ${actionName} (${action}), URL: ${url}, Duration: ${duration}ms, Status: ${error.response?.status ?? 'n/a'}, Code: ${error.code ?? 'n/a'}, Headers: ${JSON.stringify(safeHeaders)}, Error: ${formatErrorForLog(error)}`,
+    );
+    return;
+  }
+
+  console.error(
+    `[PROXY API] Request failed - Action: ${actionName} (${action}), URL: ${url}, Duration: ${duration}ms, Error: ${formatErrorForLog(error)}`,
+  );
 }
 
 // Cache for validated proxy admin URL with TTL (Time To Live)
@@ -318,16 +349,12 @@ async function makeProxyRequest<T = any>(
 ): Promise<AdminResponse<T>> {
   const url = await getProxyAdminUrl();
   const authToken = token || '';
+  const actionName = AdminActionType[action];
+  const startTime = Date.now();
 
-  // Log request details including the full URL
-  console.log(
-    `[PROXY API] Making request - Action: ${AdminActionType[action]} (${action}), URL: ${url}, Data:`,
-    JSON.stringify(data),
-    token ? '[WITH_TOKEN]' : '[NO_TOKEN]',
-  );
+  logProxyRequest(actionName, action, url, Boolean(token));
 
   try {
-    const startTime = Date.now();
     const response = await axios.post<AdminResponse<T>>(
       url,
       {
@@ -344,10 +371,7 @@ async function makeProxyRequest<T = any>(
     );
 
     const duration = Date.now() - startTime;
-    console.log(
-      `[PROXY API] Response received - Action: ${AdminActionType[action]} (${action}), Duration: ${duration}ms, Success: ${response.data.success}, Data:`,
-      JSON.stringify(response.data.data || {}),
-    );
+    logProxyResponse(actionName, action, duration, response.data.success, response.status);
 
     // Cache the validated URL on successful request
     if (response.data.success) {
@@ -358,9 +382,8 @@ async function makeProxyRequest<T = any>(
 
     return response.data;
   } catch (error) {
-    console.error(
-      `[PROXY API] Request failed - Action: ${AdminActionType[action]} (${action}), URL: ${url}, Error: ${formatErrorForLog(error)}`,
-    );
+    const duration = Date.now() - startTime;
+    logProxyFailure(actionName, action, url, duration, error);
 
     if (axios.isAxiosError(error)) {
       const isConnectionError =
@@ -376,7 +399,6 @@ async function makeProxyRequest<T = any>(
       }
 
       if (error.response?.data) {
-        console.log(`[PROXY API] Error response data:`, JSON.stringify(error.response.data));
         return error.response.data;
       }
       throw new Error(`Proxy API request failed: ${error.message}`);
@@ -1052,11 +1074,7 @@ async function makeProxyUserRequest<T = any>(
   timeout: number = 30000,
 ): Promise<UserResponse<T>> {
   const url = await getProxyUserUrl();
-
-  console.log(
-    `[PROXY API] Making user request - Action: ${UserActionType[action]} (${action}), URL: ${url}, Data:`,
-    JSON.stringify(data),
-  );
+  const actionName = UserActionType[action];
 
   if (!url) {
     throw new Error('Proxy user URL not configured');
@@ -1066,8 +1084,10 @@ async function makeProxyUserRequest<T = any>(
     throw new Error('Token is required for user API requests');
   }
 
+  const startTime = Date.now();
+  logProxyRequest(actionName, action, url, true);
+
   try {
-    const startTime = Date.now();
     const response = await axios.post<UserResponse<T>>(
       url,
       {
@@ -1084,19 +1104,15 @@ async function makeProxyUserRequest<T = any>(
     );
 
     const duration = Date.now() - startTime;
-    console.log(
-      `[PROXY API] User response received - Action: ${UserActionType[action]} (${action}), Duration: ${duration}ms, Success: ${response.data.success}`,
-    );
+    logProxyResponse(actionName, action, duration, response.data.success, response.status);
 
     return response.data;
   } catch (error) {
-    console.error(
-      `[PROXY API] User request failed - Action: ${UserActionType[action]} (${action}), URL: ${url}, Error: ${formatErrorForLog(error)}`,
-    );
+    const duration = Date.now() - startTime;
+    logProxyFailure(actionName, action, url, duration, error);
 
     if (axios.isAxiosError(error)) {
       if (error.response?.data) {
-        console.log(`[PROXY API] User error response data:`, JSON.stringify(error.response.data));
         return error.response.data;
       }
       throw new Error(`Proxy User API request failed: ${error.message}`);

@@ -40,6 +40,8 @@ type ExitError struct {
 	Code int
 }
 
+const processWaitTimeout = 5 * time.Second
+
 func (e *ExitError) Error() string {
 	return fmt.Sprintf("process exited with code %d", e.Code)
 }
@@ -110,9 +112,21 @@ func (r *Runner) Start(ctx context.Context) error {
 	case err := <-waitErrCh:
 		return mapExitError(err)
 	case <-runCtx.Done():
-		_ = killProcessTree(cmd.Process)
-		<-waitErrCh
-		return runCtx.Err()
+		if err := killProcessTree(cmd.Process); err != nil {
+			return fmt.Errorf("terminate process tree: %w", err)
+		}
+		waitTimer := time.NewTimer(processWaitTimeout)
+		defer waitTimer.Stop()
+		select {
+		case waitErr := <-waitErrCh:
+			var exitErr *exec.ExitError
+			if waitErr == nil || errors.As(waitErr, &exitErr) {
+				return runCtx.Err()
+			}
+			return mapExitError(waitErr)
+		case <-waitTimer.C:
+			return fmt.Errorf("process did not exit within %s after cancellation: %w", processWaitTimeout, runCtx.Err())
+		}
 	}
 }
 

@@ -186,7 +186,11 @@ func daemonCallHandler(rt *runtime.Runtime) http.HandlerFunc {
 
 		w.Header().Set("Content-Type", "application/json")
 		if result.Status != actions.StatusSuccess {
-			w.WriteHeader(result.HTTPStatus)
+			status := result.HTTPStatus
+			if status < 100 || status > 999 {
+				status = http.StatusInternalServerError
+			}
+			w.WriteHeader(status)
 		}
 		_ = json.NewEncoder(w).Encode(result)
 	}

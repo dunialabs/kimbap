@@ -177,7 +177,7 @@ func (d *Dispatcher) EmitForTenant(tenantID string, eventType EventType, data an
 		if !sub.Active || !matchesEvent(sub.Events, eventType) {
 			continue
 		}
-		if sub.TenantID != "" && event.TenantID != "" && sub.TenantID != event.TenantID {
+		if sub.TenantID != "" && sub.TenantID != event.TenantID {
 			continue
 		}
 		go d.deliver(sub, event)

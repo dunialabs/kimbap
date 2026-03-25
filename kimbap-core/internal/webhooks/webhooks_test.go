@@ -227,6 +227,41 @@ func TestEmitForTenantOnlyDeliversToSameTenant(t *testing.T) {
 	}
 }
 
+func TestEmitWithoutTenantDoesNotDeliverToTenantScopedSubscriptions(t *testing.T) {
+	tenantCalls := make(chan struct{}, 1)
+	globalCalls := make(chan struct{}, 1)
+
+	tenantServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		tenantCalls <- struct{}{}
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer tenantServer.Close()
+
+	globalServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		globalCalls <- struct{}{}
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer globalServer.Close()
+
+	d := NewDispatcher()
+	d.Subscribe(Subscription{ID: "tenant-sub", URL: tenantServer.URL, TenantID: "tenant-1"})
+	d.Subscribe(Subscription{ID: "global-sub", URL: globalServer.URL})
+
+	d.Emit(EventPolicyCreated, map[string]any{"policy_id": "p1"})
+
+	select {
+	case <-globalCalls:
+	case <-time.After(2 * time.Second):
+		t.Fatal("expected delivery to global subscription")
+	}
+
+	select {
+	case <-tenantCalls:
+		t.Fatal("tenant-scoped subscription must not receive global event without tenant id")
+	case <-time.After(200 * time.Millisecond):
+	}
+}
+
 func TestEmitForTenantRecordsTenantID(t *testing.T) {
 	d := NewDispatcher()
 	d.EmitForTenant("t42", EventPolicyCreated, nil)

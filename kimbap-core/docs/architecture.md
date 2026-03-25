@@ -93,7 +93,7 @@ Record the full decision path and outcome.
 - Write a structured audit record via `internal/audit/`
 - Include: caller identity, action, parameters (sanitized), policy outcome, approval state, execution result, timestamp
 - Emit to the log service via `internal/log/`
-- Push real-time notifications via `internal/socket/` where applicable
+- Deliver notification signals via webhook channels and API-visible state changes
 
 ---
 
@@ -213,7 +213,7 @@ Exposes:
 - `/api/v1` — canonical REST management API (tokens, policies, approvals, audit, actions)
 - `/health`, `/ready` — liveness and readiness probes
 - OAuth2 endpoints
-- Socket.IO for real-time push (approval requests, status changes, session updates)
+- Webhook notifications + Console polling for approval/status updates
 
 **Flow:**
 
@@ -224,7 +224,7 @@ HTTP request arrives
 chi router (internal/middleware/: IP check → auth → rate limit)
   │
   ▼
-Route handler (api/, oauth/, socket/)
+Route handler (api/, oauth/)
   │
   ▼
 Action Runtime pipeline
@@ -417,7 +417,7 @@ When policy marks an action `require_approval`, the runtime:
 
 1. Creates an approval record with the full request context
 2. Suspends the execution
-3. Notifies the operator via Socket.IO (and optionally messaging adapters)
+3. Notifies the operator via Console APIs and configured webhook adapters
 4. Waits for an explicit approve or reject decision
 5. On approval: resumes the pipeline from the credential stage
 6. On rejection: returns an error to the caller
@@ -504,7 +504,7 @@ Action Runtime: policy outcome = require_approval
   │
   ├── Suspend execution
   │
-  ├── Notify operator (Socket.IO → Kimbap Desk / Console)
+├── Notify operator (webhook adapters + Console polling)
   │
   ├── Operator reviews: action, args, caller identity
   │
@@ -555,7 +555,6 @@ kimbap-core/
     │
     ├── api/              # REST /api/v1 handlers
     ├── mcp/              # MCP JSON-RPC adapter surface
-    ├── socket/           # Socket.IO real-time push
     │
     ├── jobs/             # Background jobs (token refresh, health checks)
     ├── observability/    # Metrics and tracing
@@ -649,4 +648,4 @@ POST /api/v1/skills             Install a skill
 /user/*                         Legacy action-code user (frozen)
 ```
 
-Socket.IO connects on the root path and uses room-based push for approval notifications, session updates, and connector status changes.
+Approval and session updates are exposed through API state plus webhook notifications; clients should poll relevant endpoints when interactive updates are required.

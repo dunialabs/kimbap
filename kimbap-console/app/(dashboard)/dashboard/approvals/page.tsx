@@ -221,10 +221,18 @@ export default function ApprovalsPage() {
   const isInitialLoad = useRef(true);
 
   const fetchData = useCallback(
-    async (options?: { page?: number; pageSize?: number; append?: boolean }) => {
+    async (options?: {
+      page?: number;
+      pageSize?: number;
+      append?: boolean;
+      status?: StatusFilter;
+      userId?: string;
+    }) => {
       const page = options?.page ?? 1;
       const pageSize = options?.pageSize ?? BASE_PAGE_SIZE;
       const append = options?.append === true;
+      const status = options?.status ?? statusFilter;
+      const userId = options?.userId ?? userFilter;
 
       if (append) {
         setLoadingMore(true);
@@ -235,8 +243,8 @@ export default function ApprovalsPage() {
           api.approvals.list({
             page,
             pageSize,
-            ...(statusFilter !== 'all' ? { status: statusFilter } : {}),
-            ...(userFilter.trim() ? { userId: userFilter.trim() } : {}),
+            ...(status !== 'all' ? { status } : {}),
+            ...(userId.trim() ? { userId: userId.trim() } : {}),
           }),
           api.approvals.countPending(),
         ]);
@@ -261,7 +269,7 @@ export default function ApprovalsPage() {
         setTimeAgo('just now');
         setRefreshFailed(false);
       } catch {
-      if (isInitialLoad.current) toast.error('Could not load approval requests');
+        if (isInitialLoad.current) toast.error('Could not load approval requests');
         setRefreshFailed(true);
       } finally {
         setLoading(false);
@@ -272,13 +280,26 @@ export default function ApprovalsPage() {
     [statusFilter, userFilter],
   );
 
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => {
-    fetchData({ page: 1, pageSize: BASE_PAGE_SIZE });
+    setLoading(true);
+    setHasMore(false);
+    setRequests([]);
+    loadedPagesRef.current = 1;
+    setLoadedPages(1);
+
+    void fetchData({
+      page: 1,
+      pageSize: BASE_PAGE_SIZE,
+      status: statusFilter,
+      userId: userFilter,
+    });
+
     refreshTimerRef.current = setInterval(() => {
       void fetchData({
         page: 1,
         pageSize: loadedPagesRef.current * BASE_PAGE_SIZE,
+        status: statusFilter,
+        userId: userFilter,
       });
     }, 30000);
     tickRef.current = setInterval(() => {
@@ -295,7 +316,7 @@ export default function ApprovalsPage() {
       if (refreshTimerRef.current) clearInterval(refreshTimerRef.current);
       if (tickRef.current) clearInterval(tickRef.current);
     };
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [fetchData, statusFilter, userFilter]);
 
   const handleLoadMore = async () => {
     if (loadingMore || !hasMore) return;
@@ -305,12 +326,6 @@ export default function ApprovalsPage() {
       append: true,
     });
   };
-
-  const filteredRequests = requests.filter((r) => {
-    if (statusFilter !== 'all' && r.status !== statusFilter) return false;
-    if (userFilter && !r.userId.toLowerCase().includes(userFilter.toLowerCase())) return false;
-    return true;
-  });
 
   const openDecideDialog = (request: ApprovalRequest, decision: 'APPROVED' | 'REJECTED') => {
     setDecideDialog({ request, decision });
@@ -390,12 +405,12 @@ export default function ApprovalsPage() {
         <CardHeader>
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
             <div>
-              <CardTitle className="text-base">Approval Requests</CardTitle>
-              <CardDescription>
-                {filteredRequests.length.toLocaleString()} request{filteredRequests.length !== 1 ? 's' : ''}
-                {statusFilter !== 'all' ? ` (${statusFilter.toLowerCase()})` : ''}
-              </CardDescription>
-            </div>
+                <CardTitle className="text-base">Approval Requests</CardTitle>
+                <CardDescription>
+                  {requests.length.toLocaleString()} request{requests.length !== 1 ? 's' : ''}
+                  {statusFilter !== 'all' ? ` (${statusFilter.toLowerCase()})` : ''}
+                </CardDescription>
+              </div>
             <div className="flex items-center gap-2">
               <div className="flex items-center gap-1.5">
                 <Filter className="h-3.5 w-3.5 text-muted-foreground" />
@@ -436,11 +451,11 @@ export default function ApprovalsPage() {
                 <p className="text-sm text-muted-foreground">Loading approval requests...</p>
               </div>
             </div>
-          ) : filteredRequests.length === 0 ? (
+          ) : requests.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-12 text-center">
               <ShieldCheck className="h-10 w-10 text-muted-foreground/40 mb-3" />
               <p className="text-sm text-muted-foreground">
-                {requests.length === 0
+                {statusFilter === 'all' && !userFilter.trim()
                   ? 'No approval requests yet'
                   : 'No requests match your filters'}
               </p>
@@ -461,7 +476,7 @@ export default function ApprovalsPage() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {filteredRequests.map((r) => (
+                  {requests.map((r) => (
                     <TableRow key={r.id}>
                       <TableCell>
                         <button

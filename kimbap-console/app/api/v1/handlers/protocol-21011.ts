@@ -8,12 +8,14 @@ interface Request21011 {
     cmdId: number;
     userid: string;
     rawToken?: string;
+    userRole?: number;
   };
   params: {
     limit?: number; // 返回记录数，默认50
     lastId?: number; // 上次获取的最后一条记录ID，用于实现增量更新
     timeRange?: number;
     userIds?: string[];
+    includeSensitivePayloads?: boolean;
   };
 }
 
@@ -34,8 +36,8 @@ interface LogRecord {
   duration?: number;
   statusCode?: number;
   timestamp: string; // 格式化的时间戳
-  requestParams: string; // 请求参数
-  responseResult: string; // 响应结果
+  requestParams: string | null; // 请求参数
+  responseResult: string | null; // 响应结果
 }
 
 interface Response21011Data {
@@ -65,6 +67,9 @@ export async function handleProtocol21011(body: Request21011): Promise<Response2
     const userIds = Array.isArray(body.params?.userIds)
       ? body.params.userIds.filter((userId): userId is string => typeof userId === 'string' && userId.trim().length > 0)
       : [];
+    const includeSensitivePayloads = body.params?.includeSensitivePayloads === true;
+    const isOwner = body.common?.userRole === 1;
+    const shouldIncludeSensitivePayloads = includeSensitivePayloads && isOwner;
     
     // 1. 获取当前proxy的proxyKey（不用token）
     let proxyKey = '';
@@ -180,8 +185,8 @@ export async function handleProtocol21011(body: Request21011): Promise<Response2
         duration: log.duration || undefined,
         statusCode: log.statusCode || undefined,
         timestamp: timestamp.toLocaleString(),
-        requestParams: log.requestParams,
-        responseResult: log.responseResult
+        requestParams: shouldIncludeSensitivePayloads ? log.requestParams : null,
+        responseResult: shouldIncludeSensitivePayloads ? log.responseResult : null
       };
     });
     

@@ -164,7 +164,7 @@ export async function handleProtocol21010(body: Request21010): Promise<Response2
         ? 20
         : Math.min(Math.max(parseIntegerParam(rawPageSize, 'pageSize'), 1), 100);
 
-    if (eventType < 0 || eventType > 4) {
+    if (eventType < 0 || eventType > 4 || eventType === 2) {
       throw new ApiError(ErrorCode.INVALID_FIELD_FORMAT, 400, { details: 'Invalid eventType' });
     }
 

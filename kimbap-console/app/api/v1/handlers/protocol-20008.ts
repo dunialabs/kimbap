@@ -1,7 +1,7 @@
 import { prisma } from '@/lib/prisma';
 
 import { ApiError, ErrorCode } from '@/lib/error-codes';
-import { getProxy } from '@/lib/proxy-api';
+import { getProxy, getServers, getServersStatus, ServerStatus } from '@/lib/proxy-api';
 
 
 
@@ -9,6 +9,7 @@ interface Request20008 {
   common: {
     cmdId: number;
     userid: string;
+    rawToken?: string;
   };
   params: {
     serverId: number; // 服务器ID，0表示所有服务器
@@ -36,6 +37,7 @@ interface Response20008Data {
 export async function handleProtocol20008(body: Request20008): Promise<Response20008Data> {
   try {
     const { serverId } = body.params;
+    const rawToken = body.common?.rawToken;
 
     let proxyKey = '';
     try {
@@ -48,38 +50,55 @@ export async function handleProtocol20008(body: Request20008): Promise<Response2
       });
     }
     
-    // 构建where条件
-    const whereCondition: any = {
-      proxyKey,
-      serverId: {
-        not: null
-      }
-    };
-    
-    // 如果指定了serverId，添加过滤条件
-    if (serverId > 0) {
-      whereCondition.serverId = serverId.toString();
-    }
-    
-    // 获取所有工具ID（从历史日志中）
-    const allTools = await prisma.log.findMany({
-      where: whereCondition,
-      select: {
-        serverId: true
-      },
-      distinct: ['serverId']
-    });
-    
     const now = Math.floor(Date.now() / 1000);
     const oneHourAgo = now - (60 * 60); // 1小时前
     const fiveMinutesAgo = now - (5 * 60); // 5分钟前
+
+    let serverStatusMap: { [serverId: string]: ServerStatus } = {};
+    let serversList: any[] = [];
+    try {
+      const [statusResult, serversResult] = await Promise.all([
+        getServersStatus(body.common.userid, rawToken),
+        getServers({}, body.common.userid, rawToken).catch(() => ({ servers: [] }))
+      ]);
+      serverStatusMap = statusResult;
+      serversList = serversResult.servers || [];
+    } catch (error) {
+      console.warn('[Protocol-20008] Failed to get server status map:', error);
+    }
+
+    const toolNameMap = new Map<string, string>();
+    serversList.forEach((server: any) => {
+      if (server?.serverId) {
+        toolNameMap.set(server.serverId, server.serverName || `Tool ${server.serverId}`);
+      }
+    });
+
+    const discoveredToolIds = new Set<string>([
+      ...Object.keys(serverStatusMap),
+      ...serversList.map((server: any) => server?.serverId).filter(Boolean)
+    ]);
+
+    if (discoveredToolIds.size === 0) {
+      const logRows = await prisma.log.findMany({
+        where: { proxyKey, addtime: { gte: BigInt(oneHourAgo) } },
+        distinct: ['serverId'],
+        select: { serverId: true },
+      });
+      for (const row of logRows) {
+        if (row.serverId) discoveredToolIds.add(row.serverId);
+      }
+    }
+
+    const targetToolIds = Array.from(discoveredToolIds).filter((toolId) => {
+      if (!toolId) return false;
+      if (serverId > 0) return toolId === serverId.toString();
+      return true;
+    });
     
     // 为每个工具查询状态信息
     const toolStatus: ToolStatus[] = await Promise.all(
-      allTools
-        .filter(tool => tool.serverId)
-        .map(async (tool) => {
-          const toolId = tool.serverId!;
+      targetToolIds.map(async (toolId) => {
           
           // 并行查询该工具的状态指标
           const [
@@ -168,38 +187,13 @@ export async function handleProtocol20008(body: Request20008): Promise<Response2
             })
           ]);
           
-          // 判断工具状态
-          let status = 1; // offline (默认)
+          const status = serverStatusMap[toolId] ?? ServerStatus.Offline;
           let errorMessage = '';
-          
-          if (lastActivity) {
-            const lastActivityTime = Number(lastActivity.addtime);
 
-            if (lastActivityTime > fiveMinutesAgo) {
-              if (recentErrors > 0) {
-                const recentSuccesses = await prisma.log.count({
-                  where: {
-                    proxyKey,
-                    serverId: toolId,
-                    addtime: { gte: BigInt(oneHourAgo) },
-                  error: '',
-                  OR: [{ statusCode: null }, { statusCode: { gte: 200, lt: 400 } }],
-                  },
-                });
-                if (recentSuccesses === 0) {
-                  status = 3;
-                  errorMessage = (lastActivity.error ?? '').substring(0, 100);
-                } else {
-                  status = 0;
-                }
-              } else {
-                status = 0;
-              }
-            } else if (lastActivityTime > oneHourAgo) {
-              status = 2;
-            } else {
-              status = 1;
-            }
+          if (status === ServerStatus.Error && lastActivity?.error) {
+            errorMessage = lastActivity.error.substring(0, 100);
+          } else if (recentErrors > 0 && lastActivity?.error) {
+            errorMessage = lastActivity.error.substring(0, 100);
           }
           
           // 模拟排队请求数（实际可能需要从其他数据源获取）
@@ -207,7 +201,7 @@ export async function handleProtocol20008(body: Request20008): Promise<Response2
           
           return {
             toolId,
-            toolName: `Tool ${toolId}`,
+            toolName: toolNameMap.get(toolId) || `Tool ${toolId}`,
             status,
             activeConnections: activeSessionsCount.length,
             queuedRequests,

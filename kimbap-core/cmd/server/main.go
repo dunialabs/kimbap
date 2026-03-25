@@ -28,6 +28,7 @@ import (
 	"github.com/dunialabs/kimbap-core/internal/socket"
 	"github.com/dunialabs/kimbap-core/internal/store"
 	"github.com/dunialabs/kimbap-core/internal/user"
+	"github.com/dunialabs/kimbap-core/internal/webhooks"
 	"github.com/go-chi/chi/v5"
 	chimiddleware "github.com/go-chi/chi/v5/middleware"
 	"github.com/go-chi/cors"
@@ -86,9 +87,16 @@ func run() error {
 	sessions := core.SessionStoreInstance()
 	eventRepo := app.NewEventRepoAdapter()
 	sessions.SetEventRepository(eventRepo)
-	sessions.SetNotifier(socket.GetSocketNotifier())
+	socketService := socket.NewSocketService(tokenValidator, repository.NewUserRepository(nil))
+	socketBootstrapServer := &http.Server{Handler: http.NotFoundHandler()}
+	if err := socketService.Initialize(socketBootstrapServer); err != nil {
+		appLog.Warn().Err(err).Msg("socket.io initialization failed")
+	}
+	notifier := socket.GetSocketNotifier()
+	notifier.SetSocketService(socketService)
+	sessions.SetNotifier(notifier)
 	servers := core.ServerManagerInstance()
-	servers.Configure(app.ServerRepoAdapter{}, app.ManagerUserRepoAdapter{}, app.AuthFactoryAdapter{}, socket.GetSocketNotifier())
+	servers.Configure(app.ServerRepoAdapter{}, app.ManagerUserRepoAdapter{}, app.AuthFactoryAdapter{}, notifier)
 	go func() {
 		defer func() {
 			if r := recover(); r != nil {
@@ -182,15 +190,15 @@ func run() error {
 	r.With(userAuthMW.Authenticate).Method(http.MethodPost, "/user", http.HandlerFunc(userController.HandleUserRequest))
 
 	if managementStore != nil {
-		v1ManagementAPI := api.NewServer("", managementStore, api.WithoutConsole())
+		webhookDispatcher := webhooks.NewDispatcher()
+		v1ManagementAPI := api.NewServer("", managementStore, api.WithoutConsole(), api.WithWebhookDispatcher(webhookDispatcher))
 		r.Mount("/api", v1ManagementAPI.Router())
 	}
 
 	r.Get("/", func(w http.ResponseWriter, req *http.Request) {
 		endpoints := map[string]any{
-			"health":   "/health",
-			"admin":    "/admin",
-			"socketio": "/socket.io",
+			"health": "/health",
+			"admin":  "/admin",
 			"oauth": map[string]any{
 				"metadata": map[string]any{
 					"authorization_server": "/.well-known/oauth-authorization-server",
@@ -221,17 +229,12 @@ func run() error {
 		})
 	})
 
-	var socketService *socket.SocketService
-	socketBootstrapServer := &http.Server{Handler: http.NotFoundHandler()}
-	socketService = socket.NewSocketService(tokenValidator, repository.NewUserRepository(nil))
-	if err := socketService.Initialize(socketBootstrapServer); err != nil {
-		appLog.Warn().Err(err).Msg("socket.io initialization failed")
-	} else if socketBootstrapServer.Handler != nil {
+	if socketBootstrapServer.Handler != nil {
 		r.Handle("/socket.io/", socketBootstrapServer.Handler)
 		r.Handle("/socket.io/*", socketBootstrapServer.Handler)
 	}
-	socket.GetSocketNotifier().SetSocketService(socketService)
-	mcpservices.ApprovalServiceInstance().StartExpirySweeper(socket.GetSocketNotifier())
+
+	mcpservices.ApprovalServiceInstance().StartExpirySweeper(notifier)
 
 	r.Get("/health", func(w http.ResponseWriter, req *http.Request) {
 		defer func() {
@@ -339,7 +342,7 @@ func run() error {
 			}
 		}()
 		for sig := range signalCh {
-			shutdown(sig.String(), socketService, httpServer, httpsServer, eventCleanup, sessions, servers, rateLimitService, logSyncSvc, managementStore)
+			shutdown(sig.String(), httpServer, httpsServer, socketService, eventCleanup, sessions, servers, rateLimitService, logSyncSvc, managementStore)
 		}
 	}()
 
@@ -348,9 +351,9 @@ func run() error {
 
 func shutdown(
 	sig string,
-	socketService *socket.SocketService,
 	httpServer *http.Server,
 	httpsServer *http.Server,
+	socketSvc *socket.SocketService,
 	eventCleanup *core.EventCleanupService,
 	sessions *core.SessionStore,
 	servers shutdownServerManager,
@@ -367,26 +370,25 @@ func shutdown(
 
 	mcpservices.ApprovalServiceInstance().StopExpirySweeper()
 
-	if socketService != nil {
-		socketService.DisconnectAll()
-		socketShutdownDone := make(chan struct{})
-		go func() {
-			_ = socketService.Shutdown()
-			close(socketShutdownDone)
-		}()
-		select {
-		case <-socketShutdownDone:
-		case <-time.After(3 * time.Second):
-			appLog.Warn().Msg("Socket.IO shutdown timed out after 3s")
-		}
-	}
-
 	httpCtx, httpCancel := context.WithTimeout(context.Background(), 5*time.Second)
 	_ = httpServer.Shutdown(httpCtx)
 	if httpsServer != nil {
 		_ = httpsServer.Shutdown(httpCtx)
 	}
 	httpCancel()
+
+	if socketSvc != nil {
+		socketSvc.DisconnectAll()
+		socketShutdownDone := make(chan struct{})
+		go func() {
+			_ = socketSvc.Shutdown()
+			close(socketShutdownDone)
+		}()
+		select {
+		case <-socketShutdownDone:
+		case <-time.After(2 * time.Second):
+		}
+	}
 
 	eventCleanup.Stop()
 	sessions.RemoveAllSessions(mcptypes.DisconnectReasonServerShutdown)

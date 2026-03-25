@@ -112,15 +112,13 @@ export function LoginForm({
 
       if (loginMode === 'token') {
         localStorage.setItem('auth_token', token.trim())
-        localStorage.setItem('accessToken', token.trim())
+        localStorage.removeItem('accessToken')
       } else if (masterPwdAccessToken) {
         localStorage.setItem('auth_token', masterPwdAccessToken)
+        localStorage.removeItem('accessToken')
       }
 
-      // Set session cookie for server-side middleware route protection
-      if (tokenInfo.userid) {
-        document.cookie = `kimbap_session=${tokenInfo.userid}; path=/; max-age=${60 * 60 * 24 * 7}; SameSite=Lax`
-      }
+      document.cookie = `kimbap_session=active; path=/; max-age=${60 * 60 * 24 * 7}; SameSite=Lax`
 
       onSuccess()
     } catch (error: any) {

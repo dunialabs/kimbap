@@ -5,6 +5,28 @@ import { hasUrls, renderErrorMessageWithLinks } from './error-utils';
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || '';
 const isDev = process.env.NODE_ENV === 'development';
+const AUTH_TOKEN_KEY = 'auth_token';
+const LEGACY_AUTH_TOKEN_KEY = 'accessToken';
+
+const readAuthTokenFromStorage = () => {
+  if (typeof window === 'undefined') {
+    return null;
+  }
+
+  const canonicalToken = localStorage.getItem(AUTH_TOKEN_KEY);
+  if (canonicalToken) {
+    return canonicalToken;
+  }
+
+  const legacyToken = localStorage.getItem(LEGACY_AUTH_TOKEN_KEY);
+  if (legacyToken) {
+    localStorage.setItem(AUTH_TOKEN_KEY, legacyToken);
+    localStorage.removeItem(LEGACY_AUTH_TOKEN_KEY);
+    return legacyToken;
+  }
+
+  return null;
+};
 
 // Create axios instance with default config
 const apiClient = axios.create({
@@ -22,7 +44,7 @@ apiClient.interceptors.request.use((config) => {
   }
 
   if (typeof window !== 'undefined') {
-    const token = localStorage.getItem('auth_token');
+    const token = readAuthTokenFromStorage();
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
     }
@@ -95,7 +117,7 @@ apiClient.interceptors.response.use(
       if (typeof window !== 'undefined') {
         // Only clear auth if the failed request used the current token (prevent race with re-login)
         const failedToken = error?.config?.headers?.Authorization;
-        const currentToken = localStorage.getItem('auth_token');
+        const currentToken = readAuthTokenFromStorage();
         const tokenStillCurrent = failedToken === `Bearer ${currentToken}`;
 
         if (tokenStillCurrent || !currentToken) {
@@ -587,17 +609,18 @@ export const setAuthToken = (token: string) => {
   if (typeof window === 'undefined') {
     return;
   }
-  localStorage.setItem('auth_token', token);
+  localStorage.setItem(AUTH_TOKEN_KEY, token);
+  localStorage.removeItem(LEGACY_AUTH_TOKEN_KEY);
 };
 
 export const clearAuthState = () => {
   if (typeof window === 'undefined') {
     return;
   }
-  localStorage.removeItem('auth_token');
+  localStorage.removeItem(AUTH_TOKEN_KEY);
+  localStorage.removeItem(LEGACY_AUTH_TOKEN_KEY);
   localStorage.removeItem('userid');
   localStorage.removeItem('token');
-  localStorage.removeItem('accessToken');
   localStorage.removeItem('manualAccessToken');
   localStorage.removeItem('selectedServer');
   document.cookie = 'kimbap_session=; path=/; max-age=0';
@@ -607,10 +630,7 @@ export const clearAuthState = () => {
 };
 
 export const getAuthToken = () => {
-  if (typeof window === 'undefined') {
-    return null;
-  }
-  return localStorage.getItem('auth_token');
+  return readAuthTokenFromStorage();
 };
 
 export default apiClient;

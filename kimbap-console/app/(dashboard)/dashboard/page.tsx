@@ -517,8 +517,8 @@ export default function DashboardPage() {
             <div
               className="grid gap-y-3 gap-x-2 items-center grid-cols-[max-content_1fr_max-content] md:grid-cols-[max-content_1fr_max-content_max-content]"
             >
-              {tokenUsage.map((token: any) => (
-                <div key={token.token} className="contents">
+              {tokenUsage.map((token: any, index: number) => (
+                <div key={`${token.name || 'token'}-${index}`} className="contents">
                   <div
                     className="text-sm max-w-[200px] truncate"
                     title={token.name}
@@ -536,7 +536,7 @@ export default function DashboardPage() {
                     {typeof token.requests === 'number' ? token.requests.toLocaleString() : token.requests}
                   </div>
                   <div className="text-xs text-muted-foreground font-mono text-right whitespace-nowrap hidden md:block">
-                    {token.token}
+                    {token.token?.trim() || '-'}
                   </div>
                 </div>
               ))}

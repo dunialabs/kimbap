@@ -55,6 +55,8 @@ interface Response21008Data {
 export async function handleProtocol21008(body: Request21008): Promise<Response21008Data> {
   try {
     const { timeRange, tokenId, page = 1, pageSize = 20 } = body.params;
+    const safePage = Math.max(1, Math.floor(Number(page) || 1));
+    const safePageSize = Math.min(100, Math.max(1, Math.floor(Number(pageSize) || 20)));
 
     let proxyKey = '';
     try {
@@ -90,22 +92,49 @@ export async function handleProtocol21008(body: Request21008): Promise<Response2
       whereCondition.userid = tokenId.trim();
     }
     
-    // 获取所有相关的日志数据
-    const logs = await prisma.log.findMany({
+    const groupedTokens = await prisma.log.groupBy({
+      by: ['tokenMask'],
       where: whereCondition,
-      select: {
-        tokenMask: true,
-        ip: true,
-        ua: true,
-        statusCode: true,
-        addtime: true
+      _count: {
+        id: true
       },
       orderBy: {
-        addtime: 'desc'
+        _count: {
+          id: 'desc'
+        }
       }
     });
-    
-    // 按token分组
+
+    const total = groupedTokens.length;
+    const totalPages = Math.ceil(total / safePageSize);
+    const startIndex = (safePage - 1) * safePageSize;
+    const endIndex = startIndex + safePageSize;
+    const pagedTokenGroups = groupedTokens.slice(startIndex, endIndex);
+    const pagedTokenMasks = pagedTokenGroups
+      .map((group) => group.tokenMask)
+      .filter((mask): mask is string => typeof mask === 'string' && mask.length > 0);
+
+    const logs = pagedTokenMasks.length === 0
+      ? []
+      : await prisma.log.findMany({
+          where: {
+            ...whereCondition,
+            tokenMask: {
+              in: pagedTokenMasks
+            }
+          },
+          select: {
+            tokenMask: true,
+            ip: true,
+            ua: true,
+            statusCode: true,
+            addtime: true
+          },
+          orderBy: {
+            addtime: 'desc'
+          }
+        });
+
     const tokenLogsMap = new Map<string, typeof logs>();
     logs.forEach(log => {
       if (!tokenLogsMap.has(log.tokenMask)) {
@@ -129,24 +158,6 @@ export async function handleProtocol21008(body: Request21008): Promise<Response2
       return ua.substring(0, 50) + (ua.length > 50 ? '...' : '');
     };
     
-    // 辅助函数：模拟地理位置
-    const getGeolocation = (ip: string): { country: string; city: string } => {
-      // 模拟地理位置数据（实际应该使用IP地理位置库）
-      const geoData = [
-        { country: 'US', city: 'New York' },
-        { country: 'US', city: 'San Francisco' },
-        { country: 'UK', city: 'London' },
-        { country: 'DE', city: 'Berlin' },
-        { country: 'JP', city: 'Tokyo' },
-        { country: 'CA', city: 'Toronto' },
-        { country: 'AU', city: 'Sydney' },
-        { country: 'FR', city: 'Paris' }
-      ];
-
-      const hash = ip.split('.').reduce((acc, part) => acc + parseInt(part) || 0, 0);
-      return geoData[hash % geoData.length];
-    };
-    
     // 辅助函数：计算风险等级
     const calculateRiskLevel = (clientStats: {
       requests: number;
@@ -168,7 +179,18 @@ export async function handleProtocol21008(body: Request21008): Promise<Response2
     };
     
     // 为每个token分析客户端
-    const allClientAnalysis: TokenClientAnalysis[] = Array.from(tokenLogsMap.entries()).map(([tokenMask, tokenLogs]) => {
+    const pagedClientAnalysis: TokenClientAnalysis[] = pagedTokenGroups.map((tokenGroup) => {
+      const tokenMask = tokenGroup.tokenMask;
+      if (!tokenMask) {
+        return {
+          tokenId: 'unknown',
+          tokenName: 'Token unknown',
+          totalClients: 0,
+          clients: []
+        };
+      }
+
+      const tokenLogs = tokenLogsMap.get(tokenMask) || [];
       // 按IP和UA组合分组客户端
       const clientGroups = new Map<string, typeof tokenLogs>();
       tokenLogs.forEach(log => {
@@ -191,7 +213,6 @@ export async function handleProtocol21008(body: Request21008): Promise<Response2
         const lastSeen = timestamps[timestamps.length - 1];
         const timeSpan = lastSeen - firstSeen;
         
-        const geo = getGeolocation(ip);
         const riskLevel = calculateRiskLevel({ requests, failedRequests, timeSpan });
         
         return {
@@ -202,8 +223,8 @@ export async function handleProtocol21008(body: Request21008): Promise<Response2
           failedRequests,
           firstSeen,
           lastSeen,
-          country: geo.country,
-          city: geo.city,
+          country: 'unknown',
+          city: 'unknown',
           riskLevel
         };
       });
@@ -219,21 +240,11 @@ export async function handleProtocol21008(body: Request21008): Promise<Response2
       };
     });
     
-    // 按客户端数降序排列
-    allClientAnalysis.sort((a, b) => b.totalClients - a.totalClients);
-    
-    // 分页处理
-    const total = allClientAnalysis.length;
-    const totalPages = Math.ceil(total / pageSize);
-    const startIndex = (page - 1) * pageSize;
-    const endIndex = startIndex + pageSize;
-    const paginatedAnalysis = allClientAnalysis.slice(startIndex, endIndex);
-    
     const response: Response21008Data = {
-      clientAnalysis: paginatedAnalysis,
+      clientAnalysis: pagedClientAnalysis,
       pagination: {
-        page,
-        pageSize,
+        page: safePage,
+        pageSize: safePageSize,
         total,
         totalPages
       }
@@ -241,8 +252,8 @@ export async function handleProtocol21008(body: Request21008): Promise<Response2
     
     console.log('Protocol 21008 response:', {
       totalTokens: total,
-      paginatedTokens: paginatedAnalysis.length,
-      totalClients: allClientAnalysis.reduce((sum, token) => sum + token.totalClients, 0),
+      paginatedTokens: pagedClientAnalysis.length,
+      totalClients: pagedClientAnalysis.reduce((sum, token) => sum + token.totalClients, 0),
       timeRange
     });
     

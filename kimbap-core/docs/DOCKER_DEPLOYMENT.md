@@ -24,7 +24,7 @@ Kimbap Core is an enterprise-grade **secure action runtime for AI agents** that 
 - ✅ Complete authentication system (JWT + OAuth 2.0)
 - ✅ Rate limiting and IP whitelist protection
 - ✅ Event persistence storage with Last-Event-ID reconnection support
-- ✅ Socket.IO real-time communication
+- ✅ Webhook-based approval notification support
 - ✅ Configuration encryption
 - ✅ Dual logging system (zerolog operational logs + database audit logs)
 - ✅ Request ID mapping to prevent multi-client conflicts
@@ -297,10 +297,6 @@ curl http://localhost:3002/health
   "sessions": {
     "active": 0,
     "total": 0
-  },
-  "socketio": {
-    "onlineUsers": 0,
-    "totalConnections": 0
   }
 }
 ```
@@ -341,7 +337,6 @@ For detailed API documentation, please refer to:
 
 - **[API.md](./api/API.md)** - API overview and quick start
 - **[ADMIN_API.md](./api/ADMIN_API.md)** - Complete Admin API (47 operations)
-- **[SOCKET_USAGE.md](./api/SOCKET_USAGE.md)** - Socket.IO real-time communication guide
 
 ## ☁️ Cloudflared Configuration
 

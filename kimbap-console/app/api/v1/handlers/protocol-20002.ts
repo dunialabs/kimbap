@@ -46,6 +46,8 @@ export async function handleProtocol20002(body: Request20002): Promise<Response2
   try {
     const { timeRange, toolIds, page = 1, pageSize = 50 } = body.params;
     const rawToken = body.common?.rawToken;
+    const safePage = Math.max(1, Math.floor(Number(page) || 1));
+    const safePageSize = Math.min(100, Math.max(1, Math.floor(Number(pageSize) || 50)));
     
     // 1. 获取当前proxy的proxyKey（不用token）
     let proxyKey = '';
@@ -94,75 +96,79 @@ export async function handleProtocol20002(body: Request20002): Promise<Response2
         lte: 1099
       },
       serverId: {
-        not: '',
-        notIn: ['Unknown', 'unknown', 'null', 'undefined', '0'] // 排除明显无效的serverId
+        notIn: ['', 'Unknown', 'unknown', 'null', 'undefined', '0'] // 排除明显无效的serverId
       }
     };
-    
-    // 4. 获取所有日志数据并分类工具
-    const allLogs = await prisma.log.findMany({
-      where: logWhereCondition,
-      select: {
-        id: true,
-        serverId: true,
-        error: true,
-        statusCode: true,
-        duration: true,
-        addtime: true
-      }
-    });
-    
-    console.log('[Protocol-20002] Found', allLogs.length, 'total logs');
-    
-    // 5. 按工具分类统计（现在所有log都有有效的serverId）
-    const INVALID_IDS = new Set(['Unknown', 'unknown', 'null', 'undefined', '0']);
-    const toolGroups: { [serverId: string]: { toolName: string; logs: any[] } } = {};
 
-    allLogs.forEach(log => {
-      const serverId = log.serverId!;
-      if (!serverId || INVALID_IDS.has(serverId)) return;
+    const filteredToolIds = Array.isArray(toolIds)
+      ? toolIds.filter((id): id is string => typeof id === 'string' && id.trim().length > 0)
+      : [];
 
-      const server = serversMap[serverId];
-      const toolName = server ? server.serverName : `${serverId} (Deleted)`;
-
-      if (!toolGroups[serverId]) {
-        toolGroups[serverId] = { toolName, logs: [] };
-      }
-      toolGroups[serverId].logs.push(log);
-    });
-    
-    // 按请求数量排序
-    const toolGroupsArray = Object.entries(toolGroups)
-      .map(([serverId, group]) => ({
-        toolName: group.toolName,
-        serverId,
-        requestCount: group.logs.length,
-        logs: group.logs,
-      }))
-      .sort((a, b) => b.requestCount - a.requestCount);
-    
-    console.log('[Protocol-20002] Grouped into', toolGroupsArray.length, 'tools:', 
-      toolGroupsArray.map(g => `${g.toolName}(${g.requestCount})`).join(', '));
-    
-    // 过滤特定工具（如果指定）
-    let filteredGroups = toolGroupsArray;
-    if (toolIds && toolIds.length > 0) {
-      filteredGroups = toolGroupsArray.filter(group => 
-        group.serverId && toolIds.includes(group.serverId)
-      );
+    if (filteredToolIds.length > 0) {
+      logWhereCondition.serverId = {
+        ...logWhereCondition.serverId,
+        in: filteredToolIds
+      };
     }
     
-    const totalCount = filteredGroups.length;
+    const groupedServers = await prisma.log.groupBy({
+      by: ['serverId'],
+      where: logWhereCondition,
+      _count: {
+        id: true
+      },
+      orderBy: {
+        _count: {
+          id: 'desc'
+        }
+      }
+    });
+
+    const totalCount = groupedServers.length;
     
     // 分页处理
-    const offset = (page - 1) * pageSize;
-    const pagedGroups = filteredGroups.slice(offset, offset + pageSize);
+    const offset = (safePage - 1) * safePageSize;
+    const pagedGroups = groupedServers.slice(offset, offset + safePageSize);
+    const pagedServerIds = pagedGroups
+      .map((group) => group.serverId)
+      .filter((id): id is string => !!id);
+
+    const pagedLogs = pagedServerIds.length === 0
+      ? []
+      : await prisma.log.findMany({
+          where: {
+            ...logWhereCondition,
+            serverId: {
+              in: pagedServerIds
+            }
+          },
+          select: {
+            id: true,
+            serverId: true,
+            error: true,
+            statusCode: true,
+            duration: true,
+            addtime: true
+          }
+        });
+
+    const logsByServerId = new Map<string, typeof pagedLogs>();
+    pagedLogs.forEach((log) => {
+      if (!log.serverId) return;
+      const existing = logsByServerId.get(log.serverId) || [];
+      existing.push(log);
+      logsByServerId.set(log.serverId, existing);
+    });
     
     // 6. 为每个工具计算详细指标
     const toolMetrics: ToolMetrics[] = [];
     
     for (const group of pagedGroups) {
-      const { toolName, logs } = group;
+      const currentServerId = group.serverId;
+      if (!currentServerId) continue;
+      const server = serversMap[currentServerId];
+      const toolName = server ? server.serverName : `${currentServerId} (Deleted)`;
+      const logs = logsByServerId.get(currentServerId) || [];
       
       // 基于内存中的logs计算指标
       const totalRequests = logs.length;
@@ -206,7 +212,7 @@ export async function handleProtocol20002(body: Request20002): Promise<Response2
       }
       
       toolMetrics.push({
-        toolId: group.serverId,
+        toolId: currentServerId,
         toolName,
         totalRequests,
         successfulRequests,

@@ -12,9 +12,9 @@ import (
 	"sync/atomic"
 	"time"
 
-	lru "github.com/hashicorp/golang-lru/v2"
 	"github.com/dunialabs/kimbap-core/internal/database"
 	mcptypes "github.com/dunialabs/kimbap-core/internal/mcp/types"
+	lru "github.com/hashicorp/golang-lru/v2"
 	"github.com/rs/zerolog/log"
 )
 
@@ -151,17 +151,19 @@ func (s *PersistentEventStore) Stop() {
 
 		s.stopped.Store(true)
 		close(s.stopCh)
-		drainDeadline := time.After(2 * time.Second)
+		drainEnd := time.Now().Add(2 * time.Second)
 		for {
+			remaining := time.Until(drainEnd)
+			if remaining <= 0 {
+				return
+			}
 			select {
 			case job := <-s.persistCh:
-				ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+				ctx, cancel := context.WithTimeout(context.Background(), remaining)
 				if err := s.repo.Create(ctx, job.entity); err != nil {
 					log.Error().Err(err).Str("eventId", string(job.eventID)).Msg("failed to persist event during drain")
 				}
 				cancel()
-			case <-drainDeadline:
-				return
 			default:
 				return
 			}

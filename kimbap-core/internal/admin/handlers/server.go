@@ -18,7 +18,6 @@ import (
 	mcptypes "github.com/dunialabs/kimbap-core/internal/mcp/types"
 	"github.com/dunialabs/kimbap-core/internal/repository"
 	"github.com/dunialabs/kimbap-core/internal/security"
-	"github.com/dunialabs/kimbap-core/internal/socket"
 	types "github.com/dunialabs/kimbap-core/internal/types"
 	"github.com/dunialabs/kimbap-core/internal/utils"
 	"github.com/rs/zerolog/log"
@@ -77,7 +76,7 @@ func NewServerHandler(db *gorm.DB, serverManager serverRuntimeManager, sessionSt
 		sessionStore = core.SessionStoreInstance()
 	}
 	if socketNotifier == nil {
-		socketNotifier = socket.GetSocketNotifier()
+		socketNotifier = core.NewNoopSocketNotifier()
 	}
 	return &ServerHandler{db: db, serverManager: serverManager, sessionStore: sessionStore, socketNotifier: socketNotifier}
 }

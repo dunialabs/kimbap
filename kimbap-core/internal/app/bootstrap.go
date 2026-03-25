@@ -10,7 +10,6 @@ import (
 	"strings"
 
 	"github.com/dunialabs/kimbap-core/internal/actions"
-	"github.com/rs/zerolog/log"
 	"github.com/dunialabs/kimbap-core/internal/adapters"
 	"github.com/dunialabs/kimbap-core/internal/approvals"
 	"github.com/dunialabs/kimbap-core/internal/audit"
@@ -20,6 +19,7 @@ import (
 	"github.com/dunialabs/kimbap-core/internal/runtime"
 	"github.com/dunialabs/kimbap-core/internal/skills"
 	"github.com/dunialabs/kimbap-core/internal/vault"
+	"github.com/rs/zerolog/log"
 )
 
 type RuntimeDeps struct {
@@ -517,15 +517,20 @@ func (a *ApprovalManagerAdapter) CreateRequest(ctx context.Context, req runtime.
 		TenantID:  req.TenantID,
 		RequestID: req.RequestID,
 		AgentName: req.Principal.AgentName,
-		Action:    req.Action.Name,
 		Risk:      string(req.Action.Risk),
 		Input:     req.Input,
 	}
-	if req.Action.Name != "" {
-		if svc, _, ok := strings.Cut(req.Action.Name, "."); ok {
-			approvalReq.Service = svc
+	actionName := strings.TrimSpace(req.Action.Name)
+	if actionName != "" {
+		if svc, action, ok := strings.Cut(actionName, "."); ok {
+			approvalReq.Service = strings.TrimSpace(svc)
+			actionName = strings.TrimSpace(action)
 		}
 	}
+	if approvalReq.Service == "" {
+		approvalReq.Service = strings.TrimSpace(req.Action.Namespace)
+	}
+	approvalReq.Action = actionName
 	if err := a.mgr.Submit(ctx, approvalReq); err != nil {
 		return nil, err
 	}

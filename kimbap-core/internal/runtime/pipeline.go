@@ -121,6 +121,8 @@ type Runtime struct {
 	Now                func() time.Time
 }
 
+const auditWriteTimeout = 3 * time.Second
+
 type TraceStep struct {
 	Step       string `json:"step"`
 	Status     string `json:"status"`
@@ -353,10 +355,6 @@ func (r *Runtime) execute(ctx context.Context, req actions.ExecutionRequest, tra
 	}
 
 	return r.executeFromCredentialsWithState(ctx, req, trace, startedAt, policyDecision, approvalRequestID)
-}
-
-func (r *Runtime) executeFromCredentials(ctx context.Context, req actions.ExecutionRequest, trace *TraceCollector) actions.ExecutionResult {
-	return r.executeFromCredentialsWithState(ctx, req, trace, r.now(), "allow", "")
 }
 
 func (r *Runtime) executeFromCredentialsWithState(
@@ -620,7 +618,12 @@ func (r *Runtime) finalizeWithStatus(
 	}
 	result.AuditRef = auditRef
 
-	if auditErr := r.writeAudit(ctx, req, *result); auditErr != nil {
+	auditCtx, cancelAudit := context.WithTimeout(context.WithoutCancel(ctx), auditWriteTimeout)
+	defer cancelAudit()
+	if auditErr := r.writeAudit(auditCtx, req, *result); auditErr != nil {
+		if !r.AuditRequired {
+			return *result
+		}
 		if result.Meta == nil {
 			result.Meta = map[string]any{}
 		}

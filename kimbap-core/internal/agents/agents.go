@@ -6,6 +6,8 @@ import (
 	"path/filepath"
 	"sort"
 	"strings"
+
+	"github.com/dunialabs/kimbap-core/internal/skills"
 )
 
 type AgentKind string
@@ -156,7 +158,7 @@ func SyncSkills(installer SkillInstaller, rulesContent string, opts SyncOptions)
 		}
 
 		for _, skill := range installedSkills {
-			if err := validateSkillName(skill.Name); err != nil {
+			if err := skills.ValidateSkillName(skill.Name); err != nil {
 				result.Failed = append(result.Failed, skill.Name)
 				result.Errors = append(result.Errors, fmt.Sprintf("skill %q: %v", skill.Name, err))
 				continue
@@ -426,15 +428,4 @@ func pruneStaleSkills(skillsDir string, installed []InstalledSkill, dryRun bool)
 	}
 	sort.Strings(pruned)
 	return pruned, errs
-}
-
-func validateSkillName(name string) error {
-	trimmed := strings.TrimSpace(name)
-	if trimmed == "" {
-		return fmt.Errorf("skill name is required")
-	}
-	if strings.Contains(trimmed, "..") || strings.ContainsAny(trimmed, `/\`) {
-		return fmt.Errorf("invalid skill name %q: must not contain path separators or '..'", name)
-	}
-	return nil
 }

@@ -307,7 +307,10 @@ func TestSortByName(t *testing.T) {
 	names := []string{"slack", "github", "notion"}
 	contents := []string{"s-content", "g-content", "n-content"}
 
-	sortedNames, sortedContents := sortByName(names, contents)
+	sortedNames, sortedContents, err := sortByName(names, contents)
+	if err != nil {
+		t.Fatalf("sortByName: %v", err)
+	}
 
 	if !reflect.DeepEqual(sortedNames, []string{"github", "notion", "slack"}) {
 		t.Fatalf("unexpected sorted names: %+v", sortedNames)

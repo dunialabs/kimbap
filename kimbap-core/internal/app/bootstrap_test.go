@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/dunialabs/kimbap-core/internal/actions"
+	"github.com/dunialabs/kimbap-core/internal/approvals"
 	"github.com/dunialabs/kimbap-core/internal/config"
 	"github.com/dunialabs/kimbap-core/internal/connectors"
 	"github.com/dunialabs/kimbap-core/internal/runtime"
@@ -255,6 +256,32 @@ func TestConnectorCredentialResolverSupportsProfiledConnectorRef(t *testing.T) {
 	}
 }
 
+func TestApprovalManagerAdapterSplitsServiceAndAction(t *testing.T) {
+	store := &captureApprovalStore{}
+	mgr := approvals.NewApprovalManager(store, nil, time.Minute)
+	adapter := NewApprovalManagerAdapter(mgr)
+
+	_, err := adapter.CreateRequest(context.Background(), runtime.ApprovalRequest{
+		TenantID:  "tenant-a",
+		RequestID: "req-1",
+		Principal: actions.Principal{AgentName: "agent-a"},
+		Action:    actions.ActionDefinition{Name: "github.issues.create"},
+	})
+	if err != nil {
+		t.Fatalf("CreateRequest: %v", err)
+	}
+
+	if store.last == nil {
+		t.Fatal("expected approval request to be persisted")
+	}
+	if store.last.Service != "github" {
+		t.Fatalf("expected service github, got %q", store.last.Service)
+	}
+	if store.last.Action != "issues.create" {
+		t.Fatalf("expected action issues.create, got %q", store.last.Action)
+	}
+}
+
 type bootstrapMemConnectorStore struct {
 	items map[string]connectors.ConnectorState
 }
@@ -323,4 +350,34 @@ func mustSeedConnectorState(t *testing.T, store *bootstrapMemConnectorStore, ten
 	if err := store.Save(context.Background(), &state); err != nil {
 		t.Fatalf("seed connector state: %v", err)
 	}
+}
+
+type captureApprovalStore struct {
+	last *approvals.ApprovalRequest
+}
+
+func (s *captureApprovalStore) Create(_ context.Context, req *approvals.ApprovalRequest) error {
+	copyReq := *req
+	s.last = &copyReq
+	return nil
+}
+
+func (s *captureApprovalStore) Get(context.Context, string) (*approvals.ApprovalRequest, error) {
+	return nil, nil
+}
+
+func (s *captureApprovalStore) Update(context.Context, *approvals.ApprovalRequest) error {
+	return nil
+}
+
+func (s *captureApprovalStore) ListPending(context.Context, string) ([]approvals.ApprovalRequest, error) {
+	return nil, nil
+}
+
+func (s *captureApprovalStore) ListAll(context.Context, string, approvals.ApprovalFilter) ([]approvals.ApprovalRequest, error) {
+	return nil, nil
+}
+
+func (s *captureApprovalStore) ExpireOld(context.Context) (int, error) {
+	return 0, nil
 }

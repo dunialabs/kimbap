@@ -51,6 +51,11 @@ type Registry struct {
 
 const maxManifestResponseBytes int64 = 4 << 20
 
+const (
+	maxDiffLinesPerSide = 2000
+	maxDiffMatrixCells  = 4_000_000
+)
+
 var registryHTTPClient = &http.Client{Timeout: 30 * time.Second}
 
 func NewRegistry(skillsDir string) *Registry {
@@ -225,6 +230,9 @@ func (r *Registry) Diff(oldManifest, newManifest []byte) string {
 
 	oldLines := splitLines(oldManifest)
 	newLines := splitLines(newManifest)
+	if err := validateDiffInputBounds(len(oldLines), len(newLines)); err != nil {
+		return fmt.Sprintf("diff unavailable: %v", err)
+	}
 	ops := lcsDiff(oldLines, newLines)
 
 	var b strings.Builder
@@ -246,6 +254,16 @@ func (r *Registry) Diff(oldManifest, newManifest []byte) string {
 		return "manifest changed"
 	}
 	return out
+}
+
+func validateDiffInputBounds(oldCount, newCount int) error {
+	if oldCount > maxDiffLinesPerSide || newCount > maxDiffLinesPerSide {
+		return fmt.Errorf("input too large for diff (line limit %d per side, got old=%d new=%d)", maxDiffLinesPerSide, oldCount, newCount)
+	}
+	if oldCount > 0 && newCount > 0 && oldCount > maxDiffMatrixCells/newCount {
+		return fmt.Errorf("input too large for diff (matrix cell limit %d, got old=%d new=%d)", maxDiffMatrixCells, oldCount, newCount)
+	}
+	return nil
 }
 
 func (r *Registry) fetchManifestYAML(ctx context.Context, source, ref string) ([]byte, error) {

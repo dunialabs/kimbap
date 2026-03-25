@@ -13,7 +13,6 @@ import (
 	mcpservice "github.com/dunialabs/kimbap-core/internal/mcp/service"
 	mcptypes "github.com/dunialabs/kimbap-core/internal/mcp/types"
 	"github.com/dunialabs/kimbap-core/internal/security"
-	"github.com/dunialabs/kimbap-core/internal/socket"
 	types "github.com/dunialabs/kimbap-core/internal/types"
 	"gorm.io/gorm"
 )
@@ -37,7 +36,7 @@ func NewUserHandler(db *gorm.DB, sessionStore *core.SessionStore, socketNotifier
 		sessionStore = core.SessionStoreInstance()
 	}
 	if socketNotifier == nil {
-		socketNotifier = socket.GetSocketNotifier()
+		socketNotifier = core.NewNoopSocketNotifier()
 	}
 	if serverManager == nil {
 		serverManager = core.ServerManagerInstance()

@@ -25,13 +25,19 @@ func (s *Server) registerWebhookRoutes(r chi.Router) {
 }
 
 func (s *Server) handleListWebhooks(w http.ResponseWriter, r *http.Request) {
-	tenantID := tenantFromContext(r.Context())
+	tenantID, ok := requireWebhookTenantContext(w, r)
+	if !ok {
+		return
+	}
 	subs := s.webhookDispatcher.ListSubscriptionsByTenant(tenantID)
 	respondJSON(w, http.StatusOK, map[string]any{"webhooks": subs})
 }
 
 func (s *Server) handleCreateWebhook(w http.ResponseWriter, r *http.Request) {
-	tenantID := tenantFromContext(r.Context())
+	tenantID, ok := requireWebhookTenantContext(w, r)
+	if !ok {
+		return
+	}
 
 	var sub webhooks.Subscription
 	if err := json.NewDecoder(r.Body).Decode(&sub); err != nil {
@@ -55,14 +61,20 @@ func (s *Server) handleCreateWebhook(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) handleDeleteWebhook(w http.ResponseWriter, r *http.Request) {
-	tenantID := tenantFromContext(r.Context())
+	tenantID, ok := requireWebhookTenantContext(w, r)
+	if !ok {
+		return
+	}
 	id := chi.URLParam(r, "id")
 	s.webhookDispatcher.UnsubscribeByTenant(id, tenantID)
 	respondJSON(w, http.StatusOK, map[string]any{"deleted": true})
 }
 
 func (s *Server) handleListRecentEvents(w http.ResponseWriter, r *http.Request) {
-	tenantID := tenantFromContext(r.Context())
+	tenantID, ok := requireWebhookTenantContext(w, r)
+	if !ok {
+		return
+	}
 	limit := 50
 	if raw := r.URL.Query().Get("limit"); raw != "" {
 		if parsed, err := strconv.Atoi(raw); err == nil {
@@ -71,6 +83,15 @@ func (s *Server) handleListRecentEvents(w http.ResponseWriter, r *http.Request) 
 	}
 	events := s.webhookDispatcher.RecentEventsByTenant(tenantID, limit)
 	respondJSON(w, http.StatusOK, map[string]any{"events": events})
+}
+
+func requireWebhookTenantContext(w http.ResponseWriter, r *http.Request) (string, bool) {
+	tenantID := strings.TrimSpace(tenantFromContext(r.Context()))
+	if tenantID == "" {
+		respondJSON(w, http.StatusUnauthorized, map[string]any{"error": "tenant context required"})
+		return "", false
+	}
+	return tenantID, true
 }
 
 func validateWebhookURL(rawURL string) error {

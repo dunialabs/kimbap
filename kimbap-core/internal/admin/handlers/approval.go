@@ -5,16 +5,21 @@ import (
 	"strings"
 
 	"github.com/dunialabs/kimbap-core/internal/database"
+	"github.com/dunialabs/kimbap-core/internal/mcp/core"
 	"github.com/dunialabs/kimbap-core/internal/mcp/services"
-	"github.com/dunialabs/kimbap-core/internal/socket"
 	"github.com/dunialabs/kimbap-core/internal/types"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
-type ApprovalHandler struct{}
+type ApprovalHandler struct {
+	socketNotifier core.SocketNotifier
+}
 
-func NewApprovalHandler() *ApprovalHandler {
-	return &ApprovalHandler{}
+func NewApprovalHandler(socketNotifier core.SocketNotifier) *ApprovalHandler {
+	if socketNotifier == nil {
+		socketNotifier = core.NewNoopSocketNotifier()
+	}
+	return &ApprovalHandler{socketNotifier: socketNotifier}
 }
 
 func (h *ApprovalHandler) ListApprovalRequests(data map[string]any) (any, error) {
@@ -117,7 +122,7 @@ func (h *ApprovalHandler) DecideApprovalRequest(data map[string]any, authCtx *ty
 		return nil, &types.AdminError{Message: "Decision failed: request not found, not PENDING, or expired", Code: types.AdminErrorCodeInvalidRequest}
 	}
 
-	socket.GetSocketNotifier().NotifyApprovalDecided(result.UserID, result.ID, result.ToolName, result.Status, result.DecisionReason)
+	h.socketNotifier.NotifyApprovalDecided(result.UserID, result.ID, result.ToolName, result.Status, result.DecisionReason)
 	return approvalRequestResponseMap(result), nil
 }
 
@@ -155,9 +160,9 @@ func approvalRequestResponseMap(r *database.ApprovalRequest) map[string]any {
 		"expiresAt":                r.ExpiresAt,
 		"decidedAt":                r.DecidedAt,
 		"decisionReason":           r.DecisionReason,
-		"decidedByUserId":         r.DecidedByUserID,
-		"decidedByRole":           r.DecidedByRole,
-		"decisionChannel":         r.DecisionChannel,
+		"decidedByUserId":          r.DecidedByUserID,
+		"decidedByRole":            r.DecidedByRole,
+		"decisionChannel":          r.DecisionChannel,
 		"executedAt":               r.ExecutedAt,
 		"executionError":           r.ExecutionError,
 		"executionResultAvailable": isExecutionResultReplayable(r.ExecutionResult),
