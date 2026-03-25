@@ -143,4 +143,4 @@ If you discover a security vulnerability, do not open a public issue. Contact th
 
 ## License
 
-By contributing code, you agree that your contributions are licensed under the [Elastic License 2.0](https://www.elastic.co/licensing/elastic-license).
+By contributing code, you agree that your contributions are licensed under the [MIT License](https://opensource.org/licenses/MIT).

@@ -5,14 +5,14 @@
 > Agents get GitHub, Gmail, Stripe, Notion, and internal APIs. You keep the credentials.
 
 ![Go](https://img.shields.io/badge/go-%3E%3D1.24-green.svg)
-![License](https://img.shields.io/badge/license-ELv2-blue.svg)
+![License](https://img.shields.io/badge/license-MIT-blue.svg)
 ![PostgreSQL](https://img.shields.io/badge/PostgreSQL-15+-blue.svg)
 
 **Quick Start** → [https://kimbap.sh/quick-start](https://kimbap.sh/quick-start) | **Docs** → [https://docs.kimbap.sh](https://docs.kimbap.sh) | **Website** → [https://kimbap.sh](https://kimbap.sh)
 
 ---
 
-Kimbap sits between your AI agents and the external systems they need to touch. Instead of giving an agent raw credentials, you give it Kimbap. The agent calls `kimbap call <service>.<action>`. Kimbap handles identity, policy, credential injection, OAuth refresh, approval, and audit. The agent only sees actions and results.
+Instead of giving agents raw credentials, you give them Kimbap. Agents call `kimbap call <service>.<action>`. Kimbap holds the credentials, enforces policy, handles OAuth refresh, routes approvals, and logs everything. The agent only sees actions and results.
 
 ```text
 agent → kimbap → policy → approval → credentials → execution → audit
@@ -20,7 +20,7 @@ agent → kimbap → policy → approval → credentials → execution → audit
 
 ---
 
-## The problem with every other approach
+## Why not raw keys, MCP, or service CLIs
 
 | Approach | Credential Safety | Context Cost | Policy | Audit | OAuth Support |
 |---|---|---|---|---|---|
@@ -31,7 +31,7 @@ agent → kimbap → policy → approval → credentials → execution → audit
 
 **Raw API keys** leak into prompts, logs, traces, and shell history. There's no policy layer, no approval workflow, no audit trail, and OAuth refresh is a manual problem per service.
 
-**MCP** looked promising, but the context cost is real and documented. A typical MCP agent injecting 43 tool definitions burns **44,026 tokens** before doing any work. A CLI-based agent completing the same task uses **1,365 tokens** — a 32x difference. Perplexity's CTO publicly moved away from MCP, citing 72% context window consumption before the agent starts. Cloudflare reached the same conclusion and built a code-generation alternative.
+**MCP** looked promising, but the context cost is real and documented. MCP tool schema injection can consume tens of thousands of tokens before the agent does any work — in one published trace, 43 tool definitions consumed over 44,000 tokens before execution began. Perplexity's CTO publicly moved away from MCP citing context window overhead; Cloudflare reached the same conclusion and built a code-generation alternative. The pattern is consistent: fixed schema pre-loading is expensive, and most of it goes unused.
 
 **Service CLIs** like `gh`, `aws`, and `stripe` assume a human operator with credentials loaded. They're not trust boundaries. An agent using `gh` is using your GitHub token directly, with no policy layer and no audit trail.
 
@@ -46,6 +46,28 @@ agent → kimbap → policy → approval → credentials → execution → audit
 But Kimbap CLI is not a raw CLI.
 
 Raw CLIs like `gh` or `aws` assume a credentialed human operator. Kimbap is the trust boundary. Credentials never reach agent space. Policy and approval are enforced before execution. Every action is logged. OAuth tokens stay under Kimbap control — agents never see refresh tokens. One runtime model covers all services.
+
+---
+
+## OAuth without credential exposure
+
+Most agent-accessible services — Gmail, Slack, GitHub Apps, HubSpot — use OAuth. The standard approach hands the agent a token. That token then lives in agent memory, prompts, and logs.
+
+Kimbap handles OAuth differently:
+
+1. An operator completes the login once via CLI or browser flow
+2. Kimbap stores and refreshes the token — it never leaves the runtime
+3. The agent calls `kimbap call gmail.send_message` and only receives the action result
+
+```bash
+# Operator logs in once (browser OAuth flow)
+kimbap connector login gmail
+
+# Agent calls the action — no token involved
+kimbap call gmail.send_message --to user@example.com --subject "Hello"
+```
+
+The agent never sees the OAuth token. Not in env vars, not in the prompt, not in logs.
 
 ---
 
@@ -70,6 +92,8 @@ kimbap run -- python agent.py
 kimbap proxy --port 10255
 ```
 
+The action runtime and REST API are available now. `kimbap call`, `kimbap run`, and `kimbap proxy` are in active development — see [Status](#status).
+
 ---
 
 ## How it works
@@ -80,7 +104,7 @@ Every action goes through the same runtime pipeline:
 identity → action lookup → policy → approval → credential injection → execution → audit
 ```
 
-One security model. One policy layer. One audit trail. One integration model — from local dev to multi-tenant deployment.
+The same pipeline runs locally and in shared multi-tenant deployments.
 
 ### Credentials stay out of agent space
 
@@ -92,16 +116,25 @@ Policy is a YAML DSL with per-action rules and dry-run simulation. Mark any acti
 
 ### Approval workflow
 
-1. Agent requests a risky action
-2. Policy marks it `require_approval`
-3. Kimbap creates an approval record
-4. Operator approves in console, CLI, or messaging adapter
-5. Kimbap executes or rejects
-6. Audit records the full decision path
+Mark any action `require_approval` in policy. When an agent triggers it, Kimbap pauses execution, notifies the operator (console or webhook — Slack, Telegram, WhatsApp), and waits. The operator approves or rejects. Audit records the full decision path.
 
-### Integrations stay declarative
+### Any REST API becomes a CLI action
 
-Most APIs don't need custom code. A YAML skill file specifies auth type, endpoint shape, arguments, error mapping, pagination, output extraction, and risk metadata. That turns any REST API into a governed Kimbap action. For OAuth lifecycle, Kimbap uses runtime-owned connectors (Google, GitHub, Slack available now).
+Write a YAML skill file — auth type, endpoint, arguments, error mapping — and `kimbap call yourservice.action` works immediately. No custom code per integration.
+
+```yaml
+# slack.yaml (simplified)
+name: slack
+auth: bearer
+actions:
+  post_message:
+    method: POST
+    path: /chat.postMessage
+    args: [channel, text]
+    risk: low
+```
+
+Most modern APIs can be described this way. For services that need OAuth lifecycle (token refresh, device flow), Kimbap uses runtime-owned connectors — Google, GitHub, and Slack are available now.
 
 ---
 
@@ -182,7 +215,7 @@ Kimbap is early-stage. The action runtime and REST v1 API are available now. The
 | Embedded mode (local-only) | Planned | Single-user, no server required |
 | SDKs | Planned | Python, TypeScript, Go |
 | Skill registry | Planned | Install, publish, verify |
-| Messaging adapters (Slack, Telegram) | Planned | Approval notification channels |
+| Webhook notifications (Slack, Telegram, WhatsApp) | Planned | Approval notification channels |
 
 ### API interfaces
 
@@ -203,7 +236,7 @@ For all new integrations, use `/api/v1`:
 ### Prerequisites
 
 - Go 1.24+
-- PostgreSQL 15+
+- PostgreSQL 15+ (required for server/shared mode; not needed for local CLI-only use)
 - Docker (optional, for containerized deployment)
 
 ### Installation
@@ -320,36 +353,6 @@ Kimbap Console talks to Kimbap Core using the Admin API:
 - Designed to be scriptable; you can call the same API from your own automation.
 </details>
 
-### Kimbap Desk (Desktop Client)
-
-<details>
-<summary>
-Kimbap Desk is a desktop application that gives end users a real-time control surface on top of Kimbap Core. It connects to the runtime's Socket.IO endpoints.
-</summary>
-
-#### Key Features
-
-- **Capability configuration**
-  - Display the actions currently available to the user.
-  - Let users further restrict their own capabilities on a per-agent basis.
-  - Apply updates in real time when administrators change permissions.
-
-- **Connector configuration**
-  - Allow users to configure connectors that require their own credentials (for example, personal API keys or OAuth logins).
-  - Unconfigure or revoke previously stored user configuration.
-  - Automatically trigger connector startup once configuration is complete.
-
-- **Approval workflow**
-  - Receive approval requests when an agent triggers an action that requires human review.
-  - Show the parameters the agent intends to send.
-  - Let the user approve, reject, or modify the request.
-
-#### Interaction Model
-
-Kimbap Desk uses **Socket.IO** for capability updates, approval requests, and general notifications.
-
-</details>
-
 ---
 
 ## More Documentation
@@ -378,22 +381,4 @@ For more, see the `docs/` folder or open an issue with logs and reproduction ste
 
 ## License
 
-This project is licensed under the [Elastic License 2.0 (ELv2)](https://www.elastic.co/licensing/elastic-license).
-
-**What We Encourage**
-Subject to the terms of the Elastic License 2.0, you are encouraged to:
-
-- Freely review, test, and verify the safety and reliability of this product
-- Modify and adapt the code for your own use cases
-- Apply and integrate this project in a wide variety of scenarios
-- Contribute improvements, bug fixes, and other enhancements that help evolve the codebase
-
-**Key Restrictions**:
-
-- You may not provide the software to third parties as a hosted or managed service
-- You may not remove or circumvent license key functionality
-- You may not remove or obscure licensing notices
-
-For detailed terms, see the official ELv2 text linked above.
-
-Copyright © 2026 [Dunia Labs, Inc.](https://dunialabs.io)
+MIT License. Copyright © 2026 [Dunia Labs, Inc.](https://dunialabs.io)
