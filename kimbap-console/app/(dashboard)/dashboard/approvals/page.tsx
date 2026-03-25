@@ -246,10 +246,10 @@ export default function ApprovalsPage() {
             ...(status !== 'all' ? { status } : {}),
             ...(userId.trim() ? { userId: userId.trim() } : {}),
           }),
-          api.approvals.countPending(),
+          api.approvals.countPending().catch(() => null),
         ]);
         const listData = listRes.data?.data || listRes.data;
-        const countData = countRes.data?.data || countRes.data;
+        const countData = countRes?.data?.data || countRes?.data;
         const nextRequests = (listData?.requests || []) as ApprovalRequest[];
 
         setRequests((prev) => {
@@ -260,7 +260,9 @@ export default function ApprovalsPage() {
           const seen = new Set(prev.map((item) => item.id));
           return [...prev, ...nextRequests.filter((item) => !seen.has(item.id))];
         });
-        setPendingCount(countData?.count || 0);
+        if (countData) {
+          setPendingCount(countData?.count || 0);
+        }
         setHasMore(Boolean(listData?.hasMore));
         const resolvedPages = append ? page : Math.max(1, Math.ceil(pageSize / BASE_PAGE_SIZE));
         loadedPagesRef.current = resolvedPages;
