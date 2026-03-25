@@ -185,7 +185,6 @@ func FormatStaleWarning(result *StaleCheckResult) string {
 		sb.WriteString(fmt.Sprintf("  - %s (removed)\n", name))
 	}
 
-	sb.WriteString("  Run: kimbap agents setup   (global)\n")
 	sb.WriteString("  Run: kimbap agents sync    (this project)\n")
 
 	return sb.String()

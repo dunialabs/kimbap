@@ -244,7 +244,6 @@ func TestFormatStaleWarning(t *testing.T) {
 				"warning: agent skills out of sync",
 				"+ notion (new)",
 				"- slack (removed)",
-				"Run: kimbap agents setup",
 				"Run: kimbap agents sync",
 			},
 		},
@@ -258,7 +257,7 @@ func TestFormatStaleWarning(t *testing.T) {
 			contains: []string{
 				"warning: agent skills out of sync",
 				"skill content changed",
-				"Run: kimbap agents setup",
+				"Run: kimbap agents sync",
 			},
 		},
 		{

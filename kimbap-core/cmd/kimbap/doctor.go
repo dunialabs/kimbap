@@ -69,7 +69,10 @@ func checkConfigFile() doctorCheck {
 		return doctorCheck{Name: "config file", Status: "fail", Detail: err.Error()}
 	}
 	if _, err := os.Stat(path); err != nil {
-		return doctorCheck{Name: "config file", Status: "fail", Detail: fmt.Sprintf("missing: %s", path)}
+		if os.IsNotExist(err) {
+			return doctorCheck{Name: "config file", Status: "fail", Detail: fmt.Sprintf("missing: %s", path)}
+		}
+		return doctorCheck{Name: "config file", Status: "fail", Detail: err.Error()}
 	}
 	if _, err := config.LoadKimbapConfig(path); err != nil {
 		return doctorCheck{Name: "config file", Status: "fail", Detail: err.Error()}
@@ -127,8 +130,12 @@ func resolveConfigPath() (string, error) {
 }
 
 func checkDataDirWritable(dataDir string) doctorCheck {
-	if err := os.MkdirAll(dataDir, 0o755); err != nil {
+	st, err := os.Stat(dataDir)
+	if err != nil {
 		return doctorCheck{Name: "data directory writable", Status: "fail", Detail: err.Error()}
+	}
+	if !st.IsDir() {
+		return doctorCheck{Name: "data directory writable", Status: "fail", Detail: "path is not a directory"}
 	}
 	file, err := os.CreateTemp(dataDir, "kimbap-doctor-*.tmp")
 	if err != nil {
