@@ -62,85 +62,50 @@ export async function handleProtocol20003(body: Request20003): Promise<Response2
       console.warn('[Protocol-20003] Failed to get servers from proxy-api:', error);
     }
     
-    // 3. 生成时间点
-    const timePoints = generateTimePoints(timeRange, granularity);
-    
-    // 4. 基于日志数据生成真实的趋势数据
-    const trends: Array<{date: string; [toolName: string]: string | number}> = [];
-    
-    for (const timePoint of timePoints) {
-      const trendData: { date: string; [key: string]: string | number } = {
-        date: timePoint
-      };
-      
-      // 计算该时间点的时间范围
-      const { startTime, endTime } = getTimeRangeForPoint(timePoint, granularity);
-      
-      // 查询该时间范围内的所有日志（包含所有有效的serverId）
-      const whereCondition: any = {
-        proxyKey: proxyKey,
-        action: {
-          gte: 1000,
-          lte: 1099
-        },
-        addtime: {
-          gte: BigInt(startTime),
-          lt: BigInt(endTime)
-        },
-        serverId: {
-          not: '',
-          notIn: ['Unknown', 'unknown', 'null', 'undefined', '0'] // 排除明显无效的serverId
-        }
-      };
+    const overallStartTime = Math.floor(Date.now() / 1000) - (timeRange * 24 * 60 * 60);
+    const INVALID_SERVER_IDS = new Set(['', 'Unknown', 'unknown', 'null', 'undefined', '0']);
 
-      // 如果指定了特定的toolIds，进一步过滤
-      if (toolIds && toolIds.length > 0) {
-        whereCondition.serverId = {
-          in: toolIds,
-          not: '',
-          notIn: ['Unknown', 'unknown', 'null', 'undefined', '0']
-        };
-      }
-
-      const logsInTimeRange = await prisma.log.findMany({
-        where: whereCondition,
-        select: {
-          id: true,
-          serverId: true
-        }
-      });
-      
-      // 按工具分类统计（包括已删除的服务器）
-      const toolCounts: { [toolName: string]: number } = {};
-      
-      logsInTimeRange.forEach(log => {
-        const serverId = log.serverId!;
-        // 跳过没有serverId或无效serverId的错误数据
-        if (!serverId || serverId === 'Unknown' || serverId === 'unknown' || serverId === 'null' || serverId === 'undefined' || serverId === '0') {
-          return;
-        }
-        
-        const server = serversMap[serverId];
-        let toolName: string;
-        
-        if (server) {
-          // 服务器存在，显示serverName
-          toolName = server.serverName;
-        } else {
-          // 服务器已删除，但serverId是有效的，显示serverId + (Deleted)
-          toolName = `${serverId} (Deleted)`;
-        }
-        
-        toolCounts[toolName] = (toolCounts[toolName] || 0) + 1;
-      });
-      
-      // 添加到趋势数据中
-      Object.entries(toolCounts).forEach(([toolName, count]) => {
-        trendData[toolName] = count;
-      });
-      
-      trends.push(trendData);
+    const serverIdFilter: any = { not: '', notIn: ['Unknown', 'unknown', 'null', 'undefined', '0'] };
+    if (toolIds && toolIds.length > 0) {
+      serverIdFilter.in = toolIds;
     }
+
+    const allLogs = await prisma.log.findMany({
+      where: {
+        proxyKey,
+        action: { gte: 1000, lte: 1099 },
+        addtime: { gte: BigInt(overallStartTime) },
+        serverId: serverIdFilter,
+      },
+      select: { addtime: true, serverId: true },
+    });
+
+    const timePoints = generateTimePoints(timeRange, granularity);
+
+    const bucketMap = new Map<string, Record<string, number>>();
+    for (const tp of timePoints) {
+      bucketMap.set(tp, {});
+    }
+
+    for (const log of allLogs) {
+      const serverId = log.serverId;
+      if (!serverId || INVALID_SERVER_IDS.has(serverId)) continue;
+
+      const tp = timePoints.find(p => {
+        const { startTime: s, endTime: e } = getTimeRangeForPoint(p, granularity);
+        return Number(log.addtime) >= s && Number(log.addtime) < e;
+      });
+      if (!tp) continue;
+
+      const toolName = serversMap[serverId]?.serverName ?? `${serverId} (Deleted)`;
+      const bucket = bucketMap.get(tp)!;
+      bucket[toolName] = (bucket[toolName] ?? 0) + 1;
+    }
+
+    const trends: Array<{date: string; [toolName: string]: string | number}> = timePoints.map(tp => ({
+      date: tp,
+      ...bucketMap.get(tp),
+    }));
     
     const response: Response20003Data = {
       trends

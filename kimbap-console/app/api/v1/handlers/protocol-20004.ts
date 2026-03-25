@@ -119,18 +119,18 @@ export async function handleProtocol20004(body: Request20004): Promise<Response2
     const toolErrorsMap = new Map<string, any>();
     
     errorLogs.forEach(log => {
-      const toolId = log.serverId!;
+      const logServerId = log.serverId!;
       
-      if (!toolErrorsMap.has(toolId)) {
-        toolErrorsMap.set(toolId, {
-          toolId,
-          toolName: `Tool ${toolId}`,
+      if (!toolErrorsMap.has(logServerId)) {
+        toolErrorsMap.set(logServerId, {
+          toolId: logServerId,
+          toolName: `Tool ${logServerId}`,
           totalErrors: 0,
           errorTypesMap: new Map()
         });
       }
       
-      const toolError = toolErrorsMap.get(toolId);
+      const toolError = toolErrorsMap.get(logServerId);
       toolError.totalErrors++;
       
       // 分析错误类型
