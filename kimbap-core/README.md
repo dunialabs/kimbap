@@ -2,321 +2,95 @@
 
 > **Secure action runtime for AI agents**
 >
-> Let agents use GitHub, Gmail, Stripe, Notion, internal APIs, and existing CLIs without handing them raw credentials.
+> Agents get GitHub, Gmail, Stripe, Notion, and internal APIs. You keep the credentials.
 
 ![Go](https://img.shields.io/badge/go-%3E%3D1.24-green.svg)
 ![License](https://img.shields.io/badge/license-ELv2-blue.svg)
 ![PostgreSQL](https://img.shields.io/badge/PostgreSQL-15+-blue.svg)
 
-Kimbap is the layer between **AI agents** and **external systems**.
-
-Instead of giving an agent API keys, OAuth tokens, or a human CLI session, you give it access to **Kimbap**. Kimbap handles identity, policy, credential injection, OAuth refresh, approvals, and audit. The agent only sees **actions** and **results**.
-
-**Quick Start** → [https://kimbap.sh/quick-start](https://kimbap.sh/quick-start)
-
-**Website** → [https://kimbap.sh](https://kimbap.sh)
-
-**Documentation** → [https://docs.kimbap.sh](https://docs.kimbap.sh)
+**Quick Start** → [https://kimbap.sh/quick-start](https://kimbap.sh/quick-start) | **Docs** → [https://docs.kimbap.sh](https://docs.kimbap.sh) | **Website** → [https://kimbap.sh](https://kimbap.sh)
 
 ---
 
-## Why Kimbap
+Kimbap sits between your AI agents and the external systems they need to touch. Instead of giving an agent raw credentials, you give it Kimbap. The agent calls `kimbap call <service>.<action>`. Kimbap handles identity, policy, credential injection, OAuth refresh, approval, and audit. The agent only sees actions and results.
 
-AI agents are starting to do real work:
+```text
+agent → kimbap → policy → approval → credentials → execution → audit
+```
 
-- read and write GitHub issues
-- send email
-- update CRMs
-- create docs
-- refund payments
-- run infra workflows
-- call internal APIs
+---
 
-Most teams solve this in one of four bad ways:
+## The problem with every other approach
 
-1. **Raw API keys in env vars**
-   Fast, but unsafe. Secrets leak into prompts, logs, traces, or shell history.
+| Approach | Credential Safety | Context Cost | Policy | Audit | OAuth Support |
+|---|---|---|---|---|---|
+| Raw API keys in env | ❌ Leaks into prompts | ✅ Zero | ❌ None | ❌ None | ❌ Manual |
+| MCP server | ⚠️ Depends on impl | ❌ 44K+ tokens overhead | ⚠️ Limited | ⚠️ Limited | ⚠️ Complex |
+| Direct CLI (gh, aws) | ❌ Human credentials | ✅ Efficient | ❌ None | ❌ None | ⚠️ Human flow |
+| **Kimbap CLI** | ✅ Never in agent space | ✅ Efficient | ✅ Built-in | ✅ Full trail | ✅ Runtime-owned |
 
-2. **Human-oriented service CLIs**
-   Useful for developers, but not safe trust boundaries for autonomous agents.
+**Raw API keys** leak into prompts, logs, traces, and shell history. There's no policy layer, no approval workflow, no audit trail, and OAuth refresh is a manual problem per service.
 
-3. **Vault only**
-   A vault stores secrets, but does not execute actions, refresh OAuth tokens, enforce policy, or manage approvals.
+**MCP** looked promising, but the context cost is real and documented. A typical MCP agent injecting 43 tool definitions burns **44,026 tokens** before doing any work. A CLI-based agent completing the same task uses **1,365 tokens** — a 32x difference. Perplexity's CTO publicly moved away from MCP, citing 72% context window consumption before the agent starts. Cloudflare reached the same conclusion and built a code-generation alternative.
 
-4. **Custom wrapper per service**
-   Secure-ish, but expensive. Every integration becomes another codebase to build and maintain.
+**Service CLIs** like `gh`, `aws`, and `stripe` assume a human operator with credentials loaded. They're not trust boundaries. An agent using `gh` is using your GitHub token directly, with no policy layer and no audit trail.
 
-Kimbap replaces that mess with one runtime.
+---
+
+## Why CLI is the right interface for agents
+
+**LLMs are trained on billions of terminal interactions.** They understand CLI patterns natively, without schema injection eating context.
+
+`kimbap call github.list_pull_requests` is unambiguous and composable. The output is structured and predictable. `--help` is just-in-time documentation — no pre-loaded schemas burning context before the agent does anything. CLI tools chain naturally with Unix pipes. Terminal-native agents like Claude Code and OpenCode already think in CLI terms.
+
+But Kimbap CLI is not a raw CLI.
+
+Raw CLIs like `gh` or `aws` assume a credentialed human operator. Kimbap is the trust boundary. Credentials never reach agent space. Policy and approval are enforced before execution. Every action is logged. OAuth tokens stay under Kimbap control — agents never see refresh tokens. One runtime model covers all services.
 
 ---
 
 ## What it looks like
 
-```text
-agent -> kimbap -> policy -> approval -> credentials -> execution -> audit
-```
-
-The agent does not need to know:
-
-- how GitHub auth works
-- how Gmail refreshes tokens
-- whether Stripe refunds need approval
-- where secrets live
-- whether an action is backed by REST, OAuth, or an existing CLI
-
-It only needs to know:
-
 ```bash
-kimbap call <service>.<action>
-```
+# OAuth-backed service — agent never sees the token
+kimbap connector login gmail
+kimbap call gmail.send_message --to user@example.com --subject "Hello"
 
-Examples:
-
-```bash
+# Explicit action calls
 kimbap call github.list_pull_requests --repo owner/repo
-kimbap call notion.create_page --database-id db_123 --title "Q2 Plan"
-kimbap call stripe.refund_charge --charge ch_abc --amount 500 --idempotency-key refund-001
-```
+kimbap call stripe.refund_charge --charge ch_abc --amount 500
 
----
+# Auto-detect Claude Code, OpenCode, Codex, Cursor and write skill files
+kimbap agents setup
 
-## Core idea
+# Wrap an existing agent process
+kimbap run -- python agent.py
 
-**Action Runtime is the product.**
-
-Kimbap is not just:
-
-- a vault
-- a proxy
-- a CLI wrapper
-- an MCP server
-- an integration zoo
-
-Those are surfaces and adapters.
-
-The actual product is a **canonical action runtime** that every surface goes through:
-
-```text
-identity -> action lookup -> policy -> approval -> credential injection -> execution -> audit
-```
-
-That gives you:
-
-- one security model
-- one policy layer
-- one audit trail
-- one integration model
-- one path from local dev to multi-tenant deployment
-
----
-
-## Product surfaces
-
-Kimbap ships as a **single Go binary**.
-
-### Explicit action mode
-
-For new agent systems and direct integrations:
-
-```bash
-kimbap call github.list_pull_requests --repo owner/repo
-```
-
-### Proxy mode
-
-For existing HTTP-based agents with minimal or zero code changes:
-
-```bash
+# Transparent proxy for HTTP agents
 kimbap proxy --port 10255
 ```
 
-### Subprocess mode
-
-For local agents, scripts, or agent frameworks that already run as a process:
-
-```bash
-kimbap run -- python agent.py
-```
-
-### Connected server mode
-
-For shared deployments, long-running connectors, centralized audit, and multi-tenant use:
-
-```bash
-kimbap serve --port 8080
-```
-
-### Management commands
-
-```bash
-kimbap token ...
-kimbap vault ...
-kimbap policy ...
-kimbap connector ...
-kimbap audit ...
-kimbap skill ...
-```
-
-### Agent onboarding
-
-Kimbap can sync skill files and operating rules directly into your AI agent's project directory, so the agent knows how to discover and call Kimbap actions without manual setup.
-
-```bash
-# Auto-detect installed agents and sync skills + rules
-kimbap agents setup
-
-# Re-sync after installing a new skill
-kimbap skill install slack.yaml
-kimbap agents sync
-
-# Target specific agents
-kimbap agents sync --agent claude-code,opencode
-
-# Check current sync status
-kimbap agents status
-
-# Preview changes without writing
-kimbap agents sync --dry-run
-```
-
-Supported agents: Claude Code, OpenCode, Codex, Cursor, and a generic fallback.
-
-Each agent gets:
-- **Per-service SKILL.md files** — generated from installed skills, placed in the agent's skill directory (e.g. `.claude/skills/github/SKILL.md`)
-- **A meta-skill** — a thin "how to discover Kimbap actions" guide at `.claude/skills/kimbap/SKILL.md`
-- **Operating rules** — credential handling and access policies at `.claude/KIMBAP_OPERATING_RULES.md`
-
-Skills are auto-generated from installed skill manifests. Unchanged files are skipped unless `--force` is used.
-
-#### Keeping agents up to date
-
-When you add, update, or remove a skill, connected agents won't know about the change until you re-sync:
-
-```bash
-# Install a new skill → agents don't know yet
-kimbap skill install notion.yaml
-
-# Sync propagates the new skill to all detected agents
-kimbap agents sync
-
-# Remove a skill → its SKILL.md stays until you force-sync or delete manually
-kimbap skill remove notion
-kimbap agents sync --force
-```
-
-The source of truth is always the Kimbap runtime. Agents can also discover actions dynamically at any time via `kimbap actions list`, even without synced skill files. Synced SKILL.md files are a speed-up for agent onboarding, not a requirement — the meta-skill teaches agents to use runtime discovery as the authoritative fallback.
-
-One binary. One install. One runtime model.
-
 ---
 
-## How integrations work
+## How it works
 
-Kimbap does **not** want a bespoke codebase for every service.
+Every action goes through the same runtime pipeline:
 
-### Tier 1 — Declarative skills
+```text
+identity → action lookup → policy → approval → credential injection → execution → audit
+```
 
-Most modern APIs can be exposed through a human-readable YAML skill:
+One security model. One policy layer. One audit trail. One integration model — from local dev to multi-tenant deployment.
 
-- auth type
-- endpoint shape
-- arguments
-- error mapping
-- pagination
-- output extraction
-- risk metadata
+### Credentials stay out of agent space
 
-That turns a REST API into a first-class Kimbap action.
+Agents don't receive API keys or OAuth tokens. They call actions. Kimbap injects credentials at execution time, under the runtime's control. OAuth refresh tokens never leave Kimbap.
 
-### Tier 2 — Connectors
+### Policy before execution
 
-Some services need OAuth device flow, token refresh, or provider-specific lifecycle handling.
+Policy is a YAML DSL with per-action rules and dry-run simulation. Mark any action `require_approval` and risky calls (refunds, deletes, production changes) get human sign-off before anything runs.
 
-Examples:
-
-- Gmail
-- Google Workspace
-- Slack
-- HubSpot
-- GitHub Apps
-- Stripe Connect
-
-These use runtime-owned connectors.
-
-### Tier 2b — Existing CLI adapters
-
-Some mature CLIs are useful, but only if Kimbap wraps them safely. The CLI is **never** the trust boundary. Kimbap is the trust boundary.
-
-### Tier 3 — Justified stateful services
-
-Only truly stateful or streaming systems should require a separate downstream service.
-
-Examples:
-
-- pooled database access
-- non-HTTP protocols
-- long-lived stateful connections
-
----
-
-## Security model
-
-Kimbap's core promise is simple:
-
-> **Raw credentials should not appear in agent-visible env vars, prompts, logs, CLI history, or persisted traces.**
-
-### What Kimbap guarantees
-
-- agents do not receive long-lived raw credentials
-- OAuth refresh tokens stay under Kimbap control
-- policy is enforced before execution
-- risky actions can require human approval
-- every action is auditable
-- tenant boundaries are enforced by namespace, policy, and key hierarchy
-
-### What Kimbap does not claim
-
-- that the final outbound HTTP request is credential-free
-- that proxy mode works for every protocol
-- that arbitrary existing CLIs become safe without an adapter
-- that host compromise is out of scope
-
-The product wins by being precise and enforceable.
-
----
-
-## Multi-tenant by design
-
-Kimbap is built for teams running multiple agents, workflows, and customers.
-
-Tenant isolation is enforced in three layers:
-
-1. **Namespace isolation**
-   Vault entries, policy, approvals, and audit are tenant-scoped.
-
-2. **Policy isolation**
-   Every decision is evaluated in tenant context.
-
-3. **Cryptographic isolation**
-   Each tenant has its own key hierarchy.
-
-That means token rotation and key rotation are independent.
-
----
-
-## Human approval built in
-
-Some actions should not run automatically.
-
-Kimbap makes approval a first-class runtime feature for actions like:
-
-- refunds
-- deletes
-- external messages
-- production changes
-- high-risk internal operations
-
-Typical flow:
+### Approval workflow
 
 1. Agent requests a risky action
 2. Policy marks it `require_approval`
@@ -325,84 +99,70 @@ Typical flow:
 5. Kimbap executes or rejects
 6. Audit records the full decision path
 
+### Integrations stay declarative
+
+Most APIs don't need custom code. A YAML skill file specifies auth type, endpoint shape, arguments, error mapping, pagination, output extraction, and risk metadata. That turns any REST API into a governed Kimbap action. For OAuth lifecycle, Kimbap uses runtime-owned connectors (Google, GitHub, Slack available now).
+
 ---
 
-## Quick examples
+## Four ways to use it
 
-### New code
+Kimbap ships as a **single Go binary**.
 
+**Explicit action** — for new agent systems and direct integrations:
 ```bash
-kimbap actions list --service github
-kimbap actions describe github.list_pull_requests
 kimbap call github.list_pull_requests --repo owner/repo
 ```
 
-### Existing subprocess agent
-
+**Subprocess wrapper** — wrap an existing agent process:
 ```bash
 kimbap run -- python agent.py
 ```
 
-### Existing HTTP agent
-
+**Transparent proxy** — for HTTP agents with minimal code changes:
 ```bash
 kimbap proxy --port 10255
 export HTTP_PROXY=http://127.0.0.1:10255
-export HTTPS_PROXY=http://127.0.0.1:10255
-python agent.py
 ```
 
-### OAuth-backed service
+**Connected server** — for shared deployments and multi-tenant use:
+```bash
+kimbap serve --port 8080
+```
+
+---
+
+## Agent onboarding
+
+`kimbap agents setup` auto-detects Claude Code, OpenCode, Codex, and Cursor, then writes skill files and operating rules into their config directories.
 
 ```bash
-kimbap connector login gmail
-kimbap call gmail.send_message --to user@example.com --subject "Hello"
+kimbap agents setup                           # detect and configure all agents
+kimbap skill install slack.yaml               # add a new skill
+kimbap agents sync                            # propagate to connected agents
+kimbap agents sync --agent claude-code        # target a specific agent
+kimbap agents sync --dry-run                  # preview without writing
 ```
 
----
-
-## Why this is different
-
-### Not just a vault
-
-Kimbap stores credentials, but more importantly it **uses** them safely.
-
-### Not just a proxy
-
-Proxy mode is an adoption path, not the product boundary.
-
-### Not just another integration framework
-
-Most services should be declarative skills, not custom runtimes.
-
-### Built for agents, not humans
-
-Existing CLIs assume a human operator. Kimbap assumes:
-
-- agents are untrusted by default
-- credentials must stay outside agent memory
-- policy and approval are first-class
-- audit must be complete
-- multi-tenant isolation matters
+Each agent gets per-service `SKILL.md` files in its skill directory (e.g. `.claude/skills/github/SKILL.md`), a meta-skill for runtime discovery, and `KIMBAP_OPERATING_RULES.md` for credential handling policies. Agents can also discover actions at runtime via `kimbap actions list` without synced skill files — the meta-skill teaches that fallback.
 
 ---
 
-## Typical use cases
+## Multi-tenant by design
 
-- secure GitHub access for coding agents
-- Gmail / calendar access for workflow agents
-- Stripe and billing actions behind approval
-- internal admin tools exposed as governed actions
-- multi-agent teams with shared runtime and isolated tenants
-- gradual migration from env-var secrets to secure runtime mediation
+Tenant isolation runs three layers deep:
+
+1. **Namespace isolation** — vault entries, policy, approvals, and audit are tenant-scoped
+2. **Policy isolation** — every decision is evaluated in tenant context
+3. **Cryptographic isolation** — each tenant has its own key hierarchy
+
+Token rotation and key rotation are independent.
 
 ---
 
 ## Status
 
-Kimbap is an active, early-stage product. Today it operates as a **server runtime** with REST interface. The CLI surface (`kimbap call`, `kimbap run`, etc.) is under development as a thin client over the same runtime.
-
-### Current availability
+Kimbap is early-stage. The action runtime and REST v1 API are available now. The CLI surface (`kimbap call`, `kimbap run`, `kimbap proxy`) is in progress.
 
 | Capability | Status | Notes |
 |---|---|---|
@@ -424,93 +184,17 @@ Kimbap is an active, early-stage product. Today it operates as a **server runtim
 | Skill registry | Planned | Install, publish, verify |
 | Messaging adapters (Slack, Telegram) | Planned | Approval notification channels |
 
-### Supported interfaces
+### API interfaces
 
-For all new integrations, use the canonical interfaces:
+For all new integrations, use `/api/v1`:
 
-| Interface | Path | Status | Use When |
+| Interface | Path | Status | Use when |
 |---|---|---|---|
-| **REST v1 API** | `/api/v1/*` | **Canonical** | Programmatic access, automation, SDKs |
-| Admin API | `/admin` | Legacy (frozen) | Console uses this today; migration to REST v1 planned |
-| User API | `/user` | Legacy (frozen) | Console uses this today; migration to REST v1 planned |
+| **REST v1 API** | `/api/v1/*` | Canonical | Programmatic access, automation, SDKs |
+| Admin API | `/admin` | Legacy (frozen) | Console uses this today |
+| User API | `/user` | Legacy (frozen) | Console uses this today |
 | Socket.IO | `/socket.io` | Stable | Real-time events (approvals, notifications) |
 | Health | `/health`, `/ready` | Stable | Liveness and readiness probes |
-
-**Console Integration:** Kimbap Console currently communicates with Core via the legacy `/admin` and `/user` endpoints. New external integrations should use `/api/v1`.
-
----
-
-## Roadmap
-
-### Phase 1 (current)
-
-- Action runtime with REST v1 API
-- Vault and token lifecycle
-- Tier 1 skill execution via YAML
-- OAuth connectors (Google, GitHub, Slack)
-- Policy engine and approval workflow
-- Audit trail and observability
-- Console admin UI
-
-### Phase 2
-
-- CLI surface: `kimbap call`, `kimbap run`, `kimbap proxy`, `kimbap serve`
-- Multi-tenant connected mode
-- Embedded (local-only) mode
-
-### Phase 3
-
-- Messaging adapters for approval notifications
-- Skill registry (install, publish, verify)
-- Provenance and verification
-
-### Phase 4
-
-- SDKs (Python, TypeScript, Go)
-- Enterprise identity (SPIFFE/OIDC)
-- Advanced registry and policy features
-
----
-
-## Design principles
-
-- **Action Runtime is canonical**
-- **One binary, clean internals**
-- **No raw credentials in agent space**
-- **Existing CLIs are adapters, not trust boundaries**
-- **Most integrations should be declarative**
-- **Adoption should be incremental**
-- **Governance should be built in, not bolted on**
-
----
-
-## FAQ
-
-### Is Kimbap just a vault?
-
-No. A vault stores secrets. Kimbap uses them safely to execute governed actions.
-
-### Is Kimbap just a proxy?
-
-No. Proxy mode is one adapter. The core is the action runtime.
-
-### Do services need official CLIs?
-
-No. If a service has a usable REST API, Kimbap should usually expose it as actions through a skill.
-
-### How do agents learn to use Kimbap?
-
-Run `kimbap agents setup` in your project directory. This auto-detects installed AI agents (Claude Code, OpenCode, Codex, Cursor) and writes skill files and operating rules into their config directories. Agents then discover available actions via `kimbap actions list` at runtime. For enforcement, combine with `kimbap run`, proxying, and policy.
-
----
-
-## Vision
-
-AI agents will not become useful in production because they can generate better text alone.
-
-They become useful when they can **take action safely** across real systems.
-
-Kimbap is the runtime for that layer.
 
 ---
 
@@ -518,69 +202,36 @@ Kimbap is the runtime for that layer.
 
 ### Prerequisites
 
-- Go 1.24 or higher
+- Go 1.24+
 - PostgreSQL 15+
 - Docker (optional, for containerized deployment)
 
 ### Installation
 
-1. Clone the repository:
-
 ```bash
 git clone https://github.com/dunialabs/kimbap-core.git
 cd kimbap-core
-```
-
-2. Install dependencies:
-
-```bash
 make deps
+cp .env.example .env   # edit with your configuration
+docker compose up -d   # start PostgreSQL
+make dev               # server starts on http://localhost:3002
 ```
 
-3. Set up environment variables:
+### Common commands
 
 ```bash
-cp .env.example .env
-# Edit .env with your configuration
+make dev              # start development server
+make build            # build the binary
+make run              # build and run
+make test             # run tests
+make clean            # clean build artifacts
 ```
-
-4. Start PostgreSQL:
 
 ```bash
-docker compose up -d
+docker compose up -d              # start PostgreSQL
+docker compose down               # stop PostgreSQL
+docker compose logs postgres      # view PostgreSQL logs
 ```
-
-5. Run the development server:
-
-```bash
-make dev
-```
-
-The server will start on `http://localhost:3002` by default.
-
-Connection precedence: **1. Database config → 2. `KIMBAP_CORE_URL` env var → 3. Error (no auto-detection)**.
-
-### Common Commands
-
-#### Development
-
-```bash
-make dev              # Start development server
-make build            # Build the binary
-make run              # Build and run
-make test             # Run tests
-make clean            # Clean build artifacts
-```
-
-#### Database
-
-```bash
-docker compose up -d              # Start PostgreSQL
-docker compose down               # Stop PostgreSQL
-docker compose logs postgres      # View PostgreSQL logs
-```
-
-#### Docker Deployment
 
 ```bash
 docker build -t kimbap-core .
@@ -624,8 +275,6 @@ kimbap-core/
 ---
 
 ## Companion Applications
-
-Kimbap Console and Kimbap Desk are companion apps that work with Kimbap Core.
 
 ### Kimbap Console (Admin Interface)
 
@@ -705,47 +354,25 @@ Kimbap Desk uses **Socket.IO** for capability updates, approval requests, and ge
 
 ## More Documentation
 
-- [**CLAUDE.md**](./CLAUDE.md)
-  Architecture notes, core patterns, and development guidance.
-
-- [**AGENTS.md**](./AGENTS.md)
-  Codex-oriented development workflow and knowledge base index.
-
-- [**CONTRIBUTING.md**](./CONTRIBUTING.md)
-  Contribution workflow, standards, and verification checklist.
-
-- [**Architecture & Internals**](./docs/architecture.md)
-  System architecture, project structure, request/data flows, and core design patterns.
-
-- [**Security & Permissions**](./docs/security.md)
-  Vault encryption model (PBKDF2 + AES-GCM) and the three-layer permission model with human-in-the-loop controls.
-
-- [**Deployment & Configuration**](./docs/deployment.md)
-  Quick start, Docker and Go binary deployment, environment variables, and common commands.
-
-- [**Reference**](./docs/reference.md)
-  Usage examples, API surfaces, testing notes, troubleshooting, contributing, and license.
+- [**CLAUDE.md**](./CLAUDE.md) — Architecture notes, core patterns, and development guidance.
+- [**AGENTS.md**](./AGENTS.md) — Codex-oriented development workflow and knowledge base index.
+- [**CONTRIBUTING.md**](./CONTRIBUTING.md) — Contribution workflow, standards, and verification checklist.
+- [**Architecture & Internals**](./docs/architecture.md) — System architecture, project structure, request/data flows, and core design patterns.
+- [**Security & Permissions**](./docs/security.md) — Vault encryption model (PBKDF2 + AES-GCM) and the three-layer permission model with human-in-the-loop controls.
+- [**Deployment & Configuration**](./docs/deployment.md) — Quick start, Docker and Go binary deployment, environment variables, and common commands.
+- [**Reference**](./docs/reference.md) — Usage examples, API surfaces, testing notes, troubleshooting, contributing, and license.
 
 ---
 
 ## Troubleshooting
 
-- **Docker not running**
-  Ensure Docker Desktop or your Docker daemon is running before using `docker compose up -d` or the Docker deployment script.
+- **Docker not running** — ensure Docker Desktop or your Docker daemon is running before `docker compose up -d`.
+- **Port already in use** — change `BACKEND_PORT` in `.env` if port 3002 is taken.
+- **Database connection failed** — check `DATABASE_URL` in `.env`, firewall rules, and confirm the PostgreSQL container is healthy. `docker compose logs postgres` helps.
+- **Authentication issues** — verify that `JWT_SECRET` is set consistently across Kimbap Core and any companion applications.
+- **Build errors** — run `make deps` to download Go dependencies. Check you're on Go 1.24+ with `go version`.
 
-- **Port already in use**
-  Change `BACKEND_PORT` in your `.env` file or update your Docker configuration if port `3002` is already taken.
-
-- **Database connection failed**
-  Check `DATABASE_URL` in your `.env` file, firewall rules, and confirm that the PostgreSQL container is healthy. `docker compose logs postgres` can help diagnose issues.
-
-- **Authentication issues**
-  Verify that `JWT_SECRET` and related auth configuration are set consistently across Kimbap Core and any companion applications.
-
-- **Build errors**
-  Run `make deps` to ensure all Go dependencies are downloaded. Check that you're using Go 1.24 or higher with `go version`.
-
-For more detailed troubleshooting, see the `docs/` folder or open an issue with logs and reproduction steps.
+For more, see the `docs/` folder or open an issue with logs and reproduction steps.
 
 ---
 
