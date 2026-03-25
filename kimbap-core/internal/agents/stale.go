@@ -16,35 +16,41 @@ import (
 // SyncState tracks when the last global/project sync was performed
 // and a hash of the rendered artifacts at that time.
 type SyncState struct {
-	Version       int       `yaml:"version"`
-	LastSync      time.Time `yaml:"last_sync"`
-	ArtifactHash  string    `yaml:"artifact_hash"`
-	SyncedSkills  []string  `yaml:"synced_skills"`
+	Version      int       `yaml:"version"`
+	LastSync     time.Time `yaml:"last_sync"`
+	ArtifactHash string    `yaml:"artifact_hash"`
+	SyncedSkills []string  `yaml:"synced_skills"`
 }
 
 // StaleCheckResult describes whether agent artifacts are out of date.
 type StaleCheckResult struct {
-	Stale        bool     `json:"stale"`
-	NewSkills    []string `json:"new_skills,omitempty"`
+	Stale         bool     `json:"stale"`
+	NewSkills     []string `json:"new_skills,omitempty"`
 	RemovedSkills []string `json:"removed_skills,omitempty"`
-	LastSync     string   `json:"last_sync,omitempty"`
+	LastSync      string   `json:"last_sync,omitempty"`
 }
 
-func syncStatePath() (string, error) {
+func syncStatePath(scope string) (string, error) {
+	scope = strings.TrimSpace(scope)
+	if scope == "" {
+		scope = "global"
+	}
+	sum := sha256.Sum256([]byte(scope))
+	fileName := hex.EncodeToString(sum[:]) + ".yaml"
 	if env := strings.TrimSpace(os.Getenv("XDG_CONFIG_HOME")); env != "" {
-		return filepath.Join(env, "kimbap", "sync-state.yaml"), nil
+		return filepath.Join(env, "kimbap", "sync-state", fileName), nil
 	}
 	home, err := os.UserHomeDir()
 	if err != nil {
 		return "", fmt.Errorf("resolve home directory: %w", err)
 	}
-	return filepath.Join(home, ".config", "kimbap", "sync-state.yaml"), nil
+	return filepath.Join(home, ".config", "kimbap", "sync-state", fileName), nil
 }
 
 // ReadSyncState loads the persisted sync state. Returns a zero-value state
 // if the file does not exist.
-func ReadSyncState() (*SyncState, error) {
-	path, err := syncStatePath()
+func ReadSyncState(scope string) (*SyncState, error) {
+	path, err := syncStatePath(scope)
 	if err != nil {
 		return nil, err
 	}
@@ -68,12 +74,12 @@ func ReadSyncState() (*SyncState, error) {
 }
 
 // WriteSyncState persists the sync state atomically.
-func WriteSyncState(state *SyncState) error {
+func WriteSyncState(scope string, state *SyncState) error {
 	if state == nil {
 		return fmt.Errorf("state is nil")
 	}
 
-	path, err := syncStatePath()
+	path, err := syncStatePath(scope)
 	if err != nil {
 		return err
 	}
@@ -91,7 +97,7 @@ func WriteSyncState(state *SyncState) error {
 
 // RecordSync updates the sync state with current skill names and artifact hash.
 // skillNames and artifactContents must be parallel slices of equal length.
-func RecordSync(skillNames []string, artifactContents []string) error {
+func RecordSync(scope string, skillNames []string, artifactContents []string) error {
 	sortedNames, sortedContents := sortByName(skillNames, artifactContents)
 	state := &SyncState{
 		Version:      1,
@@ -99,13 +105,13 @@ func RecordSync(skillNames []string, artifactContents []string) error {
 		ArtifactHash: computeArtifactHash(sortedContents),
 		SyncedSkills: sortedNames,
 	}
-	return WriteSyncState(state)
+	return WriteSyncState(scope, state)
 }
 
 // CheckStaleness compares current installed skills against the last recorded
 // sync state. Returns whether artifacts are stale and what changed.
-func CheckStaleness(currentSkillNames []string, currentArtifactContents []string) (*StaleCheckResult, error) {
-	state, err := ReadSyncState()
+func CheckStaleness(scope string, currentSkillNames []string, currentArtifactContents []string) (*StaleCheckResult, error) {
+	state, err := ReadSyncState(scope)
 	if err != nil {
 		return nil, err
 	}

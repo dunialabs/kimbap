@@ -384,7 +384,7 @@ func printStaleWarningIfNeeded(cfg *config.KimbapConfig) {
 		contents = append(contents, md)
 	}
 
-	result, err := agents.CheckStaleness(names, contents)
+	result, err := agents.CheckStaleness(projectSyncScope("."), names, contents)
 	if err != nil {
 		return
 	}

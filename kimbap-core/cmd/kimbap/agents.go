@@ -267,7 +267,7 @@ func runAgentsSync(projectDir string, rawAgentKinds string, force bool, dryRun b
 	}
 
 	if !dryRun && len(syncResults) > 0 {
-		recordProjectSyncState(installedSkills)
+		recordProjectSyncState(projectSyncScope(projectDir), installedSkills)
 	}
 
 	return agentSetupResult{
@@ -346,7 +346,19 @@ func (i staticSkillInstaller) List() ([]agents.InstalledSkill, error) {
 	return i.skills, nil
 }
 
-func recordProjectSyncState(installedSkills []agents.InstalledSkill) {
+func projectSyncScope(projectDir string) string {
+	normalizedProjectDir := strings.TrimSpace(projectDir)
+	if normalizedProjectDir == "" {
+		normalizedProjectDir = "."
+	}
+	absProjectDir, err := filepath.Abs(normalizedProjectDir)
+	if err == nil {
+		return absProjectDir
+	}
+	return normalizedProjectDir
+}
+
+func recordProjectSyncState(scope string, installedSkills []agents.InstalledSkill) {
 	names := make([]string, 0, len(installedSkills))
 	contents := make([]string, 0, len(installedSkills))
 	for _, s := range installedSkills {
@@ -354,7 +366,7 @@ func recordProjectSyncState(installedSkills []agents.InstalledSkill) {
 		contents = append(contents, s.Content)
 	}
 
-	if err := agents.RecordSync(names, contents); err != nil {
+	if err := agents.RecordSync(scope, names, contents); err != nil {
 		_, _ = fmt.Fprintf(os.Stderr, "warning: failed to record sync state: %v\n", err)
 	}
 }

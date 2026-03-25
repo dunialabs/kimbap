@@ -1,6 +1,8 @@
 package agents
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
 	"path/filepath"
 	"reflect"
 	"strings"
@@ -10,9 +12,9 @@ import (
 
 func TestComputeArtifactHash(t *testing.T) {
 	tests := []struct {
-		name     string
-		contents []string
-		again    []string
+		name      string
+		contents  []string
+		again     []string
 		different []string
 	}{
 		{
@@ -48,7 +50,7 @@ func TestSyncStateReadWrite(t *testing.T) {
 	t.Setenv("XDG_CONFIG_HOME", tmp)
 	t.Setenv("HOME", tmp)
 
-	state, err := ReadSyncState()
+	state, err := ReadSyncState("project-a")
 	if err != nil {
 		t.Fatalf("read initial sync state: %v", err)
 	}
@@ -66,11 +68,11 @@ func TestSyncStateReadWrite(t *testing.T) {
 		ArtifactHash: "sha256:abc",
 		SyncedSkills: []string{"github", "slack"},
 	}
-	if err := WriteSyncState(write); err != nil {
+	if err := WriteSyncState("project-a", write); err != nil {
 		t.Fatalf("write sync state: %v", err)
 	}
 
-	readBack, err := ReadSyncState()
+	readBack, err := ReadSyncState("project-a")
 	if err != nil {
 		t.Fatalf("read sync state after write: %v", err)
 	}
@@ -85,6 +87,27 @@ func TestSyncStateReadWrite(t *testing.T) {
 	}
 	if !reflect.DeepEqual(readBack.SyncedSkills, []string{"github", "slack"}) {
 		t.Fatalf("unexpected synced skills: %+v", readBack.SyncedSkills)
+	}
+}
+
+func TestSyncStateScopesDoNotCollide(t *testing.T) {
+	tmp := t.TempDir()
+	t.Setenv("XDG_CONFIG_HOME", tmp)
+	t.Setenv("HOME", tmp)
+
+	if err := RecordSync("project-a", []string{"github"}, []string{"a"}); err != nil {
+		t.Fatalf("record project-a sync: %v", err)
+	}
+	if err := RecordSync("project-b", []string{"slack"}, []string{"b"}); err != nil {
+		t.Fatalf("record project-b sync: %v", err)
+	}
+
+	result, err := CheckStaleness("project-a", []string{"github"}, []string{"a"})
+	if err != nil {
+		t.Fatalf("check project-a staleness: %v", err)
+	}
+	if result.Stale {
+		t.Fatalf("expected project-a state to remain isolated, got %+v", result)
 	}
 }
 
@@ -114,7 +137,7 @@ func TestCheckStaleness(t *testing.T) {
 			name: "synced then no change not stale",
 			prepare: func(t *testing.T) {
 				t.Helper()
-				if err := RecordSync([]string{"github", "slack"}, []string{"a", "b"}); err != nil {
+				if err := RecordSync("project-a", []string{"github", "slack"}, []string{"a", "b"}); err != nil {
 					t.Fatalf("record sync: %v", err)
 				}
 			},
@@ -129,7 +152,7 @@ func TestCheckStaleness(t *testing.T) {
 			name: "synced then new skill added",
 			prepare: func(t *testing.T) {
 				t.Helper()
-				if err := RecordSync([]string{"github"}, []string{"a"}); err != nil {
+				if err := RecordSync("project-a", []string{"github"}, []string{"a"}); err != nil {
 					t.Fatalf("record sync: %v", err)
 				}
 			},
@@ -144,7 +167,7 @@ func TestCheckStaleness(t *testing.T) {
 			name: "synced then skill removed",
 			prepare: func(t *testing.T) {
 				t.Helper()
-				if err := RecordSync([]string{"github", "slack"}, []string{"a", "b"}); err != nil {
+				if err := RecordSync("project-a", []string{"github", "slack"}, []string{"a", "b"}); err != nil {
 					t.Fatalf("record sync: %v", err)
 				}
 			},
@@ -159,7 +182,7 @@ func TestCheckStaleness(t *testing.T) {
 			name: "synced then content changed same names",
 			prepare: func(t *testing.T) {
 				t.Helper()
-				if err := RecordSync([]string{"github"}, []string{"v1"}); err != nil {
+				if err := RecordSync("project-a", []string{"github"}, []string{"v1"}); err != nil {
 					t.Fatalf("record sync: %v", err)
 				}
 			},
@@ -180,7 +203,7 @@ func TestCheckStaleness(t *testing.T) {
 
 			tt.prepare(t)
 
-			result, err := CheckStaleness(tt.currentNames, tt.currentContents)
+			result, err := CheckStaleness("project-a", tt.currentNames, tt.currentContents)
 			if err != nil {
 				t.Fatalf("check staleness: %v", err)
 			}
@@ -205,9 +228,9 @@ func TestCheckStaleness(t *testing.T) {
 
 func TestFormatStaleWarning(t *testing.T) {
 	tests := []struct {
-		name    string
-		result  *StaleCheckResult
-		empty   bool
+		name     string
+		result   *StaleCheckResult
+		empty    bool
 		contains []string
 	}{
 		{
@@ -301,11 +324,12 @@ func TestSyncStatePathUsesXDGConfigHome(t *testing.T) {
 	t.Setenv("XDG_CONFIG_HOME", xdg)
 	t.Setenv("HOME", filepath.Join(base, "other-home"))
 
-	path, err := syncStatePath()
+	path, err := syncStatePath("project-a")
 	if err != nil {
 		t.Fatalf("syncStatePath: %v", err)
 	}
-	expected := filepath.Join(xdg, "kimbap", "sync-state.yaml")
+	sum := sha256.Sum256([]byte("project-a"))
+	expected := filepath.Join(xdg, "kimbap", "sync-state", hex.EncodeToString(sum[:])+".yaml")
 	if path != expected {
 		t.Fatalf("expected %q, got %q", expected, path)
 	}
