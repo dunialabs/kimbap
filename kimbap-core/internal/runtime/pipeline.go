@@ -219,10 +219,8 @@ func (r *Runtime) ResumeApproved(ctx context.Context, approvalRequestID string) 
 
 	result := r.executeFromCredentialsWithState(ctx, *held, nil, r.now(), "require_approval", approvalRequestID)
 
-	if result.Status == actions.StatusSuccess || result.Status == actions.StatusApprovalRequired {
-		if removeErr := r.HeldExecutionStore.Remove(ctx, approvalRequestID); removeErr != nil {
-			_, _ = fmt.Fprintf(os.Stderr, "warning: failed to remove held execution %s: %v\n", approvalRequestID, removeErr)
-		}
+	if removeErr := r.HeldExecutionStore.Remove(ctx, approvalRequestID); removeErr != nil {
+		_, _ = fmt.Fprintf(os.Stderr, "warning: failed to remove held execution %s: %v\n", approvalRequestID, removeErr)
 	}
 
 	return result

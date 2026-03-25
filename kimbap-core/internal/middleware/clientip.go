@@ -13,7 +13,7 @@ func ClientIPFromRequest(r *http.Request) string {
 
 	if xff := strings.TrimSpace(r.Header.Get("X-Forwarded-For")); xff != "" {
 		parts := strings.Split(xff, ",")
-		for i := len(parts) - 1; i >= 0; i-- {
+		for i := 0; i < len(parts); i++ {
 			candidate := strings.TrimSpace(parts[i])
 			if candidate != "" {
 				return candidate

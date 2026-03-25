@@ -945,6 +945,149 @@ func TestServerUnauthenticatedRequestReturns401(t *testing.T) {
 	if resp.StatusCode != http.StatusUnauthorized {
 		t.Fatalf("expected 401, got %d", resp.StatusCode)
 	}
+	if got := resp.Header.Get("WWW-Authenticate"); !strings.Contains(got, `Bearer realm="kimbap-core"`) {
+		t.Fatalf("expected WWW-Authenticate bearer challenge, got %q", got)
+	}
+}
+
+func TestServerInvalidTokenReturns401WithBearerChallenge(t *testing.T) {
+	ts, _ := newTestAPIServer(t)
+
+	req, _ := http.NewRequest(http.MethodGet, ts.URL+"/v1/tokens", nil)
+	req.Header.Set("Authorization", "Bearer ktk_invalid_token_value")
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatalf("invalid token request: %v", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusUnauthorized {
+		t.Fatalf("expected 401, got %d", resp.StatusCode)
+	}
+	challenge := resp.Header.Get("WWW-Authenticate")
+	if !strings.Contains(challenge, `error="invalid_token"`) {
+		t.Fatalf("expected invalid_token challenge, got %q", challenge)
+	}
+}
+
+func TestServerInsufficientScopeIncludesBearerScopeHint(t *testing.T) {
+	ts, _, st := newTestAPIServerWithStore(t)
+
+	rawLimited := "ktk_limited_scope_token_for_tests"
+	limited := newBootstrapTokenRecord("tenant-a", "limited-agent", rawLimited)
+	limited.Scopes = `["tools:read"]`
+	if err := st.CreateToken(context.Background(), limited); err != nil {
+		t.Fatalf("seed limited token: %v", err)
+	}
+
+	req, _ := http.NewRequest(http.MethodGet, ts.URL+"/v1/tokens", nil)
+	req.Header.Set("Authorization", "Bearer "+rawLimited)
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatalf("insufficient scope request: %v", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusForbidden {
+		t.Fatalf("expected 403, got %d", resp.StatusCode)
+	}
+	challenge := resp.Header.Get("WWW-Authenticate")
+	if !strings.Contains(challenge, `error="insufficient_scope"`) {
+		t.Fatalf("expected insufficient_scope challenge, got %q", challenge)
+	}
+	if !strings.Contains(challenge, `scope="tokens:read"`) {
+		t.Fatalf("expected required scope hint, got %q", challenge)
+	}
+}
+
+func TestProtectedRoutesRequireBearerAuth(t *testing.T) {
+	ts, _ := newTestAPIServer(t)
+
+	tests := []struct {
+		name   string
+		method string
+		path   string
+		body   io.Reader
+	}{
+		{name: "execute action", method: http.MethodPost, path: "/v1/actions/github/issues.create:execute", body: strings.NewReader(`{"input":{}}`)},
+		{name: "validate action", method: http.MethodPost, path: "/v1/actions/validate", body: strings.NewReader(`{"schema":{"type":"object"},"input":{}}`)},
+		{name: "list vault", method: http.MethodGet, path: "/v1/vault"},
+		{name: "create token", method: http.MethodPost, path: "/v1/tokens", body: strings.NewReader(`{"agent_name":"a"}`)},
+		{name: "list tokens", method: http.MethodGet, path: "/v1/tokens"},
+		{name: "inspect token", method: http.MethodGet, path: "/v1/tokens/st_missing"},
+		{name: "revoke token", method: http.MethodDelete, path: "/v1/tokens/st_missing"},
+		{name: "get policy", method: http.MethodGet, path: "/v1/policies"},
+		{name: "set policy", method: http.MethodPut, path: "/v1/policies", body: strings.NewReader(`{"document":"allow"}`)},
+		{name: "evaluate policy", method: http.MethodPost, path: "/v1/policies:evaluate", body: strings.NewReader(`{"agent_name":"a"}`)},
+		{name: "list approvals", method: http.MethodGet, path: "/v1/approvals"},
+		{name: "approve", method: http.MethodPost, path: "/v1/approvals/apr_test:approve"},
+		{name: "deny", method: http.MethodPost, path: "/v1/approvals/apr_test:deny"},
+		{name: "query audit", method: http.MethodGet, path: "/v1/audit"},
+		{name: "export audit", method: http.MethodGet, path: "/v1/audit/export"},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			req, _ := http.NewRequest(tc.method, ts.URL+tc.path, tc.body)
+			if tc.body != nil {
+				req.Header.Set("Content-Type", "application/json")
+			}
+			resp, err := http.DefaultClient.Do(req)
+			if err != nil {
+				t.Fatalf("request failed: %v", err)
+			}
+			defer resp.Body.Close()
+			if resp.StatusCode != http.StatusUnauthorized {
+				b, _ := io.ReadAll(resp.Body)
+				t.Fatalf("expected 401, got %d body=%s", resp.StatusCode, string(b))
+			}
+			challenge := resp.Header.Get("WWW-Authenticate")
+			if !strings.Contains(challenge, `Bearer realm="kimbap-core"`) {
+				t.Fatalf("expected bearer challenge, got %q", challenge)
+			}
+		})
+	}
+}
+
+func TestServerTokenNotFoundParityMissingVsCrossTenant(t *testing.T) {
+	ts, rawBootstrap, st := newTestAPIServerWithStore(t)
+
+	foreignRaw := "ktk_foreign_token_for_parity_tests"
+	foreign := newBootstrapTokenRecord("tenant-b", "foreign-agent", foreignRaw)
+	if err := st.CreateToken(context.Background(), foreign); err != nil {
+		t.Fatalf("seed foreign token: %v", err)
+	}
+
+	request := func(path string) (int, map[string]any) {
+		req, _ := http.NewRequest(http.MethodGet, ts.URL+path, nil)
+		req.Header.Set("Authorization", "Bearer "+rawBootstrap)
+		resp, err := http.DefaultClient.Do(req)
+		if err != nil {
+			t.Fatalf("request failed: %v", err)
+		}
+		defer resp.Body.Close()
+		var payload map[string]any
+		if err := json.NewDecoder(resp.Body).Decode(&payload); err != nil {
+			t.Fatalf("decode payload: %v", err)
+		}
+		return resp.StatusCode, payload
+	}
+
+	missingStatus, missingPayload := request("/v1/tokens/st_missing_token")
+	foreignStatus, foreignPayload := request("/v1/tokens/" + foreign.ID)
+
+	if missingStatus != http.StatusNotFound || foreignStatus != http.StatusNotFound {
+		t.Fatalf("expected both statuses 404, got missing=%d foreign=%d", missingStatus, foreignStatus)
+	}
+
+	missingError, _ := missingPayload["error"].(map[string]any)
+	foreignError, _ := foreignPayload["error"].(map[string]any)
+	if missingError["code"] != foreignError["code"] {
+		t.Fatalf("expected same error code, got missing=%v foreign=%v", missingError["code"], foreignError["code"])
+	}
+	if missingError["message"] != foreignError["message"] {
+		t.Fatalf("expected same error message, got missing=%v foreign=%v", missingError["message"], foreignError["message"])
+	}
 }
 
 func TestNewHTTPServerTimeoutDefaults(t *testing.T) {

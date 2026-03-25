@@ -3,6 +3,7 @@ package api
 import (
 	"context"
 	"errors"
+	"fmt"
 	"net/http"
 	"os"
 	"strings"
@@ -24,21 +25,20 @@ func BearerAuth(tokenService *auth.TokenService) func(next http.Handler) http.Ha
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			if tokenService == nil {
+				setBearerAuthHeader(w, "invalid_token", "token service unavailable", "")
 				writeEnvelopeError(w, r, actions.NewExecutionError(actions.ErrUnauthenticated, "token service unavailable", http.StatusUnauthorized, false, nil))
 				return
 			}
 			authz := strings.TrimSpace(r.Header.Get("Authorization"))
 			parts := strings.Fields(authz)
 			if len(parts) != 2 || !strings.EqualFold(parts[0], "Bearer") || strings.TrimSpace(parts[1]) == "" {
+				setBearerAuthHeader(w, "invalid_request", "bearer token required", "")
 				writeEnvelopeError(w, r, actions.NewExecutionError(actions.ErrUnauthenticated, "bearer token required", http.StatusUnauthorized, false, nil))
 				return
 			}
 			principal, err := tokenService.Validate(r.Context(), strings.TrimSpace(parts[1]))
 			if err != nil {
 				status := http.StatusUnauthorized
-				if errors.Is(err, auth.ErrExpiredToken) || errors.Is(err, auth.ErrRevokedToken) {
-					status = http.StatusForbidden
-				}
 				msg := "authentication failed"
 				if errors.Is(err, auth.ErrExpiredToken) {
 					msg = "token expired"
@@ -47,6 +47,7 @@ func BearerAuth(tokenService *auth.TokenService) func(next http.Handler) http.Ha
 				} else if errors.Is(err, auth.ErrInvalidToken) {
 					msg = "invalid token"
 				}
+				setBearerAuthHeader(w, "invalid_token", msg, "")
 				writeEnvelopeError(w, r, actions.NewExecutionError(actions.ErrUnauthenticated, msg, status, false, nil))
 				return
 			}
@@ -160,16 +161,38 @@ func RequireScope(scope string) func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			principal := principalFromContext(r.Context())
 			if principal == nil {
+				setBearerAuthHeader(w, "invalid_token", "authentication required", "")
 				writeEnvelopeError(w, r, actions.NewExecutionError(actions.ErrUnauthenticated, "authentication required", http.StatusUnauthorized, false, nil))
 				return
 			}
 			if !principalHasScope(principal, scope) {
+				setBearerAuthHeader(w, "insufficient_scope", "insufficient scope", scope)
 				writeEnvelopeError(w, r, actions.NewExecutionError(actions.ErrUnauthorized, "insufficient scope: "+scope, http.StatusForbidden, false, nil))
 				return
 			}
 			next.ServeHTTP(w, r)
 		})
 	}
+}
+
+func setBearerAuthHeader(w http.ResponseWriter, errorCode, errorDescription, scope string) {
+	parts := []string{`Bearer realm="kimbap-core"`}
+	if v := strings.TrimSpace(errorCode); v != "" {
+		parts = append(parts, fmt.Sprintf(`error="%s"`, sanitizeAuthHeaderValue(v)))
+	}
+	if v := strings.TrimSpace(errorDescription); v != "" {
+		parts = append(parts, fmt.Sprintf(`error_description="%s"`, sanitizeAuthHeaderValue(v)))
+	}
+	if v := strings.TrimSpace(scope); v != "" {
+		parts = append(parts, fmt.Sprintf(`scope="%s"`, sanitizeAuthHeaderValue(v)))
+	}
+	w.Header().Set("WWW-Authenticate", strings.Join(parts, ", "))
+}
+
+func sanitizeAuthHeaderValue(v string) string {
+	v = strings.ReplaceAll(v, `\`, ``)
+	v = strings.ReplaceAll(v, `"`, ``)
+	return v
 }
 
 func principalHasScope(principal *auth.Principal, scope string) bool {

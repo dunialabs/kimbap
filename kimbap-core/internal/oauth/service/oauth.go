@@ -209,7 +209,7 @@ func (s *OAuthService) HandleIntrospect(ctx context.Context, req oauthtypes.Toke
 	}
 
 	var tokenRecord database.OAuthToken
-	if err := s.db.WithContext(ctx).Where("access_token = ?", req.Token).First(&tokenRecord).Error; err != nil {
+	if err := s.db.WithContext(ctx).Where("access_token = ?", hashRefreshToken(req.Token)).First(&tokenRecord).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return map[string]any{"active": false}, nil, http.StatusOK
 		}
@@ -305,7 +305,7 @@ func (s *OAuthService) HandleRevoke(ctx context.Context, req oauthtypes.TokenRev
 		}
 	}
 	if req.TokenTypeHint == "access_token" || req.TokenTypeHint == "" {
-		if err := query.Where("access_token = ?", req.Token).First(&token).Error; err == nil {
+		if err := query.Where("access_token = ?", hashRefreshToken(req.Token)).First(&token).Error; err == nil {
 			if clientID == "" || token.ClientID == clientID {
 				if err := s.db.WithContext(ctx).Model(&database.OAuthToken{}).Where("token_id = ?", token.TokenID).Update("revoked", true).Error; err != nil {
 					return &oauthtypes.OAuthErrorResponse{Error: "server_error", ErrorDescription: "Internal server error"}, http.StatusInternalServerError
@@ -710,7 +710,7 @@ func (s *OAuthService) handleRefreshTokenGrant(ctx context.Context, req oauthtyp
 	accessExp := time.Now().Add(oauthtypes.AccessTokenLifetime * time.Second)
 	scopeJSON, _ := json.Marshal(newScopes)
 	if err := s.db.WithContext(ctx).Model(&database.OAuthToken{}).Where("token_id = ?", token.TokenID).Updates(map[string]any{
-		"access_token":            access,
+		"access_token":            hashRefreshToken(access),
 		"access_token_expires_at": accessExp,
 		"scopes":                  scopeJSON,
 	}).Error; err != nil {
@@ -718,12 +718,13 @@ func (s *OAuthService) handleRefreshTokenGrant(ctx context.Context, req oauthtyp
 	}
 
 	response := &oauthtypes.TokenResponse{
-		AccessToken:  access,
+		AccessToken:  hashRefreshToken(access),
 		TokenType:    "Bearer",
 		ExpiresIn:    oauthtypes.AccessTokenLifetime,
 		RefreshToken: req.RefreshToken,
 		Scope:        strings.Join(newScopes, " "),
 	}
+	response.AccessToken = access
 	if token.Resource != nil {
 		response.Resource = *token.Resource
 	}

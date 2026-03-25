@@ -112,7 +112,7 @@ func BuildCustomStdioRunnerLaunchPlan(originalLaunchConfig map[string]any, runne
 	}
 
 	for _, entry := range toStringEnvEntries(originalLaunchConfig["env"]) {
-		dockerArgs = append(dockerArgs, "-e", entry.Key)
+		dockerArgs = append(dockerArgs, "-e", entry.Key+"="+entry.Value)
 	}
 
 	dockerArgs = append(dockerArgs, runnerImage, originalCommand)

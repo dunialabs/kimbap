@@ -275,11 +275,11 @@ func (s *Server) requireTokenForTenant(w http.ResponseWriter, r *http.Request, t
 	}
 	tok, err := s.store.GetToken(r.Context(), tokenID)
 	if err != nil {
-		status := http.StatusInternalServerError
 		if errors.Is(err, store.ErrNotFound) {
-			status = http.StatusNotFound
+			writeEnvelopeError(w, r, actions.NewExecutionError(actions.ErrActionNotFound, "token not found", http.StatusNotFound, false, nil))
+			return nil, false
 		}
-		writeEnvelopeError(w, r, actions.NewExecutionError(actions.ErrActionNotFound, sanitizeErrMsg(err, status), status, false, nil))
+		writeEnvelopeError(w, r, actions.NewExecutionError(actions.ErrDownstreamUnavailable, "internal server error", http.StatusInternalServerError, false, nil))
 		return nil, false
 	}
 	if strings.TrimSpace(tok.TenantID) != strings.TrimSpace(tenantID) {

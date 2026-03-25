@@ -2,6 +2,8 @@ package repository
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 
@@ -23,7 +25,7 @@ func NewOAuthTokenRepository(db *gorm.DB) *OAuthTokenRepository {
 
 func (r *OAuthTokenRepository) FindByAccessToken(ctx context.Context, accessToken string) (*security.OAuthTokenRecord, error) {
 	var token database.OAuthToken
-	err := r.db.WithContext(ctx).Where("access_token = ?", accessToken).First(&token).Error
+	err := r.db.WithContext(ctx).Where("access_token = ?", hashAccessToken(accessToken)).First(&token).Error
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, nil
@@ -44,4 +46,9 @@ func (r *OAuthTokenRepository) FindByAccessToken(ctx context.Context, accessToke
 		ExpiresAt:   token.AccessTokenExpiresAt,
 		Revoked:     token.Revoked,
 	}, nil
+}
+
+func hashAccessToken(raw string) string {
+	sum := sha256.Sum256([]byte(raw))
+	return hex.EncodeToString(sum[:])
 }
