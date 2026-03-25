@@ -84,7 +84,7 @@ services:
       DATABASE_URL: postgresql://kimbap:kimbap123@postgres:5432/kimbap_db
       NODE_ENV: production
       # Kimbap Core connection
-      KIMBAP_CORE_URL: ${KIMBAP_CORE_URL:-${MCP_GATEWAY_URL:-http://kimbap-core:3002}}
+      KIMBAP_CORE_URL: ${KIMBAP_CORE_URL:-http://kimbap-core:3002}
     entrypoint: ['/app/docker/docker-entrypoint.sh']
     depends_on:
       postgres:

@@ -209,7 +209,7 @@ async function getKimbapCoreConfig(): Promise<{ host: string; port: number | nul
  * Get proxy admin API URL
  * New 3-tier priority system:
  * 1. Database config (user manual configuration via protocol-10022)
- * 2. KIMBAP_CORE_URL environment variable (with deprecated MCP_GATEWAY_URL fallback)
+ * 2. KIMBAP_CORE_URL environment variable
  * 3. No config found - throw error (auto-detection is handled by protocol-10021)
  *
  * Host from database is expected to already contain protocol and be normalized
@@ -260,20 +260,18 @@ async function getProxyAdminUrl(): Promise<string> {
       throw error;
     }
 
-    // Priority 2: Try KIMBAP_CORE_URL (primary) or legacy MCP_GATEWAY_URL as fallback
-    const kimbapCoreUrl = (process.env.KIMBAP_CORE_URL || process.env.MCP_GATEWAY_URL);
-    if (!process.env.KIMBAP_CORE_URL && process.env.MCP_GATEWAY_URL) {
-      console.warn('[PROXY API] DEPRECATED: MCP_GATEWAY_URL is deprecated. Use KIMBAP_CORE_URL instead.');
-    }
-    if (kimbapCoreUrl) {
-      console.log(`[PROXY API] No database config found, trying KIMBAP_CORE_URL: ${kimbapCoreUrl}`);
+    // Priority 2: Try KIMBAP_CORE_URL environment variable
+    const kimbapCoreUrl = process.env.KIMBAP_CORE_URL?.trim();
+    const normalizedKimbapCoreUrl = kimbapCoreUrl?.replace(/\/+$/, '');
+    if (normalizedKimbapCoreUrl) {
+      console.log(`[PROXY API] No database config found, trying KIMBAP_CORE_URL: ${normalizedKimbapCoreUrl}`);
 
-      // Validate and cache the URL (works for both primary and deprecated fallback)
-      const validation = await validateAndCacheMcpGatewayUrl(kimbapCoreUrl);
+      // Validate and cache the URL before constructing /admin
+      const validation = await validateAndCacheMcpGatewayUrl(normalizedKimbapCoreUrl);
 
       if (validation.isValid && validation.host && validation.port) {
-        // Build admin URL from validated URL (primary or fallback)
-        const adminUrl = `${kimbapCoreUrl}/admin`;
+        // Build admin URL from normalized URL
+        const adminUrl = `${normalizedKimbapCoreUrl}/admin`;
         console.log(`[PROXY API] Using KIMBAP_CORE_URL (validated): ${adminUrl}`);
         return adminUrl;
       } else {
@@ -285,7 +283,7 @@ async function getProxyAdminUrl(): Promise<string> {
 
     // Priority 3: No config found anywhere - throw error
     console.error(
-      `[PROXY API] No Kimbap Core configuration found (database empty, KIMBAP_CORE_URL/MCP_GATEWAY_URL invalid/missing)`,
+      `[PROXY API] No Kimbap Core configuration found (database empty, KIMBAP_CORE_URL invalid/missing)`,
     );
     console.error(
       `[PROXY API] Please configure Kimbap Core via protocol-10021 (auto-detection) or protocol-10022 (manual config)`,

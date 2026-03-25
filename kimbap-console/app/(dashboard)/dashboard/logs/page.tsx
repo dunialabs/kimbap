@@ -689,7 +689,9 @@ function LogsPageContent() {
                 )}
                 <span className="block text-xs mt-1">
                   {isRealtimePaused
-                    ? 'Live updates pause while searching or browsing older pages.'
+                    ? activeTab === 'statistics'
+                      ? 'Live updates paused in Statistics view.'
+                      : 'Live updates pause while searching or browsing older pages.'
                     : realtimeHealthy
                     ? 'Live updates run every 10 seconds.'
                     : 'Realtime updates need refresh. Use Refresh to load the latest logs.'}

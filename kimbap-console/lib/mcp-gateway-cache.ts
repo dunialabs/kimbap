@@ -1,6 +1,6 @@
 /**
  * KIMBAP Core URL validation and caching utilities
- * Uses KIMBAP_CORE_URL as primary source, with MCP_GATEWAY_URL as a deprecated fallback.
+ * Uses KIMBAP_CORE_URL to validate and cache the Core service connection.
  */
 
 interface CacheEntry {
@@ -48,7 +48,7 @@ function isCacheValid(entry: CacheEntry): boolean {
 }
 
 /**
- * Validate KIMBAP_CORE_URL (or deprecated MCP_GATEWAY_URL) format
+ * Validate KIMBAP_CORE_URL format
  * Returns validation result without making HTTP requests
  */
 function validateFormat(url: string): { isValid: boolean; errorMessage?: string } {
@@ -98,7 +98,7 @@ function validateFormat(url: string): { isValid: boolean; errorMessage?: string 
 }
 
 /**
- * Validate availability of KIMBAP_CORE_URL (or deprecated MCP_GATEWAY_URL) and verify it's Kimbap Core service
+ * Validate availability of KIMBAP_CORE_URL and verify it's Kimbap Core service
  * Makes actual HTTP request to check if service is responding
  */
 async function validateAvailability(url: string): Promise<ValidationResult> {
@@ -188,7 +188,7 @@ async function validateAvailability(url: string): Promise<ValidationResult> {
 }
 
 /**
- * Validate and cache KIMBAP_CORE_URL (or MCP_GATEWAY_URL)
+ * Validate and cache KIMBAP_CORE_URL
  *
  * Performs comprehensive validation:
  * 1. Format validation (URL syntax, protocol, no /admin suffix)
@@ -200,7 +200,7 @@ async function validateAvailability(url: string): Promise<ValidationResult> {
  * - invalid_format: Permanent cache (until service restart)
  * - unreachable: 1-minute cache, then retry
  *
- * @param url - KIMBAP_CORE_URL (or MCP_GATEWAY_URL) to validate
+ * @param url - KIMBAP_CORE_URL to validate
  * @returns Validation result with host and port if successful
  */
 export async function validateAndCacheMcpGatewayUrl(url: string): Promise<ValidationResult> {

@@ -35,7 +35,7 @@ services:
       DATABASE_URL: postgresql://${POSTGRES_USER:-kimbap}:${POSTGRES_PASSWORD:-kimbap123}@postgres-console:5432/${POSTGRES_DB:-kimbap_console}?schema=public
       PORT: ${CONSOLE_PORT:-3000}
       JWT_SECRET: ${CONSOLE_JWT_SECRET:-your-console-jwt-secret-change-in-production-min-32-chars}
-      KIMBAP_CORE_URL: ${KIMBAP_CORE_URL:-${MCP_GATEWAY_URL:-http://kimbap-core:3002}}
+      KIMBAP_CORE_URL: ${KIMBAP_CORE_URL:-http://kimbap-core:3002}
       PROXY_ADMIN_URL: ${PROXY_ADMIN_URL:-http://kimbap-core:3002/admin}
       LOG_SYNC_ENABLED: ${LOG_SYNC_ENABLED:-true}
       LOG_SYNC_INTERVAL_MINUTES: ${LOG_SYNC_INTERVAL_MINUTES:-2}

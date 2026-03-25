@@ -57,7 +57,7 @@ services:
       DB_NAME: ${KIMBAP_DB_NAME:-kimbap_db}
       DATABASE_URL: postgresql://kimbap:${KIMBAP_DB_PASSWORD:-kimbap123}@postgres:5432/${KIMBAP_DB_NAME:-kimbap_db}
       NODE_ENV: production
-      KIMBAP_CORE_URL: ${KIMBAP_CORE_URL:-${MCP_GATEWAY_URL:-http://kimbap-core:3002}}
+      KIMBAP_CORE_URL: ${KIMBAP_CORE_URL:-http://kimbap-core:3002}
     entrypoint: ['/app/docker/docker-entrypoint.sh']
     depends_on:
       postgres:

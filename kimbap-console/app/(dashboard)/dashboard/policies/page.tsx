@@ -835,7 +835,7 @@ export default function PoliciesPage() {
                   <TableHead>Policy</TableHead>
                   <TableHead>What happens</TableHead>
                   <TableHead>Updated</TableHead>
-                  <TableHead className="text-center">Active</TableHead>
+                  <TableHead className="text-center">Status</TableHead>
                   <TableHead className="text-right">Actions</TableHead>
                 </TableRow>
               </TableHeader>
@@ -891,7 +891,11 @@ export default function PoliciesPage() {
                         </span>
                       </TableCell>
                       <TableCell className="text-center">
-                        <Switch checked={p.status === 'active'} onCheckedChange={() => handleToggle(p)} />
+                        <Switch
+                          checked={p.status === 'active'}
+                          onCheckedChange={() => handleToggle(p)}
+                          aria-label={p.status === 'active' ? 'Deactivate policy' : 'Activate policy'}
+                        />
                       </TableCell>
                       <TableCell className="text-right">
                         <div className="flex items-center justify-end gap-1">

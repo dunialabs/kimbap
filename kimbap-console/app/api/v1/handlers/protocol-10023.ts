@@ -126,10 +126,9 @@ export async function handleProtocol10023(body: Request10023): Promise<Response1
       // Keep manualConnection as empty string
     }
 
-    // Fallback to KIMBAP_CORE_URL (primary) or MCP_GATEWAY_URL env var when database config is empty
-    // This matches the 3-tier priority used in proxy-api.ts and protocol-10021
+    // Fallback to KIMBAP_CORE_URL env var when database config is empty
     if (!manualConnection) {
-      const mcpGatewayUrl = (process.env.KIMBAP_CORE_URL || process.env.MCP_GATEWAY_URL)?.trim();
+      const mcpGatewayUrl = process.env.KIMBAP_CORE_URL?.trim();
       if (mcpGatewayUrl) {
         try {
           const parsed = new URL(mcpGatewayUrl);

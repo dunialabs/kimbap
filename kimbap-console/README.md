@@ -6,7 +6,7 @@ Kimbap Console — Operations Console for the Kimbap platform. A web app for aud
 - 🔐 **Secure auth** – email verification with JWT
 - 👥 **Role-based users** – Owner, Admin, Member permissions
 - 🔑 **Token management** – create and manage API access tokens
-- 🛠️ **Tool configuration** – configure MCP tools and permissions
+- 🛠️ **Tool configuration** – configure tools and permissions
 - 📊 **Live monitoring** – real-time server performance and usage
 - 💾 **Backup and restore** – cloud and local data recovery
 
@@ -61,7 +61,6 @@ npm run docker:find-ports
 docker compose --env-file .env.ports up -d
 ```
 
-See [DOCKER_USAGE.md](./DOCKER_USAGE.md) for details.
 
 #### 💻 Option 2: Local development
 
@@ -86,7 +85,6 @@ Edit `.env.local` as needed:
 ```env
 DATABASE_URL="postgresql://kimbap:kimbap123@localhost:5432/kimbap_console?schema=public"
 JWT_SECRET="your-super-secret-jwt-key"
-# Optional override when Kimbap Core is not auto-detected
 KIMBAP_CORE_URL="http://localhost:3002"
 ```
 
@@ -95,7 +93,6 @@ KIMBAP_CORE_URL="http://localhost:3002"
 npm run dev
 ```
 This will:
-- Check/install Cloudflared (Docker)
 - Start PostgreSQL (Docker) and wait until ready
 - Push the Prisma schema
 - Start the Next.js dev server
@@ -110,50 +107,37 @@ This will:
 
 ### Unified dev (recommended)
 ```bash
-npm run dev              # DB + backend + frontend with smart port selection
-npm run dev:frontend-only
-npm run dev:backend-only
+npm run dev              # DB + frontend (full dev)
 npm run dev:quick        # Skip DB checks
-npm run dev:manual       # Manual port selection
-
-# Port helpers
-node scripts/port-manager.js get
-node scripts/port-manager.js allocate
+npm run dev:frontend-only  # UI only, no DB setup
 ```
 
 ### Build & production
 ```bash
-npm run build            # Build frontend + backend
-npm run build:frontend
-npm run build:backend
-npm run rebuild:backend
+npm run build            # Build for production
 npm run start            # Start production server
-npm run start:backend
+npm run start:production # Start with explicit port
 ```
 
 ### Testing
 ```bash
-npm run test
-npm run test:backend
+npm run test:log-sync        # Test log sync pipeline
+npm run test:openapi-parity  # Check OpenAPI converter parity
 ```
 
 ### Database management
 ```bash
-npm run db:start
-npm run db:stop
-npm run db:restart
-npm run db:logs
-npm run db:push          # Push schema changes
-npm run db:migrate       # Create/apply migrations
-npm run db:studio        # Prisma Studio
+npm run db:start         # Start PostgreSQL (Docker)
+npm run db:stop          # Stop PostgreSQL
+npm run db:restart       # Restart PostgreSQL
+npm run db:logs          # View PostgreSQL logs
+npm run db:studio        # Prisma Studio (browser UI)
 npm run db:generate      # Generate Prisma client
 npm run db:adminer       # Launch Adminer
-npm run setup-db
-npm run migrate:backend
-
-# Shared schema helpers
-npx prisma db pull
-npx prisma db push --force-reset   # Development reset
+npm run db:init          # Initialize database
+npm run db:reset         # Reset database (destructive)
+npm run setup-db         # Run DB setup script
+npm run migrate:backend  # Run Prisma migrations
 ```
 
 ### Code quality
@@ -162,20 +146,26 @@ npm run type-check
 npm run lint
 ```
 
+### Docker
+```bash
+npm run docker:deploy:auto   # Auto-assign ports and deploy
+npm run docker:find-ports    # Find available ports
+npm run docker:up            # Start Docker stack
+npm run docker:down          # Stop Docker stack
+npm run docker:logs          # View Docker logs
+npm run docker:build         # Build Docker image
+```
+
 ### System checks
 ```bash
 npm run check-docker
-npm run test-services
 ```
 
 ## 📊 Data Model
 - **User**: account and auth info
-- **Server**: MCP server instance
-- **ServerUser**: user-to-server membership
 - **AccessToken**: API tokens
-- **Tool**: tool configuration
-- **ServerMetric**: performance metrics
-- **Activity**: user activity logs
+
+See `prisma/schema.prisma` for the current schema.
 
 ### Roles
 - **Owner**: full control
@@ -199,27 +189,11 @@ npm run test-services
 
 > **For contributors:** New features MUST use RESTful endpoints under `/api/external/*`. The `cmdId`-based `/api/v1` protocol is frozen. See [handlers README](./app/api/v1/handlers/README.md) for migration guidance.
 
-Detailed API references:
-- [External REST API](./app/api/external/API.md)
-- [Internal v1 Protocol API](./app/api/v1/API.md) (legacy)
-
-## 🌐 Cloudflare Tunnel
-Expose services securely without opening firewall ports.
-```bash
-npm run cloudflared:setup
-npm run cloudflared:start
-npm run cloudflared:logs
-```
-See [DOCKER_USAGE.md](./DOCKER_USAGE.md) and [DEPLOYMENT.md](./DEPLOYMENT.md) for deployment notes.
-
 ## 🚨 Troubleshooting
 1) **Unified dev issues**
 ```bash
-npm run dev:backend-only
 npm run dev:frontend-only
-npm run dev:manual
 ```
-- Smart ports avoid conflicts; check with `node scripts/port-manager.js get`
 - Ensure Docker is running and the DB is reachable
 - Run `npm install` if dependencies look broken
 
