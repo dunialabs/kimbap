@@ -615,10 +615,11 @@ func (s *Server) emitApprovalRequestedWebhook(req actions.ExecutionRequest, resu
 	if !ok || strings.TrimSpace(approvalID) == "" {
 		return
 	}
-	service, action, _ := strings.Cut(req.Action.Name, ".")
+	service, action, hasDot := strings.Cut(req.Action.Name, ".")
 	service = strings.TrimSpace(service)
 	action = strings.TrimSpace(action)
-	if action == "" {
+	if !hasDot {
+		service = strings.TrimSpace(req.Action.Namespace)
 		action = strings.TrimSpace(req.Action.Name)
 	}
 	s.webhookDispatcher.EmitForTenant(req.TenantID, webhooks.EventApprovalRequested, map[string]any{
