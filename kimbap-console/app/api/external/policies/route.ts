@@ -40,8 +40,13 @@ export async function POST(request: NextRequest) {
     const text = await request.text();
     if (text.trim()) {
       try {
-        body = JSON.parse(text);
-      } catch {
+        const parsed = JSON.parse(text);
+        if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+          throw new ExternalApiError(E1001, 'Invalid request body');
+        }
+        body = parsed;
+      } catch (e) {
+        if (e instanceof ExternalApiError) throw e;
         throw new ExternalApiError(E1001, 'Invalid request body');
       }
     }

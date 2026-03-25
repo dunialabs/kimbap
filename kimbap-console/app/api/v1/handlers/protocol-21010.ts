@@ -95,9 +95,6 @@ function inferEventType(log: AuditRawLog): number {
   if ((log.statusCode || 0) >= 400 || !!log.error) {
     return 4;
   }
-  if ([20009, 21009, 23004].includes(log.action)) {
-    return 2;
-  }
   if ((log.duration || 0) > 5000) {
     return 3;
   }

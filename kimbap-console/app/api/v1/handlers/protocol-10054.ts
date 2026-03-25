@@ -50,7 +50,7 @@ export async function handleProtocol10054(body: Request10054): Promise<Response1
       throw new ApiError(
         ErrorCode.INTERNAL_SERVER_ERROR,
         500,
-        { message: response.error?.message || 'Failed to list tool policies' }
+        { details: response.error?.message || 'Failed to list tool policies' }
       );
     }
 
