@@ -200,9 +200,7 @@ func loadAppConfigReadOnly() (*config.KimbapConfig, error) {
 		cfg.Skills.Dir = filepath.Join(cfg.DataDir, "skills")
 		cfg.Audit.Path = filepath.Join(cfg.DataDir, "audit.jsonl")
 		cfg.Database.DSN = filepath.Join(cfg.DataDir, "kimbap.db")
-		if strings.HasSuffix(cfg.Policy.Path, ".rego") || strings.TrimSpace(cfg.Policy.Path) == "" {
-			cfg.Policy.Path = filepath.Join(cfg.DataDir, "policy.yaml")
-		}
+		cfg.Policy.Path = filepath.Join(cfg.DataDir, "policy.yaml")
 	}
 	if strings.TrimSpace(opts.logLevel) != "" {
 		cfg.LogLevel = opts.logLevel

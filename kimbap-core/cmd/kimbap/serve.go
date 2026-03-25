@@ -15,6 +15,7 @@ import (
 	"github.com/dunialabs/kimbap-core/internal/approvals"
 	"github.com/dunialabs/kimbap-core/internal/audit"
 	"github.com/dunialabs/kimbap-core/internal/config"
+	"github.com/dunialabs/kimbap-core/internal/connectors"
 	"github.com/dunialabs/kimbap-core/internal/jobs"
 	"github.com/dunialabs/kimbap-core/internal/observability"
 	"github.com/dunialabs/kimbap-core/internal/runtime"
@@ -127,13 +128,32 @@ func buildServeRuntime(cfg *config.KimbapConfig, st *store.SQLStore) (*runtime.R
 		defaultApprovalTTL,
 	)
 
+	var connStore connectors.ConnectorStore
+	var connConfigs []connectors.ConnectorConfig
+	if cs, csErr := openConnectorStore(cfg); csErr == nil {
+		connStore = cs
+		for _, prov := range providers.ListProviders() {
+			connConfigs = append(connConfigs, connectors.ConnectorConfig{
+				Name:         prov.ID,
+				Provider:     prov.ID,
+				ClientID:     resolveClientID(cfg, prov.ID),
+				ClientSecret: resolveClientSecret(cfg, prov.ID),
+				TokenURL:     prov.TokenEndpoint,
+				DeviceURL:    prov.DeviceEndpoint,
+				Scopes:       prov.DefaultScopes,
+			})
+		}
+	}
+
 	return app.BuildRuntime(app.RuntimeDeps{
-		Config:          cfg,
-		VaultStore:      vaultStore,
-		PolicyPath:      cfg.Policy.Path,
-		SkillsDir:       cfg.Skills.Dir,
-		AuditWriter:     auditWriter,
-		ApprovalManager: app.NewApprovalManagerAdapter(approvalMgr),
+		Config:           cfg,
+		VaultStore:       vaultStore,
+		ConnectorStore:   connStore,
+		ConnectorConfigs: connConfigs,
+		PolicyPath:       cfg.Policy.Path,
+		SkillsDir:        cfg.Skills.Dir,
+		AuditWriter:      auditWriter,
+		ApprovalManager:  app.NewApprovalManagerAdapter(approvalMgr),
 	})
 }
 
