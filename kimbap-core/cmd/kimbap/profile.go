@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"os"
+	"path/filepath"
 	"strings"
 
 	"github.com/dunialabs/kimbap-core/internal/profiles"
@@ -59,7 +60,7 @@ func newProfileInstallCommand() *cobra.Command {
 				return printOutput(map[string]any{
 					"installed": true,
 					"profile":   string(profile.Name),
-					"path":      profile.InstallPath,
+					"path":      filepath.Join(dir, profile.InstallPath),
 					"services":  len(services),
 				})
 			}
@@ -74,7 +75,7 @@ func newProfileInstallCommand() *cobra.Command {
 			return printOutput(map[string]any{
 				"installed": true,
 				"profile":   string(profile.Name),
-				"path":      profile.InstallPath,
+				"path":      filepath.Join(dir, profile.InstallPath),
 			})
 		},
 	}

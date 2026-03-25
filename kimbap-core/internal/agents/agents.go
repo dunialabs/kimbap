@@ -135,9 +135,13 @@ func SyncSkills(installer SkillInstaller, rulesContent string, opts SyncOptions)
 	results := make([]SyncResult, 0, len(agentsToProcess))
 
 	for _, selected := range agentsToProcess {
+		skillsDir := ""
+		if selected.cfg.SkillsDir != "" {
+			skillsDir = filepath.Join(projectDir, selected.cfg.SkillsDir)
+		}
 		result := SyncResult{
 			Agent:     selected.kind,
-			SkillsDir: filepath.Join(projectDir, selected.cfg.SkillsDir),
+			SkillsDir: skillsDir,
 			Written:   make([]string, 0),
 			Skipped:   make([]string, 0),
 			Failed:    make([]string, 0),
