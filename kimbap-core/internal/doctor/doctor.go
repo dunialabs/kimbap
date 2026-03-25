@@ -71,12 +71,16 @@ func (d *Doctor) RunAll(ctx context.Context) []CheckResult {
 }
 
 func (d *Doctor) checkConfigFile() (string, CheckResult) {
+	autoDiscovered := strings.TrimSpace(d.configPath) == ""
 	path, err := d.resolveConfigPath()
 	if err != nil {
 		return "", CheckResult{Name: "config file", Status: "fail", Message: err.Error()}
 	}
 	b, err := os.ReadFile(path)
 	if err != nil {
+		if autoDiscovered && os.IsNotExist(err) {
+			return path, CheckResult{Name: "config file", Status: "warn", Message: "not found, using defaults"}
+		}
 		return path, CheckResult{Name: "config file", Status: "fail", Message: fmt.Sprintf("read config: %v", err)}
 	}
 	var raw any

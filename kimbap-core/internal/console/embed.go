@@ -4,6 +4,7 @@ import (
 	"embed"
 	"io/fs"
 	"net/http"
+	"path/filepath"
 	"strings"
 )
 
@@ -25,7 +26,7 @@ func Handler() http.Handler {
 
 		f, openErr := dist.Open(path)
 		if openErr != nil {
-			if strings.Contains(path, ".") {
+			if filepath.Ext(filepath.Base(path)) != "" {
 				http.NotFound(w, r)
 				return
 			}

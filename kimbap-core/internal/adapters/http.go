@@ -45,8 +45,14 @@ const defaultMaxPaginationPages = 10
 const hardMaxPaginationPages = 100
 
 func (a *HTTPAdapter) Execute(ctx context.Context, req AdapterRequest) (*AdapterResult, error) {
-	if req.Action.Pagination != nil && req.Action.Pagination.Style != "" {
-		return a.executeWithPagination(ctx, req)
+	if req.Action.Pagination != nil {
+		style := strings.ToLower(strings.TrimSpace(req.Action.Pagination.Style))
+		if style != "" {
+			if style != "cursor" && style != "offset" {
+				return nil, actions.NewExecutionError(actions.ErrValidationFailed, fmt.Sprintf("unsupported pagination style %q", req.Action.Pagination.Style), http.StatusBadRequest, false, nil)
+			}
+			return a.executeWithPagination(ctx, req)
+		}
 	}
 	return a.executeSingle(ctx, req)
 }
@@ -267,7 +273,7 @@ func (a *HTTPAdapter) executeSingle(ctx context.Context, req AdapterRequest) (*A
 		}
 
 		for key, value := range req.Action.Adapter.Headers {
-			httpReq.Header.Set(key, resolveTemplateString(value, req.Input))
+			httpReq.Header.Set(key, resolveTemplateString(value, req.Input, templateContextHeader))
 		}
 
 		if authErr := injectHeaders(httpReq, req.Action.Auth, req.Credentials); authErr != nil {
@@ -354,7 +360,7 @@ func (a *HTTPAdapter) executeSingle(ctx context.Context, req AdapterRequest) (*A
 }
 
 func resolveURL(baseURL, tmpl string, values map[string]any) (string, error) {
-	resolved := resolveTemplateString(tmpl, values)
+	resolved := resolveTemplateString(tmpl, values, templateContextPath)
 	if strings.Contains(resolved, "{") || strings.Contains(resolved, "}") {
 		return "", fmt.Errorf("missing url template variables")
 	}
@@ -388,18 +394,50 @@ func validateResolvedHostMatchesBase(baseURL, resolved string) error {
 	if err != nil {
 		return fmt.Errorf("invalid resolved URL: %w", err)
 	}
+	if !strings.EqualFold(baseU.Scheme, resolvedU.Scheme) {
+		return fmt.Errorf("resolved URL scheme %q does not match base URL scheme %q", resolvedU.Scheme, baseU.Scheme)
+	}
 	if !strings.EqualFold(baseU.Hostname(), resolvedU.Hostname()) {
 		return fmt.Errorf("resolved URL host %q does not match base URL host %q", resolvedU.Hostname(), baseU.Hostname())
+	}
+	if !strings.EqualFold(effectivePort(baseU), effectivePort(resolvedU)) {
+		return fmt.Errorf("resolved URL port %q does not match base URL port %q", resolvedU.Port(), baseU.Port())
 	}
 	return nil
 }
 
-func resolveTemplateString(tmpl string, values map[string]any) string {
+type templateContext string
+
+const (
+	templateContextPath   templateContext = "path"
+	templateContextQuery  templateContext = "query"
+	templateContextHeader templateContext = "header"
+)
+
+func resolveTemplateString(tmpl string, values map[string]any, context templateContext) string {
 	out := tmpl
 	for key, value := range values {
-		out = strings.ReplaceAll(out, "{"+key+"}", url.PathEscape(toString(value)))
+		replacement := toString(value)
+		if context == templateContextPath {
+			replacement = url.PathEscape(replacement)
+		}
+		out = strings.ReplaceAll(out, "{"+key+"}", replacement)
 	}
 	return out
+}
+
+func effectivePort(u *url.URL) string {
+	if port := u.Port(); port != "" {
+		return port
+	}
+	switch strings.ToLower(u.Scheme) {
+	case "http":
+		return "80"
+	case "https":
+		return "443"
+	default:
+		return ""
+	}
 }
 
 func buildBody(method string, payload map[string]any, requestBodyTemplate string) ([]byte, error) {
@@ -569,7 +607,7 @@ func mergeQuery(config map[string]string, input map[string]any, auth actions.Aut
 	auth.Type = normalizeAuthType(auth.Type)
 	out := map[string]string{}
 	for key, value := range config {
-		out[key] = resolveTemplateString(value, input)
+		out[key] = resolveTemplateString(value, input, templateContextQuery)
 	}
 	if creds != nil {
 		maps.Copy(out, creds.Query)

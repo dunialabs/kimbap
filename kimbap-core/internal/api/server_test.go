@@ -744,8 +744,8 @@ func TestEffectiveTenantIDFromEnvironmentFallback(t *testing.T) {
 	}
 
 	t.Setenv("KIMBAP_TENANT_ID", "")
-	if got := effectiveTenantID(&auth.Principal{}); got != defaultTenantID {
-		t.Fatalf("expected built-in default tenant %q, got %q", defaultTenantID, got)
+	if got := effectiveTenantID(&auth.Principal{}); got != "" {
+		t.Fatalf("expected empty tenant without explicit fallback env, got %q", got)
 	}
 }
 
@@ -829,6 +829,33 @@ func TestHandleListTokensRequiresTenantContext(t *testing.T) {
 	}
 }
 
+func TestTenantScopedReadHandlersRequireTenantContext(t *testing.T) {
+	server := &Server{}
+
+	tests := []struct {
+		name    string
+		handler func(http.ResponseWriter, *http.Request)
+		method  string
+		url     string
+	}{
+		{name: "get policy", handler: server.handleGetPolicy, method: http.MethodGet, url: "/v1/policies"},
+		{name: "list approvals", handler: server.handleListApprovals, method: http.MethodGet, url: "/v1/approvals"},
+		{name: "query audit", handler: server.handleQueryAudit, method: http.MethodGet, url: "/v1/audit"},
+		{name: "export audit", handler: server.handleExportAudit, method: http.MethodGet, url: "/v1/audit/export"},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			req := httptest.NewRequest(tc.method, tc.url, nil)
+			rr := httptest.NewRecorder()
+			tc.handler(rr, req)
+			if rr.Code != http.StatusUnauthorized {
+				t.Fatalf("expected 401, got %d", rr.Code)
+			}
+		})
+	}
+}
+
 func TestHandleListWebhooksRequiresTenantContext(t *testing.T) {
 	server := &Server{webhookDispatcher: webhooks.NewDispatcher()}
 	req := httptest.NewRequest(http.MethodGet, "/v1/webhooks", nil)
@@ -838,6 +865,70 @@ func TestHandleListWebhooksRequiresTenantContext(t *testing.T) {
 
 	if rr.Code != http.StatusUnauthorized {
 		t.Fatalf("expected 401, got %d", rr.Code)
+	}
+}
+
+func TestWebhookHandlersRequireTenantContext(t *testing.T) {
+	server := &Server{webhookDispatcher: webhooks.NewDispatcher()}
+
+	tests := []struct {
+		name    string
+		handler func(http.ResponseWriter, *http.Request)
+		method  string
+		url     string
+		body    io.Reader
+	}{
+		{name: "create webhook", handler: server.handleCreateWebhook, method: http.MethodPost, url: "/v1/webhooks", body: strings.NewReader(`{"url":"https://example.com/hook"}`)},
+		{name: "delete webhook", handler: server.handleDeleteWebhook, method: http.MethodDelete, url: "/v1/webhooks/wh_1", body: nil},
+		{name: "list webhook events", handler: server.handleListRecentEvents, method: http.MethodGet, url: "/v1/webhooks/events", body: nil},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			req := httptest.NewRequest(tc.method, tc.url, tc.body)
+			if strings.Contains(tc.url, "/v1/webhooks/") && tc.method == http.MethodDelete {
+				rctx := chi.NewRouteContext()
+				rctx.URLParams.Add("id", "wh_1")
+				req = req.WithContext(context.WithValue(req.Context(), chi.RouteCtxKey, rctx))
+			}
+			rr := httptest.NewRecorder()
+			tc.handler(rr, req)
+			if rr.Code != http.StatusUnauthorized {
+				t.Fatalf("expected 401, got %d", rr.Code)
+			}
+		})
+	}
+}
+
+func TestServerInspectAndRevokeTokenHideCrossTenantExistence(t *testing.T) {
+	ts, rawBootstrap, st := newTestAPIServerWithStore(t)
+
+	foreignRaw := "ktk_foreign_token_for_tests"
+	foreign := newBootstrapTokenRecord("tenant-b", "foreign-agent", foreignRaw)
+	if err := st.CreateToken(context.Background(), foreign); err != nil {
+		t.Fatalf("seed foreign token: %v", err)
+	}
+
+	inspectReq, _ := http.NewRequest(http.MethodGet, ts.URL+"/v1/tokens/"+foreign.ID, nil)
+	inspectReq.Header.Set("Authorization", "Bearer "+rawBootstrap)
+	inspectResp, err := http.DefaultClient.Do(inspectReq)
+	if err != nil {
+		t.Fatalf("inspect request: %v", err)
+	}
+	defer inspectResp.Body.Close()
+	if inspectResp.StatusCode != http.StatusNotFound {
+		t.Fatalf("expected inspect 404, got %d", inspectResp.StatusCode)
+	}
+
+	revokeReq, _ := http.NewRequest(http.MethodDelete, ts.URL+"/v1/tokens/"+foreign.ID, nil)
+	revokeReq.Header.Set("Authorization", "Bearer "+rawBootstrap)
+	revokeResp, err := http.DefaultClient.Do(revokeReq)
+	if err != nil {
+		t.Fatalf("revoke request: %v", err)
+	}
+	defer revokeResp.Body.Close()
+	if revokeResp.StatusCode != http.StatusNotFound {
+		t.Fatalf("expected revoke 404, got %d", revokeResp.StatusCode)
 	}
 }
 

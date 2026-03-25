@@ -2,6 +2,7 @@ package actions
 
 import (
 	"fmt"
+	"math"
 	"reflect"
 	"strings"
 	"time"
@@ -333,9 +334,11 @@ func validateValue(field string, schema *Schema, value any) *ExecutionError {
 			valid = true
 		}
 	case "integer":
-		switch value.(type) {
+		switch v := value.(type) {
 		case int, int8, int16, int32, int64, uint, uint8, uint16, uint32, uint64:
 			valid = true
+		case float64:
+			valid = math.Trunc(v) == v
 		}
 	case "boolean":
 		_, valid = value.(bool)
@@ -352,6 +355,15 @@ func validateValue(field string, schema *Schema, value any) *ExecutionError {
 						false,
 						map[string]any{"field": field, "nested_field": key},
 					)
+				}
+			}
+			for key, prop := range schema.Properties {
+				nested, ok := obj[key]
+				if !ok {
+					continue
+				}
+				if err := validateValue(fmt.Sprintf("%s.%s", field, key), prop, nested); err != nil {
+					return err
 				}
 			}
 		}

@@ -15,8 +15,10 @@ import (
 )
 
 const (
-	sessionTokenPrefix = "kss_"
-	defaultSessionTTL  = 15 * time.Minute
+	sessionTokenPrefix           = "kss_"
+	defaultSessionTTL            = 15 * time.Minute
+	sessionPruneEveryValidations = 64
+	sessionPruneThreshold        = 256
 )
 
 var (
@@ -35,9 +37,10 @@ type SessionToken struct {
 }
 
 type SessionService struct {
-	mu     sync.RWMutex
-	tokens map[string]SessionToken
-	ttl    time.Duration
+	mu              sync.RWMutex
+	tokens          map[string]SessionToken
+	ttl             time.Duration
+	validationCount int
 }
 
 func NewSessionService(ttl time.Duration) *SessionService {
@@ -82,6 +85,9 @@ func (s *SessionService) Exchange(_ context.Context, principal *auth.Principal) 
 	if s.tokens == nil {
 		s.tokens = map[string]SessionToken{}
 	}
+	if len(s.tokens) >= sessionPruneThreshold {
+		s.pruneExpiredLocked(now)
+	}
 	s.tokens[hash] = session
 	s.mu.Unlock()
 
@@ -93,6 +99,7 @@ func (s *SessionService) Validate(_ context.Context, rawSession string) (*Sessio
 	if !strings.HasPrefix(rawSession, sessionTokenPrefix) {
 		return nil, ErrInvalidSession
 	}
+	s.maybePruneExpired()
 
 	hash := hashSession(rawSession)
 	s.mu.RLock()
@@ -102,11 +109,41 @@ func (s *SessionService) Validate(_ context.Context, rawSession string) (*Sessio
 		return nil, ErrInvalidSession
 	}
 	if time.Now().UTC().After(session.ExpiresAt) {
+		s.mu.Lock()
+		if current, exists := s.tokens[hash]; exists && time.Now().UTC().After(current.ExpiresAt) {
+			delete(s.tokens, hash)
+		}
+		s.mu.Unlock()
 		return nil, ErrExpiredSession
 	}
 
 	copySession := session
 	return &copySession, nil
+}
+
+func (s *SessionService) maybePruneExpired() {
+	s.mu.Lock()
+	s.validationCount++
+	shouldPrune := s.validationCount%sessionPruneEveryValidations == 0
+	s.mu.Unlock()
+	if shouldPrune {
+		s.pruneExpired()
+	}
+}
+
+func (s *SessionService) pruneExpired() {
+	now := time.Now().UTC()
+	s.mu.Lock()
+	s.pruneExpiredLocked(now)
+	s.mu.Unlock()
+}
+
+func (s *SessionService) pruneExpiredLocked(now time.Time) {
+	for hash, session := range s.tokens {
+		if now.After(session.ExpiresAt) {
+			delete(s.tokens, hash)
+		}
+	}
 }
 
 func hashSession(raw string) string {

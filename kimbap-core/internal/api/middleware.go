@@ -18,7 +18,6 @@ const (
 	contextKeyPrincipal contextKey = "principal"
 	contextKeyTenant    contextKey = "tenant"
 	contextKeyRequestID contextKey = "request_id"
-	defaultTenantID                = "default"
 )
 
 func BearerAuth(tokenService *auth.TokenService) func(next http.Handler) http.Handler {
@@ -92,7 +91,7 @@ func effectiveTenantID(principal *auth.Principal) string {
 	if tenantID := strings.TrimSpace(os.Getenv("KIMBAP_TENANT_ID")); tenantID != "" {
 		return tenantID
 	}
-	return defaultTenantID
+	return ""
 }
 
 func RequestID() func(next http.Handler) http.Handler {
