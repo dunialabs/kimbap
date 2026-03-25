@@ -152,6 +152,7 @@ export function SidebarNav({ onNavigate, pendingApprovalCount = 0 }: SidebarNavP
           href="https://docs.kimbap.sh"
           target="_blank"
           rel="noopener noreferrer"
+          aria-label="Documentation (opens in new tab)"
           className="flex items-center gap-3 rounded-lg px-3 py-2 text-muted-foreground transition-all hover:bg-slate-100 dark:hover:bg-slate-800 mb-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2"
         >
           <BookOpen className="h-4 w-4" aria-hidden="true" focusable="false" />

@@ -71,10 +71,11 @@ export function PersonalSettingsDialog({ children }: PersonalSettingsDialogProps
       return
     }
 
+    const { CryptoUtils } = await import("@/lib/crypto")
+
     const storedDataStr = localStorage.getItem("clientManagementMasterPassword")
     if (storedDataStr) {
       try {
-        const { CryptoUtils } = await import("@/lib/crypto")
         const storedData = JSON.parse(storedDataStr)
         if (storedData.hash && storedData.salt) {
           const salt = new Uint8Array(atob(storedData.salt).split("").map(c => c.charCodeAt(0)))
@@ -94,8 +95,6 @@ export function PersonalSettingsDialog({ children }: PersonalSettingsDialogProps
         }
       }
     }
-
-    const { CryptoUtils } = await import("@/lib/crypto")
     const salt = CryptoUtils.generateSalt()
     const hash = await CryptoUtils.hashPasswordWithSalt(newMasterPassword, salt)
     const hashedData = {

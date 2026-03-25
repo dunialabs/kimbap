@@ -37,7 +37,6 @@ export function LoginForm({
 
     try {
       const { api } = await import('@/lib/api-client')
-      const { MasterPasswordManager } = await import('@/lib/crypto')
 
       // Use protocol 10015 for both login methods
       const params: any = {}
