@@ -303,6 +303,7 @@ func principalTenantMatches(principal *auth.Principal, tenantID string) bool {
 func requirePrincipalWithTenantContext(w http.ResponseWriter, r *http.Request) (*auth.Principal, string, bool) {
 	principal := principalFromContext(r.Context())
 	if principal == nil {
+		setBearerAuthHeader(w, "invalid_token", "authentication required", "")
 		writeEnvelopeError(w, r, actions.NewExecutionError(actions.ErrUnauthenticated, "authentication required", http.StatusUnauthorized, false, nil))
 		return nil, "", false
 	}
@@ -320,6 +321,7 @@ func requirePrincipalWithTenantContext(w http.ResponseWriter, r *http.Request) (
 func requireTenantContext(w http.ResponseWriter, r *http.Request) (string, bool) {
 	tenantID := strings.TrimSpace(tenantFromContext(r.Context()))
 	if tenantID == "" {
+		setBearerAuthHeader(w, "invalid_token", "tenant context required", "")
 		writeEnvelopeError(w, r, actions.NewExecutionError(actions.ErrUnauthenticated, "tenant context required", http.StatusUnauthorized, false, nil))
 		return "", false
 	}

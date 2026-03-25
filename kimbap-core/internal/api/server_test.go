@@ -788,6 +788,9 @@ func TestTenantContextRejectsServicePrincipalWithoutTenant(t *testing.T) {
 	if rr.Code != http.StatusUnauthorized {
 		t.Fatalf("expected 401, got %d", rr.Code)
 	}
+	if got := rr.Header().Get("WWW-Authenticate"); !strings.Contains(got, `Bearer realm="kimbap-core"`) {
+		t.Fatalf("expected bearer challenge, got %q", got)
+	}
 }
 
 func TestHandleExecuteActionRejectsPrincipalTenantMismatch(t *testing.T) {
@@ -827,6 +830,9 @@ func TestHandleListTokensRequiresTenantContext(t *testing.T) {
 	if rr.Code != http.StatusUnauthorized {
 		t.Fatalf("expected 401, got %d", rr.Code)
 	}
+	if got := rr.Header().Get("WWW-Authenticate"); !strings.Contains(got, `Bearer realm="kimbap-core"`) {
+		t.Fatalf("expected bearer challenge, got %q", got)
+	}
 }
 
 func TestTenantScopedReadHandlersRequireTenantContext(t *testing.T) {
@@ -852,6 +858,9 @@ func TestTenantScopedReadHandlersRequireTenantContext(t *testing.T) {
 			if rr.Code != http.StatusUnauthorized {
 				t.Fatalf("expected 401, got %d", rr.Code)
 			}
+			if got := rr.Header().Get("WWW-Authenticate"); !strings.Contains(got, `Bearer realm="kimbap-core"`) {
+				t.Fatalf("expected bearer challenge, got %q", got)
+			}
 		})
 	}
 }
@@ -865,6 +874,9 @@ func TestHandleListWebhooksRequiresTenantContext(t *testing.T) {
 
 	if rr.Code != http.StatusUnauthorized {
 		t.Fatalf("expected 401, got %d", rr.Code)
+	}
+	if got := rr.Header().Get("WWW-Authenticate"); !strings.Contains(got, `Bearer realm="kimbap-core"`) {
+		t.Fatalf("expected bearer challenge, got %q", got)
 	}
 }
 
@@ -896,7 +908,42 @@ func TestWebhookHandlersRequireTenantContext(t *testing.T) {
 			if rr.Code != http.StatusUnauthorized {
 				t.Fatalf("expected 401, got %d", rr.Code)
 			}
+			if got := rr.Header().Get("WWW-Authenticate"); !strings.Contains(got, `Bearer realm="kimbap-core"`) {
+				t.Fatalf("expected bearer challenge, got %q", got)
+			}
 		})
+	}
+}
+
+func TestCreateWebhookRejectsTrailingJSONPayload(t *testing.T) {
+	ts, rawBootstrap, st := newTestAPIServerWithStore(t)
+	server := NewServer(":0", st, WithWebhookDispatcher(webhooks.NewDispatcher()))
+	ts.Close()
+	ts = httptest.NewServer(server.Router())
+	t.Cleanup(func() { ts.Close() })
+
+	body := `{"url":"https://example.com/hook"}{"extra":1}`
+	req, _ := http.NewRequest(http.MethodPost, ts.URL+"/v1/webhooks", strings.NewReader(body))
+	req.Header.Set("Authorization", "Bearer "+rawBootstrap)
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatalf("create webhook request: %v", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusBadRequest {
+		b, _ := io.ReadAll(resp.Body)
+		t.Fatalf("expected 400, got %d body=%s", resp.StatusCode, string(b))
+	}
+
+	var payload map[string]any
+	if err := json.NewDecoder(resp.Body).Decode(&payload); err != nil {
+		t.Fatalf("decode payload: %v", err)
+	}
+	if payload["error"] != "unexpected trailing content after JSON body" {
+		t.Fatalf("expected trailing JSON error, got %v", payload["error"])
 	}
 }
 

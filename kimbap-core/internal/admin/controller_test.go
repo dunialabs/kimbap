@@ -1,7 +1,10 @@
 package admin
 
 import (
+	"fmt"
+	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 
 	types "github.com/dunialabs/kimbap-core/internal/types"
@@ -82,5 +85,21 @@ func TestIsPublicAdminActionSensitiveActionsRequireToken(t *testing.T) {
 func TestIsOwnerOnlyAdminActionIncludesDeleteProxy(t *testing.T) {
 	if !isOwnerOnlyAdminAction(types.AdminActionDeleteProxy) {
 		t.Fatal("expected delete proxy action to be owner-only")
+	}
+}
+
+func TestHandleAdminRequestRejectsTrailingJSONPayload(t *testing.T) {
+	controller := &Controller{}
+	body := fmt.Sprintf(`{"action":%d,"data":{}}{"extra":1}`, types.AdminActionCountUsers)
+	req := httptest.NewRequest(http.MethodPost, "http://example.com/admin", strings.NewReader(body))
+	rr := httptest.NewRecorder()
+
+	controller.HandleAdminRequest(rr, req)
+
+	if rr.Code != http.StatusBadRequest {
+		t.Fatalf("expected 400, got %d body=%s", rr.Code, rr.Body.String())
+	}
+	if !strings.Contains(rr.Body.String(), "Invalid admin request format") {
+		t.Fatalf("expected invalid format error, got %s", rr.Body.String())
 	}
 }

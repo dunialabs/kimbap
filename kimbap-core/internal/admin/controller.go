@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"net"
 	"net/http"
 	"strings"
@@ -62,12 +63,19 @@ func (c *Controller) HandleAdminRequest(w http.ResponseWriter, r *http.Request) 
 		Action int            `json:"action"`
 		Data   map[string]any `json:"data"`
 	}
-	if err := json.NewDecoder(r.Body).Decode(&request); err != nil {
+	dec := json.NewDecoder(r.Body)
+	dec.DisallowUnknownFields()
+	if err := dec.Decode(&request); err != nil {
 		var maxBytesErr *http.MaxBytesError
 		if errors.As(err, &maxBytesErr) {
 			middleware.WriteRequestEntityTooLargeLikeExpress(w)
 			return
 		}
+		respond(w, http.StatusBadRequest, types.AdminResponse{Success: false, Error: &types.AdminResponseError{Code: types.AdminErrorCodeInvalidRequest, Message: "Invalid admin request format"}})
+		return
+	}
+	var extra json.RawMessage
+	if dec.Decode(&extra) != io.EOF {
 		respond(w, http.StatusBadRequest, types.AdminResponse{Success: false, Error: &types.AdminResponseError{Code: types.AdminErrorCodeInvalidRequest, Message: "Invalid admin request format"}})
 		return
 	}

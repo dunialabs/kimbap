@@ -62,15 +62,18 @@ func TenantContext() func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			principal := principalFromContext(r.Context())
 			if principal == nil {
+				setBearerAuthHeader(w, "invalid_token", "tenant context unavailable", "")
 				writeEnvelopeError(w, r, actions.NewExecutionError(actions.ErrUnauthenticated, "tenant context unavailable", http.StatusUnauthorized, false, nil))
 				return
 			}
 			if principal.Type == auth.PrincipalTypeService && strings.TrimSpace(principal.TenantID) == "" {
+				setBearerAuthHeader(w, "invalid_token", "service principal missing tenant context", "")
 				writeEnvelopeError(w, r, actions.NewExecutionError(actions.ErrUnauthenticated, "service principal missing tenant context", http.StatusUnauthorized, false, nil))
 				return
 			}
 			tenantID := effectiveTenantID(principal)
 			if tenantID == "" {
+				setBearerAuthHeader(w, "invalid_token", "tenant context unavailable", "")
 				writeEnvelopeError(w, r, actions.NewExecutionError(actions.ErrUnauthenticated, "tenant context unavailable", http.StatusUnauthorized, false, nil))
 				return
 			}

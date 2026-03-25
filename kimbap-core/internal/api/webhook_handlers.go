@@ -2,6 +2,7 @@ package api
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net"
 	"net/http"
@@ -25,7 +26,7 @@ func (s *Server) registerWebhookRoutes(r chi.Router) {
 }
 
 func (s *Server) handleListWebhooks(w http.ResponseWriter, r *http.Request) {
-	tenantID, ok := requireWebhookTenantContext(w, r)
+	tenantID, ok := requireTenantContext(w, r)
 	if !ok {
 		return
 	}
@@ -34,14 +35,18 @@ func (s *Server) handleListWebhooks(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) handleCreateWebhook(w http.ResponseWriter, r *http.Request) {
-	tenantID, ok := requireWebhookTenantContext(w, r)
+	tenantID, ok := requireTenantContext(w, r)
 	if !ok {
 		return
 	}
 
 	var sub webhooks.Subscription
-	if err := json.NewDecoder(r.Body).Decode(&sub); err != nil {
-		respondJSON(w, http.StatusBadRequest, map[string]any{"error": err.Error()})
+	if err := decodeJSON(r, &sub); err != nil {
+		status := http.StatusBadRequest
+		if errors.Is(err, errRequestBodyTooLarge) {
+			status = http.StatusRequestEntityTooLarge
+		}
+		respondJSON(w, status, map[string]any{"error": err.Error()})
 		return
 	}
 	if sub.URL == "" {
@@ -61,7 +66,7 @@ func (s *Server) handleCreateWebhook(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) handleDeleteWebhook(w http.ResponseWriter, r *http.Request) {
-	tenantID, ok := requireWebhookTenantContext(w, r)
+	tenantID, ok := requireTenantContext(w, r)
 	if !ok {
 		return
 	}
@@ -71,7 +76,7 @@ func (s *Server) handleDeleteWebhook(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) handleListRecentEvents(w http.ResponseWriter, r *http.Request) {
-	tenantID, ok := requireWebhookTenantContext(w, r)
+	tenantID, ok := requireTenantContext(w, r)
 	if !ok {
 		return
 	}
@@ -83,15 +88,6 @@ func (s *Server) handleListRecentEvents(w http.ResponseWriter, r *http.Request) 
 	}
 	events := s.webhookDispatcher.RecentEventsByTenant(tenantID, limit)
 	respondJSON(w, http.StatusOK, map[string]any{"events": events})
-}
-
-func requireWebhookTenantContext(w http.ResponseWriter, r *http.Request) (string, bool) {
-	tenantID := strings.TrimSpace(tenantFromContext(r.Context()))
-	if tenantID == "" {
-		respondJSON(w, http.StatusUnauthorized, map[string]any{"error": "tenant context required"})
-		return "", false
-	}
-	return tenantID, true
 }
 
 func validateWebhookURL(rawURL string) error {
