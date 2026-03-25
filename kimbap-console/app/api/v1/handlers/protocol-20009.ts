@@ -1,6 +1,7 @@
 import { prisma } from '@/lib/prisma';
 import { ApiError, ErrorCode } from '@/lib/error-codes';
 import { getProxy } from '@/lib/proxy-api';
+import { getActionMachineName } from '@/lib/log-utils';
 import { sanitizeCsvField } from './csv-utils';
 import * as fs from 'fs';
 import * as path from 'path';
@@ -25,23 +26,6 @@ interface Response20009Data {
   expiresAt: number;
 }
 
-function getActionName(action: number): string {
-  const actionMap: Record<number, string> = {
-    1001: 'RequestTool',
-    1002: 'RequestResource',
-    1003: 'RequestPrompt',
-    1004: 'ResponseTool',
-    1005: 'ResponseResource',
-    1006: 'ResponsePrompt',
-    1201: 'ReverseSamplingRequest',
-    1202: 'ReverseSamplingResponse',
-    1203: 'ReverseRootsRequest',
-    1204: 'ReverseRootsResponse',
-    1205: 'ReverseElicitRequest',
-    1206: 'ReverseElicitResponse'
-  };
-  return actionMap[action] || `Action${action}`;
-}
 
 function buildSimplePdfBuffer(lines: string[]): Buffer {
   const escapedLines = lines.map((line) =>
@@ -147,7 +131,7 @@ export async function handleProtocol20009(body: Request20009): Promise<Response2
     const formattedData = exportData.map((log) => ({
       timestamp: new Date(Number(log.addtime) * 1000).toISOString(),
       actionType: log.action,
-      actionName: getActionName(log.action),
+      actionName: getActionMachineName(log.action),
       toolId: log.serverId || '',
       userId: log.userid,
       sessionId: log.sessionId,
