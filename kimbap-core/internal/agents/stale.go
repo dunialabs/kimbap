@@ -31,11 +31,14 @@ type StaleCheckResult struct {
 }
 
 func syncStatePath() (string, error) {
+	if env := strings.TrimSpace(os.Getenv("XDG_CONFIG_HOME")); env != "" {
+		return filepath.Join(env, "kimbap", "sync-state.yaml"), nil
+	}
 	home, err := os.UserHomeDir()
 	if err != nil {
 		return "", fmt.Errorf("resolve home directory: %w", err)
 	}
-	return filepath.Join(xdgConfigHome(home), "kimbap", "sync-state.yaml"), nil
+	return filepath.Join(home, ".config", "kimbap", "sync-state.yaml"), nil
 }
 
 // ReadSyncState loads the persisted sync state. Returns a zero-value state
@@ -161,8 +164,11 @@ func FormatStaleWarning(result *StaleCheckResult) string {
 	sb.WriteString("warning: agent skills out of sync")
 
 	changes := len(result.NewSkills) + len(result.RemovedSkills)
-	if changes > 0 {
+	switch {
+	case changes > 0:
 		sb.WriteString(fmt.Sprintf(" (%d change(s))", changes))
+	default:
+		sb.WriteString(" (skill content changed)")
 	}
 	sb.WriteString(".\n")
 
@@ -180,17 +186,16 @@ func FormatStaleWarning(result *StaleCheckResult) string {
 }
 
 func sortByName(names []string, contents []string) ([]string, []string) {
+	if len(names) != len(contents) {
+		panic(fmt.Sprintf("sortByName: names (%d) and contents (%d) must have equal length", len(names), len(contents)))
+	}
 	type pair struct {
 		name    string
 		content string
 	}
 	pairs := make([]pair, len(names))
 	for i, name := range names {
-		content := ""
-		if i < len(contents) {
-			content = contents[i]
-		}
-		pairs[i] = pair{name: name, content: content}
+		pairs[i] = pair{name: name, content: contents[i]}
 	}
 	sort.Slice(pairs, func(i, j int) bool { return pairs[i].name < pairs[j].name })
 	sortedNames := make([]string, len(pairs))

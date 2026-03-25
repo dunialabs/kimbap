@@ -128,11 +128,49 @@ func LoadKimbapConfig(paths ...string) (*KimbapConfig, error) {
 }
 
 func defaultKimbapConfigPath() (string, error) {
+	xdg := strings.TrimSpace(os.Getenv("XDG_CONFIG_HOME"))
+	xdgPath := ""
+	xdgIsDir := false
+	if xdg != "" {
+		xdgPath = filepath.Join(xdg, "kimbap", "config.yaml")
+		if st, err := os.Stat(xdgPath); err == nil {
+			if !st.IsDir() {
+				return xdgPath, nil
+			}
+			xdgIsDir = true
+		} else if !os.IsNotExist(err) {
+			return "", fmt.Errorf("stat xdg config path %q: %w", xdgPath, err)
+		}
+	}
 	homeDir, err := os.UserHomeDir()
 	if err != nil || homeDir == "" {
+		if xdgPath != "" {
+			if xdgIsDir {
+				return "", fmt.Errorf("config path is a directory: %s", xdgPath)
+			}
+			return xdgPath, nil
+		}
 		return "", errors.New("resolve user home directory")
 	}
-	return filepath.Join(homeDir, ".kimbap", "config.yaml"), nil
+	legacyPath := filepath.Join(homeDir, ".kimbap", "config.yaml")
+	if xdgPath != "" {
+		if st, err := os.Stat(legacyPath); err == nil {
+			if st.IsDir() {
+				return "", fmt.Errorf("legacy config path is a directory: %s", legacyPath)
+			}
+			return legacyPath, nil
+		} else if !os.IsNotExist(err) {
+			return "", fmt.Errorf("stat legacy config path %q: %w", legacyPath, err)
+		}
+		if xdgIsDir {
+			return "", fmt.Errorf("config path is a directory: %s", xdgPath)
+		}
+		return legacyPath, nil
+	}
+	if st, err := os.Stat(legacyPath); err == nil && st.IsDir() {
+		return "", fmt.Errorf("legacy config path is a directory: %s", legacyPath)
+	}
+	return legacyPath, nil
 }
 
 func mergeConfigFromFile(cfg *KimbapConfig, path string, required bool) error {

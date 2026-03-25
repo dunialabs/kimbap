@@ -218,6 +218,9 @@ func runAgentsSync(projectDir string, rawAgentKinds string, force bool, dryRun b
 			for _, e := range result.Errors {
 				syncErrs = append(syncErrs, fmt.Sprintf("[%s] %s", result.Agent, e))
 			}
+			for _, f := range result.Failed {
+				syncErrs = append(syncErrs, fmt.Sprintf("[%s] failed: %s", result.Agent, f))
+			}
 			continue
 		}
 
@@ -263,7 +266,7 @@ func runAgentsSync(projectDir string, rawAgentKinds string, force bool, dryRun b
 		return agentSetupResult{}, fmt.Errorf("sync errors: %s", strings.Join(syncErrs, "; "))
 	}
 
-	if !dryRun {
+	if !dryRun && len(syncResults) > 0 {
 		recordProjectSyncState(installedSkills)
 	}
 
@@ -355,5 +358,3 @@ func recordProjectSyncState(installedSkills []agents.InstalledSkill) {
 		_, _ = fmt.Fprintf(os.Stderr, "warning: failed to record sync state: %v\n", err)
 	}
 }
-
-

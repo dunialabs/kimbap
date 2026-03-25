@@ -56,3 +56,110 @@ func TestLoadKimbapConfigPrecedenceDefaultEnvExplicit(t *testing.T) {
 		t.Fatalf("explicit file should win for auth token ttl, got %q", cfg.Auth.TokenTTL)
 	}
 }
+
+func TestDefaultKimbapConfigPathPrefersExistingXDGPath(t *testing.T) {
+	home := t.TempDir()
+	xdg := filepath.Join(t.TempDir(), "xdg")
+	t.Setenv("HOME", home)
+	t.Setenv("XDG_CONFIG_HOME", xdg)
+
+	xdgPath := filepath.Join(xdg, "kimbap", "config.yaml")
+	if err := os.MkdirAll(filepath.Dir(xdgPath), 0o755); err != nil {
+		t.Fatalf("mkdir xdg config dir: %v", err)
+	}
+	if err := os.WriteFile(xdgPath, []byte("mode: embedded\n"), 0o644); err != nil {
+		t.Fatalf("write xdg config file: %v", err)
+	}
+
+	path, err := defaultKimbapConfigPath()
+	if err != nil {
+		t.Fatalf("defaultKimbapConfigPath: %v", err)
+	}
+	if path != xdgPath {
+		t.Fatalf("expected xdg path %q, got %q", xdgPath, path)
+	}
+}
+
+func TestDefaultKimbapConfigPathFallsBackToLegacyWhenXDGMissing(t *testing.T) {
+	home := t.TempDir()
+	xdg := filepath.Join(t.TempDir(), "xdg")
+	t.Setenv("HOME", home)
+	t.Setenv("XDG_CONFIG_HOME", xdg)
+
+	legacyPath := filepath.Join(home, ".kimbap", "config.yaml")
+	if err := os.MkdirAll(filepath.Dir(legacyPath), 0o755); err != nil {
+		t.Fatalf("mkdir legacy config dir: %v", err)
+	}
+	if err := os.WriteFile(legacyPath, []byte("mode: embedded\n"), 0o644); err != nil {
+		t.Fatalf("write legacy config file: %v", err)
+	}
+
+	path, err := defaultKimbapConfigPath()
+	if err != nil {
+		t.Fatalf("defaultKimbapConfigPath: %v", err)
+	}
+	if path != legacyPath {
+		t.Fatalf("expected legacy path %q, got %q", legacyPath, path)
+	}
+}
+
+func TestDefaultKimbapConfigPathIgnoresDirectoryEntries(t *testing.T) {
+	home := t.TempDir()
+	xdg := filepath.Join(t.TempDir(), "xdg")
+	t.Setenv("HOME", home)
+	t.Setenv("XDG_CONFIG_HOME", xdg)
+
+	xdgPath := filepath.Join(xdg, "kimbap", "config.yaml")
+	if err := os.MkdirAll(xdgPath, 0o755); err != nil {
+		t.Fatalf("mkdir xdg config directory entry: %v", err)
+	}
+
+	legacyPath := filepath.Join(home, ".kimbap", "config.yaml")
+	if err := os.MkdirAll(filepath.Dir(legacyPath), 0o755); err != nil {
+		t.Fatalf("mkdir legacy config dir: %v", err)
+	}
+	if err := os.WriteFile(legacyPath, []byte("mode: embedded\n"), 0o644); err != nil {
+		t.Fatalf("write legacy config file: %v", err)
+	}
+
+	path, err := defaultKimbapConfigPath()
+	if err != nil {
+		t.Fatalf("defaultKimbapConfigPath: %v", err)
+	}
+	if path != legacyPath {
+		t.Fatalf("expected legacy file path %q, got %q", legacyPath, path)
+	}
+}
+
+func TestDefaultKimbapConfigPathErrorsWhenXDGEntryIsDirectoryWithoutLegacy(t *testing.T) {
+	home := t.TempDir()
+	xdg := filepath.Join(t.TempDir(), "xdg")
+	t.Setenv("HOME", home)
+	t.Setenv("XDG_CONFIG_HOME", xdg)
+
+	xdgPath := filepath.Join(xdg, "kimbap", "config.yaml")
+	if err := os.MkdirAll(xdgPath, 0o755); err != nil {
+		t.Fatalf("mkdir xdg config directory entry: %v", err)
+	}
+
+	_, err := defaultKimbapConfigPath()
+	if err == nil {
+		t.Fatal("expected error when xdg config path is a directory and no legacy file exists")
+	}
+}
+
+func TestDefaultKimbapConfigPathReturnsLegacyPathWhenXDGMissingAndLegacyMissing(t *testing.T) {
+	home := t.TempDir()
+	xdg := filepath.Join(t.TempDir(), "xdg")
+	t.Setenv("HOME", home)
+	t.Setenv("XDG_CONFIG_HOME", xdg)
+
+	path, err := defaultKimbapConfigPath()
+	if err != nil {
+		t.Fatalf("defaultKimbapConfigPath: %v", err)
+	}
+	expected := filepath.Join(home, ".kimbap", "config.yaml")
+	if path != expected {
+		t.Fatalf("expected legacy path %q when both files are missing, got %q", expected, path)
+	}
+}

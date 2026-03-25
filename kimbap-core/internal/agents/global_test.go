@@ -295,6 +295,85 @@ func TestGlobalSetupOneAndTeardownOne(t *testing.T) {
 	}
 }
 
+func TestGlobalSetupOneSkippedWhenUnchanged(t *testing.T) {
+	dir := t.TempDir()
+	cfg := GlobalAgentConfig{
+		Kind:            AgentClaudeCode,
+		SkillsDir:       filepath.Join(dir, "skills"),
+		InstructionFile: filepath.Join(dir, "CLAUDE.md"),
+		DetectDir:       filepath.Join(dir, "detect"),
+	}
+	if err := os.MkdirAll(cfg.DetectDir, 0o755); err != nil {
+		t.Fatalf("create detect dir: %v", err)
+	}
+
+	first := globalSetupOne(cfg, "# meta\n", GlobalSetupOptions{})
+	if first.Error != "" {
+		t.Fatalf("first setup failed: %s", first.Error)
+	}
+	if !first.SkillWritten || !first.InjectWritten {
+		t.Fatalf("expected first setup to write skill and inject, got %+v", first)
+	}
+
+	second := globalSetupOne(cfg, "# meta\n", GlobalSetupOptions{})
+	if second.Error != "" {
+		t.Fatalf("second setup failed: %s", second.Error)
+	}
+	if !second.Skipped {
+		t.Fatalf("expected skipped=true on unchanged second setup, got %+v", second)
+	}
+	if second.SkillWritten {
+		t.Fatalf("expected skill_written=false on unchanged second setup, got %+v", second)
+	}
+	if second.InjectWritten {
+		t.Fatalf("expected inject_written=false on unchanged second setup, got %+v", second)
+	}
+}
+
+func TestGlobalTeardownCodexArtifactWithoutDetectDir(t *testing.T) {
+	home := t.TempDir()
+	xdg := filepath.Join(home, "xdg")
+	t.Setenv("HOME", home)
+	t.Setenv("XDG_CONFIG_HOME", xdg)
+
+	codexSkillDir := filepath.Join(home, ".agents", "skills", "kimbap")
+	if err := os.MkdirAll(codexSkillDir, 0o755); err != nil {
+		t.Fatalf("create codex kimbap skill dir: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(codexSkillDir, "SKILL.md"), []byte("# codex meta\n"), 0o644); err != nil {
+		t.Fatalf("write codex skill file: %v", err)
+	}
+
+	if _, err := os.Stat(filepath.Join(home, ".codex")); !os.IsNotExist(err) {
+		t.Fatalf("expected ~/.codex to be absent for this test, stat err=%v", err)
+	}
+
+	results, err := GlobalTeardown(GlobalSetupOptions{})
+	if err != nil {
+		t.Fatalf("global teardown failed: %v", err)
+	}
+
+	foundCodex := false
+	for _, r := range results {
+		if r.Agent == AgentCodex {
+			foundCodex = true
+			if r.Error != "" {
+				t.Fatalf("codex teardown reported error: %s", r.Error)
+			}
+			if !r.SkillRemoved {
+				t.Fatalf("expected codex skill artifact removal, got %+v", r)
+			}
+		}
+	}
+	if !foundCodex {
+		t.Fatalf("expected codex to be included in auto-detected teardown targets, got %+v", results)
+	}
+
+	if _, err := os.Stat(codexSkillDir); !os.IsNotExist(err) {
+		t.Fatalf("expected codex kimbap skill dir removed, stat err=%v", err)
+	}
+}
+
 func TestGlobalDetectAgents(t *testing.T) {
 	home := t.TempDir()
 	xdg := filepath.Join(home, "xdg")

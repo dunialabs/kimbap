@@ -1,6 +1,7 @@
 package agents
 
 import (
+	"path/filepath"
 	"reflect"
 	"strings"
 	"testing"
@@ -225,6 +226,19 @@ func TestFormatStaleWarning(t *testing.T) {
 			},
 		},
 		{
+			name: "content only change shows reason",
+			result: &StaleCheckResult{
+				Stale:         true,
+				NewSkills:     []string{},
+				RemovedSkills: []string{},
+			},
+			contains: []string{
+				"warning: agent skills out of sync",
+				"skill content changed",
+				"Run: kimbap agents setup",
+			},
+		},
+		{
 			name:   "not stale returns empty",
 			result: &StaleCheckResult{Stale: false},
 			empty:  true,
@@ -264,5 +278,35 @@ func TestToStringSet(t *testing.T) {
 	}
 	if !set["slack"] {
 		t.Fatal("expected slack key present")
+	}
+}
+
+func TestSortByName(t *testing.T) {
+	names := []string{"slack", "github", "notion"}
+	contents := []string{"s-content", "g-content", "n-content"}
+
+	sortedNames, sortedContents := sortByName(names, contents)
+
+	if !reflect.DeepEqual(sortedNames, []string{"github", "notion", "slack"}) {
+		t.Fatalf("unexpected sorted names: %+v", sortedNames)
+	}
+	if !reflect.DeepEqual(sortedContents, []string{"g-content", "n-content", "s-content"}) {
+		t.Fatalf("unexpected sorted contents: %+v", sortedContents)
+	}
+}
+
+func TestSyncStatePathUsesXDGConfigHome(t *testing.T) {
+	base := t.TempDir()
+	xdg := filepath.Join(base, "my-xdg")
+	t.Setenv("XDG_CONFIG_HOME", xdg)
+	t.Setenv("HOME", filepath.Join(base, "other-home"))
+
+	path, err := syncStatePath()
+	if err != nil {
+		t.Fatalf("syncStatePath: %v", err)
+	}
+	expected := filepath.Join(xdg, "kimbap", "sync-state.yaml")
+	if path != expected {
+		t.Fatalf("expected %q, got %q", expected, path)
 	}
 }

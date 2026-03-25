@@ -177,11 +177,10 @@ func globalSetupOne(cfg GlobalAgentConfig, metaSkillContent string, opts GlobalS
 			}
 			result.SkillWritten = true
 		}
-	} else {
-		result.Skipped = true
 	}
 
 	if cfg.InstructionFile == "" {
+		result.Skipped = !result.SkillWritten
 		return result
 	}
 	result.InstructionFile = cfg.InstructionFile
@@ -192,6 +191,7 @@ func globalSetupOne(cfg GlobalAgentConfig, metaSkillContent string, opts GlobalS
 		return result
 	}
 	result.InjectWritten = injected
+	result.Skipped = !result.SkillWritten && !result.InjectWritten
 
 	return result
 }
@@ -204,7 +204,7 @@ func GlobalTeardown(opts GlobalSetupOptions) ([]GlobalTeardownResult, error) {
 		return nil, err
 	}
 
-	targets, err := selectGlobalTargets(allConfigs, opts.Agents)
+	targets, err := selectTeardownTargets(allConfigs, opts.Agents)
 	if err != nil {
 		return nil, err
 	}
@@ -232,6 +232,9 @@ func globalTeardownOne(cfg GlobalAgentConfig, dryRun bool) GlobalTeardownResult 
 			}
 			result.SkillRemoved = true
 		}
+	} else if !os.IsNotExist(err) {
+		result.Error = fmt.Sprintf("stat skill dir: %v", err)
+		return result
 	}
 
 	if cfg.InstructionFile == "" {
@@ -248,26 +251,73 @@ func globalTeardownOne(cfg GlobalAgentConfig, dryRun bool) GlobalTeardownResult 
 	return result
 }
 
-// selectGlobalTargets picks which agents to operate on. If agents is nil,
-// auto-detect. Otherwise validate the requested list.
+func resolveRequestedAgents(allConfigs map[AgentKind]GlobalAgentConfig, requested []AgentKind) ([]GlobalAgentConfig, error) {
+	out := make([]GlobalAgentConfig, 0, len(requested))
+	for _, kind := range requested {
+		cfg, ok := allConfigs[kind]
+		if !ok {
+			return nil, fmt.Errorf("unknown agent kind: %q", kind)
+		}
+		out = append(out, cfg)
+	}
+	return out, nil
+}
+
+// selectGlobalTargets picks which agents to operate on for setup. If agents is
+// nil, auto-detect by checking whether the agent's config directory exists.
 func selectGlobalTargets(allConfigs map[AgentKind]GlobalAgentConfig, requested []AgentKind) ([]GlobalAgentConfig, error) {
 	if len(requested) > 0 {
-		out := make([]GlobalAgentConfig, 0, len(requested))
-		for _, kind := range requested {
-			cfg, ok := allConfigs[kind]
-			if !ok {
-				return nil, fmt.Errorf("unknown agent kind: %q", kind)
-			}
-			out = append(out, cfg)
-		}
-		return out, nil
+		return resolveRequestedAgents(allConfigs, requested)
 	}
 
-	detected, err := GlobalDetectAgents()
-	if err != nil {
-		return nil, err
+	var detected []GlobalAgentConfig
+	for _, kind := range []AgentKind{AgentClaudeCode, AgentOpenCode, AgentCodex, AgentCursor} {
+		cfg := allConfigs[kind]
+		if info, err := os.Stat(cfg.DetectDir); err == nil && info.IsDir() {
+			detected = append(detected, cfg)
+		}
 	}
 	return detected, nil
+}
+
+// selectTeardownTargets picks which agents to operate on for teardown. If
+// agents is nil, auto-detect by checking whether the agent's config directory
+// OR any kimbap-managed artifact exists — so teardown works even after the
+// host agent has been uninstalled.
+func selectTeardownTargets(allConfigs map[AgentKind]GlobalAgentConfig, requested []AgentKind) ([]GlobalAgentConfig, error) {
+	if len(requested) > 0 {
+		return resolveRequestedAgents(allConfigs, requested)
+	}
+
+	var targets []GlobalAgentConfig
+	for _, kind := range []AgentKind{AgentClaudeCode, AgentOpenCode, AgentCodex, AgentCursor} {
+		cfg := allConfigs[kind]
+		if hasKimbapArtifacts(cfg) {
+			targets = append(targets, cfg)
+		}
+	}
+	return targets, nil
+}
+
+// hasKimbapArtifacts reports whether kimbap has left any managed files for cfg.
+func hasKimbapArtifacts(cfg GlobalAgentConfig) bool {
+	if info, err := os.Stat(cfg.DetectDir); err == nil && info.IsDir() {
+		return true
+	}
+	if _, err := os.Stat(filepath.Join(cfg.SkillsDir, "kimbap")); err == nil {
+		return true
+	}
+	if cfg.InstructionFile != "" {
+		if data, err := os.ReadFile(cfg.InstructionFile); err == nil {
+			s := string(data)
+			si := strings.Index(s, markerStart)
+			ei := strings.Index(s, markerEnd)
+			if si >= 0 && ei >= 0 && si < ei {
+				return true
+			}
+		}
+	}
+	return false
 }
 
 // injectMarkerBlock inserts or replaces the kimbap block in the given
@@ -295,7 +345,10 @@ func injectMarkerBlock(path string, force bool, dryRun bool) (bool, error) {
 		return false, fmt.Errorf("malformed kimbap markers in %q: found %s marker but not %s", path, found, missing)
 	}
 
-	if hasStart && hasEnd && startIdx < endIdx {
+	if hasStart && hasEnd {
+		if startIdx >= endIdx {
+			return false, fmt.Errorf("malformed kimbap markers in %q: end marker appears before start marker", path)
+		}
 		endIdx += len(markerEnd)
 		if endIdx < len(content) && content[endIdx] == '\n' {
 			endIdx++
@@ -309,10 +362,6 @@ func injectMarkerBlock(path string, force bool, dryRun bool) (bool, error) {
 			return true, nil
 		}
 		return true, atomicWriteFile(path, newContent)
-	}
-
-	if hasStart && hasEnd && startIdx >= endIdx {
-		return false, fmt.Errorf("malformed kimbap markers in %q: end marker appears before start marker", path)
 	}
 
 	var newContent string
