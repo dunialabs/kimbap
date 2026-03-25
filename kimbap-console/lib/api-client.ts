@@ -74,14 +74,14 @@ apiClient.interceptors.request.use((config) => {
   return config;
 });
 
-// Response interceptor for统一错误处理 + toast
+// Response interceptor for unified error handling + toast
 apiClient.interceptors.response.use(
   (response) => {
     try {
       const data = response?.data as any;
       const common = data?.common;
 
-      // 业务层错误：/api/v1 标准返回里 code != 0
+      // Business-layer error: /api/v1 standard response with code != 0
       if (common && typeof common.code === 'number' && common.code !== 0) {
         const fakeError: any = new Error(common.message || 'Request failed');
         fakeError.response = response;
@@ -104,7 +104,7 @@ apiClient.interceptors.response.use(
         return Promise.reject(fakeError);
       }
     } catch {
-      // 如果解析失败，不影响正常流程
+      // Parse failure should not block normal flow
     }
 
     return response;
@@ -132,11 +132,11 @@ apiClient.interceptors.response.use(
       }
     }
 
-    // 解析后端返回的友好错误文案，挂到 error 上，方便前端直接使用
+    // Extract user-friendly error message from backend response and attach to error object
     const message = getApiErrorMessage(error);
     (error as any).userMessage = message;
 
-    // 如果未显式关闭，则在前端统一弹出错误提示
+    // Show error toast unless explicitly silenced by the caller
     const silent = config.__silent || config.suppressToast;
     if (typeof window !== 'undefined' && !silent && message) {
       // Check if message contains URLs and render as clickable links
@@ -461,14 +461,14 @@ export const api = {
 
     // 23001 - Get logs with filters
     getLogs: (params: {
-      page?: number; // 分页-页码，从1开始
-      pageSize?: number; // 分页-每页数量，默认50
-      timeRange?: string; // 时间范围: "1h", "6h", "24h", "7d", "all"
-      level?: string; // 日志级别: "all", "INFO", "WARN", "ERROR", "DEBUG"
-      source?: string; // 日志来源: "all", "api-gateway", "tool-manager", etc.
-      search?: string; // 搜索关键词（搜索message和rawData）
-      requestId?: string; // 请求ID过滤
-      userId?: string; // 用户ID过滤
+      page?: number;
+      pageSize?: number;
+      timeRange?: string;
+      level?: string;
+      source?: string;
+      search?: string;
+      requestId?: string;
+      userId?: string;
     }) =>
       apiClient.post('/api/v1', {
         common: {

@@ -50,6 +50,7 @@ func (c *Classifier) AddRule(rule Rule) error {
 	}
 	c.actionIDs[canonicalID] = rule.ID
 	c.rules = append(c.rules, rule)
+	c.sortRules()
 	return nil
 }
 
@@ -97,7 +98,7 @@ func (c *Classifier) Classify(method, host, reqPath string) *ClassificationResul
 	nHost := normalizeHostPattern(host)
 	nPath := normalizePathPattern(reqPath)
 
-	for _, rule := range c.sortedRules() {
+	for _, rule := range c.rules {
 		if !matchMethod(rule.Method, nMethod) {
 			continue
 		}
@@ -138,16 +139,13 @@ func (c *Classifier) Explain(method, host, reqPath string) string {
 	)
 }
 
-func (c *Classifier) sortedRules() []Rule {
-	rules := make([]Rule, len(c.rules))
-	copy(rules, c.rules)
-	sort.SliceStable(rules, func(i, j int) bool {
-		if rules[i].Priority == rules[j].Priority {
-			return rules[i].ID < rules[j].ID
+func (c *Classifier) sortRules() {
+	sort.SliceStable(c.rules, func(i, j int) bool {
+		if c.rules[i].Priority == c.rules[j].Priority {
+			return c.rules[i].ID < c.rules[j].ID
 		}
-		return rules[i].Priority > rules[j].Priority
+		return c.rules[i].Priority > c.rules[j].Priority
 	})
-	return rules
 }
 
 func matchMethod(ruleMethod, method string) bool {

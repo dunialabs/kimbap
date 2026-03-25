@@ -1,12 +1,12 @@
 export function getApiErrorMessage(error: any, fallback = 'Request failed, please try again later'): string {
   const data = error?.response?.data
 
-  // 统一解析 /api/v1 返回格式：{ common: { code, message, cmdId, errorCode }, data }
+  // Parse /api/v1 standard response: { common: { code, message, cmdId, errorCode }, data }
   if (data?.common?.message) {
     return data.common.message
   }
 
-  // 某些自定义接口可能直接返回 { message } 或字符串
+  // Some custom endpoints return { message } or a plain string directly
   if (typeof data?.message === 'string' && data.message.trim()) {
     return data.message
   }
@@ -15,7 +15,7 @@ export function getApiErrorMessage(error: any, fallback = 'Request failed, pleas
     return data
   }
 
-  // Axios / JS 原生错误
+  // Axios / native JS error
   if (typeof error?.message === 'string' && error.message.trim()) {
     return error.message
   }
