@@ -138,9 +138,12 @@ export default function DashboardPage() {
             }
           }
         }
-      } catch {
-        // Failed to fetch server info
-        setServerFetchError(true)
+      } catch (err: any) {
+        const msg: string = err?.response?.data?.common?.message || err?.message || '';
+        const isNotFound = msg.toLowerCase().includes('not found') || err?.response?.status === 404;
+        if (!isNotFound) {
+          setServerFetchError(true)
+        }
       } finally {
         setIsServerInfoLoading(false)
       }

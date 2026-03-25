@@ -1,7 +1,7 @@
 import { prisma } from '@/lib/prisma';
 
 import { ApiError, ErrorCode } from '@/lib/error-codes';
-import { getProxy } from '@/lib/proxy-api';
+import { getProxy, getServers } from '@/lib/proxy-api';
 
 
 
@@ -9,11 +9,12 @@ interface Request20005 {
   common: {
     cmdId: number;
     userid: string;
+    rawToken?: string;
   };
   params: {
-    timeRange: number;   // 时间范围: 1-今天, 7-最近7天, 30-最近30天, 90-最近90天
-    serverId: number;    // 服务器ID，0表示所有服务器
-    metricType: number;  // 指标类型: 1-按请求数, 2-按用户数, 3-按响应时间
+    timeRange: number;
+    serverId: number;
+    metricType: number;
   };
 }
 
@@ -34,12 +35,20 @@ interface Response20005Data {
  */
 export async function handleProtocol20005(body: Request20005): Promise<Response20005Data> {
   try {
+    const rawToken = body.common?.rawToken;
     const { timeRange, serverId, metricType } = body.params;
 
     let proxyKey = '';
+    let serversMap: Record<string, string> = {};
     try {
-      const proxy = await getProxy();
+      const [proxy, serversResult] = await Promise.all([
+        getProxy(),
+        getServers({}, body.common.userid, rawToken).catch(() => ({ servers: [] })),
+      ]);
       proxyKey = proxy.proxyKey;
+      (serversResult.servers || []).forEach((s: any) => {
+        if (s.serverId) serversMap[s.serverId] = s.serverName || s.serverId;
+      });
     } catch (error) {
       console.error('[Protocol-20005] Failed to get proxy info:', error);
       throw new ApiError(ErrorCode.INTERNAL_SERVER_ERROR, 500, {
@@ -89,7 +98,7 @@ export async function handleProtocol20005(body: Request20005): Promise<Response2
           .filter(item => item.serverId)
           .map(item => ({
             toolId: item.serverId!,
-            toolName: `Tool ${item.serverId}`,
+            toolName: serversMap[item.serverId!] ?? `Tool ${item.serverId}`,
             value: item._count.id,
             percentage: totalRequests > 0 ? Math.round((item._count.id / totalRequests) * 1000) / 10 : 0
           }))
@@ -139,7 +148,7 @@ export async function handleProtocol20005(body: Request20005): Promise<Response2
           .filter(item => item.userCount > 0)
           .map(item => ({
             toolId: item.toolId,
-            toolName: `Tool ${item.toolId}`,
+            toolName: serversMap[item.toolId] ?? `Tool ${item.toolId}`,
             value: item.userCount,
             percentage: totalUsers > 0 ? Math.round((item.userCount / totalUsers) * 1000) / 10 : 0
           }))
@@ -170,7 +179,7 @@ export async function handleProtocol20005(body: Request20005): Promise<Response2
             const avgResponseTime = Math.round(item._avg.duration!);
             return {
               toolId: item.serverId!,
-              toolName: `Tool ${item.serverId}`,
+              toolName: serversMap[item.serverId!] ?? `Tool ${item.serverId}`,
               value: avgResponseTime,
               percentage: 0 // 响应时间不计算百分比，而是显示相对比值
             };

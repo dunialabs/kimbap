@@ -1,7 +1,7 @@
 import { prisma } from '@/lib/prisma';
 
 import { ApiError, ErrorCode } from '@/lib/error-codes';
-import { getProxy } from '@/lib/proxy-api';
+import { getProxy, getUsers } from '@/lib/proxy-api';
 
 
 
@@ -9,12 +9,13 @@ interface Request20007 {
   common: {
     cmdId: number;
     userid: string;
+    rawToken?: string;
   };
   params: {
-    timeRange: number;  // 时间范围: 1-今天, 7-最近7天, 30-最近30天, 90-最近90天
-    userId: string;     // 用户ID，空表示所有用户
-    page: number;       // 分页-页码
-    pageSize: number;   // 分页-每页数量
+    timeRange: number;
+    userId: string;
+    page: number;
+    pageSize: number;
   };
 }
 
@@ -45,6 +46,7 @@ interface Response20007Data {
  */
 export async function handleProtocol20007(body: Request20007): Promise<Response20007Data> {
   try {
+    const rawToken = body.common?.rawToken;
     const { timeRange, userId, page = 1, pageSize = 20 } = body.params;
 
     let proxyKey = '';
@@ -95,10 +97,24 @@ export async function handleProtocol20007(body: Request20007): Promise<Response2
     });
     
     const totalCount = activeUsers.length;
-    
-    // 2. 分页处理
+
+    const userIds = activeUsers.map(u => u.userid).filter(Boolean) as string[];
+    const [requestCounts, usersResult] = await Promise.all([
+      prisma.log.groupBy({
+        by: ['userid'],
+        where: { ...whereCondition, userid: { in: userIds } },
+        _count: { id: true },
+        orderBy: { _count: { id: 'desc' } },
+      }),
+      getUsers({}, body.common.userid, rawToken).catch(() => ({ users: [] })),
+    ]);
+    const userNameMap = new Map<string, string>(
+      (usersResult.users || []).map((u: any) => [u.userId, u.name || u.userId])
+    );
+    const sortedUserIds = requestCounts.map(r => r.userid);
     const offset = (page - 1) * pageSize;
-    const pagedUsers = activeUsers.slice(offset, offset + pageSize);
+    const pagedUserIds = sortedUserIds.slice(offset, offset + pageSize);
+    const pagedUsers = pagedUserIds.map(id => ({ userid: id }));
     
     // 3. 为每个用户计算详细统计
     const userUsage: UserUsage[] = await Promise.all(
@@ -177,8 +193,8 @@ export async function handleProtocol20007(body: Request20007): Promise<Response2
           .slice(0, 5); // 取前5个
         
         // 用户角色和名称
-        const role = userInfo?.role || 3; // 默认为member
-        const userName = currentUserId; // 使用userid作为用户名，实际可能需要从其他表获取
+        const role = userInfo?.role || 3;
+        const userName = userNameMap.get(currentUserId) || currentUserId;
         
         // 最后活跃时间
         const lastActive = lastActiveLog ? Number(lastActiveLog.addtime) : 0;
@@ -194,9 +210,6 @@ export async function handleProtocol20007(body: Request20007): Promise<Response2
         };
       })
     );
-    
-    // 按总请求数降序排列
-    userUsage.sort((a, b) => b.totalRequests - a.totalRequests);
     
     const response: Response20007Data = {
       userUsage,
