@@ -71,40 +71,10 @@ export async function handleProtocol10015(body: Request10015): Promise<Response1
         if (error instanceof ApiError) {
           throw error;
         }
-        throw new ApiError(ErrorCode.INVALID_TOKEN, 401, { 
-          details: 'Failed to authenticate with provided token' 
-        });
+        throw error;
       }
       
       console.log(`User ${userId} logging in with access token`);
-      
-      // After successful accessToken login, save user to local database
-      try {
-        const proxyInfo = await getProxy();
-        const proxyKey = proxyInfo.proxyKey;
-        
-        await prisma.user.upsert({
-          where: {
-            userid: user.userId
-          },
-          update: {
-            accessTokenHash: hashToken(accessToken),
-            proxyKey: proxyKey,
-            role: user.role
-          },
-          create: {
-            userid: user.userId,
-            accessTokenHash: hashToken(accessToken),
-            proxyKey: proxyKey,
-            role: user.role
-          }
-        });
-        
-        console.log(`User ${user.userId} saved to local database with proxyKey ${proxyKey}`);
-      } catch (saveError) {
-        console.error('Failed to save user to local database:', saveError);
-        // Continue without failing the login
-      }
       
     } else if (masterPwd) {
       // Method 2: Login with master password (owner only)
@@ -141,41 +111,6 @@ export async function handleProtocol10015(body: Request10015): Promise<Response1
         user = owner;
         console.log(`Owner ${owner.userId} logging in with master password`);
         
-        // After successful masterPwd login, save owner to local database
-        try {
-          // Get proxyKey for saving to local database
-          const proxyInfo = await getProxy();
-          const proxyKey = proxyInfo.proxyKey;
-          
-          if (!masterPwdAccessToken) {
-            throw new ApiError(ErrorCode.INTERNAL_SERVER_ERROR, 500, {
-              details: 'Failed to decrypt owner token'
-            });
-          }
-
-          await prisma.user.upsert({
-            where: {
-              userid: owner.userId
-            },
-            update: {
-              accessTokenHash: hashToken(masterPwdAccessToken),
-              proxyKey: proxyKey,
-              role: owner.role
-            },
-            create: {
-              userid: owner.userId,
-              accessTokenHash: hashToken(masterPwdAccessToken),
-              proxyKey: proxyKey,
-              role: owner.role
-            }
-          });
-          
-          console.log(`Owner ${owner.userId} saved to local database with proxyKey ${proxyKey}`);
-        } catch (saveError) {
-          console.error('Failed to save owner to local database:', saveError);
-          // Continue without failing the login
-        }
-        
       } catch (decryptError) {
         // Decryption failed, invalid master password
         console.error('Failed to decrypt owner token:', decryptError);
@@ -207,14 +142,24 @@ export async function handleProtocol10015(body: Request10015): Promise<Response1
       throw new ApiError(ErrorCode.TOKEN_EXPIRED, 401);
     }
     
-    // Prepare response with user information
+    try {
+      const proxyInfo = await getProxy();
+      const tokenToHash = accessToken ?? masterPwdAccessToken!;
+      await prisma.user.upsert({
+        where: { userid: user.userId },
+        update: { accessTokenHash: hashToken(tokenToHash), proxyKey: proxyInfo.proxyKey, role: user.role },
+        create: { userid: user.userId, accessTokenHash: hashToken(tokenToHash), proxyKey: proxyInfo.proxyKey, role: user.role },
+      });
+    } catch (saveError) {
+      console.error('Failed to save user to local database:', saveError);
+    }
+
     const tokenInfo: TokenInfo = {
       userid: user.userId,
-      role: user.role, // 1-owner, 2-admin, 3-common user, 4-guest
+      role: user.role,
       createAt: user.createdAt
     };
-    
-    // Log successful login
+
     console.log(`User ${user.userId} logged in successfully with role ${user.role}`);
     
     // Reconnect all servers if user is owner (role 1)

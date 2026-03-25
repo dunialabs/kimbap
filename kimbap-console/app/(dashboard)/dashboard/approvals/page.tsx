@@ -374,7 +374,7 @@ export default function ApprovalsPage() {
           <CardContent className="flex items-center gap-3 py-3">
             <Clock className="h-5 w-5 text-amber-600" />
             <span className="text-sm font-medium">
-              {pendingCount} pending approval{pendingCount !== 1 ? 's' : ''} awaiting review
+              {pendingCount.toLocaleString()} pending approval{pendingCount !== 1 ? 's' : ''} awaiting review
             </span>
           </CardContent>
         </Card>
@@ -387,7 +387,7 @@ export default function ApprovalsPage() {
             <div>
               <CardTitle className="text-base">Approval Requests</CardTitle>
               <CardDescription>
-                {filteredRequests.length} request{filteredRequests.length !== 1 ? 's' : ''}
+                {filteredRequests.length.toLocaleString()} request{filteredRequests.length !== 1 ? 's' : ''}
                 {statusFilter !== 'all' ? ` (${statusFilter.toLowerCase()})` : ''}
               </CardDescription>
             </div>
@@ -558,7 +558,7 @@ export default function ApprovalsPage() {
       {!loading && requests.length > 0 && (
         <div className="flex items-center justify-between">
           <p className="text-xs text-muted-foreground">
-            {requests.length} requests
+            {requests.length.toLocaleString()} requests
           </p>
           {hasMore && (
             <Button variant="outline" size="sm" onClick={handleLoadMore} disabled={loadingMore}>

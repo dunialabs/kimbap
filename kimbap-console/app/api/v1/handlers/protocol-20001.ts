@@ -60,18 +60,13 @@ export async function handleProtocol20001(body: Request20001): Promise<Response2
       const serversResult = await getServers({ enabled: true }, body.common.userid, rawToken);
       const serversList = serversResult.servers || [];
       
-      // 建立serverId到server的映射，同时计算工具总数
-      const uniqueToolNames = new Set();
       serversList.forEach((server: any) => {
         if (server.serverId) {
           serversMap[server.serverId] = server;
           validServerIds.add(server.serverId);
         }
-        if (server.serverName) {
-          uniqueToolNames.add(server.serverName);
-        }
       });
-      totalToolsCount = uniqueToolNames.size;
+      totalToolsCount = validServerIds.size;
       
       console.log('[Protocol-20001] Total tools from proxy-api:', totalToolsCount);
       console.log('[Protocol-20001] Valid server IDs count:', validServerIds.size);

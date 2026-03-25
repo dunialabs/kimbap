@@ -76,19 +76,16 @@ export async function POST(request: NextRequest) {
       throw new ExternalApiError(E1001, 'Missing required field: masterPwd');
     }
 
-    // Check if a proxy server already exists
     try {
       const existingProxy = await getProxy();
       if (existingProxy) {
         throw new ExternalApiError(E3007, 'Proxy has already been initialized');
       }
     } catch (error) {
-      // If it's our ExternalApiError about proxy already initialized, re-throw
-      if (error instanceof ExternalApiError) {
-        throw error;
-      }
-      // Otherwise, getProxy threw an error meaning no proxy exists, which is expected
-      // Continue with proxy creation
+      if (error instanceof ExternalApiError) throw error;
+      const msg = error instanceof Error ? error.message : String(error);
+      const isNotFound = msg.includes('not found') || msg.includes('No proxy') || msg.includes('Record not found');
+      if (!isNotFound) throw error;
     }
 
     // Generate access token

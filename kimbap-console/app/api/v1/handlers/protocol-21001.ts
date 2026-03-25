@@ -55,17 +55,17 @@ export async function handleProtocol21001(body: Request21001): Promise<Response2
     const timeRangeSeconds = timeRange * 24 * 60 * 60;
     const startTime = now - timeRangeSeconds;
     
-    // 2. 从proxy-api获取用户列表（过滤删除的用户）
     let validUserIds = new Set<string>();
+    let expiredTokensCount = 0;
     try {
       const usersResult = await getUsers({}, body.common.userid, rawToken);
       const usersList = usersResult.users || [];
       usersList.forEach((user: any) => {
         if (user.userId) {
           validUserIds.add(user.userId);
+          if (user.expiresAt > 0 && user.expiresAt < now) expiredTokensCount++;
         }
       });
-      console.log('[Protocol-21001] Got valid users count:', validUserIds.size);
     } catch (error) {
       console.warn('[Protocol-21001] Failed to get users from proxy-api:', error);
     }
@@ -158,8 +158,8 @@ export async function handleProtocol21001(body: Request21001): Promise<Response2
       failedRequests,
       avgSuccessRate: Math.round(avgSuccessRate * 10) / 10,
       totalClients: uniqueClients.length,
-      expiredTokens: 0, // 暂时设为0
-      limitedTokens: 0  // 暂时设为0
+      expiredTokens: expiredTokensCount,
+      limitedTokens: 0
     };
     
     console.log('[Protocol-21001] Response:', response, 'proxyKey:', proxyKey);

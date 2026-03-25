@@ -152,11 +152,13 @@ export async function handleProtocol21003(body: Request21003): Promise<Response2
       },
     });
 
+    const uniqueUserIdSet = new Set(uniqueUserIds);
+
     // Build a lookup: bucketKey (timePoint + userId) -> count
     const countMap = new Map<string, number>();
     for (const log of allLogs) {
       const uid = log.userid;
-      if (!uid || !uniqueUserIds.includes(uid)) continue;
+      if (!uid || !uniqueUserIdSet.has(uid)) continue;
       const ts = Number(log.addtime);
       const bucket = timePoints.findIndex((tp, i) => {
         const next = timePoints[i + 1] ?? (tp + intervalSeconds);
