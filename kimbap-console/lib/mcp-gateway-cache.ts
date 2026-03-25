@@ -216,7 +216,7 @@ export async function validateAndCacheMcpGatewayUrl(url: string): Promise<Valida
     };
   }
 
-    console.log(`[MCP CACHE] Validating KIMBAP_CORE_URL: ${url}`);
+  console.log(`[MCP CACHE] Validating KIMBAP_CORE_URL: ${url}`);
 
   // Step 1: Format validation
   const formatCheck = validateFormat(url);
@@ -254,17 +254,4 @@ export async function validateAndCacheMcpGatewayUrl(url: string): Promise<Valida
   return availabilityCheck;
 }
 
-/**
- * Clear the cache (useful for testing)
- */
-export function clearMcpGatewayCache(): void {
-  cache = null;
-  console.log('[MCP CACHE] Cache cleared');
-}
 
-/**
- * Get current cache entry (useful for debugging)
- */
-export function getMcpGatewayCache(): CacheEntry | null {
-  return cache;
-}
