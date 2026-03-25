@@ -163,3 +163,29 @@ func TestDefaultKimbapConfigPathReturnsXDGPathWhenXDGMissingAndLegacyMissing(t *
 		t.Fatalf("expected xdg path %q when both files are missing, got %q", expected, path)
 	}
 }
+
+func TestLoadKimbapConfigWithoutDefaultIgnoresBrokenDefaultConfig(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+
+	defaultPath := filepath.Join(home, ".kimbap", "config.yaml")
+	if err := os.MkdirAll(filepath.Dir(defaultPath), 0o755); err != nil {
+		t.Fatalf("mkdir default config dir: %v", err)
+	}
+	if err := os.WriteFile(defaultPath, []byte("mode: [\n"), 0o644); err != nil {
+		t.Fatalf("write broken default config: %v", err)
+	}
+
+	explicitPath := filepath.Join(t.TempDir(), "explicit.yaml")
+	if err := os.WriteFile(explicitPath, []byte("mode: connected\n"), 0o644); err != nil {
+		t.Fatalf("write explicit config: %v", err)
+	}
+
+	cfg, err := LoadKimbapConfigWithoutDefault(explicitPath)
+	if err != nil {
+		t.Fatalf("load config without default: %v", err)
+	}
+	if cfg.Mode != "connected" {
+		t.Fatalf("expected explicit config mode, got %q", cfg.Mode)
+	}
+}

@@ -78,7 +78,7 @@ func (d *Doctor) checkConfigFile() (string, CheckResult) {
 	if err := yaml.Unmarshal(b, &raw); err != nil {
 		return path, CheckResult{Name: "config file", Status: "fail", Message: fmt.Sprintf("invalid YAML: %v", err)}
 	}
-	if _, err := config.LoadKimbapConfig(path); err != nil {
+	if _, err := config.LoadKimbapConfigWithoutDefault(path); err != nil {
 		return path, CheckResult{Name: "config file", Status: "fail", Message: err.Error()}
 	}
 	return path, CheckResult{Name: "config file", Status: "ok", Message: path}
@@ -135,7 +135,7 @@ func (d *Doctor) resolveConfigPath() (string, error) {
 
 func (d *Doctor) loadConfig() (*config.KimbapConfig, error) {
 	if strings.TrimSpace(d.configPath) != "" {
-		return config.LoadKimbapConfig(d.configPath)
+		return config.LoadKimbapConfigWithoutDefault(d.configPath)
 	}
 	return config.LoadKimbapConfig()
 }

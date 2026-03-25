@@ -74,7 +74,7 @@ func checkConfigFile() doctorCheck {
 		}
 		return doctorCheck{Name: "config file", Status: "fail", Detail: err.Error()}
 	}
-	if _, err := config.LoadKimbapConfig(path); err != nil {
+	if _, err := config.LoadKimbapConfigWithoutDefault(path); err != nil {
 		return doctorCheck{Name: "config file", Status: "fail", Detail: err.Error()}
 	}
 	return doctorCheck{Name: "config file", Status: "ok", Detail: path}

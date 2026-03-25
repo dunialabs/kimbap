@@ -100,16 +100,27 @@ func DefaultConfig() *KimbapConfig {
 }
 
 func LoadKimbapConfig(paths ...string) (*KimbapConfig, error) {
+	return loadKimbapConfig(true, paths...)
+}
+
+// LoadKimbapConfigWithoutDefault loads defaults, env overrides, and explicit files without reading the discovered default config file.
+func LoadKimbapConfigWithoutDefault(paths ...string) (*KimbapConfig, error) {
+	return loadKimbapConfig(false, paths...)
+}
+
+func loadKimbapConfig(includeDefault bool, paths ...string) (*KimbapConfig, error) {
 	cfg := DefaultConfig()
 
-	defaultPath, err := defaultKimbapConfigPath()
-	if err != nil {
-		return nil, err
+	if includeDefault {
+		defaultPath, err := defaultKimbapConfigPath()
+		if err != nil {
+			return nil, err
+		}
+		if err := mergeConfigFromFile(cfg, defaultPath, false); err != nil {
+			return nil, err
+		}
 	}
 
-	if err := mergeConfigFromFile(cfg, defaultPath, false); err != nil {
-		return nil, err
-	}
 	applyKimbapEnv(cfg)
 
 	for _, p := range paths {

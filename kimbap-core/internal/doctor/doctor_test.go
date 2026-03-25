@@ -196,3 +196,35 @@ func TestResolveConfigPathReturnsXDGPathWhenXDGMissingAndLegacyMissing(t *testin
 		t.Fatalf("expected xdg path %q when both files are missing, got %q", expected, path)
 	}
 }
+
+func TestRunAllWithExplicitConfigIgnoresBrokenDefaultConfig(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+
+	defaultPath := filepath.Join(home, ".kimbap", "config.yaml")
+	if err := os.MkdirAll(filepath.Dir(defaultPath), 0o755); err != nil {
+		t.Fatalf("mkdir default config dir: %v", err)
+	}
+	if err := os.WriteFile(defaultPath, []byte("mode: [\n"), 0o644); err != nil {
+		t.Fatalf("write broken default config: %v", err)
+	}
+
+	dataDir := t.TempDir()
+	if err := os.MkdirAll(filepath.Join(dataDir, "skills"), 0o755); err != nil {
+		t.Fatalf("create skills dir: %v", err)
+	}
+	configPath := filepath.Join(t.TempDir(), "config.yaml")
+	if err := os.WriteFile(configPath, []byte(validConfigYAML(dataDir)), 0o644); err != nil {
+		t.Fatalf("write config file: %v", err)
+	}
+
+	d := NewDoctor("", configPath)
+	results := d.RunAll(context.Background())
+	configCheck := findCheck(results, "config file")
+	if configCheck == nil {
+		t.Fatal("missing config file check")
+	}
+	if configCheck.Status != "ok" {
+		t.Fatalf("expected ok status, got %s (%s)", configCheck.Status, configCheck.Message)
+	}
+}
