@@ -3,6 +3,7 @@ package approvals
 import (
 	"context"
 	"fmt"
+	"net"
 	"net/smtp"
 	"strings"
 )
@@ -52,20 +53,43 @@ func (e *EmailNotifier) Notify(ctx context.Context, req *ApprovalRequest) error 
 		"\r\n" + body)
 
 	addr := fmt.Sprintf("%s:%d", e.host, e.port)
-	var auth smtp.Auth
-	if strings.TrimSpace(e.username) != "" {
-		auth = smtp.PlainAuth("", e.username, e.password, e.host)
+
+	conn, err := (&net.Dialer{}).DialContext(ctx, "tcp", addr)
+	if err != nil {
+		return fmt.Errorf("email notifier: dial: %w", err)
+	}
+	if deadline, ok := ctx.Deadline(); ok {
+		_ = conn.SetDeadline(deadline)
 	}
 
-	type sendResult struct{ err error }
-	ch := make(chan sendResult, 1)
-	go func() {
-		ch <- sendResult{smtp.SendMail(addr, auth, e.from, e.to, msg)}
-	}()
-	select {
-	case r := <-ch:
-		return r.err
-	case <-ctx.Done():
-		return ctx.Err()
+	client, err := smtp.NewClient(conn, e.host)
+	if err != nil {
+		_ = conn.Close()
+		return fmt.Errorf("email notifier: smtp client: %w", err)
 	}
+	defer func() { _ = client.Quit() }()
+
+	if strings.TrimSpace(e.username) != "" {
+		auth := smtp.PlainAuth("", e.username, e.password, e.host)
+		if err := client.Auth(auth); err != nil {
+			return fmt.Errorf("email notifier: auth: %w", err)
+		}
+	}
+	if err := client.Mail(e.from); err != nil {
+		return fmt.Errorf("email notifier: MAIL FROM: %w", err)
+	}
+	for _, rcpt := range e.to {
+		if err := client.Rcpt(rcpt); err != nil {
+			return fmt.Errorf("email notifier: RCPT TO %s: %w", rcpt, err)
+		}
+	}
+	wc, err := client.Data()
+	if err != nil {
+		return fmt.Errorf("email notifier: DATA: %w", err)
+	}
+	if _, err := wc.Write(msg); err != nil {
+		_ = wc.Close()
+		return fmt.Errorf("email notifier: write message: %w", err)
+	}
+	return wc.Close()
 }

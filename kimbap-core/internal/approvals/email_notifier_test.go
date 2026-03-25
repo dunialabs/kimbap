@@ -134,4 +134,7 @@ func TestEmailNotifierContextCancellation(t *testing.T) {
 	if err == nil {
 		t.Fatal("expected error for cancelled context")
 	}
+	if !strings.Contains(err.Error(), "context canceled") && !strings.Contains(err.Error(), "dial") {
+		t.Errorf("expected context-canceled or dial error, got: %v", err)
+	}
 }
