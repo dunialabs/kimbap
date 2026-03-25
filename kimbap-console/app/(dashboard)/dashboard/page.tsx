@@ -57,7 +57,7 @@ interface DashboardData {
   monthlyUsage: number
   toolsUsage: Array<{ name: string; percentage: number; requests: number }>
   tokenUsage: Array<{ name: string; token: string; percentage: number; requests: number }>
-  connectedClients: Array<{ id: string; name: string; token: string; ip: string; location: string; lastActive: string; requests: number }>
+  connectedClients: Array<{ id: string; name: string; ip: string; location: string; lastActive: string; requests: number }>
   recentActivity: Array<{ action: string; time: string; status: string }>
   manualConnection: string | null
   sshTunnelAddress: string | null
@@ -615,7 +615,6 @@ export default function DashboardPage() {
                   <TableHeader>
                     <TableRow>
                       <TableHead>Client Name</TableHead>
-                      <TableHead>Access Token</TableHead>
                       <TableHead>IP Address</TableHead>
                       <TableHead>Location</TableHead>
                       <TableHead>Last Active</TableHead>
@@ -626,20 +625,6 @@ export default function DashboardPage() {
                     {connectedClients.map((client: any) => (
                       <TableRow key={client.id}>
                         <TableCell>{client.name}</TableCell>
-                        <TableCell>
-                          <code
-                            className="inline-block max-w-[180px] truncate text-xs bg-muted px-2 py-1 rounded align-middle"
-                            title={
-                              client.token
-                                ? `${client.token.slice(0, 8)}...${client.token.slice(-4)}`
-                                : '-'
-                            }
-                          >
-                            {client.token
-                              ? `${client.token.slice(0, 8)}...${client.token.slice(-4)}`
-                              : '-'}
-                          </code>
-                        </TableCell>
                         <TableCell className="font-mono text-sm">
                           {client.ip}
                         </TableCell>
