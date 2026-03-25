@@ -7,9 +7,13 @@ import (
 	"net"
 	"net/smtp"
 	"strings"
+	"time"
 )
 
-const defaultSMTPPort = 587
+const (
+	defaultSMTPPort    = 587
+	defaultSMTPTimeout = 30 * time.Second
+)
 
 type EmailNotifier struct {
 	host     string
@@ -54,6 +58,12 @@ func (e *EmailNotifier) Notify(ctx context.Context, req *ApprovalRequest) error 
 		"\r\n" + body)
 
 	addr := fmt.Sprintf("%s:%d", e.host, e.port)
+
+	if _, hasDeadline := ctx.Deadline(); !hasDeadline {
+		var cancel context.CancelFunc
+		ctx, cancel = context.WithTimeout(ctx, defaultSMTPTimeout)
+		defer cancel()
+	}
 
 	conn, err := (&net.Dialer{}).DialContext(ctx, "tcp", addr)
 	if err != nil {
