@@ -1096,6 +1096,30 @@ func TestServerUnauthenticatedRequestReturns401(t *testing.T) {
 	if got := resp.Header.Get("WWW-Authenticate"); !strings.Contains(got, `Bearer realm="kimbap-core"`) {
 		t.Fatalf("expected WWW-Authenticate bearer challenge, got %q", got)
 	}
+	if got := resp.Header.Get("WWW-Authenticate"); strings.Contains(got, `error="invalid_request"`) {
+		t.Fatalf("expected missing-credential challenge without invalid_request, got %q", got)
+	}
+}
+
+func TestServerMalformedAuthorizationReturns400WithInvalidRequestChallenge(t *testing.T) {
+	ts, _ := newTestAPIServer(t)
+
+	req, _ := http.NewRequest(http.MethodGet, ts.URL+"/v1/tokens", nil)
+	req.Header.Set("Authorization", "Bearer")
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatalf("malformed auth request: %v", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusBadRequest {
+		b, _ := io.ReadAll(resp.Body)
+		t.Fatalf("expected 400, got %d body=%s", resp.StatusCode, string(b))
+	}
+	challenge := resp.Header.Get("WWW-Authenticate")
+	if !strings.Contains(challenge, `error="invalid_request"`) {
+		t.Fatalf("expected invalid_request challenge, got %q", challenge)
+	}
 }
 
 func TestServerInvalidTokenReturns401WithBearerChallenge(t *testing.T) {
@@ -1192,6 +1216,9 @@ func TestProtectedRoutesRequireBearerAuth(t *testing.T) {
 			challenge := resp.Header.Get("WWW-Authenticate")
 			if !strings.Contains(challenge, `Bearer realm="kimbap-core"`) {
 				t.Fatalf("expected bearer challenge, got %q", challenge)
+			}
+			if strings.Contains(challenge, `error="invalid_request"`) {
+				t.Fatalf("expected missing-credential challenge without invalid_request, got %q", challenge)
 			}
 		})
 	}

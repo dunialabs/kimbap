@@ -40,13 +40,13 @@ func (s *Server) handleHealth(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) handleListActions(w http.ResponseWriter, r *http.Request) {
+	limit, err := parseNonNegativeIntParam(r.URL.Query().Get("limit"), "limit")
+	if err != nil {
+		writeEnvelopeError(w, r, actions.NewExecutionError(actions.ErrValidationFailed, err.Error(), http.StatusBadRequest, false, nil))
+		return
+	}
 	defs := make([]actions.ActionDefinition, 0)
 	if s.runtime != nil && s.runtime.ActionRegistry != nil {
-		limit, err := parseNonNegativeIntParam(r.URL.Query().Get("limit"), "limit")
-		if err != nil {
-			writeEnvelopeError(w, r, actions.NewExecutionError(actions.ErrValidationFailed, err.Error(), http.StatusBadRequest, false, nil))
-			return
-		}
 		items, err := s.runtime.ActionRegistry.List(r.Context(), runtimepkg.ListOptions{
 			Namespace: r.URL.Query().Get("namespace"),
 			Resource:  r.URL.Query().Get("resource"),

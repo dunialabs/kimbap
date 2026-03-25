@@ -144,17 +144,16 @@ function statusBadge(status: string) {
 
 function formatTime(iso: string): string {
   if (!iso) return '—';
-  try {
-    const d = new Date(iso);
-    return d.toLocaleString(undefined, {
-      month: 'short',
-      day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit',
-    });
-  } catch {
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) {
     return iso;
   }
+  return d.toLocaleString(undefined, {
+    month: 'short',
+    day: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  });
 }
 
 function redactArgs(args: Record<string, any>): Record<string, any> {
@@ -217,6 +216,7 @@ export default function ApprovalsPage() {
   const refreshTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const tickRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const loadedPagesRef = useRef(1);
+  const fetchVersionRef = useRef(0);
 
   const isInitialLoad = useRef(true);
 
@@ -238,6 +238,8 @@ export default function ApprovalsPage() {
         setLoadingMore(true);
       }
 
+      const fetchVersion = ++fetchVersionRef.current;
+
       try {
         const [listRes, countRes] = await Promise.all([
           api.approvals.list({
@@ -248,6 +250,10 @@ export default function ApprovalsPage() {
           }),
           api.approvals.countPending().catch(() => null),
         ]);
+        if (fetchVersion !== fetchVersionRef.current) {
+          return;
+        }
+
         const listData = listRes.data?.data || listRes.data;
         const countData = countRes?.data?.data || countRes?.data;
         const nextRequests = (listData?.requests || []) as ApprovalRequest[];
@@ -271,9 +277,15 @@ export default function ApprovalsPage() {
         setTimeAgo('just now');
         setRefreshFailed(false);
       } catch {
+        if (fetchVersion !== fetchVersionRef.current) {
+          return;
+        }
         if (isInitialLoad.current) toast.error('Could not load approval requests');
         setRefreshFailed(true);
       } finally {
+        if (fetchVersion !== fetchVersionRef.current) {
+          return;
+        }
         setLoading(false);
         setLoadingMore(false);
         isInitialLoad.current = false;
