@@ -171,9 +171,8 @@ func (s *Server) handleCreateToken(w http.ResponseWriter, r *http.Request) {
 		writeEnvelopeError(w, r, actions.NewExecutionError(actions.ErrValidationFailed, "agent_name is required", http.StatusBadRequest, false, nil))
 		return
 	}
-	tenantID := tenantFromContext(r.Context())
-	if tenantID == "" {
-		writeEnvelopeError(w, r, actions.NewExecutionError(actions.ErrUnauthorized, "tenant context required", http.StatusForbidden, false, nil))
+	tenantID, ok := requireTenantContext(w, r)
+	if !ok {
 		return
 	}
 	requestedTenantID := strings.TrimSpace(req.TenantID)
@@ -220,7 +219,10 @@ func (s *Server) handleCreateToken(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) handleListTokens(w http.ResponseWriter, r *http.Request) {
-	tenantID := tenantFromContext(r.Context())
+	tenantID, ok := requireTenantContext(w, r)
+	if !ok {
+		return
+	}
 	items, err := s.store.ListTokens(r.Context(), tenantID)
 	if err != nil {
 		writeEnvelopeError(w, r, actions.NewExecutionError(actions.ErrDownstreamUnavailable, "internal server error", http.StatusInternalServerError, false, nil))
@@ -231,7 +233,10 @@ func (s *Server) handleListTokens(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) handleInspectToken(w http.ResponseWriter, r *http.Request) {
 	id := chi.URLParam(r, "id")
-	tenantID := tenantFromContext(r.Context())
+	tenantID, ok := requireTenantContext(w, r)
+	if !ok {
+		return
+	}
 	tok, ok := s.requireTokenForTenant(w, r, id, tenantID)
 	if !ok {
 		return
@@ -241,7 +246,10 @@ func (s *Server) handleInspectToken(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) handleRevokeToken(w http.ResponseWriter, r *http.Request) {
 	id := chi.URLParam(r, "id")
-	tenantID := tenantFromContext(r.Context())
+	tenantID, ok := requireTenantContext(w, r)
+	if !ok {
+		return
+	}
 	tok, ok := s.requireTokenForTenant(w, r, id, tenantID)
 	if !ok {
 		return
@@ -262,7 +270,7 @@ func (s *Server) handleRevokeToken(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) requireTokenForTenant(w http.ResponseWriter, r *http.Request, tokenID, tenantID string) (*store.TokenRecord, bool) {
 	if strings.TrimSpace(tenantID) == "" {
-		writeEnvelopeError(w, r, actions.NewExecutionError(actions.ErrUnauthorized, "tenant context required", http.StatusForbidden, false, nil))
+		writeEnvelopeError(w, r, actions.NewExecutionError(actions.ErrUnauthenticated, "tenant context required", http.StatusUnauthorized, false, nil))
 		return nil, false
 	}
 	tok, err := s.store.GetToken(r.Context(), tokenID)
@@ -298,9 +306,8 @@ func requirePrincipalWithTenantContext(w http.ResponseWriter, r *http.Request) (
 		writeEnvelopeError(w, r, actions.NewExecutionError(actions.ErrUnauthenticated, "authentication required", http.StatusUnauthorized, false, nil))
 		return nil, "", false
 	}
-	tenantID := tenantFromContext(r.Context())
-	if tenantID == "" {
-		writeEnvelopeError(w, r, actions.NewExecutionError(actions.ErrUnauthorized, "tenant context required", http.StatusForbidden, false, nil))
+	tenantID, ok := requireTenantContext(w, r)
+	if !ok {
 		return nil, "", false
 	}
 	if !principalTenantMatches(principal, tenantID) {
@@ -310,8 +317,20 @@ func requirePrincipalWithTenantContext(w http.ResponseWriter, r *http.Request) (
 	return principal, tenantID, true
 }
 
+func requireTenantContext(w http.ResponseWriter, r *http.Request) (string, bool) {
+	tenantID := strings.TrimSpace(tenantFromContext(r.Context()))
+	if tenantID == "" {
+		writeEnvelopeError(w, r, actions.NewExecutionError(actions.ErrUnauthenticated, "tenant context required", http.StatusUnauthorized, false, nil))
+		return "", false
+	}
+	return tenantID, true
+}
+
 func (s *Server) handleGetPolicy(w http.ResponseWriter, r *http.Request) {
-	tenantID := tenantFromContext(r.Context())
+	tenantID, ok := requireTenantContext(w, r)
+	if !ok {
+		return
+	}
 	doc, err := s.store.GetPolicy(r.Context(), tenantID)
 	if err != nil {
 		status := http.StatusInternalServerError
@@ -336,7 +355,10 @@ func (s *Server) handleSetPolicy(w http.ResponseWriter, r *http.Request) {
 		writeEnvelopeError(w, r, actions.NewExecutionError(actions.ErrValidationFailed, err.Error(), status, false, nil))
 		return
 	}
-	tenantID := tenantFromContext(r.Context())
+	tenantID, ok := requireTenantContext(w, r)
+	if !ok {
+		return
+	}
 	currentPolicy, getErr := s.store.GetPolicy(r.Context(), tenantID)
 	policyEvent := webhooks.EventPolicyUpdated
 	if getErr != nil {
@@ -378,7 +400,10 @@ func (s *Server) handleEvalPolicy(w http.ResponseWriter, r *http.Request) {
 		writeEnvelopeError(w, r, actions.NewExecutionError(actions.ErrValidationFailed, err.Error(), status, false, nil))
 		return
 	}
-	tenantID := tenantFromContext(r.Context())
+	tenantID, ok := requireTenantContext(w, r)
+	if !ok {
+		return
+	}
 	docBytes, err := s.store.GetPolicy(r.Context(), tenantID)
 	if err != nil {
 		status := http.StatusInternalServerError
@@ -403,7 +428,10 @@ func (s *Server) handleEvalPolicy(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) handleListApprovals(w http.ResponseWriter, r *http.Request) {
-	tenantID := tenantFromContext(r.Context())
+	tenantID, ok := requireTenantContext(w, r)
+	if !ok {
+		return
+	}
 	status := strings.TrimSpace(r.URL.Query().Get("status"))
 	if status == "" || status == "pending" {
 		if expirer, ok := s.store.(interface {
@@ -434,7 +462,7 @@ func (s *Server) requirePendingApproval(w http.ResponseWriter, r *http.Request, 
 		return nil, false
 	}
 	if existing.TenantID != tenantID {
-		writeEnvelopeError(w, r, actions.NewExecutionError(actions.ErrUnauthorized, "approval not found", http.StatusNotFound, false, nil))
+		writeEnvelopeError(w, r, actions.NewExecutionError(actions.ErrActionNotFound, "approval not found", http.StatusNotFound, false, nil))
 		return nil, false
 	}
 	now := time.Now().UTC()
@@ -442,7 +470,7 @@ func (s *Server) requirePendingApproval(w http.ResponseWriter, r *http.Request, 
 		writeEnvelopeError(w, r, actions.NewExecutionError(actions.ErrApprovalTimeout, "approval expired", http.StatusGone, false, nil))
 		return nil, false
 	}
-	if now.After(existing.ExpiresAt) {
+	if !existing.ExpiresAt.After(now) {
 		expirer, ok := s.store.(interface {
 			ExpireApproval(ctx context.Context, id string) (bool, error)
 		})
@@ -605,7 +633,10 @@ func (s *Server) emitApprovalRequestedWebhook(req actions.ExecutionRequest, resu
 }
 
 func (s *Server) handleQueryAudit(w http.ResponseWriter, r *http.Request) {
-	tenantID := tenantFromContext(r.Context())
+	tenantID, ok := requireTenantContext(w, r)
+	if !ok {
+		return
+	}
 	limit, _ := strconv.Atoi(r.URL.Query().Get("limit"))
 	offset, _ := strconv.Atoi(r.URL.Query().Get("offset"))
 	from, fromErr := parseRFC3339Ptr(r.URL.Query().Get("from"))
@@ -637,7 +668,10 @@ func (s *Server) handleQueryAudit(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) handleExportAudit(w http.ResponseWriter, r *http.Request) {
-	tenantID := tenantFromContext(r.Context())
+	tenantID, ok := requireTenantContext(w, r)
+	if !ok {
+		return
+	}
 	format := strings.TrimSpace(r.URL.Query().Get("format"))
 	var contentType string
 	switch strings.ToLower(format) {

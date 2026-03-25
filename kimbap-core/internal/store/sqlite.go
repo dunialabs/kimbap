@@ -523,7 +523,7 @@ func (s *SQLStore) UpdateApprovalStatus(ctx context.Context, id string, status s
 		if existing.Status != "pending" {
 			return ErrApprovalAlreadyResolved
 		}
-		if now.After(existing.ExpiresAt) {
+		if !existing.ExpiresAt.After(now) {
 			return ErrApprovalExpired
 		}
 		return ErrNotFound
@@ -575,6 +575,19 @@ func (s *SQLStore) ExpirePendingApprovals(ctx context.Context) (int, error) {
 		return 0, err
 	}
 	return int(affectedRows(res)), nil
+}
+
+func (s *SQLStore) ExpireApproval(ctx context.Context, id string) (bool, error) {
+	now := time.Now().UTC()
+	res, err := s.db.ExecContext(ctx, s.bind(`
+		UPDATE approvals
+		SET status = 'expired', resolved_at = ?, resolved_by = 'system', reason = 'auto-expired'
+		WHERE id = ? AND status = 'pending' AND expires_at <= ?
+	`), now, id, now)
+	if err != nil {
+		return false, err
+	}
+	return affectedRows(res) > 0, nil
 }
 
 func (s *SQLStore) SetPolicy(ctx context.Context, tenantID string, document []byte) error {
