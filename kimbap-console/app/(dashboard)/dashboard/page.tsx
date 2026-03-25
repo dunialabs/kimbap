@@ -82,7 +82,7 @@ export default function DashboardPage() {
           try {
             const parsedServer = JSON.parse(selectedServer)
 
-            // Use cached server info if available
+            // Use cached server info immediately, then refresh from API
             if (parsedServer.proxyId && parsedServer.proxyName) {
               // Normalize status: convert string 'running'/'stopped' to number 1/2
               let normalizedStatus = parsedServer.status
@@ -99,7 +99,6 @@ export default function DashboardPage() {
                 status: normalizedStatus,
                 createdAt: parsedServer.createdAt
               })
-              return // Use cache, no need to call API
             }
           } catch {
             // Malformed localStorage — fall through to API fetch
