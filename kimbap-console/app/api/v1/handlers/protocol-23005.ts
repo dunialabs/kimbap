@@ -87,12 +87,12 @@ export async function handleProtocol23005(body: Request23005): Promise<Response2
       andConditions.length === 1 ? andConditions[0] : { AND: andConditions };
 
     // 获取新日志数据
-    const logs = await prisma.log.findMany({
+    const raw = await prisma.log.findMany({
       where: whereCondition,
       orderBy: {
-        id: 'asc', // 按ID升序，确保按时间顺序获取
+        id: 'asc',
       },
-      take: limit,
+      take: limit + 1,
       select: {
         id: true,
         addtime: true,
@@ -108,9 +108,8 @@ export async function handleProtocol23005(body: Request23005): Promise<Response2
       },
     });
 
-
-    // 检查是否还有更多日志
-    const hasMore = logs.length === limit;
+    const hasMore = raw.length > limit;
+    const logs = hasMore ? raw.slice(0, limit) : raw;
     const latestLogId =
       logs.length > 0 ? Math.max(...logs.map((log) => log.id)) : lastLogId;
 
