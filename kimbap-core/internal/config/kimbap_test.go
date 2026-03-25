@@ -148,7 +148,7 @@ func TestDefaultKimbapConfigPathErrorsWhenXDGEntryIsDirectoryWithoutLegacy(t *te
 	}
 }
 
-func TestDefaultKimbapConfigPathReturnsLegacyPathWhenXDGMissingAndLegacyMissing(t *testing.T) {
+func TestDefaultKimbapConfigPathReturnsXDGPathWhenXDGMissingAndLegacyMissing(t *testing.T) {
 	home := t.TempDir()
 	xdg := filepath.Join(t.TempDir(), "xdg")
 	t.Setenv("HOME", home)
@@ -158,8 +158,8 @@ func TestDefaultKimbapConfigPathReturnsLegacyPathWhenXDGMissingAndLegacyMissing(
 	if err != nil {
 		t.Fatalf("defaultKimbapConfigPath: %v", err)
 	}
-	expected := filepath.Join(home, ".kimbap", "config.yaml")
+	expected := filepath.Join(xdg, "kimbap", "config.yaml")
 	if path != expected {
-		t.Fatalf("expected legacy path %q when both files are missing, got %q", expected, path)
+		t.Fatalf("expected xdg path %q when both files are missing, got %q", expected, path)
 	}
 }

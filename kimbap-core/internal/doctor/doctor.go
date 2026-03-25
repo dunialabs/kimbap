@@ -125,7 +125,7 @@ func (d *Doctor) resolveConfigPath() (string, error) {
 		if xdgIsDir {
 			return "", fmt.Errorf("config path is a directory: %s", xdgPath)
 		}
-		return legacyPath, nil
+		return xdgPath, nil
 	}
 	if st, err := os.Stat(legacyPath); err == nil && st.IsDir() {
 		return "", fmt.Errorf("legacy config path is a directory: %s", legacyPath)

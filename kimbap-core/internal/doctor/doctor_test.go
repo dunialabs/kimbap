@@ -180,7 +180,7 @@ func TestResolveConfigPathErrorsWhenXDGEntryIsDirectoryWithoutLegacy(t *testing.
 	}
 }
 
-func TestResolveConfigPathReturnsLegacyPathWhenXDGMissingAndLegacyMissing(t *testing.T) {
+func TestResolveConfigPathReturnsXDGPathWhenXDGMissingAndLegacyMissing(t *testing.T) {
 	home := t.TempDir()
 	xdg := filepath.Join(t.TempDir(), "xdg")
 	t.Setenv("HOME", home)
@@ -191,8 +191,8 @@ func TestResolveConfigPathReturnsLegacyPathWhenXDGMissingAndLegacyMissing(t *tes
 	if err != nil {
 		t.Fatalf("resolveConfigPath: %v", err)
 	}
-	expected := filepath.Join(home, ".kimbap", "config.yaml")
+	expected := filepath.Join(xdg, "kimbap", "config.yaml")
 	if path != expected {
-		t.Fatalf("expected legacy path %q when both files are missing, got %q", expected, path)
+		t.Fatalf("expected xdg path %q when both files are missing, got %q", expected, path)
 	}
 }
