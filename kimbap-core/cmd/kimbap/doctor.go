@@ -1,6 +1,7 @@
 package main
 
 import (
+	"database/sql"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -8,8 +9,9 @@ import (
 
 	"github.com/dunialabs/kimbap-core/internal/config"
 	"github.com/dunialabs/kimbap-core/internal/policy"
-	"github.com/dunialabs/kimbap-core/internal/vault"
 	"github.com/spf13/cobra"
+
+	_ "modernc.org/sqlite"
 )
 
 type doctorCheck struct {
@@ -147,12 +149,23 @@ func checkDataDirWritable(dataDir string) doctorCheck {
 }
 
 func checkVaultAccessible(cfg *config.KimbapConfig) doctorCheck {
-	store, err := initVaultStore(cfg)
+	if strings.TrimSpace(cfg.Vault.Path) == "" {
+		return doctorCheck{Name: "vault accessible", Status: "fail", Detail: "vault path is empty"}
+	}
+	st, err := os.Stat(cfg.Vault.Path)
 	if err != nil {
 		return doctorCheck{Name: "vault accessible", Status: "fail", Detail: err.Error()}
 	}
-	_, err = store.List(contextBackground(), defaultTenantID(), vault.ListOptions{Limit: 1})
+	if st.IsDir() {
+		return doctorCheck{Name: "vault accessible", Status: "fail", Detail: "path is not a file"}
+	}
+	db, err := sql.Open("sqlite", cfg.Vault.Path)
 	if err != nil {
+		return doctorCheck{Name: "vault accessible", Status: "fail", Detail: err.Error()}
+	}
+	defer db.Close()
+	var exists int
+	if err := db.QueryRowContext(contextBackground(), "SELECT 1 FROM secrets LIMIT 1").Scan(&exists); err != nil && err != sql.ErrNoRows {
 		return doctorCheck{Name: "vault accessible", Status: "fail", Detail: err.Error()}
 	}
 	return doctorCheck{Name: "vault accessible", Status: "ok", Detail: cfg.Vault.Path}

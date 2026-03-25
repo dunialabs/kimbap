@@ -269,3 +269,16 @@ rules:
 		t.Fatalf("expected override policy path %q, got %q", overridePolicyPath, policyCheck.Message)
 	}
 }
+
+func TestCheckVaultAccessibleDoesNotCreateMissingVault(t *testing.T) {
+	vaultPath := filepath.Join(t.TempDir(), "vault.db")
+	d := NewDoctor("", "")
+
+	check := d.checkVaultAccessible(context.Background(), vaultPath)
+	if check.Status != "fail" {
+		t.Fatalf("expected fail status, got %s (%s)", check.Status, check.Message)
+	}
+	if _, err := os.Stat(vaultPath); !os.IsNotExist(err) {
+		t.Fatalf("expected missing vault file to remain absent, stat err=%v", err)
+	}
+}

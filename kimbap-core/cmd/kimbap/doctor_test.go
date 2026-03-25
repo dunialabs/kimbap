@@ -4,6 +4,8 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+
+	"github.com/dunialabs/kimbap-core/internal/config"
 )
 
 func TestCheckConfigFileUsesExplicitConfigWithoutDefault(t *testing.T) {
@@ -35,5 +37,19 @@ func TestCheckConfigFileUsesExplicitConfigWithoutDefault(t *testing.T) {
 	}
 	if check.Detail != explicitPath {
 		t.Fatalf("expected explicit path %q, got %q", explicitPath, check.Detail)
+	}
+}
+
+func TestCheckVaultAccessibleDoesNotCreateMissingVault(t *testing.T) {
+	vaultPath := filepath.Join(t.TempDir(), "vault.db")
+
+	check := checkVaultAccessible(&config.KimbapConfig{
+		Vault: config.VaultConfig{Path: vaultPath},
+	})
+	if check.Status != "fail" {
+		t.Fatalf("expected fail status, got %s (%s)", check.Status, check.Detail)
+	}
+	if _, err := os.Stat(vaultPath); !os.IsNotExist(err) {
+		t.Fatalf("expected missing vault file to remain absent, stat err=%v", err)
 	}
 }

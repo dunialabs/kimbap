@@ -166,12 +166,20 @@ func (d *Doctor) checkVaultAccessible(ctx context.Context, vaultPath string) Che
 	if strings.TrimSpace(vaultPath) == "" {
 		return CheckResult{Name: "vault database accessible", Status: "fail", Message: "vault path is empty"}
 	}
+	st, err := os.Stat(vaultPath)
+	if err != nil {
+		return CheckResult{Name: "vault database accessible", Status: "fail", Message: err.Error()}
+	}
+	if st.IsDir() {
+		return CheckResult{Name: "vault database accessible", Status: "fail", Message: "path is not a file"}
+	}
 	db, err := sql.Open("sqlite", vaultPath)
 	if err != nil {
 		return CheckResult{Name: "vault database accessible", Status: "fail", Message: err.Error()}
 	}
 	defer db.Close()
-	if err := db.PingContext(ctx); err != nil {
+	var exists int
+	if err := db.QueryRowContext(ctx, "SELECT 1 FROM secrets LIMIT 1").Scan(&exists); err != nil && err != sql.ErrNoRows {
 		return CheckResult{Name: "vault database accessible", Status: "fail", Message: err.Error()}
 	}
 	return CheckResult{Name: "vault database accessible", Status: "ok", Message: vaultPath}
