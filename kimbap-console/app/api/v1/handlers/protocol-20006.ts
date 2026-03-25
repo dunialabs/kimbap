@@ -125,15 +125,15 @@ export async function handleProtocol20006(body: Request20006): Promise<Response2
               const toolId = item.serverId!;
               const totalRequests = item._count.id;
               
-              // 查询成功请求数
               const successRequests = await prisma.log.count({
                 where: {
                   ...whereCondition,
                   serverId: toolId,
-                  statusCode: {
-                    gte: 200,
-                    lt: 300
-                  }
+                  error: { in: ['', null] },
+                  OR: [
+                    { statusCode: null },
+                    { statusCode: { gte: 200, lt: 400 } },
+                  ],
                 }
               });
               
@@ -174,29 +174,20 @@ export async function handleProtocol20006(body: Request20006): Promise<Response2
         });
         
         // 按工具和天分组
-        const toolDailyStats = new Map<string, number[]>();
-        
+        const toolDayMap = new Map<string, Map<string, number>>();
+
         dailyStats.forEach(log => {
           const toolId = log.serverId!;
-          const logDate = new Date(Number(log.addtime) * 1000);
-          const dayKey = `${logDate.getFullYear()}-${logDate.getMonth()}-${logDate.getDate()}`;
-          
-          if (!toolDailyStats.has(toolId)) {
-            toolDailyStats.set(toolId, []);
-          }
-          
-          const dailyCounts = toolDailyStats.get(toolId)!;
-          const existingDayIndex = dailyCounts.findIndex((_, index) => {
-            // 这里简化处理，实际可能需要更精确的日期匹配
-            return index === dailyCounts.length - 1;
-          });
-          
-          if (existingDayIndex >= 0) {
-            dailyCounts[existingDayIndex]++;
-          } else {
-            dailyCounts.push(1);
-          }
+          const d = new Date(Number(log.addtime) * 1000);
+          const dayKey = `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`;
+          if (!toolDayMap.has(toolId)) toolDayMap.set(toolId, new Map());
+          const dayBuckets = toolDayMap.get(toolId)!;
+          dayBuckets.set(dayKey, (dayBuckets.get(dayKey) ?? 0) + 1);
         });
+
+        const toolDailyStats = new Map<string, number[]>(
+          Array.from(toolDayMap.entries()).map(([toolId, dayBuckets]) => [toolId, Array.from(dayBuckets.values())])
+        );
         
         // 计算每个工具的请求量统计
         comparison = Array.from(toolDailyStats.entries())

@@ -174,25 +174,31 @@ export async function handleProtocol20008(body: Request20008): Promise<Response2
           
           if (lastActivity) {
             const lastActivityTime = Number(lastActivity.addtime);
-            
+
             if (lastActivityTime > fiveMinutesAgo) {
-              // 最近5分钟有活动
               if (recentErrors > 0) {
-                status = 3; // error
-                if (lastActivity.error) {
-                  errorMessage = lastActivity.error.substring(0, 100);
-                } else if (lastActivity.statusCode && (lastActivity.statusCode < 200 || lastActivity.statusCode >= 300)) {
-                  errorMessage = `HTTP ${lastActivity.statusCode} 错误`;
+                const recentSuccesses = await prisma.log.count({
+                  where: {
+                    proxyKey,
+                    serverId: toolId,
+                    addtime: { gte: BigInt(oneHourAgo) },
+                  error: '',
+                  OR: [{ statusCode: null }, { statusCode: { gte: 200, lt: 400 } }],
+                  },
+                });
+                if (recentSuccesses === 0) {
+                  status = 3;
+                  errorMessage = (lastActivity.error ?? '').substring(0, 100);
+                } else {
+                  status = 0;
                 }
               } else {
-                status = 0; // online
+                status = 0;
               }
             } else if (lastActivityTime > oneHourAgo) {
-              // 1小时内有活动但不在最近5分钟
-              status = 2; // connecting (可能正在重连)
+              status = 2;
             } else {
-              // 超过1小时没有活动
-              status = 1; // offline
+              status = 1;
             }
           }
           
