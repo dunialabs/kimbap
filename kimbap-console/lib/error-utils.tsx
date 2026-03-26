@@ -27,10 +27,7 @@ export function renderErrorMessageWithLinks(message: string): React.ReactNode {
         target="_blank"
         rel="noopener noreferrer"
         className="text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 underline cursor-pointer font-medium"
-        onClick={(e) => {
-          e.stopPropagation();
-          window.open(url, '_blank', 'noopener,noreferrer');
-        }}
+        onClick={(e) => e.stopPropagation()}
       >
         {url}
       </a>
