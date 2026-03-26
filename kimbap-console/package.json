@@ -30,7 +30,7 @@
     "db:adminer": "docker compose up -d adminer",
     "db:reset": "prisma migrate reset --force",
     "db:reset:complete": "node scripts/db-reset-complete.js",
-    "test:log-sync": "node scripts/test-log-sync.js",
+    "test:log-sync": "node -e \"require('./jobs/log-sync.js').syncLogs()\"",
     "test:openapi-parity": "node ./node_modules/tsx/dist/cli.mjs scripts/check-openapi-converter-parity.ts",
     "build:complete": "node scripts/build-standalone-complete.js",
     "build:complete:x64": "node scripts/build-standalone-complete.js x64",
