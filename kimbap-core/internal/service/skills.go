@@ -43,6 +43,9 @@ func (s *ServicesService) ListServices(serverID string) ([]ServiceInfo, error) {
 		return nil, err
 	}
 	serverDir := s.serverServicesDirPath(serverID)
+	if !s.isPathSafe(serverDir) {
+		return nil, errors.New("invalid server service path")
+	}
 	if _, err := os.Stat(serverDir); err != nil {
 		if errors.Is(err, os.ErrNotExist) {
 			return nil, ErrNoServicesDirectoryFound
@@ -141,7 +144,7 @@ func (s *ServicesService) UploadService(serverID string, zipBuffer []byte) ([]st
 		}
 		targetDir := filepath.Join(serverDir, serviceName)
 		if !s.isPathSafe(targetDir) {
-			continue
+			return nil, errors.New("invalid service path")
 		}
 		if err := replaceDirectory(dir, targetDir); err != nil {
 			return nil, err
@@ -196,6 +199,9 @@ func (s *ServicesService) ensureServerServicesDir(serverID string) (string, erro
 		return "", err
 	}
 	dir := s.serverServicesDirPath(serverID)
+	if !s.isPathSafe(dir) {
+		return "", errors.New("invalid server service path")
+	}
 	if err := os.MkdirAll(dir, 0o755); err != nil {
 		return "", err
 	}
@@ -217,9 +223,49 @@ func validateName(name string) error {
 }
 
 func (s *ServicesService) isPathSafe(targetPath string) bool {
-	resolved := filepath.Clean(targetPath)
-	base := filepath.Clean(s.servicesDir)
-	return strings.HasPrefix(resolved+string(filepath.Separator), base+string(filepath.Separator))
+	base, err := comparablePath(s.servicesDir)
+	if err != nil {
+		return false
+	}
+	resolvedTarget, err := comparableTargetPath(targetPath)
+	if err != nil {
+		return false
+	}
+	return resolvedTarget == base || strings.HasPrefix(resolvedTarget+string(filepath.Separator), base+string(filepath.Separator))
+}
+
+func comparablePath(path string) (string, error) {
+	absPath, err := filepath.Abs(path)
+	if err != nil {
+		return "", err
+	}
+	resolvedPath, err := filepath.EvalSymlinks(absPath)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return filepath.Clean(absPath), nil
+		}
+		return "", err
+	}
+	return filepath.Clean(resolvedPath), nil
+}
+
+func comparableTargetPath(targetPath string) (string, error) {
+	absTarget, err := filepath.Abs(targetPath)
+	if err != nil {
+		return "", err
+	}
+	resolvedTarget, err := filepath.EvalSymlinks(absTarget)
+	if err == nil {
+		return filepath.Clean(resolvedTarget), nil
+	}
+	if !os.IsNotExist(err) {
+		return "", err
+	}
+	resolvedParent, err := comparablePath(filepath.Dir(absTarget))
+	if err != nil {
+		return "", err
+	}
+	return filepath.Clean(filepath.Join(resolvedParent, filepath.Base(absTarget))), nil
 }
 
 func (s *ServicesService) safeExtractZip(reader *zip.Reader, targetDir string) error {
