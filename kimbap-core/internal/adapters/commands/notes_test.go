@@ -66,3 +66,17 @@ func TestNotesTargetApp(t *testing.T) {
 		}
 	}
 }
+
+func TestNotesNotFoundCommandsEmitSentinel(t *testing.T) {
+	notFoundCmds := []string{"get-note"}
+	cmds := NotesCommands()
+	for _, name := range notFoundCmds {
+		cmd, ok := cmds[name]
+		if !ok {
+			t.Fatalf("command %q not found", name)
+		}
+		if !strings.Contains(cmd.Script, "[NOT_FOUND]") {
+			t.Errorf("%s: script does not emit [NOT_FOUND] sentinel for not-found case", name)
+		}
+	}
+}
