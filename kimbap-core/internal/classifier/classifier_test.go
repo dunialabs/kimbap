@@ -122,7 +122,7 @@ func TestClassifierAddRulesFromServiceManifest(t *testing.T) {
 			},
 		},
 	}); err != nil {
-		t.Fatalf("AddRulesFromSkill failed: %v", err)
+		t.Fatalf("AddRulesFromService failed: %v", err)
 	}
 
 	result := c.Classify("GET", "api.search.brave.com", "/res/v1/web/search")
@@ -240,7 +240,7 @@ func TestClassifierHTTPUnchanged(t *testing.T) {
 		},
 	})
 	if err != nil {
-		t.Fatalf("AddRulesFromSkill failed: %v", err)
+		t.Fatalf("AddRulesFromService failed: %v", err)
 	}
 	if len(c.rules) != 1 {
 		t.Fatalf("expected one rule to be added, got %d", len(c.rules))

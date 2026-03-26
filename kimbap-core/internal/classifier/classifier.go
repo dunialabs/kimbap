@@ -101,10 +101,6 @@ func (c *Classifier) AddRulesFromService(svc *services.ServiceManifest) error {
 	return nil
 }
 
-func (c *Classifier) AddRulesFromSkill(skill *services.ServiceManifest) error {
-	return c.AddRulesFromService(skill)
-}
-
 func (c *Classifier) Classify(method, host, reqPath string) *ClassificationResult {
 	nMethod := normalizeMethod(method)
 	nHost := normalizeHostPattern(host)

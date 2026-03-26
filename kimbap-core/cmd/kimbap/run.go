@@ -98,7 +98,7 @@ func newRunCommand() *cobra.Command {
 					return fmt.Errorf("load installed services: %w", err)
 				}
 				for i := range installedSkills {
-					if err := c.AddRulesFromSkill(&installedSkills[i].Manifest); err != nil {
+					if err := c.AddRulesFromService(&installedSkills[i].Manifest); err != nil {
 						return fmt.Errorf("register service %q: %w", installedSkills[i].Manifest.Name, err)
 					}
 				}
