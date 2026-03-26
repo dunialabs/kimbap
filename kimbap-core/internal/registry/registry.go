@@ -11,12 +11,22 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"regexp"
 	"sort"
 	"strings"
 	"time"
 
 	"github.com/dunialabs/kimbap-core/internal/services"
 )
+
+var safeNamePattern = regexp.MustCompile(`^[a-z][a-z0-9-]*$`)
+
+func validateRegistryName(name string) error {
+	if !safeNamePattern.MatchString(name) {
+		return fmt.Errorf("invalid service name %q: must match [a-z][a-z0-9-]*", name)
+	}
+	return nil
+}
 
 type RegistrySource struct {
 	Name    string
@@ -83,6 +93,9 @@ func (r *Registry) Install(ctx context.Context, source, ref string) (*LockEntry,
 	if err != nil {
 		return nil, fmt.Errorf("parse service manifest: %w", err)
 	}
+	if err := validateRegistryName(manifest.Name); err != nil {
+		return nil, err
+	}
 
 	if err := os.MkdirAll(r.skillsDir, 0o755); err != nil {
 		return nil, fmt.Errorf("create services directory: %w", err)
@@ -130,6 +143,15 @@ func (r *Registry) Verify(ctx context.Context) ([]VerifyResult, error) {
 		case <-ctx.Done():
 			return nil, ctx.Err()
 		default:
+		}
+
+		if err := validateRegistryName(entry.Name); err != nil {
+			results = append(results, VerifyResult{
+				Name:    entry.Name,
+				Status:  "fail",
+				Message: fmt.Sprintf("lockfile entry has unsafe name: %v", err),
+			})
+			continue
 		}
 
 		skillPath := filepath.Join(r.skillsDir, entry.Name+".yaml")

@@ -16,6 +16,8 @@ import (
 	_ "modernc.org/sqlite"
 )
 
+const maxAuditQueryLimit = 10000
+
 var (
 	ErrNotFound        = errors.New("record not found")
 	ErrInvalidTenantID = errors.New("tenant id is required")
@@ -377,17 +379,14 @@ func (s *SQLStore) QueryAuditEvents(ctx context.Context, filter AuditFilter) ([]
 		args = append(args, *filter.To)
 	}
 
-	query += " ORDER BY timestamp DESC"
-	if filter.Limit > 0 {
-		query += " LIMIT ?"
-		args = append(args, filter.Limit)
-	} else if filter.Offset > 0 {
-		if s.dialect == "postgres" {
-			query += " LIMIT ALL"
-		} else {
-			query += " LIMIT -1"
-		}
+	effectiveLimit := filter.Limit
+	if effectiveLimit <= 0 || effectiveLimit > maxAuditQueryLimit {
+		effectiveLimit = maxAuditQueryLimit
 	}
+
+	query += " ORDER BY timestamp DESC"
+	query += " LIMIT ?"
+	args = append(args, effectiveLimit)
 	if filter.Offset > 0 {
 		query += " OFFSET ?"
 		args = append(args, filter.Offset)
