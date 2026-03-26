@@ -127,10 +127,7 @@ func (s *ServicesService) UploadService(serverID string, zipBuffer []byte) ([]st
 		if !s.isPathSafe(targetDir) {
 			continue
 		}
-		if err := os.RemoveAll(targetDir); err != nil {
-			return nil, fmt.Errorf("failed to remove existing service dir %q: %w", targetDir, err)
-		}
-		if err := copyDirectory(dir, targetDir); err != nil {
+		if err := replaceDirectory(dir, targetDir); err != nil {
 			return nil, err
 		}
 		uploaded = append(uploaded, serviceName)
@@ -343,6 +340,54 @@ func parseServiceMetadata(content []byte) map[string]string {
 		result[key] = strings.TrimSpace(fmt.Sprint(value))
 	}
 	return result
+}
+
+func replaceDirectory(src string, target string) error {
+	parentDir := filepath.Dir(target)
+	if err := os.MkdirAll(parentDir, 0o755); err != nil {
+		return fmt.Errorf("create parent directory: %w", err)
+	}
+
+	tmpDir, err := os.MkdirTemp(parentDir, ".services-upload-*.tmp")
+	if err != nil {
+		return fmt.Errorf("create temp directory: %w", err)
+	}
+	promoted := false
+	defer func() {
+		if !promoted {
+			os.RemoveAll(tmpDir)
+		}
+	}()
+
+	if err := copyDirectory(src, tmpDir); err != nil {
+		return fmt.Errorf("stage service directory: %w", err)
+	}
+
+	oldDir := target + ".old"
+	hasOld := false
+	if _, err := os.Stat(target); err == nil {
+		if err := os.RemoveAll(oldDir); err != nil {
+			return fmt.Errorf("remove stale backup service dir: %w", err)
+		}
+		if err := os.Rename(target, oldDir); err != nil {
+			return fmt.Errorf("backup existing service dir: %w", err)
+		}
+		hasOld = true
+	} else if !errors.Is(err, os.ErrNotExist) {
+		return fmt.Errorf("stat existing service dir: %w", err)
+	}
+
+	if err := os.Rename(tmpDir, target); err != nil {
+		if hasOld {
+			_ = os.Rename(oldDir, target)
+		}
+		return fmt.Errorf("promote staged service dir: %w", err)
+	}
+	if hasOld {
+		_ = os.RemoveAll(oldDir)
+	}
+	promoted = true
+	return nil
 }
 
 func copyDirectory(src string, dst string) error {

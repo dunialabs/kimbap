@@ -1523,6 +1523,70 @@ func TestToActionDefinitionsCriticalRiskRequiresApprovalHint(t *testing.T) {
 	}
 }
 
+func TestToActionDefinitionsRespectsExplicitHTTPIdempotentOverride(t *testing.T) {
+	idempotent := true
+	manifest := &ServiceManifest{
+		Name:    "http-service",
+		Version: "1.0.0",
+		BaseURL: "https://api.example.com",
+		Auth:    ServiceAuth{Type: "none"},
+		Actions: map[string]ServiceAction{
+			"create": {
+				Method:     "POST",
+				Path:       "/items",
+				Risk:       RiskSpec{Level: "medium"},
+				Idempotent: &idempotent,
+			},
+		},
+	}
+
+	defs, err := ToActionDefinitions(manifest)
+	if err != nil {
+		t.Fatalf("ToActionDefinitions: %v", err)
+	}
+	if len(defs) != 1 {
+		t.Fatalf("expected one action definition, got %d", len(defs))
+	}
+	if !defs[0].Idempotent {
+		t.Fatal("expected explicit HTTP idempotent override to be preserved")
+	}
+}
+
+func TestGenerateSkillMDNormalizesAdapterAndAuthTypes(t *testing.T) {
+	manifest := &ServiceManifest{
+		Name:        "apple-notes",
+		Version:     "1.0.0",
+		Adapter:     " AppleScript ",
+		TargetApp:   "Notes",
+		Description: "Manage Apple Notes",
+		Auth: ServiceAuth{
+			Type:          " NONE ",
+			CredentialRef: "should-not-appear",
+		},
+		Actions: map[string]ServiceAction{
+			"list_notes": {
+				Command:     "list-notes",
+				Description: "List notes",
+				Risk:        RiskSpec{Level: "low"},
+			},
+		},
+	}
+
+	content, err := GenerateSkillMD(manifest)
+	if err != nil {
+		t.Fatalf("GenerateSkillMD: %v", err)
+	}
+	if !strings.Contains(content, "Use when you need to control Notes via AppleScript.") {
+		t.Fatalf("expected AppleScript description, got:\n%s", content)
+	}
+	if !strings.Contains(content, "**Command**: `list-notes`") {
+		t.Fatalf("expected AppleScript command block, got:\n%s", content)
+	}
+	if strings.Contains(content, "Credential configured:") {
+		t.Fatalf("did not expect credential prerequisite for auth type none, got:\n%s", content)
+	}
+}
+
 func TestGenerateMetaSkillMDContainsServiceActionSyntax(t *testing.T) {
 	content := GenerateMetaSkillMD()
 

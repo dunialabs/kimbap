@@ -51,7 +51,7 @@ func GenerateSkillMD(manifest *ServiceManifest) (string, error) {
 		if action.Description != "" {
 			fmt.Fprintf(&sb, "%s\n\n", action.Description)
 		}
-		if manifest.Adapter == "applescript" {
+		if normalizedAdapterType(manifest.Adapter) == "applescript" {
 			fmt.Fprintf(&sb, "**Command**: `%s`\n", action.Command)
 		} else {
 			fmt.Fprintf(&sb, "**HTTP**: `%s %s`\n", strings.ToUpper(action.Method), action.Path)
@@ -110,7 +110,7 @@ func buildSkillDescription(m *ServiceManifest) string {
 	if m.Description != "" {
 		parts = append(parts, m.Description)
 	}
-	if m.Adapter == "applescript" {
+	if normalizedAdapterType(m.Adapter) == "applescript" {
 		parts = append(parts, fmt.Sprintf("Use when you need to control %s via AppleScript.", m.TargetApp))
 	} else {
 		parts = append(parts, fmt.Sprintf("Use when you need to interact with the %s API.", m.Name))
@@ -140,11 +140,11 @@ func sortedActionKeys(actions map[string]ServiceAction) []string {
 
 func collectCredentialRefs(m *ServiceManifest) []string {
 	seen := map[string]bool{}
-	if m.Auth.Type != "none" && m.Auth.CredentialRef != "" {
+	if normalizedAuthType(m.Auth.Type) != "none" && m.Auth.CredentialRef != "" {
 		seen[m.Auth.CredentialRef] = true
 	}
 	for _, action := range m.Actions {
-		if action.Auth != nil && action.Auth.Type != "none" && action.Auth.CredentialRef != "" {
+		if action.Auth != nil && normalizedAuthType(action.Auth.Type) != "none" && action.Auth.CredentialRef != "" {
 			seen[action.Auth.CredentialRef] = true
 		}
 	}

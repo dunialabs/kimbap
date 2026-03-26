@@ -518,6 +518,9 @@ func atomicWriteDir(targetDir string, files map[string]string) error {
 	oldDir := targetDir + ".old"
 	hasOld := false
 	if _, statErr := os.Stat(targetDir); statErr == nil {
+		if err := os.RemoveAll(oldDir); err != nil {
+			return fmt.Errorf("remove stale backup dir: %w", err)
+		}
 		if err := os.Rename(targetDir, oldDir); err != nil {
 			return fmt.Errorf("backup existing dir: %w", err)
 		}

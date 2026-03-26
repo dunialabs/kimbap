@@ -20,10 +20,7 @@ func ToActionDefinitions(svc *ServiceManifest) ([]actions.ActionDefinition, erro
 		return nil, validationErrorsToError("invalid service manifest", errs)
 	}
 
-	adapterType := strings.ToLower(strings.TrimSpace(svc.Adapter))
-	if adapterType == "" {
-		adapterType = "http"
-	}
+	adapterType := normalizedAdapterType(svc.Adapter)
 
 	switch adapterType {
 	case "applescript":
@@ -52,6 +49,11 @@ func toHTTPDefinitions(svc *ServiceManifest) ([]actions.ActionDefinition, error)
 			retry.RetryOn5xx = has5xx(actionSpec.Retry.RetryOn)
 		}
 
+		idempotent := isIdempotent(actionSpec.Method)
+		if actionSpec.Idempotent != nil {
+			idempotent = *actionSpec.Idempotent
+		}
+
 		definition := actions.ActionDefinition{
 			Name:         svc.Name + "." + key,
 			Version:      1,
@@ -61,7 +63,7 @@ func toHTTPDefinitions(svc *ServiceManifest) ([]actions.ActionDefinition, error)
 			Resource:     actionSpec.Path,
 			Description:  actionSpec.Description,
 			Risk:         mapRisk(actionSpec.Risk.Level),
-			Idempotent:   isIdempotent(actionSpec.Method),
+			Idempotent:   idempotent,
 			ApprovalHint: mapApprovalHint(actionSpec.Risk.Level),
 			Auth:         mapAuth(resolveActionAuth(svc.Auth, actionSpec.Auth)),
 			InputSchema:  buildInputSchema(actionSpec.Args, actionSpec.Request.PathParams),

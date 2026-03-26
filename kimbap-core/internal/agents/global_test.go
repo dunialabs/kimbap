@@ -526,6 +526,40 @@ func TestAtomicWriteDirRejectsUnsafeFileNames(t *testing.T) {
 	}
 }
 
+func TestAtomicWriteDirRemovesStaleBackupDir(t *testing.T) {
+	dir := t.TempDir()
+	target := filepath.Join(dir, "skills", "github")
+	backup := target + ".old"
+
+	if err := os.MkdirAll(target, 0o755); err != nil {
+		t.Fatalf("create target dir: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(target, "old.txt"), []byte("old\n"), 0o644); err != nil {
+		t.Fatalf("write target file: %v", err)
+	}
+	if err := os.MkdirAll(backup, 0o755); err != nil {
+		t.Fatalf("create stale backup dir: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(backup, "stale.txt"), []byte("stale\n"), 0o644); err != nil {
+		t.Fatalf("write stale backup file: %v", err)
+	}
+
+	if err := atomicWriteDir(target, map[string]string{"SKILL.md": "# new\n"}); err != nil {
+		t.Fatalf("atomicWriteDir with stale backup: %v", err)
+	}
+
+	if _, err := os.Stat(backup); !os.IsNotExist(err) {
+		t.Fatalf("expected stale backup dir removed, stat err=%v", err)
+	}
+	data, err := os.ReadFile(filepath.Join(target, "SKILL.md"))
+	if err != nil {
+		t.Fatalf("read replaced skill file: %v", err)
+	}
+	if string(data) != "# new\n" {
+		t.Fatalf("unexpected SKILL.md content: %q", string(data))
+	}
+}
+
 func TestGlobalStatus(t *testing.T) {
 	home := t.TempDir()
 	xdg := filepath.Join(home, "xdg")

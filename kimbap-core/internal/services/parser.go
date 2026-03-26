@@ -95,10 +95,7 @@ func ValidateManifest(m *ServiceManifest) []ValidationError {
 
 	errs = append(errs, validateAuth(m.Auth, "auth")...)
 
-	adapterType := strings.ToLower(strings.TrimSpace(m.Adapter))
-	if adapterType == "" {
-		adapterType = "http"
-	}
+	adapterType := normalizedAdapterType(m.Adapter)
 	if _, ok := validAdapterTypeSet[adapterType]; !ok {
 		errs = append(errs, ValidationError{Field: "adapter", Message: "must be one of http, applescript"})
 		return errs

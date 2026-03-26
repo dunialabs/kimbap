@@ -109,9 +109,6 @@ func newServiceValidateCommand() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			if errs := services.ValidateManifest(manifest); len(errs) > 0 {
-				return fmt.Errorf("manifest invalid: %v", errs)
-			}
 			return printOutput(map[string]any{"valid": true, "name": manifest.Name, "version": manifest.Version})
 		},
 	}
@@ -409,6 +406,9 @@ func writeSkillPackDir(serviceDir string, pack map[string]string) ([]string, err
 	oldDir := serviceDir + ".old"
 	hasOld := false
 	if _, statErr := os.Stat(serviceDir); statErr == nil {
+		if err := os.RemoveAll(oldDir); err != nil {
+			return nil, fmt.Errorf("remove stale backup export dir: %w", err)
+		}
 		if err := os.Rename(serviceDir, oldDir); err != nil {
 			return nil, fmt.Errorf("backup existing export dir: %w", err)
 		}
