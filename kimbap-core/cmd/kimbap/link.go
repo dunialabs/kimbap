@@ -163,7 +163,7 @@ func newLinkListCommand() *cobra.Command {
 			tenantID := connectorTenant(tenant)
 			oauthStates, oauthErr := listConnectorStates(contextBackground(), cfg, tenantID)
 			if oauthErr != nil {
-				_, _ = fmt.Fprintf(os.Stderr, "warning: connector store unavailable: %v\n", oauthErr)
+				return fmt.Errorf("connector store unavailable: %w", oauthErr)
 			}
 			vs, vsErr := initVaultStore(cfg)
 			if vsErr != nil {
