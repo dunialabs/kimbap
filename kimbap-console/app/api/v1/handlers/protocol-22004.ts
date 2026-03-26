@@ -12,18 +12,18 @@ interface Request22004 {
     userid: string;
   };
   params: {
-    limit: number; // 返回数量限制，默认10
+    limit: number; // Return quantity limit, default 10
     timeRange?: number;
   };
 }
 
 interface ActivityEvent {
-  eventType: string;   // 事件类型: "tool_request", "token_auth", "rate_limit", "error"
-  description: string; // 事件描述
-  details: string;     // 详细信息（如响应时间、令牌等）
-  timestamp: number;   // 时间戳 (前端期望字段)
-  icon: string;        // 图标 (前端期望字段)
-  color: string;       // 显示颜色（用于UI状态点）
+  eventType: string;   // Event types: "tool_request", "token_auth", "rate_limit", "error"
+  description: string; // event description
+  details: string;     // Details (such as response time, token, etc.)
+  timestamp: number;   // Timestamp (front-end expected field)
+  icon: string;        // icon (frontend expected field)
+  color: string;       // Display color (for UI status points)
 }
 
 interface Response22004Data {
@@ -32,7 +32,7 @@ interface Response22004Data {
 
 /**
  * Protocol 22004 - Get Recent Activity
- * 获取最近活动
+ * Get recent activities
  */
 export async function handleProtocol22004(body: Request22004): Promise<Response22004Data> {
   try {
@@ -56,7 +56,7 @@ export async function handleProtocol22004(body: Request22004): Promise<Response2
     
     const now = Math.floor(Date.now() / 1000);
     
-    // 查询最近的日志记录
+    // Query recent log records
     const recentLogs = await prisma.log.findMany({
       where: {
         proxyKey,
@@ -77,10 +77,10 @@ export async function handleProtocol22004(body: Request22004): Promise<Response2
       orderBy: {
         addtime: 'desc'
       },
-      take: limit * 2 // 取多一些，然后过滤生成多样化的事件
+      take: limit * 2 // Take more, then filter to generate diverse events
     });
     
-    // 辅助函数：判断事件类型
+    // Auxiliary function: determine event type
     const determineEventType = (log: typeof recentLogs[0]): string => {
       if (log.error && log.error.trim() !== '') {
         return 'error';
@@ -100,7 +100,7 @@ export async function handleProtocol22004(body: Request22004): Promise<Response2
       return 'system';
     };
     
-    // 辅助函数：生成事件描述
+    // Helper function: generate event description
     const generateEventDescription = (log: typeof recentLogs[0], eventType: string): string => {
       const actionLabel = getActionLabel(log.action);
       const lowercaseActionLabel = actionLabel.toLowerCase();
@@ -131,7 +131,7 @@ export async function handleProtocol22004(body: Request22004): Promise<Response2
       }
     };
     
-    // 辅助函数：生成详细信息
+    // Helper function: generate details
     const generateEventDetails = (log: typeof recentLogs[0], eventType: string): string => {
       const minutesAgo = Math.floor((now - Number(log.addtime)) / 60);
       const timeStr = minutesAgo < 60 ? `${minutesAgo} minutes ago` : 
@@ -165,7 +165,7 @@ export async function handleProtocol22004(body: Request22004): Promise<Response2
       }
     };
     
-    // 辅助函数：获取事件颜色
+    // Auxiliary function: get event color
     const getEventColor = (eventType: string): string => {
       switch (eventType) {
         case 'tool_request':
@@ -183,25 +183,25 @@ export async function handleProtocol22004(body: Request22004): Promise<Response2
       }
     };
     
-    // 辅助函数：获取事件图标
+    // Helper function: Get event icon
     const getEventIcon = (eventType: string): string => {
       switch (eventType) {
         case 'tool_request':
-          return '⚡'; // 工具请求
+          return '⚡'; // tool request
         case 'token_auth':
-          return '🔑';  // 认证事件
+          return '🔑';  // Authentication event
         case 'rate_limit':
-          return '⚠️'; // 警告
+          return '⚠️'; // warn
         case 'error':
-          return '❌';   // 错误
+          return '❌';   // mistake
         case 'system':
           return 'ℹ️';
         default:
-          return '📄';  // 默认
+          return '📄';  // default
       }
     };
     
-    // 生成活动事件
+    // Generate activity events
     const recentEvents: ActivityEvent[] = [];
     const eventTypeCounter = new Map<string, number>();
     
@@ -211,7 +211,7 @@ export async function handleProtocol22004(body: Request22004): Promise<Response2
       const eventType = determineEventType(log);
       const eventCount = eventTypeCounter.get(eventType) || 0;
       
-      // 限制同类型事件数量，保证多样性
+      // Limit the number of events of the same type to ensure diversity
       if (eventCount >= Math.ceil(limit / 3)) continue;
       
       const minutesAgo = Math.floor((now - Number(log.addtime)) / 60);

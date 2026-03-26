@@ -11,28 +11,28 @@ interface Request21005 {
     rawToken?: string;
   };
   params: {
-    tokenId: string;      // 令牌ID，必填
-    patternType: number;  // 模式类型: 1-最近60分钟, 2-最近24小时, 3-最近7天每小时
+    tokenId: string;      // Token ID, required
+    patternType: number;  // Mode type: 1-Last 60 minutes, 2-Last 24 hours, 3-Last 7 days hourly
   };
 }
 
 interface UsagePoint {
-  timeLabel: string;      // 时间标签 (如: "14:30", "2024-01-15 14:00")
-  requests: number;       // 请求数
-  successRequests: number; // 成功请求数
-  failedRequests: number; // 失败请求数
-  rateLimitHits: number;  // 触发速率限制次数
+  timeLabel: string;      // Time tag (eg: "14:30", "2024-01-15 14:00")
+  requests: number;       // Number of requests
+  successRequests: number; // Number of successful requests
+  failedRequests: number; // Number of failed requests
+  rateLimitHits: number;  // Number of trigger rate limits
 }
 
 interface Response21005Data {
-  tokenId: string;        // 令牌ID
-  tokenName: string;      // 令牌名称
-  patterns: UsagePoint[]; // 使用模式数据点
+  tokenId: string;        // Token ID
+  tokenName: string;      // Token name
+  patterns: UsagePoint[]; // Use pattern data points
 }
 
 /**
  * Protocol 21005 - Get Token Usage Patterns
- * 获取令牌使用模式数据（基于proxyKey和action 1000-1099）
+ * Get token usage pattern data (based on proxyKey and action 1000-1099)
  */
 export async function handleProtocol21005(body: Request21005): Promise<Response21005Data> {
   try {
@@ -43,7 +43,7 @@ export async function handleProtocol21005(body: Request21005): Promise<Response2
       throw new ApiError(ErrorCode.MISSING_REQUIRED_FIELD, 400, { field: 'tokenId', details: 'Token ID cannot be empty' });
     }
     
-    // 1. 获取当前proxy的proxyKey（不用token）
+    // 1. Get the proxyKey of the current proxy (no token is needed)
     let proxyKey = '';
     try {
       const proxy = await getProxy();
@@ -56,7 +56,7 @@ export async function handleProtocol21005(body: Request21005): Promise<Response2
       });
     }
     
-    // 2. 从proxy-api验证用户是否有效
+    // 2. Verify whether the user is valid from proxy-api
     let validUser: any = null;
     try {
       const usersResult = await getUsers({ userId: tokenId }, body.common.userid, rawToken);
@@ -75,7 +75,7 @@ export async function handleProtocol21005(body: Request21005): Promise<Response2
     
     const tokenName = validUser.name || tokenId;
     
-    // 根据模式类型计算时间范围和间隔
+    // Calculate time range and interval based on pattern type
     const now = Math.floor(Date.now() / 1000);
     let startTime: number;
     let intervalSeconds: number;
@@ -83,27 +83,27 @@ export async function handleProtocol21005(body: Request21005): Promise<Response2
     let timeFormat: (timestamp: number) => string;
     
     switch (patternType) {
-      case 1: // 最近60分钟
+      case 1: // Last 60 minutes
         startTime = now - (60 * 60);
-        intervalSeconds = 60; // 1分钟间隔
+        intervalSeconds = 60; // 1 minute interval
         pointCount = 60;
         timeFormat = (ts: number) => {
           const date = new Date(ts * 1000);
           return `${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}`;
         };
         break;
-      case 2: // 最近24小时
+      case 2: // last 24 hours
         startTime = now - (24 * 60 * 60);
-        intervalSeconds = 60 * 60; // 1小时间隔
+        intervalSeconds = 60 * 60; // 1 hour interval
         pointCount = 24;
         timeFormat = (ts: number) => {
           const date = new Date(ts * 1000);
           return `${String(date.getHours()).padStart(2, '0')}:00`;
         };
         break;
-      case 3: // 最近7天每小时
+      case 3: // every hour for the last 7 days
         startTime = now - (7 * 24 * 60 * 60);
-        intervalSeconds = 60 * 60; // 1小时间隔
+        intervalSeconds = 60 * 60; // 1 hour interval
         pointCount = 7 * 24;
         timeFormat = (ts: number) => {
           const date = new Date(ts * 1000);
@@ -114,7 +114,7 @@ export async function handleProtocol21005(body: Request21005): Promise<Response2
         throw new ApiError(ErrorCode.INVALID_FIELD_FORMAT, 400, { details: 'Unsupported pattern type' });
     }
     
-    // 3. 获取指定时间范围内该token的所有日志（基于proxyKey和action 1000-1099）
+    // 3. Get all logs of the token within the specified time range (based on proxyKey and action 1000-1099)
     const logs = await prisma.log.findMany({
       where: {
         proxyKey: proxyKey,
@@ -137,20 +137,20 @@ export async function handleProtocol21005(body: Request21005): Promise<Response2
       }
     });
     
-    // 生成时间点并统计每个时间点的使用情况
+    // Generate time points and count usage at each time point
     const patterns: UsagePoint[] = [];
     
     for (let i = 0; i < pointCount; i++) {
       const timePoint = startTime + (i * intervalSeconds);
       const timePointEnd = timePoint + intervalSeconds;
       
-      // 筛选该时间段的日志
+      // Filter logs for this time period
       const periodLogs = logs.filter(log => {
         const logTime = Number(log.addtime);
         return logTime >= timePoint && logTime < timePointEnd;
       });
       
-      // 统计各种请求类型
+      // Statistics of various request types
       let requests = periodLogs.length;
       let successRequests = 0;
       let failedRequests = 0;

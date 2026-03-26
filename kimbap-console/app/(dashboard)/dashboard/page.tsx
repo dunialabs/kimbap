@@ -174,10 +174,7 @@ export default function DashboardPage() {
         const { api } = await import('@/lib/api-client')
 
         // Fetch dashboard overview data using protocol 10023
-        const overviewResponse = await api.dashboard.overview(
-          serverInfo.proxyId,
-          '30d'
-        )
+        const overviewResponse = await api.dashboard.overview('30d')
 
         if (overviewResponse.data?.data) {
           setDashboardData(overviewResponse.data.data)

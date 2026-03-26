@@ -13,39 +13,39 @@ interface Request20010 {
     rawToken?: string;
   };
   params: {
-    timeRange: number;       // 时间范围: 1-今天, 7-最近7天, 30-最近30天
-    toolId?: string;         // 工具ID，空表示所有工具
+    timeRange: number;       // Time range: 1-today, 7-last 7 days, 30-last 30 days
+    toolId?: string;         // Tool ID, empty means all tools
     toolIds?: string[];
-    actionTypes?: number[];  // MCPEventLogType枚举值列表，空表示所有类型
+    actionTypes?: number[];  // MCPEventLogType enumeration value list, empty means all types
     status?: number;
-    page?: number;           // 分页-页码
-    pageSize?: number;       // 分页-每页数量
+    page?: number;           // Pagination - page number
+    pageSize?: number;       // Pagination - number per page
   };
 }
 
 interface ActionLog {
-  logId: string;           // 日志ID
-  actionType: number;      // MCPEventLogType枚举值
-  actionName: string;      // 操作名称（如: "RequestTool", "ResponseTool"等）
-  toolId: string;          // 工具ID
-  toolName: string;        // 工具名称
-  userId: string;          // 用户ID
-  userName: string;        // 用户名称
-  timestamp: number;       // 时间戳
-  responseTime: number;    // 响应时间(ms)
-  status: number;          // 状态: 1-success, 2-failed
-  errorMessage: string;    // 错误信息（如果失败）
-  details: string;         // 详细信息（JSON格式）
+  logId: string;           // Log ID
+  actionType: number;      // MCPEventLogType enumeration value
+  actionName: string;      // Operation name (such as: "RequestTool", "ResponseTool", etc.)
+  toolId: string;          // Tool ID
+  toolName: string;        // Tool name
+  userId: string;          // User ID
+  userName: string;        // Username
+  timestamp: number;       // Timestamp
+  responseTime: number;    // Response time(ms)
+  status: number;          // Status: 1-success, 2-failed
+  errorMessage: string;    // Error message (if failure)
+  details: string;         // Details (JSON format)
 }
 
 interface Response20010Data {
   logs: ActionLog[];
-  totalCount: number; // 总数量（用于分页）
+  totalCount: number; // Total quantity (for pagination)
 }
 
 /**
  * Protocol 20010 - Get Tool Action Logs
- * 获取工具操作日志（基于MCPEventLogType）
+ * Get tool operation log (based on MCPEventLogType)
  */
 export async function handleProtocol20010(body: Request20010): Promise<Response20010Data> {
   try {
@@ -83,12 +83,12 @@ export async function handleProtocol20010(body: Request20010): Promise<Response2
       });
     }
     
-    // 计算时间范围
+    // Calculation time range
     const now = Math.floor(Date.now() / 1000);
     const timeRangeSeconds = timeRange * 24 * 60 * 60;
     const startTime = now - timeRangeSeconds;
     
-    // 构建where条件
+    // Build where condition
     const whereCondition: any = {
       proxyKey,
       addtime: {
@@ -99,14 +99,14 @@ export async function handleProtocol20010(body: Request20010): Promise<Response2
       }
     };
     
-    // 如果指定了toolId，添加过滤条件
+    // If toolId is specified, add filter conditions
     if (toolIds.length > 0) {
       whereCondition.serverId = { in: toolIds };
     } else if (toolId) {
       whereCondition.serverId = toolId;
     }
     
-    // 如果指定了actionTypes，添加过滤条件
+    // If actionTypes is specified, add filter conditions
     if (actionTypes && actionTypes.length > 0) {
       whereCondition.action = {
         in: actionTypes
@@ -160,7 +160,7 @@ export async function handleProtocol20010(body: Request20010): Promise<Response2
       ];
     }
     
-    // 1. 先查询总数量
+    // 1. First query the total quantity
     const totalCount = await prisma.log.count({
       where: whereCondition
     });
@@ -191,7 +191,7 @@ export async function handleProtocol20010(body: Request20010): Promise<Response2
       console.warn('[Protocol-20010] Failed to enrich user/tool names:', error);
     }
     
-    // 2. 分页查询日志数据
+    // 2. Query log data by page
     const offset = (page - 1) * pageSize;
     const logData = await prisma.log.findMany({
       where: whereCondition,
@@ -216,21 +216,21 @@ export async function handleProtocol20010(body: Request20010): Promise<Response2
       take: pageSize
     });
     
-    // 3. 转换为ActionLog格式
+    // 3. Convert to ActionLog format
     const logs: ActionLog[] = logData.map(log => {
-      // 判断成功/失败状态
+      // Determine success/failure status
       let status = 1; // success
       let errorMessage = '';
       
       if (log.error && log.error.trim()) {
         status = 2; // failed
-        errorMessage = log.error.substring(0, 200); // 限制错误信息长度
+        errorMessage = log.error.substring(0, 200); // Limit error message length
       } else if (log.statusCode && (log.statusCode < 200 || log.statusCode >= 300)) {
         status = 2; // failed
         errorMessage = `HTTP ${log.statusCode} error`;
       }
       
-      // 构建详细信息
+      // Build details
       const details = {
         sessionId: log.sessionId,
         statusCode: log.statusCode,

@@ -11,8 +11,8 @@ interface Request21011 {
     userRole?: number;
   };
   params: {
-    limit?: number; // 返回记录数，默认50
-    lastId?: number; // 上次获取的最后一条记录ID，用于实现增量更新
+    limit?: number; // Returns the number of records, default 50
+    lastId?: number; // The last record ID obtained last time, used to implement incremental updates
     timeRange?: number;
     userIds?: string[];
     includeSensitivePayloads?: boolean;
@@ -23,7 +23,7 @@ interface LogRecord {
   id: number;
   addtime: number;
   action: number;
-  source: string; // 根据action确定的source
+  source: string; // Source determined based on action
   actionName: string;
   userid: string;
   userName: string;
@@ -35,20 +35,20 @@ interface LogRecord {
   error: string;
   duration?: number;
   statusCode?: number;
-  timestamp: string; // 格式化的时间戳
-  requestParams: string | null; // 请求参数
-  responseResult: string | null; // 响应结果
+  timestamp: string; // Formatted timestamp
+  requestParams: string | null; // Request parameters
+  responseResult: string | null; // response result
 }
 
 interface Response21011Data {
   logs: LogRecord[];
   totalCount: number;
-  maxId: number; // 当前批次最大的ID，用于客户端增量更新
+  maxId: number; // The largest ID of the current batch, used for client incremental updates
 }
 
 /**
  * Protocol 21011 - Get Recent Log Records (Real-time)
- * 获取最近的日志记录（用于token-usage页面的实时table view）
+ * Get recent log records (for real-time table view of token-usage page)
  */
 export async function handleProtocol21011(body: Request21011): Promise<Response21011Data> {
   try {
@@ -71,7 +71,7 @@ export async function handleProtocol21011(body: Request21011): Promise<Response2
     const isOwner = body.common?.userRole === 1;
     const shouldIncludeSensitivePayloads = includeSensitivePayloads && isOwner;
     
-    // 1. 获取当前proxy的proxyKey（不用token）
+    // 1. Get the proxyKey of the current proxy (no token is needed)
     let proxyKey = '';
     try {
       const proxy = await getProxy();
@@ -84,7 +84,7 @@ export async function handleProtocol21011(body: Request21011): Promise<Response2
       });
     }
     
-    // 2. 构建查询条件
+    // 2. Construct query conditions
     const whereCondition: any = {
       proxyKey: proxyKey,
       OR: [
@@ -98,7 +98,7 @@ export async function handleProtocol21011(body: Request21011): Promise<Response2
       ]
     };
     
-    // 如果指定了lastId，只获取比这个ID更新的记录
+    // If lastId is specified, only records newer than this ID will be obtained.
     if (lastId && lastId > 0) {
       whereCondition.id = { gt: lastId };
     }
@@ -120,7 +120,7 @@ export async function handleProtocol21011(body: Request21011): Promise<Response2
       ? [{ id: 'asc' as const }]
       : [{ id: 'desc' as const }];
     
-    // 3. 查询最近的日志记录
+    // 3. Query recent log records
     const recentLogs = await prisma.log.findMany({
       where: whereCondition,
       select: {
@@ -143,7 +143,7 @@ export async function handleProtocol21011(body: Request21011): Promise<Response2
       take: limit
     });
     
-    // 4. 获取总数（与当前查询条件保持一致，避免分页总数错位）
+    // 4. Get the total number (consistent with the current query conditions to avoid misalignment of the paging total number)
     const totalCount = await prisma.log.count({
       where: whereCondition
     });
@@ -162,7 +162,7 @@ export async function handleProtocol21011(body: Request21011): Promise<Response2
       console.warn('[Protocol-21011] Failed to enrich user names:', error);
     }
     
-    // 5. 转换数据格式
+    // 5. Convert data format
     const logs: LogRecord[] = recentLogs.map(log => {
       const timestamp = new Date(Number(log.addtime) * 1000);
       const source = getSourceLabelFromAction(log.action);
@@ -190,7 +190,7 @@ export async function handleProtocol21011(body: Request21011): Promise<Response2
       };
     });
     
-    // 6. 获取最大ID用于增量更新
+    // 6. Get the maximum ID for incremental updates
     const maxId = logs.length > 0 ? Math.max(...logs.map(log => log.id)) : (lastId || 0);
     
     const response: Response21011Data = {

@@ -20,12 +20,12 @@ interface Request23004 {
     userid: string;
   };
   params: {
-    timeRange: string; // 时间范围: "1h", "6h", "24h", "7d", "30d"
-    level: string; // 日志级别过滤
-    source: string; // 日志来源过滤
-    search: string; // 搜索关键词
-    format: number; // 导出格式: 1-TXT, 2-JSON, 3-CSV
-    maxRecords: number; // 最大记录数限制，默认10000
+    timeRange: string; // Time range: "1h", "6h", "24h", "7d", "30d"
+    level: string; // Log level filtering
+    source: string; // Log source filtering
+    search: string; // Search keywords
+    format: number; // Export format: 1-TXT, 2-JSON, 3-CSV
+    maxRecords: number; // Maximum number of records, default 10000
   };
 }
 
@@ -39,7 +39,7 @@ interface Response23004Data {
 
 /**
  * Protocol 23004 - Export Logs
- * 导出日志
+ * Export log
  *
  * Fixes applied:
  *  - Replaced inline inferSource/inferLogLevel with shared log-utils

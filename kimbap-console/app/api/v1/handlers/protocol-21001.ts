@@ -12,32 +12,32 @@ interface Request21001 {
     rawToken?: string;
   };
   params: {
-    timeRange: number; // 时间范围: 1-今天, 7-最近7天, 30-最近30天, 90-最近90天
+    timeRange: number; // Time range: 1-today, 7-last 7 days, 30-last 30 days, 90-last 90 days
   };
 }
 
 interface Response21001Data {
-  totalTokens: number;        // 令牌总数
-  activeTokens: number;       // 活跃令牌数（有请求的）
-  totalRequests: number;      // 总请求数
-  successRequests: number;    // 成功请求数
-  failedRequests: number;     // 失败请求数
-  avgSuccessRate: number;     // 平均成功率(%)
-  totalClients: number;       // 连接的客户端总数
-  expiredTokens: number;      // 过期令牌数
-  limitedTokens: number;      // 达到速率限制的令牌数
+  totalTokens: number;        // Total number of tokens
+  activeTokens: number;       // Number of active tokens (requested)
+  totalRequests: number;      // Total requests
+  successRequests: number;    // Number of successful requests
+  failedRequests: number;     // Number of failed requests
+  avgSuccessRate: number;     // Average success rate (%)
+  totalClients: number;       // Total number of connected clients
+  expiredTokens: number;      // Number of expired tokens
+  limitedTokens: number;      // Number of tokens reaching rate limit
 }
 
 /**
  * Protocol 21001 - Get Token Usage Summary  
- * 获取访问令牌使用情况汇总统计（基于proxyKey和action 1000-1099）
+ * Get access token usage summary statistics (based on proxyKey and action 1000-1099)
  */
 export async function handleProtocol21001(body: Request21001): Promise<Response21001Data> {
   try {
     const { timeRange } = body.params;
     const rawToken = body.common?.rawToken;
     
-    // 1. 获取当前proxy的proxyKey（不用token）
+    // 1. Get the proxyKey of the current proxy (no token is needed)
     let proxyKey = '';
     try {
       const proxy = await getProxy();
@@ -50,7 +50,7 @@ export async function handleProtocol21001(body: Request21001): Promise<Response2
       });
     }
     
-    // 计算时间范围
+    // Calculation time range
     const now = Math.floor(Date.now() / 1000);
     const timeRangeSeconds = timeRange * 24 * 60 * 60;
     const startTime = now - timeRangeSeconds;
@@ -70,7 +70,7 @@ export async function handleProtocol21001(body: Request21001): Promise<Response2
       console.warn('[Protocol-21001] Failed to get users from proxy-api:', error);
     }
     
-    // 3. 构建日志查询条件（基于proxyKey和action 1000-1099）
+    // 3. Construct log query conditions (based on proxyKey and action 1000-1099)
     const logWhereCondition: any = {
       proxyKey: proxyKey,
       action: {
@@ -87,12 +87,12 @@ export async function handleProtocol21001(body: Request21001): Promise<Response2
 
     const validUserIdList = Array.from(validUserIds);
 
-    // 4. 并行查询统计数据
+    // 4. Parallel query statistics
     const [
       totalRequests,
       activeUsersFromLogs
     ] = await Promise.all([
-      // 总请求数（action 1000-1099，过滤有效用户）
+      // Total number of requests (action 1000-1099, filter effective users)
       prisma.log.count({
         where: {
           ...logWhereCondition,
@@ -100,7 +100,7 @@ export async function handleProtocol21001(body: Request21001): Promise<Response2
         }
       }),
       
-      // 活跃用户数（指定时间范围内有请求的用户）
+      // Number of active users (users with requests within the specified time range)
       prisma.log.findMany({
         where: {
           ...logWhereCondition,
@@ -131,13 +131,13 @@ export async function handleProtocol21001(body: Request21001): Promise<Response2
       successRequests = typeof successCountValue === 'bigint' ? Number(successCountValue) : Number(successCountValue || 0);
     }
     
-    // 5. 计算统计指标
-    const totalTokens = validUserIds.size; // 总用户数即总token数
-    const activeTokens = activeUsersFromLogs.length; // 活跃用户数
+    // 5. Calculate statistical indicators
+    const totalTokens = validUserIds.size; // The total number of users is the total number of tokens
+    const activeTokens = activeUsersFromLogs.length; // Number of active users
     const failedRequests = totalRequests - successRequests;
     const avgSuccessRate = totalRequests > 0 ? (successRequests / totalRequests) * 100 : 0;
     
-    // 客户端数（基于session_id去重）
+    // Number of clients (based on session_id deduplication)
     const uniqueClients = await prisma.log.findMany({
       where: {
         ...logWhereCondition,

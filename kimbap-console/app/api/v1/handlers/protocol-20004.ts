@@ -11,25 +11,25 @@ interface Request20004 {
     userid: string;
   };
   params: {
-    timeRange: number;  // 时间范围: 1-今天, 7-最近7天, 30-最近30天, 90-最近90天
-    serverId: number;   // 服务器ID，0表示所有服务器
-    toolId: string;     // 特定工具ID，空表示所有工具
+    timeRange: number;  // Time range: 1-today, 7-last 7 days, 30-last 30 days, 90-last 90 days
+    serverId: number;   // Server ID, 0 means all servers
+    toolId: string;     // Specific tool ID, empty means all tools
   };
 }
 
 interface ErrorType {
-  errorCode: string;      // 错误代码
-  errorMessage: string;   // 错误描述
-  count: number;          // 发生次数
-  percentage: number;     // 占比(%)
-  lastOccurred: number;   // 最后发生时间(时间戳)
+  errorCode: string;      // error code
+  errorMessage: string;   // Error description
+  count: number;          // Number of occurrences
+  percentage: number;     // Proportion (%)
+  lastOccurred: number;   // Last occurrence time (timestamp)
 }
 
 interface ToolErrors {
-  toolId: string;         // 工具ID
-  toolName: string;       // 工具名称
-  totalErrors: number;    // 总错误数
-  errorTypes: ErrorType[]; // 错误类型分布
+  toolId: string;         // Tool ID
+  toolName: string;       // Tool name
+  totalErrors: number;    // total errors
+  errorTypes: ErrorType[]; // Error type distribution
 }
 
 interface Response20004Data {
@@ -38,7 +38,7 @@ interface Response20004Data {
 
 /**
  * Protocol 20004 - Get Tool Error Analysis
- * 获取工具错误分析数据
+ * Get tool error analysis data
  */
 export async function handleProtocol20004(body: Request20004): Promise<Response20004Data> {
   try {
@@ -55,12 +55,12 @@ export async function handleProtocol20004(body: Request20004): Promise<Response2
       });
     }
     
-    // 计算时间范围
+    // Calculation time range
     const now = Math.floor(Date.now() / 1000);
     const timeRangeSeconds = timeRange * 24 * 60 * 60;
     const startTime = now - timeRangeSeconds;
     
-    // 构建where条件 - 只查询失败的请求
+    // Build a where condition - only query failed requests
     const whereCondition: any = {
       proxyKey,
       addtime: {
@@ -91,17 +91,17 @@ export async function handleProtocol20004(body: Request20004): Promise<Response2
       ]
     };
     
-    // 如果指定了serverId，添加过滤条件
+    // If serverId is specified, add filter conditions
     if (serverId > 0) {
       whereCondition.serverId = serverId.toString();
     }
     
-    // 如果指定了toolId，添加过滤条件
+    // If toolId is specified, add filter conditions
     if (toolId && toolId.trim()) {
       whereCondition.serverId = toolId.trim();
     }
     
-    // 获取所有错误日志
+    // Get all error logs
     const errorLogs = await prisma.log.findMany({
       where: whereCondition,
       select: {
@@ -115,7 +115,7 @@ export async function handleProtocol20004(body: Request20004): Promise<Response2
       }
     });
     
-    // 按工具ID分组
+    // Group by tool ID
     const toolErrorsMap = new Map<string, any>();
     
     errorLogs.forEach(log => {
@@ -133,7 +133,7 @@ export async function handleProtocol20004(body: Request20004): Promise<Response2
       const toolError = toolErrorsMap.get(logServerId);
       toolError.totalErrors++;
       
-      // 分析错误类型
+      // Analyze error types
       let errorCode = 'UNKNOWN_ERROR';
       let errorMessage = 'Unknown error';
       
@@ -152,7 +152,7 @@ export async function handleProtocol20004(body: Request20004): Promise<Response2
       }
       
       if (log.error && log.error.trim()) {
-        // 尝试从错误信息中提取更具体的错误类型
+        // Try to extract a more specific error type from the error message
         const errorText = log.error.toLowerCase();
         if (errorText.includes('timeout')) {
           errorCode = 'REQUEST_TIMEOUT';
@@ -171,11 +171,11 @@ export async function handleProtocol20004(body: Request20004): Promise<Response2
           errorMessage = 'Rate limit exceeded';
         } else {
           errorCode = 'APPLICATION_ERROR';
-          errorMessage = log.error.substring(0, 50); // 截取前50个字符
+          errorMessage = log.error.substring(0, 50); // Truncate the first 50 characters
         }
       }
       
-      // 统计错误类型
+      // Statistical error types
       const errorKey = `${errorCode}:${errorMessage}`;
       if (!toolError.errorTypesMap.has(errorKey)) {
         toolError.errorTypesMap.set(errorKey, {
@@ -191,17 +191,17 @@ export async function handleProtocol20004(body: Request20004): Promise<Response2
       errorType.lastOccurred = Math.max(errorType.lastOccurred, Number(log.addtime));
     });
     
-    // 转换为最终数据格式
+    // Convert to final data format
     const toolErrors: ToolErrors[] = Array.from(toolErrorsMap.values()).map(toolError => {
       const errorTypes: ErrorType[] = Array.from(toolError.errorTypesMap.values())
         .map((errorType: any) => ({
           errorCode: errorType.errorCode,
           errorMessage: errorType.errorMessage,
           count: errorType.count,
-          percentage: Math.round((errorType.count / toolError.totalErrors) * 1000) / 10, // 保留1位小数
+          percentage: Math.round((errorType.count / toolError.totalErrors) * 1000) / 10, // Keep 1 decimal place
           lastOccurred: errorType.lastOccurred
         }))
-        .sort((a, b) => b.count - a.count); // 按出现次数降序排列
+        .sort((a, b) => b.count - a.count); // Sort by occurrence in descending order
       
       return {
         toolId: toolError.toolId,
@@ -209,7 +209,7 @@ export async function handleProtocol20004(body: Request20004): Promise<Response2
         totalErrors: toolError.totalErrors,
         errorTypes
       };
-    }).sort((a, b) => b.totalErrors - a.totalErrors); // 按总错误数降序排列
+    }).sort((a, b) => b.totalErrors - a.totalErrors); // Sort by total errors in descending order
     
     const response: Response20004Data = {
       toolErrors

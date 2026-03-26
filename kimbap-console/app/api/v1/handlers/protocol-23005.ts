@@ -17,47 +17,47 @@ interface Request23005 {
     userid: string;
   };
   params: {
-    lastLogId: number; // 最后接收到的日志ID（用于增量获取）
-    level: string; // 日志级别过滤
-    source: string; // 日志来源过滤
-    limit: number; // 返回数量限制，默认50
+    lastLogId: number; // Last received log ID (for incremental retrieval)
+    level: string; // Log level filtering
+    source: string; // Log source filtering
+    limit: number; // Return quantity limit, default 50
   };
 }
 
 interface LogDetails {
-  method: string; // HTTP方法
-  url: string; // 请求URL
-  statusCode: number; // 状态码
-  responseTime: number; // 响应时间(毫秒)
-  userAgent: string; // 用户代理
-  ip: string; // 客户端IP
-  tokenId: string; // 令牌ID（脱敏）
-  toolName: string; // 工具名称
-  errorType: string; // 错误类型
-  stackTrace: string; // 堆栈跟踪（ERROR级别）
+  method: string; // HTTP method
+  url: string; // Request URL
+  statusCode: number; // status code
+  responseTime: number; // Response time (milliseconds)
+  userAgent: string; // user agent
+  ip: string; // Client IP
+  tokenId: string; // Token ID (desensitization)
+  toolName: string; // Tool name
+  errorType: string; // Error type
+  stackTrace: string; // Stack trace (ERROR level)
 }
 
 interface LogEntry {
-  id: string; // 日志ID
-  timestamp: string; // 时间戳（格式化）
-  level: string; // 日志级别: INFO, WARN, ERROR, DEBUG
-  message: string; // 日志消息
-  source: string; // 日志来源
-  requestId: string; // 请求ID（可选）
-  userId: string; // 用户ID（可选）
-  rawData: string; // 原始日志数据
-  details: LogDetails; // 详细信息
+  id: string; // Log ID
+  timestamp: string; // Timestamp (formatted)
+  level: string; // Log levels: INFO, WARN, ERROR, DEBUG
+  message: string; // log message
+  source: string; // Log source
+  requestId: string; // Request ID (optional)
+  userId: string; // User ID (optional)
+  rawData: string; // Raw log data
+  details: LogDetails; // Details
 }
 
 interface Response23005Data {
-  newLogs: LogEntry[]; // 新日志列表
-  latestLogId: number; // 最新日志ID
-  hasMore: boolean; // 是否还有更多日志
+  newLogs: LogEntry[]; // New log list
+  latestLogId: number; // Latest log ID
+  hasMore: boolean; // Are there more logs?
 }
 
 /**
  * Protocol 23005 - Get Real-time Logs
- * 获取实时日志（用于流式更新）
+ * Get real-time logs (for streaming updates)
  */
 export async function handleProtocol23005(body: Request23005): Promise<Response23005Data> {
   try {
@@ -86,7 +86,7 @@ export async function handleProtocol23005(body: Request23005): Promise<Response2
     const whereCondition: any =
       andConditions.length === 1 ? andConditions[0] : { AND: andConditions };
 
-    // 获取新日志数据
+    // Get new log data
     const raw = await prisma.log.findMany({
       where: whereCondition,
       orderBy: {
@@ -113,7 +113,7 @@ export async function handleProtocol23005(body: Request23005): Promise<Response2
     const latestLogId =
       logs.length > 0 ? Math.max(...logs.map((log) => log.id)) : lastLogId;
 
-    // 转换为响应格式
+    // Convert to responsive format
     const newLogs: LogEntry[] = logs.map((log) => {
       const timestamp = new Date(Number(log.addtime) * 1000)
         .toISOString()
@@ -124,9 +124,9 @@ export async function handleProtocol23005(body: Request23005): Promise<Response2
       const message = generateLogMessage(log);
       const toolName = getActionLabel(log.action);
 
-      // 构建详细信息
+      // Build details
       const details: LogDetails = {
-        method: 'POST', // 从log数据推断或默认
+        method: 'POST', // Inferred from log data or default
         url: log.action ? `/api/${log.action}` : '/api/unknown',
         statusCode: log.statusCode || 0,
         responseTime: log.duration || 0,

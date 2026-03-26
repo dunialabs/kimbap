@@ -11,24 +11,24 @@ interface Request21004 {
     userid: string;
   };
   params: {
-    timeRange: number; // 时间范围: 1-今天, 7-最近7天, 30-最近30天, 90-最近90天
-    tokenId: string;   // 特定令牌ID，空表示所有令牌
+    timeRange: number; // Time range: 1-today, 7-last 7 days, 30-last 30 days, 90-last 90 days
+    tokenId: string;   // Specific token ID, empty means all tokens
   };
 }
 
 interface GeoLocation {
-  country: string;      // 国家代码
-  countryName: string;  // 国家名称
-  city: string;         // 城市名称
-  requests: number;     // 请求数
-  percentage: number;   // 占比(%)
-  uniqueIPs: number;    // 独立IP数
+  country: string;      // country code
+  countryName: string;  // country name
+  city: string;         // city ​​name
+  requests: number;     // Number of requests
+  percentage: number;   // Proportion (%)
+  uniqueIPs: number;    // Number of independent IPs
 }
 
 interface TokenGeoUsage {
-  tokenId: string;         // 令牌ID
-  tokenName: string;       // 令牌名称
-  locations: GeoLocation[]; // 地理位置分布
+  tokenId: string;         // Token ID
+  tokenName: string;       // Token name
+  locations: GeoLocation[]; // Geographical distribution
 }
 
 interface Response21004Data {
@@ -37,7 +37,7 @@ interface Response21004Data {
 
 /**
  * Protocol 21004 - Get Token Geographic Usage
- * 获取令牌地理位置使用分布
+ * Get token geographical location usage distribution
  */
 export async function handleProtocol21004(body: Request21004): Promise<Response21004Data> {
   try {
@@ -46,12 +46,12 @@ export async function handleProtocol21004(body: Request21004): Promise<Response2
     const proxy = await getProxy();
     const proxyKey = proxy.proxyKey;
     
-    // 计算时间范围
+    // Calculation time range
     const now = Math.floor(Date.now() / 1000);
     const timeRangeSeconds = timeRange * 24 * 60 * 60;
     const startTime = now - timeRangeSeconds;
     
-    // 构建where条件
+    // Build where condition
     const whereCondition: any = {
       proxyKey,
       addtime: {
@@ -69,7 +69,7 @@ export async function handleProtocol21004(body: Request21004): Promise<Response2
       whereCondition.userid = tokenId.trim();
     }
     
-    // 获取所有相关的日志数据
+    // Get all relevant log data
     const logs = await prisma.log.findMany({
       where: whereCondition,
       select: {
@@ -78,7 +78,7 @@ export async function handleProtocol21004(body: Request21004): Promise<Response2
       }
     });
     
-    // 按token分组
+    // Group by token
     const tokenLogsMap = new Map<string, typeof logs>();
     logs.forEach(log => {
       if (!tokenLogsMap.has(log.tokenMask)) {
@@ -87,7 +87,7 @@ export async function handleProtocol21004(body: Request21004): Promise<Response2
       tokenLogsMap.get(log.tokenMask)!.push(log);
     });
     
-    // 为每个token分析地理位置分布
+    // Analyze geographical location distribution for each token
     const geoUsage: TokenGeoUsage[] = Array.from(tokenLogsMap.entries()).map(([tokenMask, tokenLogs]) => {
       const locationGroups = new Map<string, { requests: number; ips: Set<string> }>();
 
@@ -119,7 +119,7 @@ export async function handleProtocol21004(body: Request21004): Promise<Response2
         });
       });
       
-      // 按请求数降序排列
+      // Sort by number of requests in descending order
       locations.sort((a, b) => b.requests - a.requests);
       
       return {

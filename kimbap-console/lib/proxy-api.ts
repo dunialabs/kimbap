@@ -171,41 +171,21 @@ export enum ServerStatus {
  * Throws ApiError if no configuration is found
  */
 async function getKimbapCoreConfig(): Promise<{ host: string; port: number | null }> {
-  try {
-    const dbConfig = await prisma.config.findFirst();
+  const dbConfig = await prisma.config.findFirst();
 
-    if (dbConfig && dbConfig.kimbap_core_host) {
-      const host = dbConfig.kimbap_core_host;
-      const port: number | undefined = dbConfig.kimbap_core_port || undefined;
+  if (dbConfig && dbConfig.kimbap_core_host) {
+    const host = dbConfig.kimbap_core_host;
+    const port: number | undefined = dbConfig.kimbap_core_port || undefined;
 
-      const displayStr = port === 443 || !port ? host : `${host}:${port}`;
-      console.log(`[PROXY API] Using Kimbap Core config from database: ${displayStr}`);
-      return {
-        host: host,
-        port: port === 443 ? null : port || null,
-      };
-    }
-
-    // No configuration found in database
-    console.error('[PROXY API] No Kimbap Core configuration found in database');
-    throw new ApiError(ErrorCode.KIMBAP_CORE_CONFIG_NOT_FOUND, 500);
-  } catch (error) {
-    console.error('[PROXY API] Failed to get Kimbap Core config from database:', error);
-
-    // If it's already an ApiError, re-throw it
-    if (error instanceof ApiError) {
-      throw error;
-    }
-
-    // Log the actual error for debugging
-    if (error instanceof Error) {
-      console.error('[PROXY API] Error details:', error.message);
-      console.error('[PROXY API] Error stack:', error.stack);
-    }
-
-    // Otherwise, throw generic error
-    throw new ApiError(ErrorCode.KIMBAP_CORE_CONFIG_NOT_FOUND, 500);
+    const displayStr = port === 443 || !port ? host : `${host}:${port}`;
+    console.log(`[PROXY API] Using Kimbap Core config from database: ${displayStr}`);
+    return {
+      host: host,
+      port: port === 443 ? null : port || null,
+    };
   }
+
+  throw new ApiError(ErrorCode.KIMBAP_CORE_CONFIG_NOT_FOUND, 500);
 }
 
 /**
@@ -503,16 +483,7 @@ export async function startProxyServer(serverId: string, token: string): Promise
   console.log(`[PROXY API] startProxyServer success - ServerId: ${serverId}`);
 }
 
-export async function stopMCPServer(
-  serverId: string,
-  userid?: string,
-  token?: string,
-): Promise<void> {
-  console.log(`[PROXY API] stopMCPServer called - ServerId: ${serverId}`);
-  const result = await dispatchRequest(AdminActionType.STOP_SERVER, { targetId: serverId }, userid, token);
-  unwrapResponse(result, `Failed to stop server ${serverId}`);
-  console.log(`[PROXY API] stopMCPServer success - ServerId: ${serverId}`);
-}
+
 
 /**
  * Get the status of all servers
@@ -571,15 +542,7 @@ export async function disableUser(
  * @param token - Access token to use directly (optional, takes precedence over userid)
  * @returns Promise with all servers' capabilities
  */
-export async function getAvailableServersCapabilities(
-  userid?: string,
-  token?: string,
-): Promise<Record<string, ServerCapabilitiesWithMeta>> {
-  const result = await dispatchRequest<{ capabilities: Record<string, ServerCapabilitiesWithMeta> }>(
-    AdminActionType.GET_AVAILABLE_SERVERS_CAPABILITIES, {}, userid, token,
-  );
-  return unwrapResponse(result, 'Failed to get available servers capabilities')?.capabilities ?? {};
-}
+
 
 /**
  * Get user-available servers' capabilities
@@ -606,17 +569,7 @@ export async function getUserAvailableServersCapabilities(
  * @param token - Access token to use directly (optional, takes precedence over userid)
  * @returns Promise with server capabilities
  */
-export async function getServersCapabilities(
-  serverId: string,
-  userid?: string,
-  token?: string,
-): Promise<ServerCapabilities> {
-  const result = await dispatchRequest<{ capabilities: ServerCapabilities }>(
-    AdminActionType.GET_SERVERS_CAPABILITIES, { targetId: serverId }, userid, token,
-  );
-  return unwrapResponse(result, `Failed to get capabilities for server ${serverId}`)?.capabilities
-    ?? { tools: {}, resources: {}, prompts: {} };
-}
+
 
 // ============================================================================
 // DATABASE API FUNCTIONS
@@ -855,17 +808,7 @@ export async function deleteUser(
  * @param filters - Filter conditions (optional)
  * @returns Promise with user count
  */
-export async function countUsers(
-  filters?: {
-    excludeRole?: number;
-  },
-  requestUserId?: string,
-): Promise<{ count: number }> {
-  const result = await dispatchRequest<{ count: number }>(
-    AdminActionType.COUNT_USERS, filters || {}, requestUserId,
-  );
-  return unwrapResponse(result, 'Failed to count users');
-}
+
 
 // -------------------- SERVER OPERATIONS --------------------
 
@@ -981,18 +924,7 @@ export async function deleteServer(
  * @param token - Optional token for direct authentication
  * @returns Promise with server count
  */
-export async function countServers(
-  filters?: {
-    proxyId?: number;
-  },
-  userid?: string,
-  token?: string,
-): Promise<{ count: number }> {
-  const result = await dispatchRequest<{ count: number }>(
-    AdminActionType.COUNT_SERVERS, filters || {}, userid, token,
-  );
-  return unwrapResponse(result, 'Failed to count servers');
-}
+
 
 // -------------------- LOG OPERATIONS --------------------
 

@@ -172,11 +172,7 @@ export const api = {
         params: {},
       }),
 
-    getDashboardOverview: (params?: { timeRange?: string }) =>
-      apiClient.post('/api/v1', {
-        common: { cmdId: 10023 },
-        params: params || {},
-      }),
+
 
   },
 
@@ -518,7 +514,7 @@ export const api = {
   // Dashboard
   dashboard: {
     // Get dashboard overview statistics using protocol 10023
-    overview: (_serverId: string, timeRange: string = '30d') =>
+    overview: (timeRange: string = '30d') =>
       apiClient.post('/api/v1', {
         common: {
           cmdId: 10023,
