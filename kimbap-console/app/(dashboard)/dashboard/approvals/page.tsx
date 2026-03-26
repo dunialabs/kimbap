@@ -488,7 +488,7 @@ export default function ApprovalsPage() {
                     <TableHead className="sticky top-0 z-10 bg-background shadow-[0_1px_0_0_hsl(var(--border))] text-center">Status</TableHead>
                     <TableHead className="sticky top-0 z-10 bg-background shadow-[0_1px_0_0_hsl(var(--border))]">Created</TableHead>
                     <TableHead className="sticky top-0 z-10 bg-background shadow-[0_1px_0_0_hsl(var(--border))]">Expires</TableHead>
-                    <TableHead className="sticky top-0 z-10 bg-background shadow-[0_1px_0_0_hsl(var(--border))]">Reason</TableHead>
+                     <TableHead className="sticky top-0 z-10 bg-background shadow-[0_1px_0_0_hsl(var(--border))]">Policy reason</TableHead>
                     <TableHead className="sticky top-0 z-10 bg-background shadow-[0_1px_0_0_hsl(var(--border))] text-right">Actions</TableHead>
                   </TableRow>
                 </TableHeader>

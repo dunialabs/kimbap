@@ -2,7 +2,8 @@
 
 import { AlertTriangle, Loader2, RefreshCw } from "lucide-react"
 import Link from "next/link"
-import { useState, useEffect, useCallback, useRef } from "react"
+import { useState, useEffect, useCallback, useRef, Suspense } from "react"
+import { useSearchParams } from "next/navigation"
 
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -45,7 +46,8 @@ interface RecentActivity {
   color: string
 }
 
-export default function UsagePage() {
+function UsagePageContent() {
+  const searchParams = useSearchParams()
   const [overviewSummary, setOverviewSummary] = useState<OverviewSummary | null>(null)
   const [topTools, setTopTools] = useState<TopTool[]>([])
   const [activeTokens, setActiveTokens] = useState<ActiveToken[]>([])
@@ -56,7 +58,11 @@ export default function UsagePage() {
   const [loading, setLoading] = useState(true)
   const [refreshing, setRefreshing] = useState(false)
   const [loadError, setLoadError] = useState<string | null>(null)
-  const [timeRange, setTimeRange] = useState(1)
+  const [timeRange, setTimeRange] = useState(() => {
+    const param = searchParams.get('timeRange')
+    const num = param ? Number(param) : NaN
+    return [1, 7, 30].includes(num) ? num : 1
+  })
   const timeRangeLabel = timeRange === 1 ? '24 hours' : `${timeRange} days`
   const logsTimeRange = timeRange === 1 ? '24h' : `${timeRange}d`
   const hasDataRef = useRef(false)
@@ -431,5 +437,19 @@ export default function UsagePage() {
         </Card>
       </div>
     </div>
+  )
+}
+
+export default function UsagePage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="flex items-center justify-center py-10">
+          <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" aria-hidden="true" />
+        </div>
+      }
+    >
+      <UsagePageContent />
+    </Suspense>
   )
 }

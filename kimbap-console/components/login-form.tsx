@@ -295,6 +295,14 @@ export function LoginForm({
           </Alert>
         )}
 
+        {loginMode === 'token' && !tokenError && (
+          <Alert className="border-blue-200 bg-blue-50 dark:bg-blue-950/20 dark:border-blue-900">
+            <AlertDescription className="text-sm text-blue-700 dark:text-blue-200">
+              <span className="font-[700]">Note:</span> Use an access token issued by the server owner or admin for this server.
+            </AlertDescription>
+          </Alert>
+        )}
+
         {loginError && loginMode === 'password' && (
           <Alert className="border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-950/20" role="alert">
             <AlertDescription className="text-sm text-red-800 dark:text-red-200">

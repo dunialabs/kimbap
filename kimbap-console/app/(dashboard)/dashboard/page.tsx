@@ -401,7 +401,7 @@ export default function DashboardPage() {
               </div>
             </div>
             <Link
-              href="/dashboard/usage"
+              href="/dashboard/usage?timeRange=30"
               className="text-center p-3 rounded-lg border cursor-pointer hover:bg-blue-50 hover:border-blue-200 dark:hover:bg-blue-950/50 dark:hover:border-blue-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 transition-all duration-200 h-full flex flex-col gap-1 justify-center"
             >
               <div className="text-sm text-muted-foreground">API Requests</div>
@@ -569,7 +569,7 @@ export default function DashboardPage() {
                         return (
                           <div className="flex items-center gap-2">
                             <div className={`w-2 h-2 rounded-full ${s.dot}`} />
-                            <span className="text-[10px] text-muted-foreground">{s.label}</span>
+                            <span className="text-xs text-muted-foreground">{s.label}</span>
                           </div>
                         )
                       })()}
