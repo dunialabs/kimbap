@@ -1433,7 +1433,9 @@ func (m *serverManager) closeTemporaryServersByFilter(ctx context.Context, match
 	m.mu.RUnlock()
 	for _, key := range keys {
 		parts := splitServerUserKey(key)
-		_, _ = m.CloseTemporaryServer(ctx, parts.serverID, parts.userID)
+		if _, err := m.CloseTemporaryServer(ctx, parts.serverID, parts.userID); err != nil {
+			log.Warn().Err(err).Str("serverId", parts.serverID).Str("userId", parts.userID).Str("cleanupPath", "closeTemporaryServersByFilter").Msg("failed to close temporary server")
+		}
 	}
 }
 
@@ -1996,7 +1998,9 @@ func (m *serverManager) Shutdown(ctx context.Context) {
 						}
 					}()
 					sc.StopTokenRefresh()
-					_ = sc.CloseConnection(types.ServerStatusOffline)
+					if err := sc.CloseConnection(types.ServerStatusOffline); err != nil {
+						log.Warn().Err(err).Str("serverId", sc.ServerID).Str("cleanupPath", "shutdown").Msg("failed to close server connection during shutdown")
+					}
 				}()
 			}
 		}()
@@ -2441,10 +2445,14 @@ func (m *serverManager) handleUnexpectedConnectionClose(sc *ServerContext, waitE
 
 	if server.AllowUserInput {
 		ctx := context.Background()
-		_, _ = m.CloseTemporaryServer(ctx, server.ServerID, sc.UserIDSnapshot())
+		if _, err := m.CloseTemporaryServer(ctx, server.ServerID, sc.UserIDSnapshot()); err != nil {
+			log.Warn().Err(err).Str("serverId", server.ServerID).Str("userId", sc.UserIDSnapshot()).Str("cleanupPath", "handleUnexpectedConnectionClose.temporary").Msg("failed to close temporary server after unexpected connection close")
+		}
 	} else {
 		ctx := context.Background()
-		_, _ = m.RemoveServer(ctx, server.ServerID)
+		if _, err := m.RemoveServer(ctx, server.ServerID); err != nil {
+			log.Warn().Err(err).Str("serverId", server.ServerID).Str("cleanupPath", "handleUnexpectedConnectionClose.persistent").Msg("failed to remove server after unexpected connection close")
+		}
 	}
 
 	m.notifyUsersOfServerChange(server.ServerID, affectedSessions, "server_error", changes)
