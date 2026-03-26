@@ -86,3 +86,17 @@ func TestGetMessageIncludesMailboxField(t *testing.T) {
 		t.Fatal("get-message result object does not include mailbox field")
 	}
 }
+
+func TestMailNotFoundCommandsEmitSentinel(t *testing.T) {
+	notFoundCmds := []string{"get-message"}
+	cmds := MailCommands()
+	for _, name := range notFoundCmds {
+		cmd, ok := cmds[name]
+		if !ok {
+			t.Fatalf("command %q not found", name)
+		}
+		if !strings.Contains(cmd.Script, "[NOT_FOUND]") {
+			t.Errorf("%s: script does not emit [NOT_FOUND] sentinel for not-found case", name)
+		}
+	}
+}

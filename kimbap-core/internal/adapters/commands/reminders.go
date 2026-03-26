@@ -42,7 +42,7 @@ JSON.stringify(result);`,
 var app = Application("Reminders");
 app.includeStandardAdditions = false;
 var matches = app.reminders.whose({name: input.name})();
-if (matches.length === 0) throw new Error("reminder not found");
+if (matches.length === 0) throw new Error("[NOT_FOUND] reminder not found");
 var r = matches[0];
 var due = r.dueDate();
 var result = {
@@ -84,7 +84,7 @@ JSON.stringify({name: reminder.name(), list: targetList.name()});`,
 var app = Application("Reminders");
 app.includeStandardAdditions = false;
 var matches = app.reminders.whose({name: input.name})();
-if (matches.length === 0) throw new Error("reminder not found");
+if (matches.length === 0) throw new Error("[NOT_FOUND] reminder not found");
 var r = matches[0];
 r.completed = true;
 JSON.stringify({name: r.name(), completed: true});`,

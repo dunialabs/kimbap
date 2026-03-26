@@ -89,7 +89,7 @@ outer: for (var i = 0; i < accounts.length; i++) {
 		}
 	}
 }
-if (!found) throw new Error("message not found");
+if (!found) throw new Error("[NOT_FOUND] message not found");
 var sent = found.dateSent();
 var read = false;
 try {
