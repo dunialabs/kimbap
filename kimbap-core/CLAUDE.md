@@ -35,7 +35,7 @@ Endpoints:
 - `internal/api/` - REST v1 API
 - `internal/config/`, `internal/database/`, `internal/mcp/` (MCP core), `internal/middleware/`,
   `internal/oauth/`, `internal/repository/`, `internal/security/`, `internal/service/`,
-  `internal/skills/`, `internal/store/`, `internal/types/`, `internal/user/`
+  `internal/services/`, `internal/store/`, `internal/types/`, `internal/user/`
 
 ## Key Patterns
 - Action-code routing on `/admin` and `/user` (legacy, frozen)

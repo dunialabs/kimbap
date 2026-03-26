@@ -113,7 +113,8 @@ func buildSkillDescription(m *ServiceManifest) string {
 	for _, key := range keys {
 		action := m.Actions[key]
 		if action.Description != "" {
-			parts = append(parts, fmt.Sprintf("  - \"%s\": %s", key, action.Description))
+			humanKey := strings.NewReplacer("_", " ", "-", " ").Replace(key)
+			parts = append(parts, fmt.Sprintf("  - \"%s\": %s", humanKey, action.Description))
 		}
 	}
 
@@ -222,7 +223,7 @@ kimbap actions list --format json
 
 ` + "```bash" + `
 Action not found:     kimbap service list
-Auth failure:         kimbap connector status
+Auth failure:         kimbap connector list
 Missing credential:   kimbap vault list
 Approval required:    kimbap approve list
 ` + "```" + `

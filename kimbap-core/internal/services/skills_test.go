@@ -103,6 +103,78 @@ func TestValidateManifestMissingFields(t *testing.T) {
 	}
 }
 
+func TestValidateManifestHeaderAuthRequiresHeaderName(t *testing.T) {
+	m := &ServiceManifest{
+		Name:    "svc",
+		Version: "1.0.0",
+		BaseURL: "https://api.example.com",
+		Auth:    ServiceAuth{Type: "header", CredentialRef: "svc.key"},
+		Actions: map[string]ServiceAction{
+			"get": {Method: "GET", Path: "/v1/get", Risk: RiskSpec{Level: "low"}},
+		},
+	}
+	err := ValidateManifest(m)
+	found := false
+	for _, e := range err {
+		if e.Field == "auth.header_name" {
+			found = true
+		}
+	}
+	if !found {
+		t.Errorf("expected auth.header_name validation error, got: %v", err)
+	}
+}
+
+func TestValidateManifestQueryAuthRequiresQueryParam(t *testing.T) {
+	m := &ServiceManifest{
+		Name:    "svc",
+		Version: "1.0.0",
+		BaseURL: "https://api.example.com",
+		Auth:    ServiceAuth{Type: "query", CredentialRef: "svc.key"},
+		Actions: map[string]ServiceAction{
+			"get": {Method: "GET", Path: "/v1/get", Risk: RiskSpec{Level: "low"}},
+		},
+	}
+	err := ValidateManifest(m)
+	found := false
+	for _, e := range err {
+		if e.Field == "auth.query_param" {
+			found = true
+		}
+	}
+	if !found {
+		t.Errorf("expected auth.query_param validation error, got: %v", err)
+	}
+}
+
+func TestValidateManifestActionLevelAuthIsValidated(t *testing.T) {
+	m := &ServiceManifest{
+		Name:    "svc",
+		Version: "1.0.0",
+		BaseURL: "https://api.example.com",
+		Auth:    ServiceAuth{Type: "none"},
+		Actions: map[string]ServiceAction{
+			"get": {
+				Method: "GET",
+				Path:   "/v1/get",
+				Risk:   RiskSpec{Level: "low"},
+				Auth:   &ServiceAuth{Type: "header"},
+			},
+		},
+	}
+	err := ValidateManifest(m)
+	fieldNames := make([]string, 0, len(err))
+	for _, e := range err {
+		fieldNames = append(fieldNames, e.Field)
+	}
+	if !contains(fieldNames, "actions.get.auth.credential_ref") {
+		t.Errorf("expected action auth.credential_ref error, got fields: %v", fieldNames)
+	}
+	if !contains(fieldNames, "actions.get.auth.header_name") {
+		t.Errorf("expected action auth.header_name error, got fields: %v", fieldNames)
+	}
+}
+
 func TestLocalInstallerLifecycle(t *testing.T) {
 	manifest, err := ParseManifest([]byte(braveSearchFixture))
 	if err != nil {
@@ -629,6 +701,66 @@ func TestGenerateSkillMDContainsExpectedSections(t *testing.T) {
 	}
 }
 
+func TestGenerateSkillMDRiskLevelHints(t *testing.T) {
+	cases := []struct {
+		riskLevel        string
+		wantDryRunHint   bool
+		wantApprovalHint bool
+	}{
+		{"low", false, false},
+		{"medium", true, false},
+		{"high", true, true},
+		{"critical", true, true},
+		{"", true, false},
+	}
+
+	for _, tc := range cases {
+		t.Run("risk_"+tc.riskLevel, func(t *testing.T) {
+			m := &ServiceManifest{
+				Name:    "test",
+				Version: "1.0.0",
+				BaseURL: "https://example.com",
+				Auth:    ServiceAuth{Type: "none"},
+				Actions: map[string]ServiceAction{
+					"do_it": {
+						Method: "POST",
+						Path:   "/do",
+						Risk:   RiskSpec{Level: tc.riskLevel},
+					},
+				},
+			}
+			out, err := GenerateSkillMD(m)
+			if err != nil {
+				t.Fatalf("GenerateSkillMD error: %v", err)
+			}
+			hasDryRun := strings.Contains(out, "--dry-run --format json first to preview")
+			hasApproval := strings.Contains(out, "kimbap approve list")
+			if hasDryRun != tc.wantDryRunHint {
+				t.Errorf("risk=%q: dry-run hint = %v, want %v\nOutput:\n%s", tc.riskLevel, hasDryRun, tc.wantDryRunHint, out)
+			}
+			if hasApproval != tc.wantApprovalHint {
+				t.Errorf("risk=%q: approval hint = %v, want %v\nOutput:\n%s", tc.riskLevel, hasApproval, tc.wantApprovalHint, out)
+			}
+		})
+	}
+}
+
+func TestBuildSkillDescriptionHumanizesActionKeys(t *testing.T) {
+	m := &ServiceManifest{
+		Name: "search",
+		Actions: map[string]ServiceAction{
+			"web_search": {Description: "Search the web"},
+		},
+	}
+	desc := buildSkillDescription(m)
+	if strings.Contains(desc, "web_search") {
+		t.Error("expected humanized action key 'web search', got raw 'web_search'")
+	}
+	if !strings.Contains(desc, "web search") {
+		t.Errorf("expected 'web search' in description, got:\n%s", desc)
+	}
+}
+
 func TestGenerateSkillMDCriticalRisk(t *testing.T) {
 	manifest := &ServiceManifest{
 		Name:    "critical-svc",
@@ -736,4 +868,13 @@ func TestVerifyTamperedDigestDetected(t *testing.T) {
 	if result.Verified {
 		t.Fatal("tampered digest should fail verification")
 	}
+}
+
+func contains(slice []string, s string) bool {
+	for _, v := range slice {
+		if v == s {
+			return true
+		}
+	}
+	return false
 }

@@ -11,7 +11,7 @@ import (
 )
 
 var (
-	skillNamePattern     = regexp.MustCompile(`^[a-z][a-z0-9-]*$`)
+	serviceNamePattern   = regexp.MustCompile(`^[a-z][a-z0-9-]*$`)
 	actionKeyPattern     = regexp.MustCompile(`^[a-z][a-z0-9_-]*$`)
 	semverLikePattern    = regexp.MustCompile(`^v?\d+\.\d+\.\d+(?:[-+][0-9A-Za-z.-]+)?$`)
 	validRiskLevelSet    = map[string]struct{}{"low": {}, "medium": {}, "high": {}, "critical": {}}
@@ -56,7 +56,7 @@ func ValidateManifest(m *ServiceManifest) []ValidationError {
 
 	errs := make([]ValidationError, 0)
 
-	if !skillNamePattern.MatchString(m.Name) {
+	if !serviceNamePattern.MatchString(m.Name) {
 		errs = append(errs, ValidationError{Field: "name", Message: "must match [a-z][a-z0-9-]*"})
 	}
 
@@ -70,13 +70,7 @@ func ValidateManifest(m *ServiceManifest) []ValidationError {
 		errs = append(errs, ValidationError{Field: "base_url", Message: "must be a valid absolute URL"})
 	}
 
-	authType := strings.ToLower(strings.TrimSpace(m.Auth.Type))
-	if _, ok := validAuthTypeSet[authType]; !ok {
-		errs = append(errs, ValidationError{Field: "auth.type", Message: "must be one of none, header, bearer, basic, query, body"})
-	}
-	if authType != "none" && strings.TrimSpace(m.Auth.CredentialRef) == "" {
-		errs = append(errs, ValidationError{Field: "auth.credential_ref", Message: "must be non-empty when auth type is not none"})
-	}
+	errs = append(errs, validateAuth(m.Auth, "auth")...)
 
 	for actionKey, action := range m.Actions {
 		prefix := "actions." + actionKey
@@ -127,6 +121,10 @@ func ValidateManifest(m *ServiceManifest) []ValidationError {
 				errs = append(errs, ValidationError{Field: prefix + ".pagination.max_pages", Message: "must be non-negative"})
 			}
 		}
+
+		if action.Auth != nil {
+			errs = append(errs, validateAuth(*action.Auth, prefix+".auth")...)
+		}
 	}
 
 	if len(m.Actions) == 0 {
@@ -171,6 +169,37 @@ func ValidateManifest(m *ServiceManifest) []ValidationError {
 		}
 	}
 
+	return errs
+}
+
+func validateAuth(auth ServiceAuth, fieldPrefix string) []ValidationError {
+	var errs []ValidationError
+	authType := strings.ToLower(strings.TrimSpace(auth.Type))
+	if _, ok := validAuthTypeSet[authType]; !ok {
+		errs = append(errs, ValidationError{
+			Field:   fieldPrefix + ".type",
+			Message: "must be one of none, header, bearer, basic, query, body",
+		})
+		return errs
+	}
+	if authType != "none" && strings.TrimSpace(auth.CredentialRef) == "" {
+		errs = append(errs, ValidationError{
+			Field:   fieldPrefix + ".credential_ref",
+			Message: "must be non-empty when auth type is not none",
+		})
+	}
+	if authType == "header" && strings.TrimSpace(auth.HeaderName) == "" {
+		errs = append(errs, ValidationError{
+			Field:   fieldPrefix + ".header_name",
+			Message: "must be set when auth type is header",
+		})
+	}
+	if authType == "query" && strings.TrimSpace(auth.QueryParam) == "" {
+		errs = append(errs, ValidationError{
+			Field:   fieldPrefix + ".query_param",
+			Message: "must be set when auth type is query",
+		})
+	}
 	return errs
 }
 
