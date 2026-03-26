@@ -68,7 +68,7 @@ func LoadProvider(id string, fsys fs.FS) (connectors.ProviderDefinition, error) 
 	}
 
 	def := manifestToDefinition(manifest)
-	slog.Info(fmt.Sprintf("provider %s loaded from YAML", normalized))
+	slog.Info("provider loaded from YAML", "provider", normalized)
 	return def, nil
 }
 
