@@ -1,8 +1,8 @@
 #!/usr/bin/env node
 
 /**
- * 依赖下载脚本
- * 下载 Node.js 和 PostgreSQL 便携版
+ * 
+ *  Node.js  PostgreSQL 
  */
 
 const fs = require('fs');
@@ -16,11 +16,11 @@ class DependencyDownloader {
     this.arch = process.arch === 'x64' ? 'x64' : 'arm64';
     this.tempDir = path.resolve(__dirname, '../../temp-downloads');
     
-    // 版本配置
+    // 
     this.nodeVersion = '20.11.0';
     this.postgresVersion = '16.1';
     
-    // 确保临时目录存在
+    // 
     if (!fs.existsSync(this.tempDir)) {
       fs.mkdirSync(this.tempDir, { recursive: true });
     }
@@ -64,7 +64,7 @@ class DependencyDownloader {
   async downloadPostgreSQL() {
     console.log(`📥 Downloading PostgreSQL v${this.postgresVersion}...`);
     
-    // 使用预编译的便携版 PostgreSQL
+    //  PostgreSQL
     const pgInfo = this.getPostgreSQLInfo();
     const filePath = path.join(this.tempDir, pgInfo.fileName);
     
@@ -101,7 +101,7 @@ class DependencyDownloader {
   }
 
   getPostgreSQLInfo() {
-    // 使用 PostgreSQL 官方二进制包
+    //  PostgreSQL 
     switch (this.platform) {
       case 'win32':
         return {
@@ -110,12 +110,12 @@ class DependencyDownloader {
         };
         
       case 'darwin':
-        // macOS 使用预编译的 PostgreSQL 二进制包
+        // macOS  PostgreSQL 
         if (this.arch === 'arm64') {
           return {
             url: `https://sbp.enterprisedb.com/getfile.jsp?fileid=1258649&_ga=2.99696307.1234567890.1234567890-1234567890.1234567890`,
             fileName: `postgresql-${this.postgresVersion}-osx-binaries.zip`,
-            // 备用URL - EDB官方二进制包
+            // URL - EDB
             alternativeUrl: `https://get.enterprisedb.com/postgresql/postgresql-${this.postgresVersion}-1-osx-binaries.zip`
           };
         } else {
@@ -136,9 +136,9 @@ class DependencyDownloader {
     }
   }
 
-  // 获取更可靠的 PostgreSQL 下载方案
+  //  PostgreSQL 
   getPortablePostgreSQLInfo() {
-    // 使用预编译的便携版 PostgreSQL
+    //  PostgreSQL
     const version = '16.1';
     const baseUrl = 'https://ftp.postgresql.org/pub/binary';
     
@@ -147,7 +147,7 @@ class DependencyDownloader {
         return {
           url: `${baseUrl}/v${version}/win32/postgresql-${version}-1-windows-x64-binaries.zip`,
           fileName: `postgresql-${version}-windows-binaries.zip`,
-          // 备用下载地址
+          // 
           mirrors: [
             `https://get.enterprisedb.com/postgresql/postgresql-${version}-1-windows-x64-binaries.zip`,
             `https://ftp.postgresql.org/pub/binary/v${version}/win32/postgresql-${version}-1-windows-x64-binaries.zip`
@@ -160,7 +160,7 @@ class DependencyDownloader {
           fileName: `postgresql-${version}-darwin-binaries.zip`,
           mirrors: [
             `https://get.enterprisedb.com/postgresql/postgresql-${version}-1-osx-binaries.zip`,
-            // 使用 Homebrew 的便携版本作为备选
+            //  Homebrew 
             `https://ghcr.io/v2/homebrew/core/postgresql/blobs/sha256:123456`
           ]
         };
@@ -188,7 +188,7 @@ class DependencyDownloader {
       let totalBytes = 0;
       
       const request = https.get(url, (response) => {
-        // 处理重定向
+        // 
         if (response.statusCode === 301 || response.statusCode === 302) {
           file.close();
           fs.unlinkSync(destination);
@@ -234,7 +234,7 @@ class DependencyDownloader {
         reject(err);
       });
       
-      // 设置超时
+      // 
       request.setTimeout(300000, () => { // 5 minutes
         request.abort();
         reject(new Error('Download timeout'));
@@ -242,14 +242,14 @@ class DependencyDownloader {
     });
   }
 
-  // 获取文件大小（MB）
+  // （MB）
   getFileSize(filePath) {
     if (!fs.existsSync(filePath)) return 0;
     const stats = fs.statSync(filePath);
     return (stats.size / 1024 / 1024).toFixed(1);
   }
 
-  // 列出已下载的文件
+  // 
   listDownloads() {
     console.log('\\n📁 Downloaded files:');
     
@@ -273,7 +273,7 @@ class DependencyDownloader {
   }
 }
 
-// CLI 使用
+// CLI 
 if (require.main === module) {
   const args = process.argv.slice(2);
   const downloader = new DependencyDownloader();

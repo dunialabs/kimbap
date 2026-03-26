@@ -1,8 +1,8 @@
 #!/usr/bin/env node
 
 /**
- * 便携包构建测试脚本
- * 执行基本的构建测试，无需实际下载大文件
+ * 
+ * ，
  */
 
 const fs = require('fs');
@@ -21,19 +21,19 @@ class BuildTester {
     console.log(`Platform: ${this.platform}`);
     
     try {
-      // 1. 测试目录创建
+      // 1. 
       await this.testDirectoryCreation();
       
-      // 2. 测试应用构建
+      // 2. 
       await this.testAppBuild();
       
-      // 3. 测试启动脚本生成
+      // 3. 
       await this.testStartupScripts();
       
-      // 4. 测试配置文件生成
+      // 4. 
       await this.testConfigGeneration();
       
-      // 5. 清理测试文件
+      // 5. 
       await this.cleanup();
       
       console.log('✅ All tests passed!');
@@ -49,7 +49,7 @@ class BuildTester {
   async testDirectoryCreation() {
     console.log('🔧 Testing directory creation...');
     
-    // 创建输出目录
+    // 
     if (fs.existsSync(this.outputDir)) {
       fs.rmSync(this.outputDir, { recursive: true, force: true });
     }
@@ -81,17 +81,17 @@ class BuildTester {
     try {
       process.chdir(this.rootDir);
       
-      // 检查 package.json
+      //  package.json
       if (!fs.existsSync('package.json')) {
         throw new Error('package.json not found');
       }
       
-      // 检查 Next.js 配置
+      //  Next.js 
       if (!fs.existsSync('next.config.mjs')) {
         throw new Error('next.config.mjs not found');
       }
       
-      // 模拟文件复制（不实际复制大文件）
+      // （）
       const appDir = path.join(this.outputDir, 'app');
       const testFiles = [
         'package.json',
@@ -107,7 +107,7 @@ class BuildTester {
         }
       });
       
-      // 创建环境变量文件
+      // 
       const prodEnv = `NODE_ENV=production
 DATABASE_URL=postgresql://kimbap:kimbap123@localhost:5432/kimbap_db`;
       
@@ -194,7 +194,7 @@ read -p "Press Enter to continue..."`;
       throw new Error('Failed to create config file');
     }
     
-    // 验证配置文件内容
+    // 
     const savedConfig = JSON.parse(fs.readFileSync(configPath, 'utf8'));
     if (savedConfig.app.name !== 'Kimbap Console') {
       throw new Error('Config file content validation failed');
@@ -213,7 +213,7 @@ read -p "Press Enter to continue..."`;
     console.log('✅ Cleanup completed');
   }
 
-  // 静态方法：检查系统要求
+  // ：
   static checkSystemRequirements() {
     console.log('🔍 Checking system requirements...');
     
@@ -230,7 +230,7 @@ read -p "Press Enter to continue..."`;
     console.log(`- Architecture: ${requirements.arch}`);
     console.log(`- Memory: ${requirements.memory}`);
     
-    // 检查 Node.js 版本
+    //  Node.js 
     const nodeVersion = parseInt(process.version.replace('v', '').split('.')[0]);
     if (nodeVersion < 18) {
       throw new Error('Node.js 18+ is required');
@@ -239,7 +239,7 @@ read -p "Press Enter to continue..."`;
     console.log('✅ System requirements check passed');
   }
 
-  // 静态方法：检查依赖
+  // ：
   static checkDependencies() {
     console.log('📋 Checking dependencies...');
     
@@ -262,7 +262,7 @@ read -p "Press Enter to continue..."`;
   }
 }
 
-// CLI 执行
+// CLI 
 if (require.main === module) {
   const args = process.argv.slice(2);
   

@@ -1,8 +1,8 @@
 #!/usr/bin/env node
 
 /**
- * 完成便携包构建 - 跳过已完成的部分
- * 只执行剩余的步骤：复制应用文件、下载PostgreSQL、创建启动脚本等
+ *  - 
+ * ：、PostgreSQL、
  */
 
 const fs = require('fs');
@@ -51,7 +51,7 @@ class BuildCompleter {
   async copyAppFiles() {
     const appDir = path.join(this.outputDir, 'app');
     
-    // 复制构建文件
+    // 
     console.log('  📦 Copying .next build output...');
     this.copyDir(path.join(this.rootDir, '.next'), path.join(appDir, '.next'));
     
@@ -61,21 +61,21 @@ class BuildCompleter {
     console.log('  🗄️  Copying prisma schema...');
     this.copyDir(path.join(this.rootDir, 'prisma'), path.join(appDir, 'prisma'));
     
-    // 复制所有 node_modules (简化方法)
+    //  node_modules ()
     console.log('  📚 Copying node_modules (this may take a while)...');
     this.copyDir(path.join(this.rootDir, 'node_modules'), path.join(appDir, 'node_modules'));
     
-    // 复制配置文件
+    // 
     console.log('  ⚙️  Copying configuration files...');
     fs.copyFileSync(path.join(this.rootDir, 'package.json'), path.join(appDir, 'package.json'));
     
-    // 创建适合便携包的 next.config.mjs
+    //  next.config.mjs
     const portableNextConfig = `/** @type {import('next').NextConfig} */
 const nextConfig = {
-  // 便携包配置 - 支持API routes
+  //  - API routes
   output: undefined,
 
-  // 图片配置
+  // 
   images: {
     unoptimized: true,
     formats: ['image/webp', 'image/avif'],
@@ -84,29 +84,29 @@ const nextConfig = {
     contentSecurityPolicy: "default-src 'self'; script-src 'none'; sandbox;"
   },
 
-  // 实验性功能
+  // 
   experimental: {
     optimizeCss: false,
     optimizePackageImports: ['@radix-ui/react-*', 'lucide-react']
   },
 
-  // TypeScript 配置
+  // TypeScript 
   typescript: {
     ignoreBuildErrors: true
   },
 
-  // ESLint 配置
+  // ESLint 
   eslint: {
     ignoreDuringBuilds: false
   },
 
-  // 启用压缩
+  // 
   compress: true,
 
-  // 启用严格模式
+  // 
   reactStrictMode: true,
 
-  // 移除 Next.js 标识
+  //  Next.js 
   poweredByHeader: false
 }
 
@@ -114,7 +114,7 @@ export default nextConfig`;
 
     fs.writeFileSync(path.join(appDir, 'next.config.mjs'), portableNextConfig);
     
-    // 创建生产环境配置
+    // 
     const prodEnv = `NODE_ENV=production
 DATABASE_URL=postgresql://kimbap:kimbap123@localhost:5432/kimbap_db`;
     
@@ -127,7 +127,7 @@ DATABASE_URL=postgresql://kimbap:kimbap123@localhost:5432/kimbap_db`;
     console.log('🔍 Checking for PostgreSQL installations...');
     
     try {
-      // 检查系统 PostgreSQL
+      //  PostgreSQL
       const systemPgPath = this.findSystemPostgreSQL();
       
       if (systemPgPath) {
@@ -161,11 +161,11 @@ DATABASE_URL=postgresql://kimbap:kimbap123@localhost:5432/kimbap_db`;
           return path.dirname(pgPath);
         }
       } catch (error) {
-        // 忽略权限错误，继续检查其他路径
+        // ，
       }
     }
     
-    // 尝试使用 which 命令
+    //  which 
     try {
       const { execSync } = require('child_process');
       const result = execSync('which postgres', { encoding: 'utf8', stdio: 'pipe' });
@@ -175,7 +175,7 @@ DATABASE_URL=postgresql://kimbap:kimbap123@localhost:5432/kimbap_db`;
         return path.dirname(pgPath);
       }
     } catch (error) {
-      // which 命令失败或 postgres 不在 PATH 中
+      // which  postgres  PATH 
     }
     
     return null;
@@ -187,7 +187,7 @@ DATABASE_URL=postgresql://kimbap:kimbap123@localhost:5432/kimbap_db`;
     const pgDir = path.join(this.outputDir, 'postgresql');
     fs.mkdirSync(pgDir, { recursive: true });
     
-    // 需要的 PostgreSQL 二进制文件
+    //  PostgreSQL 
     const requiredBinaries = [
       'postgres',
       'initdb', 
@@ -223,7 +223,7 @@ DATABASE_URL=postgresql://kimbap:kimbap123@localhost:5432/kimbap_db`;
 
     console.log(`✅ Copied ${copiedFiles}/${requiredBinaries.length} PostgreSQL binaries`);
 
-    // 尝试复制共享库
+    // 
     await this.copyPostgreSQLLibraries(systemPgPath, pgDir);
   }
 
@@ -247,14 +247,14 @@ DATABASE_URL=postgresql://kimbap:kimbap123@localhost:5432/kimbap_db`;
             fs.mkdirSync(destLibDir, { recursive: true });
             
             let copiedLibs = 0;
-            for (const libFile of libFiles.slice(0, 15)) { // 限制复制数量
+            for (const libFile of libFiles.slice(0, 15)) { // 
               try {
                 const srcPath = path.join(libDir, libFile);
                 const destPath = path.join(destLibDir, libFile);
                 fs.copyFileSync(srcPath, destPath);
                 copiedLibs++;
               } catch (error) {
-                // 忽略复制失败的库文件
+                // 
               }
             }
             
@@ -264,7 +264,7 @@ DATABASE_URL=postgresql://kimbap:kimbap123@localhost:5432/kimbap_db`;
             break;
           }
         } catch (error) {
-          // 忽略目录读取错误
+          // 
         }
       }
     }
@@ -285,7 +285,7 @@ PGROOT="$SCRIPT_DIR/../postgresql"
 PGDATA="$PGROOT/data"
 PGBIN="$PGROOT/bin"
 
-# 检查 PostgreSQL 二进制文件
+#  PostgreSQL 
 if [ ! -f "$PGBIN/postgres" ]; then
     echo "❌ PostgreSQL binaries not found!"
     echo "📝 Please see postgresql/SETUP.md for installation instructions"
@@ -335,12 +335,12 @@ echo "🎯 Database is ready at: postgresql://kimbap@localhost:5432/kimbap_db"
   async createPostgreSQLInstructions() {
     const instructions = `# PostgreSQL Setup for Kimbap Console
 
-## 自动检测结果
-系统中未找到可用的 PostgreSQL 安装。
+## 
+ PostgreSQL 。
 
-## 推荐设置方案
+## 
 
-### 选项1: 使用 Docker (最简单) ⭐
+### 1:  Docker () ⭐
 \`\`\`bash
 docker run --name kimbap-postgres \\
   -e POSTGRES_USER=kimbap \\
@@ -349,15 +349,15 @@ docker run --name kimbap-postgres \\
   -p 5432:5432 -d postgres:16
 \`\`\`
 
-### 选项2: 安装本地 PostgreSQL
+### 2:  PostgreSQL
 
-#### macOS (推荐 Homebrew):
+#### macOS ( Homebrew):
 \`\`\`bash
-# 安装 PostgreSQL
+#  PostgreSQL
 brew install postgresql@16
 brew services start postgresql@16
 
-# 创建用户和数据库
+# 
 createuser kimbap
 createdb -U kimbap kimbap_db
 \`\`\`
@@ -368,47 +368,47 @@ sudo apt update
 sudo apt install postgresql-16 postgresql-client-16
 sudo systemctl start postgresql
 
-# 创建用户和数据库
+# 
 sudo -u postgres createuser kimbap
 sudo -u postgres createdb -O kimbap kimbap_db
 \`\`\`
 
 #### Windows:
-1. 从 https://www.postgresql.org/download/windows/ 下载 PostgreSQL 16
-2. 安装并记住设置的密码
-3. 使用 pgAdmin 或命令行创建用户 \`kimbap\` 和数据库 \`kimbap_db\`
+1.  https://www.postgresql.org/download/windows/  PostgreSQL 16
+2. 
+3.  pgAdmin  \`kimbap\`  \`kimbap_db\`
 
-### 选项3: 使用现有数据库实例
-编辑 \`app/.env.local\` 文件中的 DATABASE_URL：
+### 3: 
+ \`app/.env.local\`  DATABASE_URL：
 \`\`\`
 DATABASE_URL=postgresql://username:password@host:port/database
 \`\`\`
 
-## 验证设置
-运行以下命令验证数据库连接:
+## 
+:
 \`\`\`bash
 psql "postgresql://kimbap:kimbap123@localhost:5432/kimbap_db" -c "SELECT version();"
 \`\`\`
 
-## 故障排除
+## 
 
-### 连接被拒绝
-- 确保 PostgreSQL 服务正在运行
-- 检查端口 5432 是否被占用
-- 验证防火墙设置
+### 
+-  PostgreSQL 
+-  5432 
+- 
 
-### 认证失败
-- 检查用户名和密码是否正确
-- 确保用户 \`kimbap\` 有访问数据库 \`kimbap_db\` 的权限
+### 
+- 
+-  \`kimbap\`  \`kimbap_db\` 
 
-### 数据库不存在
-- 使用 \`createdb -U kimbap kimbap_db\` 创建数据库
-- 或者修改 \`.env.local\` 中的数据库名称
+### 
+-  \`createdb -U kimbap kimbap_db\` 
+-  \`.env.local\` 
 
 ---
 
-📖 详细文档: https://www.postgresql.org/docs/
-🐳 Docker 文档: https://hub.docker.com/_/postgres
+📖 : https://www.postgresql.org/docs/
+🐳 Docker : https://hub.docker.com/_/postgres
 `;
 
     const pgDir = path.join(this.outputDir, 'postgresql');
@@ -434,13 +434,13 @@ echo         Kimbap Console Starting
 echo ========================================
 echo.
 
-REM 设置环境变量
+REM 
 set "SCRIPT_DIR=%~dp0"
 set "PATH=%SCRIPT_DIR%node\\bin;%PATH%"
 set "DATABASE_URL=postgresql://kimbap:kimbap123@localhost:5432/kimbap_db"
 set "NODE_ENV=production"
 
-REM 检查端口是否被占用
+REM 
 netstat -an | find "3000" > nul
 if %errorlevel% == 0 (
     echo ⚠️  Port 3000 is already in use!
@@ -449,18 +449,18 @@ if %errorlevel% == 0 (
     exit /b 1
 )
 
-REM 检查PostgreSQL连接
+REM PostgreSQL
 echo 🔍 Checking PostgreSQL connection...
 echo Make sure PostgreSQL is running on localhost:5432
 echo Database: kimbap_db, User: kimbap, Password: kimbap123
 echo.
 
-REM 启动应用
+REM 
 echo 🚀 Starting Kimbap Console...
 cd /d "%SCRIPT_DIR%app"
 ..\\node\\bin\\node.exe node_modules\\next\\dist\\bin\\next start -p 3000
 
-REM 如果应用异常退出，显示错误信息
+REM ，
 if %errorlevel% neq 0 (
     echo.
     echo ❌ Application failed to start!
@@ -477,35 +477,35 @@ pause`;
   async createUnixScript() {
     const script = `#!/bin/bash
 
-# Kimbap Console 启动脚本
+# Kimbap Console 
 echo "========================================"
 echo "       Kimbap Console Starting"
 echo "========================================"
 echo
 
-# 获取脚本目录
+# 
 SCRIPT_DIR="$( cd "$( dirname "\${BASH_SOURCE[0]}" )" && pwd )"
 SCRIPT_DIR="$( dirname "$SCRIPT_DIR" )"
 
-# 设置环境变量
+# 
 export PATH="$SCRIPT_DIR/node/bin:$PATH"
 export DATABASE_URL="postgresql://kimbap:kimbap123@localhost:5432/kimbap_db"
 export NODE_ENV="production"
 
-# 检查端口是否被占用
+# 
 if lsof -Pi :3000 -sTCP:LISTEN -t >/dev/null ; then
     echo "⚠️  Port 3000 is already in use!"
     echo "Please close the application using port 3000 and try again."
     exit 1
 fi
 
-# 检查PostgreSQL连接
+# PostgreSQL
 echo "🔍 Checking PostgreSQL connection..."
 echo "Make sure PostgreSQL is running on localhost:5432"
 echo "Database: kimbap_db, User: kimbap, Password: kimbap123"
 echo
 
-# 启动应用
+# 
 echo "🚀 Starting Kimbap Console..."
 cd "$SCRIPT_DIR/app"
 ../node/bin/node node_modules/next/dist/bin/next start -p 3000
@@ -516,7 +516,7 @@ echo "✅ Kimbap Console stopped."`;
     const scriptPath = path.join(this.outputDir, 'scripts', 'start.sh');
     fs.writeFileSync(scriptPath, script);
     
-    // 添加执行权限
+    // 
     fs.chmodSync(scriptPath, 0o755);
   }
 
@@ -556,90 +556,90 @@ echo "✅ Kimbap Console stopped."`;
   }
 
   async createDocumentation() {
-    const readme = `# Kimbap Console 便携版
+    const readme = `# Kimbap Console 
 
-## 快速开始
+## 
 
-### 前置要求
-1. **PostgreSQL**: 需要运行 PostgreSQL 数据库
-   - 选项1: 使用 Docker (推荐)
+### 
+1. **PostgreSQL**:  PostgreSQL 
+   - 1:  Docker ()
      \`\`\`bash
      docker run --name kimbap-postgres -e POSTGRES_USER=kimbap -e POSTGRES_PASSWORD=kimbap123 -e POSTGRES_DB=kimbap_db -p 5432:5432 -d postgres:16
      \`\`\`
-   - 选项2: 安装本地 PostgreSQL 并创建数据库 kimbap_db
+   - 2:  PostgreSQL  kimbap_db
 
 ### Windows
-1. 确保 PostgreSQL 正在运行
-2. 双击 \`scripts/start.bat\` 启动应用
-3. 浏览器会自动打开 http://localhost:3000
+1.  PostgreSQL 
+2.  \`scripts/start.bat\` 
+3.  http://localhost:3000
 
 ### Mac/Linux
-1. 确保 PostgreSQL 正在运行
-2. 打开终端，进入应用目录
-3. 运行 \`./scripts/start.sh\`
-4. 在浏览器中打开 http://localhost:3000
+1.  PostgreSQL 
+2. ，
+3.  \`./scripts/start.sh\`
+4.  http://localhost:3000
 
-## 系统要求
+## 
 
-- **内存**: 最少 2GB RAM
-- **存储**: 最少 500MB 可用空间
-- **数据库**: PostgreSQL 16.x (通过 Docker 或本地安装)
-- **操作系统**: 
-  - Windows 10 或更新版本
-  - macOS 10.14 或更新版本
-  - Ubuntu 18.04 或更新版本
+- ****:  2GB RAM
+- ****:  500MB 
+- ****: PostgreSQL 16.x ( Docker )
+- ****: 
+  - Windows 10 
+  - macOS 10.14 
+  - Ubuntu 18.04 
 
-## 目录结构
+## 
 
 \`\`\`
 kimbap-console/
-├── app/                # 应用文件 (.next, node_modules, etc.)
-├── node/              # Node.js 运行时
-├── postgresql/         # PostgreSQL 说明文档
-├── scripts/           # 启动脚本
-├── config/            # 配置文件
-└── README.txt         # 本说明文件
+├── app/                #  (.next, node_modules, etc.)
+├── node/              # Node.js 
+├── postgresql/         # PostgreSQL 
+├── scripts/           # 
+├── config/            # 
+└── README.txt         # 
 \`\`\`
 
-## 常见问题
+## 
 
-### 1. 端口 3000 被占用
-- 关闭占用端口 3000 的其他应用
-- 或修改 config/config.json 中的端口设置
+### 1.  3000 
+-  3000 
+-  config/config.json 
 
-### 2. 数据库连接失败
-- 确保 PostgreSQL 正在运行在 localhost:5432
-- 检查数据库用户名密码是否为 kimbap/kimbap123
-- 确保数据库 kimbap_db 存在
+### 2. 
+-  PostgreSQL  localhost:5432
+-  kimbap/kimbap123
+-  kimbap_db 
 
-### 3. 应用无法访问
-- 确认防火墙设置允许本地连接
-- 检查终端输出的错误信息
+### 3. 
+- 
+- 
 
-## 数据备份
+## 
 
-如果使用 Docker PostgreSQL，可以通过以下命令备份数据：
+ Docker PostgreSQL，：
 \`\`\`bash
 docker exec kimbap-postgres pg_dump -U kimbap kimbap_db > backup.sql
 \`\`\`
 
-## 卸载
+## 
 
-1. 停止 PostgreSQL 容器 (如果使用 Docker)：\`docker stop kimbap-postgres && docker rm kimbap-postgres\`
-2. 删除整个应用目录即可完全卸载
+1.  PostgreSQL  ( Docker)：\`docker stop kimbap-postgres && docker rm kimbap-postgres\`
+2. 
 
-## 技术支持
+## 
 
-如遇问题，请查看：
-1. 终端输出的错误信息
-2. 访问项目 GitHub 页面提交 Issue
-3. 联系技术支持团队
+，：
+1. 
+2.  GitHub  Issue
+3. 
 
 ---
 
 Kimbap Console v1.0.0
-构建日期: ${new Date().toISOString().split('T')[0]}
-平台: ${this.platform}-${this.arch}`;
+: ${new Date().toISOString().split('T')[0]}
+: ${this.platform}-${this.arch}`;
 
     fs.writeFileSync(path.join(this.outputDir, 'README.txt'), readme);
     
@@ -669,7 +669,7 @@ Kimbap Console v1.0.0
   }
 }
 
-// 执行构建完成
+// 
 if (require.main === module) {
   const completer = new BuildCompleter();
   completer.complete();

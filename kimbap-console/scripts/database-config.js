@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
 /**
- * 数据库配置管理器 - 支持本地和云端PostgreSQL自动切换
+ *  - PostgreSQL
  */
 
 const fs = require('fs');
@@ -13,7 +13,7 @@ class DatabaseConfig {
     this.rootDir = process.cwd();
     this.envPath = path.join(this.rootDir, '.env.local');
     
-    // 默认配置
+    // 
     this.configs = {
       local: {
         host: 'localhost',
@@ -23,7 +23,7 @@ class DatabaseConfig {
         password: 'kimbap123'
       },
       cloud: {
-        // 云端配置将从环境变量或配置文件读取
+        // 
         host: process.env.CLOUD_DB_HOST || '',
         port: parseInt(process.env.CLOUD_DB_PORT) || 5432,
         database: process.env.CLOUD_DB_NAME || 'kimbap_db',
@@ -34,17 +34,17 @@ class DatabaseConfig {
   }
 
   /**
-   * 查找可用的 psql 路径
+   *  psql 
    */
   findPsqlPath() {
-    // 1. 优先使用内嵌PostgreSQL的psql
+    // 1. PostgreSQLpsql
     const embeddedPsql = path.join(this.rootDir, 'postgresql', 'bin', 
       process.platform === 'win32' ? 'psql.exe' : 'psql');
     if (fs.existsSync(embeddedPsql)) {
       return embeddedPsql;
     }
     
-    // 2. 尝试常见的PostgreSQL安装路径
+    // 2. PostgreSQL
     const commonPaths = [];
     if (process.platform === 'win32') {
       commonPaths.push(
@@ -73,46 +73,46 @@ class DatabaseConfig {
       }
     }
     
-    // 3. 检查系统 PATH 中是否有psql
+    // 3.  PATH psql
     try {
       execSync('psql --version', { stdio: 'pipe' });
       return 'psql';
     } catch (error) {
-      return null; // 没有找到任何可用的psql
+      return null; // psql
     }
   }
 
   /**
-   * 自动检测最佳数据库配置
+   * 
    */
   async detectBestConfig() {
     console.log('🔍 Detecting optimal database configuration...');
     
-    // 1. 检查是否有云端数据库配置
+    // 1. 
     if (await this.testCloudConnection()) {
       console.log('✅ Using cloud PostgreSQL database');
       return this.generateDatabaseUrl('cloud');
     }
     
-    // 2. 优先尝试启动内嵌PostgreSQL（对于打包版本）
+    // 2. PostgreSQL（）
     if (await this.startEmbeddedPostgreSQL()) {
       console.log('✅ Using embedded PostgreSQL database');
       return this.generateDatabaseUrl('local');
     }
     
-    // 3. 检查本地PostgreSQL是否可用
+    // 3. PostgreSQL
     if (await this.testLocalConnection()) {
       console.log('✅ Using local PostgreSQL database');
       return this.generateDatabaseUrl('local');
     }
     
-    // 4. 提供设置指导
+    // 4. 
     this.printSetupInstructions();
     throw new Error('No PostgreSQL database available. Please set up a database first.');
   }
 
   /**
-   * 测试云端数据库连接
+   * 
    */
   async testCloudConnection() {
     if (!this.configs.cloud.host || !this.configs.cloud.username) {
@@ -123,7 +123,7 @@ class DatabaseConfig {
       const testUrl = this.generateDatabaseUrl('cloud');
       console.log('🔗 Testing cloud database connection...');
       
-      // 优先使用内嵌psql，否则使用系统psql
+      // psql，psql
       const psqlPath = this.findPsqlPath();
       if (!psqlPath) {
         console.log('⚠️  No psql client found for cloud connection test');
@@ -141,21 +141,21 @@ class DatabaseConfig {
   }
 
   /**
-   * 测试本地数据库连接
+   * 
    */
   async testLocalConnection() {
     try {
       const testUrl = this.generateDatabaseUrl('local');
       console.log('🔗 Testing local database connection...');
       
-      // 检查是否有可用的psql
+      // psql
       const psqlPath = this.findPsqlPath();
       if (!psqlPath) {
         console.log('⚠️  No psql client found');
         return false;
       }
       
-      // 增加重试逻辑，特别是针对 Docker 容器启动
+      // ， Docker 
       for (let attempt = 1; attempt <= 6; attempt++) {
         try {
           const testCommand = `"${psqlPath}" "${testUrl}" -c "SELECT 1;" --quiet`;
@@ -168,7 +168,7 @@ class DatabaseConfig {
         } catch (error) {
           if (attempt < 6) {
             console.log(`⏳ Waiting for database... (attempt ${attempt}/6)`);
-            await new Promise(resolve => setTimeout(resolve, 2000)); // 等待2秒
+            await new Promise(resolve => setTimeout(resolve, 2000)); // 2
           }
         }
       }
@@ -182,14 +182,14 @@ class DatabaseConfig {
   }
 
   /**
-   * 尝试启动内嵌PostgreSQL
+   * PostgreSQL
    */
   async startEmbeddedPostgreSQL() {
     const pgDir = path.join(this.rootDir, 'postgresql');
     const pgBin = path.join(pgDir, 'bin');
     const pgData = path.join(pgDir, 'data');
     
-    // 检查是否有内嵌PostgreSQL
+    // PostgreSQL
     const pgExecutable = path.join(pgBin, process.platform === 'win32' ? 'postgres.exe' : 'postgres');
     if (!fs.existsSync(pgExecutable)) {
       return false;
@@ -198,7 +198,7 @@ class DatabaseConfig {
     try {
       console.log('🚀 Starting embedded PostgreSQL...');
       
-      // 如果数据目录不存在，初始化数据库
+      // ，
       if (!fs.existsSync(pgData)) {
         console.log('🔧 Initializing embedded database...');
         
@@ -207,22 +207,22 @@ class DatabaseConfig {
         execSync(initCommand, { stdio: 'inherit' });
       }
       
-      // 启动PostgreSQL
+      // PostgreSQL
       const pgCtlPath = path.join(pgBin, process.platform === 'win32' ? 'pg_ctl.exe' : 'pg_ctl');
       const logPath = path.join(pgDir, 'postgresql.log');
       const startCommand = `"${pgCtlPath}" -D "${pgData}" -l "${logPath}" start`;
       execSync(startCommand, { stdio: 'pipe' });
       
-      // 等待启动
+      // 
       await this.sleep(3000);
       
-      // 检查数据库是否存在，不存在则创建
+      // ，
       try {
         const testUrl = this.generateDatabaseUrl('local');
         const psqlPath = path.join(pgBin, process.platform === 'win32' ? 'psql.exe' : 'psql');
         execSync(`"${psqlPath}" "${testUrl}" -c "SELECT 1;" --quiet`, { stdio: 'pipe' });
       } catch (error) {
-        // 数据库不存在，创建它
+        // ，
         console.log('🗃️  Creating application database...');
         const createdbPath = path.join(pgBin, process.platform === 'win32' ? 'createdb.exe' : 'createdb');
         const createCommand = `"${createdbPath}" -U kimbap kimbap_db`;
@@ -237,7 +237,7 @@ class DatabaseConfig {
   }
 
   /**
-   * 生成数据库连接URL
+   * URL
    */
   generateDatabaseUrl(type) {
     const config = this.configs[type];
@@ -247,19 +247,19 @@ class DatabaseConfig {
   }
 
   /**
-   * 更新环境变量文件
+   * 
    */
   updateEnvironmentFile(databaseUrl) {
     console.log('📝 Updating environment configuration...');
     
     let envContent = '';
     
-    // 读取现有环境变量
+    // 
     if (fs.existsSync(this.envPath)) {
       envContent = fs.readFileSync(this.envPath, 'utf8');
     }
     
-    // 更新或添加DATABASE_URL
+    // DATABASE_URL
     const lines = envContent.split('\n');
     let found = false;
     
@@ -275,7 +275,7 @@ class DatabaseConfig {
       lines.push(`DATABASE_URL=${databaseUrl}`);
     }
     
-    // 确保其他必要的环境变量存在
+    // 
     const requiredVars = {
       'NODE_ENV': 'production'
     };
@@ -287,34 +287,34 @@ class DatabaseConfig {
       }
     }
     
-    // 写回文件
+    // 
     fs.writeFileSync(this.envPath, lines.filter(line => line.trim()).join('\n') + '\n');
     
     console.log('✅ Environment configuration updated');
   }
 
   /**
-   * 运行数据库迁移
+   * 
    */
   async runMigrations(databaseUrl) {
     console.log('🗄️  Running database migrations...');
     
     try {
-      // 确保DATABASE_URL环境变量设置
+      // DATABASE_URL
       process.env.DATABASE_URL = databaseUrl;
       
-      // 查找 Prisma 客户端生成器
+      //  Prisma 
       const nodeModulesPath = path.join(this.rootDir, 'node_modules');
       const prismaPath = path.join(nodeModulesPath, '.bin', 'prisma');
       
       if (fs.existsSync(prismaPath)) {
-        // 生成Prisma客户端
+        // Prisma
         execSync(`"${prismaPath}" generate`, { stdio: 'inherit' });
         
-        // 运行迁移
+        // 
         execSync(`"${prismaPath}" migrate deploy`, { stdio: 'inherit' });
       } else {
-        // 备用方案：直接使用node模块
+        // ：node
         const prismaClientGenerator = path.join(nodeModulesPath, 'prisma', 'build', 'index.js');
         if (fs.existsSync(prismaClientGenerator)) {
           execSync(`node "${prismaClientGenerator}" generate`, { stdio: 'inherit' });
@@ -332,7 +332,7 @@ class DatabaseConfig {
   }
 
   /**
-   * 打印设置指导
+   * 
    */
   printSetupInstructions() {
     console.log('\n📖 PostgreSQL Setup Instructions:\n');
@@ -367,14 +367,14 @@ class DatabaseConfig {
   }
 
   /**
-   * 辅助方法
+   * 
    */
   sleep(ms) {
     return new Promise(resolve => setTimeout(resolve, ms));
   }
 
   /**
-   * 验证配置
+   * 
    */
   async validateConfig() {
     try {
@@ -395,7 +395,7 @@ class DatabaseConfig {
   }
 }
 
-// CLI 接口
+// CLI 
 if (require.main === module) {
   const config = new DatabaseConfig();
   

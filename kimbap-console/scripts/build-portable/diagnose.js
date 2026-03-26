@@ -1,8 +1,8 @@
 #!/usr/bin/env node
 
 /**
- * 便携包构建诊断工具
- * 快速检查构建环境和输出文件的完整性
+ * 
+ * 
  */
 
 const fs = require('fs');
@@ -32,7 +32,7 @@ class BuildDiagnostic {
     console.log(`- Platform: ${process.platform}-${process.arch}`);
     console.log(`- Working Directory: ${this.rootDir}`);
     
-    // 检查必要的命令
+    // 
     const commands = ['npm', 'tar', 'gzip'];
     commands.forEach(cmd => {
       try {
@@ -66,7 +66,7 @@ class BuildDiagnostic {
         console.log(`- ${dir}/:${size} ${exists ? '✅' : '❌'}`);
       });
 
-      // 检查根文件
+      // 
       const rootFiles = ['README.txt'];
       rootFiles.forEach(file => {
         const filePath = path.join(this.outputDir, file);
@@ -86,12 +86,12 @@ class BuildDiagnostic {
         const version = execSync(`"${nodeExec}" --version`, { encoding: 'utf8' }).trim();
         console.log(`- Version: ${version}`);
         
-        // 检查权限
+        // 
         const stats = fs.statSync(nodeExec);
         const isExecutable = !!(stats.mode & parseInt('111', 8));
         console.log(`- Executable permissions: ${isExecutable ? '✅' : '❌'}`);
         
-        // 检查文件大小
+        // 
         const sizeMB = Math.round(stats.size / 1024 / 1024);
         console.log(`- File size: ${sizeMB}MB`);
         
@@ -101,7 +101,7 @@ class BuildDiagnostic {
     } else {
       console.log('- Node.js executable: ❌');
       
-      // 检查是否存在但路径不对
+      // 
       const altPaths = [
         'node/node',
         'node/bin/node.exe'
@@ -147,7 +147,7 @@ class BuildDiagnostic {
         console.log(`- ${file}:${info} ${exists ? '✅' : '❌'}`);
       });
 
-      // 检查重要目录
+      // 
       const requiredDirs = ['server', 'static'];
       requiredDirs.forEach(dir => {
         const dirPath = path.join(nextDir, dir);
@@ -158,7 +158,7 @@ class BuildDiagnostic {
       console.log('- .next directory: ❌');
     }
     
-    // 检查应用文件
+    // 
     const appFiles = [
       'app/package.json',
       'app/next.config.mjs',
@@ -188,7 +188,7 @@ class BuildDiagnostic {
         console.log(`- Executable permissions: ${isExecutable ? '✅' : '❌'}`);
       }
       
-      // 检查脚本内容关键部分
+      // 
       try {
         const content = fs.readFileSync(scriptPath, 'utf8');
         const checks = [
@@ -243,7 +243,7 @@ class BuildDiagnostic {
     const issues = [];
     const warnings = [];
     
-    // 检查关键文件
+    // 
     const criticalPaths = [
       'node/bin/node',
       'app/.next/BUILD_ID',
@@ -258,7 +258,7 @@ class BuildDiagnostic {
       }
     });
     
-    // 检查目录大小
+    // 
     if (fs.existsSync(this.outputDir)) {
       try {
         const totalSize = this.getDirSize(this.outputDir);
@@ -273,7 +273,7 @@ class BuildDiagnostic {
       }
     }
     
-    // 输出结果
+    // 
     if (issues.length === 0 && warnings.length === 0) {
       console.log('- Status: ✅ All checks passed!');
       console.log('- Build appears to be complete and ready for use');
@@ -301,30 +301,30 @@ class BuildDiagnostic {
   }
 }
 
-// CLI 执行
+// CLI 
 if (require.main === module) {
   const args = process.argv.slice(2);
   
   if (args.includes('--help') || args.includes('-h')) {
     console.log(`
-便携包构建诊断工具
 
-用法:
-  npm run build:diagnose              # 运行完整诊断
-  node scripts/build-portable/diagnose.js  # 直接运行
 
-选项:
-  --help, -h                         # 显示帮助信息
+:
+  npm run build:diagnose              # 
+  node scripts/build-portable/diagnose.js  # 
 
-示例:
+:
+  --help, -h                         # 
+
+:
   npm run build:diagnose
-  npm run build:check                # 检查构建环境
-  npm run build:complete             # 完成构建
+  npm run build:check                # 
+  npm run build:complete             # 
 `);
     process.exit(0);
   }
   
-  console.log('🔧 Kimbap Console 便携包诊断工具\n');
+  console.log('🔧 Kimbap Console \n');
   const diagnostic = new BuildDiagnostic();
   diagnostic.diagnose();
 }

@@ -20,7 +20,7 @@ async function startWithPortAllocation() {
   try {
     console.log('');
     
-    // 执行统一的数据库初始化（包含迁移和客户端生成）
+    // （）
     console.log('🔄 Initializing database...');
     const dbInitResult = spawnSync('npm', ['run', 'db:init'], {
       stdio: 'inherit',
@@ -47,24 +47,24 @@ async function startWithPortAllocation() {
     
     console.log('✅ Application built successfully\n');
     
-    // 分配可用端口
+    // 
     const { frontendPort, backendPort } = await allocatePorts();
     
     console.log('\n📦 Starting services...\n');
     
-    // 设置环境变量
+    // 
     const env = {
       ...process.env,
       FRONTEND_PORT: frontendPort,
       BACKEND_PORT: backendPort,
-      PORT: frontendPort  // Next.js 使用的环境变量
+      PORT: frontendPort  // Next.js 
     };
 
-    // 判断是否使用自定义服务器（支持HTTPS）
+    // （HTTPS）
     const useCustomServer = process.env.ENABLE_HTTPS === 'true';
     const frontendCommand = useCustomServer ? 'npm run dev:custom' : 'npm run dev:next';
 
-    // 构建 concurrently 命令
+    //  concurrently 
     const concurrentlyArgs = [
       '--kill-others-on-fail',
       '-n', 'DB,Frontend',
@@ -73,7 +73,7 @@ async function startWithPortAllocation() {
       `PORT=${frontendPort} FRONTEND_PORT=${frontendPort} FRONTEND_HTTPS_PORT=${frontendPort} ${frontendCommand}`
     ];
     
-    // 启动服务
+    // 
     const child = spawn('npx', ['concurrently', ...concurrentlyArgs], {
       stdio: 'inherit',
       env: env,
@@ -81,11 +81,11 @@ async function startWithPortAllocation() {
     });
     
     
-    // 处理进程信号
+    // 
     process.on('SIGINT', async () => {
       console.log('\n🛑 Shutting down services...');
       
-      // 停止其他服务
+      // 
       child.kill('SIGINT');
     });
     
@@ -93,7 +93,7 @@ async function startWithPortAllocation() {
       child.kill('SIGTERM');
     });
     
-    // 等待子进程结束
+    // 
     child.on('close', (code) => {
       console.log(`\n✨ Services stopped with code ${code}`);
       process.exit(code);
@@ -110,5 +110,5 @@ async function startWithPortAllocation() {
   }
 }
 
-// 执行启动
+// 
 startWithPortAllocation();

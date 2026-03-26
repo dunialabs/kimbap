@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
 /**
- * 创建独立部署包 - 支持跨平台本地部署
+ *  - 
  */
 
 const fs = require('fs');
@@ -20,22 +20,22 @@ class StandaloneBuilder {
 
   async build() {
     try {
-      // 1. 准备目录
+      // 1. 
       await this.prepare();
       
-      // 2. 下载Node.js运行时
+      // 2. Node.js
       await this.setupNodeRuntime();
       
-      // 3. 复制应用文件
+      // 3. 
       await this.copyAppFiles();
       
-      // 4. 创建启动脚本
+      // 4. 
       await this.createStartupScripts();
       
-      // 5. 创建配置文件
+      // 5. 
       await this.createConfig();
       
-      // 6. 创建说明文档
+      // 6. 
       await this.createDocs();
       
       console.log(`✅ Standalone package created successfully!`);
@@ -64,7 +64,7 @@ class StandaloneBuilder {
   async setupNodeRuntime() {
     console.log('📥 Setting up Node.js runtime...');
     
-    // 检查是否已经下载了Node.js
+    // Node.js
     const nodeUrl = this.getNodeDownloadUrl();
     const fileName = path.basename(nodeUrl);
     const downloadPath = path.join(this.rootDir, 'temp', fileName);
@@ -77,7 +77,7 @@ class StandaloneBuilder {
       await this.downloadFile(nodeUrl, downloadPath);
     }
     
-    // 解压到输出目录
+    // 
     const nodeDir = path.join(this.outputDir, 'node');
     await this.extractNode(downloadPath, nodeDir);
     
@@ -139,23 +139,23 @@ class StandaloneBuilder {
     
     try {
       if (this.platform === 'win32') {
-        // 使用PowerShell解压ZIP
+        // PowerShellZIP
         const extractCmd = `powershell -command "Expand-Archive -Path '${archivePath}' -DestinationPath '${tempExtractDir}' -Force"`;
         execSync(extractCmd, { stdio: 'pipe' });
       } else {
-        // 使用tar解压
+        // tar
         const extractCmd = `tar -xf "${archivePath}" -C "${tempExtractDir}"`;
         execSync(extractCmd, { stdio: 'pipe' });
       }
       
-      // 找到解压后的Node.js目录
+      // Node.js
       const extractedDirs = fs.readdirSync(tempExtractDir);
       const nodeSourceDir = path.join(tempExtractDir, extractedDirs[0]);
       
-      // 复制到最终位置
+      // 
       this.copyDir(nodeSourceDir, nodeDir);
       
-      // 清理临时目录
+      // 
       fs.rmSync(tempExtractDir, { recursive: true, force: true });
       
     } catch (error) {
@@ -168,13 +168,13 @@ class StandaloneBuilder {
     
     const appDir = path.join(this.outputDir, 'app');
     
-    // 检查构建文件是否存在
+    // 
     const nextDir = path.join(this.rootDir, '.next');
     if (!fs.existsSync(nextDir)) {
       throw new Error('Next.js build not found. Please run "npm run build" first.');
     }
     
-    // 复制核心文件
+    // 
     const standaloneNextDir = path.join(this.rootDir, '.next/standalone/.next');
     if (fs.existsSync(standaloneNextDir)) {
       this.copyDir(standaloneNextDir, path.join(appDir, '.next'));
@@ -184,22 +184,22 @@ class StandaloneBuilder {
     this.copyDir(path.join(this.rootDir, 'public'), path.join(appDir, 'public'));
     this.copyDir(path.join(this.rootDir, 'prisma'), path.join(appDir, 'prisma'));
     
-    // 复制后端服务器（已编译的proxy-server）
+    // （proxy-server）
     const proxyServerDir = path.join(this.rootDir, 'proxy-server');
     if (fs.existsSync(proxyServerDir)) {
       this.copyDir(proxyServerDir, path.join(appDir, 'proxy-server'));
-      // 创建proxy-server的package.json以支持ES模块
+      // proxy-serverpackage.jsonES
       fs.writeFileSync(path.join(appDir, 'proxy-server/package.json'), JSON.stringify({ type: 'module' }, null, 2));
       console.log('✅ Backend proxy-server copied');
     } else {
       console.warn('⚠️  proxy-server not found, make sure to run "npm run build:backend" first');
     }
     
-    // 复制脚本和配置
+    // 
     fs.mkdirSync(path.join(appDir, 'scripts'), { recursive: true });
     fs.copyFileSync(path.join(this.rootDir, 'scripts/database-config.js'), path.join(appDir, 'scripts/database-config.js'));
     
-    // 创建简化的package.json（仅生产依赖）
+    // package.json（）
     const originalPackage = JSON.parse(fs.readFileSync(path.join(this.rootDir, 'package.json'), 'utf8'));
     const prodPackage = {
       name: originalPackage.name,
@@ -216,17 +216,17 @@ class StandaloneBuilder {
     fs.writeFileSync(path.join(appDir, 'package.json'), JSON.stringify(prodPackage, null, 2));
     fs.copyFileSync(path.join(this.rootDir, 'next.config.mjs'), path.join(appDir, 'next.config.mjs'));
     
-    // 复制node_modules（从.next/standalone或主目录）
+    // node_modules（.next/standalone）
     console.log('📦 Copying dependencies...');
     const standaloneNodeModules = path.join(this.rootDir, '.next/standalone/node_modules');
     if (fs.existsSync(standaloneNodeModules)) {
       this.copyDir(standaloneNodeModules, path.join(appDir, 'node_modules'));
     } else {
-      // 复制必要的生产依赖
+      // 
       this.copyDir(path.join(this.rootDir, 'node_modules'), path.join(appDir, 'node_modules'));
     }
     
-    // 修复proxy-server的prisma导入路径
+    // proxy-serverprisma
     const prismaConfigPath = path.join(appDir, 'proxy-server/config/prisma.js');
     if (fs.existsSync(prismaConfigPath)) {
       let content = fs.readFileSync(prismaConfigPath, 'utf8');
@@ -234,12 +234,12 @@ class StandaloneBuilder {
       fs.writeFileSync(prismaConfigPath, content);
     }
     
-    // 创建环境配置
+    // 
     const envConfig = `NODE_ENV=production
-# 数据库URL将在启动时自动检测
+# URL
 DATABASE_URL=postgresql://kimbap:kimbap123@localhost:5432/kimbap_db
 
-# 云端数据库配置（可选，如果需要连接云数据库请取消注释并填写）
+# （，）
 # CLOUD_DB_HOST=your-cloud-host.com
 # CLOUD_DB_USER=your-username
 # CLOUD_DB_PASSWORD=your-password
@@ -257,7 +257,7 @@ DATABASE_URL=postgresql://kimbap:kimbap123@localhost:5432/kimbap_db
     
     const scriptsDir = path.join(this.outputDir, 'scripts');
     
-    // 复制便携版启动脚本
+    // 
     fs.copyFileSync(
       path.join(this.rootDir, 'scripts/start-portable.sh'),
       path.join(scriptsDir, 'start.sh')
@@ -267,7 +267,7 @@ DATABASE_URL=postgresql://kimbap:kimbap123@localhost:5432/kimbap_db
       path.join(scriptsDir, 'start.bat')
     );
     
-    // 设置执行权限
+    // 
     if (this.platform !== 'win32') {
       fs.chmodSync(path.join(scriptsDir, 'start.sh'), 0o755);
     }
@@ -310,24 +310,24 @@ DATABASE_URL=postgresql://kimbap:kimbap123@localhost:5432/kimbap_db
   }
 
   async createDocs() {
-    const readme = `# Kimbap Console 独立部署包
+    const readme = `# Kimbap Console 
 
-## 快速开始
+## 
 
 ### Windows
-1. 双击 \`scripts/start.bat\` 启动
-2. 在浏览器中打开 http://localhost:3000
+1.  \`scripts/start.bat\` 
+2.  http://localhost:3000
 
 ### Mac/Linux  
-1. 打开终端，进入应用目录
-2. 运行 \`./scripts/start.sh\`
-3. 在浏览器中打开 http://localhost:3000
+1. ，
+2.  \`./scripts/start.sh\`
+3.  http://localhost:3000
 
-## 数据库配置
+## 
 
-此版本支持多种数据库配置：
+：
 
-### 🐳 Docker PostgreSQL (推荐)
+### 🐳 Docker PostgreSQL ()
 \`\`\`bash
 docker run --name kimbap-postgres \\
   -e POSTGRES_USER=kimbap \\
@@ -336,42 +336,42 @@ docker run --name kimbap-postgres \\
   -p 5432:5432 -d postgres:16
 \`\`\`
 
-### 🏠 本地 PostgreSQL
+### 🏠  PostgreSQL
 - macOS: \`brew install postgresql@16\`
 - Linux: \`apt install postgresql-16\`
-- Windows: 从官网下载安装
+- Windows: 
 
-### ☁️ 云端数据库
-编辑 \`app/.env.local\` 文件，设置 CLOUD_DB_* 变量
+### ☁️ 
+ \`app/.env.local\` ， CLOUD_DB_* 
 
-## 系统要求
+## 
 
-- **内存**: 最少 1GB RAM
-- **存储**: 最少 200MB 可用空间
-- **网络**: 需要联网下载依赖（首次运行）
+- ****:  1GB RAM
+- ****:  200MB 
+- ****: （）
 
-## 故障排除
+## 
 
-### 端口占用
-修改 \`config/app.json\` 中的端口设置
+### 
+ \`config/app.json\` 
 
-### 数据库连接
-查看 \`logs/database.log\` 获取详细错误信息
+### 
+ \`logs/database.log\` 
 
-### 权限问题
-确保脚本有执行权限：\`chmod +x scripts/start.sh\`
+### 
+：\`chmod +x scripts/start.sh\`
 
 ---
 Kimbap Console v1.0.0
-构建时间: ${new Date().toISOString()}
-平台: ${this.platform}-${this.arch}`;
+: ${new Date().toISOString()}
+: ${this.platform}-${this.arch}`;
 
     fs.writeFileSync(path.join(this.outputDir, 'README.md'), readme);
     
     console.log('✅ Documentation created');
   }
 
-  // 辅助方法
+  // 
   copyDir(src, dest) {
     if (!fs.existsSync(src)) {
       console.warn(`⚠️  Source not found: ${src}`);
@@ -413,7 +413,7 @@ Kimbap Console v1.0.0
           }
         }
       } catch (error) {
-        // 忽略权限错误
+        // 
       }
     };
     

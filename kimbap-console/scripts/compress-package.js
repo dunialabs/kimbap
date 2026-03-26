@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
 /**
- * 压缩独立部署包为分发文件
+ * 
  */
 
 const fs = require('fs');
@@ -30,20 +30,20 @@ class PackageCompressor {
     try {
       const outputFile = path.join(this.distDir, `${this.packageName}.${this.getArchiveExtension()}`);
       
-      // 删除已存在的压缩包
+      // 
       if (fs.existsSync(outputFile)) {
         fs.unlinkSync(outputFile);
       }
 
-      // 创建压缩包
+      // 
       process.chdir(this.distDir);
       
       if (this.platform === 'win32') {
-        // Windows: 使用PowerShell创建ZIP
+        // Windows: PowerShellZIP
         const cmd = `powershell -command "Compress-Archive -Path '${this.packageName}' -DestinationPath '${this.packageName}.zip' -CompressionLevel Optimal"`;
         execSync(cmd, { stdio: 'inherit' });
       } else {
-        // Mac/Linux: 使用tar.gz
+        // Mac/Linux: tar.gz
         const cmd = `tar -czf "${this.packageName}.tar.gz" "${this.packageName}"`;
         execSync(cmd, { stdio: 'inherit' });
       }
@@ -56,10 +56,10 @@ class PackageCompressor {
       console.log(`📁 File: ${outputFile}`);
       console.log(`📊 Original: ${originalSize}MB → Compressed: ${compressedSize}MB (${compressionRatio}% reduction)`);
       
-      // 创建校验和
+      // 
       await this.createChecksum(outputFile);
       
-      // 创建发布说明
+      // 
       await this.createReleaseNotes(outputFile);
 
     } catch (error) {
@@ -94,7 +94,7 @@ class PackageCompressor {
           }
         }
       } catch (error) {
-        // 忽略权限错误
+        // 
       }
     };
     
@@ -125,26 +125,26 @@ class PackageCompressor {
   }
 
   async createReleaseNotes(filePath) {
-    const releaseNotes = `# Kimbap Console 独立部署包
+    const releaseNotes = `# Kimbap Console 
 
-## 包信息
-- **文件名**: ${path.basename(filePath)}
-- **平台**: ${this.platform}-${this.arch}
-- **大小**: ${this.getFileSize(filePath)}MB
-- **构建时间**: ${new Date().toISOString()}
+## 
+- ****: ${path.basename(filePath)}
+- ****: ${this.platform}-${this.arch}
+- ****: ${this.getFileSize(filePath)}MB
+- ****: ${new Date().toISOString()}
 
-## 部署步骤
+## 
 
-### 1. 解压包文件
+### 1. 
 \`\`\`bash
 # Windows
-# 右键解压 ZIP 文件
+#  ZIP 
 
 # Mac/Linux
 tar -xzf ${path.basename(filePath)}
 \`\`\`
 
-### 2. 启动应用
+### 2. 
 \`\`\`bash
 # Windows
 scripts\\start.bat
@@ -153,25 +153,25 @@ scripts\\start.bat
 ./scripts/start.sh
 \`\`\`
 
-### 3. 访问应用
-在浏览器中打开: http://localhost:3000
+### 3. 
+: http://localhost:3000
 
-## 数据库要求
+## 
 
-应用支持以下数据库配置（启动时自动检测）：
+（）：
 
-1. **Docker PostgreSQL** (推荐)
-2. **本地 PostgreSQL 安装**  
-3. **云端 PostgreSQL 数据库**
+1. **Docker PostgreSQL** ()
+2. ** PostgreSQL **  
+3. ** PostgreSQL **
 
-详细配置请参考包内的 README.md 文件。
+ README.md 。
 
-## 技术支持
+## 
 
-如遇问题请查看：
-- \`logs/\` 目录下的日志文件
-- 包内的 README.md 文件
-- 项目 GitHub 页面
+：
+- \`logs/\` 
+-  README.md 
+-  GitHub 
 
 ---
 Kimbap Console Team`;

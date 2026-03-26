@@ -5,7 +5,7 @@ const fs = require('fs');
 const path = require('path');
 
 /**
- * 检查端口是否可用
+ * 
  */
 function isPortAvailable(port) {
   return new Promise((resolve) => {
@@ -25,7 +25,7 @@ function isPortAvailable(port) {
 }
 
 /**
- * 查找可用端口
+ * 
  */
 async function findAvailablePort(startPort = 3000, maxPort = 4000, excludePorts = []) {
   for (let port = startPort; port <= maxPort; port++) {
@@ -37,13 +37,13 @@ async function findAvailablePort(startPort = 3000, maxPort = 4000, excludePorts 
 }
 
 /**
- * 为前端和后端分配可用端口
+ * 
  */
 async function allocatePorts() {
   console.log('🔍 Checking for available ports...');
   
   try {
-    // 检查前端默认端口 3000
+    //  3000
     let frontendPort = 3000;
     if (!(await isPortAvailable(frontendPort))) {
       console.log('⚠️  Port 3000 is in use, finding alternative...');
@@ -53,7 +53,7 @@ async function allocatePorts() {
       console.log('✅ Frontend will use default port 3000');
     }
     
-    // 为后端查找可用端口（避开前端端口）
+    // （）
     let backendPort = 3002;
     
     if (!(await isPortAvailable(backendPort)) || backendPort === frontendPort) {
@@ -64,7 +64,7 @@ async function allocatePorts() {
       console.log('✅ Backend will use default port 3002');
     }
     
-    // 保存端口信息到临时文件
+    // 
     const portConfig = {
       frontendPort,
       backendPort,
@@ -74,7 +74,7 @@ async function allocatePorts() {
     const configPath = path.join(__dirname, '../.port-config.json');
     fs.writeFileSync(configPath, JSON.stringify(portConfig, null, 2));
     
-    // 设置环境变量
+    // 
     process.env.FRONTEND_PORT = frontendPort;
     process.env.BACKEND_PORT = backendPort;
     
@@ -91,7 +91,7 @@ async function allocatePorts() {
 }
 
 /**
- * 获取已分配的端口
+ * 
  */
 function getAllocatedPorts() {
   const configPath = path.join(__dirname, '../.port-config.json');
@@ -99,7 +99,7 @@ function getAllocatedPorts() {
   if (fs.existsSync(configPath)) {
     try {
       const config = JSON.parse(fs.readFileSync(configPath, 'utf8'));
-      // 检查配置是否太旧（超过1小时）
+      // （1）
       if (Date.now() - config.timestamp < 3600000) {
         return config;
       }
@@ -111,7 +111,7 @@ function getAllocatedPorts() {
   return null;
 }
 
-// 如果直接执行此脚本
+// 
 if (require.main === module) {
   const command = process.argv[2];
   
