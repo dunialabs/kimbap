@@ -96,7 +96,6 @@ async function getProxyKey() {
 
       const isHttps = url.protocol === 'https:';
       const defaultPort = isHttps ? 443 : 80;
-      const fullUrl = `${PROXY_URL}/admin`;
 
 
       const options = {
@@ -260,7 +259,6 @@ async function fetchLogsFromProxyOnce(token, startId = null, attempt = 1) {
 
       const isHttps = url.protocol === 'https:';
       const defaultPort = isHttps ? 443 : 80;
-      const fullUrl = `${PROXY_URL}/admin`;
 
 
       const options = {
