@@ -302,6 +302,28 @@ func TestUnsubscribeDeactivatesAllMatches(t *testing.T) {
 	}
 }
 
+func TestUnsubscribeRemovesEntriesFromBackingSlice(t *testing.T) {
+	d := NewDispatcher()
+	d.mu.Lock()
+	d.subscriptions = append(d.subscriptions,
+		Subscription{ID: "x", URL: "http://example.com/1", Active: true},
+		Subscription{ID: "x", URL: "http://example.com/2", Active: true},
+		Subscription{ID: "y", URL: "http://example.com/3", Active: true},
+	)
+	d.mu.Unlock()
+
+	d.Unsubscribe("x")
+
+	d.mu.RLock()
+	defer d.mu.RUnlock()
+	if len(d.subscriptions) != 1 {
+		t.Fatalf("expected backing slice to keep only one subscription, got %d", len(d.subscriptions))
+	}
+	if d.subscriptions[0].ID != "y" {
+		t.Fatalf("expected remaining subscription y, got %s", d.subscriptions[0].ID)
+	}
+}
+
 func TestApprovalEventTypesExist(t *testing.T) {
 	if EventApprovalRequested != "approval.requested" {
 		t.Errorf("unexpected value: %q", EventApprovalRequested)

@@ -91,21 +91,17 @@ func (d *Dispatcher) Subscribe(sub Subscription) {
 func (d *Dispatcher) Unsubscribe(id string) {
 	d.mu.Lock()
 	defer d.mu.Unlock()
-	for i := range d.subscriptions {
-		if d.subscriptions[i].ID == id {
-			d.subscriptions[i].Active = false
-		}
-	}
+	d.subscriptions = slices.DeleteFunc(d.subscriptions, func(sub Subscription) bool {
+		return sub.ID == id
+	})
 }
 
 func (d *Dispatcher) UnsubscribeByTenant(id, tenantID string) {
 	d.mu.Lock()
 	defer d.mu.Unlock()
-	for i := range d.subscriptions {
-		if d.subscriptions[i].ID == id && d.subscriptions[i].TenantID == tenantID {
-			d.subscriptions[i].Active = false
-		}
-	}
+	d.subscriptions = slices.DeleteFunc(d.subscriptions, func(sub Subscription) bool {
+		return sub.ID == id && sub.TenantID == tenantID
+	})
 }
 
 func (d *Dispatcher) ListSubscriptions() []Subscription {

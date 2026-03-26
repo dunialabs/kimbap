@@ -113,13 +113,32 @@ func (s *SQLiteStore) Create(ctx context.Context, tenantID string, name string, 
 		return nil, err
 	}
 
-	return s.GetMeta(ctx, tenantID, name)
+	metaCtx, cancel := readbackContext(ctx)
+	defer cancel()
+	return s.GetMeta(metaCtx, tenantID, name)
 }
 
 func (s *SQLiteStore) Upsert(ctx context.Context, tenantID string, name string, secretType SecretType, plaintext []byte, labels map[string]string, createdBy string) (*SecretRecord, error) {
 	rec, err := s.Create(ctx, tenantID, name, secretType, plaintext, labels, createdBy)
 	if err == ErrSecretAlreadyExists {
-		return s.Rotate(ctx, tenantID, name, plaintext, createdBy)
+		if _, rotateErr := s.Rotate(ctx, tenantID, name, plaintext, createdBy); rotateErr != nil {
+			return nil, rotateErr
+		}
+		labelsJSON, labelsErr := marshalLabels(labels)
+		if labelsErr != nil {
+			return nil, labelsErr
+		}
+		now := time.Now().UTC()
+		if _, updateErr := s.db.ExecContext(ctx, `
+			UPDATE secrets
+			SET type = ?, labels = ?, updated_at = ?
+			WHERE tenant_id = ? AND name = ?
+		`, string(secretType), labelsJSON, now, tenantID, name); updateErr != nil {
+			return nil, updateErr
+		}
+		metaCtx, cancel := readbackContext(ctx)
+		defer cancel()
+		return s.GetMeta(metaCtx, tenantID, name)
 	}
 	return rec, err
 }
@@ -167,16 +186,19 @@ func (s *SQLiteStore) List(ctx context.Context, tenantID string, opts ListOption
 		args = append(args, string(*opts.Type))
 	}
 
+	applySQLPagination := len(opts.Labels) == 0
 	query += " ORDER BY name ASC"
-	if opts.Limit > 0 {
-		query += " LIMIT ?"
-		args = append(args, opts.Limit)
-	} else if opts.Offset > 0 {
-		query += " LIMIT -1"
-	}
-	if opts.Offset > 0 {
-		query += " OFFSET ?"
-		args = append(args, opts.Offset)
+	if applySQLPagination {
+		if opts.Limit > 0 {
+			query += " LIMIT ?"
+			args = append(args, opts.Limit)
+		} else if opts.Offset > 0 {
+			query += " LIMIT -1"
+		}
+		if opts.Offset > 0 {
+			query += " OFFSET ?"
+			args = append(args, opts.Offset)
+		}
 	}
 
 	rows, err := s.db.QueryContext(ctx, query, args...)
@@ -198,6 +220,21 @@ func (s *SQLiteStore) List(ctx context.Context, tenantID string, opts ListOption
 
 	if err := rows.Err(); err != nil {
 		return nil, err
+	}
+
+	if !applySQLPagination {
+		offset := opts.Offset
+		if offset < 0 {
+			offset = 0
+		}
+		if offset >= len(records) {
+			return []SecretRecord{}, nil
+		}
+		end := len(records)
+		if opts.Limit > 0 && offset+opts.Limit < end {
+			end = offset + opts.Limit
+		}
+		records = records[offset:end]
 	}
 
 	return records, nil
@@ -289,7 +326,9 @@ func (s *SQLiteStore) Rotate(ctx context.Context, tenantID string, name string, 
 		return nil, err
 	}
 
-	return s.GetMeta(ctx, tenantID, name)
+	metaCtx, cancel := readbackContext(ctx)
+	defer cancel()
+	return s.GetMeta(metaCtx, tenantID, name)
 }
 
 func (s *SQLiteStore) GetVersion(ctx context.Context, tenantID string, name string, version int) ([]byte, error) {
@@ -376,6 +415,14 @@ func tenantKeyID(tenantID string) string {
 		return "default"
 	}
 	return "tenant:" + tid
+}
+
+func readbackContext(ctx context.Context) (context.Context, context.CancelFunc) {
+	base := context.Background()
+	if ctx != nil {
+		base = context.WithoutCancel(ctx)
+	}
+	return context.WithTimeout(base, 3*time.Second)
 }
 
 func (s *SQLiteStore) initSchema(ctx context.Context) error {

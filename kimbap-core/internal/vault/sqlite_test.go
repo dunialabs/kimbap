@@ -176,6 +176,31 @@ func TestSQLiteStoreListOffsetWithoutLimit(t *testing.T) {
 	}
 }
 
+func TestSQLiteStoreListLabelsPaginationUsesFilteredOrder(t *testing.T) {
+	store := newTestStore(t)
+	ctx := context.Background()
+
+	_, _ = store.Create(ctx, "tenant-a", "A", SecretTypeAPIKey, []byte("a"), map[string]string{"env": "dev"}, "tester")
+	_, _ = store.Create(ctx, "tenant-a", "B", SecretTypeAPIKey, []byte("b"), map[string]string{"env": "prod"}, "tester")
+	_, _ = store.Create(ctx, "tenant-a", "C", SecretTypeAPIKey, []byte("c"), map[string]string{"env": "dev"}, "tester")
+	_, _ = store.Create(ctx, "tenant-a", "D", SecretTypeAPIKey, []byte("d"), map[string]string{"env": "prod"}, "tester")
+
+	list, err := store.List(ctx, "tenant-a", ListOptions{
+		Labels: map[string]string{"env": "prod"},
+		Offset: 1,
+		Limit:  1,
+	})
+	if err != nil {
+		t.Fatalf("list with label pagination: %v", err)
+	}
+	if len(list) != 1 {
+		t.Fatalf("expected one filtered record, got %d", len(list))
+	}
+	if list[0].Name != "D" {
+		t.Fatalf("expected filtered offset record D, got %s", list[0].Name)
+	}
+}
+
 func TestSQLiteStoreMarkUsedUpdatesTimestamp(t *testing.T) {
 	store := newTestStore(t)
 	ctx := context.Background()
@@ -285,6 +310,35 @@ func TestSQLiteStoreUpsertRotatesWhenExists(t *testing.T) {
 	}
 
 	value, err := store.GetValue(ctx, "tenant-a", "UPSERT_EXIST")
+	if err != nil {
+		t.Fatalf("get value: %v", err)
+	}
+	if !bytes.Equal(value, []byte("v2")) {
+		t.Fatalf("expected v2, got %s", string(value))
+	}
+}
+
+func TestSQLiteStoreUpsertUpdatesMetadataWhenExists(t *testing.T) {
+	store := newTestStore(t)
+	ctx := context.Background()
+
+	_, err := store.Create(ctx, "tenant-a", "UPSERT_META", SecretTypeAPIKey, []byte("v1"), map[string]string{"env": "dev"}, "tester")
+	if err != nil {
+		t.Fatalf("create: %v", err)
+	}
+
+	rec, err := store.Upsert(ctx, "tenant-a", "UPSERT_META", SecretTypeBearerToken, []byte("v2"), map[string]string{"env": "prod", "team": "platform"}, "tester")
+	if err != nil {
+		t.Fatalf("upsert metadata: %v", err)
+	}
+	if rec.Type != SecretTypeBearerToken {
+		t.Fatalf("expected type %s, got %s", SecretTypeBearerToken, rec.Type)
+	}
+	if rec.Labels["env"] != "prod" || rec.Labels["team"] != "platform" {
+		t.Fatalf("expected updated labels, got %+v", rec.Labels)
+	}
+
+	value, err := store.GetValue(ctx, "tenant-a", "UPSERT_META")
 	if err != nil {
 		t.Fatalf("get value: %v", err)
 	}
