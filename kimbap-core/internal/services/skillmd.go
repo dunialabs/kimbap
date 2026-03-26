@@ -29,7 +29,7 @@ func GenerateSkillMD(manifest *ServiceManifest) (string, error) {
 
 	sb.WriteString("## Prerequisites\n\n")
 	sb.WriteString("- Kimbap CLI installed and in PATH\n")
-	sb.WriteString(fmt.Sprintf("- Skill installed: `kimbap skill install %s.yaml`\n", manifest.Name))
+	sb.WriteString(fmt.Sprintf("- Service installed: `kimbap service install %s.yaml`\n", manifest.Name))
 	credRefs := collectCredentialRefs(manifest)
 	for _, ref := range credRefs {
 		sb.WriteString(fmt.Sprintf("- Credential configured: `kimbap vault set %s`\n", ref))
@@ -42,12 +42,17 @@ func GenerateSkillMD(manifest *ServiceManifest) (string, error) {
 	for _, key := range keys {
 		action := manifest.Actions[key]
 		actionName := manifest.Name + "." + key
+		riskLevel := strings.ToLower(strings.TrimSpace(action.Risk.Level))
+		riskDisplay := riskLevel
+		if riskDisplay == "" {
+			riskDisplay = "unknown"
+		}
 		sb.WriteString(fmt.Sprintf("### %s\n\n", actionName))
 		if action.Description != "" {
 			sb.WriteString(fmt.Sprintf("%s\n\n", action.Description))
 		}
 		sb.WriteString(fmt.Sprintf("**HTTP**: `%s %s`\n", strings.ToUpper(action.Method), action.Path))
-		sb.WriteString(fmt.Sprintf("**Risk**: %s\n\n", action.Risk.Level))
+		sb.WriteString(fmt.Sprintf("**Risk**: %s\n\n", riskDisplay))
 
 		if len(action.Args) > 0 {
 			sb.WriteString("**Parameters**:\n")
@@ -73,12 +78,19 @@ func GenerateSkillMD(manifest *ServiceManifest) (string, error) {
 				sb.WriteString(fmt.Sprintf(" --%s <value>", arg.Name))
 			}
 		}
-		sb.WriteString("\n```\n\n")
+		sb.WriteString("\n```\n")
+		if riskLevel == "" || riskLevel == "unknown" || riskLevel == "medium" || riskLevel == "high" {
+			sb.WriteString(fmt.Sprintf("\n> ⚠️ This action is risk level: %s. Use --dry-run --format json first to preview.\n", riskDisplay))
+		}
+		if riskLevel == "high" {
+			sb.WriteString("\n> 🔒 Approval may be required. Check: `kimbap approve list`\n")
+		}
+		sb.WriteString("\n")
 	}
 
 	sb.WriteString("## Discovery\n\n")
 	sb.WriteString("```bash\n")
-	sb.WriteString("# List all actions from this skill\n")
+	sb.WriteString("# List all actions from this service\n")
 	sb.WriteString(fmt.Sprintf("kimbap actions list --service %s --format json\n\n", manifest.Name))
 	sb.WriteString("# Describe a specific action with full schema\n")
 	sb.WriteString(fmt.Sprintf("kimbap actions describe %s.<action> --format json\n\n", manifest.Name))
@@ -145,8 +157,10 @@ description: |
   (GitHub, Slack, Gmail, Stripe, Notion, internal APIs, etc.) through
   a secure, governed runtime. Kimbap provides credential injection,
   policy enforcement, approval workflows, and audit logging.
-  Trigger phrases: 'use GitHub', 'send email', 'create issue',
-  'call external API', 'interact with service', 'use kimbap'.
+  Trigger phrases: 'List repositories', 'create issue', 'merge pull request',
+  'send message', 'post to channel', 'send email', 'read inbox',
+  'charge customer', 'list invoices', 'use external API',
+  'call service', 'manage workspace', 'interact with third-party', 'use kimbap'.
 allowed-tools: Bash
 ---
 
@@ -159,13 +173,13 @@ allowed-tools: Bash
 
 ` + "```bash" + `
 # 1. Discover what services are available
-kimbap actions list
+kimbap actions list --format json
 
 # 2. See all actions for a specific service
-kimbap actions list --service <service-name>
+kimbap actions list --service <service-name> --format json
 
 # 3. Inspect an action before using it
-kimbap actions describe <service.action>
+kimbap actions describe <service.action> --format json
 
 # 4. Execute an action
 kimbap call <service>.<action> [--param value ...]
@@ -173,26 +187,44 @@ kimbap call <service>.<action> [--param value ...]
 
 ## Rules
 
-1. Always use ` + "`kimbap actions list`" + ` first to discover what is available.
-2. Use ` + "`kimbap actions describe <service.action>`" + ` to inspect parameters before calling.
+1. Always use ` + "`kimbap actions list --format json`" + ` first to discover what is available.
+2. Use ` + "`kimbap actions describe <service.action> --format json`" + ` to inspect parameters before calling.
 3. Never ask for, print, or store raw API keys, passwords, or tokens.
-4. If a capability is missing, request a new Kimbap skill instead of using direct credentials.
+4. If a capability is missing, request a new Kimbap service instead of using direct credentials.
 5. Treat Kimbap as the only approved pathway for third-party API access.
+
+## Decision Protocol
+
+Before calling any action:
+1. ` + "`kimbap actions list --format json`" + `         # discover
+2. ` + "`kimbap actions describe <svc.action> --format json`" + `  # inspect schema
+3. ` + "`kimbap call <svc.action> --dry-run --format json`" + `    # preview
+4. ` + "`kimbap call <svc.action> [--params]`" + `       # execute
+Never skip steps 1-3 for unfamiliar actions.
 
 ## Common Examples
 
 ` + "```bash" + `
 # List all available actions
-kimbap actions list
+kimbap actions list --format json
 
-# List installed skills
-kimbap skill list
+# List installed services
+kimbap service list
 
 # Dry-run to preview without executing
-kimbap call <service>.<action> --dry-run
+kimbap call <service>.<action> --dry-run --format json
 
 # Check what services are configured
 kimbap actions list --format json
+` + "```" + `
+
+## Troubleshooting
+
+` + "```bash" + `
+Action not found:     kimbap service list
+Auth failure:         kimbap connector status
+Missing credential:   kimbap vault list
+Approval required:    kimbap approve list
 ` + "```" + `
 
 ## Installation
@@ -201,7 +233,7 @@ kimbap actions list --format json
 # Install Kimbap CLI
 # See https://kimbap.sh/quick-start
 
-# Sync skills to your AI agent
+# Sync services to your AI agent
 kimbap agents setup
 ` + "```" + `
 `

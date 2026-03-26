@@ -614,11 +614,13 @@ func TestGenerateSkillMDContainsExpectedSections(t *testing.T) {
 		"name: brave-search",
 		"allowed-tools: Bash",
 		"## Prerequisites",
+		"kimbap service install brave-search.yaml",
 		"## Available Actions",
 		"### brave-search.web_search",
 		"kimbap call brave-search.web_search",
 		"## Discovery",
-		"kimbap actions list --service brave-search",
+		"kimbap actions list --service brave-search --format json",
+		"kimbap actions describe brave-search.<action> --format json",
 	}
 	for _, want := range checks {
 		if !strings.Contains(content, want) {
@@ -633,9 +635,12 @@ func TestGenerateMetaSkillMDContainsServiceActionSyntax(t *testing.T) {
 	checks := []string{
 		"name: kimbap",
 		"allowed-tools: Bash",
-		"kimbap actions list",
-		"kimbap actions describe <service.action>",
+		"kimbap actions list --format json",
+		"kimbap actions describe <service.action> --format json",
 		"kimbap call <service>.<action>",
+		"kimbap service list",
+		"## Decision Protocol",
+		"## Troubleshooting",
 		"kimbap agents setup",
 	}
 	for _, want := range checks {

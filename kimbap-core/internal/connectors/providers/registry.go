@@ -1,18 +1,19 @@
 package providers
 
 import (
+	"log/slog"
+
 	"github.com/dunialabs/kimbap-core/internal/connectors"
 )
 
-// GetProvider returns a provider definition by ID.
-// All providers are loaded from YAML manifests in the embedded official/ directory.
 func GetProvider(id string) (connectors.ProviderDefinition, error) {
 	return LoadProvider(id, EmbeddedProviders)
 }
 
-// ListProviders returns all known provider definitions.
-// All providers are loaded from YAML manifests in the embedded official/ directory.
 func ListProviders() []connectors.ProviderDefinition {
-	all, _ := LoadAllProviders(EmbeddedProviders)
+	all, err := LoadAllProviders(EmbeddedProviders)
+	if err != nil {
+		slog.Error("failed to load provider manifests", "error", err)
+	}
 	return all
 }
