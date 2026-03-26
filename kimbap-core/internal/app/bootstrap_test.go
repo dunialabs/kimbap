@@ -332,6 +332,25 @@ func TestEnvCredentialResolverReturnsSoftMissWhenEnvMissing(t *testing.T) {
 	}
 }
 
+func TestEnvCredentialResolverHandlesProfiledRef(t *testing.T) {
+	t.Setenv("KIMBAP_GITHUB_WORK_TOKEN", "test-token")
+
+	r := &envCredentialResolver{}
+	creds, err := r.Resolve(context.Background(), "default", actions.AuthRequirement{
+		Type:          actions.AuthTypeBearer,
+		CredentialRef: "github:work.token",
+	})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if creds == nil {
+		t.Fatal("expected creds, got nil")
+	}
+	if creds.Token != "test-token" {
+		t.Errorf("expected test-token, got %q", creds.Token)
+	}
+}
+
 type bootstrapMemConnectorStore struct {
 	items map[string]connectors.ConnectorState
 }

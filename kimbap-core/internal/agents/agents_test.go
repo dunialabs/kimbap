@@ -171,8 +171,8 @@ func TestStatusAfterSync(t *testing.T) {
 	if !claude.RulesPresent {
 		t.Fatal("expected claude rules file to exist")
 	}
-	if len(claude.SyncedSkills) != 1 || claude.SyncedSkills[0] != "github-pr" {
-		t.Fatalf("unexpected claude synced skills: %+v", claude.SyncedSkills)
+	if len(claude.SyncedServices) != 1 || claude.SyncedServices[0] != "github-pr" {
+		t.Fatalf("unexpected claude synced skills: %+v", claude.SyncedServices)
 	}
 
 	if generic, ok := byAgent[AgentGeneric]; ok {

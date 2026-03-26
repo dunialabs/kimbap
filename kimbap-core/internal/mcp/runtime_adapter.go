@@ -118,19 +118,19 @@ func normalizeToolName(toolName string) string {
 		return ""
 	}
 	if strings.Contains(name, ".") {
+		idx := strings.Index(name, ".")
+		if idx <= 0 || idx >= len(name)-1 {
+			return ""
+		}
+		service := strings.TrimSpace(name[:idx])
+		action := strings.TrimSpace(name[idx+1:])
+		if service == "" || action == "" {
+			return ""
+		}
 		return name
 	}
 
-	underscoreIdx := strings.Index(name, "_")
-	hyphenIdx := strings.Index(name, "-")
-
-	splitIdx := -1
-	if underscoreIdx > 0 {
-		splitIdx = underscoreIdx
-	}
-	if hyphenIdx > 0 && (splitIdx == -1 || hyphenIdx < splitIdx) {
-		splitIdx = hyphenIdx
-	}
+	splitIdx := strings.Index(name, "_")
 	if splitIdx <= 0 || splitIdx >= len(name)-1 {
 		return ""
 	}
@@ -140,7 +140,6 @@ func normalizeToolName(toolName string) string {
 	if service == "" || action == "" {
 		return ""
 	}
-	service = strings.ReplaceAll(service, "-", "_")
 	return service + "." + action
 }
 

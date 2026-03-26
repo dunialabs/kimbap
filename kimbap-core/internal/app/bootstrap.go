@@ -416,7 +416,7 @@ func (r *envCredentialResolver) Resolve(_ context.Context, _ string, req actions
 		return nil, nil
 	}
 
-	envKey := "KIMBAP_" + strings.ToUpper(strings.ReplaceAll(connectorName, "-", "_")) + "_TOKEN"
+	envKey := "KIMBAP_" + toEnvSegment(connectorName) + "_TOKEN"
 	token := strings.TrimSpace(os.Getenv(envKey))
 	if token == "" {
 		return nil, nil
@@ -438,6 +438,18 @@ func connectorNameFromRef(ref string) (string, bool) {
 		}
 	}
 	return "", false
+}
+
+func toEnvSegment(s string) string {
+	var b strings.Builder
+	for _, r := range strings.ToUpper(s) {
+		if r >= 'A' && r <= 'Z' || r >= '0' && r <= '9' {
+			b.WriteRune(r)
+		} else {
+			b.WriteRune('_')
+		}
+	}
+	return b.String()
 }
 
 type chainCredentialResolver struct {
