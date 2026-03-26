@@ -10,11 +10,6 @@ export interface EncryptedData {
   tag: string; // Base64 encoded authentication tag
 }
 
-export interface MasterPasswordData {
-  hash: string; // Password hash using random salt
-  salt: string; // Base64 encoded random salt
-}
-
 /**
  * Crypto utility class for handling all encryption/decryption operations
  */
@@ -308,33 +303,6 @@ export class CryptoUtils {
     }
   }
 
-  /**
-   * Hash password for verification using custom salt (PBKDF2)
-   */
-  static async hashPasswordWithSalt(password: string, salt: Uint8Array): Promise<string> {
-    const key = await this.deriveKey(
-      password,
-      salt,
-      this.PBKDF2_ITERATIONS,
-      true,
-    ); // Make extractable for hashing
-    const keyBuffer = await this.getCrypto().subtle.exportKey("raw", key);
-    const keyArray = new Uint8Array(keyBuffer);
-    return btoa(Array.from(keyArray).map(b => String.fromCharCode(b)).join(''));
-  }
-
-
-  /**
-   * Verify password against stored hash and salt
-   */
-  static async verifyPasswordWithSalt(
-    password: string,
-    storedHash: string,
-    salt: Uint8Array,
-  ): Promise<boolean> {
-    const computedHash = await this.hashPasswordWithSalt(password, salt);
-    return computedHash === storedHash;
-  }
 }
 
 /**
@@ -343,36 +311,6 @@ export class CryptoUtils {
 export class MasterPasswordManager {
   private static readonly STORAGE_KEY = "kimbap_master_data";
   private static readonly CACHE_KEY = "kimbap_master_cache";
-  private static readonly CACHE_DURATION = 10 * 60 * 1000; // 10 minutes in milliseconds
-  private static cacheKey: Uint8Array | null = null;
-
-  private static getOrCreateCacheKey(): Uint8Array {
-    if (!this.cacheKey) {
-      this.cacheKey = new Uint8Array(64);
-      (typeof window !== 'undefined' ? window.crypto : (globalThis as any).crypto)
-        .getRandomValues(this.cacheKey);
-    }
-    return this.cacheKey;
-  }
-
-  private static xorMask(input: string, key: Uint8Array): string {
-    const encoder = new TextEncoder();
-    const bytes = encoder.encode(input);
-    let chars = '';
-    for (let i = 0; i < bytes.length; i++) {
-      chars += String.fromCharCode(bytes[i] ^ key[i % key.length]);
-    }
-    return btoa(chars);
-  }
-
-  private static xorUnmask(encoded: string, key: Uint8Array): string {
-    const raw = atob(encoded);
-    const bytes = new Uint8Array(raw.length);
-    for (let i = 0; i < raw.length; i++) {
-      bytes[i] = raw.charCodeAt(i) ^ key[i % key.length];
-    }
-    return new TextDecoder().decode(bytes);
-  }
 
   /**
    * Check if master password is set
@@ -385,101 +323,12 @@ export class MasterPasswordManager {
    * Set master password (first time setup)
    */
   static async setMasterPassword(password: string): Promise<void> {
-    // Generate random salt for better security
-    const salt = CryptoUtils.generateSalt();
-
-    // Hash password with random salt
-    const hash = await CryptoUtils.hashPasswordWithSalt(password, salt);
-
-    // Store hash and salt
-    const masterData: MasterPasswordData = {
-      hash: hash,
-      salt: btoa(Array.from(salt).map(b => String.fromCharCode(b)).join(''))
-    };
-
-    localStorage.setItem(this.STORAGE_KEY, JSON.stringify(masterData));
-
-    // Cache the password for 10 minutes
-    this.cacheMasterPassword(password);
-  }
-
-  /**
-   * Verify master password
-   */
-  static async verifyMasterPassword(password: string): Promise<boolean> {
-    const storedDataStr = localStorage.getItem(this.STORAGE_KEY);
-    if (!storedDataStr) return false;
-
-    try {
-      const storedData: MasterPasswordData = JSON.parse(storedDataStr);
-
-      // Decode salt from base64
-      const salt = new Uint8Array(
-        atob(storedData.salt).split('').map(c => c.charCodeAt(0))
-      );
-
-      // Verify password with stored salt
-      const isValid = await CryptoUtils.verifyPasswordWithSalt(password, storedData.hash, salt);
-
-      // If valid, cache the password
-      if (isValid) {
-        this.cacheMasterPassword(password);
-      }
-
-      return isValid;
-    } catch (error) {
-      console.error('Failed to parse master password data:', error);
-      return false;
-    }
-  }
-
-  /**
-   * Cache master password for 10 minutes
-   */
-  private static cacheMasterPassword(password: string): void {
-    const key = this.getOrCreateCacheKey();
-    const cacheData = {
-      masked: this.xorMask(password, key),
-      timestamp: Date.now()
-    };
-    sessionStorage.setItem(this.CACHE_KEY, JSON.stringify(cacheData));
-  }
-
-  /**
-   * Get cached master password if still valid (within 10 minutes)
-   */
-  static getCachedMasterPassword(): string | null {
-    if (!this.cacheKey) {
-      this.clearCache();
-      return null;
+    if (!password.trim()) {
+      throw new Error('Master password cannot be empty');
     }
 
-    const cacheDataStr = sessionStorage.getItem(this.CACHE_KEY);
-    if (!cacheDataStr) return null;
-
-    try {
-      const cacheData = JSON.parse(cacheDataStr);
-      const now = Date.now();
-      const elapsed = now - cacheData.timestamp;
-
-      if (elapsed < this.CACHE_DURATION && cacheData.masked) {
-        return this.xorUnmask(cacheData.masked, this.cacheKey);
-      } else {
-        this.clearCache();
-        return null;
-      }
-    } catch (error) {
-      console.error('Failed to parse cached master password:', error);
-      this.clearCache();
-      return null;
-    }
-  }
-
-  /**
-   * Check if cached master password is available
-   */
-  static hasCachedMasterPassword(): boolean {
-    return this.getCachedMasterPassword() !== null;
+    localStorage.setItem(this.STORAGE_KEY, 'configured');
+    this.clearCache();
   }
 
   /**
@@ -487,10 +336,6 @@ export class MasterPasswordManager {
    */
   static clearCache(): void {
     sessionStorage.removeItem(this.CACHE_KEY);
-    if (this.cacheKey) {
-      this.cacheKey.fill(0);
-      this.cacheKey = null;
-    }
   }
 
   static clearMasterPassword(): void {
