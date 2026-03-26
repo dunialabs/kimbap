@@ -132,6 +132,8 @@ type AdapterConfig struct {
 	Retry         RetryConfig
 	Timeout       time.Duration
 	AllowInsecure bool
+	TargetApp     string
+	Command       string
 }
 
 type ResponseConfig struct {

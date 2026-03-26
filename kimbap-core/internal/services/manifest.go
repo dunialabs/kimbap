@@ -4,6 +4,8 @@ type ServiceManifest struct {
 	Name        string                   `yaml:"name"`
 	Version     string                   `yaml:"version"`
 	Description string                   `yaml:"description"`
+	Adapter     string                   `yaml:"adapter,omitempty"`
+	TargetApp   string                   `yaml:"target_app,omitempty"`
 	BaseURL     string                   `yaml:"base_url"`
 	Auth        ServiceAuth              `yaml:"auth"`
 	Actions     map[string]ServiceAction `yaml:"actions"`
@@ -22,6 +24,8 @@ type ServiceAction struct {
 	Path         string         `yaml:"path"`
 	Description  string         `yaml:"description"`
 	Warnings     []string       `yaml:"warnings,omitempty"`
+	Command      string         `yaml:"command,omitempty"`
+	Idempotent   *bool          `yaml:"idempotent,omitempty"`
 	Auth         *ServiceAuth   `yaml:"auth,omitempty"`
 	Args         []ActionArg    `yaml:"args"`
 	Request      RequestSpec    `yaml:"request"`

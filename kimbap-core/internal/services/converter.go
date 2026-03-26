@@ -20,16 +20,26 @@ func ToActionDefinitions(skill *ServiceManifest) ([]actions.ActionDefinition, er
 		return nil, validationErrorsToError("invalid service manifest", errs)
 	}
 
+	adapterType := strings.ToLower(strings.TrimSpace(skill.Adapter))
+	if adapterType == "" {
+		adapterType = "http"
+	}
+
+	switch adapterType {
+	case "applescript":
+		return toAppleScriptDefinitions(skill)
+	default:
+		return toHTTPDefinitions(skill)
+	}
+}
+
+func toHTTPDefinitions(skill *ServiceManifest) ([]actions.ActionDefinition, error) {
 	u, err := url.Parse(skill.BaseURL)
 	if err != nil {
 		return nil, fmt.Errorf("invalid base url: %w", err)
 	}
 
-	keys := make([]string, 0, len(skill.Actions))
-	for key := range skill.Actions {
-		keys = append(keys, key)
-	}
-	sort.Strings(keys)
+	keys := sortedKeys(skill.Actions)
 
 	out := make([]actions.ActionDefinition, 0, len(keys))
 	for _, key := range keys {
@@ -84,6 +94,56 @@ func ToActionDefinitions(skill *ServiceManifest) ([]actions.ActionDefinition, er
 	}
 
 	return out, nil
+}
+
+func toAppleScriptDefinitions(skill *ServiceManifest) ([]actions.ActionDefinition, error) {
+	keys := sortedKeys(skill.Actions)
+	out := make([]actions.ActionDefinition, 0, len(keys))
+	for _, key := range keys {
+		actionSpec := skill.Actions[key]
+
+		idempotent := false
+		if actionSpec.Idempotent != nil {
+			idempotent = *actionSpec.Idempotent
+		}
+
+		definition := actions.ActionDefinition{
+			Name:         skill.Name + "." + key,
+			Version:      1,
+			DisplayName:  nonEmpty(actionSpec.Description, key),
+			Namespace:    skill.Name,
+			Verb:         actionSpec.Command,
+			Resource:     skill.TargetApp,
+			Description:  actionSpec.Description,
+			Risk:         mapRisk(actionSpec.Risk.Level),
+			Idempotent:   idempotent,
+			ApprovalHint: mapApprovalHint(actionSpec.Risk.Level),
+			Auth:         mapAuth(resolveActionAuth(skill.Auth, actionSpec.Auth)),
+			InputSchema:  buildInputSchema(actionSpec.Args, nil),
+			OutputSchema: buildOutputSchema(actionSpec.Response),
+			Adapter: actions.AdapterConfig{
+				Type:      "applescript",
+				TargetApp: skill.TargetApp,
+				Command:   actionSpec.Command,
+			},
+			Classifiers:  nil,
+			ErrorMapping: nil,
+			Pagination:   nil,
+		}
+
+		out = append(out, definition)
+	}
+
+	return out, nil
+}
+
+func sortedKeys(m map[string]ServiceAction) []string {
+	keys := make([]string, 0, len(m))
+	for key := range m {
+		keys = append(keys, key)
+	}
+	sort.Strings(keys)
+	return keys
 }
 
 func mapRisk(level string) actions.RiskLevel {

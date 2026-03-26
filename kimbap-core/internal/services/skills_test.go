@@ -4,12 +4,32 @@ import (
 	"crypto/ed25519"
 	"os"
 	"path/filepath"
+	"reflect"
+	"runtime"
 	"slices"
 	"strings"
 	"testing"
 
 	"github.com/dunialabs/kimbap-core/internal/actions"
 )
+
+func loadManifestFixture(t *testing.T, fixtureName string) *ServiceManifest {
+	t.Helper()
+	_, file, _, ok := runtime.Caller(0)
+	if !ok {
+		t.Fatal("failed to resolve current test file path")
+	}
+	fixturePath := filepath.Join(filepath.Dir(file), "..", "..", "testdata", fixtureName)
+	data, err := os.ReadFile(fixturePath)
+	if err != nil {
+		t.Fatalf("read fixture %q: %v", fixturePath, err)
+	}
+	manifest, err := ParseManifest(data)
+	if err != nil {
+		t.Fatalf("parse fixture %q: %v", fixtureName, err)
+	}
+	return manifest
+}
 
 const braveSearchFixture = `name: brave-search
 version: 1.0.0
@@ -57,6 +77,50 @@ actions:
       429: rate_limited
 `
 
+const manifestWithAdapterFixture = `name: notes-service
+version: 1.0.0
+description: Notes service
+adapter: applescript
+target_app: Notes
+auth:
+  type: none
+actions:
+  list_notes:
+    command: list-notes
+    risk:
+      level: low
+`
+
+const manifestWithoutAdapterFixture = `name: notes-service
+version: 1.0.0
+description: Notes service
+base_url: https://example.com
+auth:
+  type: none
+actions:
+  list_notes:
+    method: GET
+    path: /notes
+    risk:
+      level: low
+`
+
+const actionWithCommandFixture = `name: notes-service
+version: 1.0.0
+description: Notes service
+adapter: applescript
+target_app: Notes
+auth:
+  type: none
+actions:
+  list_notes:
+    description: List notes
+    command: list-notes
+    idempotent: true
+    risk:
+      level: low
+`
+
 func TestParseManifestValidFixture(t *testing.T) {
 	m, err := ParseManifest([]byte(braveSearchFixture))
 	if err != nil {
@@ -71,6 +135,46 @@ func TestParseManifestValidFixture(t *testing.T) {
 	}
 	if m.Auth.CredentialRef != "brave.api_key" {
 		t.Fatalf("unexpected credential ref: %s", m.Auth.CredentialRef)
+	}
+}
+
+func TestParseManifestWithAdapterField(t *testing.T) {
+	m, err := ParseManifest([]byte(manifestWithAdapterFixture))
+	if err != nil {
+		t.Fatalf("expected parse success, got %v", err)
+	}
+
+	if m.Adapter != "applescript" {
+		t.Fatalf("unexpected adapter: %s", m.Adapter)
+	}
+	if m.TargetApp != "Notes" {
+		t.Fatalf("unexpected target app: %s", m.TargetApp)
+	}
+}
+
+func TestParseManifestDefaultsToEmptyAdapter(t *testing.T) {
+	m, err := ParseManifest([]byte(manifestWithoutAdapterFixture))
+	if err != nil {
+		t.Fatalf("expected parse success, got %v", err)
+	}
+
+	if m.Adapter != "" {
+		t.Fatalf("expected empty adapter, got %q", m.Adapter)
+	}
+}
+
+func TestParseActionWithCommandField(t *testing.T) {
+	m, err := ParseManifest([]byte(actionWithCommandFixture))
+	if err != nil {
+		t.Fatalf("expected parse success, got %v", err)
+	}
+
+	action := m.Actions["list_notes"]
+	if action.Command != "list-notes" {
+		t.Fatalf("unexpected command: %s", action.Command)
+	}
+	if action.Idempotent == nil || !*action.Idempotent {
+		t.Fatalf("expected idempotent=true, got %v", action.Idempotent)
 	}
 }
 
@@ -499,6 +603,106 @@ func TestToActionDefinitions(t *testing.T) {
 	}
 }
 
+func TestConvertAppleScriptManifest(t *testing.T) {
+	manifest := loadManifestFixture(t, "apple-notes.yaml")
+	if manifest.BaseURL != "" {
+		t.Fatalf("expected applescript fixture base_url to be empty, got %q", manifest.BaseURL)
+	}
+
+	defs, err := ToActionDefinitions(manifest)
+	if err != nil {
+		t.Fatalf("convert applescript manifest failed: %v", err)
+	}
+
+	if len(defs) != 5 {
+		t.Fatalf("expected 5 action definitions, got %d", len(defs))
+	}
+
+	gotNames := make([]string, 0, len(defs))
+	for _, def := range defs {
+		gotNames = append(gotNames, def.Name)
+	}
+	wantNames := []string{
+		"apple-notes.create-note",
+		"apple-notes.get-note",
+		"apple-notes.list-folders",
+		"apple-notes.list-notes",
+		"apple-notes.search-notes",
+	}
+	if !reflect.DeepEqual(gotNames, wantNames) {
+		t.Fatalf("unexpected applescript action names:\n got: %v\nwant: %v", gotNames, wantNames)
+	}
+}
+
+func TestConvertAppleScriptManifest_AdapterConfig(t *testing.T) {
+	manifest := loadManifestFixture(t, "apple-notes.yaml")
+
+	defs, err := ToActionDefinitions(manifest)
+	if err != nil {
+		t.Fatalf("convert applescript manifest failed: %v", err)
+	}
+
+	wantCommandByName := map[string]string{
+		"apple-notes.create-note":  "create-note",
+		"apple-notes.get-note":     "get-note",
+		"apple-notes.list-folders": "list-folders",
+		"apple-notes.list-notes":   "list-notes",
+		"apple-notes.search-notes": "search-notes",
+	}
+
+	for _, def := range defs {
+		if def.Adapter.Type != "applescript" {
+			t.Fatalf("expected adapter type applescript for %s, got %q", def.Name, def.Adapter.Type)
+		}
+		if def.Adapter.TargetApp != "Notes" {
+			t.Fatalf("expected adapter target app Notes for %s, got %q", def.Name, def.Adapter.TargetApp)
+		}
+		wantCommand, ok := wantCommandByName[def.Name]
+		if !ok {
+			t.Fatalf("unexpected action definition name %q", def.Name)
+		}
+		if def.Adapter.Command != wantCommand {
+			t.Fatalf("expected adapter command %q for %s, got %q", wantCommand, def.Name, def.Adapter.Command)
+		}
+	}
+}
+
+func TestConvertAppleScriptManifest_NoClassifiers(t *testing.T) {
+	manifest := loadManifestFixture(t, "apple-notes.yaml")
+
+	defs, err := ToActionDefinitions(manifest)
+	if err != nil {
+		t.Fatalf("convert applescript manifest failed: %v", err)
+	}
+
+	for _, def := range defs {
+		if def.Classifiers != nil {
+			t.Fatalf("expected nil classifiers for %s, got %+v", def.Name, def.Classifiers)
+		}
+	}
+}
+
+func TestConvertHTTPManifest_Unchanged(t *testing.T) {
+	manifest, err := ParseManifest([]byte(braveSearchFixture))
+	if err != nil {
+		t.Fatalf("parse fixture: %v", err)
+	}
+
+	got, err := ToActionDefinitions(manifest)
+	if err != nil {
+		t.Fatalf("ToActionDefinitions failed: %v", err)
+	}
+
+	want, err := toHTTPDefinitions(manifest)
+	if err != nil {
+		t.Fatalf("toHTTPDefinitions failed: %v", err)
+	}
+
+	if !reflect.DeepEqual(got, want) {
+		t.Fatalf("expected HTTP conversion to remain unchanged")
+	}
+}
+
 func TestToActionDefinitionsIncludesPathParamsInInputSchema(t *testing.T) {
 	manifest := &ServiceManifest{
 		Name:    "svc",
@@ -875,6 +1079,78 @@ func TestGenerateSkillMDContainsExpectedSections(t *testing.T) {
 		if !strings.Contains(content, want) {
 			t.Errorf("GenerateSkillMD output missing %q", want)
 		}
+	}
+}
+
+func TestGenerateSkillMDAppleScript(t *testing.T) {
+	manifest, err := ParseManifest([]byte(actionWithCommandFixture))
+	if err != nil {
+		t.Fatalf("parse fixture: %v", err)
+	}
+
+	content, err := GenerateSkillMD(manifest)
+	if err != nil {
+		t.Fatalf("GenerateSkillMD: %v", err)
+	}
+
+	checks := []string{
+		"Use when you need to control Notes via AppleScript.",
+		"**Command**: `list-notes`",
+	}
+	for _, want := range checks {
+		if !strings.Contains(content, want) {
+			t.Errorf("GenerateSkillMD AppleScript output missing %q", want)
+		}
+	}
+	if strings.Contains(content, "**HTTP**:") {
+		t.Fatalf("GenerateSkillMD AppleScript output must not contain HTTP label:\n%s", content)
+	}
+}
+
+func TestGenerateSkillMDHTTPUnchanged(t *testing.T) {
+	manifest, err := ParseManifest([]byte(manifestWithoutAdapterFixture))
+	if err != nil {
+		t.Fatalf("parse fixture: %v", err)
+	}
+
+	content, err := GenerateSkillMD(manifest)
+	if err != nil {
+		t.Fatalf("GenerateSkillMD: %v", err)
+	}
+
+	expected := "---\n" +
+		"name: notes-service\n" +
+		"description: |\n" +
+		"  Notes service\n" +
+		"  Use when you need to interact with the notes-service API.\n" +
+		"  Trigger phrases:\n" +
+		"allowed-tools: Bash\n" +
+		"---\n\n" +
+		"# notes-service\n\n" +
+		"Notes service\n\n" +
+		"## Prerequisites\n\n" +
+		"- Kimbap CLI installed and in PATH\n" +
+		"- Service installed: `kimbap service install notes-service.yaml`\n\n" +
+		"## Available Actions\n\n" +
+		"### notes-service.list_notes\n\n" +
+		"**HTTP**: `GET /notes`\n" +
+		"**Risk**: low\n\n" +
+		"**Usage**:\n" +
+		"```bash\n" +
+		"kimbap call notes-service.list_notes\n" +
+		"```\n\n" +
+		"## Discovery\n\n" +
+		"```bash\n" +
+		"# List all actions from this service\n" +
+		"kimbap actions list --service notes-service --format json\n\n" +
+		"# Describe a specific action with full schema\n" +
+		"kimbap actions describe notes-service.<action> --format json\n\n" +
+		"# Dry-run to preview without executing\n" +
+		"kimbap call notes-service.<action> --dry-run --format json\n" +
+		"```\n"
+
+	if content != expected {
+		t.Fatalf("HTTP SKILL.md output changed unexpectedly:\nexpected:\n%s\nactual:\n%s", expected, content)
 	}
 }
 

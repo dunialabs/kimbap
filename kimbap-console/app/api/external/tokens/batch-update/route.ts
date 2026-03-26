@@ -107,11 +107,25 @@ export async function POST(request: NextRequest) {
         if (!perm || typeof perm !== 'object' || typeof perm.toolId !== 'string' || !perm.toolId.trim()) {
           throw new ExternalApiError(E1003, 'Invalid field value: permissions[] items must have a non-empty toolId string');
         }
-        if (perm.functions !== undefined && !Array.isArray(perm.functions)) {
-          throw new ExternalApiError(E1003, 'Invalid field value: permissions[].functions must be an array');
+        if (perm.functions !== undefined) {
+          if (!Array.isArray(perm.functions)) {
+            throw new ExternalApiError(E1003, 'Invalid field value: permissions[].functions must be an array');
+          }
+          for (const func of perm.functions) {
+            if (!func || typeof func !== 'object' || typeof func.funcName !== 'string' || !func.funcName.trim()) {
+              throw new ExternalApiError(E1003, 'Invalid field value: permissions[].functions[] items must have a non-empty funcName string');
+            }
+          }
         }
-        if (perm.resources !== undefined && !Array.isArray(perm.resources)) {
-          throw new ExternalApiError(E1003, 'Invalid field value: permissions[].resources must be an array');
+        if (perm.resources !== undefined) {
+          if (!Array.isArray(perm.resources)) {
+            throw new ExternalApiError(E1003, 'Invalid field value: permissions[].resources must be an array');
+          }
+          for (const res of perm.resources) {
+            if (!res || typeof res !== 'object' || typeof res.uri !== 'string' || !res.uri.trim()) {
+              throw new ExternalApiError(E1003, 'Invalid field value: permissions[].resources[] items must have a non-empty uri string');
+            }
+          }
         }
       }
     }

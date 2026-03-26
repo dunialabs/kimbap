@@ -11,12 +11,19 @@ import (
 )
 
 var (
-	serviceNamePattern   = regexp.MustCompile(`^[a-z][a-z0-9-]*$`)
-	actionKeyPattern     = regexp.MustCompile(`^[a-z][a-z0-9_-]*$`)
-	semverLikePattern    = regexp.MustCompile(`^v?\d+\.\d+\.\d+(?:[-+][0-9A-Za-z.-]+)?$`)
-	validRiskLevelSet    = map[string]struct{}{"low": {}, "medium": {}, "high": {}, "critical": {}}
-	validAuthTypeSet     = map[string]struct{}{"header": {}, "bearer": {}, "basic": {}, "query": {}, "body": {}, "none": {}}
-	validHTTPMethodSet   = map[string]struct{}{"GET": {}, "POST": {}, "PUT": {}, "PATCH": {}, "DELETE": {}, "HEAD": {}, "OPTIONS": {}}
+	serviceNamePattern       = regexp.MustCompile(`^[a-z][a-z0-9-]*$`)
+	actionKeyPattern         = regexp.MustCompile(`^[a-z][a-z0-9_-]*$`)
+	semverLikePattern        = regexp.MustCompile(`^v?\d+\.\d+\.\d+(?:[-+][0-9A-Za-z.-]+)?$`)
+	validRiskLevelSet        = map[string]struct{}{"low": {}, "medium": {}, "high": {}, "critical": {}}
+	validAuthTypeSet         = map[string]struct{}{"header": {}, "bearer": {}, "basic": {}, "query": {}, "body": {}, "none": {}}
+	validHTTPMethodSet       = map[string]struct{}{"GET": {}, "POST": {}, "PUT": {}, "PATCH": {}, "DELETE": {}, "HEAD": {}, "OPTIONS": {}}
+	validAdapterTypeSet      = map[string]struct{}{"http": {}, "applescript": {}}
+	validAppleScriptCommands = map[string]struct{}{
+		"list-folders": {}, "list-notes": {}, "get-note": {}, "search-notes": {}, "create-note": {},
+		"list-calendars": {}, "list-events": {}, "get-event": {}, "create-event": {}, "search-events": {},
+		"list-lists": {}, "list-reminders": {}, "get-reminder": {}, "create-reminder": {}, "complete-reminder": {},
+		"list-mailboxes": {}, "list-messages": {}, "get-message": {}, "send-message": {}, "search-messages": {},
+	}
 	validArgTypeSet      = map[string]struct{}{"string": {}, "integer": {}, "number": {}, "boolean": {}, "array": {}, "object": {}}
 	validPageTypeSet     = map[string]struct{}{"cursor": {}, "offset": {}}
 	validResponseTypeSet = map[string]struct{}{"object": {}, "array": {}}
@@ -67,29 +74,22 @@ func ValidateManifest(m *ServiceManifest) []ValidationError {
 		errs = append(errs, ValidationError{Field: "version", Message: "must be semver-like (e.g. 1.2.3 or v1.2.3)"})
 	}
 
-	if m.BaseURL == "" {
-		errs = append(errs, ValidationError{Field: "base_url", Message: "must be set"})
-	} else if u, err := url.Parse(m.BaseURL); err != nil || u.Scheme == "" || u.Host == "" {
-		errs = append(errs, ValidationError{Field: "base_url", Message: "must be a valid absolute URL"})
-	}
-
 	errs = append(errs, validateAuth(m.Auth, "auth")...)
+
+	adapterType := strings.ToLower(strings.TrimSpace(m.Adapter))
+	if adapterType == "" {
+		adapterType = "http"
+	}
+	if _, ok := validAdapterTypeSet[adapterType]; !ok {
+		errs = append(errs, ValidationError{Field: "adapter", Message: "must be one of http, applescript"})
+		return errs
+	}
 
 	for actionKey, action := range m.Actions {
 		prefix := "actions." + actionKey
 
 		if !actionKeyPattern.MatchString(actionKey) {
 			errs = append(errs, ValidationError{Field: prefix, Message: "action key must match [a-z][a-z0-9_-]*"})
-		}
-
-		if strings.TrimSpace(action.Method) == "" {
-			errs = append(errs, ValidationError{Field: prefix + ".method", Message: "is required"})
-		} else if _, ok := validHTTPMethodSet[strings.ToUpper(action.Method)]; !ok {
-			errs = append(errs, ValidationError{Field: prefix + ".method", Message: "must be a valid HTTP method"})
-		}
-
-		if strings.TrimSpace(action.Path) == "" {
-			errs = append(errs, ValidationError{Field: prefix + ".path", Message: "is required"})
 		}
 
 		risk := strings.ToLower(strings.TrimSpace(action.Risk.Level))
@@ -116,6 +116,50 @@ func ValidateManifest(m *ServiceManifest) []ValidationError {
 			}
 		}
 
+		if action.Auth != nil {
+			errs = append(errs, validateAuth(*action.Auth, prefix+".auth")...)
+		}
+	}
+
+	if adapterType == "http" {
+		errs = append(errs, validateHTTPManifest(m)...)
+	} else if adapterType == "applescript" {
+		errs = append(errs, validateAppleScriptManifest(m)...)
+	}
+
+	if len(m.Actions) == 0 {
+		errs = append(errs, ValidationError{Field: "actions", Message: "must define at least one action"})
+	}
+
+	return errs
+}
+
+func validateHTTPManifest(m *ServiceManifest) []ValidationError {
+	errs := make([]ValidationError, 0)
+
+	if strings.TrimSpace(m.TargetApp) != "" {
+		errs = append(errs, ValidationError{Field: "target_app", Message: "must not be set for http adapter"})
+	}
+
+	if m.BaseURL == "" {
+		errs = append(errs, ValidationError{Field: "base_url", Message: "must be set"})
+	} else if u, err := url.Parse(m.BaseURL); err != nil || u.Scheme == "" || u.Host == "" {
+		errs = append(errs, ValidationError{Field: "base_url", Message: "must be a valid absolute URL"})
+	}
+
+	for actionKey, action := range m.Actions {
+		prefix := "actions." + actionKey
+
+		if strings.TrimSpace(action.Method) == "" {
+			errs = append(errs, ValidationError{Field: prefix + ".method", Message: "is required"})
+		} else if _, ok := validHTTPMethodSet[strings.ToUpper(action.Method)]; !ok {
+			errs = append(errs, ValidationError{Field: prefix + ".method", Message: "must be a valid HTTP method"})
+		}
+
+		if strings.TrimSpace(action.Path) == "" {
+			errs = append(errs, ValidationError{Field: prefix + ".path", Message: "is required"})
+		}
+
 		if action.Pagination != nil {
 			if _, ok := validPageTypeSet[strings.ToLower(strings.TrimSpace(action.Pagination.Type))]; !ok {
 				errs = append(errs, ValidationError{Field: prefix + ".pagination.type", Message: "must be cursor or offset"})
@@ -123,10 +167,6 @@ func ValidateManifest(m *ServiceManifest) []ValidationError {
 			if action.Pagination.MaxPages < 0 {
 				errs = append(errs, ValidationError{Field: prefix + ".pagination.max_pages", Message: "must be non-negative"})
 			}
-		}
-
-		if action.Auth != nil {
-			errs = append(errs, validateAuth(*action.Auth, prefix+".auth")...)
 		}
 
 		trimmedPath := strings.TrimSpace(action.Path)
@@ -164,8 +204,57 @@ func ValidateManifest(m *ServiceManifest) []ValidationError {
 		}
 	}
 
-	if len(m.Actions) == 0 {
-		errs = append(errs, ValidationError{Field: "actions", Message: "must define at least one action"})
+	return errs
+}
+
+func validateAppleScriptManifest(m *ServiceManifest) []ValidationError {
+	errs := make([]ValidationError, 0)
+
+	if strings.TrimSpace(m.TargetApp) == "" {
+		errs = append(errs, ValidationError{Field: "target_app", Message: "must be set for applescript adapter"})
+	}
+	if strings.TrimSpace(m.BaseURL) != "" {
+		errs = append(errs, ValidationError{Field: "base_url", Message: "must not be set for applescript adapter"})
+	}
+
+	for actionKey, action := range m.Actions {
+		prefix := "actions." + actionKey
+
+		if strings.TrimSpace(action.Command) == "" {
+			errs = append(errs, ValidationError{Field: prefix + ".command", Message: "is required"})
+		} else if _, ok := validAppleScriptCommands[strings.ToLower(strings.TrimSpace(action.Command))]; !ok {
+			errs = append(errs, ValidationError{Field: prefix + ".command", Message: "must be a supported applescript command"})
+		}
+
+		if strings.TrimSpace(action.Method) != "" {
+			errs = append(errs, ValidationError{Field: prefix + ".method", Message: "must not be set for applescript adapter"})
+		}
+		if strings.TrimSpace(action.Path) != "" {
+			errs = append(errs, ValidationError{Field: prefix + ".path", Message: "must not be set for applescript adapter"})
+		}
+
+		if len(action.Request.Query) > 0 {
+			errs = append(errs, ValidationError{Field: prefix + ".request.query", Message: "must not be set for applescript adapter"})
+		}
+		if len(action.Request.Headers) > 0 {
+			errs = append(errs, ValidationError{Field: prefix + ".request.headers", Message: "must not be set for applescript adapter"})
+		}
+		if len(action.Request.Body) > 0 {
+			errs = append(errs, ValidationError{Field: prefix + ".request.body", Message: "must not be set for applescript adapter"})
+		}
+		if len(action.Request.PathParams) > 0 {
+			errs = append(errs, ValidationError{Field: prefix + ".request.path_params", Message: "must not be set for applescript adapter"})
+		}
+
+		if action.Retry != nil {
+			errs = append(errs, ValidationError{Field: prefix + ".retry", Message: "must not be set for applescript adapter"})
+		}
+		if action.Pagination != nil {
+			errs = append(errs, ValidationError{Field: prefix + ".pagination", Message: "must not be set for applescript adapter"})
+		}
+		if len(action.ErrorMapping) > 0 {
+			errs = append(errs, ValidationError{Field: prefix + ".error_mapping", Message: "must not be set for applescript adapter"})
+		}
 	}
 
 	return errs

@@ -16,23 +16,23 @@ func GenerateSkillMD(manifest *ServiceManifest) (string, error) {
 	var sb strings.Builder
 
 	sb.WriteString("---\n")
-	sb.WriteString(fmt.Sprintf("name: %s\n", manifest.Name))
+	fmt.Fprintf(&sb, "name: %s\n", manifest.Name)
 	desc := buildSkillDescription(manifest)
-	sb.WriteString(fmt.Sprintf("description: |\n  %s\n", strings.ReplaceAll(desc, "\n", "\n  ")))
+	fmt.Fprintf(&sb, "description: |\n  %s\n", strings.ReplaceAll(desc, "\n", "\n  "))
 	sb.WriteString("allowed-tools: Bash\n")
 	sb.WriteString("---\n\n")
 
-	sb.WriteString(fmt.Sprintf("# %s\n\n", manifest.Name))
+	fmt.Fprintf(&sb, "# %s\n\n", manifest.Name)
 	if manifest.Description != "" {
-		sb.WriteString(fmt.Sprintf("%s\n\n", manifest.Description))
+		fmt.Fprintf(&sb, "%s\n\n", manifest.Description)
 	}
 
 	sb.WriteString("## Prerequisites\n\n")
 	sb.WriteString("- Kimbap CLI installed and in PATH\n")
-	sb.WriteString(fmt.Sprintf("- Service installed: `kimbap service install %s.yaml`\n", manifest.Name))
+	fmt.Fprintf(&sb, "- Service installed: `kimbap service install %s.yaml`\n", manifest.Name)
 	credRefs := collectCredentialRefs(manifest)
 	for _, ref := range credRefs {
-		sb.WriteString(fmt.Sprintf("- Credential configured: `kimbap vault set %s`\n", ref))
+		fmt.Fprintf(&sb, "- Credential configured: `kimbap vault set %s`\n", ref)
 	}
 	sb.WriteString("\n")
 
@@ -47,12 +47,16 @@ func GenerateSkillMD(manifest *ServiceManifest) (string, error) {
 		if riskDisplay == "" {
 			riskDisplay = "unknown"
 		}
-		sb.WriteString(fmt.Sprintf("### %s\n\n", actionName))
+		fmt.Fprintf(&sb, "### %s\n\n", actionName)
 		if action.Description != "" {
-			sb.WriteString(fmt.Sprintf("%s\n\n", action.Description))
+			fmt.Fprintf(&sb, "%s\n\n", action.Description)
 		}
-		sb.WriteString(fmt.Sprintf("**HTTP**: `%s %s`\n", strings.ToUpper(action.Method), action.Path))
-		sb.WriteString(fmt.Sprintf("**Risk**: %s\n\n", riskDisplay))
+		if manifest.Adapter == "applescript" {
+			fmt.Fprintf(&sb, "**Command**: `%s`\n", action.Command)
+		} else {
+			fmt.Fprintf(&sb, "**HTTP**: `%s %s`\n", strings.ToUpper(action.Method), action.Path)
+		}
+		fmt.Fprintf(&sb, "**Risk**: %s\n\n", riskDisplay)
 
 		if len(action.Args) > 0 {
 			sb.WriteString("**Parameters**:\n")
@@ -61,9 +65,9 @@ func GenerateSkillMD(manifest *ServiceManifest) (string, error) {
 				if arg.Required {
 					req = "required"
 				}
-				sb.WriteString(fmt.Sprintf("- `%s` (%s, %s)", arg.Name, arg.Type, req))
+				fmt.Fprintf(&sb, "- `%s` (%s, %s)", arg.Name, arg.Type, req)
 				if arg.Default != nil {
-					sb.WriteString(fmt.Sprintf(" — default: `%v`", arg.Default))
+					fmt.Fprintf(&sb, " — default: `%v`", arg.Default)
 				}
 				sb.WriteString("\n")
 			}
@@ -72,15 +76,15 @@ func GenerateSkillMD(manifest *ServiceManifest) (string, error) {
 
 		sb.WriteString("**Usage**:\n")
 		sb.WriteString("```bash\n")
-		sb.WriteString(fmt.Sprintf("kimbap call %s", actionName))
+		fmt.Fprintf(&sb, "kimbap call %s", actionName)
 		for _, arg := range action.Args {
 			if arg.Required {
-				sb.WriteString(fmt.Sprintf(" --%s <value>", arg.Name))
+				fmt.Fprintf(&sb, " --%s <value>", arg.Name)
 			}
 		}
 		sb.WriteString("\n```\n")
 		if riskLevel == "" || riskLevel == "unknown" || riskLevel == "medium" || riskLevel == "high" || riskLevel == "critical" {
-			sb.WriteString(fmt.Sprintf("\n> ⚠️ This action is risk level: %s. Use --dry-run --format json first to preview.\n", riskDisplay))
+			fmt.Fprintf(&sb, "\n> ⚠️ This action is risk level: %s. Use --dry-run --format json first to preview.\n", riskDisplay)
 		}
 		if riskLevel == "high" || riskLevel == "critical" {
 			sb.WriteString("\n> 🔒 Approval may be required. Check: `kimbap approve list`\n")
@@ -91,11 +95,11 @@ func GenerateSkillMD(manifest *ServiceManifest) (string, error) {
 	sb.WriteString("## Discovery\n\n")
 	sb.WriteString("```bash\n")
 	sb.WriteString("# List all actions from this service\n")
-	sb.WriteString(fmt.Sprintf("kimbap actions list --service %s --format json\n\n", manifest.Name))
+	fmt.Fprintf(&sb, "kimbap actions list --service %s --format json\n\n", manifest.Name)
 	sb.WriteString("# Describe a specific action with full schema\n")
-	sb.WriteString(fmt.Sprintf("kimbap actions describe %s.<action> --format json\n\n", manifest.Name))
+	fmt.Fprintf(&sb, "kimbap actions describe %s.<action> --format json\n\n", manifest.Name)
 	sb.WriteString("# Dry-run to preview without executing\n")
-	sb.WriteString(fmt.Sprintf("kimbap call %s.<action> --dry-run --format json\n", manifest.Name))
+	fmt.Fprintf(&sb, "kimbap call %s.<action> --dry-run --format json\n", manifest.Name)
 	sb.WriteString("```\n")
 
 	return sb.String(), nil
@@ -106,7 +110,11 @@ func buildSkillDescription(m *ServiceManifest) string {
 	if m.Description != "" {
 		parts = append(parts, m.Description)
 	}
-	parts = append(parts, fmt.Sprintf("Use when you need to interact with the %s API.", m.Name))
+	if m.Adapter == "applescript" {
+		parts = append(parts, fmt.Sprintf("Use when you need to control %s via AppleScript.", m.TargetApp))
+	} else {
+		parts = append(parts, fmt.Sprintf("Use when you need to interact with the %s API.", m.Name))
+	}
 	parts = append(parts, "Trigger phrases:")
 
 	keys := sortedActionKeys(m.Actions)
