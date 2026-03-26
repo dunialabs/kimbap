@@ -9,6 +9,7 @@ import (
 	"github.com/dunialabs/kimbap-core/internal/auth"
 	"github.com/dunialabs/kimbap-core/internal/runtime"
 	"github.com/dunialabs/kimbap-core/internal/store"
+	"github.com/dunialabs/kimbap-core/internal/vault"
 	"github.com/dunialabs/kimbap-core/internal/webhooks"
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
@@ -21,6 +22,7 @@ type Server struct {
 	httpServer        *http.Server
 	tokenService      *auth.TokenService
 	runtime           *runtime.Runtime
+	vaultStore        vault.Store
 	webhookDispatcher *webhooks.Dispatcher
 	skipConsole       bool
 }
@@ -47,6 +49,12 @@ func WithoutConsole() ServerOption {
 func WithWebhookDispatcher(d *webhooks.Dispatcher) ServerOption {
 	return func(s *Server) {
 		s.webhookDispatcher = d
+	}
+}
+
+func WithVaultStore(vs vault.Store) ServerOption {
+	return func(s *Server) {
+		s.vaultStore = vs
 	}
 }
 

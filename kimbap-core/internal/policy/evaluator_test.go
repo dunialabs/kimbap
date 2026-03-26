@@ -15,7 +15,7 @@ func TestEvaluatorAllowRuleMatches(t *testing.T) {
 			Match: PolicyMatch{
 				Agents:   []string{"assistant"},
 				Services: []string{"github"},
-				Actions:  []string{"github.list_pull_requests"},
+				Actions:  []string{"github.list-pull-requests"},
 				Risk:     []string{"low"},
 			},
 			Decision: DecisionAllow,
@@ -26,7 +26,7 @@ func TestEvaluatorAllowRuleMatches(t *testing.T) {
 		TenantID:  "tenant-1",
 		AgentName: "assistant",
 		Service:   "github",
-		Action:    "github.list_pull_requests",
+		Action:    "github.list-pull-requests",
 		Risk:      "low",
 	})
 	if err != nil {
@@ -55,7 +55,7 @@ func TestEvaluatorDenyBeforeAllowWithHigherPriority(t *testing.T) {
 				Priority: 100,
 				Match: PolicyMatch{
 					Services: []string{"github"},
-					Actions:  []string{"github.list_pull_requests"},
+					Actions:  []string{"github.list-pull-requests"},
 				},
 				Decision: DecisionAllow,
 			},
@@ -64,7 +64,7 @@ func TestEvaluatorDenyBeforeAllowWithHigherPriority(t *testing.T) {
 
 	res, err := e.Evaluate(context.Background(), EvalRequest{
 		Service: "github",
-		Action:  "github.list_pull_requests",
+		Action:  "github.list-pull-requests",
 	})
 	if err != nil {
 		t.Fatalf("evaluate failed: %v", err)
@@ -96,7 +96,7 @@ func TestEvaluatorPriorityOrdering(t *testing.T) {
 		},
 	})
 
-	res, err := e.Evaluate(context.Background(), EvalRequest{Action: "github.list_pull_requests"})
+	res, err := e.Evaluate(context.Background(), EvalRequest{Action: "github.list-pull-requests"})
 	if err != nil {
 		t.Fatalf("evaluate failed: %v", err)
 	}
@@ -118,7 +118,7 @@ func TestEvaluatorWildcardMatching(t *testing.T) {
 		}},
 	})
 
-	res, err := e.Evaluate(context.Background(), EvalRequest{Action: "github.list_pull_requests"})
+	res, err := e.Evaluate(context.Background(), EvalRequest{Action: "github.list-pull-requests"})
 	if err != nil {
 		t.Fatalf("evaluate failed: %v", err)
 	}
@@ -168,7 +168,7 @@ func TestEvaluatorDefaultDenyWhenNoRuleMatches(t *testing.T) {
 		}},
 	})
 
-	res, err := e.Evaluate(context.Background(), EvalRequest{Action: "slack.send_message"})
+	res, err := e.Evaluate(context.Background(), EvalRequest{Action: "slack.send-message"})
 	if err != nil {
 		t.Fatalf("evaluate failed: %v", err)
 	}
@@ -259,7 +259,7 @@ func TestRateLimiterSweepsExpiredKeys(t *testing.T) {
 	now := time.Now().UTC()
 	rl := rateLimiter{
 		windows: map[string][]time.Time{
-			"stale": []time.Time{now.Add(-2 * time.Minute)},
+			"stale": {now.Add(-2 * time.Minute)},
 		},
 		expires: map[string]time.Time{
 			"stale": now.Add(-1 * time.Minute),

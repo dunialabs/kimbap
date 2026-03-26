@@ -27,7 +27,7 @@ func TestWriteSkillPackDirRemovesStaleFiles(t *testing.T) {
 		"RECIPES.md": "new recipes\n",
 	}
 
-	written, err := writeSkillPackDir(serviceDir, pack)
+	written, err := writeAgentSkillPackDir(serviceDir, pack)
 	if err != nil {
 		t.Fatalf("writeSkillPackDir: %v", err)
 	}
@@ -63,12 +63,12 @@ func TestWriteSkillPackDirRejectsUnsafeFileNames(t *testing.T) {
 	base := t.TempDir()
 	serviceDir := filepath.Join(base, "out", "github")
 
-	_, err := writeSkillPackDir(serviceDir, map[string]string{"../escape.md": "bad"})
+	_, err := writeAgentSkillPackDir(serviceDir, map[string]string{"../escape.md": "bad"})
 	if err == nil {
 		t.Fatal("expected unsafe filename error")
 	}
 
-	_, err = writeSkillPackDir(serviceDir, map[string]string{"nested/child.md": "bad"})
+	_, err = writeAgentSkillPackDir(serviceDir, map[string]string{"nested/child.md": "bad"})
 	if err == nil {
 		t.Fatal("expected nested filename error")
 	}
@@ -84,7 +84,7 @@ func TestWriteSkillPackDirPreservesExistingDirOnUnsafeName(t *testing.T) {
 		t.Fatalf("seed: %v", err)
 	}
 
-	_, err := writeSkillPackDir(serviceDir, map[string]string{"../escape.md": "bad"})
+	_, err := writeAgentSkillPackDir(serviceDir, map[string]string{"../escape.md": "bad"})
 	if err == nil {
 		t.Fatal("expected unsafe filename error")
 	}
@@ -103,7 +103,7 @@ func TestWriteSkillPackDirReturnsFinalTargetPaths(t *testing.T) {
 		"GOTCHAS.md": "# gotchas\n",
 	}
 
-	written, err := writeSkillPackDir(serviceDir, pack)
+	written, err := writeAgentSkillPackDir(serviceDir, pack)
 	if err != nil {
 		t.Fatalf("writeSkillPackDir: %v", err)
 	}
@@ -128,7 +128,7 @@ func TestWriteSkillPackDirLeavesNoTmpDirOnSuccess(t *testing.T) {
 	parentDir := filepath.Join(base, "out")
 	serviceDir := filepath.Join(parentDir, "github")
 
-	_, err := writeSkillPackDir(serviceDir, map[string]string{"SKILL.md": "# skill\n"})
+	_, err := writeAgentSkillPackDir(serviceDir, map[string]string{"SKILL.md": "# skill\n"})
 	if err != nil {
 		t.Fatalf("writeSkillPackDir: %v", err)
 	}
@@ -152,7 +152,7 @@ func TestWriteSkillPackDirLeavesNoTmpDirOnValidationFailure(t *testing.T) {
 		t.Fatalf("mkdir: %v", err)
 	}
 
-	_, _ = writeSkillPackDir(serviceDir, map[string]string{"../escape.md": "bad"})
+	_, _ = writeAgentSkillPackDir(serviceDir, map[string]string{"../escape.md": "bad"})
 
 	entries, readErr := os.ReadDir(parentDir)
 	if readErr != nil {

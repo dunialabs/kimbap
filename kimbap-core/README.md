@@ -1,5 +1,7 @@
 # Kimbap CLI
 
+*Do you like kimbap? It's delicious, healthy, and you can make your own.*
+
 > **CLI for AI agents to use any service — fast to use, fast to build, safe by default.**
 
 ![Go](https://img.shields.io/badge/go-%3E%3D1.24-green.svg)
@@ -16,7 +18,7 @@ One CLI. 53 built-in services. Add new ones with a single YAML file.
 brew install kimbap
 
 # Store a credential
-printf '%s' "$GITHUB_TOKEN" | kimbap vault set github.token
+printf '%s' "$GITHUB_TOKEN" | kimbap vault set github.token --stdin
 
 # See what's available
 kimbap actions list --service github
@@ -82,6 +84,8 @@ Three adapter types. Same CLI pipeline.
 
 ```yaml
 name: stripe
+version: 1.0.0
+adapter: http
 base_url: https://api.stripe.com/v1
 auth:
   type: bearer
@@ -98,7 +102,10 @@ actions:
 
 ```yaml
 name: blender
+version: 1.0.0
 adapter: command
+auth:
+  type: none
 command_spec:
   executable: cli-anything-blender
   json_flag: "--json"
@@ -113,11 +120,16 @@ actions:
 
 ```yaml
 name: finder
+version: 1.0.0
 adapter: applescript
+auth:
+  type: none
 target_app: Finder
 actions:
   list-items:
     command: finder-list-items
+    risk:
+      level: low
 ```
 
 ```bash
@@ -140,12 +152,15 @@ Policy, approval, and audit apply to every action automatically, regardless of w
 
 | Capability | What it does |
 |---|---|
-| **Vault** | Encrypted credential storage. `kimbap vault set`, `vault list`, `vault rotate`. |
+| **Vault** | Encrypted credential storage. `kimbap vault set`, `kimbap vault list`, `kimbap vault rotate`. |
 | **Policy** | YAML rules evaluated on every action. `allow`, `deny`, or `require_approval`. |
-| **Approval** | Human-in-the-loop for risky actions. `kimbap approve list`, `approve accept`. |
-| **Audit** | Structured log of every action and decision. `kimbap audit tail`, `audit export`. |
-| **Connectors** | OAuth lifecycle. `kimbap connector login gmail`, `connector status`. |
-| **Agent sync** | Generates SKILL.md for agent discovery. `kimbap agents setup`, `agents sync`. |
+| **Approval** | Human-in-the-loop for risky actions. `kimbap approve list`, `kimbap approve accept`. |
+| **Audit** | Structured log of every action and decision. `kimbap audit tail`, `kimbap audit export`. |
+| **Connectors** | OAuth lifecycle. `kimbap connector login`, `kimbap connector status`. |
+| **Link** | Credential linking. `kimbap link <service>` to bind services to vault entries or OAuth connectors. |
+| **Search** | Action discovery. `kimbap search <query>` to find installed actions by keyword or description. |
+| **Generate** | Code generation. `kimbap generate ts` and `kimbap generate py` produce typed client interfaces. |
+| **Agent sync** | Generates SKILL.md for agent discovery. `kimbap agents setup`, `kimbap agents sync`. |
 
 ---
 
@@ -154,7 +169,7 @@ Policy, approval, and audit apply to every action automatically, regardless of w
 ```bash
 git clone https://github.com/dunialabs/kimbap-core.git
 cd kimbap-core
-make deps && make build
+make deps && make build    # binary → bin/kimbap
 ```
 
 ```bash

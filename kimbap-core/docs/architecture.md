@@ -24,7 +24,7 @@ The central concept is the **Action Runtime**: a canonical execution pipeline th
 ┌─────────────────────────────────────────────────────────────────┐
 │                     Integration Backends                        │
 │                                                                 │
-│   Tier 1 Skills (YAML)   Tier 2 Connectors   Tier 2b CLI Wrap  │
+│  Tier 1 Services (YAML)  Tier 2 Connectors   Tier 2b CLI Wrap   │
 └─────────────────────────────────────────────────────────────────┘
 ```
 
@@ -101,7 +101,7 @@ Each surface is an entry point into the same Action Runtime pipeline.
 The most direct surface. An agent or script invokes an action by name.
 
 ```bash
-kimbap call github.list_pull_requests --repo owner/repo
+kimbap call github.list-pull-requests --repo owner/repo
 kimbap call stripe.refund_charge --charge ch_abc --amount 500
 ```
 
@@ -215,7 +215,7 @@ Exposes:
 HTTP request arrives
   │
   ▼
-chi router (auth → rate limit)
+chi router (auth → tenant context → scope)
   │
   ▼
 Route handler (internal/api/)
@@ -257,10 +257,10 @@ Resource groups:
 | `/v1/approvals` | List pending approvals, approve or reject |
 | `/v1/audit` | Query audit records |
 | `/v1/actions` | List and describe available actions |
-| `/v1/vault` | Manage encrypted credential entries |
-| `/v1/connectors` | Configure and manage OAuth connectors |
+| `/v1/vault` | List vault entries (metadata only) |
+| `/v1/webhooks` | Manage tenant webhook subscriptions and recent delivery events (when webhook dispatcher is configured) |
 
-All routes require a valid bearer token. Admin-scoped routes require an Owner or Admin role.
+Public discovery routes are `GET /v1/health`, `GET /v1/actions`, and `GET /v1/actions/{service}/{action}`. Authenticated action execution routes (`POST /v1/actions/{service}/{action}:execute`, `POST /v1/actions/validate`) require bearer token + tenant context. Scope-gated management routes also require bearer token + tenant context, then apply route-specific scopes (for example `tokens:*`, `policies:*`, `approvals:*`, `audit:*`, `webhooks:*`).
 
 ---
 
@@ -276,33 +276,44 @@ Most modern REST APIs can be expressed as a YAML service file. The runtime inter
 
 A service definition includes:
 
-- `service` and `action` identifiers
-- auth type (`api_key`, `bearer`, `oauth2`, `basic`)
-- endpoint template and HTTP method
-- argument schema with types and validation
-- output extraction path (JSONPath or jq)
-- error mapping
-- pagination strategy
-- risk metadata (`risk_level`, `require_approval`)
+- top-level service metadata (`name`, `version`, `description`)
+- adapter type (`http`, `applescript`, `command`)
+- service-level auth contract (`none`, `header`, `bearer`, `basic`, `query`, `body`)
+- one or more named `actions` with adapter-specific fields
+- action argument schema (`args`) and request/response mapping
+- action-level idempotency (`idempotent`) and risk level (`low|medium|high|critical`)
+- optional retry, pagination, and error mapping metadata
 
 Example structure:
 
 ```yaml
-service: github
-action: list_pull_requests
-auth: oauth2
-connector: github
-method: GET
-endpoint: https://api.github.com/repos/{repo}/pulls
-args:
-  repo:
-    type: string
-    required: true
-  state:
-    type: string
-    default: open
-output: "$[*]"
-risk_level: low
+name: github
+version: 1.0.0
+description: GitHub API integration
+base_url: https://api.github.com
+auth:
+  type: bearer
+  credential_ref: github.token
+actions:
+  list-pull-requests:
+    method: GET
+    path: /repos/{owner}/{repo}/pulls
+    idempotent: true
+    args:
+      - name: owner
+        type: string
+        required: true
+      - name: repo
+        type: string
+        required: true
+    request:
+      path_params:
+        owner: "{owner}"
+        repo: "{repo}"
+    response:
+      type: array
+    risk:
+      level: low
 ```
 
 The service loader in `internal/services/` parses these at startup and registers them with the action registry.
@@ -425,13 +436,13 @@ Approval records include: caller identity, action, parameters (sanitized), polic
 ### CLI Mode (embedded runtime)
 
 ```
-kimbap call github.list_pull_requests --repo owner/repo
+kimbap call github.list-pull-requests --repo owner/repo
   │
-  ├── Parse: service=github, action=list_pull_requests, args={repo: "owner/repo"}
+├── Parse: service=github, action=list-pull-requests, args={repo: "owner/repo"}
   │
-  ├── Identify: read local token from ~/.kimbap/token
+  ├── Identify: construct local CLI principal (tenant-scoped)
   │
-├── Resolve: look up service definition for github.list_pull_requests
+├── Resolve: look up service definition for github.list-pull-requests
   │
   ├── Policy: evaluate rules for this caller + action
   │   └── outcome: allow
@@ -454,7 +465,7 @@ Agent: GET https://api.github.com/repos/owner/repo/pulls
   ▼
 kimbap proxy (port 10255)
   │
-  ├── Classifier: matches github.list_pull_requests pattern
+  ├── Classifier: matches github.list-pull-requests pattern
   │
   ├── Action Runtime pipeline (identify → resolve → policy → credential → execute → audit)
   │
@@ -466,12 +477,12 @@ kimbap proxy (port 10255)
 ```
 POST /v1/actions/{service}/{action}:execute
 Authorization: Bearer <kimbap_token>
-Body: { "args": { ... } }
+Body: { "input": { ... } }
   │
   ▼
 chi router
   │
-  ├── Auth: token validation → rate limit
+  ├── Auth: token validation → tenant context
   │
   ├── Handler: internal/api/
   │
@@ -539,7 +550,7 @@ kimbap-core/
     │
     ├── store/            # SQL store (SQLite default, Postgres supported)
     │
-    ├── config/           # Config loading (kimbap.yaml)
+    ├── config/           # Config loading (config.yaml)
     ├── app/              # Runtime bootstrap and adapters
     └── webhooks/         # Webhook dispatcher
 ```
@@ -603,6 +614,11 @@ POST /v1/approvals/{id}:deny                Deny a pending action
 
 GET  /v1/audit                              Query audit records
 GET  /v1/audit/export                       Export audit records
+
+GET    /v1/webhooks                         List tenant webhook subscriptions (when webhook dispatcher is configured)
+POST   /v1/webhooks                         Create tenant webhook subscription (when webhook dispatcher is configured)
+DELETE /v1/webhooks/{id}                    Delete tenant webhook subscription (when webhook dispatcher is configured)
+GET    /v1/webhooks/events                  List recent webhook events (when webhook dispatcher is configured)
 
 Service installation and management currently flows through the CLI (`kimbap service ...`).
 ```

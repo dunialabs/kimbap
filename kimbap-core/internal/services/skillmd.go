@@ -6,18 +6,56 @@ import (
 	"strings"
 )
 
-// GenerateSkillMD converts a ServiceManifest into the Agent Skills open standard
+type SkillMDOption func(*skillMDConfig)
+
+type skillMDConfig struct {
+	Source string
+}
+
+func WithSource(source string) SkillMDOption {
+	return func(c *skillMDConfig) {
+		c.Source = source
+	}
+}
+
+func buildInstallInstruction(name string, cfg skillMDConfig) string {
+	source := strings.TrimSpace(cfg.Source)
+	switch {
+	case strings.HasPrefix(source, "official:"):
+		return fmt.Sprintf("kimbap service install %s", name)
+	case strings.HasPrefix(source, "remote:"):
+		trimmed := strings.TrimPrefix(source, "remote:")
+		return fmt.Sprintf("kimbap service install %s", strings.TrimSpace(trimmed))
+	case strings.HasPrefix(source, "local:"):
+		trimmed := strings.TrimPrefix(source, "local:")
+		return fmt.Sprintf("kimbap service install %s", strings.TrimSpace(trimmed))
+	case source == "":
+		return fmt.Sprintf("kimbap service install %s.yaml", name)
+	default:
+		return fmt.Sprintf("kimbap service install %s", name)
+	}
+}
+
+// GenerateAgentSkillMD converts a ServiceManifest into the Agent Skills open standard
 // SKILL.md format for cross-platform AI agent compatibility.
-func GenerateSkillMD(manifest *ServiceManifest) (string, error) {
+func GenerateAgentSkillMD(manifest *ServiceManifest, opts ...SkillMDOption) (string, error) {
 	if manifest == nil {
 		return "", fmt.Errorf("manifest is nil")
+	}
+
+	cfg := skillMDConfig{}
+	for _, opt := range opts {
+		if opt == nil {
+			continue
+		}
+		opt(&cfg)
 	}
 
 	var sb strings.Builder
 
 	sb.WriteString("---\n")
 	fmt.Fprintf(&sb, "name: %s\n", manifest.Name)
-	desc := buildSkillDescription(manifest)
+	desc := buildAgentSkillDescription(manifest)
 	fmt.Fprintf(&sb, "description: |\n  %s\n", strings.ReplaceAll(desc, "\n", "\n  "))
 	sb.WriteString("allowed-tools: Bash\n")
 	sb.WriteString("---\n\n")
@@ -29,7 +67,7 @@ func GenerateSkillMD(manifest *ServiceManifest) (string, error) {
 
 	sb.WriteString("## Prerequisites\n\n")
 	sb.WriteString("- Kimbap CLI installed and in PATH\n")
-	fmt.Fprintf(&sb, "- Service installed: `kimbap service install %s.yaml`\n", manifest.Name)
+	fmt.Fprintf(&sb, "- Service installed: `%s`\n", buildInstallInstruction(manifest.Name, cfg))
 	credRefs := collectCredentialRefs(manifest)
 	for _, ref := range credRefs {
 		fmt.Fprintf(&sb, "- Credential configured: `kimbap vault set %s`\n", ref)
@@ -105,7 +143,7 @@ func GenerateSkillMD(manifest *ServiceManifest) (string, error) {
 	return sb.String(), nil
 }
 
-func buildSkillDescription(m *ServiceManifest) string {
+func buildAgentSkillDescription(m *ServiceManifest) string {
 	parts := []string{}
 	if m.Description != "" {
 		parts = append(parts, m.Description)
@@ -247,17 +285,23 @@ kimbap agents setup
 ` + "```" + `
 `
 
-// GenerateMetaSkillMD returns the Tier-1 meta-skill content.
-func GenerateMetaSkillMD() string {
+// GenerateMetaAgentSkillMD returns the Tier-1 meta-skill content.
+func GenerateMetaAgentSkillMD() string {
 	return metaSkillTemplate
 }
 
-func GenerateSkillPack(manifest *ServiceManifest) (map[string]string, error) {
+func GenerateAgentSkillPack(manifest *ServiceManifest, opts ...SkillMDOption) (map[string]string, error) {
 	if manifest == nil {
 		return nil, fmt.Errorf("manifest is nil")
 	}
+	cfg := skillMDConfig{}
+	for _, opt := range opts {
+		if opt != nil {
+			opt(&cfg)
+		}
+	}
 	files := make(map[string]string)
-	skillMD, err := generatePackSkillMD(manifest)
+	skillMD, err := generatePackSkillMD(manifest, cfg)
 	if err != nil {
 		return nil, fmt.Errorf("generate SKILL.md: %w", err)
 	}
@@ -271,7 +315,7 @@ func GenerateSkillPack(manifest *ServiceManifest) (map[string]string, error) {
 	return files, nil
 }
 
-func generatePackSkillMD(manifest *ServiceManifest) (string, error) {
+func generatePackSkillMD(manifest *ServiceManifest, cfg skillMDConfig) (string, error) {
 	var sb strings.Builder
 	sb.WriteString("---\n")
 	sb.WriteString(fmt.Sprintf("name: %s\n", manifest.Name))
@@ -285,7 +329,7 @@ func generatePackSkillMD(manifest *ServiceManifest) (string, error) {
 	}
 	sb.WriteString("## Prerequisites\n\n")
 	sb.WriteString("- Kimbap CLI installed and in PATH\n")
-	sb.WriteString(fmt.Sprintf("- Service installed: `kimbap service install %s.yaml`\n", manifest.Name))
+	sb.WriteString(fmt.Sprintf("- Service installed: `%s`\n", buildInstallInstruction(manifest.Name, cfg)))
 	for _, ref := range collectCredentialRefs(manifest) {
 		sb.WriteString(fmt.Sprintf("- Credential configured: `kimbap vault set %s`\n", ref))
 	}
@@ -360,7 +404,7 @@ func buildPackDescription(manifest *ServiceManifest) string {
 			return strings.Join(parts, "\n")
 		}
 	}
-	return buildSkillDescription(manifest)
+	return buildAgentSkillDescription(manifest)
 }
 
 func generatePackGotchasMD(manifest *ServiceManifest) string {
@@ -431,6 +475,6 @@ func packHasActionWarnings(manifest *ServiceManifest) bool {
 	return false
 }
 
-func GenerateMetaSkillPack() map[string]string {
-	return map[string]string{"SKILL.md": GenerateMetaSkillMD()}
+func GenerateMetaAgentSkillPack() map[string]string {
+	return map[string]string{"SKILL.md": GenerateMetaAgentSkillMD()}
 }

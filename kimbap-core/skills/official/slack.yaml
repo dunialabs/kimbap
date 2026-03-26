@@ -68,7 +68,6 @@ actions:
       type: object
     risk:
       level: medium
-      mutating: true
   list-channels:
     method: GET
     path: /conversations.list
@@ -90,7 +89,6 @@ actions:
       type: object
     risk:
       level: low
-      mutating: false
   get-channel-history:
     method: GET
     path: /conversations.history
@@ -111,4 +109,3 @@ actions:
       type: object
     risk:
       level: low
-      mutating: false

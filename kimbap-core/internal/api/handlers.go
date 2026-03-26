@@ -177,7 +177,14 @@ func (s *Server) handleListVaultKeys(w http.ResponseWriter, r *http.Request) {
 	listOpts := vault.ListOptions{Limit: limit, Offset: offset}
 	if secretType := strings.TrimSpace(r.URL.Query().Get("type")); secretType != "" {
 		t := vault.SecretType(secretType)
-		listOpts.Type = &t
+		switch t {
+		case vault.SecretTypeAPIKey, vault.SecretTypeBearerToken, vault.SecretTypeOAuthClient,
+			vault.SecretTypePassword, vault.SecretTypeRefreshToken, vault.SecretTypeCertificate:
+			listOpts.Type = &t
+		default:
+			writeEnvelopeError(w, r, actions.NewExecutionError(actions.ErrValidationFailed, "unknown secret type", http.StatusBadRequest, false, nil))
+			return
+		}
 	}
 	records, listErr := s.vaultStore.List(r.Context(), tenantID, listOpts)
 	if listErr != nil {

@@ -4,7 +4,7 @@ Base URL: `http://localhost:8080/v1`
 
 ## Authentication
 
-Authenticated endpoints require a Bearer token:
+Protected endpoints require both Bearer authentication and tenant-context resolution (middleware chain: `BearerAuth` + `TenantContext`):
 
 ```
 Authorization: Bearer <kimbap-token>
@@ -13,6 +13,8 @@ Authorization: Bearer <kimbap-token>
 Create tokens with `kimbap token create` or `POST /v1/tokens`.
 
 Public endpoints (no auth required): `/v1/health`, `/v1/actions`, `/v1/actions/{service}/{action}`.
+
+All other `/v1/*` routes are protected by Bearer + tenant middleware. Management routes add route-specific scope checks.
 
 ## Response Format
 
@@ -95,9 +97,10 @@ Public endpoints (no auth required): `/v1/health`, `/v1/actions`, `/v1/actions/{
 
 | Method | Path | Scope | Description |
 |--------|------|-------|-------------|
-| `POST` | `/v1/webhooks` | `webhooks:write` | Register webhook |
-| `GET` | `/v1/webhooks` | `webhooks:read` | List webhooks |
-| `DELETE` | `/v1/webhooks/{id}` | `webhooks:write` | Remove webhook |
+| `POST` | `/v1/webhooks` | `webhooks:write` | Register webhook (when webhook dispatcher is configured) |
+| `GET` | `/v1/webhooks` | `webhooks:read` | List webhooks (when webhook dispatcher is configured) |
+| `DELETE` | `/v1/webhooks/{id}` | `webhooks:write` | Remove webhook (when webhook dispatcher is configured) |
+| `GET` | `/v1/webhooks/events` | `webhooks:read` | List recent webhook events (when webhook dispatcher is configured) |
 
 ## Examples
 

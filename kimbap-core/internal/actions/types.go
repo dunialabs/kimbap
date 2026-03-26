@@ -121,19 +121,22 @@ type AuthRequirement struct {
 }
 
 type AdapterConfig struct {
-	Type          string
-	Method        string
-	BaseURL       string
-	URLTemplate   string
-	Headers       map[string]string
-	Query         map[string]string
-	RequestBody   string
-	Response      ResponseConfig
-	Retry         RetryConfig
-	Timeout       time.Duration
-	AllowInsecure bool
-	TargetApp     string
-	Command       string
+	Type           string
+	Method         string
+	BaseURL        string
+	ExecutablePath string
+	URLTemplate    string
+	Headers        map[string]string
+	Query          map[string]string
+	EnvInject      map[string]string
+	JSONFlag       string
+	RequestBody    string
+	Response       ResponseConfig
+	Retry          RetryConfig
+	Timeout        time.Duration
+	AllowInsecure  bool
+	TargetApp      string
+	Command        string
 }
 
 type ResponseConfig struct {
@@ -200,6 +203,7 @@ type ActionDefinition struct {
 	Auth         AuthRequirement
 	InputSchema  *Schema
 	OutputSchema *Schema
+	Defaults     map[string]any
 	Adapter      AdapterConfig
 	Classifiers  []ClassifierRule
 	ErrorMapping map[int]string

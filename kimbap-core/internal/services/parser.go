@@ -1,11 +1,14 @@
 package services
 
 import (
+	"bytes"
 	"fmt"
+	"math"
 	"net/url"
 	"os"
 	"regexp"
 	"strings"
+	"time"
 
 	adaptercommands "github.com/dunialabs/kimbap-core/internal/adapters/commands"
 	"gopkg.in/yaml.v3"
@@ -18,7 +21,7 @@ var (
 	validRiskLevelSet        = map[string]struct{}{"low": {}, "medium": {}, "high": {}, "critical": {}}
 	validAuthTypeSet         = map[string]struct{}{"header": {}, "bearer": {}, "basic": {}, "query": {}, "body": {}, "none": {}}
 	validHTTPMethodSet       = map[string]struct{}{"GET": {}, "POST": {}, "PUT": {}, "PATCH": {}, "DELETE": {}, "HEAD": {}, "OPTIONS": {}}
-	validAdapterTypeSet      = map[string]struct{}{"http": {}, "applescript": {}}
+	validAdapterTypeSet      = map[string]struct{}{"http": {}, "applescript": {}, "command": {}}
 	validAppleScriptCommands = buildValidAppleScriptCommands()
 	validArgTypeSet          = map[string]struct{}{"string": {}, "integer": {}, "number": {}, "boolean": {}, "array": {}, "object": {}}
 	validPageTypeSet         = map[string]struct{}{"cursor": {}, "offset": {}}
@@ -44,6 +47,8 @@ func buildValidAppleScriptCommands() map[string]struct{} {
 		adaptercommands.ContactsCommands(),
 		adaptercommands.MSOfficeCommands(),
 		adaptercommands.IWorkCommands(),
+		adaptercommands.SpotifyCommands(),
+		adaptercommands.ShortcutsCommands(),
 	}
 	for _, registry := range registries {
 		for name := range registry {
@@ -55,7 +60,9 @@ func buildValidAppleScriptCommands() map[string]struct{} {
 
 func ParseManifest(data []byte) (*ServiceManifest, error) {
 	var manifest ServiceManifest
-	if err := yaml.Unmarshal(data, &manifest); err != nil {
+	decoder := yaml.NewDecoder(bytes.NewReader(data))
+	decoder.KnownFields(true)
+	if err := decoder.Decode(&manifest); err != nil {
 		return nil, fmt.Errorf("parse service manifest: %w", err)
 	}
 
@@ -97,7 +104,7 @@ func ValidateManifest(m *ServiceManifest) []ValidationError {
 
 	adapterType := normalizedAdapterType(m.Adapter)
 	if _, ok := validAdapterTypeSet[adapterType]; !ok {
-		errs = append(errs, ValidationError{Field: "adapter", Message: "must be one of http, applescript"})
+		errs = append(errs, ValidationError{Field: "adapter", Message: "must be one of http, applescript, command"})
 		return errs
 	}
 
@@ -136,6 +143,14 @@ func ValidateManifest(m *ServiceManifest) []ValidationError {
 			if arg.Required && arg.Default != nil {
 				errs = append(errs, ValidationError{Field: argField + ".default", Message: "required args must not have defaults"})
 			}
+			if !arg.Required && arg.Default != nil {
+				if !isArgDefaultTypeCompatible(arg.Default, arg.Type) {
+					errs = append(errs, ValidationError{
+						Field:   argField + ".default",
+						Message: fmt.Sprintf("default value type does not match declared arg type %q", arg.Type),
+					})
+				}
+			}
 		}
 
 		if action.Auth != nil {
@@ -156,6 +171,8 @@ func ValidateManifest(m *ServiceManifest) []ValidationError {
 		errs = append(errs, validateHTTPManifest(m)...)
 	case "applescript":
 		errs = append(errs, validateAppleScriptManifest(m)...)
+	case "command":
+		errs = append(errs, validateCommandManifest(m)...)
 	}
 
 	if len(m.Actions) == 0 {
@@ -163,6 +180,43 @@ func ValidateManifest(m *ServiceManifest) []ValidationError {
 	}
 
 	return errs
+}
+
+func isArgDefaultTypeCompatible(v any, declaredType string) bool {
+	switch strings.ToLower(strings.TrimSpace(declaredType)) {
+	case "string":
+		_, ok := v.(string)
+		return ok
+	case "integer":
+		switch val := v.(type) {
+		case int, int8, int16, int32, int64:
+			return true
+		case uint, uint8, uint16, uint32, uint64:
+			return true
+		case float64:
+			return val == math.Trunc(val)
+		default:
+			return false
+		}
+	case "number":
+		switch v.(type) {
+		case float32, float64, int, int8, int16, int32, int64, uint, uint8, uint16, uint32, uint64:
+			return true
+		default:
+			return false
+		}
+	case "boolean":
+		_, ok := v.(bool)
+		return ok
+	case "array":
+		_, ok := v.([]any)
+		return ok
+	case "object":
+		_, ok := v.(map[string]any)
+		return ok
+	default:
+		return true
+	}
 }
 
 func validatePackMetadata(m *ServiceManifest) []ValidationError {
@@ -369,6 +423,82 @@ func validateAppleScriptManifest(m *ServiceManifest) []ValidationError {
 		}
 		if len(action.ErrorMapping) > 0 {
 			errs = append(errs, ValidationError{Field: prefix + ".error_mapping", Message: "must not be set for applescript adapter"})
+		}
+	}
+
+	return errs
+}
+
+func validateCommandManifest(m *ServiceManifest) []ValidationError {
+	errs := make([]ValidationError, 0)
+
+	if strings.TrimSpace(m.BaseURL) != "" {
+		errs = append(errs, ValidationError{Field: "base_url", Message: "must not be set for command adapter"})
+	}
+	if strings.TrimSpace(m.TargetApp) != "" {
+		errs = append(errs, ValidationError{Field: "target_app", Message: "must not be set for command adapter"})
+	}
+
+	authType := normalizedAuthType(m.Auth.Type)
+	if authType != "none" && authType != "bearer" {
+		errs = append(errs, ValidationError{Field: "auth.type", Message: "must be none or bearer for command adapter"})
+	}
+
+	if m.CommandSpec == nil {
+		errs = append(errs, ValidationError{Field: "command_spec", Message: "must be set for command adapter"})
+	} else {
+		if strings.TrimSpace(m.CommandSpec.Executable) == "" {
+			errs = append(errs, ValidationError{Field: "command_spec.executable", Message: "must be non-empty"})
+		}
+		if timeout := strings.TrimSpace(m.CommandSpec.Timeout); timeout != "" {
+			if _, err := time.ParseDuration(timeout); err != nil {
+				errs = append(errs, ValidationError{Field: "command_spec.timeout", Message: "must be a valid Go duration (e.g. 30s, 1m)"})
+			}
+		}
+	}
+
+	for actionKey, action := range m.Actions {
+		prefix := "actions." + actionKey
+
+		if strings.TrimSpace(action.Command) == "" {
+			errs = append(errs, ValidationError{Field: prefix + ".command", Message: "is required"})
+		}
+
+		if strings.TrimSpace(action.Method) != "" {
+			errs = append(errs, ValidationError{Field: prefix + ".method", Message: "must not be set for command adapter"})
+		}
+		if strings.TrimSpace(action.Path) != "" {
+			errs = append(errs, ValidationError{Field: prefix + ".path", Message: "must not be set for command adapter"})
+		}
+
+		if len(action.Request.Query) > 0 {
+			errs = append(errs, ValidationError{Field: prefix + ".request.query", Message: "must not be set for command adapter"})
+		}
+		if len(action.Request.Headers) > 0 {
+			errs = append(errs, ValidationError{Field: prefix + ".request.headers", Message: "must not be set for command adapter"})
+		}
+		if len(action.Request.Body) > 0 {
+			errs = append(errs, ValidationError{Field: prefix + ".request.body", Message: "must not be set for command adapter"})
+		}
+		if len(action.Request.PathParams) > 0 {
+			errs = append(errs, ValidationError{Field: prefix + ".request.path_params", Message: "must not be set for command adapter"})
+		}
+
+		if action.Pagination != nil {
+			errs = append(errs, ValidationError{Field: prefix + ".pagination", Message: "must not be set for command adapter"})
+		}
+		if action.Retry != nil {
+			errs = append(errs, ValidationError{Field: prefix + ".retry", Message: "must not be set for command adapter"})
+		}
+		if len(action.ErrorMapping) > 0 {
+			errs = append(errs, ValidationError{Field: prefix + ".error_mapping", Message: "must not be set for command adapter"})
+		}
+
+		if action.Auth != nil {
+			actionAuthType := normalizedAuthType(action.Auth.Type)
+			if actionAuthType != "none" && actionAuthType != "bearer" {
+				errs = append(errs, ValidationError{Field: prefix + ".auth.type", Message: "must be none or bearer for command adapter"})
+			}
 		}
 	}
 

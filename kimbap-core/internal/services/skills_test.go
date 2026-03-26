@@ -61,9 +61,9 @@ actions:
     response:
       extract: data.results
       type: array
+    idempotent: true
     risk:
       level: low
-      mutating: false
     retry:
       max_attempts: 3
       backoff_ms: 200
@@ -894,6 +894,7 @@ actions:
   create_price:
     method: POST
     path: /prices
+    idempotent: false
     args:
       - name: amount
         type: number
@@ -905,7 +906,6 @@ actions:
       type: object
     risk:
       level: medium
-      mutating: true
 `
 
 	m, err := ParseManifest([]byte(manifest))
@@ -1059,7 +1059,7 @@ func TestToActionDefinitionsBasicAuth(t *testing.T) {
 	}
 }
 
-func TestGenerateSkillMDIncludesActionLevelCredentials(t *testing.T) {
+func TestGenerateAgentSkillMDIncludesActionLevelCredentials(t *testing.T) {
 	manifest := &ServiceManifest{
 		Name:    "multi-auth",
 		Version: "1.0.0",
@@ -1079,12 +1079,12 @@ func TestGenerateSkillMDIncludesActionLevelCredentials(t *testing.T) {
 		},
 	}
 
-	content, err := GenerateSkillMD(manifest)
+	content, err := GenerateAgentSkillMD(manifest)
 	if err != nil {
-		t.Fatalf("GenerateSkillMD: %v", err)
+		t.Fatalf("GenerateAgentSkillMD: %v", err)
 	}
 	if !strings.Contains(content, "kimbap vault set multi-auth.api_key") {
-		t.Error("GenerateSkillMD must list action-level credential refs in prerequisites")
+		t.Error("GenerateAgentSkillMD must list action-level credential refs in prerequisites")
 	}
 }
 
@@ -1201,15 +1201,15 @@ func TestVerifyWithWrongPinnedKeyFails(t *testing.T) {
 	}
 }
 
-func TestGenerateSkillMDContainsExpectedSections(t *testing.T) {
+func TestGenerateAgentSkillMDContainsExpectedSections(t *testing.T) {
 	manifest, err := ParseManifest([]byte(braveSearchFixture))
 	if err != nil {
 		t.Fatalf("parse fixture: %v", err)
 	}
 
-	content, err := GenerateSkillMD(manifest)
+	content, err := GenerateAgentSkillMD(manifest)
 	if err != nil {
-		t.Fatalf("GenerateSkillMD: %v", err)
+		t.Fatalf("GenerateAgentSkillMD: %v", err)
 	}
 
 	checks := []string{
@@ -1226,20 +1226,20 @@ func TestGenerateSkillMDContainsExpectedSections(t *testing.T) {
 	}
 	for _, want := range checks {
 		if !strings.Contains(content, want) {
-			t.Errorf("GenerateSkillMD output missing %q", want)
+			t.Errorf("GenerateAgentSkillMD output missing %q", want)
 		}
 	}
 }
 
-func TestGenerateSkillMDAppleScript(t *testing.T) {
+func TestGenerateAgentSkillMDAppleScript(t *testing.T) {
 	manifest, err := ParseManifest([]byte(actionWithCommandFixture))
 	if err != nil {
 		t.Fatalf("parse fixture: %v", err)
 	}
 
-	content, err := GenerateSkillMD(manifest)
+	content, err := GenerateAgentSkillMD(manifest)
 	if err != nil {
-		t.Fatalf("GenerateSkillMD: %v", err)
+		t.Fatalf("GenerateAgentSkillMD: %v", err)
 	}
 
 	checks := []string{
@@ -1248,23 +1248,23 @@ func TestGenerateSkillMDAppleScript(t *testing.T) {
 	}
 	for _, want := range checks {
 		if !strings.Contains(content, want) {
-			t.Errorf("GenerateSkillMD AppleScript output missing %q", want)
+			t.Errorf("GenerateAgentSkillMD AppleScript output missing %q", want)
 		}
 	}
 	if strings.Contains(content, "**HTTP**:") {
-		t.Fatalf("GenerateSkillMD AppleScript output must not contain HTTP label:\n%s", content)
+		t.Fatalf("GenerateAgentSkillMD AppleScript output must not contain HTTP label:\n%s", content)
 	}
 }
 
-func TestGenerateSkillMDHTTPUnchanged(t *testing.T) {
+func TestGenerateAgentSkillMDHTTPUnchanged(t *testing.T) {
 	manifest, err := ParseManifest([]byte(manifestWithoutAdapterFixture))
 	if err != nil {
 		t.Fatalf("parse fixture: %v", err)
 	}
 
-	content, err := GenerateSkillMD(manifest)
+	content, err := GenerateAgentSkillMD(manifest)
 	if err != nil {
-		t.Fatalf("GenerateSkillMD: %v", err)
+		t.Fatalf("GenerateAgentSkillMD: %v", err)
 	}
 
 	expected := "---\n" +
@@ -1303,7 +1303,7 @@ func TestGenerateSkillMDHTTPUnchanged(t *testing.T) {
 	}
 }
 
-func TestGenerateSkillPackEscapesMarkdownTableCells(t *testing.T) {
+func TestGenerateAgentSkillPackEscapesMarkdownTableCells(t *testing.T) {
 	manifest := &ServiceManifest{
 		Name:        "notes-service",
 		Version:     "1.0.0",
@@ -1320,9 +1320,9 @@ func TestGenerateSkillPackEscapesMarkdownTableCells(t *testing.T) {
 		},
 	}
 
-	pack, err := GenerateSkillPack(manifest)
+	pack, err := GenerateAgentSkillPack(manifest)
 	if err != nil {
-		t.Fatalf("GenerateSkillPack: %v", err)
+		t.Fatalf("GenerateAgentSkillPack: %v", err)
 	}
 	skill := pack["SKILL.md"]
 	if !strings.Contains(skill, "| `notes-service.list_notes` | List notes \\| summarize<br>Second line | low |") {
@@ -1330,7 +1330,7 @@ func TestGenerateSkillPackEscapesMarkdownTableCells(t *testing.T) {
 	}
 }
 
-func TestGenerateSkillPack(t *testing.T) {
+func TestGenerateAgentSkillPack(t *testing.T) {
 	manifest := &ServiceManifest{
 		Name:        "notes-service",
 		Version:     "1.0.0",
@@ -1363,9 +1363,9 @@ func TestGenerateSkillPack(t *testing.T) {
 		},
 	}
 
-	pack, err := GenerateSkillPack(manifest)
+	pack, err := GenerateAgentSkillPack(manifest)
 	if err != nil {
-		t.Fatalf("GenerateSkillPack: %v", err)
+		t.Fatalf("GenerateAgentSkillPack: %v", err)
 	}
 	if len(pack) != 3 {
 		t.Fatalf("expected 3 pack files, got %d", len(pack))
@@ -1392,7 +1392,7 @@ func TestGenerateSkillPack(t *testing.T) {
 		t.Fatalf("RECIPES.md missing expected content:\n%s", recipes)
 	}
 
-	nilResult, nilErr := GenerateSkillPack(nil)
+	nilResult, nilErr := GenerateAgentSkillPack(nil)
 	if nilErr == nil || nilResult != nil {
 		t.Fatalf("expected nil manifest to return error and nil result, got result=%v err=%v", nilResult, nilErr)
 	}
@@ -1476,9 +1476,9 @@ actions:
 		t.Fatalf("expected no recipes for legacy manifest, got %+v", m.Recipes)
 	}
 
-	content, genErr := GenerateSkillMD(m)
+	content, genErr := GenerateAgentSkillMD(m)
 	if genErr != nil {
-		t.Fatalf("GenerateSkillMD: %v", genErr)
+		t.Fatalf("GenerateAgentSkillMD: %v", genErr)
 	}
 	if !strings.Contains(content, "### legacy-notes.list_notes") {
 		t.Fatalf("expected legacy action output unchanged, got:\n%s", content)
@@ -1545,8 +1545,8 @@ actions:
 	}
 }
 
-func TestGenerateMetaSkillPack(t *testing.T) {
-	pack := GenerateMetaSkillPack()
+func TestGenerateMetaAgentSkillPack(t *testing.T) {
+	pack := GenerateMetaAgentSkillPack()
 	if len(pack) != 1 {
 		t.Fatalf("expected exactly one file in meta pack, got %d", len(pack))
 	}
@@ -1554,15 +1554,15 @@ func TestGenerateMetaSkillPack(t *testing.T) {
 	if !ok {
 		t.Fatal("expected SKILL.md in meta pack")
 	}
-	if skill != GenerateMetaSkillMD() {
-		t.Fatal("expected meta pack SKILL.md to match GenerateMetaSkillMD output")
+	if skill != GenerateMetaAgentSkillMD() {
+		t.Fatal("expected meta pack SKILL.md to match GenerateMetaAgentSkillMD output")
 	}
 	if !strings.Contains(skill, "name: kimbap") {
 		t.Fatalf("meta SKILL.md missing expected frontmatter:\n%s", skill)
 	}
 }
 
-func TestGenerateSkillMDRiskLevelHints(t *testing.T) {
+func TestGenerateAgentSkillMDRiskLevelHints(t *testing.T) {
 	cases := []struct {
 		riskLevel        string
 		wantDryRunHint   bool
@@ -1590,9 +1590,9 @@ func TestGenerateSkillMDRiskLevelHints(t *testing.T) {
 					},
 				},
 			}
-			out, err := GenerateSkillMD(m)
+			out, err := GenerateAgentSkillMD(m)
 			if err != nil {
-				t.Fatalf("GenerateSkillMD error: %v", err)
+				t.Fatalf("GenerateAgentSkillMD error: %v", err)
 			}
 			hasDryRun := strings.Contains(out, "--dry-run --format json first to preview")
 			hasApproval := strings.Contains(out, "kimbap approve list")
@@ -1613,7 +1613,7 @@ func TestBuildSkillDescriptionHumanizesActionKeys(t *testing.T) {
 			"web_search": {Description: "Search the web"},
 		},
 	}
-	desc := buildSkillDescription(m)
+	desc := buildAgentSkillDescription(m)
 	if strings.Contains(desc, "web_search") {
 		t.Error("expected humanized action key 'web search', got raw 'web_search'")
 	}
@@ -1622,7 +1622,7 @@ func TestBuildSkillDescriptionHumanizesActionKeys(t *testing.T) {
 	}
 }
 
-func TestGenerateSkillMDCriticalRisk(t *testing.T) {
+func TestGenerateAgentSkillMDCriticalRisk(t *testing.T) {
 	manifest := &ServiceManifest{
 		Name:    "critical-svc",
 		Version: "1.0.0",
@@ -1639,9 +1639,9 @@ func TestGenerateSkillMDCriticalRisk(t *testing.T) {
 		},
 	}
 
-	content, err := GenerateSkillMD(manifest)
+	content, err := GenerateAgentSkillMD(manifest)
 	if err != nil {
-		t.Fatalf("GenerateSkillMD: %v", err)
+		t.Fatalf("GenerateAgentSkillMD: %v", err)
 	}
 
 	if !strings.Contains(content, "⚠️ This action is risk level: critical. Use --dry-run --format json first to preview.") {
@@ -1708,7 +1708,7 @@ func TestToActionDefinitionsRespectsExplicitHTTPIdempotentOverride(t *testing.T)
 	}
 }
 
-func TestGenerateSkillMDNormalizesAdapterAndAuthTypes(t *testing.T) {
+func TestGenerateAgentSkillMDNormalizesAdapterAndAuthTypes(t *testing.T) {
 	manifest := &ServiceManifest{
 		Name:        "apple-notes",
 		Version:     "1.0.0",
@@ -1728,9 +1728,9 @@ func TestGenerateSkillMDNormalizesAdapterAndAuthTypes(t *testing.T) {
 		},
 	}
 
-	content, err := GenerateSkillMD(manifest)
+	content, err := GenerateAgentSkillMD(manifest)
 	if err != nil {
-		t.Fatalf("GenerateSkillMD: %v", err)
+		t.Fatalf("GenerateAgentSkillMD: %v", err)
 	}
 	if !strings.Contains(content, "Use when you need to control Notes via AppleScript.") {
 		t.Fatalf("expected AppleScript description, got:\n%s", content)
@@ -1743,8 +1743,8 @@ func TestGenerateSkillMDNormalizesAdapterAndAuthTypes(t *testing.T) {
 	}
 }
 
-func TestGenerateMetaSkillMDContainsServiceActionSyntax(t *testing.T) {
-	content := GenerateMetaSkillMD()
+func TestGenerateMetaAgentSkillMDContainsServiceActionSyntax(t *testing.T) {
+	content := GenerateMetaAgentSkillMD()
 
 	checks := []string{
 		"name: kimbap",
@@ -1759,12 +1759,12 @@ func TestGenerateMetaSkillMDContainsServiceActionSyntax(t *testing.T) {
 	}
 	for _, want := range checks {
 		if !strings.Contains(content, want) {
-			t.Errorf("GenerateMetaSkillMD output missing %q", want)
+			t.Errorf("GenerateMetaAgentSkillMD output missing %q", want)
 		}
 	}
 
 	if strings.Contains(content, "kimbap actions describe <action>") {
-		t.Error("GenerateMetaSkillMD must not use bare <action> — use <service.action>")
+		t.Error("GenerateMetaAgentSkillMD must not use bare <action> — use <service.action>")
 	}
 }
 

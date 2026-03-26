@@ -38,6 +38,13 @@ func TestBuildRuntimeMinimalConfig(t *testing.T) {
 	if rt == nil {
 		t.Fatal("expected runtime to be non-nil")
 	}
+	adapter, ok := rt.Adapters["command"]
+	if !ok || adapter == nil {
+		t.Fatal("expected command adapter to be registered")
+	}
+	if adapter.Type() != "command" {
+		t.Fatalf("expected command adapter type, got %q", adapter.Type())
+	}
 }
 
 func TestBootstrapRegistersAppleScript(t *testing.T) {
@@ -76,9 +83,9 @@ actions:
   ping:
     method: GET
     path: /ping
+    idempotent: true
     risk:
       level: low
-      mutating: false
 `
 	if err := os.WriteFile(filepath.Join(servicesDir, "test-skill.yaml"), []byte(manifest), 0o644); err != nil {
 		t.Fatalf("write service manifest: %v", err)
@@ -116,9 +123,9 @@ actions:
   ping:
     method: GET
     path: /ping
+    idempotent: true
     risk:
       level: low
-      mutating: false
 `
 	if err := os.WriteFile(filepath.Join(servicesDir, "test-skill.yaml"), []byte(manifest), 0o644); err != nil {
 		t.Fatalf("write service manifest: %v", err)
@@ -150,9 +157,9 @@ actions:
   ping:
     method: GET
     path: /ping
+    idempotent: true
     risk:
       level: low
-      mutating: false
 `))
 	if err != nil {
 		t.Fatalf("parse manifest: %v", err)
@@ -192,9 +199,9 @@ actions:
   ping:
     method: GET
     path: /ping
+    idempotent: true
     risk:
       level: low
-      mutating: false
 `
 	if err := os.WriteFile(filepath.Join(servicesDir, "test-skill.yaml"), []byte(manifest), 0o644); err != nil {
 		t.Fatalf("write service manifest: %v", err)

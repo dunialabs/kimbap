@@ -1,0 +1,105 @@
+name: whatsapp
+version: 1.0.0
+description: WhatsApp messaging via whatsapp-web.js CLI harness (QR-code session, no app registration required)
+adapter: command
+command_spec:
+  executable: cli-anything-whatsapp
+  json_flag: "--json"
+  timeout: "60s"
+auth:
+  type: none
+triggers:
+  task_verbs: [send, list, fetch, check]
+  objects: [whatsapp messages, chats, media, sessions]
+  instead_of:
+    - manually automating whatsapp-web.js session scripts
+  exclusions:
+    - sending SMS or non-WhatsApp channels
+gotchas:
+  - symptom: send-message fails with unauthenticated session errors
+    likely_cause: QR login session expired or not initialized in current runtime
+    recovery: Re-authenticate by scanning QR and verify session-status before sending
+    severity: high
+  - symptom: get-messages returns fewer results than expected
+    likely_cause: limit is too low or chat_id references a different conversation
+    recovery: Increase limit and confirm the exact chat_id from get-chats
+    severity: medium
+recipes:
+  - name: Validate session then deliver media update
+    description: Ensure session health, send text context, then attach media safely
+    steps:
+      - Call session-status and confirm authenticated state
+      - Call send-message with recipient and context text
+      - Call send-media with file path and optional caption
+actions:
+  send-message:
+    command: "message send"
+    description: Send a text message to a WhatsApp recipient
+    idempotent: false
+    args:
+      - name: to
+        type: string
+        required: true
+      - name: text
+        type: string
+        required: true
+    response:
+      type: object
+    risk:
+      level: medium
+
+  get-chats:
+    command: "chat list"
+    description: List available chats for the active WhatsApp session
+    idempotent: true
+    args: []
+    response:
+      type: array
+    risk:
+      level: low
+
+  get-messages:
+    command: "chat messages"
+    description: Retrieve recent messages from a specific chat
+    idempotent: true
+    args:
+      - name: chat_id
+        type: string
+        required: true
+      - name: limit
+        type: integer
+        required: false
+        default: 50
+    response:
+      type: array
+    risk:
+      level: low
+
+  send-media:
+    command: "media send"
+    description: Send a media file with optional caption to a recipient
+    idempotent: false
+    args:
+      - name: to
+        type: string
+        required: true
+      - name: path
+        type: string
+        required: true
+      - name: caption
+        type: string
+        required: false
+    response:
+      type: object
+    risk:
+      level: medium
+
+  session-status:
+    command: "session status"
+    description: Check authentication and runtime state of WhatsApp harness
+    idempotent: true
+    args: []
+    response:
+      type: object
+    risk:
+      level: low

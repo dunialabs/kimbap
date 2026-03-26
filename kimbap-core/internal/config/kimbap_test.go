@@ -299,18 +299,18 @@ func TestLoadKimbapConfigAppliesServicesEnvOverrides(t *testing.T) {
 	}
 }
 
-func TestLoadKimbapConfigIgnoresLegacySkillsEnvOverrides(t *testing.T) {
+func TestLoadKimbapConfigIgnoresUnknownLegacyEnvOverrides(t *testing.T) {
 	home := t.TempDir()
 	t.Setenv("HOME", home)
-	t.Setenv("KIMBAP_SKILLS_DIR", "/tmp/legacy-skills")
+	t.Setenv("KIMBAP_LEGACY_SERVICES_DIR", "/tmp/legacy-services")
 
 	cfg, err := LoadKimbapConfigWithoutDefault()
 	if err != nil {
 		t.Fatalf("load config without default: %v", err)
 	}
 
-	if cfg.Services.Dir == "/tmp/legacy-skills" {
-		t.Fatalf("expected legacy KIMBAP_SKILLS_DIR to be ignored")
+	if cfg.Services.Dir == "/tmp/legacy-services" {
+		t.Fatalf("expected unknown legacy env var to be ignored")
 	}
 }
 
@@ -318,7 +318,7 @@ func TestLoadKimbapConfigRejectsLegacySkillsKey(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
 	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
 
-	cfgPath := filepath.Join(t.TempDir(), "kimbap.yaml")
+	cfgPath := filepath.Join(t.TempDir(), "config.yaml")
 	content := "skills:\n  dir: /tmp/old-skills\n"
 	if err := os.WriteFile(cfgPath, []byte(content), 0o600); err != nil {
 		t.Fatalf("write config: %v", err)
@@ -328,8 +328,8 @@ func TestLoadKimbapConfigRejectsLegacySkillsKey(t *testing.T) {
 	if err == nil {
 		t.Fatal("expected error for legacy 'skills:' key, got nil")
 	}
-	if !strings.Contains(err.Error(), "deprecated") || !strings.Contains(err.Error(), "skills") {
-		t.Errorf("expected legacy skills deprecation error, got: %v", err)
+	if !strings.Contains(err.Error(), "unsupported") || !strings.Contains(err.Error(), "skills") {
+		t.Errorf("expected unsupported legacy skills key error, got: %v", err)
 	}
 }
 

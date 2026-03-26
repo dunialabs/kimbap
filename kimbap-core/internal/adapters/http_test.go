@@ -354,3 +354,63 @@ func TestBuildBodyTemplateOmitsMissingOptional(t *testing.T) {
 		t.Fatalf("expected age to be omitted when not in input, got %v", parsed["age"])
 	}
 }
+
+func TestMergeQuery_SkipsUnresolvedPlaceholders(t *testing.T) {
+	config := map[string]string{"offset": "{offset}", "limit": "{limit}"}
+	input := map[string]any{"limit": 50}
+
+	out, err := mergeQuery(config, input, actions.AuthRequirement{}, nil)
+	if err != nil {
+		t.Fatalf("expected no error, got %v", err)
+	}
+	if _, exists := out["offset"]; exists {
+		t.Fatalf("expected unresolved placeholder key to be skipped, got %q", out["offset"])
+	}
+	if out["limit"] != "50" {
+		t.Fatalf("expected limit=50, got %q", out["limit"])
+	}
+}
+
+func TestMergeQuery_IncludesResolvedValues(t *testing.T) {
+	config := map[string]string{"q": "{q}", "count": "{count}"}
+	input := map[string]any{"q": "hello", "count": 10}
+
+	out, err := mergeQuery(config, input, actions.AuthRequirement{}, nil)
+	if err != nil {
+		t.Fatalf("expected no error, got %v", err)
+	}
+	if out["q"] != "hello" {
+		t.Fatalf("expected q=hello, got %q", out["q"])
+	}
+	if out["count"] != "10" {
+		t.Fatalf("expected count=10, got %q", out["count"])
+	}
+}
+
+func TestToString_ArrayGetsJSONEncoded(t *testing.T) {
+	got := toString([]any{"message", "callback_query"})
+	want := `["message","callback_query"]`
+	if got != want {
+		t.Fatalf("expected %s, got %s", want, got)
+	}
+}
+
+func TestToString_MapGetsJSONEncoded(t *testing.T) {
+	got := toString(map[string]any{"key": "val"})
+	want := `{"key":"val"}`
+	if got != want {
+		t.Fatalf("expected %s, got %s", want, got)
+	}
+}
+
+func TestMergeQuery_LiteralValuesPassThrough(t *testing.T) {
+	config := map[string]string{"stream": "false"}
+
+	out, err := mergeQuery(config, nil, actions.AuthRequirement{}, nil)
+	if err != nil {
+		t.Fatalf("expected no error, got %v", err)
+	}
+	if out["stream"] != "false" {
+		t.Fatalf("expected literal query value to pass through, got %q", out["stream"])
+	}
+}

@@ -5,6 +5,7 @@ type ServiceManifest struct {
 	Version     string                   `yaml:"version"`
 	Description string                   `yaml:"description"`
 	Adapter     string                   `yaml:"adapter,omitempty"`
+	CommandSpec *CommandSpec             `yaml:"command_spec,omitempty"`
 	TargetApp   string                   `yaml:"target_app,omitempty"`
 	BaseURL     string                   `yaml:"base_url"`
 	Auth        ServiceAuth              `yaml:"auth"`
@@ -20,6 +21,13 @@ type ServiceAuth struct {
 	QueryParam    string `yaml:"query_param"`
 	BodyField     string `yaml:"body_field"`
 	CredentialRef string `yaml:"credential_ref"`
+}
+
+type CommandSpec struct {
+	Executable string            `yaml:"executable"`
+	JSONFlag   string            `yaml:"json_flag,omitempty"`
+	Timeout    string            `yaml:"timeout,omitempty"`
+	EnvInject  map[string]string `yaml:"env_inject,omitempty"`
 }
 
 type ServiceAction struct {

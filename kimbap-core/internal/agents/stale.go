@@ -19,7 +19,7 @@ type SyncState struct {
 	Version        int       `yaml:"version"`
 	LastSync       time.Time `yaml:"last_sync"`
 	ArtifactHash   string    `yaml:"artifact_hash"`
-	SyncedServices []string  `yaml:"synced_skills"`
+	SyncedServices []string  `yaml:"synced_services"`
 }
 
 // StaleCheckResult describes whether agent artifacts are out of date.
@@ -235,7 +235,7 @@ func computePackArtifactHash(packs []InstalledServicePack) string {
 		h.Write([]byte(pack.Name))
 		h.Write([]byte{0})
 		fileNames := make([]string, 0, len(pack.PackFiles)+1)
-		if pack.SkillMD != "" {
+		if pack.AgentSkillMD != "" {
 			fileNames = append(fileNames, "SKILL.md")
 		} else if _, ok := pack.PackFiles["SKILL.md"]; ok {
 			fileNames = append(fileNames, "SKILL.md")
@@ -251,8 +251,8 @@ func computePackArtifactHash(packs []InstalledServicePack) string {
 			h.Write([]byte{0})
 			var content string
 			if name == "SKILL.md" {
-				if pack.SkillMD != "" {
-					content = pack.SkillMD
+				if pack.AgentSkillMD != "" {
+					content = pack.AgentSkillMD
 				} else {
 					content = pack.PackFiles[name]
 				}

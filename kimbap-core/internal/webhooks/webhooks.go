@@ -24,8 +24,8 @@ const (
 	EventPolicyCreated    EventType = "policy.created"
 	EventPolicyUpdated    EventType = "policy.updated"
 	EventPolicyDeleted    EventType = "policy.deleted"
-	EventServiceInstalled EventType = "skill.installed"
-	EventServiceRemoved   EventType = "skill.removed"
+	EventServiceInstalled EventType = "service.installed"
+	EventServiceRemoved   EventType = "service.removed"
 
 	// Approval events are fired by the REST API when approval lifecycle transitions occur.
 	// These are intended for management webhook subscribers that want to react to approval
@@ -234,4 +234,20 @@ func matchesEvent(events []EventType, target EventType) bool {
 		return true
 	}
 	return slices.Contains(events, target)
+}
+
+func IsKnownEventType(event EventType) bool {
+	switch event {
+	case EventTokenCreated,
+		EventTokenDeleted,
+		EventPolicyCreated,
+		EventPolicyUpdated,
+		EventApprovalRequested,
+		EventApprovalApproved,
+		EventApprovalDenied,
+		EventApprovalExpired:
+		return true
+	default:
+		return false
+	}
 }

@@ -11,7 +11,7 @@ import (
 // GlobalAgentConfig defines the user-level paths for a specific AI agent.
 type GlobalAgentConfig struct {
 	Kind            AgentKind
-	SkillsDir       string // absolute path to global skills directory
+	AgentSkillsDir  string // absolute path to global skills directory
 	InstructionFile string // absolute path to native instruction file (empty = no inject)
 	DetectDir       string // absolute path to check for agent presence
 }
@@ -37,13 +37,13 @@ Kimbap is available.
 
 // GlobalSetupResult holds the outcome of a global setup operation.
 type GlobalSetupResult struct {
-	Agent           AgentKind `json:"agent"`
-	SkillWritten    bool      `json:"skill_written"`
-	SkillPath       string    `json:"skill_path"`
-	InstructionFile string    `json:"instruction_file,omitempty"`
-	InjectWritten   bool      `json:"inject_written"`
-	Skipped         bool      `json:"skipped"`
-	Error           string    `json:"error,omitempty"`
+	Agent             AgentKind `json:"agent"`
+	AgentSkillWritten bool      `json:"agent_skill_written"`
+	AgentSkillPath    string    `json:"agent_skill_path"`
+	InstructionFile   string    `json:"instruction_file,omitempty"`
+	InjectWritten     bool      `json:"inject_written"`
+	Skipped           bool      `json:"skipped"`
+	Error             string    `json:"error,omitempty"`
 }
 
 // GlobalSetupOptions controls global setup behavior.
@@ -55,10 +55,10 @@ type GlobalSetupOptions struct {
 
 // GlobalTeardownResult holds the outcome of a global teardown operation.
 type GlobalTeardownResult struct {
-	Agent         AgentKind `json:"agent"`
-	SkillRemoved  bool      `json:"skill_removed"`
-	InjectRemoved bool      `json:"inject_removed"`
-	Error         string    `json:"error,omitempty"`
+	Agent             AgentKind `json:"agent"`
+	AgentSkillRemoved bool      `json:"agent_skill_removed"`
+	InjectRemoved     bool      `json:"inject_removed"`
+	Error             string    `json:"error,omitempty"`
 }
 
 // resolveGlobalConfigs builds the global agent config for each known agent,
@@ -74,26 +74,26 @@ func resolveGlobalConfigs() (map[AgentKind]GlobalAgentConfig, error) {
 	configs := map[AgentKind]GlobalAgentConfig{
 		AgentClaudeCode: {
 			Kind:            AgentClaudeCode,
-			SkillsDir:       filepath.Join(home, ".claude", "skills"),
+			AgentSkillsDir:  filepath.Join(home, ".claude", "skills"),
 			InstructionFile: filepath.Join(home, ".claude", "CLAUDE.md"),
 			DetectDir:       filepath.Join(home, ".claude"),
 		},
 		AgentOpenCode: {
 			Kind:            AgentOpenCode,
-			SkillsDir:       filepath.Join(xdgConfig, "opencode", "skills"),
+			AgentSkillsDir:  filepath.Join(xdgConfig, "opencode", "skills"),
 			InstructionFile: filepath.Join(xdgConfig, "opencode", "AGENTS.md"),
 			DetectDir:       filepath.Join(xdgConfig, "opencode"),
 		},
 		AgentCodex: {
 			Kind:            AgentCodex,
-			SkillsDir:       filepath.Join(home, ".agents", "skills"),
+			AgentSkillsDir:  filepath.Join(home, ".agents", "skills"),
 			InstructionFile: filepath.Join(home, ".codex", "AGENTS.md"),
 			DetectDir:       filepath.Join(home, ".codex"),
 		},
 		AgentCursor: {
-			Kind:      AgentCursor,
-			SkillsDir: filepath.Join(home, ".cursor", "skills"),
-			DetectDir: filepath.Join(home, ".cursor"),
+			Kind:           AgentCursor,
+			AgentSkillsDir: filepath.Join(home, ".cursor", "skills"),
+			DetectDir:      filepath.Join(home, ".cursor"),
 		},
 	}
 
@@ -151,11 +151,11 @@ func GlobalSetup(metaSkillContent string, opts GlobalSetupOptions) ([]GlobalSetu
 
 func globalSetupOne(cfg GlobalAgentConfig, metaSkillContent string, opts GlobalSetupOptions) GlobalSetupResult {
 	result := GlobalSetupResult{
-		Agent:     cfg.Kind,
-		SkillPath: filepath.Join(cfg.SkillsDir, "kimbap", "SKILL.md"),
+		Agent:          cfg.Kind,
+		AgentSkillPath: filepath.Join(cfg.AgentSkillsDir, "kimbap", "SKILL.md"),
 	}
 
-	skillDir := filepath.Join(cfg.SkillsDir, "kimbap")
+	skillDir := filepath.Join(cfg.AgentSkillsDir, "kimbap")
 	skillPath := filepath.Join(skillDir, "SKILL.md")
 	needsWrite, checkErr := fileNeedsWrite(skillPath, metaSkillContent, opts.Force)
 	if checkErr != nil {
@@ -165,7 +165,7 @@ func globalSetupOne(cfg GlobalAgentConfig, metaSkillContent string, opts GlobalS
 
 	if needsWrite {
 		if opts.DryRun {
-			result.SkillWritten = true
+			result.AgentSkillWritten = true
 		} else {
 			if err := os.MkdirAll(skillDir, 0o755); err != nil {
 				result.Error = fmt.Sprintf("create service directory: %v", err)
@@ -175,12 +175,12 @@ func globalSetupOne(cfg GlobalAgentConfig, metaSkillContent string, opts GlobalS
 				result.Error = fmt.Sprintf("write service file: %v", err)
 				return result
 			}
-			result.SkillWritten = true
+			result.AgentSkillWritten = true
 		}
 	}
 
 	if cfg.InstructionFile == "" {
-		result.Skipped = !result.SkillWritten
+		result.Skipped = !result.AgentSkillWritten
 		return result
 	}
 	result.InstructionFile = cfg.InstructionFile
@@ -191,7 +191,7 @@ func globalSetupOne(cfg GlobalAgentConfig, metaSkillContent string, opts GlobalS
 		return result
 	}
 	result.InjectWritten = injected
-	result.Skipped = !result.SkillWritten && !result.InjectWritten
+	result.Skipped = !result.AgentSkillWritten && !result.InjectWritten
 
 	return result
 }
@@ -221,19 +221,19 @@ func GlobalTeardown(opts GlobalSetupOptions) ([]GlobalTeardownResult, error) {
 func globalTeardownOne(cfg GlobalAgentConfig, dryRun bool) GlobalTeardownResult {
 	result := GlobalTeardownResult{Agent: cfg.Kind}
 
-	skillDir := filepath.Join(cfg.SkillsDir, "kimbap")
+	skillDir := filepath.Join(cfg.AgentSkillsDir, "kimbap")
 	if _, err := os.Stat(skillDir); err == nil {
 		if dryRun {
-			result.SkillRemoved = true
+			result.AgentSkillRemoved = true
 		} else {
 			if err := os.RemoveAll(skillDir); err != nil {
-				result.Error = fmt.Sprintf("remove skill dir: %v", err)
+				result.Error = fmt.Sprintf("remove agent skill dir: %v", err)
 				return result
 			}
-			result.SkillRemoved = true
+			result.AgentSkillRemoved = true
 		}
 	} else if !os.IsNotExist(err) {
-		result.Error = fmt.Sprintf("stat skill dir: %v", err)
+		result.Error = fmt.Sprintf("stat agent skill dir: %v", err)
 		return result
 	}
 
@@ -304,7 +304,7 @@ func hasKimbapArtifacts(cfg GlobalAgentConfig) bool {
 	if info, err := os.Stat(cfg.DetectDir); err == nil && info.IsDir() {
 		return true
 	}
-	if _, err := os.Stat(filepath.Join(cfg.SkillsDir, "kimbap")); err == nil {
+	if _, err := os.Stat(filepath.Join(cfg.AgentSkillsDir, "kimbap")); err == nil {
 		return true
 	}
 	if cfg.InstructionFile != "" {
@@ -568,17 +568,17 @@ func GlobalStatus() ([]GlobalStatusResult, error) {
 	for _, kind := range []AgentKind{AgentClaudeCode, AgentOpenCode, AgentCodex, AgentCursor} {
 		cfg := configs[kind]
 		result := GlobalStatusResult{
-			Agent:     kind,
-			SkillsDir: filepath.Join(cfg.SkillsDir, "kimbap"),
+			Agent:          kind,
+			AgentSkillsDir: filepath.Join(cfg.AgentSkillsDir, "kimbap"),
 		}
 
 		if info, statErr := os.Stat(cfg.DetectDir); statErr == nil && info.IsDir() {
 			result.Detected = true
 		}
 
-		skillPath := filepath.Join(cfg.SkillsDir, "kimbap", "SKILL.md")
+		skillPath := filepath.Join(cfg.AgentSkillsDir, "kimbap", "SKILL.md")
 		if _, statErr := os.Stat(skillPath); statErr == nil {
-			result.SkillPresent = true
+			result.AgentSkillPresent = true
 		}
 
 		if cfg.InstructionFile != "" {
@@ -603,10 +603,10 @@ func GlobalStatus() ([]GlobalStatusResult, error) {
 
 // GlobalStatusResult holds the global install state for one agent.
 type GlobalStatusResult struct {
-	Agent           AgentKind `json:"agent"`
-	Detected        bool      `json:"detected"`
-	SkillsDir       string    `json:"skills_dir"`
-	SkillPresent    bool      `json:"skill_present"`
-	InstructionFile string    `json:"instruction_file,omitempty"`
-	InjectPresent   bool      `json:"inject_present"`
+	Agent             AgentKind `json:"agent"`
+	Detected          bool      `json:"detected"`
+	AgentSkillsDir    string    `json:"agent_skills_dir"`
+	AgentSkillPresent bool      `json:"agent_skill_present"`
+	InstructionFile   string    `json:"instruction_file,omitempty"`
+	InjectPresent     bool      `json:"inject_present"`
 }

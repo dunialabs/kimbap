@@ -79,7 +79,7 @@ actions:
       type: array
     risk:
       level: low
-      mutating: false
+    idempotent: true
   create-issue:
     method: POST
     path: /repos/{owner}/{repo}/issues
@@ -114,7 +114,7 @@ actions:
       type: object
     risk:
       level: medium
-      mutating: true
+    idempotent: false
   get-issue:
     method: GET
     path: /repos/{owner}/{repo}/issues/{issue_number}
@@ -140,4 +140,4 @@ actions:
       type: object
     risk:
       level: low
-      mutating: false
+    idempotent: true

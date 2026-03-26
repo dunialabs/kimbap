@@ -60,7 +60,7 @@ func toHTTPDefinitions(svc *ServiceManifest) ([]actions.ActionDefinition, error)
 		definition := actions.ActionDefinition{
 			Name:         svc.Name + "." + key,
 			Version:      1,
-			DisplayName:  nonEmpty(actionSpec.Description, key),
+			DisplayName:  nonEmptyString(actionSpec.Description, key),
 			Namespace:    svc.Name,
 			Verb:         strings.ToLower(actionSpec.Method),
 			Resource:     actionSpec.Path,
@@ -116,7 +116,7 @@ func toAppleScriptDefinitions(svc *ServiceManifest) ([]actions.ActionDefinition,
 		definition := actions.ActionDefinition{
 			Name:         svc.Name + "." + key,
 			Version:      1,
-			DisplayName:  nonEmpty(actionSpec.Description, key),
+			DisplayName:  nonEmptyString(actionSpec.Description, key),
 			Namespace:    svc.Name,
 			Verb:         actionSpec.Command,
 			Resource:     svc.TargetApp,
@@ -170,7 +170,7 @@ func toCommandDefinitions(svc *ServiceManifest) ([]actions.ActionDefinition, err
 		definition := actions.ActionDefinition{
 			Name:         svc.Name + "." + key,
 			Version:      1,
-			DisplayName:  nonEmpty(actionSpec.Description, key),
+			DisplayName:  nonEmptyString(actionSpec.Description, key),
 			Namespace:    svc.Name,
 			Verb:         actionSpec.Command,
 			Resource:     executable,
@@ -369,13 +369,6 @@ func has5xx(codes []int) bool {
 		}
 	}
 	return false
-}
-
-func nonEmpty(value, fallback string) string {
-	if strings.TrimSpace(value) == "" {
-		return fallback
-	}
-	return value
 }
 
 func marshalBody(body map[string]any) string {

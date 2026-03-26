@@ -152,16 +152,16 @@ func TestLoadProvider_Canva_Parity(t *testing.T) {
 	assertProviderLoadsFromYAML(t, "canva")
 }
 
-func TestLoadAllProviders_AllNine(t *testing.T) {
+func TestLoadAllProviders_AllTen(t *testing.T) {
 	all, err := providers.LoadAllProviders(providers.EmbeddedProviders)
 	if err != nil {
 		t.Fatalf("LoadAllProviders failed: %v", err)
 	}
-	if len(all) != 9 {
+	if len(all) != 10 {
 		ids := make([]string, len(all))
 		for i, p := range all {
 			ids[i] = p.ID
 		}
-		t.Errorf("expected 9 providers, got %d: %v", len(all), ids)
+		t.Errorf("expected 10 providers, got %d: %v", len(all), ids)
 	}
 }

@@ -20,6 +20,8 @@ import (
 	"github.com/dunialabs/kimbap-core/internal/observability"
 	"github.com/dunialabs/kimbap-core/internal/runtime"
 	"github.com/dunialabs/kimbap-core/internal/store"
+	"github.com/dunialabs/kimbap-core/internal/vault"
+	"github.com/dunialabs/kimbap-core/internal/webhooks"
 	"github.com/spf13/cobra"
 )
 
@@ -52,15 +54,18 @@ func newServeCommand() *cobra.Command {
 				listenAddr = withPort(listenAddr, port)
 			}
 
-			var serverOpts []api.ServerOption
-			rt, buildErr := buildServeRuntime(cfg, st)
-			if buildErr != nil {
-				_, _ = fmt.Fprintln(os.Stderr, "warning: runtime unavailable, action execution disabled:", buildErr)
-			} else {
-				serverOpts = append(serverOpts, api.WithRuntime(rt))
+			vaultStore, err := initVaultStore(cfg)
+			if err != nil {
+				return err
 			}
 
-			srv := api.NewServer(listenAddr, st, serverOpts...)
+			var rt *runtime.Runtime
+			rt, buildErr := buildServeRuntime(cfg, st, vaultStore)
+			if buildErr != nil {
+				_, _ = fmt.Fprintln(os.Stderr, "warning: runtime unavailable, action execution disabled:", buildErr)
+			}
+
+			srv := api.NewServer(listenAddr, st, buildServeServerOptions(rt, vaultStore)...)
 
 			logger := observability.NewLogger(cfg.LogLevel, cfg.LogFormat)
 			bgWorker := jobs.NewWorker(time.Minute, &storeApprovalExpirer{st: st}, logger)
@@ -84,6 +89,17 @@ func newServeCommand() *cobra.Command {
 	return cmd
 }
 
+func buildServeServerOptions(rt *runtime.Runtime, vaultStore vault.Store) []api.ServerOption {
+	opts := []api.ServerOption{api.WithWebhookDispatcher(webhooks.NewDispatcher())}
+	if vaultStore != nil {
+		opts = append(opts, api.WithVaultStore(vaultStore))
+	}
+	if rt != nil {
+		opts = append(opts, api.WithRuntime(rt))
+	}
+	return opts
+}
+
 type storeApprovalExpirer struct {
 	st *store.SQLStore
 }
@@ -95,13 +111,9 @@ func (e *storeApprovalExpirer) ExpireStale(ctx context.Context) (int, error) {
 	return e.st.ExpirePendingApprovals(ctx)
 }
 
-func buildServeRuntime(cfg *config.KimbapConfig, st *store.SQLStore) (*runtime.Runtime, error) {
+func buildServeRuntime(cfg *config.KimbapConfig, st *store.SQLStore, vaultStore vault.Store) (*runtime.Runtime, error) {
 	if cfg == nil {
 		return nil, fmt.Errorf("config is required")
-	}
-	vaultStore, err := initVaultStore(cfg)
-	if err != nil {
-		return nil, err
 	}
 
 	var writers []audit.Writer
@@ -153,7 +165,7 @@ func buildServeRuntime(cfg *config.KimbapConfig, st *store.SQLStore) (*runtime.R
 		ConnectorStore:   connStore,
 		ConnectorConfigs: connConfigs,
 		PolicyPath:       cfg.Policy.Path,
-		SkillsDir:        cfg.Services.Dir,
+		ServicesDir:      cfg.Services.Dir,
 		AuditWriter:      auditWriter,
 		ApprovalManager:  app.NewApprovalManagerAdapter(approvalMgr),
 	})

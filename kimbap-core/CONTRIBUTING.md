@@ -94,7 +94,9 @@ If you find a bug or have a feature request:
 
 ### Adding a new service integration
 
-Create a YAML file in `skills/official/` (historical directory name for service manifests):
+Create a YAML file in `skills/official/`. Three adapter types are supported.
+
+**HTTP (REST API — default)**
 
 ```yaml
 name: service-name
@@ -117,6 +119,51 @@ actions:
     idempotent: true
     risk:
       level: low                  # low | medium | high | critical
+```
+
+**Command (CLI subprocess)**
+
+```yaml
+name: tool-name
+version: 1.0.0
+description: Wraps a CLI tool
+adapter: command
+auth:
+  type: none                      # none | bearer (injects as KIMBAP_CREDENTIAL_<REF>)
+command_spec:
+  executable: cli-anything-tool   # must be on PATH or absolute
+  json_flag: "--json"             # flag that makes the CLI emit JSON to stdout
+  timeout: "60s"                  # optional per-service timeout
+  env_inject:                     # optional extra env vars for the subprocess
+    TOOL_ENV: production
+actions:
+  action-name:
+    command: "tool subcommand"    # command + args passed before json_flag
+    description: What it does
+    args:
+      - name: query
+        type: string
+        required: true
+    risk:
+      level: low
+```
+
+**AppleScript (macOS native apps)**
+
+```yaml
+name: app-name
+version: 1.0.0
+description: macOS Shortcuts automation
+adapter: applescript
+auth:
+  type: none
+target_app: AppName              # macOS app display name
+actions:
+  list-items:
+    command: app-name-list-items  # must match a registered AppleScript command key
+    description: List items
+    risk:
+      level: low
 ```
 
 **Action naming convention:** Use kebab-case within the service file (e.g., `list-repos`, `create-issue`). The canonical name becomes `service.action-name` (e.g., `github.create-issue`).

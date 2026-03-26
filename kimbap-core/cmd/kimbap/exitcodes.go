@@ -52,7 +52,7 @@ func mapExecutionErrorCode(code string) int {
 	case actions.ErrUnauthenticated, actions.ErrUnauthorized,
 		actions.ErrTokenExpired, actions.ErrConnectorNotLoggedIn:
 		return ExitAuthError
-	case actions.ErrValidationFailed, actions.ErrSkillInvalid,
+	case actions.ErrValidationFailed, actions.ErrServiceInvalid,
 		actions.ErrIdempotencyRequired, actions.ErrActionNotFound,
 		actions.ErrClassificationFailed:
 		return ExitValidation

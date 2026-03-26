@@ -9,6 +9,7 @@ import (
 	"maps"
 	"net/http"
 	"net/url"
+	"regexp"
 	"strconv"
 	"strings"
 	"time"
@@ -273,7 +274,15 @@ func (a *HTTPAdapter) executeSingle(ctx context.Context, req AdapterRequest) (*A
 		}
 
 		for key, value := range req.Action.Adapter.Headers {
-			httpReq.Header.Set(key, resolveTemplateString(value, req.Input, templateContextHeader))
+			if templateHasUnresolvedRef(key, req.Input) || templateHasUnresolvedRef(value, req.Input) {
+				continue
+			}
+			resolvedKey := strings.TrimSpace(resolveTemplateString(key, req.Input, templateContextHeader))
+			if resolvedKey == "" {
+				continue
+			}
+			resolved := resolveTemplateString(value, req.Input, templateContextHeader)
+			httpReq.Header.Set(resolvedKey, resolved)
 		}
 
 		if authErr := injectHeaders(httpReq, req.Action.Auth, req.Credentials); authErr != nil {
@@ -413,6 +422,18 @@ const (
 	templateContextQuery  templateContext = "query"
 	templateContextHeader templateContext = "header"
 )
+
+var templateRefPattern = regexp.MustCompile(`\{([a-zA-Z_]\w*)\}`)
+
+func templateHasUnresolvedRef(tmpl string, input map[string]any) bool {
+	for _, match := range templateRefPattern.FindAllStringSubmatch(tmpl, -1) {
+		key := match[1]
+		if _, ok := input[key]; !ok {
+			return true
+		}
+	}
+	return false
+}
 
 func resolveTemplateString(tmpl string, values map[string]any, context templateContext) string {
 	out := tmpl
@@ -614,7 +635,15 @@ func mergeQuery(config map[string]string, input map[string]any, auth actions.Aut
 	auth.Type = normalizeAuthType(auth.Type)
 	out := map[string]string{}
 	for key, value := range config {
-		out[key] = resolveTemplateString(value, input, templateContextQuery)
+		if templateHasUnresolvedRef(key, input) || templateHasUnresolvedRef(value, input) {
+			continue
+		}
+		resolvedKey := strings.TrimSpace(resolveTemplateString(key, input, templateContextQuery))
+		if resolvedKey == "" {
+			continue
+		}
+		resolved := resolveTemplateString(value, input, templateContextQuery)
+		out[resolvedKey] = resolved
 	}
 	if creds != nil {
 		maps.Copy(out, creds.Query)
@@ -808,8 +837,20 @@ func toString(v any) string {
 		return val
 	case fmt.Stringer:
 		return val.String()
+	case []any:
+		b, err := json.Marshal(val)
+		if err != nil {
+			return fmt.Sprint(val)
+		}
+		return string(b)
+	case map[string]any:
+		b, err := json.Marshal(val)
+		if err != nil {
+			return fmt.Sprint(val)
+		}
+		return string(b)
 	default:
-		return fmt.Sprint(val)
+		return fmt.Sprintf("%v", val)
 	}
 }
 

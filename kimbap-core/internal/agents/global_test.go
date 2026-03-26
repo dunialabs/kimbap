@@ -235,7 +235,7 @@ func TestGlobalSetupOneAndTeardownOne(t *testing.T) {
 	dir := t.TempDir()
 	cfg := GlobalAgentConfig{
 		Kind:            AgentClaudeCode,
-		SkillsDir:       filepath.Join(dir, "skills"),
+		AgentSkillsDir:  filepath.Join(dir, "skills"),
 		InstructionFile: filepath.Join(dir, "CLAUDE.md"),
 		DetectDir:       filepath.Join(dir, "detect"),
 	}
@@ -247,14 +247,14 @@ func TestGlobalSetupOneAndTeardownOne(t *testing.T) {
 	if setup.Error != "" {
 		t.Fatalf("global setup failed: %s", setup.Error)
 	}
-	if !setup.SkillWritten {
+	if !setup.AgentSkillWritten {
 		t.Fatal("expected skill to be written")
 	}
 	if !setup.InjectWritten {
 		t.Fatal("expected instruction block to be injected")
 	}
 
-	skillPath := filepath.Join(cfg.SkillsDir, "kimbap", "SKILL.md")
+	skillPath := filepath.Join(cfg.AgentSkillsDir, "kimbap", "SKILL.md")
 	skillData, err := os.ReadFile(skillPath)
 	if err != nil {
 		t.Fatalf("read skill file: %v", err)
@@ -275,14 +275,14 @@ func TestGlobalSetupOneAndTeardownOne(t *testing.T) {
 	if teardown.Error != "" {
 		t.Fatalf("global teardown failed: %s", teardown.Error)
 	}
-	if !teardown.SkillRemoved {
+	if !teardown.AgentSkillRemoved {
 		t.Fatal("expected skill directory to be removed")
 	}
 	if !teardown.InjectRemoved {
 		t.Fatal("expected injected marker block to be removed")
 	}
 
-	if _, err := os.Stat(filepath.Join(cfg.SkillsDir, "kimbap")); !os.IsNotExist(err) {
+	if _, err := os.Stat(filepath.Join(cfg.AgentSkillsDir, "kimbap")); !os.IsNotExist(err) {
 		t.Fatalf("expected skill directory removed, stat err=%v", err)
 	}
 
@@ -299,7 +299,7 @@ func TestGlobalSetupOneSkippedWhenUnchanged(t *testing.T) {
 	dir := t.TempDir()
 	cfg := GlobalAgentConfig{
 		Kind:            AgentClaudeCode,
-		SkillsDir:       filepath.Join(dir, "skills"),
+		AgentSkillsDir:  filepath.Join(dir, "skills"),
 		InstructionFile: filepath.Join(dir, "CLAUDE.md"),
 		DetectDir:       filepath.Join(dir, "detect"),
 	}
@@ -311,7 +311,7 @@ func TestGlobalSetupOneSkippedWhenUnchanged(t *testing.T) {
 	if first.Error != "" {
 		t.Fatalf("first setup failed: %s", first.Error)
 	}
-	if !first.SkillWritten || !first.InjectWritten {
+	if !first.AgentSkillWritten || !first.InjectWritten {
 		t.Fatalf("expected first setup to write skill and inject, got %+v", first)
 	}
 
@@ -322,7 +322,7 @@ func TestGlobalSetupOneSkippedWhenUnchanged(t *testing.T) {
 	if !second.Skipped {
 		t.Fatalf("expected skipped=true on unchanged second setup, got %+v", second)
 	}
-	if second.SkillWritten {
+	if second.AgentSkillWritten {
 		t.Fatalf("expected skill_written=false on unchanged second setup, got %+v", second)
 	}
 	if second.InjectWritten {
@@ -360,7 +360,7 @@ func TestGlobalTeardownCodexArtifactWithoutDetectDir(t *testing.T) {
 			if r.Error != "" {
 				t.Fatalf("codex teardown reported error: %s", r.Error)
 			}
-			if !r.SkillRemoved {
+			if !r.AgentSkillRemoved {
 				t.Fatalf("expected codex skill artifact removal, got %+v", r)
 			}
 		}
@@ -597,7 +597,7 @@ func TestGlobalStatus(t *testing.T) {
 	if !claude.Detected {
 		t.Fatal("expected claude-code detected")
 	}
-	if !claude.SkillPresent {
+	if !claude.AgentSkillPresent {
 		t.Fatal("expected claude-code skill present")
 	}
 	if !claude.InjectPresent {
@@ -614,7 +614,7 @@ func TestGlobalStatus(t *testing.T) {
 	if opencode.Detected {
 		t.Fatal("did not expect opencode detected")
 	}
-	if opencode.SkillPresent {
+	if opencode.AgentSkillPresent {
 		t.Fatal("did not expect opencode skill present")
 	}
 }

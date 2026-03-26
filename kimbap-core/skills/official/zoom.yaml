@@ -1,0 +1,231 @@
+name: zoom
+version: 1.0.0
+description: Zoom REST API integration for meeting lifecycle and cloud recording retrieval
+base_url: https://api.zoom.us/v2
+auth:
+  type: bearer
+  credential_ref: zoom.token
+triggers:
+  task_verbs: [create, list, fetch, update, delete]
+  objects: [meetings, recordings]
+  instead_of:
+    - calling Zoom APIs directly with raw OAuth tokens
+  exclusions:
+    - non-Zoom conferencing providers
+gotchas:
+  - symptom: 401 Unauthorized on all endpoints
+    likely_cause: OAuth access token is expired, revoked, or for the wrong Zoom account
+    recovery: Refresh/reconnect the Zoom OAuth credential and verify account context
+    severity: high
+  - symptom: 300/404 style errors when using a user email as owner
+    likely_cause: user_id must be a Zoom user identifier accepted by the endpoint (often me or UUID)
+    recovery: Resolve and use a valid user_id (or me) before creating/listing meetings
+    severity: medium
+  - symptom: Meeting updates appear ignored for one occurrence
+    likely_cause: Recurring meetings may require occurrence-specific handling instead of series-level patch
+    recovery: Fetch meeting details first, then target the intended occurrence/series fields explicitly
+    severity: medium
+  - symptom: list-recordings returns empty even when meetings were recorded
+    likely_cause: Cloud recording is disabled or recordings are still processing/retention-filtered
+    recovery: Confirm cloud recording settings and retry after processing with a bounded delay
+    severity: low
+recipes:
+  - name: Provision and verify a new meeting
+    description: Create a meeting, confirm it persisted, then hand back canonical identifiers
+    steps:
+      - Create a meeting for the target user_id with topic and schedule metadata
+      - Fetch the meeting by meeting_id to verify creation and capture join/start URLs
+      - Store meeting_id for future update or delete operations
+  - name: Audit recent recordings safely
+    description: Enumerate cloud recordings in a date range without missing paginated results
+    steps:
+      - List recordings for a user_id with from/to date bounds
+      - Follow next_page_token until exhausted or operational page limits are reached
+      - Inspect recording metadata before downstream download/transcode workflows
+actions:
+  create-meeting:
+    method: POST
+    path: /users/{user_id}/meetings
+    description: Create a new Zoom meeting for a specific user
+    args:
+      - name: user_id
+        type: string
+        required: true
+      - name: topic
+        type: string
+        required: true
+      - name: type
+        type: integer
+        required: false
+        default: 2
+      - name: start_time
+        type: string
+        required: false
+      - name: duration
+        type: integer
+        required: false
+      - name: timezone
+        type: string
+        required: false
+      - name: agenda
+        type: string
+        required: false
+      - name: settings
+        type: object
+        required: false
+    request:
+      body:
+        topic: "{topic}"
+        type: "{type}"
+        start_time: "{start_time}"
+        duration: "{duration}"
+        timezone: "{timezone}"
+        agenda: "{agenda}"
+        settings: "{settings}"
+    response:
+      type: object
+    risk:
+      level: high
+  list-meetings:
+    method: GET
+    path: /users/{user_id}/meetings
+    description: List meetings for a user
+    args:
+      - name: user_id
+        type: string
+        required: true
+      - name: type
+        type: string
+        required: false
+        default: scheduled
+      - name: page_size
+        type: integer
+        required: false
+        default: 30
+      - name: next_page_token
+        type: string
+        required: false
+    request:
+      query:
+        type: "{type}"
+        page_size: "{page_size}"
+        next_page_token: "{next_page_token}"
+    response:
+      type: object
+    risk:
+      level: low
+  get-meeting:
+    method: GET
+    path: /meetings/{meeting_id}
+    description: Fetch a Zoom meeting by ID
+    args:
+      - name: meeting_id
+        type: string
+        required: true
+      - name: occurrence_id
+        type: string
+        required: false
+      - name: show_previous_occurrences
+        type: boolean
+        required: false
+    request:
+      query:
+        occurrence_id: "{occurrence_id}"
+        show_previous_occurrences: "{show_previous_occurrences}"
+    response:
+      type: object
+    risk:
+      level: low
+  update-meeting:
+    method: PATCH
+    path: /meetings/{meeting_id}
+    description: Update an existing Zoom meeting
+    args:
+      - name: meeting_id
+        type: string
+        required: true
+      - name: topic
+        type: string
+        required: false
+      - name: start_time
+        type: string
+        required: false
+      - name: duration
+        type: integer
+        required: false
+      - name: timezone
+        type: string
+        required: false
+      - name: agenda
+        type: string
+        required: false
+      - name: settings
+        type: object
+        required: false
+    request:
+      body:
+        topic: "{topic}"
+        start_time: "{start_time}"
+        duration: "{duration}"
+        timezone: "{timezone}"
+        agenda: "{agenda}"
+        settings: "{settings}"
+    response:
+      type: object
+    risk:
+      level: medium
+  delete-meeting:
+    method: DELETE
+    path: /meetings/{meeting_id}
+    description: Delete a Zoom meeting
+    warnings:
+      - This action permanently deletes the meeting and may invalidate scheduled join links
+    args:
+      - name: meeting_id
+        type: string
+        required: true
+      - name: occurrence_id
+        type: string
+        required: false
+      - name: schedule_for_reminder
+        type: boolean
+        required: false
+    request:
+      query:
+        occurrence_id: "{occurrence_id}"
+        schedule_for_reminder: "{schedule_for_reminder}"
+    response:
+      type: object
+    risk:
+      level: high
+  list-recordings:
+    method: GET
+    path: /users/{user_id}/recordings
+    description: List cloud recordings for a user in a date range
+    args:
+      - name: user_id
+        type: string
+        required: true
+      - name: from
+        type: string
+        required: false
+      - name: to
+        type: string
+        required: false
+      - name: page_size
+        type: integer
+        required: false
+        default: 30
+      - name: next_page_token
+        type: string
+        required: false
+    request:
+      query:
+        from: "{from}"
+        to: "{to}"
+        page_size: "{page_size}"
+        next_page_token: "{next_page_token}"
+    response:
+      type: object
+    risk:
+      level: low

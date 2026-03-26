@@ -53,6 +53,12 @@ func (s *Server) handleCreateWebhook(w http.ResponseWriter, r *http.Request) {
 		writeEnvelopeError(w, r, actions.NewExecutionError(actions.ErrValidationFailed, "url is required", http.StatusBadRequest, false, nil))
 		return
 	}
+	for _, event := range sub.Events {
+		if !webhooks.IsKnownEventType(event) {
+			writeEnvelopeError(w, r, actions.NewExecutionError(actions.ErrValidationFailed, "events contains unknown or inactive event type", http.StatusBadRequest, false, map[string]any{"event": event}))
+			return
+		}
+	}
 	if err := validateWebhookURL(sub.URL); err != nil {
 		writeEnvelopeError(w, r, actions.NewExecutionError(actions.ErrValidationFailed, err.Error(), http.StatusBadRequest, false, nil))
 		return

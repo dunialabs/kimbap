@@ -74,6 +74,8 @@ func init() {
 
 	rootCmd.AddCommand(newCallCommand())
 	rootCmd.AddCommand(newActionsCommand())
+	rootCmd.AddCommand(newGenerateCommand())
+	rootCmd.AddCommand(newSearchCommand())
 	rootCmd.AddCommand(newVaultCommand())
 	rootCmd.AddCommand(newTokenCommand())
 	rootCmd.AddCommand(newPolicyCommand())
@@ -82,6 +84,7 @@ func init() {
 	rootCmd.AddCommand(newServiceCommand())
 	rootCmd.AddCommand(newConnectorCommand())
 	rootCmd.AddCommand(newAuthCommand())
+	rootCmd.AddCommand(newLinkCommand())
 	rootCmd.AddCommand(newApproveCommand())
 	rootCmd.AddCommand(newAuditCommand())
 	rootCmd.AddCommand(newRunCommand())
@@ -434,7 +437,7 @@ func buildRuntimeFromConfig(cfg *config.KimbapConfig) (*runtime.Runtime, error) 
 		ConnectorStore:   connStore,
 		ConnectorConfigs: connConfigs,
 		PolicyPath:       cfg.Policy.Path,
-		SkillsDir:        cfg.Services.Dir,
+		ServicesDir:      cfg.Services.Dir,
 		AuditWriter:      auditWriter,
 		ApprovalManager:  approvalManager,
 	})

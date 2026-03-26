@@ -124,8 +124,123 @@ func TestValidateManifest_UnknownAdapter(t *testing.T) {
 	m.Adapter = "websocket"
 
 	errList := ValidateManifest(m)
-	if !hasValidationError(errList, "adapter", "must be one of http, applescript") {
+	if !hasValidationError(errList, "adapter", "must be one of http, applescript, command") {
 		t.Fatalf("expected adapter validation error, got %v", errList)
+	}
+}
+
+func TestValidateCommandManifest_Valid(t *testing.T) {
+	m := validCommandManifest()
+	errList := ValidateManifest(m)
+	if len(errList) != 0 {
+		t.Fatalf("expected 0 validation errors, got %v", errList)
+	}
+}
+
+func TestValidateCommandManifest_RejectsHTTPAppleScriptFields(t *testing.T) {
+	m := validCommandManifest()
+	m.BaseURL = "https://api.example.com"
+	m.TargetApp = "Notes"
+
+	a := m.Actions["create_diagram"]
+	a.Method = "POST"
+	a.Path = "/diagrams"
+	a.Request.Query = map[string]string{"q": "{q}"}
+	a.Request.Headers = map[string]string{"x": "y"}
+	a.Request.Body = map[string]any{"name": "{name}"}
+	a.Request.PathParams = map[string]string{"id": "{id}"}
+	a.Retry = &RetrySpec{MaxAttempts: 2}
+	a.Pagination = &PageSpec{Type: "cursor"}
+	a.ErrorMapping = map[int]string{500: "oops"}
+	m.Actions["create_diagram"] = a
+
+	errList := ValidateManifest(m)
+	if !hasValidationError(errList, "base_url", "must not be set for command adapter") {
+		t.Fatalf("expected base_url rejection, got %v", errList)
+	}
+	if !hasValidationError(errList, "target_app", "must not be set for command adapter") {
+		t.Fatalf("expected target_app rejection, got %v", errList)
+	}
+	if !hasValidationError(errList, "actions.create_diagram.method", "must not be set for command adapter") {
+		t.Fatalf("expected method rejection, got %v", errList)
+	}
+	if !hasValidationError(errList, "actions.create_diagram.path", "must not be set for command adapter") {
+		t.Fatalf("expected path rejection, got %v", errList)
+	}
+	if !hasValidationError(errList, "actions.create_diagram.request.query", "must not be set for command adapter") {
+		t.Fatalf("expected request.query rejection, got %v", errList)
+	}
+	if !hasValidationError(errList, "actions.create_diagram.request.headers", "must not be set for command adapter") {
+		t.Fatalf("expected request.headers rejection, got %v", errList)
+	}
+	if !hasValidationError(errList, "actions.create_diagram.request.body", "must not be set for command adapter") {
+		t.Fatalf("expected request.body rejection, got %v", errList)
+	}
+	if !hasValidationError(errList, "actions.create_diagram.request.path_params", "must not be set for command adapter") {
+		t.Fatalf("expected request.path_params rejection, got %v", errList)
+	}
+	if !hasValidationError(errList, "actions.create_diagram.pagination", "must not be set for command adapter") {
+		t.Fatalf("expected pagination rejection, got %v", errList)
+	}
+	if !hasValidationError(errList, "actions.create_diagram.retry", "must not be set for command adapter") {
+		t.Fatalf("expected retry rejection, got %v", errList)
+	}
+	if !hasValidationError(errList, "actions.create_diagram.error_mapping", "must not be set for command adapter") {
+		t.Fatalf("expected error_mapping rejection, got %v", errList)
+	}
+}
+
+func TestValidateCommandManifest_AuthConstraints(t *testing.T) {
+	m := validCommandManifest()
+	m.Auth = ServiceAuth{Type: "basic", CredentialRef: "tool.token"}
+	a := m.Actions["create_diagram"]
+	a.Auth = &ServiceAuth{Type: "query", QueryParam: "token", CredentialRef: "tool.token"}
+	m.Actions["create_diagram"] = a
+
+	errList := ValidateManifest(m)
+	if !hasValidationError(errList, "auth.type", "must be none or bearer for command adapter") {
+		t.Fatalf("expected service auth.type rejection, got %v", errList)
+	}
+	if !hasValidationError(errList, "actions.create_diagram.auth.type", "must be none or bearer for command adapter") {
+		t.Fatalf("expected action auth.type rejection, got %v", errList)
+	}
+}
+
+func TestValidateCommandManifest_CommandSpecExecutableWhenPresent(t *testing.T) {
+	m := validCommandManifest()
+	m.CommandSpec = &CommandSpec{}
+	errList := ValidateManifest(m)
+	if !hasValidationError(errList, "command_spec.executable", "must be non-empty") {
+		t.Fatalf("expected command_spec.executable validation error, got %v", errList)
+	}
+}
+
+func TestValidateCommandManifest_CommandSpecRequired(t *testing.T) {
+	m := validCommandManifest()
+	m.CommandSpec = nil
+	errList := ValidateManifest(m)
+	if !hasValidationError(errList, "command_spec", "must be set for command adapter") {
+		t.Fatalf("expected command_spec required error, got %v", errList)
+	}
+}
+
+func TestValidateCommandManifest_InvalidTimeoutFormat(t *testing.T) {
+	m := validCommandManifest()
+	m.CommandSpec.Timeout = "30seconds"
+	errList := ValidateManifest(m)
+	if !hasValidationError(errList, "command_spec.timeout", "must be a valid Go duration") {
+		t.Fatalf("expected timeout format validation error, got %v", errList)
+	}
+}
+
+func TestValidateCommandManifest_CommandRequired(t *testing.T) {
+	m := validCommandManifest()
+	a := m.Actions["create_diagram"]
+	a.Command = ""
+	m.Actions["create_diagram"] = a
+	errList := ValidateManifest(m)
+	if !hasValidationError(errList, "actions.create_diagram.command", "is required") {
+		t.Fatalf("expected command required error, got %v", errList)
 	}
 }
 
@@ -186,6 +301,8 @@ func TestAppleScriptCommandAllowlistMatchesRegisteredCommands(t *testing.T) {
 		adaptercommands.ContactsCommands(),
 		adaptercommands.MSOfficeCommands(),
 		adaptercommands.IWorkCommands(),
+		adaptercommands.SpotifyCommands(),
+		adaptercommands.ShortcutsCommands(),
 	}
 	for _, registry := range registries {
 		for name := range registry {
@@ -239,6 +356,32 @@ func validHTTPManifest() *ServiceManifest {
 				Args:   []ActionArg{{Name: "item_id", Type: "string", Required: true}},
 				Request: RequestSpec{
 					PathParams: map[string]string{"item_id": "{item_id}"},
+				},
+				Response: ResponseSpec{Type: "object"},
+			},
+		},
+	}
+}
+
+func validCommandManifest() *ServiceManifest {
+	return &ServiceManifest{
+		Name:    "diagram-cli",
+		Version: "1.0.0",
+		Adapter: "command",
+		Auth:    ServiceAuth{Type: "bearer", CredentialRef: "diagram.token"},
+		CommandSpec: &CommandSpec{
+			Executable: "cli-anything-mermaid",
+			JSONFlag:   "--json",
+			Timeout:    "30s",
+			EnvInject:  map[string]string{"MERMAID_ENV": "dev"},
+		},
+		Actions: map[string]ServiceAction{
+			"create_diagram": {
+				Command: "diagram create",
+				Risk:    RiskSpec{Level: "low"},
+				Args: []ActionArg{
+					{Name: "title", Type: "string", Required: true},
+					{Name: "source", Type: "string", Required: false},
 				},
 				Response: ResponseSpec{Type: "object"},
 			},

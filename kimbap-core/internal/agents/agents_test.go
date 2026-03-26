@@ -193,8 +193,8 @@ func TestStatusAfterSync(t *testing.T) {
 	if !claude.RulesPresent {
 		t.Fatal("expected claude rules file to exist")
 	}
-	if len(claude.SyncedSkills) != 1 || claude.SyncedSkills[0] != "github-pr" {
-		t.Fatalf("unexpected claude synced skills: %+v", claude.SyncedSkills)
+	if len(claude.SyncedServices) != 1 || claude.SyncedServices[0] != "github-pr" {
+		t.Fatalf("unexpected claude synced skills: %+v", claude.SyncedServices)
 	}
 
 	if generic, ok := byAgent[AgentGeneric]; ok {
@@ -348,6 +348,39 @@ func TestSyncSkillsPrunesRemovedSkills(t *testing.T) {
 	}
 }
 
+func TestSyncServicesSkipPrunePreservesStaleDir(t *testing.T) {
+	dir := t.TempDir()
+
+	staleDir := filepath.Join(dir, ".claude", "skills", "old-service")
+	if err := os.MkdirAll(staleDir, 0o755); err != nil {
+		t.Fatalf("create stale service dir: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(staleDir, "SKILL.md"), []byte("# old\n"), 0o644); err != nil {
+		t.Fatalf("write stale skill file: %v", err)
+	}
+
+	installer := fakeInstaller{skills: []InstalledService{{Name: "github", Content: "# github\n"}}}
+
+	results, err := SyncServices(installer, "# rules\n", SyncOptions{
+		ProjectDir: dir,
+		Agents:     []AgentKind{AgentClaudeCode},
+		SkipPrune:  true,
+	})
+	if err != nil {
+		t.Fatalf("sync failed: %v", err)
+	}
+	if len(results) != 1 {
+		t.Fatalf("expected one result, got %d", len(results))
+	}
+	if len(results[0].Pruned) != 0 {
+		t.Fatalf("expected no pruned entries when SkipPrune=true, got %+v", results[0].Pruned)
+	}
+
+	if _, err := os.Stat(staleDir); err != nil {
+		t.Fatalf("expected stale service dir to remain when SkipPrune=true, stat err=%v", err)
+	}
+}
+
 func TestSyncServicesFallsBackWhenPackCoverageIsPartial(t *testing.T) {
 	dir := t.TempDir()
 	installer := fakePackInstaller{
@@ -357,8 +390,8 @@ func TestSyncServicesFallsBackWhenPackCoverageIsPartial(t *testing.T) {
 		},
 		packs: []InstalledServicePack{
 			{
-				Name:    "github",
-				SkillMD: "# github\n",
+				Name:         "github",
+				AgentSkillMD: "# github\n",
 				PackFiles: map[string]string{
 					"GOTCHAS.md": "# gotchas\n",
 				},
@@ -400,8 +433,8 @@ func TestSyncServicesFallsBackWhenPackNamesDuplicate(t *testing.T) {
 			{Name: "slack", Content: "# slack\n"},
 		},
 		packs: []InstalledServicePack{
-			{Name: "github", SkillMD: "# g1\n"},
-			{Name: "github", SkillMD: "# g2\n"},
+			{Name: "github", AgentSkillMD: "# g1\n"},
+			{Name: "github", AgentSkillMD: "# g2\n"},
 		},
 	}
 
@@ -477,28 +510,28 @@ func TestPackNeedsWriteDetectsUnexpectedFiles(t *testing.T) {
 
 func TestSyncResultAndStatusResultJSONFieldNames(t *testing.T) {
 	sr := SyncResult{
-		Agent:     AgentClaudeCode,
-		SkillsDir: "/some/path",
-		Written:   []string{"svc-a"},
+		Agent:          AgentClaudeCode,
+		AgentSkillsDir: "/some/path",
+		Written:        []string{"svc-a"},
 	}
 	b, err := json.Marshal(sr)
 	if err != nil {
 		t.Fatalf("marshal SyncResult: %v", err)
 	}
-	if !strings.Contains(string(b), `"skills_dir"`) {
-		t.Errorf("SyncResult JSON missing skills_dir field, got: %s", b)
+	if !strings.Contains(string(b), `"agent_skills_dir"`) {
+		t.Errorf("SyncResult JSON missing agent_skills_dir field, got: %s", b)
 	}
 
 	st := StatusResult{
-		Agent:        AgentOpenCode,
-		SyncedSkills: []string{"svc-b"},
+		Agent:          AgentOpenCode,
+		SyncedServices: []string{"svc-b"},
 	}
 	b2, err := json.Marshal(st)
 	if err != nil {
 		t.Fatalf("marshal StatusResult: %v", err)
 	}
-	if !strings.Contains(string(b2), `"synced_skills"`) {
-		t.Errorf("StatusResult JSON missing synced_skills field, got: %s", b2)
+	if !strings.Contains(string(b2), `"synced_services"`) {
+		t.Errorf("StatusResult JSON missing synced_services field, got: %s", b2)
 	}
 }
 
@@ -579,8 +612,8 @@ func TestSyncServicesPack(t *testing.T) {
 	installer := fakePackInstaller{
 		skills: []InstalledService{{Name: "github", Content: "# legacy\n"}},
 		packs: []InstalledServicePack{{
-			Name:    "github",
-			SkillMD: "# SKILL\n",
+			Name:         "github",
+			AgentSkillMD: "# SKILL\n",
 			PackFiles: map[string]string{
 				"GOTCHAS.md": "# GOTCHAS\n",
 				"RECIPES.md": "# RECIPES\n",
@@ -635,7 +668,7 @@ func TestPruneStaleSkillsPackDir(t *testing.T) {
 		}
 	}
 
-	pruned, errs := pruneStaleSkills(skillsDir, []InstalledService{{Name: "github"}}, false)
+	pruned, errs := pruneStaleServices(skillsDir, []InstalledService{{Name: "github"}}, false)
 	if len(errs) != 0 {
 		t.Fatalf("unexpected prune errors: %+v", errs)
 	}

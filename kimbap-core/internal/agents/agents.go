@@ -23,42 +23,42 @@ const (
 var KnownAgents = []AgentKind{AgentClaudeCode, AgentOpenCode, AgentCodex, AgentCursor, AgentGeneric}
 
 type AgentConfig struct {
-	Kind        AgentKind
-	SkillsDir   string
-	RulesFile   string
-	DetectPaths []string
+	Kind           AgentKind
+	AgentSkillsDir string
+	RulesFile      string
+	DetectPaths    []string
 }
 
 var agentConfigs = map[AgentKind]AgentConfig{
 	AgentClaudeCode: {
-		Kind:        AgentClaudeCode,
-		SkillsDir:   ".claude/skills",
-		RulesFile:   ".claude/KIMBAP_OPERATING_RULES.md",
-		DetectPaths: []string{".claude", ".claude/settings.json", ".claude/CLAUDE.md"},
+		Kind:           AgentClaudeCode,
+		AgentSkillsDir: ".claude/skills",
+		RulesFile:      ".claude/KIMBAP_OPERATING_RULES.md",
+		DetectPaths:    []string{".claude", ".claude/settings.json", ".claude/CLAUDE.md"},
 	},
 	AgentOpenCode: {
-		Kind:        AgentOpenCode,
-		SkillsDir:   ".opencode/skills",
-		RulesFile:   ".opencode/KIMBAP_OPERATING_RULES.md",
-		DetectPaths: []string{".opencode", "opencode.json", ".opencode/config.json"},
+		Kind:           AgentOpenCode,
+		AgentSkillsDir: ".opencode/skills",
+		RulesFile:      ".opencode/KIMBAP_OPERATING_RULES.md",
+		DetectPaths:    []string{".opencode", "opencode.json", ".opencode/config.json"},
 	},
 	AgentCodex: {
-		Kind:        AgentCodex,
-		SkillsDir:   ".codex/skills",
-		RulesFile:   ".codex/KIMBAP_OPERATING_RULES.md",
-		DetectPaths: []string{".codex", "AGENTS.md"},
+		Kind:           AgentCodex,
+		AgentSkillsDir: ".codex/skills",
+		RulesFile:      ".codex/KIMBAP_OPERATING_RULES.md",
+		DetectPaths:    []string{".codex", "AGENTS.md"},
 	},
 	AgentCursor: {
-		Kind:        AgentCursor,
-		SkillsDir:   ".cursor/skills",
-		RulesFile:   ".cursor/KIMBAP_OPERATING_RULES.md",
-		DetectPaths: []string{".cursor", ".cursor/rules"},
+		Kind:           AgentCursor,
+		AgentSkillsDir: ".cursor/skills",
+		RulesFile:      ".cursor/KIMBAP_OPERATING_RULES.md",
+		DetectPaths:    []string{".cursor", ".cursor/rules"},
 	},
 	AgentGeneric: {
-		Kind:        AgentGeneric,
-		SkillsDir:   ".agents/skills",
-		RulesFile:   ".agents/KIMBAP_OPERATING_RULES.md",
-		DetectPaths: []string{".agents"},
+		Kind:           AgentGeneric,
+		AgentSkillsDir: ".agents/skills",
+		RulesFile:      ".agents/KIMBAP_OPERATING_RULES.md",
+		DetectPaths:    []string{".agents"},
 	},
 }
 
@@ -92,14 +92,14 @@ func DetectAgents(projectDir string) []DetectedAgent {
 }
 
 type SyncResult struct {
-	Agent        AgentKind `json:"agent"`
-	SkillsDir    string    `json:"skills_dir"`
-	Written      []string  `json:"written"`
-	Skipped      []string  `json:"skipped"`
-	Failed       []string  `json:"failed"`
-	Pruned       []string  `json:"pruned,omitempty"`
-	RulesWritten bool      `json:"rules_written"`
-	Errors       []string  `json:"errors,omitempty"`
+	Agent          AgentKind `json:"agent"`
+	AgentSkillsDir string    `json:"agent_skills_dir"`
+	Written        []string  `json:"written"`
+	Skipped        []string  `json:"skipped"`
+	Failed         []string  `json:"failed"`
+	Pruned         []string  `json:"pruned,omitempty"`
+	RulesWritten   bool      `json:"rules_written"`
+	Errors         []string  `json:"errors,omitempty"`
 }
 
 type SyncOptions struct {
@@ -108,6 +108,7 @@ type SyncOptions struct {
 	Force      bool
 	DryRun     bool
 	SkipRules  bool
+	SkipPrune  bool
 }
 
 type ServiceInstaller interface {
@@ -120,9 +121,9 @@ type InstalledService struct {
 }
 
 type InstalledServicePack struct {
-	Name      string
-	SkillMD   string
-	PackFiles map[string]string
+	Name         string
+	AgentSkillMD string
+	PackFiles    map[string]string
 }
 
 type PackServiceInstaller interface {
@@ -140,7 +141,7 @@ func SyncServices(installer ServiceInstaller, rulesContent string, opts SyncOpti
 		return nil, fmt.Errorf("project path %q is not a directory", projectDir)
 	}
 
-	installedSkills, err := installer.List()
+	installedServices, err := installer.List()
 	if err != nil {
 		return nil, fmt.Errorf("list installed services: %w", err)
 	}
@@ -148,7 +149,7 @@ func SyncServices(installer ServiceInstaller, rulesContent string, opts SyncOpti
 	var installedPacks []InstalledServicePack
 	if packInstaller, ok := installer.(PackServiceInstaller); ok {
 		if packs, pErr := packInstaller.ListPacks(); pErr == nil {
-			if len(packs) > 0 && len(packs) == len(installedSkills) {
+			if len(packs) > 0 && len(packs) == len(installedServices) {
 				packByName := make(map[string]InstalledServicePack, len(packs))
 				for _, p := range packs {
 					if p.Name == "" {
@@ -159,7 +160,7 @@ func SyncServices(installer ServiceInstaller, rulesContent string, opts SyncOpti
 						packByName = nil
 						break
 					}
-					if p.SkillMD == "" && len(p.PackFiles) == 0 {
+					if p.AgentSkillMD == "" && len(p.PackFiles) == 0 {
 						packByName = nil
 						break
 					}
@@ -167,7 +168,7 @@ func SyncServices(installer ServiceInstaller, rulesContent string, opts SyncOpti
 				}
 				if packByName != nil {
 					completeCoverage := true
-					for _, s := range installedSkills {
+					for _, s := range installedServices {
 						if _, ok := packByName[s.Name]; !ok {
 							completeCoverage = false
 							break
@@ -185,17 +186,17 @@ func SyncServices(installer ServiceInstaller, rulesContent string, opts SyncOpti
 	results := make([]SyncResult, 0, len(agentsToProcess))
 
 	for _, selected := range agentsToProcess {
-		skillsDir := ""
-		if selected.cfg.SkillsDir != "" {
-			skillsDir = filepath.Join(projectDir, selected.cfg.SkillsDir)
+		agentSkillsDir := ""
+		if selected.cfg.AgentSkillsDir != "" {
+			agentSkillsDir = filepath.Join(projectDir, selected.cfg.AgentSkillsDir)
 		}
 		result := SyncResult{
-			Agent:     selected.kind,
-			SkillsDir: skillsDir,
-			Written:   make([]string, 0),
-			Skipped:   make([]string, 0),
-			Failed:    make([]string, 0),
-			Errors:    make([]string, 0),
+			Agent:          selected.kind,
+			AgentSkillsDir: agentSkillsDir,
+			Written:        make([]string, 0),
+			Skipped:        make([]string, 0),
+			Failed:         make([]string, 0),
+			Errors:         make([]string, 0),
 		}
 
 		if selected.err != nil {
@@ -211,10 +212,10 @@ func SyncServices(installer ServiceInstaller, rulesContent string, opts SyncOpti
 					result.Errors = append(result.Errors, fmt.Sprintf("service %q: %v", pack.Name, err))
 					continue
 				}
-				packDir := filepath.Join(projectDir, selected.cfg.SkillsDir, pack.Name)
+				packDir := filepath.Join(projectDir, selected.cfg.AgentSkillsDir, pack.Name)
 				allFiles := make(map[string]string, len(pack.PackFiles)+1)
-				if pack.SkillMD != "" {
-					allFiles["SKILL.md"] = pack.SkillMD
+				if pack.AgentSkillMD != "" {
+					allFiles["SKILL.md"] = pack.AgentSkillMD
 				}
 				for k, v := range pack.PackFiles {
 					allFiles[k] = v
@@ -244,58 +245,62 @@ func SyncServices(installer ServiceInstaller, rulesContent string, opts SyncOpti
 			for i, p := range installedPacks {
 				packNames[i] = InstalledService{Name: p.Name}
 			}
-			pruned, pruneErrs := pruneStaleSkills(filepath.Join(projectDir, selected.cfg.SkillsDir), packNames, opts.DryRun)
-			result.Pruned = pruned
-			for _, e := range pruneErrs {
-				result.Errors = append(result.Errors, e)
+			if !opts.SkipPrune {
+				pruned, pruneErrs := pruneStaleServices(filepath.Join(projectDir, selected.cfg.AgentSkillsDir), packNames, opts.DryRun)
+				result.Pruned = pruned
+				for _, e := range pruneErrs {
+					result.Errors = append(result.Errors, e)
+				}
 			}
 		} else {
-			for _, skill := range installedSkills {
-				if err := services.ValidateServiceName(skill.Name); err != nil {
-					result.Failed = append(result.Failed, skill.Name)
-					result.Errors = append(result.Errors, fmt.Sprintf("service %q: %v", skill.Name, err))
+			for _, installedService := range installedServices {
+				if err := services.ValidateServiceName(installedService.Name); err != nil {
+					result.Failed = append(result.Failed, installedService.Name)
+					result.Errors = append(result.Errors, fmt.Sprintf("service %q: %v", installedService.Name, err))
 					continue
 				}
 
-				skillPath := filepath.Join(projectDir, selected.cfg.SkillsDir, skill.Name, "SKILL.md")
-				needsWrite, checkErr := fileNeedsWrite(skillPath, skill.Content, opts.Force)
+				agentSkillPath := filepath.Join(projectDir, selected.cfg.AgentSkillsDir, installedService.Name, "SKILL.md")
+				needsWrite, checkErr := fileNeedsWrite(agentSkillPath, installedService.Content, opts.Force)
 				if checkErr != nil {
-					result.Failed = append(result.Failed, skill.Name)
-					result.Errors = append(result.Errors, fmt.Sprintf("service %q: %v", skill.Name, checkErr))
+					result.Failed = append(result.Failed, installedService.Name)
+					result.Errors = append(result.Errors, fmt.Sprintf("service %q: %v", installedService.Name, checkErr))
 					continue
 				}
 				if !needsWrite {
-					result.Skipped = append(result.Skipped, skill.Name)
+					result.Skipped = append(result.Skipped, installedService.Name)
 					continue
 				}
 
 				if opts.DryRun {
-					result.Written = append(result.Written, skill.Name)
+					result.Written = append(result.Written, installedService.Name)
 					continue
 				}
 
-				if err := os.MkdirAll(filepath.Dir(skillPath), 0o755); err != nil {
-					result.Failed = append(result.Failed, skill.Name)
-					result.Errors = append(result.Errors, fmt.Sprintf("service %q: create dir: %v", skill.Name, err))
+				if err := os.MkdirAll(filepath.Dir(agentSkillPath), 0o755); err != nil {
+					result.Failed = append(result.Failed, installedService.Name)
+					result.Errors = append(result.Errors, fmt.Sprintf("service %q: create dir: %v", installedService.Name, err))
 					continue
 				}
-				if err := os.WriteFile(skillPath, []byte(skill.Content), 0o644); err != nil {
-					result.Failed = append(result.Failed, skill.Name)
-					result.Errors = append(result.Errors, fmt.Sprintf("service %q: write file: %v", skill.Name, err))
+				if err := os.WriteFile(agentSkillPath, []byte(installedService.Content), 0o644); err != nil {
+					result.Failed = append(result.Failed, installedService.Name)
+					result.Errors = append(result.Errors, fmt.Sprintf("service %q: write file: %v", installedService.Name, err))
 					continue
 				}
 
-				result.Written = append(result.Written, skill.Name)
+				result.Written = append(result.Written, installedService.Name)
 			}
 
-			pruned, pruneErrs := pruneStaleSkills(
-				filepath.Join(projectDir, selected.cfg.SkillsDir),
-				installedSkills,
-				opts.DryRun,
-			)
-			result.Pruned = pruned
-			for _, e := range pruneErrs {
-				result.Errors = append(result.Errors, e)
+			if !opts.SkipPrune {
+				pruned, pruneErrs := pruneStaleServices(
+					filepath.Join(projectDir, selected.cfg.AgentSkillsDir),
+					installedServices,
+					opts.DryRun,
+				)
+				result.Pruned = pruned
+				for _, e := range pruneErrs {
+					result.Errors = append(result.Errors, e)
+				}
 			}
 		}
 
@@ -329,11 +334,11 @@ func SyncServices(installer ServiceInstaller, rulesContent string, opts SyncOpti
 }
 
 type StatusResult struct {
-	Agent        AgentKind `json:"agent"`
-	Detected     bool      `json:"detected"`
-	SkillsDir    string    `json:"skills_dir"`
-	SyncedSkills []string  `json:"synced_skills"`
-	RulesPresent bool      `json:"rules_present"`
+	Agent          AgentKind `json:"agent"`
+	Detected       bool      `json:"detected"`
+	AgentSkillsDir string    `json:"agent_skills_dir"`
+	SyncedServices []string  `json:"synced_services"`
+	RulesPresent   bool      `json:"rules_present"`
 }
 
 func Status(projectDir string) ([]StatusResult, error) {
@@ -352,7 +357,7 @@ func Status(projectDir string) ([]StatusResult, error) {
 			return nil, fmt.Errorf("check rules file for %q: %w", kind, err)
 		}
 
-		syncedSkills, err := listSyncedSkills(filepath.Join(baseDir, cfg.SkillsDir))
+		syncedServices, err := listSyncedServices(filepath.Join(baseDir, cfg.AgentSkillsDir))
 		if err != nil {
 			return nil, fmt.Errorf("list synced services for %q: %w", kind, err)
 		}
@@ -363,11 +368,11 @@ func Status(projectDir string) ([]StatusResult, error) {
 		}
 
 		results = append(results, StatusResult{
-			Agent:        kind,
-			Detected:     detected,
-			SkillsDir:    filepath.Join(baseDir, cfg.SkillsDir),
-			SyncedSkills: syncedSkills,
-			RulesPresent: rulesPresent,
+			Agent:          kind,
+			Detected:       detected,
+			AgentSkillsDir: filepath.Join(baseDir, cfg.AgentSkillsDir),
+			SyncedServices: syncedServices,
+			RulesPresent:   rulesPresent,
 		})
 	}
 
@@ -503,8 +508,8 @@ func packNeedsWrite(packDir string, packFiles map[string]string, force bool) (bo
 	return false, nil
 }
 
-func listSyncedSkills(skillsDir string) ([]string, error) {
-	entries, err := os.ReadDir(skillsDir)
+func listSyncedServices(agentSkillsDir string) ([]string, error) {
+	entries, err := os.ReadDir(agentSkillsDir)
 	if err != nil {
 		if os.IsNotExist(err) {
 			return []string{}, nil
@@ -517,8 +522,8 @@ func listSyncedSkills(skillsDir string) ([]string, error) {
 		if !entry.IsDir() || entry.Name() == "kimbap" {
 			continue
 		}
-		skillFile := filepath.Join(skillsDir, entry.Name(), "SKILL.md")
-		exists, err := pathExists(skillFile)
+		agentSkillFile := filepath.Join(agentSkillsDir, entry.Name(), "SKILL.md")
+		exists, err := pathExists(agentSkillFile)
 		if err != nil {
 			return nil, err
 		}
@@ -531,13 +536,13 @@ func listSyncedSkills(skillsDir string) ([]string, error) {
 	return out, nil
 }
 
-func pruneStaleSkills(skillsDir string, installed []InstalledService, dryRun bool) ([]string, []string) {
-	entries, err := os.ReadDir(skillsDir)
+func pruneStaleServices(agentSkillsDir string, installed []InstalledService, dryRun bool) ([]string, []string) {
+	entries, err := os.ReadDir(agentSkillsDir)
 	if err != nil {
 		if os.IsNotExist(err) {
 			return nil, nil
 		}
-		return nil, []string{fmt.Sprintf("read skills dir: %v", err)}
+		return nil, []string{fmt.Sprintf("read agent skills dir: %v", err)}
 	}
 
 	active := map[string]bool{"kimbap": true}
@@ -551,8 +556,8 @@ func pruneStaleSkills(skillsDir string, installed []InstalledService, dryRun boo
 		if !entry.IsDir() || active[entry.Name()] {
 			continue
 		}
-		skillFile := filepath.Join(skillsDir, entry.Name(), "SKILL.md")
-		if _, err := os.Stat(skillFile); err != nil {
+		agentSkillFile := filepath.Join(agentSkillsDir, entry.Name(), "SKILL.md")
+		if _, err := os.Stat(agentSkillFile); err != nil {
 			if os.IsNotExist(err) {
 				continue
 			}
@@ -563,7 +568,7 @@ func pruneStaleSkills(skillsDir string, installed []InstalledService, dryRun boo
 			pruned = append(pruned, entry.Name())
 			continue
 		}
-		if err := os.RemoveAll(filepath.Join(skillsDir, entry.Name())); err != nil {
+		if err := os.RemoveAll(filepath.Join(agentSkillsDir, entry.Name())); err != nil {
 			errs = append(errs, fmt.Sprintf("prune %q: %v", entry.Name(), err))
 		} else {
 			pruned = append(pruned, entry.Name())

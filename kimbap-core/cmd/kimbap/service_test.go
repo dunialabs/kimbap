@@ -24,7 +24,7 @@ func TestWriteSkillPackDirRemovesStaleBackupDir(t *testing.T) {
 		t.Fatalf("write stale backup file: %v", err)
 	}
 
-	written, err := writeSkillPackDir(serviceDir, map[string]string{"SKILL.md": "# new\n"})
+	written, err := writeAgentSkillPackDir(serviceDir, map[string]string{"SKILL.md": "# new\n"})
 	if err != nil {
 		t.Fatalf("writeSkillPackDir with stale backup: %v", err)
 	}

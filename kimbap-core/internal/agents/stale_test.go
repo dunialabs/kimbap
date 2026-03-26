@@ -48,12 +48,12 @@ func TestComputeArtifactHash(t *testing.T) {
 
 func TestComputePackArtifactHashDeterministicAndOrderIndependent(t *testing.T) {
 	packsA := []InstalledServicePack{
-		{Name: "svc-b", SkillMD: "# B\n", PackFiles: map[string]string{"GOTCHAS.md": "B"}},
-		{Name: "svc-a", SkillMD: "# A\n", PackFiles: map[string]string{"RECIPES.md": "A"}},
+		{Name: "svc-b", AgentSkillMD: "# B\n", PackFiles: map[string]string{"GOTCHAS.md": "B"}},
+		{Name: "svc-a", AgentSkillMD: "# A\n", PackFiles: map[string]string{"RECIPES.md": "A"}},
 	}
 	packsB := []InstalledServicePack{
-		{Name: "svc-a", SkillMD: "# A\n", PackFiles: map[string]string{"RECIPES.md": "A"}},
-		{Name: "svc-b", SkillMD: "# B\n", PackFiles: map[string]string{"GOTCHAS.md": "B"}},
+		{Name: "svc-a", AgentSkillMD: "# A\n", PackFiles: map[string]string{"RECIPES.md": "A"}},
+		{Name: "svc-b", AgentSkillMD: "# B\n", PackFiles: map[string]string{"GOTCHAS.md": "B"}},
 	}
 
 	h1 := computePackArtifactHash(packsA)
@@ -75,8 +75,8 @@ func TestRecordSyncPacksWritesState(t *testing.T) {
 	t.Setenv("HOME", tmp)
 
 	packs := []InstalledServicePack{
-		{Name: "svc-a", SkillMD: "# A\n", PackFiles: map[string]string{"RECIPES.md": "A"}},
-		{Name: "svc-b", SkillMD: "# B\n", PackFiles: map[string]string{"GOTCHAS.md": "B"}},
+		{Name: "svc-a", AgentSkillMD: "# A\n", PackFiles: map[string]string{"RECIPES.md": "A"}},
+		{Name: "svc-b", AgentSkillMD: "# B\n", PackFiles: map[string]string{"GOTCHAS.md": "B"}},
 	}
 	if err := RecordSyncPacks("project-a", packs); err != nil {
 		t.Fatalf("RecordSyncPacks: %v", err)
@@ -96,7 +96,7 @@ func TestRecordSyncPacksWritesState(t *testing.T) {
 
 func TestComputePackArtifactHashIncludesSkillFromPackFilesWhenSkillMDEmpty(t *testing.T) {
 	withSkillMD := []InstalledServicePack{
-		{Name: "svc-a", SkillMD: "# A\n", PackFiles: map[string]string{"GOTCHAS.md": "A"}},
+		{Name: "svc-a", AgentSkillMD: "# A\n", PackFiles: map[string]string{"GOTCHAS.md": "A"}},
 	}
 	withSkillInPackFiles := []InstalledServicePack{
 		{Name: "svc-a", PackFiles: map[string]string{"SKILL.md": "# A\n", "GOTCHAS.md": "A"}},
@@ -428,15 +428,15 @@ func TestStaleCheckResultJSONFieldNamesUseServices(t *testing.T) {
 
 func TestComputePackArtifactHashChangesOnGotchas(t *testing.T) {
 	base := []InstalledServicePack{{
-		Name:    "github",
-		SkillMD: "# skill\n",
+		Name:         "github",
+		AgentSkillMD: "# skill\n",
 		PackFiles: map[string]string{
 			"GOTCHAS.md": "rate limit recovery A\n",
 		},
 	}}
 	changed := []InstalledServicePack{{
-		Name:    "github",
-		SkillMD: "# skill\n",
+		Name:         "github",
+		AgentSkillMD: "# skill\n",
 		PackFiles: map[string]string{
 			"GOTCHAS.md": "rate limit recovery B\n",
 		},
@@ -451,12 +451,12 @@ func TestComputePackArtifactHashChangesOnGotchas(t *testing.T) {
 
 func TestComputePackArtifactHashDeterministic(t *testing.T) {
 	packsA := []InstalledServicePack{
-		{Name: "slack", SkillMD: "# slack\n", PackFiles: map[string]string{"GOTCHAS.md": "g1\n", "RECIPES.md": "r1\n"}},
-		{Name: "github", SkillMD: "# github\n", PackFiles: map[string]string{"GOTCHAS.md": "g2\n"}},
+		{Name: "slack", AgentSkillMD: "# slack\n", PackFiles: map[string]string{"GOTCHAS.md": "g1\n", "RECIPES.md": "r1\n"}},
+		{Name: "github", AgentSkillMD: "# github\n", PackFiles: map[string]string{"GOTCHAS.md": "g2\n"}},
 	}
 	packsB := []InstalledServicePack{
-		{Name: "github", SkillMD: "# github\n", PackFiles: map[string]string{"GOTCHAS.md": "g2\n"}},
-		{Name: "slack", SkillMD: "# slack\n", PackFiles: map[string]string{"RECIPES.md": "r1\n", "GOTCHAS.md": "g1\n"}},
+		{Name: "github", AgentSkillMD: "# github\n", PackFiles: map[string]string{"GOTCHAS.md": "g2\n"}},
+		{Name: "slack", AgentSkillMD: "# slack\n", PackFiles: map[string]string{"RECIPES.md": "r1\n", "GOTCHAS.md": "g1\n"}},
 	}
 
 	h1 := computePackArtifactHash(packsA)

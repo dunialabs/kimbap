@@ -1,0 +1,102 @@
+name: notebooklm
+version: 0.1.0
+description: "NotebookLM AI research assistant via CLI harness (experimental: requires local notebooklm-py session)"
+adapter: command
+command_spec:
+  executable: cli-anything-notebooklm
+  json_flag: "--json"
+  timeout: "120s"
+auth:
+  type: none
+triggers:
+  task_verbs: [create, add, list, ask]
+  objects: [notebooks, sources, research questions]
+  instead_of:
+    - manually operating notebooklm-py shell commands
+  exclusions:
+    - general chat tasks without notebook context
+gotchas:
+  - symptom: actions fail after previously working session
+    likely_cause: experimental local notebooklm-py session expired or disconnected
+    recovery: Restart local notebooklm-py session and retry with fresh authentication context
+    severity: critical
+  - symptom: add-source rejects valid looking URLs
+    likely_cause: source URL is blocked, unsupported, or unreachable from local runtime
+    recovery: Verify URL accessibility and retry with a directly reachable document URL
+    severity: high
+recipes:
+  - name: Build notebook from sources and ask question
+    description: Create a notebook, ingest references, then query grounded answers
+    steps:
+      - Call create-notebook with a clear research title
+      - Call add-source for each supporting URL
+      - Call list-sources to confirm ingestion state
+      - Call chat with notebook_id and focused question
+actions:
+  list-notebooks:
+    command: "notebook list"
+    description: List available notebooks in the active NotebookLM harness session
+    idempotent: true
+    args: []
+    response:
+      type: array
+    risk:
+      level: low
+
+  create-notebook:
+    command: "notebook create"
+    description: Create a new NotebookLM notebook container
+    idempotent: false
+    args:
+      - name: title
+        type: string
+        required: true
+    response:
+      type: object
+    risk:
+      level: medium
+
+  add-source:
+    command: "source add"
+    description: Attach a source URL to an existing notebook
+    idempotent: false
+    args:
+      - name: notebook_id
+        type: string
+        required: true
+      - name: url
+        type: string
+        required: true
+    response:
+      type: object
+    risk:
+      level: medium
+
+  list-sources:
+    command: "source list"
+    description: List source documents attached to a notebook
+    idempotent: true
+    args:
+      - name: notebook_id
+        type: string
+        required: true
+    response:
+      type: array
+    risk:
+      level: low
+
+  chat:
+    command: "chat ask"
+    description: Ask a grounded question against notebook sources
+    idempotent: true
+    args:
+      - name: notebook_id
+        type: string
+        required: true
+      - name: question
+        type: string
+        required: true
+    response:
+      type: object
+    risk:
+      level: low

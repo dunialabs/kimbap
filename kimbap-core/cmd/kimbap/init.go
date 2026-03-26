@@ -1,18 +1,26 @@
 package main
 
 import (
+	"bufio"
+	"errors"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 
 	"github.com/dunialabs/kimbap-core/internal/config"
+	"github.com/dunialabs/kimbap-core/internal/services"
+	"github.com/dunialabs/kimbap-core/skills"
 	"github.com/spf13/cobra"
 	"gopkg.in/yaml.v3"
 )
 
 func newInitCommand() *cobra.Command {
 	var force bool
+	var servicesRaw string
+	var noServices bool
 	cmd := &cobra.Command{
 		Use:   "init",
 		Short: "Bootstrap a fresh Kimbap installation",
@@ -49,6 +57,15 @@ func newInitCommand() *cobra.Command {
 			checks = append(checks, auditCheck)
 			hasFailure = hasFailure || auditCheck.Status == "fail"
 
+			serviceSelection, selectionErr := resolveInitServiceSelection(servicesRaw, noServices)
+			if selectionErr != nil {
+				return selectionErr
+			}
+
+			serviceCheck := installInitServices(cfg, serviceSelection, hasFailure)
+			checks = append(checks, serviceCheck)
+			hasFailure = hasFailure || serviceCheck.Status == "fail"
+
 			if outputAsJSON() {
 				if err := printOutput(checks); err != nil {
 					return err
@@ -69,7 +86,223 @@ func newInitCommand() *cobra.Command {
 		},
 	}
 	cmd.Flags().BoolVar(&force, "force", false, "overwrite existing config file")
+	cmd.Flags().StringVar(&servicesRaw, "services", "", "comma-separated official services to install")
+	cmd.Flags().BoolVar(&noServices, "no-services", false, "skip service installation during init")
 	return cmd
+}
+
+type initServiceSelection struct {
+	Names   []string
+	Skipped bool
+	Reason  string
+}
+
+func resolveInitServiceSelection(rawServices string, noServices bool) (initServiceSelection, error) {
+	if noServices {
+		return initServiceSelection{Skipped: true, Reason: "skipped by --no-services"}, nil
+	}
+
+	if selected := parseCSV(rawServices); len(selected) > 0 {
+		normalized, err := normalizeSelectedOfficialServices(selected)
+		if err != nil {
+			return initServiceSelection{}, err
+		}
+		return initServiceSelection{Names: normalized}, nil
+	}
+
+	if !isInteractiveStdin() {
+		return initServiceSelection{Skipped: true, Reason: "non-interactive stdin"}, nil
+	}
+
+	if err := printOfficialServiceCategories(); err != nil {
+		return initServiceSelection{}, err
+	}
+	_, _ = fmt.Fprint(os.Stdout, "Install services now? (Enter comma-separated names, or 'all' for everything, empty to skip): ")
+
+	line, err := bufio.NewReader(os.Stdin).ReadString('\n')
+	if err != nil && !errors.Is(err, io.EOF) {
+		return initServiceSelection{}, fmt.Errorf("read service selection: %w", err)
+	}
+
+	trimmed := strings.TrimSpace(line)
+	if trimmed == "" {
+		return initServiceSelection{Skipped: true, Reason: "empty selection"}, nil
+	}
+
+	if strings.EqualFold(trimmed, "all") {
+		all, listErr := skills.List()
+		if listErr != nil {
+			return initServiceSelection{}, fmt.Errorf("list official services: %w", listErr)
+		}
+		return initServiceSelection{Names: all}, nil
+	}
+
+	selected := parseCSV(trimmed)
+	normalized, normalizeErr := normalizeSelectedOfficialServices(selected)
+	if normalizeErr != nil {
+		return initServiceSelection{}, normalizeErr
+	}
+	if len(normalized) == 0 {
+		return initServiceSelection{Skipped: true, Reason: "empty selection"}, nil
+	}
+	return initServiceSelection{Names: normalized}, nil
+}
+
+func isInteractiveStdin() bool {
+	fi, err := os.Stdin.Stat()
+	if err != nil {
+		return false
+	}
+	return fi.Mode()&os.ModeCharDevice != 0
+}
+
+func installInitServices(cfg *config.KimbapConfig, selection initServiceSelection, hasFailure bool) doctorCheck {
+	if hasFailure {
+		return doctorCheck{Name: "official services installed", Status: "skip", Detail: "skipped due to previous init failures"}
+	}
+	if selection.Skipped {
+		return doctorCheck{Name: "official services installed", Status: "skip", Detail: selection.Reason}
+	}
+	if len(selection.Names) == 0 {
+		return doctorCheck{Name: "official services installed", Status: "skip", Detail: "no services selected"}
+	}
+
+	installer := installerFromConfig(cfg)
+	installed := 0
+	enabled := 0
+	skipped := 0
+	failed := make([]string, 0)
+
+	for _, name := range selection.Names {
+		data, getErr := skills.Get(name)
+		if getErr != nil {
+			failed = append(failed, fmt.Sprintf("%s (load: %v)", name, getErr))
+			continue
+		}
+
+		manifest, parseErr := services.ParseManifest(data)
+		if parseErr != nil {
+			failed = append(failed, fmt.Sprintf("%s (parse: %v)", name, parseErr))
+			continue
+		}
+
+		if _, installErr := installer.InstallWithForceAndActivation(manifest, "official:"+name, false, true); installErr != nil {
+			if errors.Is(installErr, services.ErrServiceAlreadyInstalled) {
+				existing, getErr := installer.Get(name)
+				if getErr == nil && existing.Enabled {
+					skipped++
+					continue
+				}
+				if enableErr := installer.Enable(name); enableErr != nil {
+					failed = append(failed, fmt.Sprintf("%s (enable: %v)", name, enableErr))
+				} else {
+					enabled++
+				}
+				continue
+			}
+			failed = append(failed, fmt.Sprintf("%s (install: %v)", name, installErr))
+			continue
+		}
+		installed++
+	}
+
+	detail := fmt.Sprintf("installed: %d, enabled: %d, unchanged: %d", installed, enabled, skipped)
+	if len(failed) > 0 {
+		return doctorCheck{Name: "official services installed", Status: "fail", Detail: fmt.Sprintf("%s, failed: %s", detail, strings.Join(failed, "; "))}
+	}
+	if installed == 0 && enabled == 0 {
+		return doctorCheck{Name: "official services installed", Status: "skip", Detail: detail}
+	}
+	return doctorCheck{Name: "official services installed", Status: "ok", Detail: detail}
+}
+
+func normalizeSelectedOfficialServices(names []string) ([]string, error) {
+	available, err := skills.List()
+	if err != nil {
+		return nil, fmt.Errorf("list official services: %w", err)
+	}
+	valid := make(map[string]struct{}, len(available))
+	for _, name := range available {
+		valid[name] = struct{}{}
+	}
+
+	out := make([]string, 0, len(names))
+	seen := make(map[string]struct{}, len(names))
+	for _, name := range names {
+		normalized := strings.ToLower(strings.TrimSpace(name))
+		if normalized == "" {
+			continue
+		}
+		if _, ok := valid[normalized]; !ok {
+			return nil, fmt.Errorf("unknown official service %q", normalized)
+		}
+		if _, ok := seen[normalized]; ok {
+			continue
+		}
+		seen[normalized] = struct{}{}
+		out = append(out, normalized)
+	}
+	return out, nil
+}
+
+func printOfficialServiceCategories() error {
+	categories := map[string][]string{
+		"SaaS & APIs":   {"github", "slack", "stripe", "notion", "linear", "hubspot", "airtable", "pinecone", "todoist", "posthog", "sentry", "sendgrid", "resend", "exa", "brave-search"},
+		"Communication": {"telegram", "whatsapp", "wechat", "zoom", "apple-mail", "messages"},
+		"Local apps":    {"blender", "comfyui", "ollama", "mermaid", "spotify", "notebooklm"},
+		"macOS native":  {"finder", "safari", "contacts", "shortcuts", "apple-notes", "apple-calendar", "apple-reminders", "keynote", "pages", "numbers"},
+		"Office":        {"ms-word", "ms-excel", "ms-powerpoint"},
+		"Data":          {"wikipedia", "hacker-news", "coingecko", "open-meteo", "open-meteo-air-quality", "open-meteo-historical", "open-meteo-geocoding", "financial-datasets", "rest-countries", "exchange-rate", "public-holidays", "nominatim", "ntfy"},
+	}
+
+	order := []string{"SaaS & APIs", "Communication", "Local apps", "macOS native", "Office", "Data"}
+	known, err := skills.List()
+	if err != nil {
+		return fmt.Errorf("list official services: %w", err)
+	}
+	knownSet := make(map[string]struct{}, len(known))
+	for _, name := range known {
+		knownSet[name] = struct{}{}
+	}
+
+	_, _ = fmt.Fprintln(os.Stdout, "Official services:")
+	for _, category := range order {
+		names := categories[category]
+		filtered := make([]string, 0, len(names))
+		for _, name := range names {
+			if _, ok := knownSet[name]; ok {
+				filtered = append(filtered, name)
+			}
+		}
+		if len(filtered) == 0 {
+			continue
+		}
+		_, _ = fmt.Fprintf(os.Stdout, "  %-16s %s\n", category+":", strings.Join(filtered, ", "))
+	}
+
+	leftovers := make([]string, 0)
+	for _, name := range known {
+		inCategory := false
+		for _, category := range order {
+			for _, listed := range categories[category] {
+				if listed == name {
+					inCategory = true
+					break
+				}
+			}
+			if inCategory {
+				break
+			}
+		}
+		if !inCategory {
+			leftovers = append(leftovers, name)
+		}
+	}
+	if len(leftovers) > 0 {
+		sort.Strings(leftovers)
+		_, _ = fmt.Fprintf(os.Stdout, "  %-16s %s\n", "Other:", strings.Join(leftovers, ", "))
+	}
+	return nil
 }
 
 func buildInitConfig() *config.KimbapConfig {

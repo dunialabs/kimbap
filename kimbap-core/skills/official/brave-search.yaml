@@ -63,7 +63,6 @@ actions:
       type: array
     risk:
       level: low
-      mutating: false
     retry:
       max_attempts: 3
       backoff_ms: 200
@@ -100,4 +99,3 @@ actions:
       type: array
     risk:
       level: low
-      mutating: false

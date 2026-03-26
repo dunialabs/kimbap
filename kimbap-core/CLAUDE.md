@@ -30,12 +30,71 @@ REST API server (`kimbap serve`) serves:
 - `/v1/health` - health check
 - `/v1/actions` - list/describe installed actions
 - `/v1/actions/{service}/{action}:execute` - execute an action
+- `/v1/actions/validate` - validate action input payload
 - `/v1/tokens` - token management (CRUD)
 - `/v1/policies` - policy get/set/evaluate
 - `/v1/approvals` - list/approve/deny pending approvals
 - `/v1/audit` - query audit logs
 - `/v1/vault` - list vault keys
+- `/v1/webhooks` - webhook subscription management (when dispatcher is configured)
+- `/v1/webhooks/events` - recent webhook events (when dispatcher is configured)
 - `/console` - embedded lightweight console (optional SPA)
+
+## Key CLI Commands
+
+### Service management
+- `kimbap service install <file|name>` — install a service manifest
+- `kimbap service validate <file>` — validate a service manifest against the strict parser
+- `kimbap service list` — list installed services
+- `kimbap service export-agent-skill` — export SKILL.md for agent discovery
+
+### Action execution & discovery
+- `kimbap call <service>.<action> [--arg value]` — call an action directly
+- `kimbap search <query>` — search installed actions by keyword or description
+- `kimbap actions list` — list all installed actions
+
+### Code generation
+- `kimbap generate ts [--service <name>] [-o <file>]` — generate TypeScript input interfaces
+- `kimbap generate py [--service <name>] [-o <file>]` — generate Python TypedDict inputs
+
+### Credential and connector management
+- `kimbap vault set <key>` — store a secret in the encrypted vault
+- `kimbap vault list` — list vault key metadata
+- `kimbap link <service>` — link a service to vault credentials or an OAuth connector
+- `kimbap connector login <provider>` — start an OAuth connector flow
+- `kimbap connector status` — show connector health and token state
+- `kimbap auth connect <provider>` — authenticate with an OAuth provider
+- `kimbap auth revoke <provider>` — revoke an OAuth session
+
+### Policy and approvals
+- `kimbap policy set --file policy.yaml` — load a policy document
+- `kimbap policy get` — show the active policy
+- `kimbap approve list` — list pending approvals
+- `kimbap approve accept <id>` — approve a pending action
+
+### Audit
+- `kimbap audit tail` — stream recent audit entries
+- `kimbap audit export` — export audit records
+
+### Server and runtime modes
+- `kimbap serve [--port 8080]` — start connected-mode REST API server
+- `kimbap run -- <cmd>` — wrap an agent subprocess with credential injection
+- `kimbap proxy [--port 10255]` — start HTTP proxy interceptor
+- `kimbap daemon` — start background job runner (token refresh, scheduling)
+
+### Token management
+- `kimbap token create` — issue a new access token
+- `kimbap token list` — list active tokens
+- `kimbap token revoke <id>` — revoke a token
+
+### Agents and setup
+- `kimbap agents setup` — set up SKILL.md for agent discovery
+- `kimbap agents sync` — sync installed actions to SKILL.md
+- `kimbap agent-profile install <profile>` — install an agent operating profile
+- `kimbap agent-profile list` — list installed agent profiles
+- `kimbap agent-profile print <profile>` — print an agent profile
+- `kimbap init` — initialise a new kimbap workspace
+- `kimbap doctor` — run environment diagnostics
 
 ## Project Structure
 - `cmd/kimbap/` - CLI entry point (main.go + subcommands)
@@ -51,7 +110,7 @@ REST API server (`kimbap serve`) serves:
 - `internal/auth/` - Token service and principal types
 - `internal/audit/` - Audit log writers (JSONL, multi-writer)
 - `internal/console/` - Embedded SPA (static files via go:embed)
-- `internal/config/` - Config loading (kimbap.yaml)
+- `internal/config/` - Config loading (config.yaml)
 - `internal/app/` - Runtime bootstrap and adapters
 - `internal/crypto/` - Encryption utilities
 - `internal/webhooks/` - Webhook dispatcher
@@ -59,7 +118,7 @@ REST API server (`kimbap serve`) serves:
 ## Key Patterns
 - RESTful resource routes on `/v1` (canonical)
 - Bearer token auth with scope-based authorization
-- Actions addressed as `service.action` (e.g., `github.create_issue`)
+- Actions addressed as `service.action` (e.g., `github.create-issue`)
 - Policy YAML files control which agents can call which actions
 
 ## Database

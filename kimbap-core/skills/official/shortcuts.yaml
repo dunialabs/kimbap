@@ -1,0 +1,74 @@
+name: shortcuts
+version: 1.0.0
+description: macOS Shortcuts automation via AppleScript
+adapter: applescript
+target_app: Shortcuts
+auth:
+  type: none
+triggers:
+  task_verbs: [list, run, execute, automate]
+  objects: [shortcuts, workflows, automations]
+  instead_of:
+    - manually launching shortcuts from the Shortcuts app
+  exclusions:
+    - iOS-only shortcuts unavailable on this Mac
+gotchas:
+  - symptom: Shortcut run fails even though name appears correct
+    likely_cause: Name mismatch due to whitespace/case or duplicate names across folders
+    recovery: Use shortcuts.list first and copy the exact shortcut name
+    severity: medium
+  - symptom: Shortcut executes but produces no visible output
+    likely_cause: Many shortcuts are side-effect based and do not return data
+    recovery: Verify completion through destination app/state and rely on run success status
+    severity: low
+recipes:
+  - name: Discover and execute a shortcut
+    description: Find a valid shortcut name and run it safely
+    steps:
+      - Run shortcuts.list to inspect available shortcut names
+      - Run shortcuts.run with the exact name
+  - name: Execute shortcut with explicit payload
+    description: Pass structured text input to an automation shortcut
+    steps:
+      - Confirm the shortcut expects input text
+      - Run shortcuts.run-with-input with name and input values
+actions:
+  list:
+    command: shortcuts-list
+    description: List shortcuts available in the Shortcuts app
+    idempotent: true
+    args: []
+    response:
+      type: array
+    risk:
+      level: low
+  run:
+    command: shortcuts-run
+    description: Run a shortcut by name with optional input text
+    idempotent: false
+    args:
+      - name: name
+        type: string
+        required: true
+      - name: input
+        type: string
+        required: false
+    response:
+      type: object
+    risk:
+      level: medium
+  run-with-input:
+    command: shortcuts-run-with-input
+    description: Run a shortcut by name with required input text
+    idempotent: false
+    args:
+      - name: name
+        type: string
+        required: true
+      - name: input
+        type: string
+        required: true
+    response:
+      type: object
+    risk:
+      level: medium

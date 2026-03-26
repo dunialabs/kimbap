@@ -19,6 +19,7 @@ import (
 	"github.com/dunialabs/kimbap-core/internal/config"
 	runtimepkg "github.com/dunialabs/kimbap-core/internal/runtime"
 	"github.com/dunialabs/kimbap-core/internal/store"
+	"github.com/dunialabs/kimbap-core/internal/vault"
 	"github.com/dunialabs/kimbap-core/internal/webhooks"
 	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
@@ -1052,6 +1053,73 @@ func TestCreateWebhookRejectsTrailingJSONPayload(t *testing.T) {
 	}
 }
 
+func TestCreateWebhookRejectsUnknownEventType(t *testing.T) {
+	ts, rawBootstrap, st := newTestAPIServerWithStore(t)
+	server := NewServer(":0", st, WithWebhookDispatcher(webhooks.NewDispatcher()))
+	ts.Close()
+	ts = httptest.NewServer(server.Router())
+	t.Cleanup(func() { ts.Close() })
+
+	body := `{"url":"https://example.com/hook","events":["approval.requested","unknown.event"]}`
+	req, _ := http.NewRequest(http.MethodPost, ts.URL+"/v1/webhooks", strings.NewReader(body))
+	req.Header.Set("Authorization", "Bearer "+rawBootstrap)
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatalf("create webhook request: %v", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusBadRequest {
+		b, _ := io.ReadAll(resp.Body)
+		t.Fatalf("expected 400, got %d body=%s", resp.StatusCode, string(b))
+	}
+
+	var payload map[string]any
+	if err := json.NewDecoder(resp.Body).Decode(&payload); err != nil {
+		t.Fatalf("decode payload: %v", err)
+	}
+	errBody, ok := payload["error"].(map[string]any)
+	if !ok {
+		t.Fatalf("expected error envelope, got %v", payload["error"])
+	}
+	if errBody["message"] != "events contains unknown or inactive event type" {
+		t.Fatalf("unexpected error message: %v", errBody["message"])
+	}
+	details, ok := errBody["details"].(map[string]any)
+	if !ok {
+		t.Fatalf("expected error details, got %T", errBody["details"])
+	}
+	if details["event"] != "unknown.event" {
+		t.Fatalf("expected unknown.event details, got %v", details["event"])
+	}
+}
+
+func TestCreateWebhookRejectsInactiveReservedEventType(t *testing.T) {
+	ts, rawBootstrap, st := newTestAPIServerWithStore(t)
+	server := NewServer(":0", st, WithWebhookDispatcher(webhooks.NewDispatcher()))
+	ts.Close()
+	ts = httptest.NewServer(server.Router())
+	t.Cleanup(func() { ts.Close() })
+
+	body := `{"url":"https://example.com/hook","events":["service.installed"]}`
+	req, _ := http.NewRequest(http.MethodPost, ts.URL+"/v1/webhooks", strings.NewReader(body))
+	req.Header.Set("Authorization", "Bearer "+rawBootstrap)
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatalf("create webhook request: %v", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusBadRequest {
+		b, _ := io.ReadAll(resp.Body)
+		t.Fatalf("expected 400, got %d body=%s", resp.StatusCode, string(b))
+	}
+}
+
 func TestHandleListRecentEventsLimitValidation(t *testing.T) {
 	dispatcher := webhooks.NewDispatcher()
 	server := &Server{webhookDispatcher: dispatcher}
@@ -1280,6 +1348,57 @@ func TestProtectedRoutesRequireBearerAuth(t *testing.T) {
 	}
 }
 
+func TestHandleListVaultKeysReturnsMetadataItems(t *testing.T) {
+	now := time.Now().UTC()
+	vs := &stubVaultStore{
+		items: []vault.SecretRecord{{
+			ID:             "sec_1",
+			TenantID:       "tenant-a",
+			Name:           "github.token",
+			Type:           vault.SecretTypeBearerToken,
+			VersionCount:   1,
+			CurrentVersion: 1,
+			CreatedAt:      now,
+			UpdatedAt:      now,
+		}},
+	}
+	server := &Server{vaultStore: vs}
+	req := httptest.NewRequest(http.MethodGet, "/v1/vault?limit=5&offset=1&type=bearer_token", nil)
+	req = req.WithContext(context.WithValue(req.Context(), contextKeyTenant, "tenant-a"))
+	rr := httptest.NewRecorder()
+
+	server.handleListVaultKeys(rr, req)
+
+	if rr.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d", rr.Code)
+	}
+	if vs.lastTenantID != "tenant-a" {
+		t.Fatalf("expected tenant-a list call, got %q", vs.lastTenantID)
+	}
+	if vs.lastOpts.Limit != 5 || vs.lastOpts.Offset != 1 {
+		t.Fatalf("unexpected pagination options: %+v", vs.lastOpts)
+	}
+	if vs.lastOpts.Type == nil || *vs.lastOpts.Type != vault.SecretTypeBearerToken {
+		t.Fatalf("expected type filter bearer_token, got %+v", vs.lastOpts.Type)
+	}
+
+	var payload map[string]any
+	if err := json.NewDecoder(rr.Body).Decode(&payload); err != nil {
+		t.Fatalf("decode payload: %v", err)
+	}
+	data, ok := payload["data"].(map[string]any)
+	if !ok {
+		t.Fatalf("expected object data payload, got %T", payload["data"])
+	}
+	items, ok := data["items"].([]any)
+	if !ok {
+		t.Fatalf("expected items array, got %T", data["items"])
+	}
+	if len(items) != 1 {
+		t.Fatalf("expected 1 item, got %d", len(items))
+	}
+}
+
 func TestServerTokenNotFoundParityMissingVsCrossTenant(t *testing.T) {
 	ts, rawBootstrap, st := newTestAPIServerWithStore(t)
 
@@ -1435,6 +1554,58 @@ type staticApprovalManager struct {
 
 func (m staticApprovalManager) CreateRequest(context.Context, runtimepkg.ApprovalRequest) (*runtimepkg.ApprovalResult, error) {
 	return &runtimepkg.ApprovalResult{Approved: false, RequestID: m.requestID}, nil
+}
+
+type stubVaultStore struct {
+	items        []vault.SecretRecord
+	err          error
+	lastTenantID string
+	lastOpts     vault.ListOptions
+}
+
+func (s *stubVaultStore) Create(context.Context, string, string, vault.SecretType, []byte, map[string]string, string) (*vault.SecretRecord, error) {
+	return nil, errors.New("not implemented")
+}
+
+func (s *stubVaultStore) Upsert(context.Context, string, string, vault.SecretType, []byte, map[string]string, string) (*vault.SecretRecord, error) {
+	return nil, errors.New("not implemented")
+}
+
+func (s *stubVaultStore) GetMeta(context.Context, string, string) (*vault.SecretRecord, error) {
+	return nil, errors.New("not implemented")
+}
+
+func (s *stubVaultStore) GetValue(context.Context, string, string) ([]byte, error) {
+	return nil, errors.New("not implemented")
+}
+
+func (s *stubVaultStore) List(_ context.Context, tenantID string, opts vault.ListOptions) ([]vault.SecretRecord, error) {
+	s.lastTenantID = tenantID
+	s.lastOpts = opts
+	if s.err != nil {
+		return nil, s.err
+	}
+	return s.items, nil
+}
+
+func (s *stubVaultStore) Delete(context.Context, string, string) error {
+	return errors.New("not implemented")
+}
+
+func (s *stubVaultStore) Rotate(context.Context, string, string, []byte, string) (*vault.SecretRecord, error) {
+	return nil, errors.New("not implemented")
+}
+
+func (s *stubVaultStore) GetVersion(context.Context, string, string, int) ([]byte, error) {
+	return nil, errors.New("not implemented")
+}
+
+func (s *stubVaultStore) MarkUsed(context.Context, string, string) error {
+	return errors.New("not implemented")
+}
+
+func (s *stubVaultStore) Exists(context.Context, string, string) (bool, error) {
+	return false, errors.New("not implemented")
 }
 
 func newBootstrapTokenRecord(tenantID string, agentName string, rawToken string) *store.TokenRecord {
