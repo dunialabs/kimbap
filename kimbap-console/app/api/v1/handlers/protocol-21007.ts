@@ -42,7 +42,10 @@ interface Response21007Data {
  */
 export async function handleProtocol21007(body: Request21007): Promise<Response21007Data> {
   try {
-    const { timeRange, tokenId } = body.params;
+    const { tokenId } = body.params;
+    const normalizedTimeRange = Number.isFinite(Math.floor(Number(body.params.timeRange))) && Math.floor(Number(body.params.timeRange)) >= 1
+      ? Math.floor(Number(body.params.timeRange))
+      : 1;
 
     let proxyKey = '';
     try {
@@ -55,10 +58,8 @@ export async function handleProtocol21007(body: Request21007): Promise<Response2
       });
     }
     
-    // 
     const now = Math.floor(Date.now() / 1000);
-    const timeRangeSeconds = timeRange * 24 * 60 * 60;
-    const startTime = now - timeRangeSeconds;
+    const startTime = now - (normalizedTimeRange * 24 * 60 * 60);
     
     // where
     const whereCondition: any = {
@@ -168,7 +169,7 @@ export async function handleProtocol21007(body: Request21007): Promise<Response2
     console.log('Protocol 21007 response:', {
       tokensAnalyzed: rateLimitAnalysis.length,
       totalEvents: rateLimitAnalysis.reduce((sum, token) => sum + token.totalHits, 0),
-      timeRange
+      timeRange: normalizedTimeRange
     });
     
     return response;

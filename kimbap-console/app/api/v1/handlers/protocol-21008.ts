@@ -54,7 +54,10 @@ interface Response21008Data {
  */
 export async function handleProtocol21008(body: Request21008): Promise<Response21008Data> {
   try {
-    const { timeRange, tokenId, page = 1, pageSize = 20 } = body.params;
+    const { tokenId, page = 1, pageSize = 20 } = body.params;
+    const normalizedTimeRange = Number.isFinite(Math.floor(Number(body.params.timeRange))) && Math.floor(Number(body.params.timeRange)) >= 1
+      ? Math.floor(Number(body.params.timeRange))
+      : 1;
     const safePage = Math.max(1, Math.floor(Number(page) || 1));
     const safePageSize = Math.min(100, Math.max(1, Math.floor(Number(pageSize) || 20)));
 
@@ -69,10 +72,8 @@ export async function handleProtocol21008(body: Request21008): Promise<Response2
       });
     }
     
-    // 
     const now = Math.floor(Date.now() / 1000);
-    const timeRangeSeconds = timeRange * 24 * 60 * 60;
-    const startTime = now - timeRangeSeconds;
+    const startTime = now - (normalizedTimeRange * 24 * 60 * 60);
     
     // where
     const whereCondition: any = {
@@ -254,7 +255,7 @@ export async function handleProtocol21008(body: Request21008): Promise<Response2
       totalTokens: total,
       paginatedTokens: pagedClientAnalysis.length,
       totalClients: pagedClientAnalysis.reduce((sum, token) => sum + token.totalClients, 0),
-      timeRange
+      timeRange: normalizedTimeRange
     });
     
     return response;

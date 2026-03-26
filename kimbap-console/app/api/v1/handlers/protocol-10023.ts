@@ -143,24 +143,6 @@ export async function handleProtocol10023(body: Request10023): Promise<Response1
     };
   } catch (error) {
     console.error('Protocol 10023 error:', error);
-
-    if (error instanceof ApiError) {
-      throw error;
-    }
-
-    return {
-      uptime: '0 days, 0 hours',
-      apiRequests: 0,
-      activeTokens: 0,
-      configuredTools: 0,
-      connectedClientsCount: 0,
-      monthlyUsage: 0,
-      toolsUsage: [],
-      tokenUsage: [],
-      connectedClients: [],
-      recentActivity: [],
-      sshTunnelAddress: '',
-      manualConnection: ''
-    };
+    throw error;
   }
 }

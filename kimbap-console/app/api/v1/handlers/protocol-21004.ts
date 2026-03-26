@@ -41,15 +41,16 @@ interface Response21004Data {
  */
 export async function handleProtocol21004(body: Request21004): Promise<Response21004Data> {
   try {
-    const { timeRange, tokenId } = body.params;
+    const { tokenId } = body.params;
+    const normalizedTimeRange = Number.isFinite(Math.floor(Number(body.params.timeRange))) && Math.floor(Number(body.params.timeRange)) >= 1
+      ? Math.floor(Number(body.params.timeRange))
+      : 1;
 
     const proxy = await getProxy();
     const proxyKey = proxy.proxyKey;
     
-    // Calculation time range
     const now = Math.floor(Date.now() / 1000);
-    const timeRangeSeconds = timeRange * 24 * 60 * 60;
-    const startTime = now - timeRangeSeconds;
+    const startTime = now - (normalizedTimeRange * 24 * 60 * 60);
     
     // Build where condition
     const whereCondition: any = {
@@ -135,7 +136,7 @@ export async function handleProtocol21004(body: Request21004): Promise<Response2
     
     console.log('Protocol 21004 response:', {
       tokensCount: geoUsage.length,
-      timeRange,
+      timeRange: normalizedTimeRange,
       totalLocations: geoUsage.reduce((sum, token) => sum + token.locations.length, 0)
     });
     

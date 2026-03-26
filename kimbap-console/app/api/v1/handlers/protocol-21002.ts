@@ -55,8 +55,11 @@ interface Response21002Data {
  */
 export async function handleProtocol21002(body: Request21002): Promise<Response21002Data> {
   try {
-    const { timeRange, tokenIds, page = 1, pageSize = 50 } = body.params;
+    const { tokenIds, page = 1, pageSize = 50 } = body.params;
     const rawToken = body.common?.rawToken;
+    const normalizedTimeRange = Number.isFinite(Math.floor(Number(body.params.timeRange))) && Math.floor(Number(body.params.timeRange)) >= 1
+      ? Math.floor(Number(body.params.timeRange))
+      : 1;
     const normalizedTokenIds = Array.isArray(tokenIds)
       ? tokenIds.map((id) => String(id).trim()).filter(Boolean)
       : [];
@@ -93,8 +96,7 @@ export async function handleProtocol21002(body: Request21002): Promise<Response2
     
     // 
     const now = Math.floor(Date.now() / 1000);
-    const timeRangeSeconds = timeRange * 24 * 60 * 60;
-    const startTime = now - timeRangeSeconds;
+    const startTime = now - (normalizedTimeRange * 24 * 60 * 60);
     
     // 3. （proxyKeyaction 1000-1099）
     const logWhereCondition: any = {

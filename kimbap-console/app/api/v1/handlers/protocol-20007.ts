@@ -47,7 +47,12 @@ interface Response20007Data {
 export async function handleProtocol20007(body: Request20007): Promise<Response20007Data> {
   try {
     const rawToken = body.common?.rawToken;
-    const { timeRange, userId, page = 1, pageSize = 20 } = body.params;
+    const { userId } = body.params;
+    const normalizedTimeRange = Number.isFinite(Math.floor(Number(body.params.timeRange))) && Math.floor(Number(body.params.timeRange)) >= 1
+      ? Math.floor(Number(body.params.timeRange))
+      : 1;
+    const safePage = Math.max(1, Math.floor(Number(body.params.page) || 1));
+    const safePageSize = Math.min(1000, Math.max(1, Math.floor(Number(body.params.pageSize) || 20)));
 
     let proxyKey = '';
     try {
@@ -60,10 +65,8 @@ export async function handleProtocol20007(body: Request20007): Promise<Response2
       });
     }
     
-    // Calculation time range
     const now = Math.floor(Date.now() / 1000);
-    const timeRangeSeconds = timeRange * 24 * 60 * 60;
-    const startTime = now - timeRangeSeconds;
+    const startTime = now - (normalizedTimeRange * 24 * 60 * 60);
     
     // buildwherecondition
     const whereCondition: any = {
@@ -112,8 +115,8 @@ export async function handleProtocol20007(body: Request20007): Promise<Response2
       (usersResult.users || []).map((u: any) => [u.userId, u.name || u.userId])
     );
     const sortedUserIds = requestCounts.map(r => r.userid);
-    const offset = (page - 1) * pageSize;
-    const pagedUserIds = sortedUserIds.slice(offset, offset + pageSize);
+    const offset = (safePage - 1) * safePageSize;
+    const pagedUserIds = sortedUserIds.slice(offset, offset + safePageSize);
     const pagedUsers = pagedUserIds.map(id => ({ userid: id }));
     
     // 3. Calculate detailed statistics for each user
@@ -219,9 +222,9 @@ export async function handleProtocol20007(body: Request20007): Promise<Response2
     console.log('Protocol 20007 response:', {
       userCount: userUsage.length,
       totalCount,
-      page,
-      pageSize,
-      timeRange
+      page: safePage,
+      pageSize: safePageSize,
+      timeRange: normalizedTimeRange
     });
     
     return response;

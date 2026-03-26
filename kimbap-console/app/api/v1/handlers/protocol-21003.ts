@@ -30,8 +30,11 @@ interface Response21003Data {
  */
 export async function handleProtocol21003(body: Request21003): Promise<Response21003Data> {
   try {
-    const { timeRange, tokenIds, granularity } = body.params;
+    const { tokenIds, granularity } = body.params;
     const rawToken = body.common?.rawToken;
+    const normalizedTimeRange = Number.isFinite(Math.floor(Number(body.params.timeRange))) && Math.floor(Number(body.params.timeRange)) >= 1
+      ? Math.floor(Number(body.params.timeRange))
+      : 1;
     
     // 1. proxyproxyKey（token）
     let proxyKey = '';
@@ -65,8 +68,7 @@ export async function handleProtocol21003(body: Request21003): Promise<Response2
     
     // 
     const now = Math.floor(Date.now() / 1000);
-    const timeRangeSeconds = timeRange * 24 * 60 * 60;
-    const startTime = now - timeRangeSeconds;
+    const startTime = now - (normalizedTimeRange * 24 * 60 * 60);
     
     // 
     let intervalSeconds: number;
@@ -200,7 +202,7 @@ export async function handleProtocol21003(body: Request21003): Promise<Response2
       usersCount: uniqueUserIds.length,
       validUsersCount: validUsers.length,
       granularity,
-      timeRange,
+      timeRange: normalizedTimeRange,
       proxyKey
     });
     
