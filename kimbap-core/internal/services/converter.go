@@ -132,7 +132,7 @@ func mapAuth(auth ServiceAuth) actions.AuthRequirement {
 		req.QueryName = auth.QueryParam
 	case "body":
 		req.Type = actions.AuthTypeBody
-		req.BodyField = auth.QueryParam
+		req.BodyField = auth.BodyField
 	default:
 		req.Type = actions.AuthTypeNone
 		req.Optional = true

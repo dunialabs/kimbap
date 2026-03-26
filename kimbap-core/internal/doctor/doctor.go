@@ -192,12 +192,12 @@ func (d *Doctor) checkVaultAccessible(ctx context.Context, vaultPath string) Che
 func (d *Doctor) checkSkillsDir(skillsDir string) CheckResult {
 	st, err := os.Stat(skillsDir)
 	if err != nil {
-		return CheckResult{Name: "skills directory exists", Status: "fail", Message: err.Error()}
+		return CheckResult{Name: "services directory exists", Status: "fail", Message: err.Error()}
 	}
 	if !st.IsDir() {
-		return CheckResult{Name: "skills directory exists", Status: "fail", Message: "path is not a directory"}
+		return CheckResult{Name: "services directory exists", Status: "fail", Message: "path is not a directory"}
 	}
-	return CheckResult{Name: "skills directory exists", Status: "ok", Message: skillsDir}
+	return CheckResult{Name: "services directory exists", Status: "ok", Message: skillsDir}
 }
 
 func (d *Doctor) checkPolicyFile(path string) CheckResult {

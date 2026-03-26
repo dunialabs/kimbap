@@ -4,6 +4,7 @@ import (
 	"crypto/ed25519"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
 
@@ -147,6 +148,28 @@ func TestValidateManifestQueryAuthRequiresQueryParam(t *testing.T) {
 	}
 }
 
+func TestValidateManifestBodyAuthRequiresBodyField(t *testing.T) {
+	m := &ServiceManifest{
+		Name:    "svc",
+		Version: "1.0.0",
+		BaseURL: "https://api.example.com",
+		Auth:    ServiceAuth{Type: "body", CredentialRef: "svc.key"},
+		Actions: map[string]ServiceAction{
+			"post": {Method: "POST", Path: "/v1/post", Risk: RiskSpec{Level: "low"}},
+		},
+	}
+	err := ValidateManifest(m)
+	found := false
+	for _, e := range err {
+		if e.Field == "auth.body_field" {
+			found = true
+		}
+	}
+	if !found {
+		t.Errorf("expected auth.body_field validation error, got: %v", err)
+	}
+}
+
 func TestValidateManifestActionLevelAuthIsValidated(t *testing.T) {
 	m := &ServiceManifest{
 		Name:    "svc",
@@ -167,10 +190,10 @@ func TestValidateManifestActionLevelAuthIsValidated(t *testing.T) {
 	for _, e := range err {
 		fieldNames = append(fieldNames, e.Field)
 	}
-	if !contains(fieldNames, "actions.get.auth.credential_ref") {
+	if !slices.Contains(fieldNames, "actions.get.auth.credential_ref") {
 		t.Errorf("expected action auth.credential_ref error, got fields: %v", fieldNames)
 	}
-	if !contains(fieldNames, "actions.get.auth.header_name") {
+	if !slices.Contains(fieldNames, "actions.get.auth.header_name") {
 		t.Errorf("expected action auth.header_name error, got fields: %v", fieldNames)
 	}
 }
@@ -573,6 +596,35 @@ func TestToActionDefinitionsUsesActionLevelAuthOverride(t *testing.T) {
 	}
 }
 
+func TestMapAuthBodyUsesBodyField(t *testing.T) {
+	m := &ServiceManifest{
+		Name:    "svc",
+		Version: "1.0.0",
+		BaseURL: "https://api.example.com",
+		Auth: ServiceAuth{
+			Type:          "body",
+			CredentialRef: "svc.token",
+			BodyField:     "api_token",
+		},
+		Actions: map[string]ServiceAction{
+			"post": {Method: "POST", Path: "/v1/post", Risk: RiskSpec{Level: "low"}},
+		},
+	}
+	defs, err := ToActionDefinitions(m)
+	if err != nil {
+		t.Fatalf("ToActionDefinitions error: %v", err)
+	}
+	if len(defs) == 0 {
+		t.Fatal("expected at least one action definition")
+	}
+	if defs[0].Auth.BodyField != "api_token" {
+		t.Errorf("expected Auth.BodyField=api_token, got %q", defs[0].Auth.BodyField)
+	}
+	if defs[0].Auth.QueryName != "" {
+		t.Errorf("expected Auth.QueryName to be empty for body auth, got %q", defs[0].Auth.QueryName)
+	}
+}
+
 func TestGenerateSkillMDIncludesActionLevelCredentials(t *testing.T) {
 	manifest := &ServiceManifest{
 		Name:    "multi-auth",
@@ -868,13 +920,4 @@ func TestVerifyTamperedDigestDetected(t *testing.T) {
 	if result.Verified {
 		t.Fatal("tampered digest should fail verification")
 	}
-}
-
-func contains(slice []string, s string) bool {
-	for _, v := range slice {
-		if v == s {
-			return true
-		}
-	}
-	return false
 }

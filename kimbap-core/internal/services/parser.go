@@ -200,6 +200,12 @@ func validateAuth(auth ServiceAuth, fieldPrefix string) []ValidationError {
 			Message: "must be set when auth type is query",
 		})
 	}
+	if authType == "body" && strings.TrimSpace(auth.BodyField) == "" {
+		errs = append(errs, ValidationError{
+			Field:   fieldPrefix + ".body_field",
+			Message: "must be set when auth type is body",
+		})
+	}
 	return errs
 }
 

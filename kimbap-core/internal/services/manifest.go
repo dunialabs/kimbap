@@ -13,6 +13,7 @@ type ServiceAuth struct {
 	Type          string `yaml:"type"`
 	HeaderName    string `yaml:"header_name"`
 	QueryParam    string `yaml:"query_param"`
+	BodyField     string `yaml:"body_field"`
 	CredentialRef string `yaml:"credential_ref"`
 }
 

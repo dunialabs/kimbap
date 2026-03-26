@@ -31,7 +31,7 @@ const operatingRulesTemplate = `# Kimbap Operating Rules for Agents
 4. Execute via ` + "`kimbap call <service.action>`" + `.
 5. For legacy apps or scripts, prefer ` + "`kimbap run`" + ` or a configured Kimbap proxy.
 6. Never ask for, print, or store raw API keys, passwords, refresh tokens, cookies, or session files.
-7. If the needed capability is missing, request a new Kimbap integration or skill instead of using direct credentials.
+7. If the needed capability is missing, request a new Kimbap service instead of using direct credentials.
 8. Treat Kimbap as the only approved pathway for third-party API access in this repository.
 `
 
