@@ -11,6 +11,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/dunialabs/kimbap-core/internal/actions"
 	"github.com/dunialabs/kimbap-core/internal/webhooks"
 	"github.com/go-chi/chi/v5"
 )
@@ -75,6 +76,8 @@ func (s *Server) handleDeleteWebhook(w http.ResponseWriter, r *http.Request) {
 	respondJSON(w, http.StatusOK, map[string]any{"deleted": true})
 }
 
+const maxWebhookEventsLimit = 1000
+
 func (s *Server) handleListRecentEvents(w http.ResponseWriter, r *http.Request) {
 	tenantID, ok := requireTenantContext(w, r)
 	if !ok {
@@ -82,14 +85,27 @@ func (s *Server) handleListRecentEvents(w http.ResponseWriter, r *http.Request) 
 	}
 	limit := 50
 	if raw := r.URL.Query().Get("limit"); raw != "" {
-		if parsed, err := strconv.Atoi(raw); err == nil {
-			limit = parsed
+		parsed, err := strconv.Atoi(raw)
+		if err != nil || parsed <= 0 {
+			respondJSON(w, http.StatusBadRequest, map[string]any{"error": "limit must be a positive integer"})
+			return
 		}
+		if parsed > maxWebhookEventsLimit {
+			parsed = maxWebhookEventsLimit
+		}
+		limit = parsed
 	}
 	events := s.webhookDispatcher.RecentEventsByTenant(tenantID, limit)
 	respondJSON(w, http.StatusOK, map[string]any{"events": events})
 }
 
+// validateWebhookURL validates the URL format and rejects known private/loopback
+// addresses. DNS resolution is performed at registration time; a determined
+// attacker with control over DNS (DNS rebinding) could bypass this check by
+// returning a public IP here and a private IP at delivery time. The delivery
+// transport does not currently pin the resolved address, so this is best-effort
+// SSRF mitigation. A full fix requires enforcing the pre-resolved IP inside a
+// custom DialContext on the HTTP client used for delivery.
 func validateWebhookURL(rawURL string) error {
 	u, err := url.Parse(rawURL)
 	if err != nil {
