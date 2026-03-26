@@ -219,12 +219,6 @@ func runAgentsSync(projectDir string, rawAgentKinds string, rawServices string, 
 		return agentSetupResult{}, err
 	}
 
-	if !isPartialSync {
-		if cleanupErr := cleanupStaleAgentSkillDirs(syncResults, serviceFilter, dryRun); cleanupErr != nil {
-			return agentSetupResult{}, cleanupErr
-		}
-	}
-
 	metaContent := services.GenerateMetaAgentSkillMD()
 	metaPaths := make([]string, 0, len(syncResults))
 
@@ -450,86 +444,6 @@ func filterInstalledServices(installed []services.InstalledService, serviceFilte
 		}
 	}
 	return filtered
-}
-
-func filterProfileInstalledServices(installed []profiles.InstalledService, serviceFilter []string) []profiles.InstalledService {
-	if len(serviceFilter) == 0 {
-		return installed
-	}
-	allowed := make(map[string]struct{}, len(serviceFilter))
-	for _, name := range serviceFilter {
-		allowed[name] = struct{}{}
-	}
-	filtered := make([]profiles.InstalledService, 0, len(installed))
-	for _, svc := range installed {
-		if _, ok := allowed[svc.Name]; ok {
-			filtered = append(filtered, svc)
-		}
-	}
-	return filtered
-}
-
-func cleanupStaleAgentSkillDirs(syncResults []agents.SyncResult, serviceFilter []string, dryRun bool) error {
-	active := make(map[string]bool, len(serviceFilter)+1)
-	active["kimbap"] = true
-	for _, name := range serviceFilter {
-		active[name] = true
-	}
-
-	var cleanupErrs []string
-	for i := range syncResults {
-		skillsDir := strings.TrimSpace(syncResults[i].AgentSkillsDir)
-		if skillsDir == "" {
-			continue
-		}
-
-		entries, err := os.ReadDir(skillsDir)
-		if err != nil {
-			if os.IsNotExist(err) {
-				continue
-			}
-			cleanupErrs = append(cleanupErrs, fmt.Sprintf("[%s] read skills dir: %v", syncResults[i].Agent, err))
-			continue
-		}
-
-		prunedSet := make(map[string]bool, len(syncResults[i].Pruned))
-		for _, name := range syncResults[i].Pruned {
-			prunedSet[name] = true
-		}
-
-		for _, entry := range entries {
-			name := entry.Name()
-			if !entry.IsDir() || active[name] {
-				continue
-			}
-
-			skillPath := filepath.Join(skillsDir, name, "SKILL.md")
-			if _, statErr := os.Stat(skillPath); statErr != nil {
-				if os.IsNotExist(statErr) {
-					continue
-				}
-				cleanupErrs = append(cleanupErrs, fmt.Sprintf("[%s] check stale service %q: %v", syncResults[i].Agent, name, statErr))
-				continue
-			}
-
-			if !dryRun {
-				if rmErr := os.RemoveAll(filepath.Join(skillsDir, name)); rmErr != nil {
-					cleanupErrs = append(cleanupErrs, fmt.Sprintf("[%s] prune stale service %q: %v", syncResults[i].Agent, name, rmErr))
-					continue
-				}
-			}
-
-			if !prunedSet[name] {
-				syncResults[i].Pruned = append(syncResults[i].Pruned, name)
-				prunedSet[name] = true
-			}
-		}
-	}
-
-	if len(cleanupErrs) > 0 {
-		return fmt.Errorf("stale cleanup errors: %s", strings.Join(cleanupErrs, "; "))
-	}
-	return nil
 }
 
 type staticServiceInstaller struct {
