@@ -71,6 +71,28 @@ func TestValidateAppleScriptManifest_RejectsHTTPFields(t *testing.T) {
 	}
 }
 
+func TestValidateAppleScriptManifest_RejectsServiceAuth(t *testing.T) {
+	m := validAppleScriptManifest()
+	m.Auth = ServiceAuth{Type: "bearer", CredentialRef: "notes.token"}
+
+	errList := ValidateManifest(m)
+	if !hasValidationError(errList, "auth.type", "must be none for applescript adapter") {
+		t.Fatalf("expected auth.type applescript rejection, got %v", errList)
+	}
+}
+
+func TestValidateAppleScriptManifest_RejectsActionAuth(t *testing.T) {
+	m := validAppleScriptManifest()
+	a := m.Actions["list_notes"]
+	a.Auth = &ServiceAuth{Type: "query", QueryParam: "api_key", CredentialRef: "notes.key"}
+	m.Actions["list_notes"] = a
+
+	errList := ValidateManifest(m)
+	if !hasValidationError(errList, "actions.list_notes.auth.type", "must be none for applescript adapter") {
+		t.Fatalf("expected action auth applescript rejection, got %v", errList)
+	}
+}
+
 func TestValidateAppleScriptManifest_RejectsMethodPath(t *testing.T) {
 	m := validAppleScriptManifest()
 	a := m.Actions["list_notes"]
@@ -118,6 +140,36 @@ func TestValidateHTTPManifest_Unchanged(t *testing.T) {
 	errList := ValidateManifest(m)
 	if !hasValidationError(errList, "actions.get_item.template_ref", `undeclared arg "item_id"`) {
 		t.Fatalf("expected legacy template_ref validation error, got %v", errList)
+	}
+}
+
+func TestValidateHTTPManifest_RejectsUnusedPathParams(t *testing.T) {
+	m := validHTTPManifest()
+	a := m.Actions["get_item"]
+	a.Request.PathParams = map[string]string{
+		"item_id": "{item_id}",
+		"unused":  "{unused}",
+	}
+	m.Actions["get_item"] = a
+
+	errList := ValidateManifest(m)
+	if !hasValidationError(errList, "actions.get_item.request.path_params", `declares unused path param "unused"`) {
+		t.Fatalf("expected unused path param validation error, got %v", errList)
+	}
+}
+
+func TestValidateManifest_RejectsDuplicateArgNames(t *testing.T) {
+	m := validHTTPManifest()
+	a := m.Actions["get_item"]
+	a.Args = []ActionArg{
+		{Name: "item_id", Type: "string", Required: true},
+		{Name: "item_id", Type: "string", Required: false},
+	}
+	m.Actions["get_item"] = a
+
+	errList := ValidateManifest(m)
+	if !hasValidationError(errList, "actions.get_item.args[1].name", `duplicates args[0].name "item_id"`) {
+		t.Fatalf("expected duplicate arg name validation error, got %v", errList)
 	}
 }
 

@@ -119,10 +119,16 @@ func ValidateManifest(m *ServiceManifest) []ValidationError {
 			}
 		}
 
+		seenArgNames := make(map[string]int, len(action.Args))
 		for idx, arg := range action.Args {
 			argField := fmt.Sprintf("%s.args[%d]", prefix, idx)
-			if strings.TrimSpace(arg.Name) == "" {
+			argName := strings.TrimSpace(arg.Name)
+			if argName == "" {
 				errs = append(errs, ValidationError{Field: argField + ".name", Message: "is required"})
+			} else if firstIdx, exists := seenArgNames[argName]; exists {
+				errs = append(errs, ValidationError{Field: argField + ".name", Message: fmt.Sprintf("duplicates args[%d].name %q", firstIdx, argName)})
+			} else {
+				seenArgNames[argName] = idx
 			}
 			if _, ok := validArgTypeSet[strings.ToLower(strings.TrimSpace(arg.Type))]; !ok {
 				errs = append(errs, ValidationError{Field: argField + ".type", Message: "must be one of string, integer, number, boolean, array, object"})
@@ -271,14 +277,23 @@ func validateHTTPManifest(m *ServiceManifest) []ValidationError {
 			errs = append(errs, ValidationError{Field: prefix + ".path", Message: "must not be a protocol-relative URL"})
 		}
 
+		pathTemplateRefs := extractTemplateRefs(action.Path)
+		pathTemplateRefSet := make(map[string]struct{}, len(pathTemplateRefs))
+		for _, ref := range pathTemplateRefs {
+			pathTemplateRefSet[ref] = struct{}{}
+		}
+
 		declaredArgs := make(map[string]struct{}, len(action.Args)+len(action.Request.PathParams))
 		for _, arg := range action.Args {
 			declaredArgs[arg.Name] = struct{}{}
 		}
 		for paramName := range action.Request.PathParams {
 			declaredArgs[paramName] = struct{}{}
+			if _, ok := pathTemplateRefSet[paramName]; !ok {
+				errs = append(errs, ValidationError{Field: prefix + ".request.path_params", Message: fmt.Sprintf("declares unused path param %q", paramName)})
+			}
 		}
-		templateRefs := extractTemplateRefs(action.Path)
+		templateRefs := append([]string(nil), pathTemplateRefs...)
 		for k, v := range action.Request.Query {
 			templateRefs = append(templateRefs, extractTemplateRefs(k)...)
 			templateRefs = append(templateRefs, extractTemplateRefs(v)...)
@@ -310,6 +325,9 @@ func validateAppleScriptManifest(m *ServiceManifest) []ValidationError {
 	if strings.TrimSpace(m.BaseURL) != "" {
 		errs = append(errs, ValidationError{Field: "base_url", Message: "must not be set for applescript adapter"})
 	}
+	if normalizedAuthType(m.Auth.Type) != "none" {
+		errs = append(errs, ValidationError{Field: "auth.type", Message: "must be none for applescript adapter"})
+	}
 
 	for actionKey, action := range m.Actions {
 		prefix := "actions." + actionKey
@@ -325,6 +343,9 @@ func validateAppleScriptManifest(m *ServiceManifest) []ValidationError {
 		}
 		if strings.TrimSpace(action.Path) != "" {
 			errs = append(errs, ValidationError{Field: prefix + ".path", Message: "must not be set for applescript adapter"})
+		}
+		if action.Auth != nil && normalizedAuthType(action.Auth.Type) != "none" {
+			errs = append(errs, ValidationError{Field: prefix + ".auth.type", Message: "must be none for applescript adapter"})
 		}
 
 		if len(action.Request.Query) > 0 {

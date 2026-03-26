@@ -1,6 +1,8 @@
 package service
 
 import (
+	"archive/zip"
+	"bytes"
 	"os"
 	"path/filepath"
 	"strings"
@@ -84,5 +86,44 @@ func TestReplaceDirectoryRemovesStaleBackupDir(t *testing.T) {
 	}
 	if string(data) != "# new\n" {
 		t.Fatalf("unexpected replaced content: %q", string(data))
+	}
+}
+
+func TestUploadServiceRejectsMetadataDirectoryNameMismatch(t *testing.T) {
+	service := &ServicesService{servicesDir: t.TempDir()}
+
+	var zipBuf bytes.Buffer
+	zw := zip.NewWriter(&zipBuf)
+	entry, err := zw.Create(filepath.ToSlash(filepath.Join("github", "SKILL.md")))
+	if err != nil {
+		t.Fatalf("create zip entry: %v", err)
+	}
+	content := `---
+name: slack
+description: Slack service
+version: 1.0.0
+---
+`
+	if _, err := entry.Write([]byte(content)); err != nil {
+		t.Fatalf("write zip entry: %v", err)
+	}
+	if err := zw.Close(); err != nil {
+		t.Fatalf("close zip writer: %v", err)
+	}
+
+	uploaded, err := service.UploadService("tenant", zipBuf.Bytes())
+	if err == nil {
+		t.Fatalf("expected metadata/directory mismatch error, got uploaded=%v", uploaded)
+	}
+	if !strings.Contains(err.Error(), `service directory "github" does not match metadata name "slack"`) {
+		t.Fatalf("unexpected upload error: %v", err)
+	}
+
+	entries, readErr := os.ReadDir(filepath.Join(service.servicesDir, "tenant"))
+	if readErr != nil && !os.IsNotExist(readErr) {
+		t.Fatalf("read tenant service dir: %v", readErr)
+	}
+	if len(entries) != 0 {
+		t.Fatalf("expected no uploaded services on mismatch, found %d", len(entries))
 	}
 }

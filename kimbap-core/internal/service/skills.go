@@ -116,6 +116,18 @@ func (s *ServicesService) UploadService(serverID string, zipBuffer []byte) ([]st
 	if len(serviceDirs) == 0 {
 		return nil, fmt.Errorf("no valid services found: %s not found", config.SKILLS_CONFIG.SkillMetadataFile)
 	}
+	for _, dir := range serviceDirs {
+		serviceName := filepath.Base(dir)
+		metaPath := filepath.Join(dir, config.SKILLS_CONFIG.SkillMetadataFile)
+		content, readErr := os.ReadFile(metaPath)
+		if readErr != nil {
+			return nil, fmt.Errorf("read service metadata for %q: %w", serviceName, readErr)
+		}
+		metaName := strings.TrimSpace(parseServiceMetadata(content)["name"])
+		if metaName != "" && metaName != serviceName {
+			return nil, fmt.Errorf("service directory %q does not match metadata name %q", serviceName, metaName)
+		}
+	}
 
 	uploaded := make([]string, 0, len(serviceDirs))
 	for _, dir := range serviceDirs {
