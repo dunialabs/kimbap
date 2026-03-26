@@ -159,3 +159,55 @@ func TestClassifierExplainOutput(t *testing.T) {
 		t.Fatalf("expected no-match explanation, got %q", explainNone)
 	}
 }
+
+func TestClassifierHostWithoutPortMatchesRequestHostWithPort(t *testing.T) {
+	c := NewClassifier()
+	mustAddRule(t, c, Rule{
+		ID:          "no-port",
+		Service:     "svc",
+		Action:      "act",
+		HostPattern: "api.example.com",
+		PathPattern: "/path",
+		Method:      "GET",
+		Priority:    1,
+	})
+
+	result := c.Classify("GET", "api.example.com:8443", "/path")
+	if result == nil || !result.Matched {
+		t.Fatal("expected host without port pattern to match host with port")
+	}
+}
+
+func TestClassifierHostWithPortDistinguishesPorts(t *testing.T) {
+	c := NewClassifier()
+	mustAddRule(t, c, Rule{
+		ID:          "with-port",
+		Service:     "svc",
+		Action:      "act",
+		HostPattern: "api.example.com:8443",
+		PathPattern: "/path",
+		Method:      "GET",
+		Priority:    1,
+	})
+
+	if result := c.Classify("GET", "api.example.com:8443", "/path"); result == nil || !result.Matched {
+		t.Fatal("expected exact port match")
+	}
+	if result := c.Classify("GET", "api.example.com:443", "/path"); result != nil && result.Matched {
+		t.Fatalf("expected port mismatch, got %#v", result)
+	}
+}
+
+func TestClassifierAddRulesFromSkillRejectsInvalidBaseURL(t *testing.T) {
+	c := NewClassifier()
+	err := c.AddRulesFromSkill(&services.ServiceManifest{
+		Name:    "invalid",
+		BaseURL: "/relative/path",
+		Actions: map[string]services.ServiceAction{
+			"list": {Method: "GET", Path: "/items"},
+		},
+	})
+	if err == nil {
+		t.Fatal("expected invalid base URL to be rejected")
+	}
+}

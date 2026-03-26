@@ -246,16 +246,11 @@ func buildEnv(base []string, extra map[string]string, proxyAddr, agentToken stri
 		envMap["HTTPS_PROXY"] = proxyURL
 		envMap["http_proxy"] = proxyURL
 		envMap["https_proxy"] = proxyURL
-		loopback := "localhost,127.0.0.1,::1"
 		existing := envMap["NO_PROXY"]
 		if existing == "" {
 			existing = envMap["no_proxy"]
 		}
-		if existing != "" && !strings.Contains(existing, "localhost") {
-			existing = existing + "," + loopback
-		} else if existing == "" {
-			existing = loopback
-		}
+		existing = ensureNoProxyLoopback(existing)
 		envMap["NO_PROXY"] = existing
 		envMap["no_proxy"] = existing
 	}
@@ -270,6 +265,35 @@ func buildEnv(base []string, extra map[string]string, proxyAddr, agentToken stri
 		out = append(out, k+"="+v)
 	}
 	return out
+}
+
+func ensureNoProxyLoopback(existing string) string {
+	parts := strings.Split(existing, ",")
+	out := make([]string, 0, len(parts)+3)
+	seen := make(map[string]struct{}, len(parts)+3)
+
+	for _, part := range parts {
+		entry := strings.TrimSpace(part)
+		if entry == "" {
+			continue
+		}
+		key := strings.ToLower(entry)
+		if _, ok := seen[key]; ok {
+			continue
+		}
+		seen[key] = struct{}{}
+		out = append(out, entry)
+	}
+
+	for _, loopback := range []string{"localhost", "127.0.0.1", "::1"} {
+		if _, ok := seen[loopback]; ok {
+			continue
+		}
+		seen[loopback] = struct{}{}
+		out = append(out, loopback)
+	}
+
+	return strings.Join(out, ",")
 }
 
 func embedProxyAuth(addr, token string) string {

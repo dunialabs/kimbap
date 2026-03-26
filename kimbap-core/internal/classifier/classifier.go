@@ -62,10 +62,12 @@ func (c *Classifier) AddRulesFromSkill(skill *services.ServiceManifest) error {
 	hostPattern := "*"
 	basePath := ""
 	if strings.TrimSpace(skill.BaseURL) != "" {
-		if u, err := url.Parse(skill.BaseURL); err == nil {
-			hostPattern = normalizeHostPattern(u.Hostname())
-			basePath = strings.TrimSuffix(u.Path, "/")
+		u, err := url.Parse(skill.BaseURL)
+		if err != nil || !u.IsAbs() || strings.TrimSpace(u.Host) == "" {
+			return fmt.Errorf("invalid base URL for skill %q: %q", strings.TrimSpace(skill.Name), skill.BaseURL)
 		}
+		hostPattern = normalizeHostPattern(u.Host)
+		basePath = strings.TrimSuffix(u.Path, "/")
 	}
 
 	actionNames := make([]string, 0, len(skill.Actions))
@@ -102,7 +104,7 @@ func (c *Classifier) Classify(method, host, reqPath string) *ClassificationResul
 		if !matchMethod(rule.Method, nMethod) {
 			continue
 		}
-		if !matchGlob(rule.HostPattern, nHost) {
+		if !matchHostPattern(rule.HostPattern, nHost) {
 			continue
 		}
 		if !matchGlob(rule.PathPattern, nPath) {
@@ -167,6 +169,19 @@ func matchGlob(pattern, value string) bool {
 	return matched
 }
 
+func matchHostPattern(pattern, host string) bool {
+	if matchGlob(pattern, host) {
+		return true
+	}
+	if strings.Contains(pattern, ":") {
+		return false
+	}
+	if parsed, err := url.Parse("http://" + host); err == nil && parsed.Hostname() != "" {
+		return matchGlob(pattern, strings.ToLower(parsed.Hostname()))
+	}
+	return false
+}
+
 func confidenceFor(rule Rule) string {
 	if !hasGlob(rule.HostPattern) && !hasGlob(rule.PathPattern) && normalizeMethod(rule.Method) != "*" {
 		return "exact"
@@ -191,8 +206,16 @@ func normalizeHostPattern(host string) string {
 	if h == "" {
 		return "*"
 	}
-	if parsed, err := url.Parse("http://" + h); err == nil && parsed.Hostname() != "" {
-		h = parsed.Hostname()
+	if hasGlob(h) {
+		return h
+	}
+	if strings.Contains(h, "://") {
+		if parsed, err := url.Parse(h); err == nil && parsed.Host != "" {
+			h = strings.TrimSpace(strings.ToLower(parsed.Host))
+		}
+	}
+	if parsed, err := url.Parse("http://" + h); err == nil && parsed.Host != "" {
+		h = strings.ToLower(parsed.Host)
 	}
 	return h
 }

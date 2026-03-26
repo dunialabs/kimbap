@@ -416,7 +416,11 @@ func pruneStaleSkills(skillsDir string, installed []InstalledService, dryRun boo
 			continue
 		}
 		skillFile := filepath.Join(skillsDir, entry.Name(), "SKILL.md")
-		if _, err := os.Stat(skillFile); os.IsNotExist(err) {
+		if _, err := os.Stat(skillFile); err != nil {
+			if os.IsNotExist(err) {
+				continue
+			}
+			errs = append(errs, fmt.Sprintf("check %q: %v", entry.Name(), err))
 			continue
 		}
 		if dryRun {

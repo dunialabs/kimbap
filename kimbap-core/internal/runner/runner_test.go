@@ -40,6 +40,25 @@ func TestRunnerSetsProxyEnvVars(t *testing.T) {
 	}
 }
 
+func TestBuildEnvEnsuresLoopbackNoProxyEntries(t *testing.T) {
+	env := buildEnv([]string{"NO_PROXY=localhost"}, nil, "http://127.0.0.1:18080", "")
+	value := ""
+	for _, item := range env {
+		if strings.HasPrefix(item, "NO_PROXY=") {
+			value = strings.TrimPrefix(item, "NO_PROXY=")
+			break
+		}
+	}
+	if value == "" {
+		t.Fatal("expected NO_PROXY to be set")
+	}
+	for _, required := range []string{"localhost", "127.0.0.1", "::1"} {
+		if !strings.Contains(value, required) {
+			t.Fatalf("expected NO_PROXY to include %q, got %q", required, value)
+		}
+	}
+}
+
 func TestRunnerExecutesSimpleCommand(t *testing.T) {
 	outFile := filepath.Join(t.TempDir(), "echo.txt")
 	r := NewRunner(RunConfig{
