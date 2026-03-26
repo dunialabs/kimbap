@@ -71,7 +71,7 @@ func (r *Registry) Install(ctx context.Context, source, ref string) (*LockEntry,
 		return nil, fmt.Errorf("registry is nil")
 	}
 	if strings.TrimSpace(ref) == "" {
-		return nil, fmt.Errorf("skill ref is required")
+		return nil, fmt.Errorf("service ref is required")
 	}
 
 	manifestYAML, err := r.fetchManifestYAML(ctx, source, ref)
@@ -81,16 +81,16 @@ func (r *Registry) Install(ctx context.Context, source, ref string) (*LockEntry,
 
 	manifest, err := services.ParseManifest(manifestYAML)
 	if err != nil {
-		return nil, fmt.Errorf("parse skill manifest: %w", err)
+		return nil, fmt.Errorf("parse service manifest: %w", err)
 	}
 
 	if err := os.MkdirAll(r.skillsDir, 0o755); err != nil {
-		return nil, fmt.Errorf("create skills directory: %w", err)
+		return nil, fmt.Errorf("create services directory: %w", err)
 	}
 
 	dstPath := filepath.Join(r.skillsDir, manifest.Name+".yaml")
 	if err := os.WriteFile(dstPath, manifestYAML, 0o644); err != nil {
-		return nil, fmt.Errorf("write installed skill: %w", err)
+		return nil, fmt.Errorf("write installed service: %w", err)
 	}
 
 	sum := sha256.Sum256(manifestYAML)
@@ -139,7 +139,7 @@ func (r *Registry) Verify(ctx context.Context) ([]VerifyResult, error) {
 				Name:           entry.Name,
 				Status:         "fail",
 				ExpectedSHA256: entry.SHA256,
-				Message:        fmt.Sprintf("read skill file: %v", readErr),
+				Message:        fmt.Sprintf("read service file: %v", readErr),
 			})
 			continue
 		}
@@ -294,14 +294,14 @@ func (r *Registry) fetchManifestYAML(ctx context.Context, source, ref string) ([
 	}
 
 	if r.skillsDir == "" {
-		return nil, fmt.Errorf("local manifest references require a configured skills directory")
+		return nil, fmt.Errorf("local manifest references require a configured services directory")
 	}
 
 	absBase, baseErr := filepath.EvalSymlinks(r.skillsDir)
 	if baseErr != nil {
 		absBase, baseErr = filepath.Abs(r.skillsDir)
 		if baseErr != nil {
-			return nil, fmt.Errorf("resolve skills dir: %w", baseErr)
+			return nil, fmt.Errorf("resolve services dir: %w", baseErr)
 		}
 	}
 
@@ -316,7 +316,7 @@ func (r *Registry) fetchManifestYAML(ctx context.Context, source, ref string) ([
 
 	sep := string(filepath.Separator)
 	if realRef != absBase && !strings.HasPrefix(realRef, absBase+sep) {
-		return nil, fmt.Errorf("local manifest path is outside the allowed skills directory")
+		return nil, fmt.Errorf("local manifest path is outside the allowed services directory")
 	}
 
 	b, err := os.ReadFile(realRef)

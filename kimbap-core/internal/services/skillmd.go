@@ -198,9 +198,9 @@ kimbap call <service>.<action> [--param value ...]
 
 Before calling any action:
 1. ` + "`kimbap actions list --format json`" + `         # discover
-2. ` + "`kimbap actions describe <svc.action> --format json`" + `  # inspect schema
-3. ` + "`kimbap call <svc.action> --dry-run --format json`" + `    # preview
-4. ` + "`kimbap call <svc.action> [--params]`" + `       # execute
+2. ` + "`kimbap actions describe <service.action> --format json`" + `  # inspect schema
+3. ` + "`kimbap call <service.action> --dry-run --format json`" + `    # preview
+4. ` + "`kimbap call <service.action> [--params]`" + `       # execute
 Never skip steps 1-3 for unfamiliar actions.
 
 ## Common Examples

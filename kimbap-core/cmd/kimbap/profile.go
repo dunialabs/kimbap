@@ -128,8 +128,8 @@ func newProfileListCommand() *cobra.Command {
 	}
 }
 
-func collectInstalledServicesFromConfig(skillsDir string) ([]profiles.InstalledService, error) {
-	installer := services.NewLocalInstaller(skillsDir)
+func collectInstalledServicesFromConfig(servicesDir string) ([]profiles.InstalledService, error) {
+	installer := services.NewLocalInstaller(servicesDir)
 	installed, err := installer.List()
 	if err != nil {
 		return nil, fmt.Errorf("list installed services: %w", err)

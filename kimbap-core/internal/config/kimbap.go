@@ -170,8 +170,8 @@ func loadKimbapConfig(includeDefault bool, paths ...string) (*KimbapConfig, erro
 		rebaseDerivedPathsForDataDir(&prev, cfg)
 	}
 
-	cfg.Services.Verify = normalizeSkillVerifyMode(cfg.Services.Verify)
-	cfg.Services.SignaturePolicy = normalizeSkillSignaturePolicy(cfg.Services.SignaturePolicy)
+	cfg.Services.Verify = normalizeServiceVerifyMode(cfg.Services.Verify)
+	cfg.Services.SignaturePolicy = normalizeServiceSignaturePolicy(cfg.Services.SignaturePolicy)
 
 	return cfg, nil
 }
@@ -380,7 +380,7 @@ func setIfNotEmpty(dst *string, value string) {
 	}
 }
 
-func normalizeSkillVerifyMode(mode string) string {
+func normalizeServiceVerifyMode(mode string) string {
 	normalized := strings.ToLower(strings.TrimSpace(mode))
 	switch normalized {
 	case "off", "strict", "warn":
@@ -390,7 +390,7 @@ func normalizeSkillVerifyMode(mode string) string {
 	}
 }
 
-func normalizeSkillSignaturePolicy(policy string) string {
+func normalizeServiceSignaturePolicy(policy string) string {
 	normalized := strings.ToLower(strings.TrimSpace(policy))
 	switch normalized {
 	case "off", "optional", "required":

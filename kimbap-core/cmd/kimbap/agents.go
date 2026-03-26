@@ -184,14 +184,14 @@ func runAgentsSync(projectDir string, rawAgentKinds string, force bool, dryRun b
 		return agentSetupResult{}, err
 	}
 
-	installedSkills, err := buildInstalledSkillsForSync(cfg)
+	installedServices, err := buildInstalledServicesForSync(cfg)
 	if err != nil {
 		return agentSetupResult{}, err
 	}
 
 	rulesContent := buildRulesContent(cfg)
 	syncResults, err := agents.SyncServices(
-		staticSkillInstaller{skills: installedSkills},
+		staticServiceInstaller{services: installedServices},
 		rulesContent,
 		agents.SyncOptions{
 			ProjectDir: projectDir,
@@ -267,7 +267,7 @@ func runAgentsSync(projectDir string, rawAgentKinds string, force bool, dryRun b
 	}
 
 	if !dryRun && len(syncResults) > 0 {
-		recordProjectSyncState(projectSyncScope(projectDir), installedSkills)
+		recordProjectSyncState(projectSyncScope(projectDir), installedServices)
 	}
 
 	return agentSetupResult{
@@ -299,7 +299,7 @@ func parseAgentKinds(raw string) []agents.AgentKind {
 	return out
 }
 
-func buildInstalledSkillsForSync(cfg *config.KimbapConfig) ([]agents.InstalledService, error) {
+func buildInstalledServicesForSync(cfg *config.KimbapConfig) ([]agents.InstalledService, error) {
 	installed, err := installerFromConfig(cfg).List()
 	if err != nil {
 		return nil, err
@@ -338,12 +338,12 @@ func buildRulesContent(cfg *config.KimbapConfig) string {
 	return fallback
 }
 
-type staticSkillInstaller struct {
-	skills []agents.InstalledService
+type staticServiceInstaller struct {
+	services []agents.InstalledService
 }
 
-func (i staticSkillInstaller) List() ([]agents.InstalledService, error) {
-	return i.skills, nil
+func (i staticServiceInstaller) List() ([]agents.InstalledService, error) {
+	return i.services, nil
 }
 
 func projectSyncScope(projectDir string) string {
@@ -358,10 +358,10 @@ func projectSyncScope(projectDir string) string {
 	return normalizedProjectDir
 }
 
-func recordProjectSyncState(scope string, installedSkills []agents.InstalledService) {
-	names := make([]string, 0, len(installedSkills))
-	contents := make([]string, 0, len(installedSkills))
-	for _, s := range installedSkills {
+func recordProjectSyncState(scope string, installedServices []agents.InstalledService) {
+	names := make([]string, 0, len(installedServices))
+	contents := make([]string, 0, len(installedServices))
+	for _, s := range installedServices {
 		names = append(names, s.Name)
 		contents = append(contents, s.Content)
 	}

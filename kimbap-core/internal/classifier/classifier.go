@@ -64,7 +64,7 @@ func (c *Classifier) AddRulesFromSkill(skill *services.ServiceManifest) error {
 	if strings.TrimSpace(skill.BaseURL) != "" {
 		u, err := url.Parse(skill.BaseURL)
 		if err != nil || !u.IsAbs() || strings.TrimSpace(u.Host) == "" {
-			return fmt.Errorf("invalid base URL for skill %q: %q", strings.TrimSpace(skill.Name), skill.BaseURL)
+			return fmt.Errorf("invalid base URL for service %q: %q", strings.TrimSpace(skill.Name), skill.BaseURL)
 		}
 		hostPattern = normalizeHostPattern(u.Host)
 		basePath = strings.TrimSuffix(u.Path, "/")

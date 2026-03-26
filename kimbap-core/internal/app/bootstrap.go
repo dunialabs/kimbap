@@ -163,7 +163,7 @@ func (r *skillsActionRegistry) List(_ context.Context, opts runtime.ListOptions)
 
 func (r *skillsActionRegistry) loadDefinitions() ([]actions.ActionDefinition, error) {
 	if r == nil || r.installer == nil {
-		return nil, fmt.Errorf("skills installer is not initialized")
+		return nil, fmt.Errorf("services installer is not initialized")
 	}
 	installed, err := r.installer.List()
 	if err != nil {
@@ -197,18 +197,18 @@ func (r *skillsActionRegistry) verifyInstalledSkill(name string) (bool, error) {
 	result, err := r.installer.Verify(name)
 	if err != nil {
 		if signaturePolicy == "required" {
-			return false, fmt.Errorf("verify installed skill %q for required signature policy: %w", name, err)
+			return false, fmt.Errorf("verify installed service %q for required signature policy: %w", name, err)
 		}
 		if verifyMode == "strict" {
-			return false, fmt.Errorf("verify installed skill %q: %w", name, err)
+			return false, fmt.Errorf("verify installed service %q: %w", name, err)
 		}
-		_, _ = fmt.Fprintf(os.Stderr, "warning: verify installed skill %q failed: %v\n", name, err)
+		_, _ = fmt.Fprintf(os.Stderr, "warning: verify installed service %q failed: %v\n", name, err)
 		return true, nil
 	}
 
 	if signaturePolicy == "required" {
 		if !result.Locked || !result.Signed || !result.SignatureValid {
-			msg := fmt.Sprintf("skill %q failed required signature verification (locked=%v signed=%v valid=%v)", name, result.Locked, result.Signed, result.SignatureValid)
+			msg := fmt.Sprintf("service %q failed required signature verification (locked=%v signed=%v valid=%v)", name, result.Locked, result.Signed, result.SignatureValid)
 			if verifyMode == "strict" {
 				return false, fmt.Errorf("%s", msg)
 			}
@@ -219,7 +219,7 @@ func (r *skillsActionRegistry) verifyInstalledSkill(name string) (bool, error) {
 
 	if verifyMode != "off" {
 		if !result.Locked || !result.Verified {
-			msg := fmt.Sprintf("skill %q failed digest verification (locked=%v verified=%v)", name, result.Locked, result.Verified)
+			msg := fmt.Sprintf("service %q failed digest verification (locked=%v verified=%v)", name, result.Locked, result.Verified)
 			if verifyMode == "strict" {
 				return false, fmt.Errorf("%s", msg)
 			}

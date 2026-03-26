@@ -76,7 +76,7 @@ func ResolveOAuthClientMaterial(providerID string, manifest *ProviderManifest) (
 	return nil, fmt.Errorf("no auth credentials available for provider %q: configure BYO env vars or managed app", providerID)
 }
 
-// ResolveActionToken resolves the bearer token for a runtime skill action call
+// ResolveActionToken resolves the bearer token for a runtime service action call
 // using environment variables only. Used as a standalone utility for embedded/CLI mode.
 // For server mode with OAuth connectors, use connectorCredentialResolver in app/bootstrap.go.
 //
