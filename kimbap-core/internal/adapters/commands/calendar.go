@@ -90,11 +90,14 @@ JSON.stringify(result);`,
 var app = Application("Calendar");
 app.includeStandardAdditions = false;
 
-var calendars = input.calendar
-	? app.calendars.whose({name: input.calendar})()
-	: app.calendars().filter(function(c) { return c.writable(); });
-
-if (calendars.length === 0) throw new Error("calendar not found or not writable");
+var calendars;
+if (input.calendar) {
+	calendars = app.calendars.whose({name: input.calendar})();
+	if (calendars.length === 0) throw new Error("[NOT_FOUND] calendar not found");
+} else {
+	calendars = app.calendars().filter(function(c) { return c.writable(); });
+	if (calendars.length === 0) throw new Error("no writable calendar available");
+}
 
 var targetCalendar = calendars[0];
 var startDate = new Date(input.start_date);

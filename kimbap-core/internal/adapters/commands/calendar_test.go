@@ -71,7 +71,7 @@ func TestCalendarTargetApp(t *testing.T) {
 }
 
 func TestCalendarNotFoundCommandsEmitSentinel(t *testing.T) {
-	notFoundCmds := []string{"get-event"}
+	notFoundCmds := []string{"get-event", "create-event"}
 	cmds := CalendarCommands()
 	for _, name := range notFoundCmds {
 		cmd, ok := cmds[name]
