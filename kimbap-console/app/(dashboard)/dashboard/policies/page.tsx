@@ -851,7 +851,7 @@ export default function PoliciesPage() {
             <div className="flex min-h-[200px] items-center justify-center">
               <div className="text-center">
                 <Loader2 className="mx-auto mb-3 h-8 w-8 animate-spin text-muted-foreground" />
-                <p className="text-sm text-muted-foreground">Loading policies...</p>
+                <p className="text-sm text-muted-foreground">Loading access policies...</p>
               </div>
             </div>
           ) : policies.length === 0 ? (

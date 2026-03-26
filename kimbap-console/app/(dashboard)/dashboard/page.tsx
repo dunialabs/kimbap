@@ -235,8 +235,8 @@ export default function DashboardPage() {
       <div className="flex items-center justify-center min-h-[400px]">
         <div aria-live="polite" className="text-center">
           <div className="w-8 h-8 border-2 border-muted-foreground/30 border-t-foreground rounded-full animate-spin mx-auto mb-4" aria-hidden="true" />
-          <h3 className="text-lg font-semibold mb-2">Loading Dashboard</h3>
-          <p className="text-muted-foreground">Loading server overview…</p>
+          <h3 className="text-lg font-semibold mb-2">Loading dashboard overview</h3>
+          <p className="text-muted-foreground">Fetching server metrics, addresses, and recent activity…</p>
         </div>
       </div>
     )
@@ -416,6 +416,7 @@ export default function DashboardPage() {
             onClick={() => setIsClientsDialogOpen(true)}
             aria-haspopup="dialog"
             aria-controls="connected-clients-dialog"
+            aria-label={`Open recent clients dialog${stats.connectedClients == null ? "" : `, ${stats.connectedClients} clients seen in the last 24 hours`}`}
           >
             <Card className="p-4 cursor-pointer hover:bg-muted/50 transition-colors h-full">
               <div className="flex items-center justify-between h-full">
@@ -540,14 +541,9 @@ export default function DashboardPage() {
                 <Link
                   key={tool.name}
                   href="/dashboard/usage/tool-usage?timeRange=30"
-                  className="contents focus-visible:outline-none"
+                  className="group contents focus-visible:outline-none"
                 >
-                  <div
-                    className="text-sm max-w-[200px] truncate rounded-sm"
-                    title={tool.name}
-                  >
-                    {tool.name}
-                  </div>
+                  <div className="text-sm max-w-[200px] truncate rounded-sm group-hover:underline group-focus-visible:underline" title={tool.name}>{tool.name}</div>
                   <div className="min-w-0 rounded-sm">
                     <Progress
                       value={tool.percentage}
@@ -588,10 +584,10 @@ export default function DashboardPage() {
                 <Link
                   key={`${token.name || 'token'}-${token.token?.trim() || ''}`}
                   href="/dashboard/usage/token-usage?timeRange=30"
-                  className="contents focus-visible:outline-none"
+                  className="group contents focus-visible:outline-none"
                 >
                   <div
-                    className="text-sm max-w-[200px] truncate rounded-sm"
+                    className="text-sm max-w-[200px] truncate rounded-sm group-hover:underline group-focus-visible:underline"
                     title={token.name}
                   >
                     {token.name}

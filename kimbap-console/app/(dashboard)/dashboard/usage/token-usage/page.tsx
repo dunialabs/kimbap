@@ -447,7 +447,7 @@ function TokenUsagePageContent() {
                    }
                  >
                   {loading
-                    ? 'Loading...'
+                    ? 'Loading token count...'
                     : summary?.totalTokens == null
                     ? (loadError ? 'Unavailable' : '—')
                     : summary.totalTokens.toLocaleString()}
@@ -480,7 +480,7 @@ function TokenUsagePageContent() {
                    }
                  >
                   {loading
-                    ? 'Loading...'
+                    ? 'Loading request count...'
                     : summary?.totalRequests == null
                     ? (loadError ? 'Unavailable' : '—')
                     : summary.totalRequests.toLocaleString()}
@@ -500,7 +500,7 @@ function TokenUsagePageContent() {
               <CardContent className="flex flex-col gap-1 justify-center">
                 {(() => {
                   if (loading) {
-                    return <div className="text-sm text-muted-foreground">Loading...</div>
+                    return <div className="text-sm text-muted-foreground">Loading success rate...</div>
                   }
                   let successRate: number | null = null
                   if (summary?.avgSuccessRate != null) {
@@ -542,7 +542,7 @@ function TokenUsagePageContent() {
                    }
                  >
                   {loading
-                    ? 'Loading...'
+                    ? 'Loading client count...'
                     : summary?.totalClients == null
                     ? (loadError ? 'Unavailable' : '—')
                     : summary.totalClients.toLocaleString()}
@@ -563,7 +563,7 @@ function TokenUsagePageContent() {
               {loading || !pieData || pieData.length === 0 ? (
                 <div className="flex items-center justify-center h-[300px]">
                   {loading ? (
-                    <p className="text-sm text-muted-foreground">Loading token distribution...</p>
+                    <p className="text-sm text-muted-foreground">Loading token distribution chart...</p>
                   ) : tokenDataError ? (
                     <div className="text-center">
                       <p className="text-sm text-red-600 dark:text-red-400">{tokenDataError}</p>
@@ -614,7 +614,7 @@ function TokenUsagePageContent() {
               {loading || !tokenUsageData || tokenUsageData.length === 0 ? (
                 <div className="flex items-center justify-center py-8">
                   {loading ? (
-                    <p className="text-sm text-muted-foreground">Loading...</p>
+                    <p className="text-sm text-muted-foreground">Loading per-token request details...</p>
                   ) : tokenDataError ? (
                     <div className="text-center">
                       <p className="text-sm text-red-600 dark:text-red-400">{tokenDataError}</p>
@@ -706,7 +706,7 @@ function TokenUsagePageContent() {
           {loading || geoUsage.length === 0 ? (
             <div className="flex items-center justify-center py-8">
               {loading ? (
-                <p className="text-sm text-muted-foreground">Loading...</p>
+                <p className="text-sm text-muted-foreground">Loading client location data...</p>
               ) : geoUsageError ? (
                 <div className="text-center">
                   <p className="text-sm text-red-600 dark:text-red-400">{geoUsageError}</p>
@@ -783,7 +783,7 @@ function TokenUsagePageContent() {
               {loading || !trendData || trendData.length === 0 ? (
                 <div className="flex items-center justify-center h-[400px]">
                   {loading ? (
-                    <p className="text-sm text-muted-foreground">Loading...</p>
+                    <p className="text-sm text-muted-foreground">Loading token usage trend chart...</p>
                   ) : trendDataError ? (
                     <div className="text-center">
                       <p className="text-sm text-red-600 dark:text-red-400">{trendDataError}</p>
@@ -833,7 +833,7 @@ function TokenUsagePageContent() {
           {loading || patternLoading || patternPending || patternTokens.length === 0 ? (
             <div className="flex items-center justify-center py-8">
               {loading || patternLoading || patternPending ? (
-                <p className="text-sm text-muted-foreground">Loading...</p>
+                <p className="text-sm text-muted-foreground">Loading minute-by-minute token patterns...</p>
               ) : tokenDataError ? (
                 <div className="text-center">
                   <p className="text-sm text-red-600 dark:text-red-400">{tokenDataError}</p>
@@ -910,7 +910,7 @@ export default function TokenUsagePage() {
             <CardContent className="py-10">
               <div className="flex items-center justify-center gap-2 text-sm text-muted-foreground" role="status">
                 <RefreshCw className="h-4 w-4 animate-spin" aria-hidden="true" />
-                <span>Loading token usage...</span>
+                <span>Loading token usage dashboard...</span>
               </div>
             </CardContent>
           </Card>

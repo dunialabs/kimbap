@@ -142,7 +142,7 @@ export function TagInput({
                 <button
                   type="button"
                   aria-label={`Remove tag ${tag}`}
-                  className="ml-0.5 rounded-full p-0.5 hover:bg-muted-foreground/20 cursor-pointer"
+                  className="ml-0.5 rounded-full p-0.5 hover:bg-muted-foreground/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-1 cursor-pointer"
                   onKeyDown={(e) => e.stopPropagation()}
                   onClick={(e) => {
                     e.stopPropagation()

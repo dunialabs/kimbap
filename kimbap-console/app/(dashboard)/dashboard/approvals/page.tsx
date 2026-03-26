@@ -504,7 +504,7 @@ export default function ApprovalsPage() {
             <div className="flex items-center justify-center min-h-[200px]" role="status">
               <div className="text-center">
                 <Loader2 className="h-8 w-8 animate-spin mx-auto mb-3 text-muted-foreground" aria-hidden="true" />
-                <p className="text-sm text-muted-foreground">Loading approval requests...</p>
+                <p className="text-sm text-muted-foreground">Loading the approval queue...</p>
               </div>
             </div>
           ) : requests.length === 0 ? (
@@ -656,7 +656,7 @@ export default function ApprovalsPage() {
           </p>
           {hasMore && (
             <Button variant="outline" size="sm" onClick={handleLoadMore} disabled={loadingMore}>
-              {loadingMore ? 'Loading...' : 'Load more'}
+              {loadingMore ? 'Loading more approvals...' : 'Load more'}
             </Button>
           )}
         </div>

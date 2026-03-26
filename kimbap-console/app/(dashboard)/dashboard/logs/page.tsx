@@ -523,7 +523,7 @@ function LogsPageContent() {
     ? ((statistics?.totalLogs ?? 0) === 0)
     : logs.length === 0
   const isRealtimePaused = currentPage !== 1 || activeTab !== 'table' || !!debouncedSearchTerm
-  const liveStatusText = loading ? 'Loading...' : isRealtimePaused ? 'Paused' : realtimeHealthy ? 'Live' : 'Refresh required'
+  const liveStatusText = loading ? 'Syncing' : isRealtimePaused ? 'Paused' : realtimeHealthy ? 'Live' : 'Refresh required'
   const selectedTimeRange = activeTab === 'statistics' ? statisticsTimeFilter : timeFilter
   const levelDisplayLabel: Record<string, string> = {
     ERROR: 'Error',
@@ -792,7 +792,7 @@ function LogsPageContent() {
                     {loading ? (
                       <TableRow>
                         <TableCell colSpan={6} className="text-center py-8">
-                          <p className="text-sm text-muted-foreground">Loading...</p>
+                          <p className="text-sm text-muted-foreground">Loading filtered logs...</p>
                         </TableCell>
                       </TableRow>
                     ) : logs.map((log) => (
@@ -1045,7 +1045,7 @@ function LogsPageContent() {
                 <CardTitle>Raw Log View</CardTitle>
                 <CardDescription>
                   {loading
-                    ? 'Raw server logs for this filtered page (Loading...)'
+                    ? 'Preparing raw logs for the current filtered page...'
                     : `Raw server logs for this filtered page (${logs.length.toLocaleString()} rows on page ${currentPage} of ${Math.max(totalPages, 1)})`}
                 </CardDescription>
               </div>
@@ -1075,7 +1075,7 @@ function LogsPageContent() {
             <CardContent>
               {loading ? (
                 <div className="flex items-center justify-center py-16 text-muted-foreground">
-                  <p className="text-sm">Loading...</p>
+                  <p className="text-sm">Preparing raw log output...</p>
                 </div>
               ) : logs.length === 0 ? (
                 <div className="flex flex-col items-center justify-center py-16 text-muted-foreground">
@@ -1122,7 +1122,7 @@ function LogsPageContent() {
               <CardContent className="flex flex-col gap-1 justify-center">
                 <div className={statsLoading || !statistics ? (statsError ? "text-sm text-red-600 dark:text-red-400" : "text-sm text-muted-foreground") : "text-2xl font-bold"}>
                   {statsLoading
-                    ? 'Loading...'
+                    ? 'Syncing total log count...'
                     : !statistics
                     ? (statsError ? 'Unavailable' : '—')
                     : statistics.totalLogs.toLocaleString()}
@@ -1138,7 +1138,7 @@ function LogsPageContent() {
               <CardContent className="flex flex-col gap-1 justify-center">
                 <div className={statsLoading || !statistics ? (statsError ? "text-sm text-red-600 dark:text-red-400" : "text-sm text-muted-foreground") : "text-2xl font-bold"}>
                   {statsLoading
-                    ? 'Loading...'
+                    ? 'Syncing error count...'
                     : !statistics
                     ? (statsError ? 'Unavailable' : '—')
                     : statistics.errorLogs.toLocaleString()}
@@ -1157,7 +1157,7 @@ function LogsPageContent() {
               <CardContent className="flex flex-col gap-1 justify-center">
                 <div className={statsLoading || !statistics ? (statsError ? "text-sm text-red-600 dark:text-red-400" : "text-sm text-muted-foreground") : "text-2xl font-bold"}>
                   {statsLoading
-                    ? 'Loading...'
+                    ? 'Syncing warning count...'
                     : !statistics
                     ? (statsError ? 'Unavailable' : '—')
                     : statistics.warnLogs.toLocaleString()}
@@ -1174,7 +1174,7 @@ function LogsPageContent() {
               <CardContent className="flex flex-col gap-1 justify-center">
                 <div className={statsLoading || !statistics ? (statsError ? "text-sm text-red-600 dark:text-red-400" : "text-sm text-muted-foreground") : "text-2xl font-bold"}>
                   {statsLoading
-                    ? 'Loading...'
+                    ? 'Syncing info count...'
                     : !statistics
                     ? (statsError ? 'Unavailable' : '—')
                     : statistics.infoLogs.toLocaleString()}
@@ -1196,7 +1196,7 @@ function LogsPageContent() {
                 <div className="flex items-center justify-center h-[300px]">
                   <div className="text-center">
                     <Loader2 className="h-8 w-8 animate-spin mx-auto mb-3 text-muted-foreground" />
-                    <p className="text-sm text-muted-foreground">Loading...</p>
+                    <p className="text-sm text-muted-foreground">Loading hourly log activity...</p>
                   </div>
                 </div>
               ) : statsError ? (
@@ -1237,7 +1237,7 @@ function LogsPageContent() {
             <CardContent>
               {statsLoading ? (
                 <div className="flex items-center justify-center py-8">
-                  <p className="text-sm text-muted-foreground">Loading...</p>
+                  <p className="text-sm text-muted-foreground">Loading log source breakdown...</p>
                 </div>
               ) : statsError ? (
                 <div className="flex items-center justify-center py-8">
@@ -1290,7 +1290,7 @@ export default function LogsPage() {
             <CardContent className="py-10">
               <div className="flex items-center justify-center gap-2 text-sm text-muted-foreground" role="status">
                 <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
-                <span>Loading logs...</span>
+                <span>Loading logs workspace...</span>
               </div>
             </CardContent>
           </Card>

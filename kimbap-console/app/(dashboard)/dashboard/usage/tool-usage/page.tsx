@@ -424,7 +424,7 @@ function ToolUsagePageContent() {
               <CardContent className="flex flex-col gap-1 justify-center">
                 <div className={loading || summary?.totalTools == null ? (loadError ? "text-sm text-red-600 dark:text-red-400" : "text-sm text-muted-foreground") : "text-2xl font-bold"}>
                   {loading
-                    ? 'Loading...'
+                    ? 'Loading tool count...'
                     : summary?.totalTools == null
                     ? (loadError ? 'Load failed' : '—')
                     : summary.totalTools}
@@ -448,7 +448,7 @@ function ToolUsagePageContent() {
               <CardContent className="flex flex-col gap-1 justify-center">
                 <div className={loading || summary?.totalRequests == null ? (loadError ? "text-sm text-red-600 dark:text-red-400" : "text-sm text-muted-foreground") : "text-2xl font-bold"}>
                   {loading
-                    ? 'Loading...'
+                    ? 'Loading request count...'
                     : summary?.totalRequests == null
                     ? (loadError ? 'Load failed' : '—')
                     : summary.totalRequests.toLocaleString()}
@@ -472,7 +472,7 @@ function ToolUsagePageContent() {
                     : "text-2xl font-bold text-amber-600 dark:text-amber-400"
                 }>
                   {loading
-                    ? 'Loading...'
+                    ? 'Loading success rate...'
                     : summary?.avgSuccessRate == null
                     ? (loadError ? 'Load failed' : '—')
                     : `${summary.avgSuccessRate.toFixed(1)}%`}
@@ -488,7 +488,7 @@ function ToolUsagePageContent() {
               <CardContent className="flex flex-col gap-1 justify-center">
                 <div className={loading || summary?.avgResponseTime == null ? (loadError ? "text-sm text-red-600 dark:text-red-400" : "text-sm text-muted-foreground") : "text-2xl font-bold"}>
                   {loading
-                    ? 'Loading...'
+                    ? 'Loading response time...'
                     : summary?.avgResponseTime == null
                     ? (loadError ? 'Load failed' : '—')
                     : `${Math.round(summary.avgResponseTime)}ms`}
@@ -507,7 +507,7 @@ function ToolUsagePageContent() {
               {loading || !pieData || pieData.length === 0 ? (
                 <div className="flex items-center justify-center h-[300px]">
                   {loading ? (
-                    <p className="text-sm text-muted-foreground">Loading tool distribution...</p>
+                    <p className="text-sm text-muted-foreground">Loading tool distribution chart...</p>
                   ) : toolDataError ? (
                     <div className="text-center">
                       <p className="text-sm text-red-600 dark:text-red-400">{toolDataError}</p>
@@ -555,7 +555,7 @@ function ToolUsagePageContent() {
               {loading || !toolUsageData || toolUsageData.length === 0 ? (
                 <div className="flex items-center justify-center py-8">
                   {loading ? (
-                    <p className="text-sm text-muted-foreground">Loading tool details...</p>
+                    <p className="text-sm text-muted-foreground">Loading per-tool request details...</p>
                   ) : toolDataError ? (
                     <div className="text-center">
                       <p className="text-sm text-red-600 dark:text-red-400">{toolDataError}</p>
@@ -626,7 +626,7 @@ function ToolUsagePageContent() {
               {loading || toolUsageData.length === 0 ? (
                 <div className="flex items-center justify-center h-[300px]">
                   {loading ? (
-                    <p className="text-sm text-muted-foreground">Loading response times...</p>
+                    <p className="text-sm text-muted-foreground">Loading tool response time chart...</p>
                   ) : toolDataError ? (
                     <div className="text-center">
                       <p className="text-sm text-red-600 dark:text-red-400">{toolDataError}</p>
@@ -663,7 +663,7 @@ function ToolUsagePageContent() {
               {loading || toolUsageData.length === 0 ? (
                 <div className="flex items-center justify-center h-[300px]">
                   {loading ? (
-                    <p className="text-sm text-muted-foreground">Loading request outcomes...</p>
+                    <p className="text-sm text-muted-foreground">Loading request outcome chart...</p>
                   ) : toolDataError ? (
                     <div className="text-center">
                       <p className="text-sm text-red-600 dark:text-red-400">{toolDataError}</p>
@@ -699,7 +699,7 @@ function ToolUsagePageContent() {
             <Card>
               <CardContent className="flex items-center justify-center py-8">
                 {loading ? (
-                  <p className="text-sm text-muted-foreground">Loading error analysis...</p>
+                  <p className="text-sm text-muted-foreground">Loading tool error breakdown...</p>
                 ) : errorDataError ? (
                   <div className="text-center">
                     <p className="text-sm text-red-600 dark:text-red-400">{errorDataError}</p>
@@ -742,7 +742,7 @@ function ToolUsagePageContent() {
               {loading || trendData.length === 0 ? (
                 <div className="flex items-center justify-center h-[400px]">
                   {loading ? (
-                    <p className="text-sm text-muted-foreground">Loading usage trends...</p>
+                    <p className="text-sm text-muted-foreground">Loading tool usage trend chart...</p>
                   ) : trendDataError ? (
                     <div className="text-center">
                       <p className="text-sm text-red-600 dark:text-red-400">{trendDataError}</p>
@@ -855,7 +855,7 @@ function ToolUsagePageContent() {
               {actionLoading || actionLogs.length === 0 ? (
                 <div className="flex items-center justify-center py-8">
                   {actionLoading ? (
-                    <p className="text-sm text-muted-foreground">Loading tool action logs...</p>
+                    <p className="text-sm text-muted-foreground">Loading recent tool action logs...</p>
                   ) : actionLogsError ? (
                     <div className="text-center">
                       <p className="text-sm text-red-600 dark:text-red-400">{actionLogsError}</p>
@@ -901,8 +901,8 @@ function ToolUsagePageContent() {
                             <div className="text-xs text-red-600 dark:text-red-400 whitespace-pre-wrap break-words">{log.errorMessage}</div>
                           ) : (
                             <details>
-                              <summary className="cursor-pointer text-xs text-muted-foreground">View details</summary>
-                              <pre className="mt-1 max-h-24 overflow-auto rounded bg-muted p-2 text-xs">{log.details || '-'}</pre>
+                              <summary className="cursor-pointer rounded-sm text-xs text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2">View details</summary>
+                              <pre className="mt-1 max-h-24 overflow-auto whitespace-pre-wrap break-words rounded bg-muted p-2 text-xs">{log.details || '-'}</pre>
                             </details>
                           )}
                         </TableCell>
@@ -940,7 +940,7 @@ export default function ToolUsagePage() {
             <CardContent className="py-10">
               <div className="flex items-center justify-center gap-2 text-sm text-muted-foreground" role="status">
                 <RefreshCw className="h-4 w-4 animate-spin" aria-hidden="true" />
-                <span>Loading tool usage...</span>
+                <span>Loading tool usage dashboard...</span>
               </div>
             </CardContent>
           </Card>

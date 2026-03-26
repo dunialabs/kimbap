@@ -7,6 +7,7 @@ export function GlobalFooter() {
           href="https://kimbap.sh"
           target="_blank"
           rel="noopener noreferrer"
+          aria-label="Dunia Labs website (opens in new tab)"
           className="rounded-sm text-slate-600 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 dark:text-slate-300"
         >
           Dunia Labs, Inc.

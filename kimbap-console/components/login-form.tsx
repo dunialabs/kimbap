@@ -339,7 +339,8 @@ export function LoginForm({
                     href="https://www.kimbap.sh/quick-start/#install-desk"
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 underline cursor-pointer font-medium"
+                    aria-label="Download Kimbap Desk quick start guide (opens in new tab)"
+                    className="rounded-sm text-blue-600 underline hover:text-blue-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 dark:text-blue-400 dark:hover:text-blue-300 cursor-pointer font-medium"
                   >
                     download Kimbap Desk
                   </a>
