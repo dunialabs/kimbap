@@ -40,12 +40,7 @@ async function getKimbapCoreUrl() {
     }
 
     let url = config.kimbap_core_host;
-    const port =
-      typeof config.kimbap_core_port === 'number'
-        ? config.kimbap_core_port
-        : typeof config.kimbap_core_prot === 'number'
-          ? config.kimbap_core_prot
-          : undefined;
+    const port = typeof config.kimbap_core_port === 'number' ? config.kimbap_core_port : undefined;
 
     // Build URL with smart protocol detection (same logic as proxy-api.ts)
     if (url.startsWith('http://') || url.startsWith('https://')) {
