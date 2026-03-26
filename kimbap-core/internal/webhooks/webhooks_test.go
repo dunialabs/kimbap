@@ -83,7 +83,7 @@ func TestDispatcherHMACSignature(t *testing.T) {
 		Secret: "test-secret",
 	})
 
-	d.Emit(EventSkillInstalled, map[string]string{"name": "github"})
+	d.Emit(EventServiceInstalled, map[string]string{"name": "github"})
 
 	select {
 	case headers := <-received:

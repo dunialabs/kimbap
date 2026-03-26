@@ -23,7 +23,7 @@ type Controller struct {
 	queryHandler    *handlers.QueryHandler
 	proxyHandler    *handlers.ProxyHandler
 	logHandler      *handlers.LogHandler
-	skillsHandler   *handlers.SkillsHandler
+	servicesHandler *handlers.ServicesHandler
 	policyHandler   *handlers.PolicyHandler
 	approvalHandler *handlers.ApprovalHandler
 }
@@ -43,7 +43,7 @@ func NewController() *Controller {
 		queryHandler:    handlers.NewQueryHandler(database.DB),
 		proxyHandler:    handlers.NewProxyHandler(database.DB, sessionStore, serverManager, socketNotifier),
 		logHandler:      handlers.NewLogHandler(database.DB),
-		skillsHandler:   handlers.NewSkillsHandler(service.NewSkillsService(), database.DB, serverManager),
+		servicesHandler: handlers.NewServicesHandler(service.NewServicesService(), database.DB, serverManager),
 		policyHandler:   handlers.NewPolicyHandler(database.DB),
 		approvalHandler: handlers.NewApprovalHandler(socketNotifier),
 	}
@@ -221,14 +221,14 @@ func (c *Controller) HandleAdminRequest(w http.ResponseWriter, r *http.Request) 
 	case types.AdminActionGetPendingApprovalsCount:
 		result, err = c.approvalHandler.GetPendingApprovalsCount(request.Data)
 
-	case types.AdminActionListSkills:
-		result, err = c.skillsHandler.ListSkills(request.Data)
-	case types.AdminActionUploadSkill:
-		result, err = c.skillsHandler.UploadSkill(request.Data, token)
-	case types.AdminActionDeleteSkill:
-		result, err = c.skillsHandler.DeleteSkill(request.Data, token)
-	case types.AdminActionDeleteServerSkills:
-		result, err = c.skillsHandler.DeleteServerSkills(request.Data, token)
+	case types.AdminActionListServices:
+		result, err = c.servicesHandler.ListServices(request.Data)
+	case types.AdminActionUploadService:
+		result, err = c.servicesHandler.UploadService(request.Data, token)
+	case types.AdminActionDeleteService:
+		result, err = c.servicesHandler.DeleteService(request.Data, token)
+	case types.AdminActionDeleteServerServices:
+		result, err = c.servicesHandler.DeleteServerServices(request.Data, token)
 
 	default:
 		respond(w, http.StatusBadRequest, types.AdminResponse{Success: false, Error: &types.AdminResponseError{Code: types.AdminErrorCodeInvalidRequest, Message: fmt.Sprintf("Unknown action type: %d", request.Action)}})
@@ -266,9 +266,9 @@ func isOwnerOnlyAdminAction(action int) bool {
 		types.AdminActionStopProxy,
 		types.AdminActionSetLogWebhookURL,
 		types.AdminActionGetLogs,
-		types.AdminActionUploadSkill,
-		types.AdminActionDeleteSkill,
-		types.AdminActionDeleteServerSkills:
+		types.AdminActionUploadService,
+		types.AdminActionDeleteService,
+		types.AdminActionDeleteServerServices:
 		return true
 	default:
 		return false
@@ -294,7 +294,7 @@ func adminHTTPStatusFromCode(code int) int {
 	switch code {
 	case types.AdminErrorCodeInvalidRequest,
 		types.AdminErrorCodeInvalidCredentialsFormat,
-		types.AdminErrorCodeInvalidSkillFormat:
+		types.AdminErrorCodeInvalidServiceFormat:
 		return http.StatusBadRequest
 	case types.AdminErrorCodeUnauthorized:
 		return http.StatusUnauthorized
@@ -303,7 +303,7 @@ func adminHTTPStatusFromCode(code int) int {
 	case types.AdminErrorCodeUserNotFound,
 		types.AdminErrorCodeServerNotFound,
 		types.AdminErrorCodeProxyNotFound,
-		types.AdminErrorCodeSkillNotFound:
+		types.AdminErrorCodeServiceNotFound:
 		return http.StatusNotFound
 	case types.AdminErrorCodeUserAlreadyExists,
 		types.AdminErrorCodeServerAlreadyExists,

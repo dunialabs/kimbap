@@ -41,10 +41,10 @@ const (
 	AdminActionGetApprovalRequest                  = 9202
 	AdminActionDecideApprovalRequest               = 9203
 	AdminActionGetPendingApprovalsCount            = 9204
-	AdminActionListSkills                          = 10040
-	AdminActionUploadSkill                         = 10041
-	AdminActionDeleteSkill                         = 10042
-	AdminActionDeleteServerSkills                  = 10043
+	AdminActionListServices                        = 10040
+	AdminActionUploadService                       = 10041
+	AdminActionDeleteService                       = 10042
+	AdminActionDeleteServerServices                = 10043
 )
 
 type AdminRequest struct {
@@ -75,10 +75,10 @@ const (
 	AdminErrorCodeProxyAlreadyExists       = 5002
 	AdminErrorCodeDatabaseOpFailed         = 5201
 	AdminErrorCodeInvalidCredentialsFormat = 8002
-	AdminErrorCodeSkillNotFound            = 9001
-	AdminErrorCodeSkillUploadFailed        = 9002
-	AdminErrorCodeSkillDeleteFailed        = 9003
-	AdminErrorCodeInvalidSkillFormat       = 9004
+	AdminErrorCodeServiceNotFound          = 9001
+	AdminErrorCodeServiceUploadFailed      = 9002
+	AdminErrorCodeServiceDeleteFailed      = 9003
+	AdminErrorCodeInvalidServiceFormat     = 9004
 )
 
 type AdminError struct {

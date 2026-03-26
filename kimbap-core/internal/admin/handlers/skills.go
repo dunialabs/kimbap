@@ -17,23 +17,23 @@ import (
 	"gorm.io/gorm"
 )
 
-var skillsLog = logger.CreateLogger("SkillsHandler")
+var servicesLog = logger.CreateLogger("ServicesHandler")
 
-// skillsServerReconnector is a narrow interface for reconnecting a skills server.
-type skillsServerReconnector interface {
+// servicesServerReconnector is a narrow interface for reconnecting a services server.
+type servicesServerReconnector interface {
 	ReconnectServer(ctx context.Context, server database.Server, token string) (*core.ServerContext, error)
 	GetServerContext(serverID, userID string) *core.ServerContext
 }
 
-type SkillsHandler struct {
-	skillsService   *service.SkillsService
+type ServicesHandler struct {
+	servicesService *service.ServicesService
 	db              *gorm.DB
-	serverReconnect skillsServerReconnector
+	serverReconnect servicesServerReconnector
 }
 
-func NewSkillsHandler(svc *service.SkillsService, db *gorm.DB, serverReconnect skillsServerReconnector) *SkillsHandler {
+func NewServicesHandler(svc *service.ServicesService, db *gorm.DB, serverReconnect servicesServerReconnector) *ServicesHandler {
 	if svc == nil {
-		svc = service.NewSkillsService()
+		svc = service.NewServicesService()
 	}
 	if db == nil {
 		db = database.DB
@@ -41,24 +41,24 @@ func NewSkillsHandler(svc *service.SkillsService, db *gorm.DB, serverReconnect s
 	if serverReconnect == nil {
 		serverReconnect = core.ServerManagerInstance()
 	}
-	return &SkillsHandler{skillsService: svc, db: db, serverReconnect: serverReconnect}
+	return &ServicesHandler{servicesService: svc, db: db, serverReconnect: serverReconnect}
 }
 
-func (h *SkillsHandler) ListSkills(data map[string]any) (any, error) {
+func (h *ServicesHandler) ListServices(data map[string]any) (any, error) {
 	serverID, err := requireStringField(data, "serverId")
 	if err != nil {
 		return nil, err
 	}
 
-	skills, err := h.skillsService.ListSkills(serverID)
+	skills, err := h.servicesService.ListServices(serverID)
 	if err != nil {
-		return nil, &types.AdminError{Message: sanitizeAdminErr(err, mapSkillsErrorCode(err, "list")), Code: mapSkillsErrorCode(err, "list")}
+		return nil, &types.AdminError{Message: sanitizeAdminErr(err, mapServicesErrorCode(err, "list")), Code: mapServicesErrorCode(err, "list")}
 	}
 
 	return map[string]any{"skills": skills}, nil
 }
 
-func (h *SkillsHandler) UploadSkill(data map[string]any, token string) (any, error) {
+func (h *ServicesHandler) UploadService(data map[string]any, token string) (any, error) {
 	serverID, err := requireStringField(data, "serverId")
 	if err != nil {
 		return nil, err
@@ -67,74 +67,74 @@ func (h *SkillsHandler) UploadSkill(data map[string]any, token string) (any, err
 	if err != nil {
 		return nil, &types.AdminError{Message: "invalid data format: expected []byte, base64 string, or byte array", Code: types.AdminErrorCodeInvalidRequest}
 	}
-	uploaded, err := h.skillsService.UploadSkill(serverID, zipBytes)
+	uploaded, err := h.servicesService.UploadService(serverID, zipBytes)
 	if err != nil {
-		code := mapSkillsErrorCode(err, "upload")
+		code := mapServicesErrorCode(err, "upload")
 		return nil, &types.AdminError{Message: sanitizeAdminErr(err, code), Code: code}
 	}
 
-	h.reloadSkillsServer(serverID, token)
+	h.reloadServicesServer(serverID, token)
 
 	return map[string]any{
-		"success":   true,
-		"skillName": strings.Join(uploaded, ", "),
-		"message":   fmt.Sprintf("Successfully uploaded %d skill(s)", len(uploaded)),
+		"success":     true,
+		"serviceName": strings.Join(uploaded, ", "),
+		"message":     fmt.Sprintf("Successfully uploaded %d service(s)", len(uploaded)),
 	}, nil
 }
 
-func (h *SkillsHandler) DeleteSkill(data map[string]any, token string) (any, error) {
+func (h *ServicesHandler) DeleteService(data map[string]any, token string) (any, error) {
 	serverID, err := requireStringField(data, "serverId")
 	if err != nil {
 		return nil, err
 	}
-	skillName, err := requireStringField(data, "skillName")
+	skillName, err := requireStringField(data, "serviceName")
 	if err != nil {
 		return nil, err
 	}
 
-	err = h.skillsService.DeleteSkill(serverID, skillName)
+	err = h.servicesService.DeleteService(serverID, skillName)
 	if err != nil {
-		code := mapSkillsErrorCode(err, "delete")
+		code := mapServicesErrorCode(err, "delete")
 		return nil, &types.AdminError{Message: sanitizeAdminErr(err, code), Code: code}
 	}
 
-	h.reloadSkillsServer(serverID, token)
+	h.reloadServicesServer(serverID, token)
 
 	return map[string]any{
 		"success": true,
-		"message": "Skill deleted successfully",
+		"message": "Service deleted successfully",
 	}, nil
 }
 
-func (h *SkillsHandler) DeleteServerSkills(data map[string]any, token string) (any, error) {
+func (h *ServicesHandler) DeleteServerServices(data map[string]any, token string) (any, error) {
 	serverID, err := requireStringField(data, "serverId")
 	if err != nil {
 		return nil, err
 	}
 
-	err = h.skillsService.DeleteServerSkills(serverID)
+	err = h.servicesService.DeleteServerServices(serverID)
 	if err != nil {
-		if errors.Is(err, service.ErrNoSkillsDirectoryFound) {
+		if errors.Is(err, service.ErrNoServicesDirectoryFound) {
 			return map[string]any{
 				"success": true,
-				"message": "No skills directory found",
+				"message": "No services directory found",
 			}, nil
 		}
-		code := mapSkillsErrorCode(err, "delete")
+		code := mapServicesErrorCode(err, "delete")
 		return nil, &types.AdminError{Message: sanitizeAdminErr(err, code), Code: code}
 	}
 
-	h.reloadSkillsServer(serverID, token)
+	h.reloadServicesServer(serverID, token)
 
 	return map[string]any{
 		"success": true,
-		"message": "Server skills deleted successfully",
+		"message": "Server services deleted successfully",
 	}, nil
 }
 
-// reloadSkillsServer reconnects the skills server so that newly uploaded/deleted
+// reloadServicesServer reconnects the skills server so that newly uploaded/deleted
 // skills are picked up immediately without requiring a manual restart.
-func (h *SkillsHandler) reloadSkillsServer(serverID, token string) {
+func (h *ServicesHandler) reloadServicesServer(serverID, token string) {
 	if h.serverReconnect == nil || h.db == nil {
 		return
 	}
@@ -142,22 +142,22 @@ func (h *SkillsHandler) reloadSkillsServer(serverID, token string) {
 	var server database.Server
 	if err := h.db.Where("server_id = ?", serverID).First(&server).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			skillsLog.Debug().Str("serverId", serverID).Msg("Skip skills server reload: server not found")
+			servicesLog.Debug().Str("serverId", serverID).Msg("Skip services server reload: server not found")
 		} else {
-			skillsLog.Warn().Err(err).Str("serverId", serverID).Msg("Skip skills server reload: database error")
+			servicesLog.Warn().Err(err).Str("serverId", serverID).Msg("Skip services server reload: database error")
 		}
 		return
 	}
 	if !server.Enabled {
-		skillsLog.Debug().Str("serverId", serverID).Msg("Skip skills server reload: server disabled")
+		servicesLog.Debug().Str("serverId", serverID).Msg("Skip services server reload: server disabled")
 		return
 	}
 	if server.AllowUserInput {
-		skillsLog.Debug().Str("serverId", serverID).Msg("Skip skills server reload: template server")
+		servicesLog.Debug().Str("serverId", serverID).Msg("Skip services server reload: template server")
 		return
 	}
 	if h.serverReconnect.GetServerContext(serverID, "") == nil {
-		skillsLog.Debug().Str("serverId", serverID).Msg("Skip skills server reload: server not currently running")
+		servicesLog.Debug().Str("serverId", serverID).Msg("Skip services server reload: server not currently running")
 		return
 	}
 
@@ -165,10 +165,10 @@ func (h *SkillsHandler) reloadSkillsServer(serverID, token string) {
 	defer cancel()
 
 	if _, err := h.serverReconnect.ReconnectServer(ctx, server, token); err != nil {
-		skillsLog.Warn().Err(err).Str("serverId", serverID).Msg("Failed to reload skills server")
+		servicesLog.Warn().Err(err).Str("serverId", serverID).Msg("Failed to reload services server")
 		return
 	}
-	skillsLog.Info().Str("serverId", serverID).Msg("Skills server reloaded after skill change")
+	servicesLog.Info().Str("serverId", serverID).Msg("Services server reloaded after service change")
 }
 
 func requireStringField(data map[string]any, field string) (string, error) {
@@ -213,22 +213,22 @@ func sanitizeAdminErr(err error, code int) string {
 	return err.Error()
 }
 
-func mapSkillsErrorCode(err error, operation string) int {
+func mapServicesErrorCode(err error, operation string) int {
 	message := strings.ToLower(err.Error())
 
 	if strings.Contains(message, "invalid serverid") ||
-		strings.Contains(message, "invalid skill name") ||
+		strings.Contains(message, "invalid service name") ||
 		strings.Contains(message, "name is required") ||
 		strings.Contains(message, "invalid characters") {
 		return types.AdminErrorCodeInvalidRequest
 	}
 
 	if strings.Contains(message, "not found") {
-		return types.AdminErrorCodeSkillNotFound
+		return types.AdminErrorCodeServiceNotFound
 	}
 
 	if strings.Contains(message, "invalid zip") ||
-		strings.Contains(message, "no valid skills") ||
+		strings.Contains(message, "no valid services") ||
 		strings.Contains(message, "zip file exceeds") ||
 		strings.Contains(message, "zip file contains too many") ||
 		strings.Contains(message, "zip has too many") ||
@@ -237,7 +237,7 @@ func mapSkillsErrorCode(err error, operation string) int {
 		strings.Contains(message, "zip bomb") ||
 		strings.Contains(message, "path traversal") ||
 		strings.Contains(message, "absolute path") {
-		return types.AdminErrorCodeInvalidSkillFormat
+		return types.AdminErrorCodeInvalidServiceFormat
 	}
 
 	if errors.Is(err, os.ErrPermission) ||
@@ -251,9 +251,9 @@ func mapSkillsErrorCode(err error, operation string) int {
 
 	switch operation {
 	case "upload":
-		return types.AdminErrorCodeSkillUploadFailed
+		return types.AdminErrorCodeServiceUploadFailed
 	case "delete":
-		return types.AdminErrorCodeSkillDeleteFailed
+		return types.AdminErrorCodeServiceDeleteFailed
 	default:
 		return types.AdminErrorCodeDatabaseOpFailed
 	}

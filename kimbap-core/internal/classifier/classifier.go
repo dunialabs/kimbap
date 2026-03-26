@@ -54,35 +54,41 @@ func (c *Classifier) AddRule(rule Rule) error {
 	return nil
 }
 
-func (c *Classifier) AddRulesFromSkill(skill *services.ServiceManifest) error {
-	if skill == nil {
+func (c *Classifier) AddRulesFromService(svc *services.ServiceManifest) error {
+	if svc == nil {
+		return nil
+	}
+
+	// Skip non-HTTP adapters (e.g., applescript) — they have no HTTP classification rules
+	adapterType := strings.ToLower(strings.TrimSpace(svc.Adapter))
+	if adapterType != "" && adapterType != "http" {
 		return nil
 	}
 
 	hostPattern := "*"
 	basePath := ""
-	if strings.TrimSpace(skill.BaseURL) != "" {
-		u, err := url.Parse(skill.BaseURL)
+	if strings.TrimSpace(svc.BaseURL) != "" {
+		u, err := url.Parse(svc.BaseURL)
 		if err != nil || !u.IsAbs() || strings.TrimSpace(u.Host) == "" {
-			return fmt.Errorf("invalid base URL for service %q: %q", strings.TrimSpace(skill.Name), skill.BaseURL)
+			return fmt.Errorf("invalid base URL for service %q: %q", strings.TrimSpace(svc.Name), svc.BaseURL)
 		}
 		hostPattern = normalizeHostPattern(u.Host)
 		basePath = strings.TrimSuffix(u.Path, "/")
 	}
 
-	actionNames := make([]string, 0, len(skill.Actions))
-	for actionName := range skill.Actions {
+	actionNames := make([]string, 0, len(svc.Actions))
+	for actionName := range svc.Actions {
 		actionNames = append(actionNames, actionName)
 	}
 	sort.Strings(actionNames)
 
 	for _, actionName := range actionNames {
-		action := skill.Actions[actionName]
+		action := svc.Actions[actionName]
 		actionPath := normalizePathPattern(joinURLPath(basePath, action.Path))
-		id := fmt.Sprintf("skill:%s:%s", strings.TrimSpace(skill.Name), actionName)
+		id := fmt.Sprintf("service:%s:%s", strings.TrimSpace(svc.Name), actionName)
 		if err := c.AddRule(Rule{
 			ID:          id,
-			Service:     strings.TrimSpace(skill.Name),
+			Service:     strings.TrimSpace(svc.Name),
 			Action:      actionName,
 			HostPattern: hostPattern,
 			PathPattern: actionPath,
@@ -93,6 +99,10 @@ func (c *Classifier) AddRulesFromSkill(skill *services.ServiceManifest) error {
 		}
 	}
 	return nil
+}
+
+func (c *Classifier) AddRulesFromSkill(skill *services.ServiceManifest) error {
+	return c.AddRulesFromService(skill)
 }
 
 func (c *Classifier) Classify(method, host, reqPath string) *ClassificationResult {

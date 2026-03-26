@@ -47,7 +47,7 @@ func BuildRuntime(deps RuntimeDeps) (*runtime.Runtime, error) {
 		policyPath = strings.TrimSpace(deps.Config.Policy.Path)
 	}
 
-	actionRegistry := &skillsActionRegistry{
+	actionRegistry := &servicesActionRegistry{
 		installer:       services.NewLocalInstaller(skillsDir),
 		verifyMode:      strings.ToLower(strings.TrimSpace(deps.Config.Services.Verify)),
 		signaturePolicy: strings.ToLower(strings.TrimSpace(deps.Config.Services.SignaturePolicy)),
@@ -106,13 +106,13 @@ func BuildRuntime(deps RuntimeDeps) (*runtime.Runtime, error) {
 	}), nil
 }
 
-type skillsActionRegistry struct {
+type servicesActionRegistry struct {
 	installer       *services.LocalInstaller
 	verifyMode      string
 	signaturePolicy string
 }
 
-func (r *skillsActionRegistry) Lookup(_ context.Context, name string) (*actions.ActionDefinition, error) {
+func (r *servicesActionRegistry) Lookup(_ context.Context, name string) (*actions.ActionDefinition, error) {
 	name = strings.TrimSpace(name)
 	if name == "" {
 		return nil, fmt.Errorf("action name is required")
@@ -129,7 +129,7 @@ func (r *skillsActionRegistry) Lookup(_ context.Context, name string) (*actions.
 	return nil, fmt.Errorf("%w: %s", actions.ErrLookupNotFound, name)
 }
 
-func (r *skillsActionRegistry) List(_ context.Context, opts runtime.ListOptions) ([]actions.ActionDefinition, error) {
+func (r *servicesActionRegistry) List(_ context.Context, opts runtime.ListOptions) ([]actions.ActionDefinition, error) {
 	defs, err := r.loadDefinitions()
 	if err != nil {
 		return nil, err
@@ -161,7 +161,7 @@ func (r *skillsActionRegistry) List(_ context.Context, opts runtime.ListOptions)
 	return filtered, nil
 }
 
-func (r *skillsActionRegistry) loadDefinitions() ([]actions.ActionDefinition, error) {
+func (r *servicesActionRegistry) loadDefinitions() ([]actions.ActionDefinition, error) {
 	if r == nil || r.installer == nil {
 		return nil, fmt.Errorf("services installer is not initialized")
 	}
@@ -171,7 +171,7 @@ func (r *skillsActionRegistry) loadDefinitions() ([]actions.ActionDefinition, er
 	}
 	out := make([]actions.ActionDefinition, 0)
 	for _, it := range installed {
-		if ok, verifyErr := r.verifyInstalledSkill(it.Manifest.Name); !ok {
+		if ok, verifyErr := r.verifyInstalledService(it.Manifest.Name); !ok {
 			if verifyErr != nil {
 				return nil, verifyErr
 			}
@@ -186,7 +186,7 @@ func (r *skillsActionRegistry) loadDefinitions() ([]actions.ActionDefinition, er
 	return out, nil
 }
 
-func (r *skillsActionRegistry) verifyInstalledSkill(name string) (bool, error) {
+func (r *servicesActionRegistry) verifyInstalledService(name string) (bool, error) {
 	verifyMode := normalizeVerifyMode(r.verifyMode)
 	signaturePolicy := normalizeSignaturePolicy(r.signaturePolicy)
 

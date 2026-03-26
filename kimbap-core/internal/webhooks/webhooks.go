@@ -17,14 +17,14 @@ import (
 type EventType string
 
 const (
-	EventTokenCreated   EventType = "token.created"
-	EventTokenDeleted   EventType = "token.deleted"
-	EventTokenUpdated   EventType = "token.updated"
-	EventPolicyCreated  EventType = "policy.created"
-	EventPolicyUpdated  EventType = "policy.updated"
-	EventPolicyDeleted  EventType = "policy.deleted"
-	EventSkillInstalled EventType = "skill.installed"
-	EventSkillRemoved   EventType = "skill.removed"
+	EventTokenCreated     EventType = "token.created"
+	EventTokenDeleted     EventType = "token.deleted"
+	EventTokenUpdated     EventType = "token.updated"
+	EventPolicyCreated    EventType = "policy.created"
+	EventPolicyUpdated    EventType = "policy.updated"
+	EventPolicyDeleted    EventType = "policy.deleted"
+	EventServiceInstalled EventType = "skill.installed"
+	EventServiceRemoved   EventType = "skill.removed"
 
 	// Approval events are fired by the REST API when approval lifecycle transitions occur.
 	// These are intended for management webhook subscribers that want to react to approval

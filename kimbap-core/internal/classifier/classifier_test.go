@@ -110,9 +110,9 @@ func TestClassifierPriorityOrdering(t *testing.T) {
 	}
 }
 
-func TestClassifierAddRulesFromSkillManifest(t *testing.T) {
+func TestClassifierAddRulesFromServiceManifest(t *testing.T) {
 	c := NewClassifier()
-	if err := c.AddRulesFromSkill(&services.ServiceManifest{
+	if err := c.AddRulesFromService(&services.ServiceManifest{
 		Name:    "brave_search",
 		BaseURL: "https://api.search.brave.com/res/v1",
 		Actions: map[string]services.ServiceAction{
@@ -132,7 +132,7 @@ func TestClassifierAddRulesFromSkillManifest(t *testing.T) {
 	if result.Service != "brave_search" || result.Action != "web_search" {
 		t.Fatalf("unexpected generated classification: %#v", result)
 	}
-	if !strings.HasPrefix(result.RuleID, "skill:brave_search:") {
+	if !strings.HasPrefix(result.RuleID, "service:brave_search:") {
 		t.Fatalf("unexpected generated rule id: %q", result.RuleID)
 	}
 }
@@ -198,9 +198,9 @@ func TestClassifierHostWithPortDistinguishesPorts(t *testing.T) {
 	}
 }
 
-func TestClassifierAddRulesFromSkillRejectsInvalidBaseURL(t *testing.T) {
+func TestClassifierAddRulesFromServiceRejectsInvalidBaseURL(t *testing.T) {
 	c := NewClassifier()
-	err := c.AddRulesFromSkill(&services.ServiceManifest{
+	err := c.AddRulesFromService(&services.ServiceManifest{
 		Name:    "invalid",
 		BaseURL: "/relative/path",
 		Actions: map[string]services.ServiceAction{
@@ -209,5 +209,44 @@ func TestClassifierAddRulesFromSkillRejectsInvalidBaseURL(t *testing.T) {
 	})
 	if err == nil {
 		t.Fatal("expected invalid base URL to be rejected")
+	}
+}
+
+func TestClassifierSkipsAppleScript(t *testing.T) {
+	c := NewClassifier()
+	err := c.AddRulesFromService(&services.ServiceManifest{
+		Name:    "applescript_service",
+		Adapter: "applescript",
+		Actions: map[string]services.ServiceAction{
+			"run": {Method: "POST", Path: "/run"},
+		},
+	})
+	if err != nil {
+		t.Fatalf("AddRulesFromService failed: %v", err)
+	}
+	if len(c.rules) != 0 {
+		t.Fatalf("expected no rules to be added, got %d", len(c.rules))
+	}
+}
+
+func TestClassifierHTTPUnchanged(t *testing.T) {
+	c := NewClassifier()
+	err := c.AddRulesFromService(&services.ServiceManifest{
+		Name:    "http_service",
+		Adapter: "http",
+		BaseURL: "https://api.example.com/v1",
+		Actions: map[string]services.ServiceAction{
+			"list": {Method: "GET", Path: "/items"},
+		},
+	})
+	if err != nil {
+		t.Fatalf("AddRulesFromSkill failed: %v", err)
+	}
+	if len(c.rules) != 1 {
+		t.Fatalf("expected one rule to be added, got %d", len(c.rules))
+	}
+	result := c.Classify("GET", "api.example.com", "/v1/items")
+	if result == nil || !result.Matched {
+		t.Fatal("expected HTTP manifest to produce a matching rule")
 	}
 }

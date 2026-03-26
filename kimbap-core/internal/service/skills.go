@@ -20,32 +20,32 @@ import (
 
 var validNameRe = regexp.MustCompile(`^[a-zA-Z0-9\-_]+$`)
 
-type SkillInfo struct {
+type ServiceInfo struct {
 	Name        string `json:"name"`
 	Description string `json:"description"`
 	Version     string `json:"version"`
 	UpdatedAt   string `json:"updatedAt"`
 }
 
-type SkillsService struct {
-	skillsDir string
-	log       zerolog.Logger
+type ServicesService struct {
+	servicesDir string
+	log         zerolog.Logger
 }
 
-var ErrNoSkillsDirectoryFound = errors.New("No skills directory found")
+var ErrNoServicesDirectoryFound = errors.New("No services directory found")
 
-func NewSkillsService() *SkillsService {
-	return &SkillsService{skillsDir: filepath.Clean(config.SKILLS_CONFIG.SkillsDir), log: logger.CreateLogger("SkillsService")}
+func NewServicesService() *ServicesService {
+	return &ServicesService{servicesDir: filepath.Clean(config.SKILLS_CONFIG.SkillsDir), log: logger.CreateLogger("ServicesService")}
 }
 
-func (s *SkillsService) ListSkills(serverID string) ([]SkillInfo, error) {
+func (s *ServicesService) ListServices(serverID string) ([]ServiceInfo, error) {
 	if err := validateName(serverID); err != nil {
 		return nil, err
 	}
-	serverDir := s.serverSkillsDirPath(serverID)
+	serverDir := s.serverServicesDirPath(serverID)
 	if _, err := os.Stat(serverDir); err != nil {
 		if errors.Is(err, os.ErrNotExist) {
-			return nil, ErrNoSkillsDirectoryFound
+			return nil, ErrNoServicesDirectoryFound
 		}
 		return nil, err
 	}
@@ -53,7 +53,7 @@ func (s *SkillsService) ListSkills(serverID string) ([]SkillInfo, error) {
 	if err != nil {
 		return nil, err
 	}
-	out := make([]SkillInfo, 0)
+	out := make([]ServiceInfo, 0)
 	for _, entry := range entries {
 		if !entry.IsDir() {
 			continue
@@ -64,7 +64,7 @@ func (s *SkillsService) ListSkills(serverID string) ([]SkillInfo, error) {
 		if err != nil {
 			continue
 		}
-		meta := parseSkillMetadata(content)
+		meta := parseServiceMetadata(content)
 		stat, err := os.Stat(skillDir)
 		if err != nil {
 			continue
@@ -77,7 +77,7 @@ func (s *SkillsService) ListSkills(serverID string) ([]SkillInfo, error) {
 		if version == "" {
 			version = "1.0.0"
 		}
-		out = append(out, SkillInfo{
+		out = append(out, ServiceInfo{
 			Name:        name,
 			Description: meta["description"],
 			Version:     version,
@@ -87,11 +87,11 @@ func (s *SkillsService) ListSkills(serverID string) ([]SkillInfo, error) {
 	return out, nil
 }
 
-func (s *SkillsService) UploadSkill(serverID string, zipBuffer []byte) ([]string, error) {
+func (s *ServicesService) UploadService(serverID string, zipBuffer []byte) ([]string, error) {
 	if len(zipBuffer) > config.SKILLS_CONFIG.MaxZipSize {
 		return nil, fmt.Errorf("zip file exceeds maximum size of %d bytes", config.SKILLS_CONFIG.MaxZipSize)
 	}
-	serverDir, err := s.ensureServerSkillsDir(serverID)
+	serverDir, err := s.ensureServerServicesDir(serverID)
 	if err != nil {
 		return nil, err
 	}
@@ -109,12 +109,12 @@ func (s *SkillsService) UploadSkill(serverID string, zipBuffer []byte) ([]string
 	if err := s.safeExtractZip(reader, tempDir); err != nil {
 		return nil, err
 	}
-	skillDirs, err := s.findSkillDirectories(tempDir)
+	skillDirs, err := s.findServiceDirectories(tempDir)
 	if err != nil {
 		return nil, err
 	}
 	if len(skillDirs) == 0 {
-		return nil, fmt.Errorf("no valid skills found: %s not found", config.SKILLS_CONFIG.SkillMetadataFile)
+		return nil, fmt.Errorf("no valid services found: %s not found", config.SKILLS_CONFIG.SkillMetadataFile)
 	}
 
 	uploaded := make([]string, 0, len(skillDirs))
@@ -128,7 +128,7 @@ func (s *SkillsService) UploadSkill(serverID string, zipBuffer []byte) ([]string
 			continue
 		}
 		if err := os.RemoveAll(targetDir); err != nil {
-			return nil, fmt.Errorf("failed to remove existing skill dir %q: %w", targetDir, err)
+			return nil, fmt.Errorf("failed to remove existing service dir %q: %w", targetDir, err)
 		}
 		if err := copyDirectory(dir, targetDir); err != nil {
 			return nil, err
@@ -136,38 +136,38 @@ func (s *SkillsService) UploadSkill(serverID string, zipBuffer []byte) ([]string
 		uploaded = append(uploaded, skillName)
 	}
 	if len(uploaded) == 0 {
-		return nil, errors.New("no valid skills could be uploaded")
+		return nil, errors.New("no valid services could be uploaded")
 	}
 	return uploaded, nil
 }
 
-func (s *SkillsService) DeleteSkill(serverID string, skillName string) error {
+func (s *ServicesService) DeleteService(serverID string, skillName string) error {
 	if err := validateName(serverID); err != nil {
 		return err
 	}
 	if err := validateName(skillName); err != nil {
 		return err
 	}
-	path := filepath.Join(s.skillsDir, serverID, skillName)
+	path := filepath.Join(s.servicesDir, serverID, skillName)
 	if !s.isPathSafe(path) {
-		return errors.New("invalid skill path")
+		return errors.New("invalid service path")
 	}
 	if _, err := os.Stat(path); err != nil {
 		if errors.Is(err, os.ErrNotExist) {
-			return fmt.Errorf("skill not found: %s", skillName)
+			return fmt.Errorf("service not found: %s", skillName)
 		}
 		return err
 	}
 	return os.RemoveAll(path)
 }
 
-func (s *SkillsService) DeleteServerSkills(serverID string) error {
+func (s *ServicesService) DeleteServerServices(serverID string) error {
 	if err := validateName(serverID); err != nil {
 		return err
 	}
-	path := filepath.Join(s.skillsDir, serverID)
+	path := filepath.Join(s.servicesDir, serverID)
 	if !s.isPathSafe(path) {
-		return errors.New("invalid server skill path")
+		return errors.New("invalid server service path")
 	}
 	if _, err := os.Stat(path); err != nil {
 		if errors.Is(err, os.ErrNotExist) {
@@ -178,19 +178,19 @@ func (s *SkillsService) DeleteServerSkills(serverID string) error {
 	return os.RemoveAll(path)
 }
 
-func (s *SkillsService) ensureServerSkillsDir(serverID string) (string, error) {
+func (s *ServicesService) ensureServerServicesDir(serverID string) (string, error) {
 	if err := validateName(serverID); err != nil {
 		return "", err
 	}
-	dir := s.serverSkillsDirPath(serverID)
+	dir := s.serverServicesDirPath(serverID)
 	if err := os.MkdirAll(dir, 0o755); err != nil {
 		return "", err
 	}
 	return dir, nil
 }
 
-func (s *SkillsService) serverSkillsDirPath(serverID string) string {
-	return filepath.Join(s.skillsDir, serverID)
+func (s *ServicesService) serverServicesDirPath(serverID string) string {
+	return filepath.Join(s.servicesDir, serverID)
 }
 
 func validateName(name string) error {
@@ -203,13 +203,13 @@ func validateName(name string) error {
 	return nil
 }
 
-func (s *SkillsService) isPathSafe(targetPath string) bool {
+func (s *ServicesService) isPathSafe(targetPath string) bool {
 	resolved := filepath.Clean(targetPath)
-	base := filepath.Clean(s.skillsDir)
+	base := filepath.Clean(s.servicesDir)
 	return strings.HasPrefix(resolved+string(filepath.Separator), base+string(filepath.Separator))
 }
 
-func (s *SkillsService) safeExtractZip(reader *zip.Reader, targetDir string) error {
+func (s *ServicesService) safeExtractZip(reader *zip.Reader, targetDir string) error {
 	if len(reader.File) > config.SKILLS_CONFIG.MaxEntryCount {
 		return fmt.Errorf("zip has too many entries: %d", len(reader.File))
 	}
@@ -289,7 +289,7 @@ func (s *SkillsService) safeExtractZip(reader *zip.Reader, targetDir string) err
 	return nil
 }
 
-func (s *SkillsService) findSkillDirectories(root string) ([]string, error) {
+func (s *ServicesService) findServiceDirectories(root string) ([]string, error) {
 	results := make([]string, 0)
 	err := filepath.WalkDir(root, func(path string, d os.DirEntry, err error) error {
 		if err != nil {
@@ -311,7 +311,7 @@ func (s *SkillsService) findSkillDirectories(root string) ([]string, error) {
 	return results, nil
 }
 
-func parseSkillMetadata(content []byte) map[string]string {
+func parseServiceMetadata(content []byte) map[string]string {
 	result := map[string]string{}
 	normalized := strings.ReplaceAll(string(content), "\r\n", "\n")
 	lines := strings.Split(normalized, "\n")
