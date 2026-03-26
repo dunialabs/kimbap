@@ -9,7 +9,7 @@ import (
 	"github.com/dunialabs/kimbap-core/internal/agents"
 	"github.com/dunialabs/kimbap-core/internal/config"
 	"github.com/dunialabs/kimbap-core/internal/profiles"
-	"github.com/dunialabs/kimbap-core/internal/skills"
+	"github.com/dunialabs/kimbap-core/internal/services"
 	"github.com/spf13/cobra"
 )
 
@@ -42,7 +42,7 @@ func newAgentsSetupCommand() *cobra.Command {
 		Use:   "setup",
 		Short: "Install global kimbap discovery hints for detected AI agents",
 		RunE: func(_ *cobra.Command, _ []string) error {
-			metaContent := skills.GenerateMetaSkillMD()
+			metaContent := services.GenerateMetaSkillMD()
 			results, err := agents.GlobalSetup(metaContent, agents.GlobalSetupOptions{
 				Agents: parseAgentKinds(agentRaw),
 				Force:  force,
@@ -190,7 +190,7 @@ func runAgentsSync(projectDir string, rawAgentKinds string, force bool, dryRun b
 	}
 
 	rulesContent := buildRulesContent(cfg)
-	syncResults, err := agents.SyncSkills(
+	syncResults, err := agents.SyncServices(
 		staticSkillInstaller{skills: installedSkills},
 		rulesContent,
 		agents.SyncOptions{
@@ -204,7 +204,7 @@ func runAgentsSync(projectDir string, rawAgentKinds string, force bool, dryRun b
 		return agentSetupResult{}, err
 	}
 
-	metaContent := skills.GenerateMetaSkillMD()
+	metaContent := services.GenerateMetaSkillMD()
 	metaPaths := make([]string, 0, len(syncResults))
 
 	normalizedProjectDir := strings.TrimSpace(projectDir)
@@ -299,20 +299,20 @@ func parseAgentKinds(raw string) []agents.AgentKind {
 	return out
 }
 
-func buildInstalledSkillsForSync(cfg *config.KimbapConfig) ([]agents.InstalledSkill, error) {
+func buildInstalledSkillsForSync(cfg *config.KimbapConfig) ([]agents.InstalledService, error) {
 	installed, err := installerFromConfig(cfg).List()
 	if err != nil {
 		return nil, err
 	}
 
-	out := make([]agents.InstalledSkill, 0, len(installed))
+	out := make([]agents.InstalledService, 0, len(installed))
 	for _, s := range installed {
-		content, genErr := skills.GenerateSkillMD(&s.Manifest)
+		content, genErr := services.GenerateSkillMD(&s.Manifest)
 		if genErr != nil {
 			_, _ = fmt.Fprintf(os.Stderr, "warning: failed to generate SKILL.md for %q: %v\n", s.Manifest.Name, genErr)
 			continue
 		}
-		out = append(out, agents.InstalledSkill{Name: s.Manifest.Name, Content: content})
+		out = append(out, agents.InstalledService{Name: s.Manifest.Name, Content: content})
 	}
 
 	return out, nil
@@ -339,10 +339,10 @@ func buildRulesContent(cfg *config.KimbapConfig) string {
 }
 
 type staticSkillInstaller struct {
-	skills []agents.InstalledSkill
+	skills []agents.InstalledService
 }
 
-func (i staticSkillInstaller) List() ([]agents.InstalledSkill, error) {
+func (i staticSkillInstaller) List() ([]agents.InstalledService, error) {
 	return i.skills, nil
 }
 
@@ -358,7 +358,7 @@ func projectSyncScope(projectDir string) string {
 	return normalizedProjectDir
 }
 
-func recordProjectSyncState(scope string, installedSkills []agents.InstalledSkill) {
+func recordProjectSyncState(scope string, installedSkills []agents.InstalledService) {
 	names := make([]string, 0, len(installedSkills))
 	contents := make([]string, 0, len(installedSkills))
 	for _, s := range installedSkills {

@@ -1,27 +1,27 @@
-package skills
+package services
 
-type SkillManifest struct {
-	Name        string                 `yaml:"name"`
-	Version     string                 `yaml:"version"`
-	Description string                 `yaml:"description"`
-	BaseURL     string                 `yaml:"base_url"`
-	Auth        SkillAuth              `yaml:"auth"`
-	Actions     map[string]SkillAction `yaml:"actions"`
+type ServiceManifest struct {
+	Name        string                   `yaml:"name"`
+	Version     string                   `yaml:"version"`
+	Description string                   `yaml:"description"`
+	BaseURL     string                   `yaml:"base_url"`
+	Auth        ServiceAuth              `yaml:"auth"`
+	Actions     map[string]ServiceAction `yaml:"actions"`
 }
 
-type SkillAuth struct {
+type ServiceAuth struct {
 	Type          string `yaml:"type"`
 	HeaderName    string `yaml:"header_name"`
 	QueryParam    string `yaml:"query_param"`
 	CredentialRef string `yaml:"credential_ref"`
 }
 
-type SkillAction struct {
+type ServiceAction struct {
 	Method       string         `yaml:"method"`
 	Path         string         `yaml:"path"`
 	Description  string         `yaml:"description"`
 	Warnings     []string       `yaml:"warnings,omitempty"`
-	Auth         *SkillAuth     `yaml:"auth,omitempty"`
+	Auth         *ServiceAuth   `yaml:"auth,omitempty"`
 	Args         []ActionArg    `yaml:"args"`
 	Request      RequestSpec    `yaml:"request"`
 	Response     ResponseSpec   `yaml:"response"`

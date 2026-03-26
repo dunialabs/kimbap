@@ -7,11 +7,11 @@ import (
 )
 
 type fakeInstaller struct {
-	skills []InstalledSkill
+	skills []InstalledService
 	err    error
 }
 
-func (f fakeInstaller) List() ([]InstalledSkill, error) {
+func (f fakeInstaller) List() ([]InstalledService, error) {
 	if f.err != nil {
 		return nil, f.err
 	}
@@ -87,9 +87,9 @@ func TestSyncSkills(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			dir := t.TempDir()
 			rules := "# rules\n"
-			installer := fakeInstaller{skills: []InstalledSkill{{Name: "github-pr", Content: "# SKILL\n"}}}
+			installer := fakeInstaller{skills: []InstalledService{{Name: "github-pr", Content: "# SKILL\n"}}}
 
-			results, err := SyncSkills(installer, rules, SyncOptions{
+			results, err := SyncServices(installer, rules, SyncOptions{
 				ProjectDir: dir,
 				Agents:     []AgentKind{AgentClaudeCode},
 				DryRun:     tt.dryRun,
@@ -145,9 +145,9 @@ func TestSyncSkills(t *testing.T) {
 
 func TestStatusAfterSync(t *testing.T) {
 	dir := t.TempDir()
-	installer := fakeInstaller{skills: []InstalledSkill{{Name: "github-pr", Content: "# SKILL\n"}}}
+	installer := fakeInstaller{skills: []InstalledService{{Name: "github-pr", Content: "# SKILL\n"}}}
 
-	if _, err := SyncSkills(installer, "# rules\n", SyncOptions{ProjectDir: dir, Agents: []AgentKind{AgentClaudeCode}}); err != nil {
+	if _, err := SyncServices(installer, "# rules\n", SyncOptions{ProjectDir: dir, Agents: []AgentKind{AgentClaudeCode}}); err != nil {
 		t.Fatalf("sync failed: %v", err)
 	}
 
@@ -205,8 +205,8 @@ func TestSyncSkillsRejectsFileProjectDir(t *testing.T) {
 		t.Fatalf("create file: %v", err)
 	}
 
-	installer := fakeInstaller{skills: []InstalledSkill{{Name: "s", Content: "# S\n"}}}
-	_, err := SyncSkills(installer, "# rules\n", SyncOptions{ProjectDir: filePath})
+	installer := fakeInstaller{skills: []InstalledService{{Name: "s", Content: "# S\n"}}}
+	_, err := SyncServices(installer, "# rules\n", SyncOptions{ProjectDir: filePath})
 	if err == nil {
 		t.Fatal("expected error when ProjectDir is a file")
 	}
@@ -214,9 +214,9 @@ func TestSyncSkillsRejectsFileProjectDir(t *testing.T) {
 
 func TestSyncSkillsUnknownAgentReturnsError(t *testing.T) {
 	dir := t.TempDir()
-	installer := fakeInstaller{skills: []InstalledSkill{{Name: "github-pr", Content: "# SKILL\n"}}}
+	installer := fakeInstaller{skills: []InstalledService{{Name: "github-pr", Content: "# SKILL\n"}}}
 
-	results, err := SyncSkills(installer, "# rules\n", SyncOptions{
+	results, err := SyncServices(installer, "# rules\n", SyncOptions{
 		ProjectDir: dir,
 		Agents:     []AgentKind{"nonexistent-agent"},
 	})
@@ -236,9 +236,9 @@ func TestSyncSkillsUnknownAgentReturnsError(t *testing.T) {
 
 func TestSyncSkillsSkipsUnchangedContent(t *testing.T) {
 	dir := t.TempDir()
-	installer := fakeInstaller{skills: []InstalledSkill{{Name: "github-pr", Content: "# SKILL\n"}}}
+	installer := fakeInstaller{skills: []InstalledService{{Name: "github-pr", Content: "# SKILL\n"}}}
 
-	first, err := SyncSkills(installer, "# rules\n", SyncOptions{
+	first, err := SyncServices(installer, "# rules\n", SyncOptions{
 		ProjectDir: dir,
 		Agents:     []AgentKind{AgentClaudeCode},
 	})
@@ -249,7 +249,7 @@ func TestSyncSkillsSkipsUnchangedContent(t *testing.T) {
 		t.Fatalf("expected 1 written on first sync, got %d", len(first[0].Written))
 	}
 
-	second, err := SyncSkills(installer, "# rules\n", SyncOptions{
+	second, err := SyncServices(installer, "# rules\n", SyncOptions{
 		ProjectDir: dir,
 		Agents:     []AgentKind{AgentClaudeCode},
 	})
@@ -266,16 +266,16 @@ func TestSyncSkillsSkipsUnchangedContent(t *testing.T) {
 
 func TestSyncSkillsForceOverwritesUnchanged(t *testing.T) {
 	dir := t.TempDir()
-	installer := fakeInstaller{skills: []InstalledSkill{{Name: "github-pr", Content: "# SKILL\n"}}}
+	installer := fakeInstaller{skills: []InstalledService{{Name: "github-pr", Content: "# SKILL\n"}}}
 
-	if _, err := SyncSkills(installer, "# rules\n", SyncOptions{
+	if _, err := SyncServices(installer, "# rules\n", SyncOptions{
 		ProjectDir: dir,
 		Agents:     []AgentKind{AgentClaudeCode},
 	}); err != nil {
 		t.Fatalf("first sync: %v", err)
 	}
 
-	forced, err := SyncSkills(installer, "# rules\n", SyncOptions{
+	forced, err := SyncServices(installer, "# rules\n", SyncOptions{
 		ProjectDir: dir,
 		Agents:     []AgentKind{AgentClaudeCode},
 		Force:      true,
@@ -293,22 +293,22 @@ func TestSyncSkillsForceOverwritesUnchanged(t *testing.T) {
 
 func TestSyncSkillsPrunesRemovedSkills(t *testing.T) {
 	dir := t.TempDir()
-	both := fakeInstaller{skills: []InstalledSkill{
+	both := fakeInstaller{skills: []InstalledService{
 		{Name: "github", Content: "# github\n"},
 		{Name: "slack", Content: "# slack\n"},
 	}}
 
-	if _, err := SyncSkills(both, "# rules\n", SyncOptions{
+	if _, err := SyncServices(both, "# rules\n", SyncOptions{
 		ProjectDir: dir,
 		Agents:     []AgentKind{AgentClaudeCode},
 	}); err != nil {
 		t.Fatalf("first sync: %v", err)
 	}
 
-	githubOnly := fakeInstaller{skills: []InstalledSkill{
+	githubOnly := fakeInstaller{skills: []InstalledService{
 		{Name: "github", Content: "# github\n"},
 	}}
-	results, err := SyncSkills(githubOnly, "# rules\n", SyncOptions{
+	results, err := SyncServices(githubOnly, "# rules\n", SyncOptions{
 		ProjectDir: dir,
 		Agents:     []AgentKind{AgentClaudeCode},
 	})

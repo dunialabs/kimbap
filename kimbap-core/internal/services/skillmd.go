@@ -1,4 +1,4 @@
-package skills
+package services
 
 import (
 	"fmt"
@@ -6,9 +6,9 @@ import (
 	"strings"
 )
 
-// GenerateSkillMD converts a SkillManifest into the Agent Skills open standard
+// GenerateSkillMD converts a ServiceManifest into the Agent Skills open standard
 // SKILL.md format for cross-platform AI agent compatibility.
-func GenerateSkillMD(manifest *SkillManifest) (string, error) {
+func GenerateSkillMD(manifest *ServiceManifest) (string, error) {
 	if manifest == nil {
 		return "", fmt.Errorf("manifest is nil")
 	}
@@ -89,7 +89,7 @@ func GenerateSkillMD(manifest *SkillManifest) (string, error) {
 	return sb.String(), nil
 }
 
-func buildSkillDescription(m *SkillManifest) string {
+func buildSkillDescription(m *ServiceManifest) string {
 	parts := []string{}
 	if m.Description != "" {
 		parts = append(parts, m.Description)
@@ -108,7 +108,7 @@ func buildSkillDescription(m *SkillManifest) string {
 	return strings.Join(parts, "\n")
 }
 
-func sortedActionKeys(actions map[string]SkillAction) []string {
+func sortedActionKeys(actions map[string]ServiceAction) []string {
 	keys := make([]string, 0, len(actions))
 	for k := range actions {
 		keys = append(keys, k)
@@ -117,7 +117,7 @@ func sortedActionKeys(actions map[string]SkillAction) []string {
 	return keys
 }
 
-func collectCredentialRefs(m *SkillManifest) []string {
+func collectCredentialRefs(m *ServiceManifest) []string {
 	seen := map[string]bool{}
 	if m.Auth.Type != "none" && m.Auth.CredentialRef != "" {
 		seen[m.Auth.CredentialRef] = true

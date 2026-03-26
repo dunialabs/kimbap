@@ -1,4 +1,4 @@
-package skills
+package services
 
 import (
 	"crypto/ed25519"
@@ -74,15 +74,15 @@ func TestParseManifestValidFixture(t *testing.T) {
 }
 
 func TestValidateManifestMissingFields(t *testing.T) {
-	manifest := &SkillManifest{
+	manifest := &ServiceManifest{
 		Name:    "Invalid Name",
 		Version: "x",
 		BaseURL: "not-a-url",
-		Auth: SkillAuth{
+		Auth: ServiceAuth{
 			Type:          "header",
 			CredentialRef: "",
 		},
-		Actions: map[string]SkillAction{
+		Actions: map[string]ServiceAction{
 			"bad": {
 				Method: "",
 				Path:   "",
@@ -167,8 +167,8 @@ func TestInstallDuplicateRejectedWithoutForce(t *testing.T) {
 	}
 
 	_, err = installer.Install(manifest, "local")
-	if err != ErrSkillAlreadyInstalled {
-		t.Fatalf("expected ErrSkillAlreadyInstalled, got %v", err)
+	if err != ErrServiceAlreadyInstalled {
+		t.Fatalf("expected ErrServiceAlreadyInstalled, got %v", err)
 	}
 }
 
@@ -211,7 +211,7 @@ func TestInstallWritesLockfileAndVerifyPasses(t *testing.T) {
 	if err != nil {
 		t.Fatalf("read lockfile failed: %v", err)
 	}
-	entry, ok := lf.Skills["brave-search"]
+	entry, ok := lf.Services["brave-search"]
 	if !ok {
 		t.Fatal("expected lock entry for brave-search")
 	}
@@ -285,7 +285,7 @@ func TestRemoveDeletesLockEntry(t *testing.T) {
 	if err != nil {
 		t.Fatalf("read lockfile failed: %v", err)
 	}
-	if _, ok := lf.Skills["brave-search"]; ok {
+	if _, ok := lf.Services["brave-search"]; ok {
 		t.Fatal("expected brave-search lock entry to be removed")
 	}
 }
@@ -324,16 +324,16 @@ func TestToActionDefinitions(t *testing.T) {
 }
 
 func TestToActionDefinitionsIncludesPathParamsInInputSchema(t *testing.T) {
-	manifest := &SkillManifest{
+	manifest := &ServiceManifest{
 		Name:    "svc",
 		Version: "1.0.0",
 		BaseURL: "https://api.example.com",
-		Auth: SkillAuth{
+		Auth: ServiceAuth{
 			Type:          "header",
 			HeaderName:    "Authorization",
 			CredentialRef: "svc.token",
 		},
-		Actions: map[string]SkillAction{
+		Actions: map[string]ServiceAction{
 			"get_item": {
 				Method: "GET",
 				Path:   "/items/{item_id}",
@@ -433,12 +433,12 @@ actions:
 }
 
 func TestConvertAuthNone(t *testing.T) {
-	manifest := &SkillManifest{
+	manifest := &ServiceManifest{
 		Name:    "public-api",
 		Version: "1.0.0",
 		BaseURL: "https://api.example.com",
-		Auth:    SkillAuth{Type: "none"},
-		Actions: map[string]SkillAction{
+		Auth:    ServiceAuth{Type: "none"},
+		Actions: map[string]ServiceAction{
 			"status": {
 				Method: "GET",
 				Path:   "/status",
@@ -462,20 +462,20 @@ func TestConvertAuthNone(t *testing.T) {
 }
 
 func TestToActionDefinitionsUsesActionLevelAuthOverride(t *testing.T) {
-	manifest := &SkillManifest{
+	manifest := &ServiceManifest{
 		Name:    "svc",
 		Version: "1.0.0",
 		BaseURL: "https://api.example.com",
-		Auth: SkillAuth{
+		Auth: ServiceAuth{
 			Type:          "header",
 			HeaderName:    "Authorization",
 			CredentialRef: "svc.token",
 		},
-		Actions: map[string]SkillAction{
+		Actions: map[string]ServiceAction{
 			"search": {
 				Method: "GET",
 				Path:   "/search",
-				Auth: &SkillAuth{
+				Auth: &ServiceAuth{
 					Type:          "query",
 					QueryParam:    "api_key",
 					CredentialRef: "svc.api_key",
@@ -502,16 +502,16 @@ func TestToActionDefinitionsUsesActionLevelAuthOverride(t *testing.T) {
 }
 
 func TestGenerateSkillMDIncludesActionLevelCredentials(t *testing.T) {
-	manifest := &SkillManifest{
+	manifest := &ServiceManifest{
 		Name:    "multi-auth",
 		Version: "1.0.0",
 		BaseURL: "https://api.example.com",
-		Auth:    SkillAuth{Type: "none"},
-		Actions: map[string]SkillAction{
+		Auth:    ServiceAuth{Type: "none"},
+		Actions: map[string]ServiceAction{
 			"search": {
 				Method: "GET",
 				Path:   "/search",
-				Auth: &SkillAuth{
+				Auth: &ServiceAuth{
 					Type:          "query",
 					QueryParam:    "api_key",
 					CredentialRef: "multi-auth.api_key",
@@ -662,9 +662,9 @@ func TestVerifyTamperedDigestDetected(t *testing.T) {
 	}
 
 	lf, _ := installer.readLockfile()
-	entry := lf.Skills["brave-search"]
+	entry := lf.Services["brave-search"]
 	entry.Digest = "sha256:0000000000000000000000000000000000000000000000000000000000000000"
-	lf.Skills["brave-search"] = entry
+	lf.Services["brave-search"] = entry
 	_ = installer.writeLockfile(lf)
 
 	result, err := installer.Verify("brave-search")

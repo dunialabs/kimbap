@@ -1,4 +1,4 @@
-package skills
+package services
 
 import (
 	"net/http"

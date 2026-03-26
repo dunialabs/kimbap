@@ -7,7 +7,7 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/dunialabs/kimbap-core/internal/skills"
+	"github.com/dunialabs/kimbap-core/internal/services"
 )
 
 type AgentKind string
@@ -110,16 +110,16 @@ type SyncOptions struct {
 	SkipRules  bool
 }
 
-type SkillInstaller interface {
-	List() ([]InstalledSkill, error)
+type ServiceInstaller interface {
+	List() ([]InstalledService, error)
 }
 
-type InstalledSkill struct {
+type InstalledService struct {
 	Name    string
 	Content string
 }
 
-func SyncSkills(installer SkillInstaller, rulesContent string, opts SyncOptions) ([]SyncResult, error) {
+func SyncServices(installer ServiceInstaller, rulesContent string, opts SyncOptions) ([]SyncResult, error) {
 	if installer == nil {
 		return nil, fmt.Errorf("installer is nil")
 	}
@@ -158,7 +158,7 @@ func SyncSkills(installer SkillInstaller, rulesContent string, opts SyncOptions)
 		}
 
 		for _, skill := range installedSkills {
-			if err := skills.ValidateSkillName(skill.Name); err != nil {
+			if err := services.ValidateServiceName(skill.Name); err != nil {
 				result.Failed = append(result.Failed, skill.Name)
 				result.Errors = append(result.Errors, fmt.Sprintf("skill %q: %v", skill.Name, err))
 				continue
@@ -395,7 +395,7 @@ func listSyncedSkills(skillsDir string) ([]string, error) {
 	return out, nil
 }
 
-func pruneStaleSkills(skillsDir string, installed []InstalledSkill, dryRun bool) ([]string, []string) {
+func pruneStaleSkills(skillsDir string, installed []InstalledService, dryRun bool) ([]string, []string) {
 	entries, err := os.ReadDir(skillsDir)
 	if err != nil {
 		return nil, nil

@@ -15,7 +15,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/dunialabs/kimbap-core/internal/skills"
+	"github.com/dunialabs/kimbap-core/internal/services"
 )
 
 type RegistrySource struct {
@@ -79,7 +79,7 @@ func (r *Registry) Install(ctx context.Context, source, ref string) (*LockEntry,
 		return nil, err
 	}
 
-	manifest, err := skills.ParseManifest(manifestYAML)
+	manifest, err := services.ParseManifest(manifestYAML)
 	if err != nil {
 		return nil, fmt.Errorf("parse skill manifest: %w", err)
 	}

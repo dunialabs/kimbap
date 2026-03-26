@@ -11,7 +11,7 @@ import (
 
 	"github.com/dunialabs/kimbap-core/internal/agents"
 	"github.com/dunialabs/kimbap-core/internal/config"
-	"github.com/dunialabs/kimbap-core/internal/skills"
+	"github.com/dunialabs/kimbap-core/internal/services"
 	"github.com/spf13/cobra"
 	"gopkg.in/yaml.v3"
 )
@@ -46,7 +46,7 @@ func newServiceInstallCommand() *cobra.Command {
 				return err
 			}
 
-			manifest, err := skills.ParseManifestFile(args[0])
+			manifest, err := services.ParseManifestFile(args[0])
 			if err != nil {
 				return err
 			}
@@ -108,11 +108,11 @@ func newServiceValidateCommand() *cobra.Command {
 		Short: "Validate a service manifest",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(_ *cobra.Command, args []string) error {
-			manifest, err := skills.ParseManifestFile(args[0])
+			manifest, err := services.ParseManifestFile(args[0])
 			if err != nil {
 				return err
 			}
-			if errs := skills.ValidateManifest(manifest); len(errs) > 0 {
+			if errs := services.ValidateManifest(manifest); len(errs) > 0 {
 				return fmt.Errorf("manifest invalid: %v", errs)
 			}
 			return printOutput(map[string]any{"valid": true, "name": manifest.Name, "version": manifest.Version})
@@ -149,7 +149,7 @@ func newServiceVerifyCommand() *cobra.Command {
 				pinnedKey = ed25519.PublicKey(keyBytes)
 			}
 
-			verifyOne := func(name string) (*skills.VerifyResult, error) {
+			verifyOne := func(name string) (*services.VerifyResult, error) {
 				if pinnedKey != nil {
 					return installer.VerifyWithKey(name, pinnedKey)
 				}
@@ -172,7 +172,7 @@ func newServiceVerifyCommand() *cobra.Command {
 			if listErr != nil {
 				return listErr
 			}
-			results := make([]skills.VerifyResult, 0, len(installed))
+			results := make([]services.VerifyResult, 0, len(installed))
 			for _, s := range installed {
 				result, verifyErr := verifyOne(s.Manifest.Name)
 				if verifyErr != nil {
@@ -234,7 +234,7 @@ func newServiceSignCommand() *cobra.Command {
 	return cmd
 }
 
-func printServiceVerifyResultText(result skills.VerifyResult, includeSignatures bool) {
+func printServiceVerifyResultText(result services.VerifyResult, includeSignatures bool) {
 	status := "NOT VERIFIED"
 	if result.Verified {
 		status = "VERIFIED"
@@ -266,14 +266,14 @@ func newServiceGenerateCommand() *cobra.Command {
 		Short: "Generate a service manifest from OpenAPI 3.x",
 		RunE: func(_ *cobra.Command, _ []string) error {
 			var (
-				manifest *skills.SkillManifest
+				manifest *services.ServiceManifest
 				err      error
 			)
 
 			if isServiceHTTPURL(openapiSource) {
-				manifest, err = skills.GenerateFromOpenAPIURL(openapiSource)
+				manifest, err = services.GenerateFromOpenAPIURL(openapiSource)
 			} else {
-				manifest, err = skills.GenerateFromOpenAPIFile(openapiSource)
+				manifest, err = services.GenerateFromOpenAPIFile(openapiSource)
 			}
 			if err != nil {
 				return err
@@ -323,7 +323,7 @@ func newServiceExportSkillMDCommand() *cobra.Command {
 				return fmt.Errorf("service %q not found: %w", args[0], err)
 			}
 
-			content, err := skills.GenerateSkillMD(&installed.Manifest)
+			content, err := services.GenerateSkillMD(&installed.Manifest)
 			if err != nil {
 				return err
 			}
@@ -376,7 +376,7 @@ func printServiceStaleWarningIfNeeded(cfg *config.KimbapConfig) {
 	names := make([]string, 0, len(installed))
 	contents := make([]string, 0, len(installed))
 	for _, s := range installed {
-		md, genErr := skills.GenerateSkillMD(&s.Manifest)
+		md, genErr := services.GenerateSkillMD(&s.Manifest)
 		if genErr != nil {
 			continue
 		}

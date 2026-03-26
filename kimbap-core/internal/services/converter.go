@@ -1,4 +1,4 @@
-package skills
+package services
 
 import (
 	"encoding/json"
@@ -12,7 +12,7 @@ import (
 	"github.com/dunialabs/kimbap-core/internal/actions"
 )
 
-func ToActionDefinitions(skill *SkillManifest) ([]actions.ActionDefinition, error) {
+func ToActionDefinitions(skill *ServiceManifest) ([]actions.ActionDefinition, error) {
 	if skill == nil {
 		return nil, fmt.Errorf("skill manifest is nil")
 	}
@@ -110,7 +110,7 @@ func mapApprovalHint(level string) actions.ApprovalHint {
 	}
 }
 
-func mapAuth(auth SkillAuth) actions.AuthRequirement {
+func mapAuth(auth ServiceAuth) actions.AuthRequirement {
 	req := actions.AuthRequirement{
 		CredentialRef: auth.CredentialRef,
 	}
@@ -141,7 +141,7 @@ func mapAuth(auth SkillAuth) actions.AuthRequirement {
 	return req
 }
 
-func resolveActionAuth(defaultAuth SkillAuth, actionAuth *SkillAuth) SkillAuth {
+func resolveActionAuth(defaultAuth ServiceAuth, actionAuth *ServiceAuth) ServiceAuth {
 	if actionAuth != nil {
 		return *actionAuth
 	}

@@ -4,7 +4,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/dunialabs/kimbap-core/internal/skills"
+	"github.com/dunialabs/kimbap-core/internal/services"
 )
 
 func mustAddRule(t *testing.T, c *Classifier, rule Rule) {
@@ -112,10 +112,10 @@ func TestClassifierPriorityOrdering(t *testing.T) {
 
 func TestClassifierAddRulesFromSkillManifest(t *testing.T) {
 	c := NewClassifier()
-	if err := c.AddRulesFromSkill(&skills.SkillManifest{
+	if err := c.AddRulesFromSkill(&services.ServiceManifest{
 		Name:    "brave_search",
 		BaseURL: "https://api.search.brave.com/res/v1",
-		Actions: map[string]skills.SkillAction{
+		Actions: map[string]services.ServiceAction{
 			"web_search": {
 				Method: "GET",
 				Path:   "/web/search",

@@ -7,7 +7,7 @@ import (
 	"strings"
 
 	"github.com/dunialabs/kimbap-core/internal/profiles"
-	"github.com/dunialabs/kimbap-core/internal/skills"
+	"github.com/dunialabs/kimbap-core/internal/services"
 	"github.com/spf13/cobra"
 )
 
@@ -129,7 +129,7 @@ func newProfileListCommand() *cobra.Command {
 }
 
 func collectInstalledServicesFromConfig(skillsDir string) ([]profiles.InstalledService, error) {
-	installer := skills.NewLocalInstaller(skillsDir)
+	installer := services.NewLocalInstaller(skillsDir)
 	installed, err := installer.List()
 	if err != nil {
 		return nil, fmt.Errorf("list installed skills: %w", err)

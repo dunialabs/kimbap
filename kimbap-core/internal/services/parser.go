@@ -1,4 +1,4 @@
-package skills
+package services
 
 import (
 	"fmt"
@@ -27,8 +27,8 @@ type ValidationError struct {
 	Message string
 }
 
-func ParseManifest(data []byte) (*SkillManifest, error) {
-	var manifest SkillManifest
+func ParseManifest(data []byte) (*ServiceManifest, error) {
+	var manifest ServiceManifest
 	if err := yaml.Unmarshal(data, &manifest); err != nil {
 		return nil, fmt.Errorf("parse skill manifest: %w", err)
 	}
@@ -41,7 +41,7 @@ func ParseManifest(data []byte) (*SkillManifest, error) {
 	return &manifest, nil
 }
 
-func ParseManifestFile(path string) (*SkillManifest, error) {
+func ParseManifestFile(path string) (*ServiceManifest, error) {
 	data, err := os.ReadFile(path)
 	if err != nil {
 		return nil, fmt.Errorf("read skill manifest file: %w", err)
@@ -49,7 +49,7 @@ func ParseManifestFile(path string) (*SkillManifest, error) {
 	return ParseManifest(data)
 }
 
-func ValidateManifest(m *SkillManifest) []ValidationError {
+func ValidateManifest(m *ServiceManifest) []ValidationError {
 	if m == nil {
 		return []ValidationError{{Field: "manifest", Message: "manifest is required"}}
 	}

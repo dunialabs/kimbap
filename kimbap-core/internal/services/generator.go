@@ -1,4 +1,4 @@
-package skills
+package services
 
 import (
 	"encoding/json"
@@ -29,7 +29,7 @@ const (
 	schemaWarningsKey = "x-kimbap-warnings"
 )
 
-func GenerateFromOpenAPI(spec []byte) (*SkillManifest, error) {
+func GenerateFromOpenAPI(spec []byte) (*ServiceManifest, error) {
 	root, err := parseOpenAPIRoot(spec)
 	if err != nil {
 		return nil, err
@@ -61,7 +61,7 @@ func GenerateFromOpenAPI(spec []byte) (*SkillManifest, error) {
 		return nil, err
 	}
 
-	manifest := &SkillManifest{
+	manifest := &ServiceManifest{
 		Name:        name,
 		Version:     version,
 		Description: description,
@@ -77,7 +77,7 @@ func GenerateFromOpenAPI(spec []byte) (*SkillManifest, error) {
 	return manifest, nil
 }
 
-func GenerateFromOpenAPIFile(path string) (*SkillManifest, error) {
+func GenerateFromOpenAPIFile(path string) (*ServiceManifest, error) {
 	data, err := os.ReadFile(path)
 	if err != nil {
 		return nil, fmt.Errorf("read OpenAPI file: %w", err)
@@ -87,7 +87,7 @@ func GenerateFromOpenAPIFile(path string) (*SkillManifest, error) {
 
 const maxOpenAPISpecBytes int64 = 10 << 20
 
-func GenerateFromOpenAPIURL(rawURL string) (*SkillManifest, error) {
+func GenerateFromOpenAPIURL(rawURL string) (*ServiceManifest, error) {
 	client := &http.Client{Timeout: 30 * time.Second}
 
 	req, err := http.NewRequest(http.MethodGet, rawURL, nil)
@@ -251,11 +251,11 @@ func parseOpenAPIRoot(spec []byte) (map[string]any, error) {
 	return mapRoot, nil
 }
 
-func extractAuth(root map[string]any, resolver *openAPIRefResolver, skillName string) (SkillAuth, error) {
+func extractAuth(root map[string]any, resolver *openAPIRefResolver, skillName string) (ServiceAuth, error) {
 	components := mapAt(root, "components")
 	schemes := mapAt(components, "securitySchemes")
 	if len(schemes) == 0 {
-		return SkillAuth{Type: "none"}, nil
+		return ServiceAuth{Type: "none"}, nil
 	}
 
 	schemeName := firstReferencedSecurityScheme(root)
@@ -266,21 +266,21 @@ func extractAuth(root map[string]any, resolver *openAPIRefResolver, skillName st
 
 	rawScheme := mapAt(schemes, schemeName)
 	if len(rawScheme) == 0 {
-		return SkillAuth{Type: "none"}, nil
+		return ServiceAuth{Type: "none"}, nil
 	}
 
 	scheme, err := resolver.resolveMap(rawScheme)
 	if err != nil {
-		return SkillAuth{}, fmt.Errorf("resolve security scheme %q: %w", schemeName, err)
+		return ServiceAuth{}, fmt.Errorf("resolve security scheme %q: %w", schemeName, err)
 	}
 
 	auth, err := authFromScheme(scheme, skillName)
 	if err != nil {
-		return SkillAuth{}, err
+		return ServiceAuth{}, err
 	}
 
 	if auth.Type == "none" {
-		return SkillAuth{Type: "none"}, nil
+		return ServiceAuth{Type: "none"}, nil
 	}
 
 	if strings.TrimSpace(auth.CredentialRef) == "" {
@@ -290,9 +290,9 @@ func extractAuth(root map[string]any, resolver *openAPIRefResolver, skillName st
 	return auth, nil
 }
 
-func extractActions(root map[string]any, resolver *openAPIRefResolver, skillName string) (map[string]SkillAction, error) {
+func extractActions(root map[string]any, resolver *openAPIRefResolver, skillName string) (map[string]ServiceAction, error) {
 	paths := mapAt(root, "paths")
-	actions := make(map[string]SkillAction)
+	actions := make(map[string]ServiceAction)
 
 	pathKeys := sortedMapKeys(paths)
 	for _, p := range pathKeys {
@@ -327,13 +327,13 @@ func extractActions(root map[string]any, resolver *openAPIRefResolver, skillName
 	return actions, nil
 }
 
-func buildAction(method, path string, op map[string]any, pathParams []any, root map[string]any, resolver *openAPIRefResolver, skillName string) (SkillAction, error) {
+func buildAction(method, path string, op map[string]any, pathParams []any, root map[string]any, resolver *openAPIRefResolver, skillName string) (ServiceAction, error) {
 	description := strings.TrimSpace(stringAt(op, "summary"))
 	if description == "" {
 		description = strings.TrimSpace(stringAt(op, "description"))
 	}
 
-	action := SkillAction{
+	action := ServiceAction{
 		Method:      method,
 		Path:        path,
 		Description: description,
@@ -351,7 +351,7 @@ func buildAction(method, path string, op map[string]any, pathParams []any, root 
 	argIndex := map[string]int{}
 	mergeArgsAndRequest, err := mergeParameters(pathParams, anySliceAt(op, "parameters"), resolver)
 	if err != nil {
-		return SkillAction{}, err
+		return ServiceAction{}, err
 	}
 
 	for _, p := range mergeArgsAndRequest {
@@ -367,7 +367,7 @@ func buildAction(method, path string, op map[string]any, pathParams []any, root 
 	}
 
 	if err := addRequestBodyArgs(&action, op, resolver, argIndex); err != nil {
-		return SkillAction{}, err
+		return ServiceAction{}, err
 	}
 
 	action.Auth = extractOperationAuth(op, root, resolver, skillName)
@@ -463,7 +463,7 @@ func parameterToArg(param map[string]any, resolver *openAPIRefResolver) (ActionA
 	return arg, in, true
 }
 
-func addRequestBodyArgs(action *SkillAction, op map[string]any, resolver *openAPIRefResolver, argIndex map[string]int) error {
+func addRequestBodyArgs(action *ServiceAction, op map[string]any, resolver *openAPIRefResolver, argIndex map[string]int) error {
 	rawBody := mapAt(op, "requestBody")
 	if len(rawBody) == 0 {
 		return nil
@@ -702,7 +702,7 @@ func normalizeActionKey(operationID, method, path string) string {
 	return base
 }
 
-func ensureUniqueActionKey(base, method, path string, existing map[string]SkillAction) string {
+func ensureUniqueActionKey(base, method, path string, existing map[string]ServiceAction) string {
 	if _, ok := existing[base]; !ok {
 		return base
 	}
@@ -812,7 +812,7 @@ func schemaType(schema map[string]any) string {
 	}
 }
 
-func extractOperationAuth(op map[string]any, root map[string]any, resolver *openAPIRefResolver, skillName string) *SkillAuth {
+func extractOperationAuth(op map[string]any, root map[string]any, resolver *openAPIRefResolver, skillName string) *ServiceAuth {
 	securityAny, exists := op["security"]
 	if !exists {
 		return nil
@@ -825,7 +825,7 @@ func extractOperationAuth(op map[string]any, root map[string]any, resolver *open
 
 	schemeName := firstReferencedSecuritySchemeFromList(security)
 	if schemeName == "" {
-		auth := SkillAuth{Type: "none"}
+		auth := ServiceAuth{Type: "none"}
 		return &auth
 	}
 
@@ -864,8 +864,8 @@ func firstReferencedSecuritySchemeFromList(security []any) string {
 	return ""
 }
 
-func authFromScheme(scheme map[string]any, skillName string) (SkillAuth, error) {
-	auth := SkillAuth{}
+func authFromScheme(scheme map[string]any, skillName string) (ServiceAuth, error) {
+	auth := ServiceAuth{}
 	t := strings.ToLower(strings.TrimSpace(stringAt(scheme, "type")))
 	switch t {
 	case "http":
@@ -878,7 +878,7 @@ func authFromScheme(scheme map[string]any, skillName string) (SkillAuth, error) 
 			auth.Type = "basic"
 			auth.CredentialRef = credentialRef(skillName, "basic")
 		default:
-			return SkillAuth{}, fmt.Errorf("unsupported HTTP auth scheme %q: only bearer and basic are supported", httpScheme)
+			return ServiceAuth{}, fmt.Errorf("unsupported HTTP auth scheme %q: only bearer and basic are supported", httpScheme)
 		}
 	case "apikey":
 		in := strings.ToLower(strings.TrimSpace(stringAt(scheme, "in")))
@@ -900,7 +900,7 @@ func authFromScheme(scheme map[string]any, skillName string) (SkillAuth, error) 
 		auth.Type = "bearer"
 		auth.CredentialRef = credentialRef(skillName, "oidc_token")
 	default:
-		return SkillAuth{}, fmt.Errorf("unsupported security scheme type %q: only http, apiKey, oauth2, and openIdConnect are supported", t)
+		return ServiceAuth{}, fmt.Errorf("unsupported security scheme type %q: only http, apiKey, oauth2, and openIdConnect are supported", t)
 	}
 	return auth, nil
 }
@@ -1097,7 +1097,7 @@ func dedupeStrings(values []string) []string {
 	return out
 }
 
-func appendActionWarnings(action *SkillAction, warnings []string) {
+func appendActionWarnings(action *ServiceAction, warnings []string) {
 	uniqueWarnings := dedupeStrings(warnings)
 	if len(uniqueWarnings) == 0 {
 		return

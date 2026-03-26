@@ -7,7 +7,7 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/dunialabs/kimbap-core/internal/skills"
+	"github.com/dunialabs/kimbap-core/internal/services"
 )
 
 type Rule struct {
@@ -54,7 +54,7 @@ func (c *Classifier) AddRule(rule Rule) error {
 	return nil
 }
 
-func (c *Classifier) AddRulesFromSkill(skill *skills.SkillManifest) error {
+func (c *Classifier) AddRulesFromSkill(skill *services.ServiceManifest) error {
 	if skill == nil {
 		return nil
 	}

@@ -1,4 +1,4 @@
-package skills
+package services
 
 import (
 	"crypto/ed25519"
@@ -14,8 +14,8 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
-type InstalledSkill struct {
-	Manifest    SkillManifest
+type InstalledService struct {
+	Manifest    ServiceManifest
 	InstalledAt time.Time
 	Source      string
 	Path        string
@@ -33,7 +33,7 @@ type LockEntry struct {
 type Lockfile struct {
 	Version   int                  `yaml:"version"`
 	PublicKey string               `yaml:"public_key,omitempty"`
-	Skills    map[string]LockEntry `yaml:"skills"`
+	Services  map[string]LockEntry `yaml:"services"`
 }
 
 type VerifyResult struct {
@@ -54,20 +54,20 @@ func NewLocalInstaller(skillsDir string) *LocalInstaller {
 	return &LocalInstaller{skillsDir: skillsDir}
 }
 
-var ErrSkillAlreadyInstalled = fmt.Errorf("skill already installed")
+var ErrServiceAlreadyInstalled = fmt.Errorf("skill already installed")
 
-func (i *LocalInstaller) Install(manifest *SkillManifest, source string) (*InstalledSkill, error) {
+func (i *LocalInstaller) Install(manifest *ServiceManifest, source string) (*InstalledService, error) {
 	return i.InstallWithForce(manifest, source, false)
 }
 
-func (i *LocalInstaller) InstallWithForce(manifest *SkillManifest, source string, force bool) (*InstalledSkill, error) {
+func (i *LocalInstaller) InstallWithForce(manifest *ServiceManifest, source string, force bool) (*InstalledService, error) {
 	if i == nil {
 		return nil, fmt.Errorf("installer is nil")
 	}
 	if manifest == nil {
 		return nil, fmt.Errorf("manifest is nil")
 	}
-	if err := ValidateSkillName(manifest.Name); err != nil {
+	if err := ValidateServiceName(manifest.Name); err != nil {
 		return nil, err
 	}
 	if errs := ValidateManifest(manifest); len(errs) > 0 {
@@ -80,7 +80,7 @@ func (i *LocalInstaller) InstallWithForce(manifest *SkillManifest, source string
 	p := filepath.Join(i.skillsDir, manifest.Name+".yaml")
 	if !force {
 		if _, err := os.Stat(p); err == nil {
-			return nil, ErrSkillAlreadyInstalled
+			return nil, ErrServiceAlreadyInstalled
 		}
 	}
 	data, err := yaml.Marshal(manifest)
@@ -100,7 +100,7 @@ func (i *LocalInstaller) InstallWithForce(manifest *SkillManifest, source string
 	if err != nil {
 		return nil, fmt.Errorf("read lockfile: %w", err)
 	}
-	lf.Skills[manifest.Name] = LockEntry{
+	lf.Services[manifest.Name] = LockEntry{
 		Name:     manifest.Name,
 		Version:  manifest.Version,
 		Digest:   digest,
@@ -112,7 +112,7 @@ func (i *LocalInstaller) InstallWithForce(manifest *SkillManifest, source string
 		return nil, fmt.Errorf("write lockfile: %w", err)
 	}
 
-	return &InstalledSkill{
+	return &InstalledService{
 		Manifest:    *manifest,
 		InstalledAt: time.Now().UTC(),
 		Source:      source,
@@ -124,7 +124,7 @@ func (i *LocalInstaller) Remove(name string) error {
 	if i == nil {
 		return fmt.Errorf("installer is nil")
 	}
-	if err := ValidateSkillName(name); err != nil {
+	if err := ValidateServiceName(name); err != nil {
 		return err
 	}
 
@@ -132,8 +132,8 @@ func (i *LocalInstaller) Remove(name string) error {
 	if err != nil {
 		return fmt.Errorf("read lockfile: %w", err)
 	}
-	if _, ok := lf.Skills[name]; ok {
-		delete(lf.Skills, name)
+	if _, ok := lf.Services[name]; ok {
+		delete(lf.Services, name)
 		if err := i.writeLockfile(lf); err != nil {
 			return fmt.Errorf("write lockfile: %w", err)
 		}
@@ -148,19 +148,19 @@ func (i *LocalInstaller) Remove(name string) error {
 	return nil
 }
 
-func (i *LocalInstaller) List() ([]InstalledSkill, error) {
+func (i *LocalInstaller) List() ([]InstalledService, error) {
 	if i == nil {
 		return nil, fmt.Errorf("installer is nil")
 	}
 	entries, err := os.ReadDir(i.skillsDir)
 	if err != nil {
 		if os.IsNotExist(err) {
-			return []InstalledSkill{}, nil
+			return []InstalledService{}, nil
 		}
 		return nil, fmt.Errorf("read skills dir: %w", err)
 	}
 
-	out := make([]InstalledSkill, 0)
+	out := make([]InstalledService, 0)
 	for _, entry := range entries {
 		if entry.IsDir() || filepath.Ext(entry.Name()) != ".yaml" {
 			continue
@@ -180,7 +180,7 @@ func (i *LocalInstaller) List() ([]InstalledSkill, error) {
 	return out, nil
 }
 
-func ValidateSkillName(name string) error {
+func ValidateServiceName(name string) error {
 	if strings.TrimSpace(name) == "" {
 		return fmt.Errorf("skill name is required")
 	}
@@ -190,11 +190,11 @@ func ValidateSkillName(name string) error {
 	return nil
 }
 
-func (i *LocalInstaller) Get(name string) (*InstalledSkill, error) {
+func (i *LocalInstaller) Get(name string) (*InstalledService, error) {
 	if i == nil {
 		return nil, fmt.Errorf("installer is nil")
 	}
-	if err := ValidateSkillName(name); err != nil {
+	if err := ValidateServiceName(name); err != nil {
 		return nil, err
 	}
 	p := filepath.Join(i.skillsDir, name+".yaml")
@@ -213,7 +213,7 @@ func (i *LocalInstaller) Get(name string) (*InstalledSkill, error) {
 		return nil, fmt.Errorf("stat installed skill manifest: %w", err)
 	}
 
-	return &InstalledSkill{
+	return &InstalledService{
 		Manifest:    *manifest,
 		InstalledAt: fi.ModTime().UTC(),
 		Source:      "local",
@@ -225,7 +225,7 @@ func (i *LocalInstaller) Verify(name string) (*VerifyResult, error) {
 	if i == nil {
 		return nil, fmt.Errorf("installer is nil")
 	}
-	if err := ValidateSkillName(name); err != nil {
+	if err := ValidateServiceName(name); err != nil {
 		return nil, err
 	}
 
@@ -241,7 +241,7 @@ func (i *LocalInstaller) Verify(name string) (*VerifyResult, error) {
 		return nil, fmt.Errorf("read lockfile: %w", err)
 	}
 
-	entry, ok := lf.Skills[name]
+	entry, ok := lf.Services[name]
 	if !ok {
 		return &VerifyResult{
 			Name:           name,
@@ -277,7 +277,7 @@ func (i *LocalInstaller) VerifyWithKey(name string, pinnedPubKey ed25519.PublicK
 	if i == nil {
 		return nil, fmt.Errorf("installer is nil")
 	}
-	if err := ValidateSkillName(name); err != nil {
+	if err := ValidateServiceName(name); err != nil {
 		return nil, err
 	}
 
@@ -293,7 +293,7 @@ func (i *LocalInstaller) VerifyWithKey(name string, pinnedPubKey ed25519.PublicK
 		return nil, fmt.Errorf("read lockfile: %w", err)
 	}
 
-	entry, ok := lf.Skills[name]
+	entry, ok := lf.Services[name]
 	if !ok {
 		return &VerifyResult{
 			Name:         name,
@@ -327,26 +327,26 @@ func (i *LocalInstaller) Sign(privateKey ed25519.PrivateKey) error {
 	pubKey := privateKey.Public().(ed25519.PublicKey)
 	lf.PublicKey = hex.EncodeToString(pubKey)
 
-	for name, entry := range lf.Skills {
+	for name, entry := range lf.Services {
 		if strings.TrimSpace(entry.Digest) == "" {
 			continue
 		}
 		entry.Signature = signDigest(privateKey, entry.Digest)
-		lf.Skills[name] = entry
+		lf.Services[name] = entry
 	}
 
 	return i.writeLockfile(lf)
 }
 
 func (i *LocalInstaller) lockfilePath() string {
-	return filepath.Join(i.skillsDir, "kimbap-skills.lock")
+	return filepath.Join(i.skillsDir, "kimbap-services.lock")
 }
 
 func (i *LocalInstaller) readLockfile() (*Lockfile, error) {
 	data, err := os.ReadFile(i.lockfilePath())
 	if err != nil {
 		if os.IsNotExist(err) {
-			return &Lockfile{Version: 1, Skills: map[string]LockEntry{}}, nil
+			return &Lockfile{Version: 1, Services: map[string]LockEntry{}}, nil
 		}
 		return nil, err
 	}
@@ -358,8 +358,8 @@ func (i *LocalInstaller) readLockfile() (*Lockfile, error) {
 	if lf.Version == 0 {
 		lf.Version = 1
 	}
-	if lf.Skills == nil {
-		lf.Skills = map[string]LockEntry{}
+	if lf.Services == nil {
+		lf.Services = map[string]LockEntry{}
 	}
 	return &lf, nil
 }

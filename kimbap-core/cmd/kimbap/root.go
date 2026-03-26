@@ -20,7 +20,7 @@ import (
 	"github.com/dunialabs/kimbap-core/internal/connectors"
 	corecrypto "github.com/dunialabs/kimbap-core/internal/crypto"
 	"github.com/dunialabs/kimbap-core/internal/runtime"
-	"github.com/dunialabs/kimbap-core/internal/skills"
+	"github.com/dunialabs/kimbap-core/internal/services"
 	"github.com/dunialabs/kimbap-core/internal/splash"
 	"github.com/dunialabs/kimbap-core/internal/vault"
 	"github.com/spf13/cobra"
@@ -249,8 +249,8 @@ func defaultTenantID() string {
 	return "default"
 }
 
-func installerFromConfig(cfg *config.KimbapConfig) *skills.LocalInstaller {
-	return skills.NewLocalInstaller(cfg.Skills.Dir)
+func installerFromConfig(cfg *config.KimbapConfig) *services.LocalInstaller {
+	return services.NewLocalInstaller(cfg.Skills.Dir)
 }
 
 func loadInstalledActions(cfg *config.KimbapConfig) ([]actions.ActionDefinition, error) {
@@ -262,7 +262,7 @@ func loadInstalledActions(cfg *config.KimbapConfig) ([]actions.ActionDefinition,
 
 	out := make([]actions.ActionDefinition, 0)
 	for _, installedSkill := range installed {
-		defs, convErr := skills.ToActionDefinitions(&installedSkill.Manifest)
+		defs, convErr := services.ToActionDefinitions(&installedSkill.Manifest)
 		if convErr != nil {
 			return nil, convErr
 		}
