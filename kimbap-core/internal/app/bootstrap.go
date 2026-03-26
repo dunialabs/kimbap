@@ -9,6 +9,7 @@ import (
 	goruntime "runtime"
 	"sort"
 	"strings"
+	"time"
 
 	"github.com/dunialabs/kimbap-core/internal/actions"
 	"github.com/dunialabs/kimbap-core/internal/adapters"
@@ -29,7 +30,7 @@ type RuntimeDeps struct {
 	ConnectorStore   connectors.ConnectorStore
 	ConnectorConfigs []connectors.ConnectorConfig
 	PolicyPath       string
-	SkillsDir        string
+	ServicesDir      string
 	AuditWriter      runtimepkg.AuditWriter
 	ApprovalManager  runtimepkg.ApprovalManager
 }
@@ -39,7 +40,7 @@ func BuildRuntime(deps RuntimeDeps) (*runtimepkg.Runtime, error) {
 		return nil, fmt.Errorf("config is required")
 	}
 
-	servicesDir := strings.TrimSpace(deps.SkillsDir)
+	servicesDir := strings.TrimSpace(deps.ServicesDir)
 	policyPath := strings.TrimSpace(deps.PolicyPath)
 	if servicesDir == "" {
 		servicesDir = strings.TrimSpace(deps.Config.Services.Dir)
@@ -95,7 +96,8 @@ func BuildRuntime(deps RuntimeDeps) (*runtimepkg.Runtime, error) {
 	}
 
 	adaptersMap := map[string]adapters.Adapter{
-		"http": adapters.NewHTTPAdapter(nil),
+		"http":    adapters.NewHTTPAdapter(nil),
+		"command": adapters.NewCommandAdapter(nil, 60*time.Second),
 	}
 	if goruntime.GOOS == "darwin" {
 		adaptersMap["applescript"] = adapters.NewAppleScriptAdapter(nil)
@@ -172,7 +174,7 @@ func (r *servicesActionRegistry) loadDefinitions() ([]actions.ActionDefinition, 
 	if r == nil || r.installer == nil {
 		return nil, fmt.Errorf("services installer is not initialized")
 	}
-	installed, err := r.installer.List()
+	installed, err := r.installer.ListEnabled()
 	if err != nil {
 		return nil, err
 	}
