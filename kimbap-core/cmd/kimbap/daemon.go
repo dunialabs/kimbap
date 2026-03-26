@@ -17,6 +17,7 @@ import (
 
 	"github.com/dunialabs/kimbap-core/internal/actions"
 	"github.com/dunialabs/kimbap-core/internal/runtime"
+	"github.com/google/uuid"
 	"github.com/spf13/cobra"
 )
 
@@ -166,7 +167,7 @@ func daemonCallHandler(rt *runtime.Runtime) http.HandlerFunc {
 			return
 		}
 
-		requestID := fmt.Sprintf("req_%d", time.Now().UTC().UnixNano())
+		requestID := "req_" + uuid.NewString()
 		execReq := actions.ExecutionRequest{
 			RequestID:      requestID,
 			IdempotencyKey: requestID,

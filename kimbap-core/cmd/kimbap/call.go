@@ -8,11 +8,11 @@ import (
 	"os"
 	"strconv"
 	"strings"
-	"time"
 
 	"github.com/dunialabs/kimbap-core/internal/actions"
 	"github.com/dunialabs/kimbap-core/internal/config"
 	"github.com/dunialabs/kimbap-core/internal/runtime"
+	"github.com/google/uuid"
 	"github.com/spf13/cobra"
 )
 
@@ -51,7 +51,7 @@ func newCallCommand() *cobra.Command {
 				return err
 			}
 
-			requestID := fmt.Sprintf("req_%d", time.Now().UTC().UnixNano())
+			requestID := "req_" + uuid.NewString()
 			req := actions.ExecutionRequest{
 				RequestID:      requestID,
 				IdempotencyKey: requestID,
