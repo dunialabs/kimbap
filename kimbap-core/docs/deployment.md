@@ -5,7 +5,7 @@
 ### Prerequisites
 
 - Go **1.24+**
-- Docker and Docker Compose (for PostgreSQL and optional Cloudflare DDNS)
+- Docker and Docker Compose (optional, for running services in containers)
 
 ### Local Development
 
@@ -15,25 +15,10 @@ Install dependencies:
 make deps
 ```
 
-Start the full development environment (gateway + local database):
+Start in development mode:
 
 ```bash
 make dev
-```
-
-Start only the backend (if you already have PostgreSQL running):
-
-```bash
-make dev
-```
-
-Database helper commands:
-
-```bash
-docker compose up -d              # Start PostgreSQL via Docker
-docker compose logs postgres      # View PostgreSQL logs
-docker compose down -v            # Reset database (destructive)
-docker compose down               # Stop database services
 ```
 
 Build for production:
@@ -42,36 +27,7 @@ Build for production:
 make build
 ```
 
-To skip Cloudflared in development, set:
-
-```bash
-SKIP_CLOUDFLARED=true make dev
-```
-
-### Production with Docker
-
-Kimbap Core ships with a shell script that prepares a Docker-based deployment:
-
-```bash
-curl -O https://raw.githubusercontent.com/dunialabs/kimbap-core/main/docs/docker-deploy.sh
-chmod +x docker-deploy.sh
-./docker-deploy.sh
-```
-
-The script will:
-
-1. Validate your Docker environment.
-2. Generate random secrets (for example `JWT_SECRET` and a database password).
-3. Create a `docker-compose.yml` and `.env` file.
-4. Start all services (PostgreSQL, Kimbap Core, and optional Cloudflared DDNS).
-5. Wait for basic health checks.
-6. Print connection information and next steps.
-
-You can also adapt the generated files to your own Docker or orchestration setup.
-
 ### Production with Go Binary
-
-To run Kimbap Core directly with an existing PostgreSQL database:
 
 ```bash
 # 1. Clone the repository
@@ -81,30 +37,30 @@ cd kimbap-core
 # 2. Install dependencies
 make deps
 
-# 3. Configure environment
+# 3. Configure (optional)
 cp .env.example .env
-# Edit .env and set required values such as DATABASE_URL and JWT_SECRET
+# Edit .env to set KIMBAP_MASTER_KEY_HEX and other values
 
 # 4. Build
 make build
 
 # 5. Start the service
-./bin/kimbap-core
+./bin/kimbap serve
 ```
 
-For process management in production you can use systemd with a service file like the following:
+For process management in production you can use systemd:
 
 ```ini
 [Unit]
-Description=Kimbap Core MCP Gateway
-After=network.target postgresql.service
+Description=Kimbap - Secure action runtime for AI agents
+After=network.target
 
 [Service]
 Type=simple
 User=kimbap
-WorkingDirectory=/opt/kimbap-core
-EnvironmentFile=/opt/kimbap-core/.env
-ExecStart=/opt/kimbap-core/bin/kimbap-core
+WorkingDirectory=/opt/kimbap
+EnvironmentFile=/opt/kimbap/.env
+ExecStart=/opt/kimbap/bin/kimbap serve
 Restart=on-failure
 RestartSec=5s
 
@@ -112,140 +68,120 @@ RestartSec=5s
 WantedBy=multi-user.target
 ```
 
-Then start Kimbap Core with:
+Then start with:
 
 ```bash
-sudo systemctl enable kimbap-core
-sudo systemctl start kimbap-core
+sudo systemctl enable kimbap
+sudo systemctl start kimbap
 ```
 
 ---
 
 ## Configuration
 
-All configuration is set via environment variables (for example in a `.env` file).
+All configuration is set via environment variables or `~/.kimbap/config.yaml`.
 
 ### Key Environment Variables
-
-#### Database
-
-| Name           | Required | Default | Description                                                                                                      |
-| -------------- | -------- | ------- | ---------------------------------------------------------------------------------------------------------------- |
-| `DATABASE_URL` | ✓        | –       | PostgreSQL connection string, for example `postgresql://user:password@host:5432/kimbap_mcp_gateway?schema=public`. |
 
 #### Server
 
 | Name            | Required | Default | Description                                               |
 | --------------- | -------- | ------- | --------------------------------------------------------- |
-| `BACKEND_PORT`  |          | `3002`  | HTTP port that the gateway listens on.                    |
-| `BACKEND_HTTPS_PORT` |      | Value of `BACKEND_PORT`  | HTTPS listener port when `ENABLE_HTTPS=true`. Defaults to `BACKEND_PORT` if not set. |
-| `ENABLE_HTTPS`  |          | `false` | Enable built-in HTTPS listener in the Go server.          |
-| `SSL_CERT_PATH` |          | –       | Path to the TLS certificate file used for HTTPS.          |
-| `SSL_KEY_PATH`  |          | –       | Path to the TLS private key file used for HTTPS.          |
+| `KIMBAP_PORT`   |          | `8080`  | HTTP port that the server listens on.                     |
+| `KIMBAP_DATA_DIR` |        | `~/.kimbap` | Directory for SQLite database, vault, and audit logs. |
 
-#### Authentication
+#### Security
 
-| Name         | Required          | Default | Description                                         |
-| ------------ | ----------------- | ------- | --------------------------------------------------- |
-| `JWT_SECRET` | ✓ (in production) | –       | Secret used to sign and verify OAuth access tokens (JWT) issued by Kimbap Core. |
-
-OAuth 2.0 and multi-tenant settings are also configured via environment variables; refer to `../.env.example` and the API docs for the full list.
-
-> For production deployments, treat `JWT_SECRET` as a high-value key: provision it from your secret manager or KMS, never check it into source control, and rotate it according to your organization's security policies.
-
-#### Kimbap Auth (optional)
-
-Kimbap Core supports multiple OAuth-based integrations (for example Google, Notion, GitHub, and Figma). There are two ways to supply OAuth credentials:
-
-1. **Kimbap-managed credentials** (Kimbap provides `clientId` and `clientSecret`) — requires the separate `kimbap-auth` service so Kimbap secrets are never exposed.
-2. **Bring your own credentials** — no `kimbap-auth` service is required.
-
-If you are certain you will not use Kimbap-managed credentials, set `KIMBAP_AUTH_AUTOSTART='false'` to skip installing and starting `kimbap-auth`.
-
-#### Logging
-
-| Name         | Required | Default                      | Description                                           |
-| ------------ | -------- | ---------------------------- | ----------------------------------------------------- |
-| `LOG_LEVEL`  |          | `trace` (dev) / `info` (prod)  | Log level: `trace`, `debug`, `info`, `warn`, `error`. Defaults to `trace` in development and `info` in production. |
-| `LOG_PRETTY` |          | `true` (dev) / `false` (prod)  | Pretty-printed logs. Defaults to enabled in development, disabled in production.            |
-| `LOG_RESPONSE_MAX_LENGTH` |  | `300`   | Maximum character length for response bodies in audit logs. Longer responses are truncated.  |
+| Name                   | Required          | Default | Description                                                              |
+| ---------------------- | ----------------- | ------- | ------------------------------------------------------------------------ |
+| `KIMBAP_MASTER_KEY_HEX` |                 | auto (dev mode) | Hex-encoded master key for vault encryption. Auto-generated in dev mode. |
+| `KIMBAP_DEV`           |                  | `false` | Dev mode: relaxes security, auto-generates vault key, verbose logging.   |
 
 #### Database
 
-| Name           | Required | Default | Description                                                              |
-| -------------- | -------- | ------- | ------------------------------------------------------------------------ |
-| `AUTO_MIGRATE` |          | `false` | Run GORM AutoMigrate on startup. Set to `true` or `1` to enable.        |
+| Name              | Required | Default     | Description                                                             |
+| ----------------- | -------- | ----------- | ----------------------------------------------------------------------- |
+| `KIMBAP_DB_URL`   |          | SQLite      | Database URL. Defaults to SQLite at `$KIMBAP_DATA_DIR/kimbap.db`. Set to a PostgreSQL DSN for connected/multi-instance deployments. |
 
-#### Environment Detection
+#### Logging
 
-| Name       | Required | Default | Description                                                                                           |
-| ---------- | -------- | ------- | ----------------------------------------------------------------------------------------------------- |
-| `NODE_ENV`  |         | `development` | Environment name (`production`, `development`). Affects log verbosity and GORM log level. Defaults to `development` if neither `NODE_ENV` nor `APP_ENV` is set. |
-| `APP_ENV`   |         | `development` | Alternative to `NODE_ENV`. Either variable is accepted. If both are unset, defaults to `development`.  |
-
-#### Public URL
-
-| Name                  | Required | Default | Description                                                                                          |
-| --------------------- | -------- | ------- | ---------------------------------------------------------------------------------------------------- |
-| `KIMBAP_PUBLIC_BASE_URL` |         | –       | Public-facing base URL of this Kimbap Core instance. Used for OAuth redirect URIs and metadata endpoints. |
-
-#### MCP Server Management
-
-| Name                  | Required | Default | Description                                                                                      |
-| --------------------- | -------- | ------- | ------------------------------------------------------------------------------------------------ |
-| `LAZY_START_ENABLED`  |          | `true`  | Enable lazy loading for MCP servers. When true, servers load config but delay startup until first use; idle servers auto-shutdown. |
-
-#### Skills
-
-| Name              | Required | Default    | Description                                                                 |
-| ----------------- | -------- | ---------- | --------------------------------------------------------------------------- |
-| `SKILLS_DIR`      |          | `./skills` | Directory where MCP skill definitions are stored.                           |
-| `HOST_SKILLS_DIR` |          | –          | Host-absolute skills directory used to rewrite Docker bind mounts when `KIMBAP_CORE_IN_DOCKER=true`. |
-
-#### Cloudflared DDNS (optional)
-
-| Name                        | Required | Default              | Description                                             |
-| --------------------------- | -------- | -------------------- | ------------------------------------------------------- |
-| `SKIP_CLOUDFLARED`          |          | `false`              | Skip Cloudflared setup in development environments.     |
-| `CLOUDFLARED_CONTAINER_DIR` |          | `/etc/cloudflared`   | Config directory path for the Cloudflared container.    |
-| `KIMBAP_CORE_IN_DOCKER`       |          | –                    | Set to `true` when running inside Docker. Adjusts Cloudflared config paths. |
-| `KIMBAP_CLOUD_API_URL`        |          | –                    | Kimbap Cloud API base URL for Cloudflared tunnel management. |
-
-For additional environment variables (for example OAuth clients, multi-tenant configuration, or external services), see `../.env.example` and the deployment documentation.
+| Name         | Required | Default                        | Description                                           |
+| ------------ | -------- | ------------------------------ | ----------------------------------------------------- |
+| `LOG_LEVEL`  |          | `info`                         | Log level: `trace`, `debug`, `info`, `warn`, `error`. |
+| `LOG_PRETTY` |          | `true` (dev) / `false` (prod)  | Pretty-printed logs for development.                  |
 
 ---
 
 ## Docker Configuration
 
-The default Docker setup uses the following containers and settings.
+The default Docker setup runs kimbap with SQLite (embedded, zero setup).
 
-### PostgreSQL
-
-- Container name: `kimbap-core-postgres`
-- Host port: `5433` (default via `KIMBAP_POSTGRES_PORT`, container listens on `5432`)
-- Database name: `kimbap_mcp_gateway`
-- User/password: `kimbap` / `kimbap123` (⚠️ change these in production)
-
-### Cloudflared DDNS (optional)
-
-- Container name: `kimbap-core-cloudflared`
-- Configuration directory: `./cloudflared`
-
-These values come from the default Docker compose files and can be adjusted to match your environment.
-
-### Running Kimbap Core in Docker with skills MCP servers
-
-If a skills server launch config uses Docker bind mounts like `-v ./skills/<serverId>:/app/skills:ro`, set `HOST_SKILLS_DIR` to the host path and mount that same host directory into the kimbap-core container.
+### Basic Docker Compose
 
 ```yaml
 services:
-  kimbap-core:
+  kimbap:
+    image: dunialabs/kimbap:latest
+    container_name: kimbap
+    restart: unless-stopped
     environment:
-      KIMBAP_CORE_IN_DOCKER: "true"
-      SKILLS_DIR: /data/skills
-      HOST_SKILLS_DIR: /absolute/path/to/skills
+      KIMBAP_PORT: 8080
+      KIMBAP_MASTER_KEY_HEX: ${KIMBAP_MASTER_KEY_HEX}
+      LOG_LEVEL: info
+    ports:
+      - '8080:8080'
     volumes:
-      - ./skills:/data/skills
+      - kimbap_data:/data/kimbap
+    healthcheck:
+      test: ['CMD-SHELL', 'wget --spider -q http://localhost:8080/v1/health || exit 1']
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+
+volumes:
+  kimbap_data:
+    driver: local
+```
+
+### With PostgreSQL (optional)
+
+For multi-instance or high-availability deployments, configure an external PostgreSQL database:
+
+```yaml
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: kimbap-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: kimbap
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+      POSTGRES_DB: kimbap
+    ports:
+      - '5433:5432'
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U kimbap']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  kimbap:
+    image: dunialabs/kimbap:latest
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      KIMBAP_PORT: 8080
+      KIMBAP_MASTER_KEY_HEX: ${KIMBAP_MASTER_KEY_HEX}
+      KIMBAP_DB_URL: postgres://kimbap:${DB_PASSWORD}@postgres:5432/kimbap?sslmode=disable
+    ports:
+      - '8080:8080'
+
+volumes:
+  postgres_data:
 ```
 
 ---
@@ -255,23 +191,21 @@ services:
 **Development**
 
 ```bash
-make dev              # Watch and run gateway + dev stack
-make build            # Compile Go binary to ./bin/kimbap-core
-make run              # Build and run the binary
+make dev              # Run in development mode
+make build            # Compile Go binary to ./bin/kimbap
+make run              # Build and run
 make clean            # Clean build artifacts
 ```
 
-**Database**
+**Docker**
 
 ```bash
-docker compose up -d              # Start PostgreSQL in Docker
-docker compose logs postgres      # View database container logs
-docker compose restart postgres   # Restart database containers
-docker compose down               # Stop database containers
-docker compose down -v            # Reset database (destructive)
+docker compose up -d              # Start services
+docker compose logs -f kimbap     # View logs
+docker compose restart kimbap     # Restart service
+docker compose down               # Stop services
+docker compose down -v            # Stop and remove volumes (destructive)
 ```
-
-> **Note**: Kimbap Core uses GORM AutoMigrate for database schema management. Migrations run automatically on startup, so there is no separate migration command. To reset the database, use `docker compose down -v && docker compose up -d`.
 
 See `../Makefile` for the full list of commands.
 

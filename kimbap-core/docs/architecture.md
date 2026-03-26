@@ -28,8 +28,6 @@ The central concept is the **Action Runtime**: a canonical execution pipeline th
 └─────────────────────────────────────────────────────────────────┘
 ```
 
-MCP is one adapter surface in this model, not the center of it.
-
 ---
 
 ## Execution Pipeline
@@ -40,9 +38,8 @@ Every action request, regardless of how it arrived, passes through these six sta
 
 Resolve the caller's identity from the incoming token or session context.
 
-- Validate the bearer token (JWT or opaque) against `internal/security/`
-- Resolve the associated user, agent, and tenant
-- Establish session context via `internal/sessions/`
+- Validate the bearer token against `internal/auth/`
+- Resolve the associated agent and tenant
 - Reject unauthenticated or expired requests before any further processing
 
 ### 2. Resolve
@@ -50,8 +47,7 @@ Resolve the caller's identity from the incoming token or session context.
 Determine which action is being requested and whether it exists.
 
 - Parse the action reference (`service.action_name`)
-- Look up the action definition in `internal/actions/` and `internal/registry/`
-- Classify the request type via `internal/classifier/`
+- Look up the action definition in `internal/actions/` and `internal/services/`
 - Return a structured action descriptor with parameter schema, risk metadata, and execution backend
 
 ### 3. Policy
@@ -81,7 +77,7 @@ The caller never sees the raw credential. It exists only inside the runtime's ex
 Run the action against the appropriate backend.
 
 - Dispatch to the correct adapter via `internal/adapters/`
-- For Tier 1 skills: interpret the YAML skill definition and make the outbound HTTP call
+- For Tier 1 services: interpret the YAML service definition and make the outbound HTTP call
 - For Tier 2 connectors: delegate to the connector's execution logic
 - For Tier 2b CLI adapters: invoke the subprocess with injected credentials
 - Stream or collect the response
@@ -92,7 +88,6 @@ Record the full decision path and outcome.
 
 - Write a structured audit record via `internal/audit/`
 - Include: caller identity, action, parameters (sanitized), policy outcome, approval state, execution result, timestamp
-- Emit to the log service via `internal/log/`
 - Deliver notification signals via webhook channels and API-visible state changes
 
 ---
@@ -206,14 +201,13 @@ A long-running server deployment for shared use, multi-tenant environments, and 
 kimbap serve --port 8080
 ```
 
-**Entry point:** `cmd/server/`
+**Entry point:** `cmd/kimbap/`
 
 Exposes:
 
-- `/api/v1` — canonical REST management API (tokens, policies, approvals, audit, actions)
-- `/health`, `/ready` — liveness and readiness probes
-- OAuth2 endpoints
-- Webhook notifications + Console polling for approval/status updates
+- `/v1` — canonical REST API (tokens, policies, approvals, audit, actions, vault)
+- `/v1/health` — health probe
+- `/console` — embedded console SPA (optional)
 
 **Flow:**
 
@@ -221,10 +215,10 @@ Exposes:
 HTTP request arrives
   │
   ▼
-chi router (internal/middleware/: IP check → auth → rate limit)
+chi router (auth → rate limit)
   │
   ▼
-Route handler (api/, oauth/)
+Route handler (internal/api/)
   │
   ▼
 Action Runtime pipeline
@@ -258,14 +252,13 @@ Resource groups:
 
 | Prefix | Purpose |
 |---|---|
-| `/api/v1/tokens` | Issue, list, and revoke access tokens |
-| `/api/v1/policies` | Create and manage policy rules |
-| `/api/v1/approvals` | List pending approvals, approve or reject |
-| `/api/v1/audit` | Query audit records |
-| `/api/v1/actions` | List and describe available actions |
-| `/api/v1/vault` | Manage encrypted credential entries |
-| `/api/v1/connectors` | Configure and manage OAuth connectors |
-| `/api/v1/skills` | Install and manage skill definitions |
+| `/v1/tokens` | Issue, list, and revoke access tokens |
+| `/v1/policies` | Create and manage policy rules |
+| `/v1/approvals` | List pending approvals, approve or reject |
+| `/v1/audit` | Query audit records |
+| `/v1/actions` | List and describe available actions |
+| `/v1/vault` | Manage encrypted credential entries |
+| `/v1/connectors` | Configure and manage OAuth connectors |
 
 All routes require a valid bearer token. Admin-scoped routes require an Owner or Admin role.
 
@@ -275,13 +268,13 @@ All routes require a valid bearer token. Admin-scoped routes require an Owner or
 
 Kimbap avoids a bespoke codebase for every service. The integration tiers reflect how much custom code a service actually needs.
 
-### Tier 1 — Declarative Skills (YAML)
+### Tier 1 — Declarative Services (YAML)
 
-Most modern REST APIs can be expressed as a YAML skill file. The runtime interprets the skill at execution time.
+Most modern REST APIs can be expressed as a YAML service file. The runtime interprets the service definition at execution time.
 
-**Module:** `internal/skills/`
+**Module:** `internal/services/`
 
-A skill definition includes:
+A service definition includes:
 
 - `service` and `action` identifiers
 - auth type (`api_key`, `bearer`, `oauth2`, `basic`)
@@ -312,7 +305,7 @@ output: "$[*]"
 risk_level: low
 ```
 
-The skill loader in `internal/skills/` parses these at startup and registers them with the action registry.
+The service loader in `internal/services/` parses these at startup and registers them with the action registry.
 
 ### Tier 2 — Connectors (OAuth)
 
@@ -329,7 +322,7 @@ A connector manages:
 
 Current connector examples: Gmail, GitHub Apps, Slack, HubSpot, Stripe Connect.
 
-Connectors are not execution backends on their own. They supply credentials to the Action Runtime's credential injection stage. The actual HTTP call still goes through the skill or adapter layer.
+Connectors are not execution backends on their own. They supply credentials to the Action Runtime's credential injection stage. The actual HTTP call still goes through the service or adapter layer.
 
 ### Tier 2b — Existing CLI Adapters
 
@@ -374,7 +367,7 @@ The decrypted credential is never written to disk, never logged, and never retur
 
 ### Token Brokerage
 
-**Module:** `internal/auth/`, `internal/oauth/`, `internal/security/`
+**Module:** `internal/auth/`
 
 Kimbap issues its own short-lived access tokens to agents. These tokens:
 
@@ -438,7 +431,7 @@ kimbap call github.list_pull_requests --repo owner/repo
   │
   ├── Identify: read local token from ~/.kimbap/token
   │
-  ├── Resolve: look up skill definition for github.list_pull_requests
+├── Resolve: look up service definition for github.list_pull_requests
   │
   ├── Policy: evaluate rules for this caller + action
   │   └── outcome: allow
@@ -471,14 +464,14 @@ kimbap proxy (port 10255)
 ### Connected Server (inbound API call)
 
 ```
-POST /api/v1/actions/call
+POST /v1/actions/{service}/{action}:execute
 Authorization: Bearer <kimbap_token>
-Body: { "action": "stripe.refund_charge", "args": { ... } }
+Body: { "args": { ... } }
   │
   ▼
 chi router
   │
-  ├── Middleware: IP check → token auth → rate limit
+  ├── Auth: token validation → rate limit
   │
   ├── Handler: internal/api/
   │
@@ -524,53 +517,31 @@ Action Runtime: policy outcome = require_approval
 ```
 kimbap-core/
 ├── cmd/
-│   ├── kimbap/           # CLI entry point (kimbap call, proxy, run, serve, ...)
-│   └── server/           # Server entry point (kimbap serve)
+│   └── kimbap/           # CLI entry point (kimbap call, proxy, run, serve, ...)
 │
 └── internal/
     ├── runtime/          # Action Runtime core: pipeline orchestration
-    ├── actions/          # Action definitions and registry
-    ├── registry/         # Action lookup and resolution
-    ├── classifier/       # Request classification (maps inbound to action refs)
+    ├── actions/          # Action types and interfaces
     │
-    ├── skills/           # Tier 1 declarative skill loader and executor
-    ├── adapters/         # Tier 2b CLI adapter wrappers
-    ├── connectors/       # Tier 2 OAuth connector lifecycle
+    ├── services/         # Tier 1 declarative service loader and executor
+    ├── connectors/       # OAuth2 connector flows
     │
     ├── vault/            # Encrypted credential storage
-    ├── crypto/           # Key hierarchy, AES-GCM encryption/decryption
-    ├── auth/             # Token issuance and validation
-    ├── security/         # Authentication and authorization
-    ├── oauth/            # OAuth 2.0 flows (device, PKCE, refresh)
+    ├── crypto/           # Encryption utilities
+    ├── auth/             # Token service and principal types
     │
-    ├── policy/           # Policy rule evaluation
-    ├── approvals/        # Approval record management and workflow
-    ├── audit/            # Audit record writing
+    ├── policy/           # Policy evaluator (YAML DSL)
+    ├── approvals/        # Approval manager (email/slack/telegram/webhook notifiers)
+    ├── audit/            # Audit log writers (JSONL, multi-writer)
     │
-    ├── sessions/         # Session context management
-    ├── profiles/         # Agent and user profile management
+    ├── api/              # REST /v1 handlers (chi router)
+    ├── console/          # Embedded SPA (static files via go:embed)
     │
-    ├── proxy/            # HTTP proxy intercept (kimbap proxy)
-    ├── runner/           # Subprocess wrapper (kimbap run)
+    ├── store/            # SQL store (SQLite default, Postgres supported)
     │
-    ├── api/              # REST /api/v1 handlers
-    ├── mcp/              # MCP JSON-RPC adapter surface
-    │
-    ├── jobs/             # Background jobs (token refresh, health checks)
-    ├── observability/    # Metrics and tracing
-    ├── doctor/           # Runtime health diagnostics
-    │
-    ├── middleware/       # HTTP middleware (auth, rate limit, IP allowlist)
-    ├── repository/       # Data access layer (GORM)
-    ├── database/         # PostgreSQL connection and migrations
-    ├── store/            # In-memory and persistent store abstractions
-    │
-    ├── config/           # Configuration loading and validation
-    ├── log/              # Audit log service and sync
-    ├── logger/           # Zerolog structured logger wrapper
-    ├── service/          # Cross-cutting application services
-    ├── types/            # Shared types and enums
-    └── utils/            # Utility functions
+    ├── config/           # Config loading (kimbap.yaml)
+    ├── app/              # Runtime bootstrap and adapters
+    └── webhooks/         # Webhook dispatcher
 ```
 
 ---
@@ -599,7 +570,7 @@ Vault entries, policy rules, approval records, and audit logs are all tenant-sco
 
 ### Declarative First
 
-Most integrations should be YAML skill files, not Go code. The skill loader interprets them at runtime. This keeps the integration surface maintainable and auditable without requiring a new binary for each service.
+Most integrations should be YAML service files, not Go code. The service loader interprets them at runtime. This keeps the integration surface maintainable and auditable without requiring a new binary for each service.
 
 ### Audit is Mandatory
 
@@ -608,44 +579,32 @@ Every pipeline execution writes an audit record, including denied requests and a
 ## HTTP Endpoints (Connected Server)
 
 ```
-GET  /health                    liveness probe
-GET  /ready                     readiness probe
+GET  /v1/health                             Liveness probe
 
-POST /oauth/token               OAuth2 token endpoint
-GET  /oauth/authorize           OAuth2 authorization endpoint
-POST /oauth/device/code         Device flow initiation
+GET  /v1/actions                            List available actions
+GET  /v1/actions/{service}/{action}         Describe a specific action
+POST /v1/actions/{service}/{action}:execute Execute an action
+POST /v1/actions/validate                   Validate action input
 
-GET  /api/v1/actions            List available actions
-GET  /api/v1/actions/:id        Describe a specific action
-POST /api/v1/actions/call       Execute an action
+GET    /v1/vault                            List vault entries (metadata only)
 
-GET  /api/v1/tokens             List issued tokens
-POST /api/v1/tokens             Issue a new token
-DEL  /api/v1/tokens/:id         Revoke a token
+POST   /v1/tokens                           Issue a new token
+GET    /v1/tokens                           List issued tokens
+GET    /v1/tokens/{id}                      Inspect a token
+DELETE /v1/tokens/{id}                      Revoke a token
 
-GET  /api/v1/policies           List policy rules
-POST /api/v1/policies           Create a policy rule
-DEL  /api/v1/policies/:id       Delete a policy rule
+GET  /v1/policies                           Get effective policy
+PUT  /v1/policies                           Set policy document
+POST /v1/policies:evaluate                  Evaluate policy for a request
 
-GET  /api/v1/approvals          List pending approvals
-POST /api/v1/approvals/:id/approve   Approve a pending action
-POST /api/v1/approvals/:id/reject    Reject a pending action
+GET  /v1/approvals                          List pending approvals
+POST /v1/approvals/{id}:approve             Approve a pending action
+POST /v1/approvals/{id}:deny                Deny a pending action
 
-GET  /api/v1/audit              Query audit records
+GET  /v1/audit                              Query audit records
+GET  /v1/audit/export                       Export audit records
 
-GET  /api/v1/vault              List vault entries (metadata only)
-POST /api/v1/vault              Store a credential
-DEL  /api/v1/vault/:id          Delete a credential
-
-GET  /api/v1/connectors         List connectors
-POST /api/v1/connectors/:id/login    Initiate connector OAuth flow
-POST /api/v1/connectors/:id/logout   Revoke connector credentials
-
-GET  /api/v1/skills             List installed skills
-POST /api/v1/skills             Install a skill
-
-/admin/*                        Legacy action-code admin (frozen)
-/user/*                         Legacy action-code user (frozen)
+Service installation and management currently flows through the CLI (`kimbap service ...`).
 ```
 
 Approval and session updates are exposed through API state plus webhook notifications; clients should poll relevant endpoints when interactive updates are required.

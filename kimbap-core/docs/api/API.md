@@ -2,6 +2,9 @@
 
 This document provides an overview and navigation for all APIs in Kimbap Core.
 
+> **Status note:** The active connected-mode HTTP surface is implemented in `internal/api/routes.go` and is mounted under `/v1/*` (plus optional `/console/*`).
+> OAuth and other sections in this file are retained for historical context and may not reflect the current build.
+
 ## Table of Contents
 
 - [Authentication](#authentication)

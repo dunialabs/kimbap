@@ -1,203 +1,191 @@
-# Kimbap
+# Kimbap CLI
 
-> **Secure action runtime for AI agents**
->
-> Agents execute actions. Kimbap owns credentials, policy, approvals, and audit.
+> **CLI for AI agents to use any service — fast to use, fast to build, safe by default.**
 
 ![Go](https://img.shields.io/badge/go-%3E%3D1.24-green.svg)
 ![License](https://img.shields.io/badge/license-MIT-blue.svg)
-![PostgreSQL](https://img.shields.io/badge/PostgreSQL-15+-blue.svg)
+![Services](https://img.shields.io/badge/services-53-orange.svg)
 
-**Quick Start** → [https://kimbap.sh/quick-start](https://kimbap.sh/quick-start) | **Docs** → [https://docs.kimbap.sh](https://docs.kimbap.sh) | **Website** → [https://kimbap.sh](https://kimbap.sh)
+[Quick Start](https://kimbap.sh/quick-start) · [Docs](https://docs.kimbap.sh) · [Website](https://kimbap.sh)
 
 ---
 
-Kimbap is the runtime boundary between agents and external systems.
+One CLI. 53 built-in services. Add new ones with a single YAML file.
 
-```text
-agent -> kimbap runtime -> policy -> approval -> credential resolution -> execution -> audit
+```bash
+brew install kimbap
+
+# Store a credential
+printf '%s' "$GITHUB_TOKEN" | kimbap vault set github.token
+
+# See what's available
+kimbap actions list --service github
+
+# Use it
+kimbap call github.create-issue --owner acme --repo api --title "fix auth bug"
 ```
 
-- **service**: declarative action manifest (YAML)
-- **connector**: OAuth connection managed by Kimbap
+---
+
+## 53 services included
+
+### SaaS & APIs
+
+GitHub · Slack · Stripe · Notion · Linear · HubSpot · Airtable · Pinecone · Todoist · PostHog · Sentry · SendGrid · Resend · Exa · Brave Search
+
+### Communication
+
+Telegram · WhatsApp · WeChat · Zoom · Apple Mail · Messages
+
+### Local applications
+
+Blender · ComfyUI · Ollama · Mermaid · Spotify · NotebookLM
+
+### macOS native
+
+Finder · Safari · Contacts · Shortcuts · Notes · Calendar · Reminders · Keynote · Pages · Numbers
+
+### Office suites
+
+Microsoft Word · Excel · PowerPoint
+
+### Data & reference
+
+Wikipedia · Hacker News · CoinGecko · Open-Meteo (weather, air quality, historical, geocoding) · Financial Datasets · REST Countries · Exchange Rate · Public Holidays · Nominatim · ntfy
+
+```bash
+kimbap actions list                    # all services
+kimbap actions list --service stripe   # one service
+kimbap actions describe stripe.list-charges
+```
 
 ---
 
-## Product strengths
+## CLI modes
 
-1. **Credential isolation by default**  
-   Vault secrets, connector tokens, and other server-side credential material stay on the Kimbap side. Agents receive action inputs/outputs, not raw credentials.
-
-2. **Runtime guardrails, not prompt-only rules**  
-   Policy evaluation, optional approval hold, input validation/sanitization, and credential resolution run in the execution pipeline.
-
-3. **Full execution traceability**  
-   Every action execution can be audited with decision metadata, status, and timing.
-
-4. **One runtime, multiple integration surfaces**  
-   Use the same runtime through explicit action calls, subprocess wrapping, proxy mode, or connected API server mode.
-
-5. **Local-first default operation**  
-   Embedded mode defaults to local SQLite, JSONL audit logs, and filesystem-managed services under `~/.kimbap`.
-
-6. **Declarative integration model**  
-   Most API integrations are service manifests (`service install/validate/verify/sign/generate`) instead of custom per-service code.
-
-7. **Manifest integrity controls**  
-   Installed services are lockfile-backed and support verification/signing policy checks.
-
-8. **Agent onboarding automation**  
-   Kimbap can sync generated `SKILL.md` files and operating rules into detected agent directories.
-
----
-
-## `SKILL.md` writing vs Kimbap CLI
-
-`SKILL.md` is a discovery format. Kimbap CLI/API is the runtime path that applies policy, approval, and credential controls.
-
-| Concern | Writing `SKILL.md` manually | Using Kimbap via CLI |
+| Mode | Command | Use case |
 |---|---|---|
-| Source of truth | Static markdown in agent config | Installed service manifests + runtime action catalog |
-| Invocation | Agent reads instructions and chooses a path | Explicit runtime call (`kimbap call <service>.<action>`) |
-| Security controls | No hard enforcement by itself | Policy, approval, credential resolution enforced at runtime |
-| Data safety | Easy to drift into direct credential handling | Kimbap-managed credentials stay outside agent context |
-| Change management | Manual updates per agent/project | `kimbap agents sync` regenerates from installed services |
-| Auditability | No built-in execution audit | Structured audit events and export |
-| Operator workflow | Manual file upkeep per agent/project | CLI/API operations (`actions`, `call`, `service`, `vault`, `policy`, `approve`, `audit`) |
+| Call | `kimbap call <service>.<action>` | Direct use, scripts, agent integration |
+| Run | `kimbap run -- <cmd>` | Wrap any existing agent process |
+| Proxy | `kimbap proxy --port 10255` | Existing HTTP agents, zero code changes |
+| Serve | `kimbap serve --port 8080` | Team deployments, multi-tenant, REST API |
 
-Practical model:
-- Use `SKILL.md` as **agent-facing hints**.
-- Use Kimbap CLI/API as **execution and control plane**.
+All modes go through the same pipeline. Same credentials, same policy, same audit.
 
 ---
 
-## Core workflow
+## Build your own in minutes
+
+Three adapter types. Same CLI pipeline.
+
+**REST API** — most SaaS integrations:
+
+```yaml
+name: stripe
+base_url: https://api.stripe.com/v1
+auth:
+  type: bearer
+  credential_ref: stripe.api_key
+actions:
+  list-charges:
+    method: GET
+    path: /charges
+    risk:
+      level: low
+```
+
+**Command** — wraps any CLI tool:
+
+```yaml
+name: blender
+adapter: command
+command_spec:
+  executable: cli-anything-blender
+  json_flag: "--json"
+actions:
+  render:
+    command: "render execute"
+    risk:
+      level: high
+```
+
+**AppleScript** — macOS native apps:
+
+```yaml
+name: finder
+adapter: applescript
+target_app: Finder
+actions:
+  list-items:
+    command: finder-list-items
+```
 
 ```bash
-# 1) Validate and install service manifest
-kimbap service validate slack.yaml
-kimbap service install slack.yaml
-
-# 2) Discover and inspect actions
-kimbap actions list --format json
-kimbap actions describe slack.post_message --format json
-
-# 3) Dry-run before execution
-kimbap call slack.post_message --dry-run --format json --channel C123 --text "hello"
-
-# 4) Execute with runtime enforcement
-kimbap call slack.post_message --channel C123 --text "hello"
+kimbap service validate my-service.yaml
+kimbap service install my-service.yaml
+kimbap call my-service.my-action
 ```
 
 ---
 
-## Usage surfaces
+## How it works
 
-```bash
-# Explicit action execution
-kimbap call github.list_pull_requests --repo owner/repo
-
-# Wrap an existing agent process
-kimbap run -- python agent.py
-
-# Transparent HTTP/HTTPS proxy mode
-kimbap proxy --port 10255
-
-# Connected REST server mode
-kimbap serve --port 8080
+```
+agent → kimbap CLI → policy → approval → credential injection → execution → audit
 ```
 
----
+Credentials are stored in an encrypted vault and injected server-side at execution time. They never enter the agent process — not in env vars, not in prompts, not in logs.
 
-## Current capabilities
+Policy, approval, and audit apply to every action automatically, regardless of which CLI mode is used.
 
-| Capability | Status | Notes |
-|---|---|---|
-| Action runtime pipeline | Available | Auth, policy, approval, credentials, adapter execution, audit |
-| Service manifests | Available | Install, validate, verify, sign, generate from OpenAPI |
-| Action discovery & execution | Available | `actions list/describe`, `call`, dry-run, trace |
-| Vault | Available | Encrypted secret storage, rotate/delete/list/get |
-| Policy engine | Available | YAML policy load/get/eval |
-| Approval workflow | Available | Request listing + accept/deny operations |
-| Audit tooling | Available | Tail and export |
-| OAuth connectors | Available | Login/list/status/refresh workflows |
-| Agent sync | Available | Setup/sync/status, generated `SKILL.md` output |
-| Proxy / subprocess / server modes | Available | `proxy`, `run`, `serve` |
-| REST v1 API | Available | Actions, tokens, policies, approvals, audit |
+| Capability | What it does |
+|---|---|
+| **Vault** | Encrypted credential storage. `kimbap vault set`, `vault list`, `vault rotate`. |
+| **Policy** | YAML rules evaluated on every action. `allow`, `deny`, or `require_approval`. |
+| **Approval** | Human-in-the-loop for risky actions. `kimbap approve list`, `approve accept`. |
+| **Audit** | Structured log of every action and decision. `kimbap audit tail`, `audit export`. |
+| **Connectors** | OAuth lifecycle. `kimbap connector login gmail`, `connector status`. |
+| **Agent sync** | Generates SKILL.md for agent discovery. `kimbap agents setup`, `agents sync`. |
 
 ---
 
-## Agent onboarding
-
-```bash
-# Install global discovery hints for detected agents
-kimbap agents setup
-
-# Sync installed services to project agent directories
-kimbap agents sync
-
-# Check synchronization status
-kimbap agents status
-
-# Export one service as SKILL.md
-kimbap service export-skillmd slack --dir ./.opencode/skills
-```
-
----
-
-## Getting started
-
-### Prerequisites
-
-- Go 1.24+
-- PostgreSQL 15+ (for connected/server deployments)
-- Docker (optional)
-
-### Local development
+## Getting started from source
 
 ```bash
 git clone https://github.com/dunialabs/kimbap-core.git
 cd kimbap-core
-make deps
-cp .env.example .env
-docker compose up -d
-make dev
+make deps && make build
 ```
 
-### Common commands
-
 ```bash
-make dev
-make build
-make run
+cp .env.example .env
+make dev     # starts dev server
 make test
 make lint
 ```
 
 ---
 
-## API surfaces
+## Contributing
 
-| Runtime entrypoint | Path surface | Notes |
-|---|---|---|
-| `kimbap serve` | `/v1/*`, `/v1/health` | Connected-mode API server |
-| `cmd/server` (`make dev`) | `/api/v1/*`, `/health`, `/ready` | Core server runtime |
-| `cmd/server` legacy surfaces | `/admin`, `/user` | Legacy (frozen) endpoints |
+Add a service: write a YAML manifest, validate it, open a PR.
 
----
+```bash
+kimbap service validate my-service.yaml
+kimbap service install my-service.yaml   # test locally
+```
 
-## More documentation
-
-- [**CLAUDE.md**](./CLAUDE.md): architecture and development guidance
-- [**AGENTS.md**](./AGENTS.md): Codex workflow and repo knowledge index
-- [**CONTRIBUTING.md**](./CONTRIBUTING.md): contribution standards and verification
-- [**Architecture & Internals**](./docs/architecture.md)
-- [**Security & Permissions**](./docs/security.md)
-- [**Deployment & Configuration**](./docs/deployment.md)
-- [**Reference**](./docs/reference.md)
+See [CONTRIBUTING.md](./CONTRIBUTING.md) for standards.
 
 ---
 
-## License
+## Documentation
 
-MIT License. Copyright © 2026 [Dunia Labs, Inc.](https://dunialabs.io)
+- [Architecture & Internals](./docs/architecture.md)
+- [Security & Permissions](./docs/security.md)
+- [Deployment & Configuration](./docs/deployment.md)
+- [Reference](./docs/reference.md)
+
+---
+
+MIT License · [Dunia Labs](https://dunialabs.io)

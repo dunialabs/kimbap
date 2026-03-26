@@ -17,7 +17,7 @@ var AppInfo = struct {
 }{
 	Name:        "kimbap-core",
 	Version:     version,
-	Description: "Kimbap Core - Backend service for MCP protocol",
+	Description: "Kimbap - Secure action runtime for AI agents",
 }
 
 func init() {

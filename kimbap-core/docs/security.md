@@ -2,7 +2,7 @@
 
 ## Vault Encryption Model
 
-Kimbap Core is designed for environments where secret material and control must stay inside your own infrastructure. The MCP vault in Core uses a password-based key derivation + authenticated encryption scheme.
+Kimbap Core is designed for environments where secret material and control must stay inside your own infrastructure. The vault uses a password-based key derivation + authenticated encryption scheme.
 
 ### Key derivation (PBKDF2)
 
@@ -34,142 +34,49 @@ The input secret and the derived AES keys never leave process memory and are not
 
 Kimbap Core handles two distinct OAuth-related concerns:
 
-- **Gateway OAuth 2.0 access tokens (JWT).** Used by clients to authenticate to Kimbap Core. These are issued by Kimbap Core and can be revoked server-side.
-- **Downstream connector OAuth credentials (third-party providers).** Used by downstream MCP servers to call external APIs. Kimbap Core stores the full OAuth configuration encrypted at rest (including refresh tokens where applicable), refreshes access tokens server-side, and injects only access tokens into the downstream runtime.
-
-The Admin API (`/admin`) and User API (`/user`) currently authenticate using Kimbap access tokens (opaque bearer tokens) validated against the user database.
+- **Kimbap access tokens (bearer).** Used by agents and operators to authenticate to the REST v1 API. Issued by Kimbap Core and revocable server-side.
+- **Downstream connector OAuth credentials (third-party providers).** Used to call external APIs on behalf of the agent. Kimbap Core stores these encrypted at rest (including refresh tokens where applicable), refreshes access tokens server-side, and injects only the access token into the execution context for the duration of the call.
 
 **Security properties**:
 
-- Refresh tokens and client secrets for downstream providers are never forwarded to upstream clients.
-- Long-lived credentials remain inside Kimbap Core; downstream runtimes receive only short-lived access tokens.
+- Refresh tokens and client secrets for downstream providers are never forwarded to callers.
+- Long-lived credentials remain inside Kimbap Core; agents receive only a Kimbap bearer token.
 
 ---
 
-## Permission Control System
+## Policy Engine
 
-The permission system is the core of Kimbap Core's role as an operations and permissions layer for agents.
+Kimbap Core's policy system is how operators control what agents can do. Policy evaluation runs at stage 3 of the execution pipeline, before any credential is touched.
 
-Instead of baking access rules into each MCP server, you express policy in the gateway and let Kimbap Core filter what each client can see and do. MCP clients only see the subset of tools, resources, and prompts that are allowed for their identity and context, and every tool invocation is evaluated against those same rules.
+### How It Works
 
-### Three-Layer Model
+Policy rules are YAML documents stored in `internal/policy/`. Each rule matches on some combination of:
 
-```text
-┌─────────────────────────────────────────────────────────────┐
-│ Layer 1: Server Level (Global Configuration)                │
-│ - Enable/disable entire MCP servers                         │
-│ - Configure which tools/resources/prompts are available      │
-│ - Set default access permissions for all users               │
-└─────────────────────────────────────────────────────────────┘
-                          ↓ (filters)
-┌─────────────────────────────────────────────────────────────┐
-│ Layer 2: Admin Level (Per-User Permissions)                 │
-│ - Configure which servers a specific user can access         │
-│ - Set per-user tools/resources/prompts permissions           │
-│ - Further restrict capabilities beyond server-level config   │
-└─────────────────────────────────────────────────────────────┘
-                          ↓ (filters)
-┌─────────────────────────────────────────────────────────────┐
-│ Layer 3: User Level (Client-Specific Configuration)         │
-│ - User configures which clients can access which servers     │
-│ - User can disable specific tools/resources/prompts          │
-│ - Final layer of restriction (can only restrict, not expand) │
-└─────────────────────────────────────────────────────────────┘
-                          ↓ (final filter)
-┌─────────────────────────────────────────────────────────────┐
-│ Upstream Clients (Claude Desktop, Cursor, etc.)              │
-│ - Only see filtered tools/resources/prompts lists            │
-│ - Cannot access capabilities not in their filtered list      │
-└─────────────────────────────────────────────────────────────┘
-```
+- caller identity (agent, token, role)
+- action identifier (`service.action`)
+- parameter values (e.g., block deletes on production resources)
+- time of day or rate limits
 
-Kimbap Core supports a three-layer permission model:
+Every action call is evaluated against the applicable rules. The outcome is always one of:
 
-1. **Server level (global configuration)**  
-   Configured via Kimbap Console.
-   - Enable or disable entire MCP servers.
-   - Decide which tools, resources, and prompts are exposed from each server.
-   - Set default permissions that apply to all users.
+- `allow` — proceed to credential injection and execution
+- `deny` — return an error immediately, write an audit record
+- `require_approval` — suspend execution, create an approval record, notify the operator
 
-2. **Admin level (per-user permissions)**  
-   Configured via Kimbap Console.
-   - Grant or revoke access to individual servers for specific users or workspaces.
-   - Grant or revoke specific tools, resources, and prompts within those servers.
-   - Further restrict the default server-level configuration.
+### Human Approval Gates
 
-3. **User level (per-client configuration)**  
-   Configured via Kimbap Desk.
-   - Let users choose which MCP clients (for example Claude Desktop or Cursor) can access which servers.
-   - Allow users to disable tools, resources, or prompts for their own usage.
-   - Users can only narrow permissions; they cannot exceed what administrators have granted.
+When policy marks an action `require_approval`, the runtime:
 
-If any layer disables a capability, it will not appear in capability discovery and direct calls to that capability are rejected.
+1. Creates an approval record with the full request context
+2. Suspends execution
+3. Notifies the operator via configured webhook channels (email, Slack, Telegram, generic webhook)
+4. Waits for an explicit approve or deny decision
+5. On approval: resumes the pipeline from the credential stage
+6. On denial: returns an error to the caller
+7. Records the full decision path in audit
 
-### How Filtering Works
+Approval records include: caller identity, action, parameters (sanitized), policy rule that triggered the gate, operator who decided, timestamp, and outcome.
 
-When an upstream MCP client requests capability lists:
-
-1. **Tools List** (`tools/list`): Gateway returns only tools that pass all three permission layers
-2. **Resources List** (`resources/list`): Gateway returns only resources that pass all three permission layers
-3. **Prompts List** (`prompts/list`): Gateway returns only prompts that pass all three permission layers
-
-**Result**: Upstream clients only see and can access capabilities they are permitted to use. Any attempt to call a tool or access a resource not in the filtered list will be rejected by the gateway.
-
-### Advanced Tool Call Control
-
-Beyond the three-layer permission system, Kimbap Core provides additional control mechanisms for tool execution:
-
-#### 1. Client-Side Confirmation
-
-**Configuration**: Set tool `dangerLevel` to `Approval` in server capability configuration.
-
-**Behavior**: When a client attempts to call a tool with `dangerLevel: Approval`, the gateway:
-
-- Pauses the tool call execution
-- Creates an approval record and waits for operator action from Kimbap Console
-- Waits for user approval or rejection
-- Proceeds with execution only if user confirms
-
-**Use Case**: Tools that modify data or perform sensitive operations.
-
-#### 2. Password-Protected Execution
-
-**Configuration**: Configure stricter control for critical tools (roadmap feature).
-
-**Behavior**: For highly sensitive tools, the gateway can require:
-
-- User to enter a password in Kimbap Desk
-- Additional authentication before tool execution
-- Multi-factor confirmation
-
-**Use Case**: Critical operations like deleting data, modifying system configurations, or accessing sensitive resources.
-
-### Permission Merge Logic
-
-The final permission for any capability is calculated as:
-
-```text
-Final Permission = Server-Level Enabled
-                && Admin-Level User Permission
-                && User-Level Client Preference
-```
-
-**Key Rules**:
-
-- Each layer can only restrict, not expand permissions
-- If any layer disables a capability, it is unavailable to the client
-- User preferences are merged with admin permissions (intersection, not union)
-- Real-time updates: Changes at any layer immediately affect active sessions
-
-### Human-in-the-Loop Controls
-
-On top of static permissions, Kimbap Core supports tool-level approvals:
-
-- Mark tools as **approval required** based on risk or context.
-- Pause execution and route an approval request to Kimbap Console and webhook channels.
-- Let humans approve, reject, or request changes before the tool proceeds.
-- Optionally require stronger controls (for example additional authentication) for particularly sensitive operations.
-
-This allows agents to run autonomously for routine tasks while keeping humans in control of operations that carry more risk.
+This lets agents run autonomously for routine tasks while keeping humans in control of higher-risk operations.
 
 ---
