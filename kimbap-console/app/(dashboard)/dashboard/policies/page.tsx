@@ -607,7 +607,7 @@ function RuleCard({
           <Separator />
 
           <div className="space-y-3">
-            <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Action</Label>
+            <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Effect</Label>
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
               <div className="space-y-1.5">
                 <Label className="text-xs">Decision</Label>
@@ -630,7 +630,7 @@ function RuleCard({
                 </Select>
               </div>
               <div className="space-y-1.5">
-                <Label className="text-xs">Reason (optional)</Label>
+                <Label className="text-xs">Decision reason (optional)</Label>
                 <Input
                   placeholder="e.g., Requires manager approval"
                   value={rule.effect.reason}
@@ -785,7 +785,7 @@ export default function PoliciesPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
         <div className="space-y-2">
           <h1 className="flex items-center gap-2 text-[30px] font-bold tracking-tight">
             <Shield className="h-6 w-6" />
@@ -897,7 +897,7 @@ export default function PoliciesPage() {
                                   >
                                     {decisionMeta?.label || rule.effect.decision}
                                   </Badge>
-                                  <span className="font-mono text-xs">{rule.match.tool || '*'}</span>
+                                   <span className="font-mono text-xs">{rule.match.tool === '*' || !rule.match.tool ? 'All tools' : rule.match.tool}</span>
                                 </div>
                               )
                             })}

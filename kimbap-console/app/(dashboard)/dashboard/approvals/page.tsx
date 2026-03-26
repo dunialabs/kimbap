@@ -372,7 +372,7 @@ export default function ApprovalsPage() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
         <div>
           <h1 className="text-[30px] font-bold tracking-tight flex items-center gap-2">
             <ShieldCheck className="h-6 w-6" />
@@ -426,7 +426,7 @@ export default function ApprovalsPage() {
                   {statusFilter !== 'all' ? ` (${statusFilter.charAt(0).toUpperCase() + statusFilter.slice(1).toLowerCase()})` : ''}
                 </CardDescription>
               </div>
-            <div className="flex items-center gap-2">
+            <div className="flex flex-wrap items-center gap-2">
               <div className="flex items-center gap-1.5">
                 <Filter className="h-3.5 w-3.5 text-muted-foreground" />
                 <Select

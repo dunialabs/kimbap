@@ -195,8 +195,6 @@ async function getMaxIdInCore(proxyKey) {
       }
     });
 
-    const elapsed = Date.now() - stepStartTime;
-
     if (result && result.idInCore) {
       const maxId = Number(result.idInCore);
       return maxId;

@@ -352,7 +352,7 @@ function ToolUsagePageContent() {
   return (
     <div className="space-y-6">
       <div className="space-y-0">
-        <h1 className="text-[30px] font-bold">Tool usage</h1>
+        <h1 className="text-[30px] font-bold">Tool Usage</h1>
         <p className="text-base text-muted-foreground">See which tools are busiest, failing, or slowing down.</p>
       </div>
       <div className="flex flex-wrap items-center gap-2">
@@ -693,7 +693,7 @@ function ToolUsagePageContent() {
                     {tool.errorTypes.map((error) => (
                       <div key={`${tool.toolId}-${error.errorCode}`} className="flex items-center justify-between gap-3">
                         <span className="text-sm">{error.errorMessage}</span>
-                        <span className="text-xs text-muted-foreground">{error.count.toLocaleString()} ({error.percentage.toFixed(1)}%)</span>
+                        <span className="text-xs text-red-600 dark:text-red-400">{error.count.toLocaleString()} ({error.percentage.toFixed(1)}%)</span>
                       </div>
                     ))}
                   </CardContent>

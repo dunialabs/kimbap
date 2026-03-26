@@ -368,7 +368,7 @@ function TokenUsagePageContent() {
   return (
     <div className="space-y-6">
       <div className="space-y-0">
-        <h1 className="text-[30px] font-bold">Access token usage</h1>
+        <h1 className="text-[30px] font-bold">Access Token Usage</h1>
         <p className="text-base text-muted-foreground">See which tokens are active, where they are used, and when patterns change.</p>
       </div>
       <div className="flex flex-wrap items-center gap-2">
