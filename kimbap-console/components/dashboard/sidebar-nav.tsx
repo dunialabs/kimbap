@@ -39,8 +39,8 @@ export const navItems = [
     label: 'Usage',
     subItems: [
       { href: '/dashboard/usage', label: 'Overview' },
-      { href: '/dashboard/usage/tool-usage', label: 'Tool usage' },
-      { href: '/dashboard/usage/token-usage', label: 'Access token usage' },
+      { href: '/dashboard/usage/tool-usage', label: 'Tool Usage' },
+      { href: '/dashboard/usage/token-usage', label: 'Access Token Usage' },
     ]
   },
   { href: '/dashboard/policies', icon: Shield, label: 'Policies' }

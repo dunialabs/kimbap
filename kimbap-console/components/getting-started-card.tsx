@@ -75,7 +75,7 @@ export function GettingStartedCard() {
                   'w-[140px] bg-slate-900 hover:bg-slate-800 dark:bg-slate-100 dark:hover:bg-slate-200 text-white dark:text-slate-900'
                 )}
               >
-                Open approvals
+                Open Approvals
               </Link>
             </div>
           </div>
@@ -97,7 +97,7 @@ export function GettingStartedCard() {
                   'w-[140px] bg-slate-900 hover:bg-slate-800 dark:bg-slate-100 dark:hover:bg-slate-200 text-white dark:text-slate-900'
                 )}
               >
-                Open logs
+                Open Logs
               </Link>
             </div>
           </div>

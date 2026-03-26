@@ -304,16 +304,16 @@ export default function DashboardPage() {
           >
             <Card className="w-full flex items-center gap-1 justify-center h-[44px] cursor-pointer hover:bg-muted/50 transition-colors">
               <Activity className="h-4 w-4" />
-              <span className="text-sm font-medium">Open logs</span>
+              <span className="text-sm font-medium">Open Logs</span>
             </Card>
           </Link>
           <Link
-            href="/dashboard/usage"
+            href="/dashboard/usage?timeRange=30"
             className="block rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2"
           >
             <Card className="w-full flex items-center gap-1 justify-center h-[44px] cursor-pointer hover:bg-muted/50 transition-colors">
               <TrendingUp className="h-4 w-4" />
-              <span className="text-sm font-medium">Open usage</span>
+              <span className="text-sm font-medium">Open Usage</span>
             </Card>
           </Link>
           <Link
@@ -322,7 +322,7 @@ export default function DashboardPage() {
           >
             <Card className="w-full flex items-center gap-1 justify-center h-[44px] cursor-pointer hover:bg-muted/50 transition-colors">
               <Shield className="h-4 w-4" />
-              <span className="text-sm font-medium">Open policies</span>
+              <span className="text-sm font-medium">Open Policies</span>
             </Card>
           </Link>
         </div>
@@ -472,7 +472,7 @@ export default function DashboardPage() {
               className="grid gap-y-3 gap-x-2 items-center"
               style={{ gridTemplateColumns: 'max-content 1fr max-content' }}
             >
-              {toolsUsage.map((tool: any) => (
+              {toolsUsage.map((tool) => (
                 <div key={tool.name} className="contents">
                   <div
                     className="text-sm max-w-[200px] truncate"
@@ -514,7 +514,7 @@ export default function DashboardPage() {
             <div
               className="grid gap-y-3 gap-x-2 items-center grid-cols-[max-content_1fr_max-content] md:grid-cols-[max-content_1fr_max-content_max-content]"
             >
-              {tokenUsage.map((token: any) => (
+              {tokenUsage.map((token) => (
                 <div key={`${token.name || 'token'}-${token.token?.trim() || ''}`} className="contents">
                   <div
                     className="text-sm max-w-[200px] truncate"
@@ -555,7 +555,7 @@ export default function DashboardPage() {
               </div>
             ) : (
               <div className="space-y-3">
-                {recentActivity.map((activity: any) => (
+                {recentActivity.map((activity) => (
                   <div key={`${activity.action}-${activity.time}`} className="flex items-center gap-3">
                     <div className="flex-shrink-0">
                       {(() => {
@@ -619,7 +619,7 @@ export default function DashboardPage() {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {connectedClients.map((client: any) => (
+                    {connectedClients.map((client) => (
                       <TableRow key={client.id}>
                         <TableCell>{client.name}</TableCell>
                         <TableCell className="font-mono text-sm">

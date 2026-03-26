@@ -837,7 +837,7 @@ export default function PoliciesPage() {
               {canManagePolicies ? (
                 <Button variant="outline" className="mt-4" onClick={openCreate}>
                   <Plus className="mr-2 h-4 w-4" />
-                  Create policy
+                  Create Policy
                 </Button>
               ) : null}
             </div>
@@ -909,7 +909,7 @@ export default function PoliciesPage() {
                       </TableCell>
                       <TableCell>
                         <span className="text-sm text-muted-foreground">
-                          {new Date(p.updatedAt).toLocaleDateString()}
+                          {new Date(p.updatedAt).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' })}
                         </span>
                       </TableCell>
                       <TableCell className="text-center">

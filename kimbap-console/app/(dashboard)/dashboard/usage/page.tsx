@@ -255,7 +255,7 @@ function UsagePageContent() {
                 : overviewSummary.activeTokens}
             </div>
             <p className="text-xs text-muted-foreground">
-              {!loading && overviewSummary && `${overviewSummary.tokensUsedLastHour.toLocaleString()} tokens used in last hour`}
+              {!loading && overviewSummary && overviewSummary.tokensUsedLastHour != null && `${overviewSummary.tokensUsedLastHour.toLocaleString()} tokens used in last hour`}
             </p>
           </CardContent>
         </Card>
@@ -297,7 +297,7 @@ function UsagePageContent() {
                 : `${overviewSummary.avgResponseTime}ms`}
             </div>
             <p className="text-xs text-muted-foreground">
-              {!loading && overviewSummary ? (
+              {!loading && overviewSummary && overviewSummary.responseTimeChange !== undefined ? (
                 <>
                   <span className={overviewSummary.responseTimeChange <= 0 ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400"}>
                     {overviewSummary.responseTimeChange <= 0 ? '' : '+'}{overviewSummary.responseTimeChange}ms

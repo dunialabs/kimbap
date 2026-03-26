@@ -179,7 +179,7 @@ function LogsPageContent() {
         setTotalPages(data.totalPages)
         setAvailableSources(data.availableSources)
         if (data.logs.length > 0) {
-          const maxLogId = data.logs.reduce((max: number, log: any) => Math.max(max, Number(log.id) || 0), 0)
+          const maxLogId = data.logs.reduce((max: number, log) => Math.max(max, Number(log.id) || 0), 0)
           setLatestLogId(maxLogId)
         } else {
           setLatestLogId(0)
