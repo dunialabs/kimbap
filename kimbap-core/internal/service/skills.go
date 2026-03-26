@@ -58,14 +58,14 @@ func (s *ServicesService) ListServices(serverID string) ([]ServiceInfo, error) {
 		if !entry.IsDir() {
 			continue
 		}
-		skillDir := filepath.Join(serverDir, entry.Name())
-		metaPath := filepath.Join(skillDir, config.SKILLS_CONFIG.SkillMetadataFile)
+		serviceDir := filepath.Join(serverDir, entry.Name())
+		metaPath := filepath.Join(serviceDir, config.SKILLS_CONFIG.SkillMetadataFile)
 		content, err := os.ReadFile(metaPath)
 		if err != nil {
 			continue
 		}
 		meta := parseServiceMetadata(content)
-		stat, err := os.Stat(skillDir)
+		stat, err := os.Stat(serviceDir)
 		if err != nil {
 			continue
 		}
@@ -100,7 +100,7 @@ func (s *ServicesService) UploadService(serverID string, zipBuffer []byte) ([]st
 		return nil, err
 	}
 
-	tempDir, err := os.MkdirTemp("", "skills-upload-")
+	tempDir, err := os.MkdirTemp("", "services-upload-")
 	if err != nil {
 		return nil, err
 	}
@@ -109,21 +109,21 @@ func (s *ServicesService) UploadService(serverID string, zipBuffer []byte) ([]st
 	if err := s.safeExtractZip(reader, tempDir); err != nil {
 		return nil, err
 	}
-	skillDirs, err := s.findServiceDirectories(tempDir)
+	serviceDirs, err := s.findServiceDirectories(tempDir)
 	if err != nil {
 		return nil, err
 	}
-	if len(skillDirs) == 0 {
+	if len(serviceDirs) == 0 {
 		return nil, fmt.Errorf("no valid services found: %s not found", config.SKILLS_CONFIG.SkillMetadataFile)
 	}
 
-	uploaded := make([]string, 0, len(skillDirs))
-	for _, dir := range skillDirs {
-		skillName := filepath.Base(dir)
-		if err := validateName(skillName); err != nil {
+	uploaded := make([]string, 0, len(serviceDirs))
+	for _, dir := range serviceDirs {
+		serviceName := filepath.Base(dir)
+		if err := validateName(serviceName); err != nil {
 			continue
 		}
-		targetDir := filepath.Join(serverDir, skillName)
+		targetDir := filepath.Join(serverDir, serviceName)
 		if !s.isPathSafe(targetDir) {
 			continue
 		}
@@ -133,7 +133,7 @@ func (s *ServicesService) UploadService(serverID string, zipBuffer []byte) ([]st
 		if err := copyDirectory(dir, targetDir); err != nil {
 			return nil, err
 		}
-		uploaded = append(uploaded, skillName)
+		uploaded = append(uploaded, serviceName)
 	}
 	if len(uploaded) == 0 {
 		return nil, errors.New("no valid services could be uploaded")
@@ -141,20 +141,20 @@ func (s *ServicesService) UploadService(serverID string, zipBuffer []byte) ([]st
 	return uploaded, nil
 }
 
-func (s *ServicesService) DeleteService(serverID string, skillName string) error {
+func (s *ServicesService) DeleteService(serverID string, serviceName string) error {
 	if err := validateName(serverID); err != nil {
 		return err
 	}
-	if err := validateName(skillName); err != nil {
+	if err := validateName(serviceName); err != nil {
 		return err
 	}
-	path := filepath.Join(s.servicesDir, serverID, skillName)
+	path := filepath.Join(s.servicesDir, serverID, serviceName)
 	if !s.isPathSafe(path) {
 		return errors.New("invalid service path")
 	}
 	if _, err := os.Stat(path); err != nil {
 		if errors.Is(err, os.ErrNotExist) {
-			return fmt.Errorf("service not found: %s", skillName)
+			return fmt.Errorf("service not found: %s", serviceName)
 		}
 		return err
 	}

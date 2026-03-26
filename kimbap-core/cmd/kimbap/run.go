@@ -93,13 +93,13 @@ func newRunCommand() *cobra.Command {
 
 				c := classifier.NewClassifier()
 				installer := installerFromConfig(cfg)
-				installedSkills, err := installer.List()
+				installedServices, err := installer.List()
 				if err != nil {
 					return fmt.Errorf("load installed services: %w", err)
 				}
-				for i := range installedSkills {
-					if err := c.AddRulesFromService(&installedSkills[i].Manifest); err != nil {
-						return fmt.Errorf("register service %q: %w", installedSkills[i].Manifest.Name, err)
+				for i := range installedServices {
+					if err := c.AddRulesFromService(&installedServices[i].Manifest); err != nil {
+						return fmt.Errorf("register service %q: %w", installedServices[i].Manifest.Name, err)
 					}
 				}
 

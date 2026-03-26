@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	goruntime "runtime"
 	"sort"
 	"strings"
 
@@ -16,7 +17,7 @@ import (
 	"github.com/dunialabs/kimbap-core/internal/config"
 	"github.com/dunialabs/kimbap-core/internal/connectors"
 	"github.com/dunialabs/kimbap-core/internal/policy"
-	"github.com/dunialabs/kimbap-core/internal/runtime"
+	runtimepkg "github.com/dunialabs/kimbap-core/internal/runtime"
 	"github.com/dunialabs/kimbap-core/internal/services"
 	"github.com/dunialabs/kimbap-core/internal/vault"
 	"github.com/rs/zerolog/log"
@@ -29,31 +30,31 @@ type RuntimeDeps struct {
 	ConnectorConfigs []connectors.ConnectorConfig
 	PolicyPath       string
 	SkillsDir        string
-	AuditWriter      runtime.AuditWriter
-	ApprovalManager  runtime.ApprovalManager
+	AuditWriter      runtimepkg.AuditWriter
+	ApprovalManager  runtimepkg.ApprovalManager
 }
 
-func BuildRuntime(deps RuntimeDeps) (*runtime.Runtime, error) {
+func BuildRuntime(deps RuntimeDeps) (*runtimepkg.Runtime, error) {
 	if deps.Config == nil {
 		return nil, fmt.Errorf("config is required")
 	}
 
-	skillsDir := strings.TrimSpace(deps.SkillsDir)
+	servicesDir := strings.TrimSpace(deps.SkillsDir)
 	policyPath := strings.TrimSpace(deps.PolicyPath)
-	if skillsDir == "" {
-		skillsDir = strings.TrimSpace(deps.Config.Services.Dir)
+	if servicesDir == "" {
+		servicesDir = strings.TrimSpace(deps.Config.Services.Dir)
 	}
 	if policyPath == "" {
 		policyPath = strings.TrimSpace(deps.Config.Policy.Path)
 	}
 
 	actionRegistry := &servicesActionRegistry{
-		installer:       services.NewLocalInstaller(skillsDir),
+		installer:       services.NewLocalInstaller(servicesDir),
 		verifyMode:      strings.ToLower(strings.TrimSpace(deps.Config.Services.Verify)),
 		signaturePolicy: strings.ToLower(strings.TrimSpace(deps.Config.Services.SignaturePolicy)),
 	}
 
-	var policyEvaluator runtime.PolicyEvaluator
+	var policyEvaluator runtimepkg.PolicyEvaluator
 	if policyPath != "" {
 		if stat, err := os.Stat(policyPath); err == nil {
 			if stat.IsDir() {
@@ -69,8 +70,8 @@ func BuildRuntime(deps RuntimeDeps) (*runtime.Runtime, error) {
 		}
 	}
 
-	var credentialResolver runtime.CredentialResolver
-	var resolvers []runtime.CredentialResolver
+	var credentialResolver runtimepkg.CredentialResolver
+	var resolvers []runtimepkg.CredentialResolver
 	if deps.ConnectorStore != nil && len(deps.ConnectorConfigs) > 0 {
 		mgr := connectors.NewManager(deps.ConnectorStore)
 		for _, cfg := range deps.ConnectorConfigs {
@@ -88,22 +89,28 @@ func BuildRuntime(deps RuntimeDeps) (*runtime.Runtime, error) {
 		credentialResolver = &chainCredentialResolver{resolvers: resolvers}
 	}
 
-	var heldStore runtime.HeldExecutionStore
+	var heldStore runtimepkg.HeldExecutionStore
 	if deps.ApprovalManager != nil {
 		heldStore = NewMemoryHeldExecutionStore()
 	}
 
-	return runtime.NewRuntime(runtime.Runtime{
+	adaptersMap := map[string]adapters.Adapter{
+		"http": adapters.NewHTTPAdapter(nil),
+	}
+	if goruntime.GOOS == "darwin" {
+		adaptersMap["applescript"] = adapters.NewAppleScriptAdapter(nil)
+	}
+
+	return runtimepkg.NewRuntime(runtimepkg.Runtime{
 		ActionRegistry:     actionRegistry,
 		PolicyEvaluator:    policyEvaluator,
 		CredentialResolver: credentialResolver,
 		AuditWriter:        deps.AuditWriter,
 		ApprovalManager:    deps.ApprovalManager,
 		HeldExecutionStore: heldStore,
-		Adapters: map[string]adapters.Adapter{
-			"http": adapters.NewHTTPAdapter(nil),
-		},
+		Adapters:           adaptersMap,
 	}), nil
+
 }
 
 type servicesActionRegistry struct {
@@ -129,7 +136,7 @@ func (r *servicesActionRegistry) Lookup(_ context.Context, name string) (*action
 	return nil, fmt.Errorf("%w: %s", actions.ErrLookupNotFound, name)
 }
 
-func (r *servicesActionRegistry) List(_ context.Context, opts runtime.ListOptions) ([]actions.ActionDefinition, error) {
+func (r *servicesActionRegistry) List(_ context.Context, opts runtimepkg.ListOptions) ([]actions.ActionDefinition, error) {
 	defs, err := r.loadDefinitions()
 	if err != nil {
 		return nil, err
@@ -253,7 +260,7 @@ type policyEvaluatorAdapter struct {
 	evaluator *policy.Evaluator
 }
 
-func (a *policyEvaluatorAdapter) Evaluate(ctx context.Context, req runtime.PolicyRequest) (*runtime.PolicyDecision, error) {
+func (a *policyEvaluatorAdapter) Evaluate(ctx context.Context, req runtimepkg.PolicyRequest) (*runtimepkg.PolicyDecision, error) {
 	if a == nil || a.evaluator == nil {
 		return nil, fmt.Errorf("policy evaluator is not initialized")
 	}
@@ -275,7 +282,7 @@ func (a *policyEvaluatorAdapter) Evaluate(ctx context.Context, req runtime.Polic
 		return nil, nil
 	}
 
-	decision := &runtime.PolicyDecision{
+	decision := &runtimepkg.PolicyDecision{
 		Decision: string(res.Decision),
 		Reason:   res.Reason,
 		Meta:     map[string]any{},
@@ -456,7 +463,7 @@ func toEnvSegment(s string) string {
 }
 
 type chainCredentialResolver struct {
-	resolvers []runtime.CredentialResolver
+	resolvers []runtimepkg.CredentialResolver
 }
 
 func (c *chainCredentialResolver) Resolve(ctx context.Context, tenantID string, req actions.AuthRequirement) (*actions.ResolvedCredentialSet, error) {
@@ -476,14 +483,14 @@ type auditWriterAdapter struct {
 	writer audit.Writer
 }
 
-func NewAuditWriterAdapter(writer audit.Writer) runtime.AuditWriter {
+func NewAuditWriterAdapter(writer audit.Writer) runtimepkg.AuditWriter {
 	if writer == nil {
 		return nil
 	}
 	return &auditWriterAdapter{writer: writer}
 }
 
-func (a *auditWriterAdapter) Write(ctx context.Context, event runtime.AuditEvent) error {
+func (a *auditWriterAdapter) Write(ctx context.Context, event runtimepkg.AuditEvent) error {
 	if a == nil || a.writer == nil {
 		return nil
 	}
@@ -512,7 +519,7 @@ func (a *auditWriterAdapter) Write(ctx context.Context, event runtime.AuditEvent
 	return a.writer.Write(ctx, out)
 }
 
-func mapAuditStatus(event runtime.AuditEvent) audit.AuditStatus {
+func mapAuditStatus(event runtimepkg.AuditEvent) audit.AuditStatus {
 	if strings.EqualFold(event.PolicyDecision, "deny") {
 		return audit.AuditStatusDenied
 	}
@@ -528,7 +535,7 @@ func mapAuditStatus(event runtime.AuditEvent) audit.AuditStatus {
 	}
 }
 
-func resolveServiceAction(req runtime.PolicyRequest) (string, string) {
+func resolveServiceAction(req runtimepkg.PolicyRequest) (string, string) {
 	if req.Classification != nil {
 		service := strings.TrimSpace(req.Classification.Service)
 		action := strings.TrimSpace(req.Classification.ActionName)
@@ -547,14 +554,14 @@ type ApprovalManagerAdapter struct {
 	mgr *approvals.ApprovalManager
 }
 
-func NewApprovalManagerAdapter(mgr *approvals.ApprovalManager) runtime.ApprovalManager {
+func NewApprovalManagerAdapter(mgr *approvals.ApprovalManager) runtimepkg.ApprovalManager {
 	if mgr == nil {
 		return nil
 	}
 	return &ApprovalManagerAdapter{mgr: mgr}
 }
 
-func (a *ApprovalManagerAdapter) CreateRequest(ctx context.Context, req runtime.ApprovalRequest) (*runtime.ApprovalResult, error) {
+func (a *ApprovalManagerAdapter) CreateRequest(ctx context.Context, req runtimepkg.ApprovalRequest) (*runtimepkg.ApprovalResult, error) {
 	if a == nil || a.mgr == nil {
 		return nil, fmt.Errorf("approval manager unavailable")
 	}
@@ -580,7 +587,7 @@ func (a *ApprovalManagerAdapter) CreateRequest(ctx context.Context, req runtime.
 		return nil, err
 	}
 
-	return &runtime.ApprovalResult{
+	return &runtimepkg.ApprovalResult{
 		Approved:  false,
 		RequestID: approvalReq.ID,
 		Reason:    "approval pending",

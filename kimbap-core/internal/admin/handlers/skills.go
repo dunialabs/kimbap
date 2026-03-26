@@ -87,12 +87,12 @@ func (h *ServicesHandler) DeleteService(data map[string]any, token string) (any,
 	if err != nil {
 		return nil, err
 	}
-	skillName, err := requireStringField(data, "serviceName")
+	serviceName, err := requireStringField(data, "serviceName")
 	if err != nil {
 		return nil, err
 	}
 
-	err = h.servicesService.DeleteService(serverID, skillName)
+	err = h.servicesService.DeleteService(serverID, serviceName)
 	if err != nil {
 		code := mapServicesErrorCode(err, "delete")
 		return nil, &types.AdminError{Message: sanitizeAdminErr(err, code), Code: code}
