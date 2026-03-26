@@ -310,8 +310,8 @@ func runAuthConnect(
 
 	storeName := connectorStoreName(providerID, profile)
 	nextStatusCmd := fmt.Sprintf("kimbap auth status %s", provider.ID)
-	if strings.TrimSpace(profile) != "" && strings.TrimSpace(profile) != "default" {
-		nextStatusCmd = fmt.Sprintf("kimbap auth status %s --profile %s", provider.ID, strings.TrimSpace(profile))
+	if p := strings.TrimSpace(profile); p != "" && p != "default" {
+		nextStatusCmd = fmt.Sprintf("kimbap auth status %s --profile %s", provider.ID, p)
 	}
 
 	scopes := scopeValues(scopeInput, provider.DefaultScopes)

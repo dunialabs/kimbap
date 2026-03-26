@@ -220,10 +220,10 @@ func readAuditEvents(path string) ([]audit.AuditEvent, error) {
 }
 
 func auditEventMatches(event audit.AuditEvent, agent string, service string) bool {
-	if strings.TrimSpace(agent) != "" && !strings.EqualFold(event.AgentName, strings.TrimSpace(agent)) {
+	if a := strings.TrimSpace(agent); a != "" && !strings.EqualFold(event.AgentName, a) {
 		return false
 	}
-	if strings.TrimSpace(service) != "" && !strings.EqualFold(event.Service, strings.TrimSpace(service)) {
+	if s := strings.TrimSpace(service); s != "" && !strings.EqualFold(event.Service, s) {
 		return false
 	}
 	return true

@@ -220,7 +220,7 @@ func newVaultDeleteCommand() *cobra.Command {
 }
 
 func readSecretInput(filePath string, readStdin bool) ([]byte, error) {
-	if (strings.TrimSpace(filePath) == "" && !readStdin) || (strings.TrimSpace(filePath) != "" && readStdin) {
+	if fp := strings.TrimSpace(filePath); (fp == "" && !readStdin) || (fp != "" && readStdin) {
 		return nil, fmt.Errorf("exactly one input method is required: --file path or --stdin")
 	}
 

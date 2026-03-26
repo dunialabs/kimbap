@@ -313,7 +313,7 @@ func normalizeProxyAddr(addr string) string {
 	if a == "" {
 		return ""
 	}
-	if strings.HasPrefix(strings.ToLower(a), "http://") || strings.HasPrefix(strings.ToLower(a), "https://") {
+	if lower := strings.ToLower(a); strings.HasPrefix(lower, "http://") || strings.HasPrefix(lower, "https://") {
 		return a
 	}
 	return "http://" + a
