@@ -6,6 +6,7 @@ func RemindersCommands() map[string]Command {
 			Name: "list-lists", TargetApp: "Reminders",
 			Script: stdinReader + `
 var app = Application("Reminders");
+app.includeStandardAdditions = false;
 var lists = app.lists();
 var result = lists.map(function(l) { return {name: l.name()}; });
 JSON.stringify(result);`,
@@ -14,6 +15,7 @@ JSON.stringify(result);`,
 			Name: "list-reminders", TargetApp: "Reminders",
 			Script: stdinReader + `
 var app = Application("Reminders");
+app.includeStandardAdditions = false;
 var reminders;
 if (input.list) {
 	var lists = app.lists.whose({name: input.list})();
@@ -38,8 +40,9 @@ JSON.stringify(result);`,
 			Name: "get-reminder", TargetApp: "Reminders",
 			Script: stdinReader + `
 var app = Application("Reminders");
+app.includeStandardAdditions = false;
 var matches = app.reminders.whose({name: input.name})();
-if (matches.length === 0) throw new Error("reminder not found: " + input.name);
+if (matches.length === 0) throw new Error("reminder not found");
 var r = matches[0];
 var due = r.dueDate();
 var result = {
@@ -56,6 +59,7 @@ JSON.stringify(result);`,
 			Name: "create-reminder", TargetApp: "Reminders",
 			Script: stdinReader + `
 var app = Application("Reminders");
+app.includeStandardAdditions = false;
 var targetList = null;
 if (input.list) {
 	var matches = app.lists.whose({name: input.list})();
@@ -78,8 +82,9 @@ JSON.stringify({name: reminder.name(), list: targetList.name()});`,
 			Name: "complete-reminder", TargetApp: "Reminders",
 			Script: stdinReader + `
 var app = Application("Reminders");
+app.includeStandardAdditions = false;
 var matches = app.reminders.whose({name: input.name})();
-if (matches.length === 0) throw new Error("reminder not found: " + input.name);
+if (matches.length === 0) throw new Error("reminder not found");
 var r = matches[0];
 r.completed = true;
 JSON.stringify({name: r.name(), completed: true});`,

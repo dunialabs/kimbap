@@ -81,7 +81,7 @@ for (var i = 0; i < calendars.length; i++) {
 	if (result) break;
 }
 
-if (!result) throw new Error("event not found: " + input.title);
+if (!result) throw new Error("event not found");
 JSON.stringify(result);`,
 		},
 		"create-event": {

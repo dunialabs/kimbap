@@ -89,8 +89,15 @@ func (a *AppleScriptAdapter) Execute(ctx context.Context, req AdapterRequest) (*
 		return result, execErr
 	}
 
+	execCtx := ctx
+	if req.Action.Adapter.Timeout > 0 {
+		var cancel context.CancelFunc
+		execCtx, cancel = context.WithTimeout(ctx, req.Action.Adapter.Timeout)
+		defer cancel()
+	}
+
 	stdout, stderr, execErr := a.runner.Run(
-		ctx,
+		execCtx,
 		"/usr/bin/osascript",
 		[]string{"-l", "JavaScript", "-e", cmd.Script},
 		bytes.NewReader(inputJSON),
@@ -140,6 +147,7 @@ func mapAppleScriptError(stderr []byte, err error) *actions.ExecutionError {
 	status := http.StatusInternalServerError
 	retryable := false
 	message := err.Error()
+	code := actions.ErrDownstreamUnavailable
 
 	if stderrStr != "" {
 		message = stderrStr
@@ -148,6 +156,7 @@ func mapAppleScriptError(stderr []byte, err error) *actions.ExecutionError {
 	switch {
 	case strings.Contains(stderrStr, "-1743"):
 		status = http.StatusForbidden
+		code = actions.ErrUnauthorized
 	case strings.Contains(stderrStr, "-600"):
 		status = http.StatusServiceUnavailable
 		retryable = true
@@ -158,11 +167,12 @@ func mapAppleScriptError(stderr []byte, err error) *actions.ExecutionError {
 		retryable = true
 	case strings.Contains(stderrStr, "-1728"):
 		status = http.StatusNotFound
+		code = actions.ErrActionNotFound
 	case strings.Contains(stderrStr, "-2700"):
 		status = http.StatusInternalServerError
 	}
 
-	return actions.NewExecutionError(actions.ErrDownstreamUnavailable, message, status, retryable, map[string]any{
+	return actions.NewExecutionError(code, message, status, retryable, map[string]any{
 		"stderr": stderrStr,
 	})
 }

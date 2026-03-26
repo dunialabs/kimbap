@@ -73,7 +73,7 @@ var app = Application("Mail");
 app.includeStandardAdditions = false;
 if (!input.subject) throw new Error("subject is required");
 var matches = app.messages.whose({subject: input.subject})();
-if (matches.length === 0) throw new Error("message not found: " + input.subject);
+if (matches.length === 0) throw new Error("message not found");
 var m = matches[0];
 var sent = m.dateSent();
 var read = false;

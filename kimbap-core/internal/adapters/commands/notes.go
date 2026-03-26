@@ -55,7 +55,7 @@ JSON.stringify(result);`,
 var app = Application("Notes");
 app.includeStandardAdditions = false;
 var matches = app.notes.whose({name: input.name})();
-if (matches.length === 0) throw new Error("note not found: " + input.name);
+if (matches.length === 0) throw new Error("note not found");
 var n = matches[0];
 var result = {
 	name: n.name(),
