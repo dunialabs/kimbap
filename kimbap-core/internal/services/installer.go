@@ -335,6 +335,9 @@ func (i *LocalInstaller) getNoLock(name string) (*InstalledService, error) {
 }
 
 func (i *LocalInstaller) Verify(name string) (*VerifyResult, error) {
+	if i == nil {
+		return nil, fmt.Errorf("installer is nil")
+	}
 	i.mu.RLock()
 	defer i.mu.RUnlock()
 	_, entry, result, err := i.verifyBuildContext(name)
@@ -372,6 +375,9 @@ func (i *LocalInstaller) Verify(name string) (*VerifyResult, error) {
 }
 
 func (i *LocalInstaller) VerifyWithKey(name string, pinnedPubKey ed25519.PublicKey) (*VerifyResult, error) {
+	if i == nil {
+		return nil, fmt.Errorf("installer is nil")
+	}
 	i.mu.RLock()
 	defer i.mu.RUnlock()
 	_, entry, result, err := i.verifyBuildContext(name)
@@ -435,6 +441,9 @@ func (i *LocalInstaller) verifyBuildContext(name string) (digest string, entry L
 }
 
 func (i *LocalInstaller) Sign(privateKey ed25519.PrivateKey) error {
+	if i == nil {
+		return fmt.Errorf("installer is nil")
+	}
 	i.mu.Lock()
 	defer i.mu.Unlock()
 	lf, err := i.readLockfile()
