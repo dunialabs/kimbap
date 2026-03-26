@@ -20,7 +20,7 @@ func newActionsCommand() *cobra.Command {
 	var brief bool
 	listCmd := &cobra.Command{
 		Use:   "list",
-		Short: "List actions from installed skills",
+		Short: "List actions from installed services",
 		RunE: func(_ *cobra.Command, _ []string) error {
 			cfg, err := loadAppConfig()
 			if err != nil {

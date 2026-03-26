@@ -301,7 +301,7 @@ paths:
 	}
 
 	if manifest.Auth.Type != "bearer" {
-		t.Fatalf("expected skill-level bearer auth, got %+v", manifest.Auth)
+		t.Fatalf("expected service-level bearer auth, got %+v", manifest.Auth)
 	}
 
 	action := manifest.Actions["search"]
@@ -877,5 +877,47 @@ paths:
 	}
 	if args["quantity"].Required || args["quantity"].Type != "number" {
 		t.Fatalf("expected optional quantity:number arg, got %+v", args["quantity"])
+	}
+}
+
+func TestGenerateFromOpenAPIUsesServicePrefixForNumericOrEmptyNames(t *testing.T) {
+	tests := []struct {
+		name     string
+		title    string
+		expected string
+	}{
+		{name: "empty title uses openapi-service", title: "", expected: "openapi-service"},
+		{name: "numeric title gets service prefix", title: "123 payments", expected: "service-123-payments"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			spec := `openapi: 3.0.3
+info:
+  title: ` + tt.title + `
+  version: 1.0.0
+servers:
+  - url: https://api.example.com
+paths:
+  /health:
+    get:
+      operationId: health
+      responses:
+        '200':
+          description: ok
+          content:
+            application/json:
+              schema:
+                type: object
+`
+
+			manifest, err := GenerateFromOpenAPI([]byte(spec))
+			if err != nil {
+				t.Fatalf("GenerateFromOpenAPI failed: %v", err)
+			}
+			if manifest.Name != tt.expected {
+				t.Fatalf("expected name %q, got %q", tt.expected, manifest.Name)
+			}
+		})
 	}
 }

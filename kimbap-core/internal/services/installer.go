@@ -54,7 +54,7 @@ func NewLocalInstaller(skillsDir string) *LocalInstaller {
 	return &LocalInstaller{skillsDir: skillsDir}
 }
 
-var ErrServiceAlreadyInstalled = fmt.Errorf("skill already installed")
+var ErrServiceAlreadyInstalled = fmt.Errorf("service already installed")
 
 func (i *LocalInstaller) Install(manifest *ServiceManifest, source string) (*InstalledService, error) {
 	return i.InstallWithForce(manifest, source, false)
@@ -74,7 +74,7 @@ func (i *LocalInstaller) InstallWithForce(manifest *ServiceManifest, source stri
 		return nil, validationErrorsToError("invalid manifest", errs)
 	}
 	if err := os.MkdirAll(i.skillsDir, 0o755); err != nil {
-		return nil, fmt.Errorf("create skills dir: %w", err)
+		return nil, fmt.Errorf("create services dir: %w", err)
 	}
 
 	p := filepath.Join(i.skillsDir, manifest.Name+".yaml")
@@ -157,7 +157,7 @@ func (i *LocalInstaller) List() ([]InstalledService, error) {
 		if os.IsNotExist(err) {
 			return []InstalledService{}, nil
 		}
-		return nil, fmt.Errorf("read skills dir: %w", err)
+		return nil, fmt.Errorf("read services dir: %w", err)
 	}
 
 	out := make([]InstalledService, 0)
@@ -182,10 +182,10 @@ func (i *LocalInstaller) List() ([]InstalledService, error) {
 
 func ValidateServiceName(name string) error {
 	if strings.TrimSpace(name) == "" {
-		return fmt.Errorf("skill name is required")
+		return fmt.Errorf("service name is required")
 	}
 	if strings.Contains(name, "..") || strings.ContainsAny(name, "/\\") {
-		return fmt.Errorf("invalid skill name %q: must not contain path separators or '..'", name)
+		return fmt.Errorf("invalid service name %q: must not contain path separators or '..'", name)
 	}
 	return nil
 }
@@ -200,17 +200,17 @@ func (i *LocalInstaller) Get(name string) (*InstalledService, error) {
 	p := filepath.Join(i.skillsDir, name+".yaml")
 	data, err := os.ReadFile(p)
 	if err != nil {
-		return nil, fmt.Errorf("read installed skill manifest: %w", err)
+		return nil, fmt.Errorf("read installed service manifest: %w", err)
 	}
 
 	manifest, err := ParseManifest(data)
 	if err != nil {
-		return nil, fmt.Errorf("parse installed skill manifest: %w", err)
+		return nil, fmt.Errorf("parse installed service manifest: %w", err)
 	}
 
 	fi, err := os.Stat(p)
 	if err != nil {
-		return nil, fmt.Errorf("stat installed skill manifest: %w", err)
+		return nil, fmt.Errorf("stat installed service manifest: %w", err)
 	}
 
 	return &InstalledService{
@@ -232,7 +232,7 @@ func (i *LocalInstaller) Verify(name string) (*VerifyResult, error) {
 	manifestPath := filepath.Join(i.skillsDir, name+".yaml")
 	data, err := os.ReadFile(manifestPath)
 	if err != nil {
-		return nil, fmt.Errorf("read installed skill manifest: %w", err)
+		return nil, fmt.Errorf("read installed service manifest: %w", err)
 	}
 	actualDigest := computeDigest(data)
 
@@ -284,7 +284,7 @@ func (i *LocalInstaller) VerifyWithKey(name string, pinnedPubKey ed25519.PublicK
 	manifestPath := filepath.Join(i.skillsDir, name+".yaml")
 	data, err := os.ReadFile(manifestPath)
 	if err != nil {
-		return nil, fmt.Errorf("read installed skill manifest: %w", err)
+		return nil, fmt.Errorf("read installed service manifest: %w", err)
 	}
 	actualDigest := computeDigest(data)
 

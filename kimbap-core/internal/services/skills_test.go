@@ -629,6 +629,63 @@ func TestGenerateSkillMDContainsExpectedSections(t *testing.T) {
 	}
 }
 
+func TestGenerateSkillMDCriticalRisk(t *testing.T) {
+	manifest := &ServiceManifest{
+		Name:    "critical-svc",
+		Version: "1.0.0",
+		BaseURL: "https://api.example.com",
+		Auth: ServiceAuth{
+			Type: "none",
+		},
+		Actions: map[string]ServiceAction{
+			"destroy": {
+				Method: "DELETE",
+				Path:   "/items",
+				Risk:   RiskSpec{Level: "critical", Mutating: true},
+			},
+		},
+	}
+
+	content, err := GenerateSkillMD(manifest)
+	if err != nil {
+		t.Fatalf("GenerateSkillMD: %v", err)
+	}
+
+	if !strings.Contains(content, "⚠️ This action is risk level: critical. Use --dry-run --format json first to preview.") {
+		t.Fatalf("expected critical dry-run warning, got:\n%s", content)
+	}
+	if !strings.Contains(content, "🔒 Approval may be required. Check: `kimbap approve list`") {
+		t.Fatalf("expected approval hint for critical risk, got:\n%s", content)
+	}
+}
+
+func TestToActionDefinitionsCriticalRiskRequiresApprovalHint(t *testing.T) {
+	manifest := &ServiceManifest{
+		Name:    "critical-svc",
+		Version: "1.0.0",
+		BaseURL: "https://api.example.com",
+		Auth:    ServiceAuth{Type: "none"},
+		Actions: map[string]ServiceAction{
+			"destroy": {
+				Method: "DELETE",
+				Path:   "/items",
+				Risk:   RiskSpec{Level: "critical", Mutating: true},
+			},
+		},
+	}
+
+	defs, err := ToActionDefinitions(manifest)
+	if err != nil {
+		t.Fatalf("ToActionDefinitions: %v", err)
+	}
+	if len(defs) != 1 {
+		t.Fatalf("expected one action definition, got %d", len(defs))
+	}
+	if defs[0].ApprovalHint != actions.ApprovalRequired {
+		t.Fatalf("expected approval hint %q, got %q", actions.ApprovalRequired, defs[0].ApprovalHint)
+	}
+}
+
 func TestGenerateMetaSkillMDContainsServiceActionSyntax(t *testing.T) {
 	content := GenerateMetaSkillMD()
 

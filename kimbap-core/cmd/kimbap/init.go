@@ -33,7 +33,7 @@ func newInitCommand() *cobra.Command {
 			checks = append(checks, configCheck)
 			hasFailure = hasFailure || configCheck.Status == "fail"
 
-			skillsCheck := ensureDirWithStatus("skills directory exists", cfg.Services.Dir)
+			skillsCheck := ensureDirWithStatus("services directory exists", cfg.Services.Dir)
 			checks = append(checks, skillsCheck)
 			hasFailure = hasFailure || skillsCheck.Status == "fail"
 

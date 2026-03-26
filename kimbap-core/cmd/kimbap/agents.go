@@ -22,7 +22,7 @@ type agentSetupResult struct {
 func newAgentsCommand() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "agents",
-		Short: "Manage AI agent skill integration",
+		Short: "Manage AI agent service integration",
 	}
 	cmd.AddCommand(newAgentsSetupCommand())
 	cmd.AddCommand(newAgentsSyncCommand())
@@ -127,7 +127,7 @@ func newAgentsSyncCommand() *cobra.Command {
 
 	cmd := &cobra.Command{
 		Use:   "sync",
-		Short: "Sync installed skills to detected agent directories",
+		Short: "Sync installed services to detected agent directories",
 		RunE: func(_ *cobra.Command, _ []string) error {
 			result, err := runAgentsSync(dir, agentRaw, force, dryRun)
 			if err != nil {

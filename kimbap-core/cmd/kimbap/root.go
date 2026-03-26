@@ -283,7 +283,7 @@ func resolveActionByName(cfg *config.KimbapConfig, name string) (*actions.Action
 			return &defs[i], nil
 		}
 	}
-	return nil, fmt.Errorf("action %q not found in installed skills", name)
+	return nil, fmt.Errorf("action %q not found in installed services", name)
 }
 
 func splitActionName(actionName string) (service string, action string) {

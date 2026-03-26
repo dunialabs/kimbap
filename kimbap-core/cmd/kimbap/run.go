@@ -95,11 +95,11 @@ func newRunCommand() *cobra.Command {
 				installer := installerFromConfig(cfg)
 				installedSkills, err := installer.List()
 				if err != nil {
-					return fmt.Errorf("load installed skills: %w", err)
+					return fmt.Errorf("load installed services: %w", err)
 				}
 				for i := range installedSkills {
 					if err := c.AddRulesFromSkill(&installedSkills[i].Manifest); err != nil {
-						return fmt.Errorf("register skill %q: %w", installedSkills[i].Manifest.Name, err)
+						return fmt.Errorf("register service %q: %w", installedSkills[i].Manifest.Name, err)
 					}
 				}
 

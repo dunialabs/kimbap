@@ -79,10 +79,10 @@ func GenerateSkillMD(manifest *ServiceManifest) (string, error) {
 			}
 		}
 		sb.WriteString("\n```\n")
-		if riskLevel == "" || riskLevel == "unknown" || riskLevel == "medium" || riskLevel == "high" {
+		if riskLevel == "" || riskLevel == "unknown" || riskLevel == "medium" || riskLevel == "high" || riskLevel == "critical" {
 			sb.WriteString(fmt.Sprintf("\n> ⚠️ This action is risk level: %s. Use --dry-run --format json first to preview.\n", riskDisplay))
 		}
-		if riskLevel == "high" {
+		if riskLevel == "high" || riskLevel == "critical" {
 			sb.WriteString("\n> 🔒 Approval may be required. Check: `kimbap approve list`\n")
 		}
 		sb.WriteString("\n")

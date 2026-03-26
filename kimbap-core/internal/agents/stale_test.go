@@ -3,6 +3,7 @@ package agents
 import (
 	"crypto/sha256"
 	"encoding/hex"
+	"encoding/json"
 	"path/filepath"
 	"reflect"
 	"strings"
@@ -334,5 +335,30 @@ func TestSyncStatePathUsesXDGConfigHome(t *testing.T) {
 	expected := filepath.Join(xdg, "kimbap", "sync-state", hex.EncodeToString(sum[:])+".yaml")
 	if path != expected {
 		t.Fatalf("expected %q, got %q", expected, path)
+	}
+}
+
+func TestStaleCheckResultJSONFieldNamesUseServices(t *testing.T) {
+	result := StaleCheckResult{
+		Stale:           true,
+		NewServices:     []string{"github"},
+		RemovedServices: []string{"slack"},
+		LastSync:        "2026-01-01T00:00:00Z",
+	}
+
+	encoded, err := json.Marshal(result)
+	if err != nil {
+		t.Fatalf("marshal stale check result: %v", err)
+	}
+	payload := string(encoded)
+
+	if !strings.Contains(payload, `"new_services"`) {
+		t.Fatalf("expected JSON field new_services, got %s", payload)
+	}
+	if !strings.Contains(payload, `"removed_services"`) {
+		t.Fatalf("expected JSON field removed_services, got %s", payload)
+	}
+	if strings.Contains(payload, `"new_skills"`) || strings.Contains(payload, `"removed_skills"`) {
+		t.Fatalf("unexpected stale skill JSON fields in payload: %s", payload)
 	}
 }

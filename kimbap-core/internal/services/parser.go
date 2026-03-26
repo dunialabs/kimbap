@@ -30,12 +30,12 @@ type ValidationError struct {
 func ParseManifest(data []byte) (*ServiceManifest, error) {
 	var manifest ServiceManifest
 	if err := yaml.Unmarshal(data, &manifest); err != nil {
-		return nil, fmt.Errorf("parse skill manifest: %w", err)
+		return nil, fmt.Errorf("parse service manifest: %w", err)
 	}
 
 	errs := ValidateManifest(&manifest)
 	if len(errs) > 0 {
-		return nil, validationErrorsToError("skill manifest validation failed", errs)
+		return nil, validationErrorsToError("service manifest validation failed", errs)
 	}
 
 	return &manifest, nil
@@ -44,7 +44,7 @@ func ParseManifest(data []byte) (*ServiceManifest, error) {
 func ParseManifestFile(path string) (*ServiceManifest, error) {
 	data, err := os.ReadFile(path)
 	if err != nil {
-		return nil, fmt.Errorf("read skill manifest file: %w", err)
+		return nil, fmt.Errorf("read service manifest file: %w", err)
 	}
 	return ParseManifest(data)
 }

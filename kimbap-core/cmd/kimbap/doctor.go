@@ -211,12 +211,12 @@ func checkVaultAccessible(cfg *config.KimbapConfig) doctorCheck {
 func checkSkillsDir(skillsDir string) doctorCheck {
 	st, err := os.Stat(skillsDir)
 	if err != nil {
-		return doctorCheck{Name: "skills directory exists", Status: "fail", Detail: err.Error()}
+		return doctorCheck{Name: "services directory exists", Status: "fail", Detail: err.Error()}
 	}
 	if !st.IsDir() {
-		return doctorCheck{Name: "skills directory exists", Status: "fail", Detail: "path is not a directory"}
+		return doctorCheck{Name: "services directory exists", Status: "fail", Detail: "path is not a directory"}
 	}
-	return doctorCheck{Name: "skills directory exists", Status: "ok", Detail: skillsDir}
+	return doctorCheck{Name: "services directory exists", Status: "ok", Detail: skillsDir}
 }
 
 func checkPolicyFile(path string) doctorCheck {

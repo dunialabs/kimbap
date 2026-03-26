@@ -14,10 +14,10 @@ import (
 
 func ToActionDefinitions(skill *ServiceManifest) ([]actions.ActionDefinition, error) {
 	if skill == nil {
-		return nil, fmt.Errorf("skill manifest is nil")
+		return nil, fmt.Errorf("service manifest is nil")
 	}
 	if errs := ValidateManifest(skill); len(errs) > 0 {
-		return nil, validationErrorsToError("invalid skill manifest", errs)
+		return nil, validationErrorsToError("invalid service manifest", errs)
 	}
 
 	u, err := url.Parse(skill.BaseURL)

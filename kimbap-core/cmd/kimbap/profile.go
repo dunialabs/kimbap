@@ -80,7 +80,7 @@ func newProfileInstallCommand() *cobra.Command {
 		},
 	}
 	cmd.Flags().StringVar(&targetDir, "dir", ".", "target directory for profile installation")
-	cmd.Flags().BoolVar(&dynamic, "dynamic", true, "include installed skills in profile")
+	cmd.Flags().BoolVar(&dynamic, "dynamic", true, "include installed services in profile")
 	return cmd
 }
 
@@ -132,7 +132,7 @@ func collectInstalledServicesFromConfig(skillsDir string) ([]profiles.InstalledS
 	installer := services.NewLocalInstaller(skillsDir)
 	installed, err := installer.List()
 	if err != nil {
-		return nil, fmt.Errorf("list installed skills: %w", err)
+		return nil, fmt.Errorf("list installed services: %w", err)
 	}
 
 	serviceMap := map[string][]string{}

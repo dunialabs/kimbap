@@ -131,7 +131,7 @@ func SyncServices(installer ServiceInstaller, rulesContent string, opts SyncOpti
 
 	installedSkills, err := installer.List()
 	if err != nil {
-		return nil, fmt.Errorf("list installed skills: %w", err)
+		return nil, fmt.Errorf("list installed services: %w", err)
 	}
 
 	agentsToProcess := selectedAgents(projectDir, opts.Agents)
@@ -160,7 +160,7 @@ func SyncServices(installer ServiceInstaller, rulesContent string, opts SyncOpti
 		for _, skill := range installedSkills {
 			if err := services.ValidateServiceName(skill.Name); err != nil {
 				result.Failed = append(result.Failed, skill.Name)
-				result.Errors = append(result.Errors, fmt.Sprintf("skill %q: %v", skill.Name, err))
+				result.Errors = append(result.Errors, fmt.Sprintf("service %q: %v", skill.Name, err))
 				continue
 			}
 
@@ -168,7 +168,7 @@ func SyncServices(installer ServiceInstaller, rulesContent string, opts SyncOpti
 			needsWrite, checkErr := fileNeedsWrite(skillPath, skill.Content, opts.Force)
 			if checkErr != nil {
 				result.Failed = append(result.Failed, skill.Name)
-				result.Errors = append(result.Errors, fmt.Sprintf("skill %q: %v", skill.Name, checkErr))
+				result.Errors = append(result.Errors, fmt.Sprintf("service %q: %v", skill.Name, checkErr))
 				continue
 			}
 			if !needsWrite {
@@ -183,12 +183,12 @@ func SyncServices(installer ServiceInstaller, rulesContent string, opts SyncOpti
 
 			if err := os.MkdirAll(filepath.Dir(skillPath), 0o755); err != nil {
 				result.Failed = append(result.Failed, skill.Name)
-				result.Errors = append(result.Errors, fmt.Sprintf("skill %q: create dir: %v", skill.Name, err))
+				result.Errors = append(result.Errors, fmt.Sprintf("service %q: create dir: %v", skill.Name, err))
 				continue
 			}
 			if err := os.WriteFile(skillPath, []byte(skill.Content), 0o644); err != nil {
 				result.Failed = append(result.Failed, skill.Name)
-				result.Errors = append(result.Errors, fmt.Sprintf("skill %q: write file: %v", skill.Name, err))
+				result.Errors = append(result.Errors, fmt.Sprintf("service %q: write file: %v", skill.Name, err))
 				continue
 			}
 
@@ -260,7 +260,7 @@ func Status(projectDir string) ([]StatusResult, error) {
 
 		syncedSkills, err := listSyncedSkills(filepath.Join(baseDir, cfg.SkillsDir))
 		if err != nil {
-			return nil, fmt.Errorf("list synced skills for %q: %w", kind, err)
+			return nil, fmt.Errorf("list synced services for %q: %w", kind, err)
 		}
 
 		detected, detectErr := isAgentDetectedDetailed(baseDir, cfg)

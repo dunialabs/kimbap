@@ -610,10 +610,10 @@ func normalizeSkillName(title string) string {
 	name = multiDashPattern.ReplaceAllString(name, "-")
 
 	if name == "" {
-		return "openapi-skill"
+		return "openapi-service"
 	}
 	if name[0] >= '0' && name[0] <= '9' {
-		name = "skill-" + name
+		name = "service-" + name
 	}
 	return name
 }
