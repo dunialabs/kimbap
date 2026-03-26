@@ -483,12 +483,9 @@ func sanitizeAuthError(err error) string {
 			return "authentication failed"
 		}
 	}
-	msg := err.Error()
 	switch {
-	case strings.Contains(msg, "authorization token is required"):
+	case errors.Is(err, errAuthorizationTokenRequired):
 		return "authorization token is required"
-	case strings.Contains(msg, "missing or invalid authorization"):
-		return "missing or invalid authorization header"
 	default:
 		return "authentication failed"
 	}
