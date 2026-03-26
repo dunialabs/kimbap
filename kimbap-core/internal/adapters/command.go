@@ -95,7 +95,7 @@ func (a *CommandAdapter) Execute(ctx context.Context, req AdapterRequest) (*Adap
 	defer cancel()
 
 	cmd := exec.CommandContext(execCtx, executable, args...)
-	env := os.Environ()
+	env := filterSensitiveEnv(os.Environ())
 	for k, v := range req.Action.Adapter.EnvInject {
 		if strings.TrimSpace(k) == "" {
 			continue
@@ -225,6 +225,26 @@ func stringifyArgValue(v any) string {
 		}
 		return string(encoded)
 	}
+}
+
+var sensitiveEnvKeys = map[string]struct{}{
+	"KIMBAP_MASTER_KEY_HEX": {},
+	"KIMBAP_AGENT_TOKEN":    {},
+	"KIMBAP_DEV":            {},
+}
+
+func filterSensitiveEnv(env []string) []string {
+	out := make([]string, 0, len(env))
+	for _, entry := range env {
+		key := entry
+		if idx := strings.Index(entry, "="); idx >= 0 {
+			key = entry[:idx]
+		}
+		if _, blocked := sensitiveEnvKeys[key]; !blocked {
+			out = append(out, entry)
+		}
+	}
+	return out
 }
 
 func sanitizeEnvSegment(ref string) string {
