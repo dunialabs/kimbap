@@ -26,7 +26,7 @@ func (c *OAuthMetadataController) AuthorizationServerMetadata(w http.ResponseWri
 	if issuer == "" {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusInternalServerError)
-		json.NewEncoder(w).Encode(map[string]any{"error": "Internal server error"})
+		_ = json.NewEncoder(w).Encode(map[string]any{"error": "Internal server error"})
 		return
 	}
 	meta := c.oauthService.GenerateAuthorizationServerMetadata(issuer)
@@ -42,10 +42,10 @@ func (c *OAuthMetadataController) ProtectedResourceMetadata(w http.ResponseWrite
 	if resource == "" {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusInternalServerError)
-		json.NewEncoder(w).Encode(map[string]any{"error": "Internal server error"})
+		_ = json.NewEncoder(w).Encode(map[string]any{"error": "Internal server error"})
 		return
 	}
-	authURL := publicURL(r)
+	authURL := resource
 	meta := c.oauthService.GenerateProtectedResourceMetadata(resource, authURL)
 	w.Header().Set("Access-Control-Allow-Origin", "*")
 	w.Header().Set("Access-Control-Allow-Methods", "GET, OPTIONS")
