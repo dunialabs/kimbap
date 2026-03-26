@@ -125,6 +125,11 @@ export function MasterPasswordForm({ onSuccess }: MasterPasswordFormProps) {
               )}
             </button>
           </div>
+          {masterPassword && masterPassword.length < 10 && (
+            <p className="text-xs text-muted-foreground">
+              {masterPassword.length}/10 characters minimum
+            </p>
+          )}
         </div>
 
         {/* Confirm Master Password */}
@@ -161,6 +166,11 @@ export function MasterPasswordForm({ onSuccess }: MasterPasswordFormProps) {
               )}
             </button>
           </div>
+          {confirmPassword && masterPassword && (
+            confirmPassword === masterPassword
+              ? <p className="text-xs text-green-600 dark:text-green-400">Passwords match</p>
+              : <p className="text-xs text-red-600 dark:text-red-400">Passwords do not match</p>
+          )}
         </div>
 
         {/* Warning Message */}

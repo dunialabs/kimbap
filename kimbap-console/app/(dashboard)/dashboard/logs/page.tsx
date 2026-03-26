@@ -752,7 +752,7 @@ function LogsPageContent() {
                       <TableHead className="w-[80px]">Level</TableHead>
                       <TableHead className="w-[200px]">Source</TableHead>
                       <TableHead className="w-[300px]">Message</TableHead>
-                      <TableHead className="w-[100px]">Request ID (last 6)</TableHead>
+                      <TableHead className="w-[100px]">Request ID</TableHead>
                       <TableHead className="w-[80px]">Actions</TableHead>
                     </TableRow>
                   </TableHeader>

@@ -22,7 +22,7 @@ export type LogDomain =
   | 'system';
 
 export const LOG_DOMAINS: readonly { value: LogDomain; label: string }[] = [
-  { value: 'mcp-request', label: 'MCP Request' },
+  { value: 'mcp-request', label: 'Tool Request' },
   { value: 'reverse', label: 'Reverse Request' },
   { value: 'lifecycle', label: 'Lifecycle' },
   { value: 'oauth', label: 'OAuth' },

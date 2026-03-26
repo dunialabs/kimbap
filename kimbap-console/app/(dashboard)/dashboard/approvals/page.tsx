@@ -423,7 +423,7 @@ export default function ApprovalsPage() {
                 <CardTitle className="text-base">Approval Requests</CardTitle>
                 <CardDescription>
                   {requests.length.toLocaleString()} request{requests.length !== 1 ? 's' : ''}
-                  {statusFilter !== 'all' ? ` (${statusFilter.toLowerCase()})` : ''}
+                  {statusFilter !== 'all' ? ` (${statusFilter.charAt(0).toUpperCase() + statusFilter.slice(1).toLowerCase()})` : ''}
                 </CardDescription>
               </div>
             <div className="flex items-center gap-2">

@@ -433,7 +433,15 @@ function ToolUsagePageContent() {
                 <TrendingUp className="h-4 w-4 text-muted-foreground" />
               </CardHeader>
               <CardContent className="flex flex-col gap-1 justify-center">
-                <div className={loading || summary?.avgSuccessRate == null ? "text-sm text-muted-foreground" : "text-2xl font-bold"}>
+                <div className={
+                  loading || summary?.avgSuccessRate == null
+                    ? "text-sm text-muted-foreground"
+                    : summary.avgSuccessRate >= HEALTHY_SUCCESS_RATE_THRESHOLD
+                    ? "text-2xl font-bold text-green-600 dark:text-green-400"
+                    : summary.avgSuccessRate < 80
+                    ? "text-2xl font-bold text-red-600 dark:text-red-400"
+                    : "text-2xl font-bold text-amber-600 dark:text-amber-400"
+                }>
                   {loading
                     ? 'Loading...'
                     : summary?.avgSuccessRate == null
@@ -548,7 +556,7 @@ function ToolUsagePageContent() {
                       </div>
                       <div className="flex flex-col gap-1 justify-center">
                         <p className="text-muted-foreground">Success Rate</p>
-                        <p className={`font-semibold ${tool.successRate >= HEALTHY_SUCCESS_RATE_THRESHOLD ? 'text-green-600 dark:text-green-400' : 'text-foreground'}`}>{tool.successRate}%</p>
+                        <p className={`font-semibold ${tool.successRate >= HEALTHY_SUCCESS_RATE_THRESHOLD ? 'text-green-600 dark:text-green-400' : tool.successRate < 80 ? 'text-red-600 dark:text-red-400' : 'text-amber-600 dark:text-amber-400'}`}>{tool.successRate}%</p>
                       </div>
                       <div className="flex flex-col gap-1 justify-center">
                         <p className="text-muted-foreground">Failed Requests</p>
@@ -854,7 +862,11 @@ function ToolUsagePageContent() {
                         <TableCell>{log.toolName}</TableCell>
                         <TableCell className="font-mono text-xs">{getActionLabel(log.actionType)}</TableCell>
                         <TableCell>{log.userName}</TableCell>
-                        <TableCell>{log.status === 1 ? 'Success' : 'Failed'}</TableCell>
+                         <TableCell>
+                           <span className={log.status === 1 ? 'text-green-600 dark:text-green-400 text-sm' : 'text-red-600 dark:text-red-400 text-sm'}>
+                             {log.status === 1 ? 'Success' : 'Failed'}
+                           </span>
+                         </TableCell>
                         <TableCell className="max-w-[260px]">
                           {log.status === 2 && log.errorMessage ? (
                             <div className="text-xs text-red-600 dark:text-red-400 whitespace-pre-wrap break-words">{log.errorMessage}</div>

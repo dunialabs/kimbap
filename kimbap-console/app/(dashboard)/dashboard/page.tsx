@@ -514,8 +514,8 @@ export default function DashboardPage() {
             <div
               className="grid gap-y-3 gap-x-2 items-center grid-cols-[max-content_1fr_max-content] md:grid-cols-[max-content_1fr_max-content_max-content]"
             >
-              {tokenUsage.map((token: any, index: number) => (
-                <div key={`${token.name || 'token'}-${index}`} className="contents">
+              {tokenUsage.map((token: any) => (
+                <div key={`${token.name || 'token'}-${token.token?.trim() || ''}`} className="contents">
                   <div
                     className="text-sm max-w-[200px] truncate"
                     title={token.name}

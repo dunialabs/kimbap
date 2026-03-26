@@ -480,7 +480,13 @@ function TokenUsagePageContent() {
                   return successRate === null ? (
                     <div className="text-sm text-muted-foreground">{loadError ? 'Unavailable' : '—'}</div>
                   ) : (
-                    <div className="text-2xl font-bold">
+                    <div className={`text-2xl font-bold ${
+                      successRate >= HEALTHY_SUCCESS_RATE_THRESHOLD
+                        ? 'text-green-600 dark:text-green-400'
+                        : successRate < 80
+                        ? 'text-red-600 dark:text-red-400'
+                        : 'text-amber-600 dark:text-amber-400'
+                    }`}>
                       {successRate.toFixed(1)}%
                     </div>
                   )
@@ -636,13 +642,14 @@ function TokenUsagePageContent() {
                               -
                             </span>
                           ) : (
-                            <span className={`font-semibold ${((token.successfulRequests / token.totalRequests) * 100) >= HEALTHY_SUCCESS_RATE_THRESHOLD ? 'text-green-600 dark:text-green-400' : 'text-foreground'}`}>
-                              {(
-                                (token.successfulRequests /
-                                  token.totalRequests) *
-                                100
-                              ).toFixed(1)}
-                              %
+                            <span className={`font-semibold ${
+                              ((token.successfulRequests / token.totalRequests) * 100) >= HEALTHY_SUCCESS_RATE_THRESHOLD
+                                ? 'text-green-600 dark:text-green-400'
+                                : ((token.successfulRequests / token.totalRequests) * 100) < 80
+                                ? 'text-red-600 dark:text-red-400'
+                                : 'text-amber-600 dark:text-amber-400'
+                            }`}>
+                              {((token.successfulRequests / token.totalRequests) * 100).toFixed(1)}%
                             </span>
                           )}
                         </TableCell>

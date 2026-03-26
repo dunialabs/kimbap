@@ -509,7 +509,7 @@ function RuleCard({
                   {extractOpen ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
                   Data extraction (advanced)
                   {rule.extract.length > 0 && (
-                    <Badge variant="secondary" className="ml-1 h-4 px-1.5 text-[10px]">
+                    <Badge variant="secondary" className="ml-1 h-4 px-1.5 text-xs">
                       {rule.extract.length}
                     </Badge>
                   )}
@@ -893,7 +893,7 @@ export default function PoliciesPage() {
                                 <div key={rule.id} className="flex items-center gap-2 text-sm">
                                   <Badge
                                     variant="outline"
-                                    className={`px-1.5 py-0 text-[10px] leading-5 ${decisionMeta?.color || ''}`}
+                                    className={`px-1.5 py-0 text-xs leading-5 ${decisionMeta?.color || ''}`}
                                   >
                                     {decisionMeta?.label || rule.effect.decision}
                                   </Badge>
