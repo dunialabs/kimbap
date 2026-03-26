@@ -87,7 +87,7 @@ All configuration is set via environment variables or `~/.kimbap/config.yaml`.
 
 | Name            | Required | Default | Description                                               |
 | --------------- | -------- | ------- | --------------------------------------------------------- |
-| `KIMBAP_PORT`   |          | `8080`  | HTTP port that the server listens on.                     |
+| `KIMBAP_LISTEN_ADDR` |     | `:8080` | Address (host:port) the server listens on.                |
 | `KIMBAP_DATA_DIR` |        | `~/.kimbap` | Directory for SQLite database, vault, and audit logs. |
 
 #### Security
@@ -101,7 +101,8 @@ All configuration is set via environment variables or `~/.kimbap/config.yaml`.
 
 | Name              | Required | Default     | Description                                                             |
 | ----------------- | -------- | ----------- | ----------------------------------------------------------------------- |
-| `KIMBAP_DB_URL`   |          | SQLite      | Database URL. Defaults to SQLite at `$KIMBAP_DATA_DIR/kimbap.db`. Set to a PostgreSQL DSN for connected/multi-instance deployments. |
+| `KIMBAP_DATABASE_DRIVER` |  | `sqlite`    | Database driver: `sqlite` or `postgres`.                  |
+| `KIMBAP_DATABASE_DSN`    |  | `$KIMBAP_DATA_DIR/kimbap.db` | Database DSN. For postgres: `postgres://user:pass@host:5432/kimbap?sslmode=disable` |
 
 #### Logging
 
@@ -125,7 +126,8 @@ services:
     container_name: kimbap
     restart: unless-stopped
     environment:
-      KIMBAP_PORT: 8080
+      KIMBAP_LISTEN_ADDR: ":8080"
+      KIMBAP_DATA_DIR: /data/kimbap
       KIMBAP_MASTER_KEY_HEX: ${KIMBAP_MASTER_KEY_HEX}
       LOG_LEVEL: info
     ports:
@@ -174,11 +176,15 @@ services:
       postgres:
         condition: service_healthy
     environment:
-      KIMBAP_PORT: 8080
+      KIMBAP_LISTEN_ADDR: ":8080"
+      KIMBAP_DATA_DIR: /data/kimbap
       KIMBAP_MASTER_KEY_HEX: ${KIMBAP_MASTER_KEY_HEX}
-      KIMBAP_DB_URL: postgres://kimbap:${DB_PASSWORD}@postgres:5432/kimbap?sslmode=disable
+      KIMBAP_DATABASE_DRIVER: postgres
+      KIMBAP_DATABASE_DSN: postgres://kimbap:${DB_PASSWORD}@postgres:5432/kimbap?sslmode=disable
     ports:
       - '8080:8080'
+    volumes:
+      - kimbap_data:/data/kimbap
 
 volumes:
   postgres_data:

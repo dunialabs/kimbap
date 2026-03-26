@@ -5,12 +5,13 @@ services:
     restart: unless-stopped
     environment:
       KIMBAP_LISTEN_ADDR: ":8080"
+      KIMBAP_DATA_DIR: /data/kimbap
       KIMBAP_MASTER_KEY_HEX: ${KIMBAP_MASTER_KEY_HEX:-}
       LOG_LEVEL: ${LOG_LEVEL:-info}
     ports:
       - '${KIMBAP_PORT:-8080}:8080'
     volumes:
-      - kimbap_data:/root/.kimbap
+      - kimbap_data:/data/kimbap
     networks:
       - kimbap-network
 

@@ -11,7 +11,7 @@ RUN apk --no-cache add ca-certificates tzdata && \
     addgroup -S appgroup && adduser -S appuser -G appgroup
 WORKDIR /app
 COPY --from=builder /kimbap .
-RUN chown -R appuser:appgroup /app
+RUN mkdir -p /data/kimbap && chown -R appuser:appgroup /app /data/kimbap
 USER appuser
 EXPOSE 8080
 HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \

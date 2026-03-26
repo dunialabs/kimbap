@@ -25,31 +25,19 @@ Kimbap is a **secure action runtime for AI agents**. It sits between agents and 
 - Encrypted vault for secret storage
 - Webhook-based approval notifications (Slack, Telegram, email, generic)
 - Embedded SQLite database (zero setup)
-- One-click Docker deployment
+- Docker Compose deployment workflow
 
 ## Quick Start
 
-### One-Click Deployment
+### Quick Docker Compose Deployment
 
-Use the automated deployment script:
+Use the manual deployment steps below to create `docker-compose.yml` and `.env`, then start the service:
 
 ```bash
-curl -O https://raw.githubusercontent.com/dunialabs/kimbap-core/main/docs/docker-deploy.sh
-chmod +x docker-deploy.sh
-./docker-deploy.sh
+docker compose up -d
+docker compose ps
+curl http://localhost:8080/v1/health
 ```
-
-The script will:
-1. Check Docker environment
-2. Generate a random vault master key
-3. Create `docker-compose.yml` and `.env` files
-4. Start the kimbap service
-5. Wait for health checks to pass
-6. Display access information
-
-### Manual Deployment
-
-See [Deployment Steps](#deployment-steps) below.
 
 ## Requirements
 
@@ -73,18 +61,7 @@ Ensure the following port is available:
 
 ## Deployment Steps
 
-### Option 1: Using Automated Script (Recommended)
-
-```bash
-# 1. Download the deployment script
-curl -O https://raw.githubusercontent.com/dunialabs/kimbap-core/main/docs/docker-deploy.sh
-chmod +x docker-deploy.sh
-
-# 2. Run the deployment script
-./docker-deploy.sh
-```
-
-### Option 2: Manual Deployment
+### Manual Deployment
 
 #### 1. Create Deployment Directory
 
@@ -102,11 +79,12 @@ services:
     container_name: kimbap
     restart: unless-stopped
     environment:
-      KIMBAP_PORT: ${KIMBAP_PORT:-8080}
+      KIMBAP_LISTEN_ADDR: ":8080"
+      KIMBAP_DATA_DIR: /data/kimbap
       KIMBAP_MASTER_KEY_HEX: ${KIMBAP_MASTER_KEY_HEX}
       LOG_LEVEL: ${LOG_LEVEL:-info}
     ports:
-      - '${KIMBAP_PORT:-8080}:${KIMBAP_PORT:-8080}'
+      - '${KIMBAP_PORT:-8080}:8080'
     volumes:
       - kimbap_data:/data/kimbap
 
@@ -124,10 +102,8 @@ volumes:
 KIMBAP_PORT=8080
 
 # Vault master key (generate with: openssl rand -hex 32)
-# REQUIRED for production
 KIMBAP_MASTER_KEY_HEX=your-hex-master-key-change-in-production
 
-# Logging
 LOG_LEVEL=info
 ```
 
@@ -155,33 +131,35 @@ KIMBAP_MASTER_KEY_HEX=$(openssl rand -hex 32)
 
 ### Port Changes
 
+To expose kimbap on a different host port (container always listens on 8080 internally):
+
 ```bash
-KIMBAP_PORT=9090  # Change API port from default 8080
+KIMBAP_PORT=9090
 ```
+
+Then access via `http://localhost:9090`.
 
 ## Usage Guide
 
 ### Health Check
 
 ```bash
-curl http://localhost:8080/v1/health
-# Returns: { "status": "ok" }
+curl http://localhost:${KIMBAP_PORT:-8080}/v1/health
 ```
 
 ### List Actions
 
 ```bash
-curl http://localhost:8080/v1/actions \
-  -H "Authorization: Bearer YOUR_TOKEN"
+curl http://localhost:8080/v1/actions
 ```
 
 ### Execute an Action
 
 ```bash
-curl -X POST "http://localhost:8080/v1/actions/github/list_pull_requests:execute" \
+curl -X POST "http://localhost:8080/v1/actions/github/list-pull-requests:execute" \
   -H "Authorization: Bearer YOUR_TOKEN" \
   -H "Content-Type: application/json" \
-  -d '{ "args": { "repo": "owner/repo" } }'
+  -d '{ "input": { "repo": "owner/repo" } }'
 ```
 
 ## FAQ
