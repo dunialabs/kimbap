@@ -75,7 +75,8 @@ func (a *AppleScriptAdapter) Execute(ctx context.Context, req AdapterRequest) (*
 
 	cmd, ok := a.commands[commandName]
 	if !ok {
-		return nil, actions.NewExecutionError(actions.ErrValidationFailed, fmt.Sprintf("unknown command: %s", commandName), http.StatusBadRequest, false, nil)
+		execErr := actions.NewExecutionError(actions.ErrValidationFailed, fmt.Sprintf("unknown command: %s", commandName), http.StatusBadRequest, false, nil)
+		return &AdapterResult{HTTPStatus: http.StatusBadRequest, DurationMS: time.Since(start).Milliseconds()}, execErr
 	}
 
 	input := req.Input

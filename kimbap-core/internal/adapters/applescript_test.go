@@ -111,6 +111,23 @@ func TestAppleScriptAdapterExecute_ArrayOutput(t *testing.T) {
 	}
 }
 
+func TestAppleScriptAdapterExecute_UnknownCommandReturnsResult(t *testing.T) {
+	a := NewAppleScriptAdapter(NewMockRunner(nil, nil, nil))
+
+	res, err := a.Execute(context.Background(), AdapterRequest{
+		Action: actions.ActionDefinition{Adapter: actions.AdapterConfig{Command: "no-such-command", TargetApp: "Notes"}},
+	})
+	if err == nil {
+		t.Fatal("Execute() error = nil, want error")
+	}
+	if res == nil {
+		t.Fatal("Execute() result = nil, want non-nil result even on error")
+	}
+	if res.HTTPStatus != 400 {
+		t.Fatalf("HTTPStatus = %d, want 400", res.HTTPStatus)
+	}
+}
+
 func TestAppleScriptAdapterExecute_Timeout(t *testing.T) {
 	mock := NewMockRunner(nil, []byte("execution error -1712"), errors.New("exit status 1"))
 	a := NewAppleScriptAdapter(mock)
