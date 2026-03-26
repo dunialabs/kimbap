@@ -503,6 +503,7 @@ func (s *Server) requirePendingApproval(w http.ResponseWriter, r *http.Request, 
 	}
 	now := time.Now().UTC()
 	if existing.Status == "expired" {
+		s.removeHeldExecution(r.Context(), id)
 		writeEnvelopeError(w, r, actions.NewExecutionError(actions.ErrApprovalTimeout, "approval expired", http.StatusGone, false, nil))
 		return nil, false
 	}
@@ -550,6 +551,7 @@ func (s *Server) requirePendingApproval(w http.ResponseWriter, r *http.Request, 
 				"status":      "expired",
 			})
 		}
+		s.removeHeldExecution(r.Context(), id)
 		writeEnvelopeError(w, r, actions.NewExecutionError(actions.ErrApprovalTimeout, "approval expired", http.StatusGone, false, nil))
 		return nil, false
 	}
@@ -636,6 +638,7 @@ func (s *Server) handleDeny(w http.ResponseWriter, r *http.Request) {
 		writeEnvelopeError(w, r, mapApprovalError(err))
 		return
 	}
+	s.removeHeldExecution(r.Context(), id)
 	if s.webhookDispatcher != nil {
 		s.webhookDispatcher.EmitForTenant(tenantID, webhooks.EventApprovalDenied, map[string]any{
 			"approval_id": id,
@@ -978,4 +981,13 @@ func parseScopes(raw string) []string {
 		return nil
 	}
 	return scopes
+}
+
+func (s *Server) removeHeldExecution(ctx context.Context, approvalRequestID string) {
+	if s.runtime == nil || s.runtime.HeldExecutionStore == nil {
+		return
+	}
+	removeCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), 3*time.Second)
+	defer cancel()
+	_ = s.runtime.HeldExecutionStore.Remove(removeCtx, approvalRequestID)
 }

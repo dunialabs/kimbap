@@ -190,35 +190,35 @@ func (r *Runtime) ResumeApproved(ctx context.Context, approvalRequestID string) 
 		}
 	}
 
-	earlyFail := func(result actions.ExecutionResult) actions.ExecutionResult {
-		if r.AuditWriter != nil {
-			auditCtx, auditCancel := context.WithTimeout(context.WithoutCancel(ctx), 3*time.Second)
-			defer auditCancel()
-			_ = r.writeAudit(auditCtx, *held, result)
-		}
-		return result
+	startedAt := r.now()
+	result := actions.ExecutionResult{
+		RequestID:      held.RequestID,
+		TraceID:        held.TraceID,
+		Status:         actions.StatusError,
+		HTTPStatus:     500,
+		IdempotencyKey: held.IdempotencyKey,
+		Meta:           map[string]any{},
 	}
 
 	if principalErr := r.authenticatePrincipal(ctx, *held); principalErr != nil {
-		return earlyFail(actions.ExecutionResult{Status: actions.StatusError, Error: principalErr})
+		return r.finalizeWithError(ctx, &result, *held, principalErr, startedAt, "require_approval", approvalRequestID)
 	}
 
 	if _, tenantErr := r.resolveTenant(*held); tenantErr != nil {
-		return earlyFail(actions.ExecutionResult{Status: actions.StatusError, Error: tenantErr})
+		return r.finalizeWithError(ctx, &result, *held, tenantErr, startedAt, "require_approval", approvalRequestID)
 	}
 
 	if validationErr := actions.ValidateInput(held.Action.InputSchema, held.Input); validationErr != nil {
-		return earlyFail(actions.ExecutionResult{
-			Status: actions.StatusError,
-			Error:  actions.NewExecutionError(actions.ErrValidationFailed, validationErr.Error(), 400, false, nil),
-		})
+		return r.finalizeWithError(ctx, &result, *held,
+			actions.NewExecutionError(actions.ErrValidationFailed, validationErr.Error(), 400, false, nil),
+			startedAt, "require_approval", approvalRequestID)
 	}
 
 	if sanitizeErr := SanitizeInput(held.Input); sanitizeErr != nil {
-		return earlyFail(actions.ExecutionResult{Status: actions.StatusError, Error: actions.AsExecutionError(sanitizeErr)})
+		return r.finalizeWithError(ctx, &result, *held, actions.AsExecutionError(sanitizeErr), startedAt, "require_approval", approvalRequestID)
 	}
 
-	return r.executeFromCredentialsWithState(ctx, *held, nil, r.now(), "require_approval", approvalRequestID)
+	return r.executeFromCredentialsWithState(ctx, *held, nil, startedAt, "require_approval", approvalRequestID)
 }
 
 func (r *Runtime) execute(ctx context.Context, req actions.ExecutionRequest, trace *TraceCollector) actions.ExecutionResult {
