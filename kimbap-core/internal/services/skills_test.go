@@ -634,6 +634,26 @@ func TestConvertAppleScriptManifest(t *testing.T) {
 	}
 }
 
+func TestInstallAppleNotesSkill(t *testing.T) {
+	manifest, err := ParseManifestFile("../../skills/official/apple-notes.yaml")
+	if err != nil {
+		t.Fatalf("parse: %v", err)
+	}
+	if manifest.Adapter != "applescript" {
+		t.Errorf("adapter = %q, want applescript", manifest.Adapter)
+	}
+	if manifest.TargetApp != "Notes" {
+		t.Errorf("target_app = %q, want Notes", manifest.TargetApp)
+	}
+	defs, err := ToActionDefinitions(manifest)
+	if err != nil {
+		t.Fatalf("convert: %v", err)
+	}
+	if len(defs) != 5 {
+		t.Errorf("got %d actions, want 5", len(defs))
+	}
+}
+
 func TestConvertAppleScriptManifest_AdapterConfig(t *testing.T) {
 	manifest := loadManifestFixture(t, "apple-notes.yaml")
 

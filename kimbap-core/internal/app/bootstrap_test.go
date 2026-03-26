@@ -5,6 +5,7 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	goruntime "runtime"
 	"testing"
 	"time"
 
@@ -12,7 +13,7 @@ import (
 	"github.com/dunialabs/kimbap-core/internal/approvals"
 	"github.com/dunialabs/kimbap-core/internal/config"
 	"github.com/dunialabs/kimbap-core/internal/connectors"
-	"github.com/dunialabs/kimbap-core/internal/runtime"
+	runtimepkg "github.com/dunialabs/kimbap-core/internal/runtime"
 	"github.com/dunialabs/kimbap-core/internal/services"
 	"github.com/dunialabs/kimbap-core/internal/vault"
 )
@@ -36,6 +37,28 @@ func TestBuildRuntimeMinimalConfig(t *testing.T) {
 	}
 	if rt == nil {
 		t.Fatal("expected runtime to be non-nil")
+	}
+}
+
+func TestBootstrapRegistersAppleScript(t *testing.T) {
+	cfg := &config.KimbapConfig{Services: config.ServicesConfig{Dir: t.TempDir()}}
+	rt, err := BuildRuntime(RuntimeDeps{Config: cfg})
+	if err != nil {
+		t.Fatalf("build runtime: %v", err)
+	}
+
+	adapter, ok := rt.Adapters["applescript"]
+	if goruntime.GOOS == "darwin" {
+		if !ok || adapter == nil {
+			t.Fatal("expected applescript adapter to be registered on darwin")
+		}
+		if adapter.Type() != "applescript" {
+			t.Fatalf("expected applescript adapter type, got %q", adapter.Type())
+		}
+		return
+	}
+	if ok {
+		t.Fatal("expected applescript adapter to be absent on non-darwin")
 	}
 }
 
@@ -67,7 +90,7 @@ actions:
 		t.Fatalf("build runtime: %v", err)
 	}
 
-	actions, err := rt.ActionRegistry.List(context.Background(), runtime.ListOptions{})
+	actions, err := rt.ActionRegistry.List(context.Background(), runtimepkg.ListOptions{})
 	if err != nil {
 		t.Fatalf("list actions: %v", err)
 	}
@@ -107,7 +130,7 @@ actions:
 		t.Fatalf("build runtime: %v", err)
 	}
 
-	_, listErr := rt.ActionRegistry.List(context.Background(), runtime.ListOptions{})
+	_, listErr := rt.ActionRegistry.List(context.Background(), runtimepkg.ListOptions{})
 	if listErr == nil {
 		t.Fatalf("expected strict verification failure for unlocked skill")
 	}
@@ -146,7 +169,7 @@ actions:
 		t.Fatalf("build runtime: %v", err)
 	}
 
-	actionsList, listErr := rt.ActionRegistry.List(context.Background(), runtime.ListOptions{})
+	actionsList, listErr := rt.ActionRegistry.List(context.Background(), runtimepkg.ListOptions{})
 	if listErr != nil {
 		t.Fatalf("list actions: %v", listErr)
 	}
@@ -183,7 +206,7 @@ actions:
 		t.Fatalf("build runtime: %v", err)
 	}
 
-	actionsList, listErr := rt.ActionRegistry.List(context.Background(), runtime.ListOptions{})
+	actionsList, listErr := rt.ActionRegistry.List(context.Background(), runtimepkg.ListOptions{})
 	if listErr != nil {
 		t.Fatalf("list actions: %v", listErr)
 	}
@@ -262,7 +285,7 @@ func TestApprovalManagerAdapterSplitsServiceAndAction(t *testing.T) {
 	mgr := approvals.NewApprovalManager(store, nil, time.Minute)
 	adapter := NewApprovalManagerAdapter(mgr)
 
-	_, err := adapter.CreateRequest(context.Background(), runtime.ApprovalRequest{
+	_, err := adapter.CreateRequest(context.Background(), runtimepkg.ApprovalRequest{
 		TenantID:  "tenant-a",
 		RequestID: "req-1",
 		Principal: actions.Principal{AgentName: "agent-a"},
@@ -302,7 +325,7 @@ func TestVaultCredentialResolverTreatsNotFoundAsSoftMiss(t *testing.T) {
 func TestChainCredentialResolverFallsBackToEnvOnVaultMiss(t *testing.T) {
 	t.Setenv("KIMBAP_GITHUB_TOKEN", "env-token-123")
 
-	chain := &chainCredentialResolver{resolvers: []runtime.CredentialResolver{
+	chain := &chainCredentialResolver{resolvers: []runtimepkg.CredentialResolver{
 		&vaultCredentialResolver{store: &bootstrapVaultStore{getValueErr: vault.ErrSecretNotFound}},
 		&envCredentialResolver{},
 	}}

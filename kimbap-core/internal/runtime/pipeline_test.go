@@ -162,6 +162,26 @@ func TestRuntimeExecuteSuccess(t *testing.T) {
 	}
 }
 
+func TestRuntimeExecuteRoutesAppleScriptAdapter(t *testing.T) {
+	rt := Runtime{
+		Adapters: map[string]adapters.Adapter{
+			"applescript": mockAdapter{kind: "applescript", result: &adapters.AdapterResult{Output: map[string]any{"ok": true}, HTTPStatus: 200}},
+		},
+	}
+
+	res := rt.Execute(context.Background(), baseRequest(actions.ActionDefinition{
+		Name:    "notes.create",
+		Adapter: actions.AdapterConfig{Type: "applescript", Command: "create_note", TargetApp: "Notes"},
+	}))
+
+	if res.Status != actions.StatusSuccess {
+		t.Fatalf("expected success, got %s", res.Status)
+	}
+	if res.Meta["adapter_type"] != "applescript" {
+		t.Fatalf("expected applescript adapter routing, got %+v", res.Meta["adapter_type"])
+	}
+}
+
 func TestRuntimeExecutePolicyDenial(t *testing.T) {
 	rt := Runtime{
 		PolicyEvaluator: mockPolicyEvaluator{decision: &PolicyDecision{Decision: "deny"}},
