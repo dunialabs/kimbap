@@ -173,8 +173,8 @@ func TestStatusAfterSync(t *testing.T) {
 	if !claude.RulesPresent {
 		t.Fatal("expected claude rules file to exist")
 	}
-	if len(claude.SyncedServices) != 1 || claude.SyncedServices[0] != "github-pr" {
-		t.Fatalf("unexpected claude synced skills: %+v", claude.SyncedServices)
+	if len(claude.SyncedSkills) != 1 || claude.SyncedSkills[0] != "github-pr" {
+		t.Fatalf("unexpected claude synced skills: %+v", claude.SyncedSkills)
 	}
 
 	if generic, ok := byAgent[AgentGeneric]; ok {
@@ -331,26 +331,26 @@ func TestSyncSkillsPrunesRemovedSkills(t *testing.T) {
 func TestSyncResultAndStatusResultJSONFieldNames(t *testing.T) {
 	sr := SyncResult{
 		Agent:       AgentClaudeCode,
-		ServicesDir: "/some/path",
+		SkillsDir: "/some/path",
 		Written:     []string{"svc-a"},
 	}
 	b, err := json.Marshal(sr)
 	if err != nil {
 		t.Fatalf("marshal SyncResult: %v", err)
 	}
-	if !strings.Contains(string(b), `"services_dir"`) {
-		t.Errorf("SyncResult JSON missing services_dir field, got: %s", b)
+	if !strings.Contains(string(b), `"skills_dir"`) {
+		t.Errorf("SyncResult JSON missing skills_dir field, got: %s", b)
 	}
 
 	st := StatusResult{
 		Agent:          AgentOpenCode,
-		SyncedServices: []string{"svc-b"},
+		SyncedSkills: []string{"svc-b"},
 	}
 	b2, err := json.Marshal(st)
 	if err != nil {
 		t.Fatalf("marshal StatusResult: %v", err)
 	}
-	if !strings.Contains(string(b2), `"synced_services"`) {
-		t.Errorf("StatusResult JSON missing synced_services field, got: %s", b2)
+	if !strings.Contains(string(b2), `"synced_skills"`) {
+		t.Errorf("StatusResult JSON missing synced_skills field, got: %s", b2)
 	}
 }

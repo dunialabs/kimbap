@@ -38,8 +38,8 @@ Kimbap is available.
 // GlobalSetupResult holds the outcome of a global setup operation.
 type GlobalSetupResult struct {
 	Agent           AgentKind `json:"agent"`
-	ServiceWritten  bool      `json:"service_written"`
-	ServicePath     string    `json:"service_path"`
+	SkillWritten    bool      `json:"skill_written"`
+	SkillPath       string    `json:"skill_path"`
 	InstructionFile string    `json:"instruction_file,omitempty"`
 	InjectWritten   bool      `json:"inject_written"`
 	Skipped         bool      `json:"skipped"`
@@ -55,10 +55,10 @@ type GlobalSetupOptions struct {
 
 // GlobalTeardownResult holds the outcome of a global teardown operation.
 type GlobalTeardownResult struct {
-	Agent          AgentKind `json:"agent"`
-	ServiceRemoved bool      `json:"service_removed"`
-	InjectRemoved  bool      `json:"inject_removed"`
-	Error          string    `json:"error,omitempty"`
+	Agent         AgentKind `json:"agent"`
+	SkillRemoved  bool      `json:"skill_removed"`
+	InjectRemoved bool      `json:"inject_removed"`
+	Error         string    `json:"error,omitempty"`
 }
 
 // resolveGlobalConfigs builds the global agent config for each known agent,
@@ -151,8 +151,8 @@ func GlobalSetup(metaSkillContent string, opts GlobalSetupOptions) ([]GlobalSetu
 
 func globalSetupOne(cfg GlobalAgentConfig, metaSkillContent string, opts GlobalSetupOptions) GlobalSetupResult {
 	result := GlobalSetupResult{
-		Agent:       cfg.Kind,
-		ServicePath: filepath.Join(cfg.SkillsDir, "kimbap", "SKILL.md"),
+		Agent:     cfg.Kind,
+		SkillPath: filepath.Join(cfg.SkillsDir, "kimbap", "SKILL.md"),
 	}
 
 	skillDir := filepath.Join(cfg.SkillsDir, "kimbap")
@@ -165,7 +165,7 @@ func globalSetupOne(cfg GlobalAgentConfig, metaSkillContent string, opts GlobalS
 
 	if needsWrite {
 		if opts.DryRun {
-			result.ServiceWritten = true
+			result.SkillWritten = true
 		} else {
 			if err := os.MkdirAll(skillDir, 0o755); err != nil {
 				result.Error = fmt.Sprintf("create service directory: %v", err)
@@ -175,12 +175,12 @@ func globalSetupOne(cfg GlobalAgentConfig, metaSkillContent string, opts GlobalS
 				result.Error = fmt.Sprintf("write service file: %v", err)
 				return result
 			}
-			result.ServiceWritten = true
+			result.SkillWritten = true
 		}
 	}
 
 	if cfg.InstructionFile == "" {
-		result.Skipped = !result.ServiceWritten
+		result.Skipped = !result.SkillWritten
 		return result
 	}
 	result.InstructionFile = cfg.InstructionFile
@@ -191,7 +191,7 @@ func globalSetupOne(cfg GlobalAgentConfig, metaSkillContent string, opts GlobalS
 		return result
 	}
 	result.InjectWritten = injected
-	result.Skipped = !result.ServiceWritten && !result.InjectWritten
+	result.Skipped = !result.SkillWritten && !result.InjectWritten
 
 	return result
 }
@@ -224,13 +224,13 @@ func globalTeardownOne(cfg GlobalAgentConfig, dryRun bool) GlobalTeardownResult 
 	skillDir := filepath.Join(cfg.SkillsDir, "kimbap")
 	if _, err := os.Stat(skillDir); err == nil {
 		if dryRun {
-			result.ServiceRemoved = true
+			result.SkillRemoved = true
 		} else {
 			if err := os.RemoveAll(skillDir); err != nil {
 				result.Error = fmt.Sprintf("remove skill dir: %v", err)
 				return result
 			}
-			result.ServiceRemoved = true
+			result.SkillRemoved = true
 		}
 	} else if !os.IsNotExist(err) {
 		result.Error = fmt.Sprintf("stat skill dir: %v", err)
@@ -494,8 +494,8 @@ func GlobalStatus() ([]GlobalStatusResult, error) {
 	for _, kind := range []AgentKind{AgentClaudeCode, AgentOpenCode, AgentCodex, AgentCursor} {
 		cfg := configs[kind]
 		result := GlobalStatusResult{
-			Agent:       kind,
-			ServicesDir: filepath.Join(cfg.SkillsDir, "kimbap"),
+			Agent:     kind,
+			SkillsDir: filepath.Join(cfg.SkillsDir, "kimbap"),
 		}
 
 		if info, statErr := os.Stat(cfg.DetectDir); statErr == nil && info.IsDir() {
@@ -504,7 +504,7 @@ func GlobalStatus() ([]GlobalStatusResult, error) {
 
 		skillPath := filepath.Join(cfg.SkillsDir, "kimbap", "SKILL.md")
 		if _, statErr := os.Stat(skillPath); statErr == nil {
-			result.ServicePresent = true
+			result.SkillPresent = true
 		}
 
 		if cfg.InstructionFile != "" {
@@ -531,8 +531,8 @@ func GlobalStatus() ([]GlobalStatusResult, error) {
 type GlobalStatusResult struct {
 	Agent           AgentKind `json:"agent"`
 	Detected        bool      `json:"detected"`
-	ServicesDir     string    `json:"services_dir"`
-	ServicePresent  bool      `json:"service_present"`
+	SkillsDir       string    `json:"skills_dir"`
+	SkillPresent    bool      `json:"skill_present"`
 	InstructionFile string    `json:"instruction_file,omitempty"`
 	InjectPresent   bool      `json:"inject_present"`
 }

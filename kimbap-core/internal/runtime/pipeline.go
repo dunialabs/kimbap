@@ -330,9 +330,8 @@ func (r *Runtime) execute(ctx context.Context, req actions.ExecutionRequest, tra
 		trace.Record("request_approval", "ok", "requested")
 		approvalRes, approvalErr := r.requestApproval(ctx, req)
 		if approvalErr != nil {
-			mapped := actions.NewExecutionError(actions.ErrApprovalRequired, approvalErr.Error(), 202, false, nil)
-			trace.Record("request_approval", "error", mapped.Error())
-			return r.finalizeWithStatus(ctx, &result, req, actions.StatusApprovalRequired, mapped, nil, 202, startedAt, "require_approval", approvalRequestID)
+			trace.Record("request_approval", "error", approvalErr.Error())
+			return r.finalizeWithError(ctx, &result, req, approvalErr, startedAt, "require_approval", approvalRequestID)
 		}
 		if approvalRes != nil {
 			approvalRequestID = approvalRes.RequestID
@@ -384,6 +383,7 @@ func (r *Runtime) executeFromCredentialsWithState(
 		authType = actions.AuthTypeNone
 	}
 	if authType == actions.AuthTypeNone {
+		req.Credentials = nil
 		trace.Record("resolve_credentials", "skipped", "auth none")
 	} else if req.Credentials != nil {
 		trace.Record("resolve_credentials", "ok", "provided")
@@ -529,7 +529,7 @@ func (r *Runtime) resolveAction(ctx context.Context, req actions.ExecutionReques
 
 func (r *Runtime) requestApproval(ctx context.Context, req actions.ExecutionRequest) (*ApprovalResult, *actions.ExecutionError) {
 	if r.ApprovalManager == nil {
-		return nil, actions.NewExecutionError(actions.ErrApprovalRequired, "approval manager unavailable", 202, false, nil)
+		return nil, actions.NewExecutionError(actions.ErrDownstreamUnavailable, "approval manager unavailable", 500, false, nil)
 	}
 	approvalResult, err := r.ApprovalManager.CreateRequest(ctx, ApprovalRequest{
 		RequestID: req.RequestID,
@@ -543,10 +543,10 @@ func (r *Runtime) requestApproval(ctx context.Context, req actions.ExecutionRequ
 		},
 	})
 	if err != nil {
-		return nil, actions.NewExecutionError(actions.ErrApprovalRequired, err.Error(), 202, false, nil)
+		return nil, actions.NewExecutionError(actions.ErrDownstreamUnavailable, err.Error(), 500, false, nil)
 	}
 	if approvalResult == nil {
-		return nil, actions.NewExecutionError(actions.ErrApprovalRequired, "approval response missing", 202, false, nil)
+		return nil, actions.NewExecutionError(actions.ErrDownstreamUnavailable, "approval response missing", 500, false, nil)
 	}
 	return approvalResult, nil
 }

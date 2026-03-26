@@ -247,7 +247,7 @@ func TestGlobalSetupOneAndTeardownOne(t *testing.T) {
 	if setup.Error != "" {
 		t.Fatalf("global setup failed: %s", setup.Error)
 	}
-	if !setup.ServiceWritten {
+	if !setup.SkillWritten {
 		t.Fatal("expected skill to be written")
 	}
 	if !setup.InjectWritten {
@@ -275,7 +275,7 @@ func TestGlobalSetupOneAndTeardownOne(t *testing.T) {
 	if teardown.Error != "" {
 		t.Fatalf("global teardown failed: %s", teardown.Error)
 	}
-	if !teardown.ServiceRemoved {
+	if !teardown.SkillRemoved {
 		t.Fatal("expected skill directory to be removed")
 	}
 	if !teardown.InjectRemoved {
@@ -311,7 +311,7 @@ func TestGlobalSetupOneSkippedWhenUnchanged(t *testing.T) {
 	if first.Error != "" {
 		t.Fatalf("first setup failed: %s", first.Error)
 	}
-	if !first.ServiceWritten || !first.InjectWritten {
+	if !first.SkillWritten || !first.InjectWritten {
 		t.Fatalf("expected first setup to write skill and inject, got %+v", first)
 	}
 
@@ -322,7 +322,7 @@ func TestGlobalSetupOneSkippedWhenUnchanged(t *testing.T) {
 	if !second.Skipped {
 		t.Fatalf("expected skipped=true on unchanged second setup, got %+v", second)
 	}
-	if second.ServiceWritten {
+	if second.SkillWritten {
 		t.Fatalf("expected skill_written=false on unchanged second setup, got %+v", second)
 	}
 	if second.InjectWritten {
@@ -360,7 +360,7 @@ func TestGlobalTeardownCodexArtifactWithoutDetectDir(t *testing.T) {
 			if r.Error != "" {
 				t.Fatalf("codex teardown reported error: %s", r.Error)
 			}
-			if !r.ServiceRemoved {
+			if !r.SkillRemoved {
 				t.Fatalf("expected codex skill artifact removal, got %+v", r)
 			}
 		}
@@ -475,7 +475,7 @@ func TestGlobalStatus(t *testing.T) {
 	if !claude.Detected {
 		t.Fatal("expected claude-code detected")
 	}
-	if !claude.ServicePresent {
+	if !claude.SkillPresent {
 		t.Fatal("expected claude-code skill present")
 	}
 	if !claude.InjectPresent {
@@ -492,7 +492,7 @@ func TestGlobalStatus(t *testing.T) {
 	if opencode.Detected {
 		t.Fatal("did not expect opencode detected")
 	}
-	if opencode.ServicePresent {
+	if opencode.SkillPresent {
 		t.Fatal("did not expect opencode skill present")
 	}
 }

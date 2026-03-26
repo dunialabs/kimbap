@@ -93,7 +93,7 @@ func DetectAgents(projectDir string) []DetectedAgent {
 
 type SyncResult struct {
 	Agent        AgentKind `json:"agent"`
-	ServicesDir  string    `json:"services_dir"`
+	SkillsDir    string    `json:"skills_dir"`
 	Written      []string  `json:"written"`
 	Skipped      []string  `json:"skipped"`
 	Failed       []string  `json:"failed"`
@@ -143,12 +143,12 @@ func SyncServices(installer ServiceInstaller, rulesContent string, opts SyncOpti
 			skillsDir = filepath.Join(projectDir, selected.cfg.SkillsDir)
 		}
 		result := SyncResult{
-			Agent:       selected.kind,
-			ServicesDir: skillsDir,
-			Written:     make([]string, 0),
-			Skipped:     make([]string, 0),
-			Failed:      make([]string, 0),
-			Errors:      make([]string, 0),
+			Agent:     selected.kind,
+			SkillsDir: skillsDir,
+			Written:   make([]string, 0),
+			Skipped:   make([]string, 0),
+			Failed:    make([]string, 0),
+			Errors:    make([]string, 0),
 		}
 
 		if selected.err != nil {
@@ -235,11 +235,11 @@ func SyncServices(installer ServiceInstaller, rulesContent string, opts SyncOpti
 }
 
 type StatusResult struct {
-	Agent          AgentKind `json:"agent"`
-	Detected       bool      `json:"detected"`
-	ServicesDir    string    `json:"services_dir"`
-	SyncedServices []string  `json:"synced_services"`
-	RulesPresent   bool      `json:"rules_present"`
+	Agent        AgentKind `json:"agent"`
+	Detected     bool      `json:"detected"`
+	SkillsDir    string    `json:"skills_dir"`
+	SyncedSkills []string  `json:"synced_skills"`
+	RulesPresent bool      `json:"rules_present"`
 }
 
 func Status(projectDir string) ([]StatusResult, error) {
@@ -269,11 +269,11 @@ func Status(projectDir string) ([]StatusResult, error) {
 		}
 
 		results = append(results, StatusResult{
-			Agent:          kind,
-			Detected:       detected,
-			ServicesDir:    filepath.Join(baseDir, cfg.SkillsDir),
-			SyncedServices: syncedSkills,
-			RulesPresent:   rulesPresent,
+			Agent:        kind,
+			Detected:     detected,
+			SkillsDir:    filepath.Join(baseDir, cfg.SkillsDir),
+			SyncedSkills: syncedSkills,
+			RulesPresent: rulesPresent,
 		})
 	}
 
