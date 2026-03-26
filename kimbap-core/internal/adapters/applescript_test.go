@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"io"
 	"strings"
 	"testing"
 	"time"
@@ -258,6 +259,7 @@ func TestErrorMappingTable(t *testing.T) {
 		{"User cancelled", "execution error: (-128)", 499},
 		{"Timeout", "execution error: (-1712)", 504},
 		{"Object not found", "execution error: (-1728)", 404},
+		{"NOT_FOUND sentinel", "execution error: [NOT_FOUND] note not found (-2700)", 404},
 		{"Script error", "execution error: (-2700)", 500},
 		{"Unknown error", "some random error", 500},
 	}
@@ -335,11 +337,23 @@ func TestAppleScriptAdapterExecute_NilInput(t *testing.T) {
 	}
 }
 
-func TestAppleScriptAdapterExecute_ConfigurableTimeout(t *testing.T) {
-	mock := NewMockRunner([]byte(`{"ok":true}`), nil, nil)
-	a := NewAppleScriptAdapter(mock)
+type ctxCapturingRunner struct {
+	inner       CommandRunner
+	capturedCtx context.Context
+}
 
-	res, err := a.Execute(context.Background(), AdapterRequest{
+func (r *ctxCapturingRunner) Run(ctx context.Context, name string, args []string, stdin io.Reader) ([]byte, []byte, error) {
+	r.capturedCtx = ctx
+	return r.inner.Run(ctx, name, args, stdin)
+}
+
+func TestAppleScriptAdapterExecute_ConfigurableTimeout(t *testing.T) {
+	capturing := &ctxCapturingRunner{
+		inner: NewMockRunner([]byte(`{"ok":true}`), nil, nil),
+	}
+	a := NewAppleScriptAdapter(capturing)
+
+	_, err := a.Execute(context.Background(), AdapterRequest{
 		Action: actions.ActionDefinition{
 			Adapter: actions.AdapterConfig{
 				Command:   "list-notes",
@@ -349,15 +363,15 @@ func TestAppleScriptAdapterExecute_ConfigurableTimeout(t *testing.T) {
 		},
 		Input: map[string]any{},
 	})
-
 	if err != nil {
 		t.Fatalf("Execute() error = %v, want nil", err)
 	}
-	if res.HTTPStatus != 200 {
-		t.Fatalf("HTTPStatus = %d, want 200", res.HTTPStatus)
+	if capturing.capturedCtx == nil {
+		t.Fatal("context was never passed to runner")
 	}
-	if len(mock.Calls) != 1 {
-		t.Fatalf("mock calls = %d, want 1", len(mock.Calls))
+	_, hasDeadline := capturing.capturedCtx.Deadline()
+	if !hasDeadline {
+		t.Fatal("Execute() with Adapter.Timeout > 0 should set a deadline on the context passed to runner")
 	}
 }
 

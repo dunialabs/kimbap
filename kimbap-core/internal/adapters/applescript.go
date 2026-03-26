@@ -173,6 +173,9 @@ func mapAppleScriptError(stderr []byte, err error) *actions.ExecutionError {
 	case strings.Contains(stderrStr, "-1728"):
 		status = http.StatusNotFound
 		code = actions.ErrActionNotFound
+	case strings.Contains(stderrStr, "[NOT_FOUND]"):
+		status = http.StatusNotFound
+		code = actions.ErrActionNotFound
 	case strings.Contains(stderrStr, "-2700"):
 		status = http.StatusInternalServerError
 	}

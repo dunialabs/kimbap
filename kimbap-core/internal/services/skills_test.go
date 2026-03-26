@@ -345,10 +345,10 @@ func TestLocalInstallerLifecycle(t *testing.T) {
 	}
 
 	if _, err := os.Stat(filepath.Join(dir, "brave-search.yaml")); err != nil {
-		t.Fatalf("expected skill file to exist: %v", err)
+		t.Fatalf("expected service file to exist: %v", err)
 	}
 	if installed.Manifest.Name != "brave-search" {
-		t.Fatalf("unexpected installed skill name: %s", installed.Manifest.Name)
+		t.Fatalf("unexpected installed service name: %s", installed.Manifest.Name)
 	}
 
 	list, err := installer.List()
@@ -356,7 +356,7 @@ func TestLocalInstallerLifecycle(t *testing.T) {
 		t.Fatalf("list failed: %v", err)
 	}
 	if len(list) != 1 {
-		t.Fatalf("expected 1 installed skill, got %d", len(list))
+		t.Fatalf("expected 1 installed service, got %d", len(list))
 	}
 
 	got, err := installer.Get("brave-search")
@@ -529,7 +529,7 @@ func TestVerifyDetectsDigestMismatch(t *testing.T) {
 
 	skillPath := filepath.Join(dir, "brave-search.yaml")
 	if err := os.WriteFile(skillPath, []byte(braveSearchFixture+"\n# tampered\n"), 0o644); err != nil {
-		t.Fatalf("tamper skill file failed: %v", err)
+		t.Fatalf("tamper service file failed: %v", err)
 	}
 
 	result, err := installer.Verify("brave-search")

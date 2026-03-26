@@ -62,8 +62,8 @@ func TestBootstrapRegistersAppleScript(t *testing.T) {
 	}
 }
 
-func TestBuildRuntimeWithSkills(t *testing.T) {
-	skillsDir := t.TempDir()
+func TestBuildRuntimeWithServices(t *testing.T) {
+	servicesDir := t.TempDir()
 	const manifest = `name: test-skill
 version: 1.0.0
 description: test skill
@@ -80,11 +80,11 @@ actions:
       level: low
       mutating: false
 `
-	if err := os.WriteFile(filepath.Join(skillsDir, "test-skill.yaml"), []byte(manifest), 0o644); err != nil {
-		t.Fatalf("write skill manifest: %v", err)
+	if err := os.WriteFile(filepath.Join(servicesDir, "test-skill.yaml"), []byte(manifest), 0o644); err != nil {
+		t.Fatalf("write service manifest: %v", err)
 	}
 
-	cfg := &config.KimbapConfig{Services: config.ServicesConfig{Dir: skillsDir}}
+	cfg := &config.KimbapConfig{Services: config.ServicesConfig{Dir: servicesDir}}
 	rt, err := BuildRuntime(RuntimeDeps{Config: cfg})
 	if err != nil {
 		t.Fatalf("build runtime: %v", err)
@@ -95,15 +95,15 @@ actions:
 		t.Fatalf("list actions: %v", err)
 	}
 	if len(actions) != 1 {
-		t.Fatalf("expected 1 action from loaded skill, got %d", len(actions))
+		t.Fatalf("expected 1 action from loaded service, got %d", len(actions))
 	}
 	if actions[0].Name != "test-skill.ping" {
 		t.Fatalf("unexpected action name: %s", actions[0].Name)
 	}
 }
 
-func TestBuildRuntimeWithSkillsStrictVerifyFailsWithoutLock(t *testing.T) {
-	skillsDir := t.TempDir()
+func TestBuildRuntimeWithServicesStrictVerifyFailsWithoutLock(t *testing.T) {
+	servicesDir := t.TempDir()
 	const manifest = `name: test-skill
 version: 1.0.0
 description: test skill
@@ -120,11 +120,11 @@ actions:
       level: low
       mutating: false
 `
-	if err := os.WriteFile(filepath.Join(skillsDir, "test-skill.yaml"), []byte(manifest), 0o644); err != nil {
-		t.Fatalf("write skill manifest: %v", err)
+	if err := os.WriteFile(filepath.Join(servicesDir, "test-skill.yaml"), []byte(manifest), 0o644); err != nil {
+		t.Fatalf("write service manifest: %v", err)
 	}
 
-	cfg := &config.KimbapConfig{Services: config.ServicesConfig{Dir: skillsDir, Verify: "strict"}}
+	cfg := &config.KimbapConfig{Services: config.ServicesConfig{Dir: servicesDir, Verify: "strict"}}
 	rt, err := BuildRuntime(RuntimeDeps{Config: cfg})
 	if err != nil {
 		t.Fatalf("build runtime: %v", err)
@@ -132,12 +132,12 @@ actions:
 
 	_, listErr := rt.ActionRegistry.List(context.Background(), runtimepkg.ListOptions{})
 	if listErr == nil {
-		t.Fatalf("expected strict verification failure for unlocked skill")
+		t.Fatalf("expected strict verification failure for unlocked service")
 	}
 }
 
-func TestBuildRuntimeWithSkillsStrictVerifyPassesWithLock(t *testing.T) {
-	skillsDir := t.TempDir()
+func TestBuildRuntimeWithServicesStrictVerifyPassesWithLock(t *testing.T) {
+	servicesDir := t.TempDir()
 	manifest, err := services.ParseManifest([]byte(`name: test-skill
 version: 1.0.0
 description: test skill
@@ -158,12 +158,12 @@ actions:
 		t.Fatalf("parse manifest: %v", err)
 	}
 
-	installer := services.NewLocalInstaller(skillsDir)
+	installer := services.NewLocalInstaller(servicesDir)
 	if _, err := installer.Install(manifest, "local"); err != nil {
-		t.Fatalf("install skill with lockfile: %v", err)
+		t.Fatalf("install service with lockfile: %v", err)
 	}
 
-	cfg := &config.KimbapConfig{Services: config.ServicesConfig{Dir: skillsDir, Verify: "strict"}}
+	cfg := &config.KimbapConfig{Services: config.ServicesConfig{Dir: servicesDir, Verify: "strict"}}
 	rt, err := BuildRuntime(RuntimeDeps{Config: cfg})
 	if err != nil {
 		t.Fatalf("build runtime: %v", err)
@@ -178,8 +178,8 @@ actions:
 	}
 }
 
-func TestBuildRuntimeWithRequiredSignatureSkipsUnsignedUnlockedSkill(t *testing.T) {
-	skillsDir := t.TempDir()
+func TestBuildRuntimeWithRequiredSignatureSkipsUnsignedUnlockedService(t *testing.T) {
+	servicesDir := t.TempDir()
 	const manifest = `name: test-skill
 version: 1.0.0
 description: test skill
@@ -196,11 +196,11 @@ actions:
       level: low
       mutating: false
 `
-	if err := os.WriteFile(filepath.Join(skillsDir, "test-skill.yaml"), []byte(manifest), 0o644); err != nil {
-		t.Fatalf("write skill manifest: %v", err)
+	if err := os.WriteFile(filepath.Join(servicesDir, "test-skill.yaml"), []byte(manifest), 0o644); err != nil {
+		t.Fatalf("write service manifest: %v", err)
 	}
 
-	cfg := &config.KimbapConfig{Services: config.ServicesConfig{Dir: skillsDir, Verify: "warn", SignaturePolicy: "required"}}
+	cfg := &config.KimbapConfig{Services: config.ServicesConfig{Dir: servicesDir, Verify: "warn", SignaturePolicy: "required"}}
 	rt, err := BuildRuntime(RuntimeDeps{Config: cfg})
 	if err != nil {
 		t.Fatalf("build runtime: %v", err)
@@ -211,7 +211,7 @@ actions:
 		t.Fatalf("list actions: %v", listErr)
 	}
 	if len(actionsList) != 0 {
-		t.Fatalf("expected unsigned unlocked skill to be skipped under required signature policy, got %d actions", len(actionsList))
+		t.Fatalf("expected unsigned unlocked service to be skipped under required signature policy, got %d actions", len(actionsList))
 	}
 }
 
