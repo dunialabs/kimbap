@@ -88,7 +88,7 @@ if (isNaN(itemIndex) || itemIndex < 1) itemIndex = 1;
 var textItems = slide.defaultTitleItem() ? [slide.defaultTitleItem()].concat(slide.defaultBodyItem() ? [slide.defaultBodyItem()] : []) : slide.textItems();
 if (itemIndex - 1 >= textItems.length) throw new Error("[NOT_FOUND] text item not found");
 
-textItems[itemIndex - 1].objectText().set(input.text);
+textItems[itemIndex - 1].objectText = input.text;
 JSON.stringify({presentation: doc.name(), slideNumber: input.slide_number, itemIndex: itemIndex, updated: true});`,
 		},
 		"keynote-export-pdf": {
@@ -193,9 +193,12 @@ if (!sheet) throw new Error("[NOT_FOUND] sheet not found");
 var table = sheet.tables()[0];
 if (!table) throw new Error("[NOT_FOUND] table not found");
 
-var cells = table.cells.whose({name: input.cell})();
-if (cells.length === 0) throw new Error("[NOT_FOUND] cell not found");
-var value = cells[0].value();
+var value;
+try {
+	value = table.ranges[input.cell].cells[0].value();
+} catch (e) {
+	throw new Error("[NOT_FOUND] cell not found");
+}
 JSON.stringify({spreadsheet: doc.name(), sheet: sheet.name(), cell: input.cell, value: value});`,
 		},
 		"numbers-write-cell": {
@@ -221,9 +224,11 @@ if (!sheet) throw new Error("[NOT_FOUND] sheet not found");
 var table = sheet.tables()[0];
 if (!table) throw new Error("[NOT_FOUND] table not found");
 
-var cell = table.cells.whose({name: input.cell})();
-if (cell.length === 0) throw new Error("[NOT_FOUND] cell not found");
-cell[0].value = input.value;
+try {
+	table.ranges[input.cell].cells[0].value = input.value;
+} catch (e) {
+	throw new Error("[NOT_FOUND] cell not found");
+}
 
 JSON.stringify({spreadsheet: doc.name(), sheet: sheet.name(), cell: input.cell, written: true});`,
 		},

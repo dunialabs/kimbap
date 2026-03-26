@@ -222,7 +222,7 @@ function UsagePageContent() {
             <CardDescription className="text-xs">Last {timeRangeLabel}</CardDescription>
           </CardHeader>
           <CardContent className="flex flex-col gap-1 justify-center">
-            <div className={loading || overviewSummary?.totalRequests24h == null ? "text-sm text-muted-foreground" : "text-2xl font-bold"}>
+            <div className={loading || overviewSummary?.totalRequests24h == null ? (loadError ? "text-sm text-red-600 dark:text-red-400" : "text-sm text-muted-foreground") : "text-2xl font-bold"}>
               {loading
                 ? 'Loading...'
                 : overviewSummary?.totalRequests24h == null
@@ -247,7 +247,7 @@ function UsagePageContent() {
             <CardDescription className="text-xs">Last {timeRangeLabel}</CardDescription>
           </CardHeader>
           <CardContent className="flex flex-col gap-1 justify-center">
-            <div className={loading || overviewSummary?.activeTokens == null ? "text-sm text-muted-foreground" : "text-2xl font-bold"}>
+            <div className={loading || overviewSummary?.activeTokens == null ? (loadError ? "text-sm text-red-600 dark:text-red-400" : "text-sm text-muted-foreground") : "text-2xl font-bold"}>
               {loading
                 ? 'Loading...'
                 : overviewSummary?.activeTokens == null
@@ -266,7 +266,7 @@ function UsagePageContent() {
             <CardDescription className="text-xs">Last {timeRangeLabel}</CardDescription>
           </CardHeader>
           <CardContent className="flex flex-col gap-1 justify-center">
-            <div className={loading || overviewSummary?.toolsInUse == null ? "text-sm text-muted-foreground" : "text-2xl font-bold"}>
+            <div className={loading || overviewSummary?.toolsInUse == null ? (loadError ? "text-sm text-red-600 dark:text-red-400" : "text-sm text-muted-foreground") : "text-2xl font-bold"}>
               {loading
                 ? 'Loading...'
                 : overviewSummary?.toolsInUse == null
@@ -289,7 +289,7 @@ function UsagePageContent() {
             <CardDescription className="text-xs">Last {timeRangeLabel}</CardDescription>
           </CardHeader>
           <CardContent className="flex flex-col gap-1 justify-center">
-            <div className={loading || overviewSummary?.avgResponseTime == null ? "text-sm text-muted-foreground" : "text-2xl font-bold"}>
+            <div className={loading || overviewSummary?.avgResponseTime == null ? (loadError ? "text-sm text-red-600 dark:text-red-400" : "text-sm text-muted-foreground") : "text-2xl font-bold"}>
               {loading
                 ? 'Loading...'
                 : overviewSummary?.avgResponseTime == null
