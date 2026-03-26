@@ -42,7 +42,14 @@ interface Response20004Data {
  */
 export async function handleProtocol20004(body: Request20004): Promise<Response20004Data> {
   try {
-    const { timeRange, serverId, toolId } = body.params;
+    const { serverId, toolId } = body.params;
+    const normalizedTimeRange = Number.isFinite(Math.floor(Number(body.params.timeRange))) && Math.floor(Number(body.params.timeRange)) >= 1
+      ? Math.floor(Number(body.params.timeRange))
+      : 1;
+
+    if (typeof toolId !== 'undefined' && typeof toolId !== 'string') {
+      throw new ApiError(ErrorCode.INVALID_PARAMS, 400, { field: 'toolId' });
+    }
 
     let proxyKey = '';
     try {
@@ -57,8 +64,7 @@ export async function handleProtocol20004(body: Request20004): Promise<Response2
     
     // Calculation time range
     const now = Math.floor(Date.now() / 1000);
-    const timeRangeSeconds = timeRange * 24 * 60 * 60;
-    const startTime = now - timeRangeSeconds;
+    const startTime = now - (normalizedTimeRange * 24 * 60 * 60);
     
     // Build a where condition - only query failed requests
     const whereCondition: any = {
@@ -91,14 +97,11 @@ export async function handleProtocol20004(body: Request20004): Promise<Response2
       ]
     };
     
-    // If serverId is specified, add filter conditions
-    if (serverId > 0) {
-      whereCondition.serverId = serverId.toString();
-    }
-    
-    // If toolId is specified, add filter conditions
+    // toolId takes priority; otherwise filter by numeric serverId
     if (toolId && toolId.trim()) {
       whereCondition.serverId = toolId.trim();
+    } else if (serverId > 0) {
+      whereCondition.serverId = serverId.toString();
     }
     
     // Get all error logs

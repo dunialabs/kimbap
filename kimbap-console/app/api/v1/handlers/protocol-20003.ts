@@ -28,8 +28,11 @@ interface Response20003Data {
  */
 export async function handleProtocol20003(body: Request20003): Promise<Response20003Data> {
   try {
-    const { timeRange, toolIds, granularity = 2 } = body.params;
+    const { toolIds, granularity = 2 } = body.params;
     const rawToken = body.common?.rawToken;
+    const normalizedTimeRange = Number.isFinite(Math.floor(Number(body.params.timeRange))) && Math.floor(Number(body.params.timeRange)) >= 1
+      ? Math.floor(Number(body.params.timeRange))
+      : 1;
     
     // 1. proxyproxyKey（token）
     let proxyKey = '';
@@ -62,7 +65,7 @@ export async function handleProtocol20003(body: Request20003): Promise<Response2
       console.warn('[Protocol-20003] Failed to get servers from proxy-api:', error);
     }
     
-    const overallStartTime = Math.floor(Date.now() / 1000) - (timeRange * 24 * 60 * 60);
+    const overallStartTime = Math.floor(Date.now() / 1000) - (normalizedTimeRange * 24 * 60 * 60);
     const INVALID_SERVER_IDS = new Set(['', 'Unknown', 'unknown', 'null', 'undefined', '0']);
 
     const serverIdFilter: any = { not: '', notIn: ['Unknown', 'unknown', 'null', 'undefined', '0'] };
@@ -80,7 +83,7 @@ export async function handleProtocol20003(body: Request20003): Promise<Response2
       select: { addtime: true, serverId: true },
     });
 
-    const timePoints = generateTimePoints(timeRange, granularity);
+    const timePoints = generateTimePoints(normalizedTimeRange, granularity);
 
     const bucketMap = new Map<string, Record<string, number>>();
     for (const tp of timePoints) {

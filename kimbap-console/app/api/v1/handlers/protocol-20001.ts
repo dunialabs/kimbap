@@ -31,8 +31,10 @@ interface Response20001Data {
  */
 export async function handleProtocol20001(body: Request20001): Promise<Response20001Data> {
   try {
-    const { timeRange } = body.params;
     const rawToken = body.common?.rawToken;
+    const normalizedTimeRange = Number.isFinite(Math.floor(Number(body.params.timeRange))) && Math.floor(Number(body.params.timeRange)) >= 1
+      ? Math.floor(Number(body.params.timeRange))
+      : 1;
     
     // 1. proxyproxyKey（token）
     let proxyKey = '';
@@ -47,10 +49,8 @@ export async function handleProtocol20001(body: Request20001): Promise<Response2
       });
     }
     
-    // 
     const now = Math.floor(Date.now() / 1000);
-    const timeRangeSeconds = timeRange * 24 * 60 * 60; // 
-    const startTime = now - timeRangeSeconds;
+    const startTime = now - (normalizedTimeRange * 24 * 60 * 60);
     
     // 2. proxy-apiserver
     let totalToolsCount = 0;

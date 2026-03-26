@@ -96,26 +96,24 @@ export async function handleProtocol10015(body: Request10015): Promise<Response1
       }
       
       // Try to decrypt the owner's token with the provided master password
+      let decryptedToken: string | null = null;
       try {
-        const decryptedToken = await CryptoUtils.decryptDataFromString(
+        decryptedToken = await CryptoUtils.decryptDataFromString(
           owner.encryptedToken,
           masterPwd
         );
-        
-        // If decryption succeeds and token is not empty, authentication is successful
-        if (!decryptedToken) {
-          throw new ApiError(ErrorCode.INVALID_MASTER_PASSWORD, 401);
-        }
-        
-        masterPwdAccessToken = decryptedToken;
-        user = owner;
-        console.log(`Owner ${owner.userId} logging in with master password`);
-        
       } catch (decryptError) {
-        // Decryption failed, invalid master password
+        if (decryptError instanceof ApiError) throw decryptError;
         console.error('Failed to decrypt owner token:', decryptError);
+      }
+
+      if (!decryptedToken) {
         throw new ApiError(ErrorCode.INVALID_MASTER_PASSWORD, 401);
       }
+
+      masterPwdAccessToken = decryptedToken;
+      user = owner;
+      console.log(`Owner ${owner.userId} logging in with master password`);
     }
     
     // Ensure user is defined before proceeding

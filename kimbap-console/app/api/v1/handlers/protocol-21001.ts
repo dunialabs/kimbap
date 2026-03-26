@@ -34,8 +34,10 @@ interface Response21001Data {
  */
 export async function handleProtocol21001(body: Request21001): Promise<Response21001Data> {
   try {
-    const { timeRange } = body.params;
     const rawToken = body.common?.rawToken;
+    const normalizedTimeRange = Number.isFinite(Math.floor(Number(body.params.timeRange))) && Math.floor(Number(body.params.timeRange)) >= 1
+      ? Math.floor(Number(body.params.timeRange))
+      : 1;
     
     // 1. Get the proxyKey of the current proxy (no token is needed)
     let proxyKey = '';
@@ -50,10 +52,8 @@ export async function handleProtocol21001(body: Request21001): Promise<Response2
       });
     }
     
-    // Calculation time range
     const now = Math.floor(Date.now() / 1000);
-    const timeRangeSeconds = timeRange * 24 * 60 * 60;
-    const startTime = now - timeRangeSeconds;
+    const startTime = now - (normalizedTimeRange * 24 * 60 * 60);
     
     let validUserIds = new Set<string>();
     let expiredTokensCount = 0;

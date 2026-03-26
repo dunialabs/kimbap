@@ -36,7 +36,10 @@ interface Response20005Data {
 export async function handleProtocol20005(body: Request20005): Promise<Response20005Data> {
   try {
     const rawToken = body.common?.rawToken;
-    const { timeRange, serverId, metricType } = body.params;
+    const { serverId, metricType } = body.params;
+    const normalizedTimeRange = Number.isFinite(Math.floor(Number(body.params.timeRange))) && Math.floor(Number(body.params.timeRange)) >= 1
+      ? Math.floor(Number(body.params.timeRange))
+      : 1;
 
     let proxyKey = '';
     let serversMap: Record<string, string> = {};
@@ -56,10 +59,8 @@ export async function handleProtocol20005(body: Request20005): Promise<Response2
       });
     }
     
-    // 
     const now = Math.floor(Date.now() / 1000);
-    const timeRangeSeconds = timeRange * 24 * 60 * 60;
-    const startTime = now - timeRangeSeconds;
+    const startTime = now - (normalizedTimeRange * 24 * 60 * 60);
     
     // where
     const whereCondition: any = {
@@ -208,7 +209,7 @@ export async function handleProtocol20005(body: Request20005): Promise<Response2
     console.log('Protocol 20005 response:', {
       metricType,
       distributionCount: distribution.length,
-      timeRange
+      timeRange: normalizedTimeRange
     });
     
     return response;

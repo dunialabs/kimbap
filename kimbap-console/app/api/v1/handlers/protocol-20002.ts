@@ -44,8 +44,11 @@ interface Response20002Data {
  */
 export async function handleProtocol20002(body: Request20002): Promise<Response20002Data> {
   try {
-    const { timeRange, toolIds, page = 1, pageSize = 50 } = body.params;
+    const { toolIds, page = 1, pageSize = 50 } = body.params;
     const rawToken = body.common?.rawToken;
+    const normalizedTimeRange = Number.isFinite(Math.floor(Number(body.params.timeRange))) && Math.floor(Number(body.params.timeRange)) >= 1
+      ? Math.floor(Number(body.params.timeRange))
+      : 1;
     const safePage = Math.max(1, Math.floor(Number(page) || 1));
     const safePageSize = Math.min(1000, Math.max(1, Math.floor(Number(pageSize) || 50)));
     
@@ -62,10 +65,8 @@ export async function handleProtocol20002(body: Request20002): Promise<Response2
       });
     }
     
-    // 
     const now = Math.floor(Date.now() / 1000);
-    const timeRangeSeconds = timeRange * 24 * 60 * 60;
-    const startTime = now - timeRangeSeconds;
+    const startTime = now - (normalizedTimeRange * 24 * 60 * 60);
     
     // 2. proxy-apiserver
     let serversMap: { [serverId: string]: any } = {};
