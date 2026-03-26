@@ -51,7 +51,7 @@ type VerifyResult struct {
 
 type LocalInstaller struct {
 	skillsDir string
-	mu        sync.Mutex
+	mu        sync.RWMutex
 }
 
 func NewLocalInstaller(skillsDir string) *LocalInstaller {
@@ -220,6 +220,8 @@ func (i *LocalInstaller) List() ([]InstalledService, error) {
 	if i == nil {
 		return nil, fmt.Errorf("installer is nil")
 	}
+	i.mu.RLock()
+	defer i.mu.RUnlock()
 	entries, err := os.ReadDir(i.skillsDir)
 	if err != nil {
 		if os.IsNotExist(err) {
@@ -234,7 +236,7 @@ func (i *LocalInstaller) List() ([]InstalledService, error) {
 			continue
 		}
 		name := strings.TrimSuffix(entry.Name(), ".yaml")
-		installed, err := i.Get(name)
+		installed, err := i.getNoLock(name)
 		if err != nil {
 			return nil, err
 		}
@@ -285,6 +287,12 @@ func (i *LocalInstaller) Get(name string) (*InstalledService, error) {
 	if i == nil {
 		return nil, fmt.Errorf("installer is nil")
 	}
+	i.mu.RLock()
+	defer i.mu.RUnlock()
+	return i.getNoLock(name)
+}
+
+func (i *LocalInstaller) getNoLock(name string) (*InstalledService, error) {
 	if err := ValidateServiceName(name); err != nil {
 		return nil, err
 	}
@@ -327,6 +335,8 @@ func (i *LocalInstaller) Get(name string) (*InstalledService, error) {
 }
 
 func (i *LocalInstaller) Verify(name string) (*VerifyResult, error) {
+	i.mu.RLock()
+	defer i.mu.RUnlock()
 	_, entry, result, err := i.verifyBuildContext(name)
 	if err != nil {
 		return nil, err
@@ -362,6 +372,8 @@ func (i *LocalInstaller) Verify(name string) (*VerifyResult, error) {
 }
 
 func (i *LocalInstaller) VerifyWithKey(name string, pinnedPubKey ed25519.PublicKey) (*VerifyResult, error) {
+	i.mu.RLock()
+	defer i.mu.RUnlock()
 	_, entry, result, err := i.verifyBuildContext(name)
 	if err != nil {
 		return nil, err
