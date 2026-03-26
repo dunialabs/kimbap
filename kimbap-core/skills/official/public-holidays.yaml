@@ -1,0 +1,53 @@
+name: public-holidays
+version: 1.0.0
+description: Nager.Date API for public holiday information by country
+base_url: https://date.nager.at
+auth:
+  type: none
+actions:
+  get-holidays:
+    method: GET
+    path: /api/v3/PublicHolidays/{year}/{country_code}
+    description: Get public holidays for a given year and country
+    args:
+      - name: year
+        type: string
+        required: true
+      - name: country_code
+        type: string
+        required: true
+    request:
+      path_params:
+        year: "{year}"
+        country_code: "{country_code}"
+    response:
+      type: array
+    risk:
+      level: low
+    retry:
+      max_attempts: 3
+      backoff_ms: 200
+      retry_on: [429, 500, 502, 503]
+  get-next-holidays:
+    method: GET
+    path: /api/v3/NextPublicHolidays/{country_code}
+    description: Get upcoming public holidays for a country
+    args:
+      - name: country_code
+        type: string
+        required: true
+    request:
+      path_params:
+        country_code: "{country_code}"
+    response:
+      type: array
+    risk:
+      level: low
+  list-countries:
+    method: GET
+    path: /api/v3/AvailableCountries
+    description: List all available countries with their codes
+    response:
+      type: array
+    risk:
+      level: low

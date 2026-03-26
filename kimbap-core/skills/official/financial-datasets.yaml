@@ -1,0 +1,153 @@
+name: financial-datasets
+version: 1.0.0
+description: Financial Datasets API for stock prices, financial statements, and company news
+base_url: https://api.financialdatasets.ai
+auth:
+  type: bearer
+  credential_ref: financial-datasets.api_key
+actions:
+  get-stock-price:
+    method: GET
+    path: /prices/snapshot/
+    description: Get the latest stock price snapshot for a ticker
+    args:
+      - name: ticker
+        type: string
+        required: true
+    request:
+      query:
+        ticker: "{ticker}"
+    response:
+      type: object
+    risk:
+      level: low
+    retry:
+      max_attempts: 3
+      backoff_ms: 200
+      retry_on: [429, 500, 502, 503]
+  get-income-statements:
+    method: GET
+    path: /financials/income-statements/
+    description: Get income statements for a company
+    args:
+      - name: ticker
+        type: string
+        required: true
+      - name: period
+        type: string
+        required: false
+        default: "annual"
+        enum: [annual, quarterly, ttm]
+      - name: limit
+        type: integer
+        required: false
+        default: 5
+    request:
+      query:
+        ticker: "{ticker}"
+        period: "{period}"
+        limit: "{limit}"
+    response:
+      extract: income_statements
+      type: array
+    risk:
+      level: low
+  get-balance-sheets:
+    method: GET
+    path: /financials/balance-sheets/
+    description: Get balance sheets for a company
+    args:
+      - name: ticker
+        type: string
+        required: true
+      - name: period
+        type: string
+        required: false
+        default: "annual"
+        enum: [annual, quarterly]
+      - name: limit
+        type: integer
+        required: false
+        default: 5
+    request:
+      query:
+        ticker: "{ticker}"
+        period: "{period}"
+        limit: "{limit}"
+    response:
+      extract: balance_sheets
+      type: array
+    risk:
+      level: low
+  get-cash-flow-statements:
+    method: GET
+    path: /financials/cash-flow-statements/
+    description: Get cash flow statements for a company
+    args:
+      - name: ticker
+        type: string
+        required: true
+      - name: period
+        type: string
+        required: false
+        default: "annual"
+        enum: [annual, quarterly]
+      - name: limit
+        type: integer
+        required: false
+        default: 5
+    request:
+      query:
+        ticker: "{ticker}"
+        period: "{period}"
+        limit: "{limit}"
+    response:
+      extract: cash_flow_statements
+      type: array
+    risk:
+      level: low
+  search-company:
+    method: GET
+    path: /companies/search/
+    description: Search for a company by name or keyword
+    args:
+      - name: query
+        type: string
+        required: true
+    request:
+      query:
+        query: "{query}"
+    response:
+      extract: companies
+      type: array
+    risk:
+      level: low
+  get-company-news:
+    method: GET
+    path: /news/
+    description: Get recent news articles for a company
+    args:
+      - name: ticker
+        type: string
+        required: true
+      - name: start_date
+        type: string
+        required: false
+      - name: end_date
+        type: string
+        required: false
+      - name: limit
+        type: integer
+        required: false
+        default: 20
+    request:
+      query:
+        ticker: "{ticker}"
+        start_date: "{start_date}"
+        end_date: "{end_date}"
+        limit: "{limit}"
+    response:
+      extract: news
+      type: array
+    risk:
+      level: low

@@ -1,0 +1,146 @@
+name: airtable
+version: 1.0.0
+description: Airtable API for managing bases, tables, and records
+base_url: https://api.airtable.com
+auth:
+  type: bearer
+  credential_ref: airtable.token
+actions:
+  list-records:
+    method: GET
+    path: /v0/{base_id}/{table_name}
+    description: List records from a table
+    args:
+      - name: base_id
+        type: string
+        required: true
+      - name: table_name
+        type: string
+        required: true
+      - name: max_records
+        type: integer
+        required: false
+        default: 100
+      - name: filter_formula
+        type: string
+        required: false
+      - name: view
+        type: string
+        required: false
+    request:
+      path_params:
+        base_id: "{base_id}"
+        table_name: "{table_name}"
+      query:
+        maxRecords: "{max_records}"
+        filterByFormula: "{filter_formula}"
+        view: "{view}"
+    response:
+      extract: records
+      type: array
+    risk:
+      level: low
+    retry:
+      max_attempts: 3
+      backoff_ms: 200
+      retry_on: [429, 500, 502, 503]
+  get-record:
+    method: GET
+    path: /v0/{base_id}/{table_name}/{record_id}
+    description: Get a specific record by ID
+    args:
+      - name: base_id
+        type: string
+        required: true
+      - name: table_name
+        type: string
+        required: true
+      - name: record_id
+        type: string
+        required: true
+    request:
+      path_params:
+        base_id: "{base_id}"
+        table_name: "{table_name}"
+        record_id: "{record_id}"
+    response:
+      type: object
+    risk:
+      level: low
+  create-record:
+    method: POST
+    path: /v0/{base_id}/{table_name}
+    description: Create a new record in a table
+    args:
+      - name: base_id
+        type: string
+        required: true
+      - name: table_name
+        type: string
+        required: true
+      - name: fields
+        type: object
+        required: true
+    request:
+      path_params:
+        base_id: "{base_id}"
+        table_name: "{table_name}"
+      body:
+        fields: "{fields}"
+    response:
+      type: object
+    risk:
+      level: medium
+  update-record:
+    method: PATCH
+    path: /v0/{base_id}/{table_name}/{record_id}
+    description: Update fields of an existing record
+    args:
+      - name: base_id
+        type: string
+        required: true
+      - name: table_name
+        type: string
+        required: true
+      - name: record_id
+        type: string
+        required: true
+      - name: fields
+        type: object
+        required: true
+    request:
+      path_params:
+        base_id: "{base_id}"
+        table_name: "{table_name}"
+        record_id: "{record_id}"
+      body:
+        fields: "{fields}"
+    response:
+      type: object
+    risk:
+      level: medium
+  delete-record:
+    method: DELETE
+    path: /v0/{base_id}/{table_name}/{record_id}
+    description: Delete a record from a table
+    warnings:
+      - This permanently deletes the record
+    args:
+      - name: base_id
+        type: string
+        required: true
+      - name: table_name
+        type: string
+        required: true
+      - name: record_id
+        type: string
+        required: true
+    request:
+      path_params:
+        base_id: "{base_id}"
+        table_name: "{table_name}"
+        record_id: "{record_id}"
+    response:
+      type: object
+    risk:
+      level: high

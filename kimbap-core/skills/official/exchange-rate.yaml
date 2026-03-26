@@ -1,0 +1,64 @@
+name: exchange-rate
+version: 1.0.0
+description: Frankfurter API for current and historical foreign exchange rates
+base_url: https://api.frankfurter.app
+auth:
+  type: none
+actions:
+  get-latest:
+    method: GET
+    path: /latest
+    description: Get latest exchange rates
+    args:
+      - name: from_currency
+        type: string
+        required: false
+        default: "USD"
+      - name: to_currency
+        type: string
+        required: false
+    request:
+      query:
+        from: "{from_currency}"
+        to: "{to_currency}"
+    response:
+      type: object
+    risk:
+      level: low
+    retry:
+      max_attempts: 3
+      backoff_ms: 200
+      retry_on: [429, 500, 502, 503]
+  get-historical:
+    method: GET
+    path: /{date}
+    description: Get exchange rates for a specific historical date
+    args:
+      - name: date
+        type: string
+        required: true
+      - name: from_currency
+        type: string
+        required: false
+        default: "USD"
+      - name: to_currency
+        type: string
+        required: false
+    request:
+      path_params:
+        date: "{date}"
+      query:
+        from: "{from_currency}"
+        to: "{to_currency}"
+    response:
+      type: object
+    risk:
+      level: low
+  list-currencies:
+    method: GET
+    path: /currencies
+    description: List all available currency codes and names
+    response:
+      type: object
+    risk:
+      level: low

@@ -1,0 +1,156 @@
+name: hubspot
+version: 1.0.0
+description: HubSpot CRM API for contacts, deals, companies, and notes management
+base_url: https://api.hubapi.com
+auth:
+  type: bearer
+  credential_ref: hubspot.token
+actions:
+  list-contacts:
+    method: GET
+    path: /crm/v3/objects/contacts
+    description: List contacts from the CRM
+    args:
+      - name: limit
+        type: integer
+        required: false
+        default: 100
+      - name: after
+        type: string
+        required: false
+    request:
+      query:
+        limit: "{limit}"
+        after: "{after}"
+    response:
+      extract: results
+      type: array
+    risk:
+      level: low
+    retry:
+      max_attempts: 3
+      backoff_ms: 200
+      retry_on: [429, 500, 502, 503]
+  get-contact:
+    method: GET
+    path: /crm/v3/objects/contacts/{contact_id}
+    description: Get a specific contact by ID
+    args:
+      - name: contact_id
+        type: string
+        required: true
+    request:
+      path_params:
+        contact_id: "{contact_id}"
+    response:
+      type: object
+    risk:
+      level: low
+  create-contact:
+    method: POST
+    path: /crm/v3/objects/contacts
+    description: Create a new contact in the CRM
+    args:
+      - name: properties
+        type: object
+        required: true
+    request:
+      body:
+        properties: "{properties}"
+    response:
+      type: object
+    risk:
+      level: medium
+  search-contacts:
+    method: POST
+    path: /crm/v3/objects/contacts/search
+    description: Search contacts using filters
+    args:
+      - name: filter_groups
+        type: array
+        required: true
+      - name: limit
+        type: integer
+        required: false
+        default: 100
+    request:
+      body:
+        filterGroups: "{filter_groups}"
+        limit: "{limit}"
+    response:
+      extract: results
+      type: array
+    risk:
+      level: low
+  list-deals:
+    method: GET
+    path: /crm/v3/objects/deals
+    description: List deals from the CRM
+    args:
+      - name: limit
+        type: integer
+        required: false
+        default: 100
+      - name: after
+        type: string
+        required: false
+    request:
+      query:
+        limit: "{limit}"
+        after: "{after}"
+    response:
+      extract: results
+      type: array
+    risk:
+      level: low
+  create-deal:
+    method: POST
+    path: /crm/v3/objects/deals
+    description: Create a new deal in the CRM
+    args:
+      - name: properties
+        type: object
+        required: true
+    request:
+      body:
+        properties: "{properties}"
+    response:
+      type: object
+    risk:
+      level: medium
+  create-note:
+    method: POST
+    path: /crm/v3/objects/notes
+    description: Create a new note in the CRM
+    args:
+      - name: properties
+        type: object
+        required: true
+    request:
+      body:
+        properties: "{properties}"
+    response:
+      type: object
+    risk:
+      level: medium
+  list-companies:
+    method: GET
+    path: /crm/v3/objects/companies
+    description: List companies from the CRM
+    args:
+      - name: limit
+        type: integer
+        required: false
+        default: 100
+      - name: after
+        type: string
+        required: false
+    request:
+      query:
+        limit: "{limit}"
+        after: "{after}"
+    response:
+      extract: results
+      type: array
+    risk:
+      level: low

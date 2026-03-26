@@ -1,0 +1,88 @@
+name: sendgrid
+version: 1.0.0
+description: SendGrid API for sending transactional emails and retrieving stats
+base_url: https://api.sendgrid.com/v3
+auth:
+  type: bearer
+  credential_ref: sendgrid.api_key
+actions:
+  send-email:
+    method: POST
+    path: /mail/send
+    description: Send a transactional email
+    warnings:
+      - This sends a real email to the specified recipient
+    args:
+      - name: to
+        type: string
+        required: true
+      - name: from_email
+        type: string
+        required: true
+      - name: subject
+        type: string
+        required: true
+      - name: text_body
+        type: string
+        required: true
+    request:
+      body:
+        personalizations:
+          - to:
+              - email: "{to}"
+        from:
+          email: "{from_email}"
+        subject: "{subject}"
+        content:
+          - type: "text/plain"
+            value: "{text_body}"
+    response:
+      type: object
+    risk:
+      level: high
+  get-stats:
+    method: GET
+    path: /stats
+    description: Retrieve email sending statistics
+    args:
+      - name: start_date
+        type: string
+        required: true
+      - name: end_date
+        type: string
+        required: false
+      - name: aggregated_by
+        type: string
+        required: false
+        enum: [day, week, month]
+    request:
+      query:
+        start_date: "{start_date}"
+        end_date: "{end_date}"
+        aggregated_by: "{aggregated_by}"
+    response:
+      type: array
+    risk:
+      level: low
+    retry:
+      max_attempts: 3
+      backoff_ms: 200
+      retry_on: [429, 500, 502, 503]
+  list-templates:
+    method: GET
+    path: /templates
+    description: List dynamic email templates
+    args:
+      - name: page_size
+        type: integer
+        required: false
+        default: 10
+    request:
+      query:
+        generations: "dynamic"
+        page_size: "{page_size}"
+    response:
+      extract: result
+      type: array
+    risk:
+      level: low

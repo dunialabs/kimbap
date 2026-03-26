@@ -1,0 +1,143 @@
+name: open-meteo
+version: 1.0.0
+description: Open-Meteo API for weather forecasts, historical data, and air quality
+base_url: https://api.open-meteo.com
+auth:
+  type: none
+actions:
+  get-forecast:
+    method: GET
+    path: /v1/forecast
+    description: Get weather forecast for a location
+    args:
+      - name: latitude
+        type: number
+        required: true
+      - name: longitude
+        type: number
+        required: true
+      - name: current
+        type: string
+        required: false
+        default: "temperature_2m,wind_speed_10m,weather_code"
+      - name: hourly
+        type: string
+        required: false
+      - name: daily
+        type: string
+        required: false
+      - name: forecast_days
+        type: integer
+        required: false
+        default: 7
+      - name: timezone
+        type: string
+        required: false
+        default: "auto"
+    request:
+      query:
+        latitude: "{latitude}"
+        longitude: "{longitude}"
+        current: "{current}"
+        hourly: "{hourly}"
+        daily: "{daily}"
+        forecast_days: "{forecast_days}"
+        timezone: "{timezone}"
+    response:
+      type: object
+    risk:
+      level: low
+    retry:
+      max_attempts: 3
+      backoff_ms: 200
+      retry_on: [429, 500, 502, 503]
+  get-historical:
+    method: GET
+    path: /v1/archive
+    description: Get historical weather data for a date range
+    args:
+      - name: latitude
+        type: number
+        required: true
+      - name: longitude
+        type: number
+        required: true
+      - name: start_date
+        type: string
+        required: true
+      - name: end_date
+        type: string
+        required: true
+      - name: daily
+        type: string
+        required: false
+      - name: hourly
+        type: string
+        required: false
+    request:
+      query:
+        latitude: "{latitude}"
+        longitude: "{longitude}"
+        start_date: "{start_date}"
+        end_date: "{end_date}"
+        daily: "{daily}"
+        hourly: "{hourly}"
+    response:
+      type: object
+    risk:
+      level: low
+  get-air-quality:
+    method: GET
+    path: /v1/air-quality
+    description: Get air quality data for a location
+    args:
+      - name: latitude
+        type: number
+        required: true
+      - name: longitude
+        type: number
+        required: true
+      - name: hourly
+        type: string
+        required: false
+        default: "pm2_5,pm10,us_aqi"
+      - name: forecast_days
+        type: integer
+        required: false
+        default: 5
+    request:
+      query:
+        latitude: "{latitude}"
+        longitude: "{longitude}"
+        hourly: "{hourly}"
+        forecast_days: "{forecast_days}"
+    response:
+      type: object
+    risk:
+      level: low
+  geocode:
+    method: GET
+    path: /v1/search
+    description: Search for a location by name to get coordinates
+    args:
+      - name: name
+        type: string
+        required: true
+      - name: count
+        type: integer
+        required: false
+        default: 5
+      - name: language
+        type: string
+        required: false
+        default: "en"
+    request:
+      query:
+        name: "{name}"
+        count: "{count}"
+        language: "{language}"
+    response:
+      extract: results
+      type: array
+    risk:
+      level: low

@@ -1,0 +1,87 @@
+name: nominatim
+version: 1.0.0
+description: OpenStreetMap Nominatim API for geocoding, reverse geocoding, and location lookup
+base_url: https://nominatim.openstreetmap.org
+auth:
+  type: none
+actions:
+  search:
+    method: GET
+    path: /search
+    description: Search for a location by name or address
+    args:
+      - name: q
+        type: string
+        required: true
+      - name: limit
+        type: integer
+        required: false
+        default: 5
+      - name: address_details
+        type: integer
+        required: false
+        default: 0
+      - name: country_codes
+        type: string
+        required: false
+    request:
+      query:
+        q: "{q}"
+        format: "json"
+        limit: "{limit}"
+        addressdetails: "{address_details}"
+        countrycodes: "{country_codes}"
+      headers:
+        User-Agent: "Kimbap/1.0 (https://kimbap.sh)"
+        Accept: application/json
+    response:
+      type: array
+    risk:
+      level: low
+    retry:
+      max_attempts: 3
+      backoff_ms: 500
+      retry_on: [429, 500, 502, 503]
+  reverse:
+    method: GET
+    path: /reverse
+    description: Reverse geocode coordinates to an address
+    args:
+      - name: lat
+        type: number
+        required: true
+      - name: lon
+        type: number
+        required: true
+    request:
+      query:
+        lat: "{lat}"
+        lon: "{lon}"
+        format: "json"
+        addressdetails: "1"
+      headers:
+        User-Agent: "Kimbap/1.0 (https://kimbap.sh)"
+        Accept: application/json
+    response:
+      type: object
+    risk:
+      level: low
+  lookup:
+    method: GET
+    path: /lookup
+    description: Look up specific OSM objects by their IDs
+    args:
+      - name: osm_ids
+        type: string
+        required: true
+    request:
+      query:
+        osm_ids: "{osm_ids}"
+        format: "json"
+      headers:
+        User-Agent: "Kimbap/1.0 (https://kimbap.sh)"
+        Accept: application/json
+    response:
+      type: array
+    risk:
+      level: low

@@ -1,0 +1,73 @@
+name: rest-countries
+version: 1.0.0
+description: REST Countries API for country information, search, and regional data
+base_url: https://restcountries.com/v3.1
+auth:
+  type: none
+actions:
+  get-all:
+    method: GET
+    path: /all
+    description: Get information about all countries
+    args:
+      - name: fields
+        type: string
+        required: false
+        default: "name,capital,currencies,languages,population,flags,region"
+    request:
+      query:
+        fields: "{fields}"
+    response:
+      type: array
+    risk:
+      level: low
+    retry:
+      max_attempts: 3
+      backoff_ms: 200
+      retry_on: [429, 500, 502, 503]
+  search-by-name:
+    method: GET
+    path: /name/{name}
+    description: Search countries by name
+    args:
+      - name: name
+        type: string
+        required: true
+    request:
+      path_params:
+        name: "{name}"
+    response:
+      type: array
+    risk:
+      level: low
+  get-by-code:
+    method: GET
+    path: /alpha/{code}
+    description: Get a country by its ISO 3166-1 alpha-2 or alpha-3 code
+    args:
+      - name: code
+        type: string
+        required: true
+    request:
+      path_params:
+        code: "{code}"
+    response:
+      type: array
+    risk:
+      level: low
+  get-by-region:
+    method: GET
+    path: /region/{region}
+    description: Get all countries in a region
+    args:
+      - name: region
+        type: string
+        required: true
+        enum: [africa, americas, asia, europe, oceania]
+    request:
+      path_params:
+        region: "{region}"
+    response:
+      type: array
+    risk:
+      level: low

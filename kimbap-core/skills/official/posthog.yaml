@@ -1,0 +1,131 @@
+name: posthog
+version: 1.0.0
+description: PostHog analytics API for feature flags, persons, and insights management
+base_url: https://app.posthog.com
+auth:
+  type: bearer
+  credential_ref: posthog.api_key
+actions:
+  list-feature-flags:
+    method: GET
+    path: /api/projects/{project_id}/feature_flags/
+    description: List all feature flags for a project
+    args:
+      - name: project_id
+        type: string
+        required: true
+    request:
+      path_params:
+        project_id: "{project_id}"
+    response:
+      extract: results
+      type: array
+    risk:
+      level: low
+    retry:
+      max_attempts: 3
+      backoff_ms: 200
+      retry_on: [429, 500, 502, 503]
+  create-feature-flag:
+    method: POST
+    path: /api/projects/{project_id}/feature_flags/
+    description: Create a new feature flag
+    args:
+      - name: project_id
+        type: string
+        required: true
+      - name: name
+        type: string
+        required: true
+      - name: key
+        type: string
+        required: true
+      - name: active
+        type: boolean
+        required: false
+    request:
+      path_params:
+        project_id: "{project_id}"
+      body:
+        name: "{name}"
+        key: "{key}"
+        active: "{active}"
+    response:
+      type: object
+    risk:
+      level: medium
+  list-persons:
+    method: GET
+    path: /api/projects/{project_id}/persons/
+    description: List persons tracked in a project
+    args:
+      - name: project_id
+        type: string
+        required: true
+      - name: search
+        type: string
+        required: false
+      - name: limit
+        type: integer
+        required: false
+        default: 100
+    request:
+      path_params:
+        project_id: "{project_id}"
+      query:
+        search: "{search}"
+        limit: "{limit}"
+    response:
+      extract: results
+      type: array
+    risk:
+      level: low
+  list-insights:
+    method: GET
+    path: /api/projects/{project_id}/insights/
+    description: List saved insights (charts, funnels, trends) for a project
+    args:
+      - name: project_id
+        type: string
+        required: true
+      - name: limit
+        type: integer
+        required: false
+        default: 20
+    request:
+      path_params:
+        project_id: "{project_id}"
+      query:
+        limit: "{limit}"
+    response:
+      extract: results
+      type: array
+    risk:
+      level: low
+  capture-event:
+    method: POST
+    path: /capture/
+    description: Capture an analytics event
+    auth:
+      type: body
+      body_field: api_key
+      credential_ref: posthog.project_key
+    args:
+      - name: distinct_id
+        type: string
+        required: true
+      - name: event
+        type: string
+        required: true
+      - name: properties
+        type: object
+        required: false
+    request:
+      body:
+        distinct_id: "{distinct_id}"
+        event: "{event}"
+        properties: "{properties}"
+    response:
+      type: object
+    risk:
+      level: low

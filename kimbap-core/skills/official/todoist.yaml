@@ -1,0 +1,177 @@
+name: todoist
+version: 1.0.0
+description: Todoist API for task and project management
+base_url: https://api.todoist.com/rest/v2
+auth:
+  type: bearer
+  credential_ref: todoist.token
+actions:
+  list-tasks:
+    method: GET
+    path: /tasks
+    description: List active tasks with optional filtering
+    args:
+      - name: filter
+        type: string
+        required: false
+      - name: project_id
+        type: string
+        required: false
+    request:
+      query:
+        filter: "{filter}"
+        project_id: "{project_id}"
+    response:
+      type: array
+    risk:
+      level: low
+    retry:
+      max_attempts: 3
+      backoff_ms: 200
+      retry_on: [429, 500, 502, 503]
+  get-task:
+    method: GET
+    path: /tasks/{task_id}
+    description: Get a specific task by ID
+    args:
+      - name: task_id
+        type: string
+        required: true
+    request:
+      path_params:
+        task_id: "{task_id}"
+    response:
+      type: object
+    risk:
+      level: low
+  create-task:
+    method: POST
+    path: /tasks
+    description: Create a new task
+    args:
+      - name: content
+        type: string
+        required: true
+      - name: description
+        type: string
+        required: false
+      - name: project_id
+        type: string
+        required: false
+      - name: due_string
+        type: string
+        required: false
+      - name: priority
+        type: integer
+        required: false
+        default: 1
+      - name: labels
+        type: array
+        required: false
+    request:
+      body:
+        content: "{content}"
+        description: "{description}"
+        project_id: "{project_id}"
+        due_string: "{due_string}"
+        priority: "{priority}"
+        labels: "{labels}"
+    response:
+      type: object
+    risk:
+      level: medium
+  update-task:
+    method: POST
+    path: /tasks/{task_id}
+    description: Update an existing task
+    args:
+      - name: task_id
+        type: string
+        required: true
+      - name: content
+        type: string
+        required: false
+      - name: description
+        type: string
+        required: false
+      - name: due_string
+        type: string
+        required: false
+      - name: priority
+        type: integer
+        required: false
+    request:
+      path_params:
+        task_id: "{task_id}"
+      body:
+        content: "{content}"
+        description: "{description}"
+        due_string: "{due_string}"
+        priority: "{priority}"
+    response:
+      type: object
+    risk:
+      level: medium
+  close-task:
+    method: POST
+    path: /tasks/{task_id}/close
+    description: Mark a task as completed
+    args:
+      - name: task_id
+        type: string
+        required: true
+    request:
+      path_params:
+        task_id: "{task_id}"
+    response:
+      type: object
+    risk:
+      level: medium
+  delete-task:
+    method: DELETE
+    path: /tasks/{task_id}
+    description: Permanently delete a task
+    warnings:
+      - This action permanently deletes the task and cannot be undone
+    args:
+      - name: task_id
+        type: string
+        required: true
+    request:
+      path_params:
+        task_id: "{task_id}"
+    response:
+      type: object
+    risk:
+      level: high
+  list-projects:
+    method: GET
+    path: /projects
+    description: List all projects
+    response:
+      type: array
+    risk:
+      level: low
+  create-project:
+    method: POST
+    path: /projects
+    description: Create a new project
+    args:
+      - name: name
+        type: string
+        required: true
+      - name: color
+        type: string
+        required: false
+      - name: favorite
+        type: boolean
+        required: false
+    request:
+      body:
+        name: "{name}"
+        color: "{color}"
+        favorite: "{favorite}"
+    response:
+      type: object
+    risk:
+      level: medium

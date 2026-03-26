@@ -1,0 +1,91 @@
+name: pinecone
+version: 1.0.0
+description: Pinecone API for vector database index management
+base_url: https://api.pinecone.io
+auth:
+  type: header
+  header_name: Api-Key
+  credential_ref: pinecone.api_key
+actions:
+  list-indexes:
+    method: GET
+    path: /indexes
+    description: List all indexes in the project
+    response:
+      extract: indexes
+      type: array
+    risk:
+      level: low
+    retry:
+      max_attempts: 3
+      backoff_ms: 200
+      retry_on: [429, 500, 502, 503]
+  create-index:
+    method: POST
+    path: /indexes
+    description: Create a new vector index
+    args:
+      - name: name
+        type: string
+        required: true
+      - name: dimension
+        type: integer
+        required: true
+      - name: metric
+        type: string
+        required: true
+        enum: [cosine, euclidean, dotproduct]
+      - name: spec
+        type: object
+        required: true
+    request:
+      body:
+        name: "{name}"
+        dimension: "{dimension}"
+        metric: "{metric}"
+        spec: "{spec}"
+    response:
+      type: object
+    risk:
+      level: high
+  get-index:
+    method: GET
+    path: /indexes/{index_name}
+    description: Get details of a specific index
+    args:
+      - name: index_name
+        type: string
+        required: true
+    request:
+      path_params:
+        index_name: "{index_name}"
+    response:
+      type: object
+    risk:
+      level: low
+  delete-index:
+    method: DELETE
+    path: /indexes/{index_name}
+    description: Delete an index and all its data
+    warnings:
+      - This permanently deletes the index and all stored vectors
+    args:
+      - name: index_name
+        type: string
+        required: true
+    request:
+      path_params:
+        index_name: "{index_name}"
+    response:
+      type: object
+    risk:
+      level: critical
+  list-collections:
+    method: GET
+    path: /collections
+    description: List all collections in the project
+    response:
+      extract: collections
+      type: array
+    risk:
+      level: low

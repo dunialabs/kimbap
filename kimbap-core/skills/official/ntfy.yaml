@@ -1,0 +1,41 @@
+name: ntfy
+version: 1.0.0
+description: ntfy push notification service for sending notifications to devices
+base_url: https://ntfy.sh
+auth:
+  type: none
+actions:
+  publish:
+    method: POST
+    path: /{topic}
+    description: Send a push notification to a topic
+    args:
+      - name: topic
+        type: string
+        required: true
+      - name: message
+        type: string
+        required: true
+      - name: title
+        type: string
+        required: false
+      - name: priority
+        type: integer
+        required: false
+        default: 3
+      - name: tags
+        type: array
+        required: false
+    request:
+      path_params:
+        topic: "{topic}"
+      body:
+        topic: "{topic}"
+        message: "{message}"
+        title: "{title}"
+        priority: "{priority}"
+        tags: "{tags}"
+    response:
+      type: object
+    risk:
+      level: medium

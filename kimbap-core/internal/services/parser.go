@@ -23,6 +23,11 @@ var (
 		"list-calendars": {}, "list-events": {}, "get-event": {}, "create-event": {}, "search-events": {},
 		"list-lists": {}, "list-reminders": {}, "get-reminder": {}, "create-reminder": {}, "complete-reminder": {},
 		"list-mailboxes": {}, "list-messages": {}, "get-message": {}, "send-message": {}, "search-messages": {},
+		"finder-list-items": {}, "finder-get-info": {}, "finder-create-folder": {}, "finder-move-item": {},
+		"finder-copy-item": {}, "finder-delete-item": {}, "finder-open-item": {},
+		"safari-get-url": {}, "safari-open-url": {}, "safari-list-tabs": {}, "safari-close-tab": {}, "safari-get-source": {},
+		"messages-send": {}, "messages-list-chats": {},
+		"contacts-list": {}, "contacts-search": {}, "contacts-get": {}, "contacts-create": {},
 	}
 	validArgTypeSet      = map[string]struct{}{"string": {}, "integer": {}, "number": {}, "boolean": {}, "array": {}, "object": {}}
 	validPageTypeSet     = map[string]struct{}{"cursor": {}, "offset": {}}
@@ -121,9 +126,10 @@ func ValidateManifest(m *ServiceManifest) []ValidationError {
 		}
 	}
 
-	if adapterType == "http" {
+	switch adapterType {
+	case "http":
 		errs = append(errs, validateHTTPManifest(m)...)
-	} else if adapterType == "applescript" {
+	case "applescript":
 		errs = append(errs, validateAppleScriptManifest(m)...)
 	}
 

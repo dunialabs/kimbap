@@ -1,0 +1,50 @@
+name: hacker-news
+version: 1.0.0
+description: Hacker News API for top stories, new stories, and item details
+base_url: https://hacker-news.firebaseio.com/v0
+auth:
+  type: none
+actions:
+  get-top-stories:
+    method: GET
+    path: /topstories.json
+    description: Get IDs of the current top stories
+    response:
+      type: array
+    risk:
+      level: low
+    retry:
+      max_attempts: 3
+      backoff_ms: 200
+      retry_on: [429, 500, 502, 503]
+  get-new-stories:
+    method: GET
+    path: /newstories.json
+    description: Get IDs of the newest stories
+    response:
+      type: array
+    risk:
+      level: low
+  get-best-stories:
+    method: GET
+    path: /beststories.json
+    description: Get IDs of the best stories
+    response:
+      type: array
+    risk:
+      level: low
+  get-item:
+    method: GET
+    path: /item/{id}.json
+    description: Get details of a specific item (story, comment, job, poll)
+    args:
+      - name: id
+        type: integer
+        required: true
+    request:
+      path_params:
+        id: "{id}"
+    response:
+      type: object
+    risk:
+      level: low

@@ -1,0 +1,133 @@
+name: resend
+version: 1.0.0
+description: Resend API for sending emails and managing contacts
+base_url: https://api.resend.com
+auth:
+  type: bearer
+  credential_ref: resend.api_key
+actions:
+  send-email:
+    method: POST
+    path: /emails
+    description: Send an email via Resend
+    warnings:
+      - This sends a real email to the specified recipients
+    args:
+      - name: from_email
+        type: string
+        required: true
+      - name: to
+        type: array
+        required: true
+      - name: subject
+        type: string
+        required: true
+      - name: text_body
+        type: string
+        required: true
+      - name: html_body
+        type: string
+        required: false
+      - name: reply_to
+        type: string
+        required: false
+    request:
+      body:
+        from: "{from_email}"
+        to: "{to}"
+        subject: "{subject}"
+        text: "{text_body}"
+        html: "{html_body}"
+        reply_to: "{reply_to}"
+    response:
+      type: object
+    risk:
+      level: high
+  get-email:
+    method: GET
+    path: /emails/{email_id}
+    description: Get details of a sent email
+    args:
+      - name: email_id
+        type: string
+        required: true
+    request:
+      path_params:
+        email_id: "{email_id}"
+    response:
+      type: object
+    risk:
+      level: low
+  list-emails:
+    method: GET
+    path: /emails
+    description: List sent emails
+    response:
+      extract: data
+      type: array
+    risk:
+      level: low
+    retry:
+      max_attempts: 3
+      backoff_ms: 200
+      retry_on: [429, 500, 502, 503]
+  create-contact:
+    method: POST
+    path: /contacts
+    description: Add a contact to an audience
+    args:
+      - name: email
+        type: string
+        required: true
+      - name: audience_id
+        type: string
+        required: true
+      - name: first_name
+        type: string
+        required: false
+      - name: last_name
+        type: string
+        required: false
+    request:
+      body:
+        email: "{email}"
+        audience_id: "{audience_id}"
+        first_name: "{first_name}"
+        last_name: "{last_name}"
+    response:
+      type: object
+    risk:
+      level: medium
+  list-contacts:
+    method: GET
+    path: /contacts
+    description: List contacts in an audience
+    args:
+      - name: audience_id
+        type: string
+        required: true
+    request:
+      query:
+        audience_id: "{audience_id}"
+    response:
+      extract: data
+      type: array
+    risk:
+      level: low
+  remove-contact:
+    method: DELETE
+    path: /contacts/{contact_id}
+    description: Remove a contact
+    warnings:
+      - This permanently removes the contact
+    args:
+      - name: contact_id
+        type: string
+        required: true
+    request:
+      path_params:
+        contact_id: "{contact_id}"
+    response:
+      type: object
+    risk:
+      level: high
