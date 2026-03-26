@@ -132,17 +132,19 @@ func (i *LocalInstaller) Remove(name string) error {
 	if err != nil {
 		return fmt.Errorf("read lockfile: %w", err)
 	}
-	if _, ok := lf.Services[name]; ok {
-		delete(lf.Services, name)
-		if err := i.writeLockfile(lf); err != nil {
-			return fmt.Errorf("write lockfile: %w", err)
-		}
-	}
+	_, hasLockEntry := lf.Services[name]
 
 	p := filepath.Join(i.skillsDir, name+".yaml")
 	if err := os.Remove(p); err != nil {
 		if !os.IsNotExist(err) {
 			return fmt.Errorf("remove manifest file: %w", err)
+		}
+	}
+
+	if hasLockEntry {
+		delete(lf.Services, name)
+		if err := i.writeLockfile(lf); err != nil {
+			return fmt.Errorf("write lockfile: %w", err)
 		}
 	}
 	return nil
@@ -222,100 +224,87 @@ func (i *LocalInstaller) Get(name string) (*InstalledService, error) {
 }
 
 func (i *LocalInstaller) Verify(name string) (*VerifyResult, error) {
-	if i == nil {
-		return nil, fmt.Errorf("installer is nil")
-	}
-	if err := ValidateServiceName(name); err != nil {
+	_, entry, result, err := i.verifyBuildContext(name)
+	if err != nil {
 		return nil, err
 	}
 
-	manifestPath := filepath.Join(i.skillsDir, name+".yaml")
-	data, err := os.ReadFile(manifestPath)
-	if err != nil {
-		return nil, fmt.Errorf("read installed service manifest: %w", err)
-	}
-	actualDigest := computeDigest(data)
-
-	lf, err := i.readLockfile()
-	if err != nil {
-		return nil, fmt.Errorf("read lockfile: %w", err)
+	if !result.Locked {
+		return &result, nil
 	}
 
-	entry, ok := lf.Services[name]
-	if !ok {
-		return &VerifyResult{
-			Name:           name,
-			Verified:       false,
-			ActualDigest:   actualDigest,
-			Locked:         false,
-			SignatureValid: false,
-			Signed:         false,
-		}, nil
-	}
-
-	verified := strings.TrimSpace(entry.Digest) != "" && entry.Digest == actualDigest
-	result := &VerifyResult{
-		Name:           name,
-		Verified:       verified,
-		ExpectedDigest: entry.Digest,
-		ActualDigest:   actualDigest,
-		Locked:         true,
-	}
-
-	result.Signed = strings.TrimSpace(entry.Signature) != ""
-	if result.Signed && strings.TrimSpace(lf.PublicKey) != "" {
+	result.Verified = strings.TrimSpace(entry.Digest) != "" && entry.Digest == result.ActualDigest
+	if result.Signed {
+		lf, readErr := i.readLockfile()
+		if readErr != nil {
+			return nil, fmt.Errorf("read lockfile: %w", readErr)
+		}
+		if strings.TrimSpace(lf.PublicKey) == "" {
+			return &result, nil
+		}
 		pubKeyBytes, decErr := hex.DecodeString(lf.PublicKey)
-		if decErr == nil && len(pubKeyBytes) == ed25519.PublicKeySize {
-			result.SignatureValid = verifySignature(ed25519.PublicKey(pubKeyBytes), entry.Digest, entry.Signature)
+		if decErr == nil {
+			result.SignatureValid, _ = verifySignature(ed25519.PublicKey(pubKeyBytes), entry.Digest, entry.Signature)
 		}
 	}
 
-	return result, nil
+	return &result, nil
 }
 
 func (i *LocalInstaller) VerifyWithKey(name string, pinnedPubKey ed25519.PublicKey) (*VerifyResult, error) {
-	if i == nil {
-		return nil, fmt.Errorf("installer is nil")
-	}
-	if err := ValidateServiceName(name); err != nil {
+	_, entry, result, err := i.verifyBuildContext(name)
+	if err != nil {
 		return nil, err
+	}
+	if !result.Locked {
+		return &result, nil
+	}
+
+	result.Verified = strings.TrimSpace(entry.Digest) != "" && entry.Digest == result.ActualDigest
+
+	if result.Signed {
+		result.SignatureValid, _ = verifySignature(pinnedPubKey, entry.Digest, entry.Signature)
+	}
+
+	return &result, nil
+}
+
+func (i *LocalInstaller) verifyBuildContext(name string) (digest string, entry LockEntry, result VerifyResult, err error) {
+	if i == nil {
+		err = fmt.Errorf("installer is nil")
+		return
+	}
+	if validateErr := ValidateServiceName(name); validateErr != nil {
+		err = validateErr
+		return
 	}
 
 	manifestPath := filepath.Join(i.skillsDir, name+".yaml")
-	data, err := os.ReadFile(manifestPath)
-	if err != nil {
-		return nil, fmt.Errorf("read installed service manifest: %w", err)
+	data, readErr := os.ReadFile(manifestPath)
+	if readErr != nil {
+		err = fmt.Errorf("read installed service manifest: %w", readErr)
+		return
 	}
-	actualDigest := computeDigest(data)
+	digest = computeDigest(data)
 
-	lf, err := i.readLockfile()
-	if err != nil {
-		return nil, fmt.Errorf("read lockfile: %w", err)
-	}
-
-	entry, ok := lf.Services[name]
-	if !ok {
-		return &VerifyResult{
-			Name:         name,
-			ActualDigest: actualDigest,
-		}, nil
+	lf, lockErr := i.readLockfile()
+	if lockErr != nil {
+		err = fmt.Errorf("read lockfile: %w", lockErr)
+		return
 	}
 
-	verified := strings.TrimSpace(entry.Digest) != "" && entry.Digest == actualDigest
-	result := &VerifyResult{
-		Name:           name,
-		Verified:       verified,
-		ExpectedDigest: entry.Digest,
-		ActualDigest:   actualDigest,
-		Locked:         true,
-		Signed:         strings.TrimSpace(entry.Signature) != "",
+	result = VerifyResult{
+		Name:         name,
+		ActualDigest: digest,
 	}
 
-	if result.Signed {
-		result.SignatureValid = verifySignature(pinnedPubKey, entry.Digest, entry.Signature)
+	entry, result.Locked = lf.Services[name]
+	if result.Locked {
+		result.ExpectedDigest = entry.Digest
+		result.Signed = strings.TrimSpace(entry.Signature) != ""
 	}
 
-	return result, nil
+	return
 }
 
 func (i *LocalInstaller) Sign(privateKey ed25519.PrivateKey) error {
@@ -382,10 +371,15 @@ func signDigest(privateKey ed25519.PrivateKey, digest string) string {
 	return hex.EncodeToString(sig)
 }
 
-func verifySignature(publicKey ed25519.PublicKey, digest, signature string) bool {
+func verifySignature(publicKey ed25519.PublicKey, digest, signature string) (bool, error) {
+	if len(publicKey) != ed25519.PublicKeySize {
+		return false, fmt.Errorf("invalid public key length: expected %d, got %d", ed25519.PublicKeySize, len(publicKey))
+	}
+
 	sigBytes, err := hex.DecodeString(signature)
 	if err != nil {
-		return false
+		return false, nil
 	}
-	return ed25519.Verify(publicKey, []byte(digest), sigBytes)
+
+	return ed25519.Verify(publicKey, []byte(digest), sigBytes), nil
 }

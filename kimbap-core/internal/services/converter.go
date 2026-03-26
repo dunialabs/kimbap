@@ -171,7 +171,9 @@ func buildInputSchema(args []ActionArg, pathParams map[string]string) *actions.S
 	}
 
 	for name := range pathParams {
-		properties[name] = &actions.Schema{Type: "string"}
+		if _, exists := properties[name]; !exists {
+			properties[name] = &actions.Schema{Type: "string"}
+		}
 		if _, ok := requiredSet[name]; !ok {
 			required = append(required, name)
 			requiredSet[name] = struct{}{}

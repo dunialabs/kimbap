@@ -588,7 +588,6 @@ func responseFromOperation(op map[string]any, resolver *openAPIRefResolver) Resp
 
 func riskFromMethod(method string) RiskSpec {
 	upper := strings.ToUpper(strings.TrimSpace(method))
-	mutating := !(upper == "GET" || upper == "HEAD" || upper == "OPTIONS")
 
 	level := "medium"
 	switch upper {
@@ -600,7 +599,7 @@ func riskFromMethod(method string) RiskSpec {
 		level = "medium"
 	}
 
-	return RiskSpec{Level: level, Mutating: mutating}
+	return RiskSpec{Level: level}
 }
 
 func normalizeSkillName(title string) string {
@@ -926,9 +925,7 @@ func resolveCompositeSchema(schema map[string]any, resolver *openAPIRefResolver)
 				requiredSet[key] = struct{}{}
 			}
 		}
-		for key, value := range mapAt(resolved, "properties") {
-			properties[key] = value
-		}
+		maps.Copy(properties, mapAt(resolved, "properties"))
 
 		for _, item := range allOf {
 			sub, ok := item.(map[string]any)
@@ -1010,9 +1007,7 @@ func resolveCompositeSchema(schema map[string]any, resolver *openAPIRefResolver)
 		primary := resolveCompositeSchema(first, resolver)
 		merged := cloneAnyMap(resolved)
 		delete(merged, "required")
-		for key, value := range primary {
-			merged[key] = value
-		}
+		maps.Copy(merged, primary)
 		delete(merged, "oneOf")
 		delete(merged, "anyOf")
 		return merged

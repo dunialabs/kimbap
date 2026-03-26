@@ -125,14 +125,6 @@ func ValidateManifest(m *ServiceManifest) []ValidationError {
 		if action.Auth != nil {
 			errs = append(errs, validateAuth(*action.Auth, prefix+".auth")...)
 		}
-	}
-
-	if len(m.Actions) == 0 {
-		errs = append(errs, ValidationError{Field: "actions", Message: "must define at least one action"})
-	}
-
-	for actionKey, action := range m.Actions {
-		prefix := "actions." + actionKey
 
 		trimmedPath := strings.TrimSpace(action.Path)
 		if strings.Contains(trimmedPath, "://") {
@@ -167,6 +159,10 @@ func ValidateManifest(m *ServiceManifest) []ValidationError {
 				})
 			}
 		}
+	}
+
+	if len(m.Actions) == 0 {
+		errs = append(errs, ValidationError{Field: "actions", Message: "must define at least one action"})
 	}
 
 	return errs
@@ -225,23 +221,26 @@ func extractTemplateRefs(s string) []string {
 func extractBodyTemplateRefs(body map[string]any) []string {
 	var refs []string
 	for _, v := range body {
-		switch val := v.(type) {
-		case string:
-			refs = append(refs, extractTemplateRefs(val)...)
-		case map[string]any:
-			refs = append(refs, extractBodyTemplateRefs(val)...)
-		case []any:
-			for _, item := range val {
-				if s, ok := item.(string); ok {
-					refs = append(refs, extractTemplateRefs(s)...)
-				}
-				if m, ok := item.(map[string]any); ok {
-					refs = append(refs, extractBodyTemplateRefs(m)...)
-				}
-			}
-		}
+		refs = append(refs, extractBodyItemRefs(v)...)
 	}
 	return refs
+}
+
+func extractBodyItemRefs(v any) []string {
+	switch val := v.(type) {
+	case string:
+		return extractTemplateRefs(val)
+	case map[string]any:
+		return extractBodyTemplateRefs(val)
+	case []any:
+		var refs []string
+		for _, item := range val {
+			refs = append(refs, extractBodyItemRefs(item)...)
+		}
+		return refs
+	default:
+		return nil
+	}
 }
 
 func validationErrorsToError(prefix string, errs []ValidationError) error {

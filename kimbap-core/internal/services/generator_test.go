@@ -106,7 +106,7 @@ paths:
 	if !ok {
 		t.Fatalf("expected generated action key for POST operation")
 	}
-	if postAction.Risk.Level != "medium" || !postAction.Risk.Mutating {
+	if postAction.Risk.Level != "medium" {
 		t.Fatalf("unexpected POST risk: %+v", postAction.Risk)
 	}
 	if postAction.Request.Body["name"] != "{name}" {

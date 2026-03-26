@@ -825,7 +825,7 @@ func TestGenerateSkillMDCriticalRisk(t *testing.T) {
 			"destroy": {
 				Method: "DELETE",
 				Path:   "/items",
-				Risk:   RiskSpec{Level: "critical", Mutating: true},
+				Risk:   RiskSpec{Level: "critical"},
 			},
 		},
 	}
@@ -853,7 +853,7 @@ func TestToActionDefinitionsCriticalRiskRequiresApprovalHint(t *testing.T) {
 			"destroy": {
 				Method: "DELETE",
 				Path:   "/items",
-				Risk:   RiskSpec{Level: "critical", Mutating: true},
+				Risk:   RiskSpec{Level: "critical"},
 			},
 		},
 	}
