@@ -22,7 +22,7 @@ func NewOAuthMetadataController(oauthService *service.OAuthService) *OAuthMetada
 }
 
 func (c *OAuthMetadataController) AuthorizationServerMetadata(w http.ResponseWriter, r *http.Request) {
-	issuer := publicURL(r)
+	issuer := publicURL()
 	if issuer == "" {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusInternalServerError)
@@ -38,7 +38,7 @@ func (c *OAuthMetadataController) AuthorizationServerMetadata(w http.ResponseWri
 }
 
 func (c *OAuthMetadataController) ProtectedResourceMetadata(w http.ResponseWriter, r *http.Request) {
-	resource := publicURL(r)
+	resource := publicURL()
 	if resource == "" {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusInternalServerError)
@@ -61,8 +61,7 @@ func (c *OAuthMetadataController) HandleOptions(w http.ResponseWriter, r *http.R
 	w.WriteHeader(http.StatusOK)
 }
 
-func publicURL(r *http.Request) string {
-	_ = r
+func publicURL() string {
 	raw := strings.TrimSpace(config.Env("KIMBAP_PUBLIC_BASE_URL"))
 	if raw != "" {
 		parsed, err := url.Parse(raw)
