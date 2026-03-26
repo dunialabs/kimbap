@@ -60,6 +60,10 @@ export async function POST(request: NextRequest) {
       throw new ExternalApiError(E1001, 'Missing required field: tokenIds');
     }
 
+    if (!body || typeof body !== 'object' || Array.isArray(body)) {
+      throw new ExternalApiError(E1001, 'Invalid request body');
+    }
+
     const { tokenIds, permissions, permissionsMode, namespace, tags, tagsMode } = body;
 
     const MAX_BATCH_SIZE = 50;
@@ -97,6 +101,19 @@ export async function POST(request: NextRequest) {
 
     if (permissions !== undefined && !Array.isArray(permissions)) {
       throw new ExternalApiError(E1003, 'Invalid field value: permissions must be an array');
+    }
+    if (permissions) {
+      for (const perm of permissions) {
+        if (!perm || typeof perm !== 'object' || typeof perm.toolId !== 'string' || !perm.toolId.trim()) {
+          throw new ExternalApiError(E1003, 'Invalid field value: permissions[] items must have a non-empty toolId string');
+        }
+        if (perm.functions !== undefined && !Array.isArray(perm.functions)) {
+          throw new ExternalApiError(E1003, 'Invalid field value: permissions[].functions must be an array');
+        }
+        if (perm.resources !== undefined && !Array.isArray(perm.resources)) {
+          throw new ExternalApiError(E1003, 'Invalid field value: permissions[].resources must be an array');
+        }
+      }
     }
 
     if (tagsMode && tagsMode !== 'clear' && tags === undefined) {

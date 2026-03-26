@@ -35,6 +35,10 @@ export async function POST(request: NextRequest) {
       throw new ExternalApiError(E1001, 'Missing required field: proxyId');
     }
 
+    if (!body || typeof body !== 'object' || Array.isArray(body)) {
+      throw new ExternalApiError(E1001, 'Invalid request body');
+    }
+
     // Validate required parameters
     const { proxyId, proxyName } = body;
 

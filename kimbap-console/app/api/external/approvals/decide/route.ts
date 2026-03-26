@@ -24,6 +24,10 @@ export async function POST(request: NextRequest) {
       throw new ExternalApiError(E1001, 'Invalid request body');
     }
 
+    if (!body || typeof body !== 'object' || Array.isArray(body)) {
+      throw new ExternalApiError(E1001, 'Invalid request body');
+    }
+
     if (!body.id || typeof body.id !== 'string' || !body.id.trim()) {
       throw new ExternalApiError(E1001, 'Missing required field: id');
     }

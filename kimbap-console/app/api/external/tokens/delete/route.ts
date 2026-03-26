@@ -31,6 +31,10 @@ export async function POST(request: NextRequest) {
       throw new ExternalApiError(E1001, 'Invalid request body');
     }
 
+    if (!body || typeof body !== 'object' || Array.isArray(body)) {
+      throw new ExternalApiError(E1001, 'Invalid request body');
+    }
+
     // Validate tokenId
     const { tokenId } = body;
     if (!tokenId || typeof tokenId !== 'string' || !tokenId.trim()) {

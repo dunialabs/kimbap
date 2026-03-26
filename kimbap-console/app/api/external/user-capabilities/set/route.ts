@@ -30,7 +30,11 @@ export async function POST(request: NextRequest) {
       throw new ExternalApiError(E1001, 'Missing required field: userId');
     }
 
-    if (!body?.userId || typeof body.userId !== 'string' || !body.userId.trim()) {
+    if (!body || typeof body !== 'object' || Array.isArray(body)) {
+      throw new ExternalApiError(E1001, 'Invalid request body');
+    }
+
+    if (!body.userId || typeof body.userId !== 'string' || !body.userId.trim()) {
       throw new ExternalApiError(E1001, 'Missing required field: userId');
     }
 
@@ -39,21 +43,30 @@ export async function POST(request: NextRequest) {
     }
 
     for (const perm of body.permissions) {
+      if (!perm || typeof perm !== 'object') {
+        throw new ExternalApiError(E1003, 'Invalid permission: each item must be an object');
+      }
       if (!perm.toolId || typeof perm.toolId !== 'string') {
         throw new ExternalApiError(E1003, 'Invalid permission: toolId is required');
       }
 
-      if (perm.functions && Array.isArray(perm.functions)) {
+      if (perm.functions !== undefined) {
+        if (!Array.isArray(perm.functions)) {
+          throw new ExternalApiError(E1003, 'Invalid permission: functions must be an array');
+        }
         for (const func of perm.functions) {
-          if (!func.funcName || typeof func.funcName !== 'string') {
+          if (!func || typeof func !== 'object' || !func.funcName || typeof func.funcName !== 'string') {
             throw new ExternalApiError(E1003, 'Invalid function: funcName is required');
           }
         }
       }
 
-      if (perm.resources && Array.isArray(perm.resources)) {
+      if (perm.resources !== undefined) {
+        if (!Array.isArray(perm.resources)) {
+          throw new ExternalApiError(E1003, 'Invalid permission: resources must be an array');
+        }
         for (const res of perm.resources) {
-          if (!res.uri || typeof res.uri !== 'string') {
+          if (!res || typeof res !== 'object' || !res.uri || typeof res.uri !== 'string') {
             throw new ExternalApiError(E1003, 'Invalid resource: uri is required');
           }
         }

@@ -79,6 +79,10 @@ export async function POST(request: NextRequest) {
       throw new ExternalApiError(E1001, 'Invalid request body');
     }
 
+    if (!body || typeof body !== 'object' || Array.isArray(body)) {
+      throw new ExternalApiError(E1001, 'Invalid request body');
+    }
+
     const MAX_BATCH_SIZE = 50;
 
     // Validate tokens array
@@ -131,8 +135,14 @@ export async function POST(request: NextRequest) {
           throw new ExternalApiError(E1003, `Invalid field value: tokens[${i}].permissions must be an array`);
         }
         for (const perm of t.permissions) {
-          if (!perm || typeof perm.toolId !== 'string' || !perm.toolId.trim()) {
+          if (!perm || typeof perm !== 'object' || typeof perm.toolId !== 'string' || !perm.toolId.trim()) {
             throw new ExternalApiError(E1003, `Invalid field value: tokens[${i}].permissions[] items must have a non-empty toolId string`);
+          }
+          if (perm.functions !== undefined && !Array.isArray(perm.functions)) {
+            throw new ExternalApiError(E1003, `Invalid field value: tokens[${i}].permissions[].functions must be an array`);
+          }
+          if (perm.resources !== undefined && !Array.isArray(perm.resources)) {
+            throw new ExternalApiError(E1003, `Invalid field value: tokens[${i}].permissions[].resources must be an array`);
           }
         }
       }
@@ -167,7 +177,7 @@ export async function POST(request: NextRequest) {
           role: tokenInput.role,
           permissions: JSON.stringify(parsedPermissions),
           serverApiKeys: JSON.stringify({}),
-          ratelimit: tokenInput.rateLimit || 10,
+          ratelimit: tokenInput.rateLimit ?? 10,
           name: tokenInput.name.trim(),
           encryptedToken: JSON.stringify(encryptedToken),
           proxyId: proxy.id,
