@@ -16,5 +16,6 @@ connection_scope_model: [workspace]
 pkce_required: false
 notes: "Slack uses workspace-level OAuth with bot tokens. Scopes must match your Slack app configuration."
 auth_lanes: [managed-confidential, byo]
+managed_client_id: kimbap-slack-managed-client
 token_exchange:
   auth_method: body

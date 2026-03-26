@@ -12,5 +12,6 @@ scope_presets:
 connection_scope_model: [user, workspace]
 pkce_required: false
 auth_lanes: [managed-confidential, byo]
+managed_client_id: kimbap-stripe-managed-client
 token_exchange:
   auth_method: basic

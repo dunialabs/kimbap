@@ -79,6 +79,42 @@ auth_lanes: [invalid-lane]
 	}
 }
 
+func TestParseProviderManifest_PublicClientLaneRequiresEmbeddedClientID(t *testing.T) {
+	yaml := []byte(`
+id: test
+display_name: Test
+supported_flows: [browser]
+auth_endpoint: https://example.com/auth
+token_endpoint: https://example.com/token
+auth_lanes: [public-client, byo]
+`)
+	_, err := connectors.ParseProviderManifest(yaml)
+	if err == nil {
+		t.Fatal("expected error for missing embedded_client_id with public-client lane, got nil")
+	}
+	if !strings.Contains(err.Error(), "public-client auth lane requires embedded_client_id") {
+		t.Errorf("expected embedded_client_id lane validation error, got: %v", err)
+	}
+}
+
+func TestParseProviderManifest_ManagedConfidentialLaneRequiresManagedClientID(t *testing.T) {
+	yaml := []byte(`
+id: test
+display_name: Test
+supported_flows: [browser]
+auth_endpoint: https://example.com/auth
+token_endpoint: https://example.com/token
+auth_lanes: [managed-confidential, byo]
+`)
+	_, err := connectors.ParseProviderManifest(yaml)
+	if err == nil {
+		t.Fatal("expected error for missing managed_client_id with managed-confidential lane, got nil")
+	}
+	if !strings.Contains(err.Error(), "managed-confidential auth lane requires managed_client_id") {
+		t.Errorf("expected managed_client_id lane validation error, got: %v", err)
+	}
+}
+
 func TestParseProviderManifest_MalformedYAML(t *testing.T) {
 	_, err := connectors.ParseProviderManifest([]byte(":::not valid yaml:::"))
 	if err == nil {

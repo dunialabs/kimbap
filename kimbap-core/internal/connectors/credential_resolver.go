@@ -52,7 +52,7 @@ func ResolveOAuthClientMaterial(providerID string, manifest *ProviderManifest) (
 		}, nil
 	}
 
-	if containsLane(manifest.AuthLanes, "managed-confidential") && strings.TrimSpace(manifest.ManagedClientID) != "" {
+	if containsAuthLane(manifest.AuthLanes, "managed-confidential") && strings.TrimSpace(manifest.ManagedClientID) != "" {
 		vaultSecret := strings.TrimSpace(os.Getenv("KIMBAP_VAULT_CONNECTOR_" + providerKey + "_CLIENT_SECRET"))
 		if vaultSecret != "" {
 			return &OAuthClientMaterial{
@@ -64,7 +64,7 @@ func ResolveOAuthClientMaterial(providerID string, manifest *ProviderManifest) (
 		}
 	}
 
-	if containsLane(manifest.AuthLanes, "public-client") && strings.TrimSpace(manifest.EmbeddedClientID) != "" {
+	if containsAuthLane(manifest.AuthLanes, "public-client") && strings.TrimSpace(manifest.EmbeddedClientID) != "" {
 		return &OAuthClientMaterial{
 			ClientID:     strings.TrimSpace(manifest.EmbeddedClientID),
 			ClientSecret: "",
@@ -106,15 +106,6 @@ func ResolveActionToken(ctx context.Context, providerID, credRef, tenantID strin
 	}
 
 	return "", "", fmt.Errorf("credential not configured for %s: set KIMBAP_%s_TOKEN or use kimbap vault set %s", providerID, providerKey, credRef)
-}
-
-func containsLane(lanes []string, target string) bool {
-	for _, lane := range lanes {
-		if strings.TrimSpace(lane) == target {
-			return true
-		}
-	}
-	return false
 }
 
 func resolveAuthMethod(authMethod string) string {

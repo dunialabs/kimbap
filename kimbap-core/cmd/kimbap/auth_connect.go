@@ -22,19 +22,23 @@ import (
 func resolveOAuthCreds(cfg *config.KimbapConfig, providerID string) *connectors.OAuthClientMaterial {
 	manifest := loadProviderManifestForConnect(providerID)
 	creds, err := connectors.ResolveOAuthClientMaterial(providerID, manifest)
-	if err != nil {
-		authMethod := "body"
-		if manifest != nil && manifest.TokenExchange.AuthMethod != "" {
-			authMethod = manifest.TokenExchange.AuthMethod
-		}
-		return &connectors.OAuthClientMaterial{
-			ClientID:     resolveClientID(cfg, providerID),
-			ClientSecret: resolveClientSecret(cfg, providerID),
-			Source:       "legacy",
-			AuthMethod:   authMethod,
-		}
+	if err == nil {
+		return creds
 	}
-	return creds
+	authMethod := "body"
+	if manifest != nil && manifest.TokenExchange.AuthMethod != "" {
+		authMethod = manifest.TokenExchange.AuthMethod
+	}
+	legacyID := resolveClientID(cfg, providerID)
+	if strings.TrimSpace(legacyID) == "" {
+		return &connectors.OAuthClientMaterial{Source: "legacy", AuthMethod: authMethod}
+	}
+	return &connectors.OAuthClientMaterial{
+		ClientID:     legacyID,
+		ClientSecret: resolveClientSecret(cfg, providerID),
+		Source:       "legacy",
+		AuthMethod:   authMethod,
+	}
 }
 
 func loadProviderManifestForConnect(providerID string) *connectors.ProviderManifest {

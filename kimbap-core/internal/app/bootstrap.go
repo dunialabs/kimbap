@@ -17,7 +17,7 @@ import (
 	"github.com/dunialabs/kimbap-core/internal/connectors"
 	"github.com/dunialabs/kimbap-core/internal/policy"
 	"github.com/dunialabs/kimbap-core/internal/runtime"
-	"github.com/dunialabs/kimbap-core/internal/skills"
+	"github.com/dunialabs/kimbap-core/internal/services"
 	"github.com/dunialabs/kimbap-core/internal/vault"
 	"github.com/rs/zerolog/log"
 )
@@ -48,7 +48,7 @@ func BuildRuntime(deps RuntimeDeps) (*runtime.Runtime, error) {
 	}
 
 	actionRegistry := &skillsActionRegistry{
-		installer:       skills.NewLocalInstaller(skillsDir),
+		installer:       services.NewLocalInstaller(skillsDir),
 		verifyMode:      strings.ToLower(strings.TrimSpace(deps.Config.Skills.Verify)),
 		signaturePolicy: strings.ToLower(strings.TrimSpace(deps.Config.Skills.SignaturePolicy)),
 	}
@@ -78,6 +78,7 @@ func BuildRuntime(deps RuntimeDeps) (*runtime.Runtime, error) {
 	if deps.VaultStore != nil {
 		resolvers = append(resolvers, &vaultCredentialResolver{store: deps.VaultStore})
 	}
+	resolvers = append(resolvers, &envCredentialResolver{})
 	if len(resolvers) == 1 {
 		credentialResolver = resolvers[0]
 	} else if len(resolvers) > 1 {
@@ -103,7 +104,7 @@ func BuildRuntime(deps RuntimeDeps) (*runtime.Runtime, error) {
 }
 
 type skillsActionRegistry struct {
-	installer       *skills.LocalInstaller
+	installer       *services.LocalInstaller
 	verifyMode      string
 	signaturePolicy string
 }
@@ -173,7 +174,7 @@ func (r *skillsActionRegistry) loadDefinitions() ([]actions.ActionDefinition, er
 			}
 			continue
 		}
-		defs, convErr := skills.ToActionDefinitions(&it.Manifest)
+		defs, convErr := services.ToActionDefinitions(&it.Manifest)
 		if convErr != nil {
 			return nil, convErr
 		}
@@ -305,6 +306,9 @@ func (r *vaultCredentialResolver) Resolve(ctx context.Context, tenantID string, 
 
 	raw, err := r.store.GetValue(ctx, tenantID, secretName)
 	if err != nil {
+		if errors.Is(err, vault.ErrSecretNotFound) {
+			return nil, nil
+		}
 		return nil, err
 	}
 	if err := r.store.MarkUsed(ctx, tenantID, secretName); err != nil {
@@ -393,6 +397,32 @@ func (r *connectorCredentialResolver) Resolve(ctx context.Context, tenantID stri
 		Type:  string(req.Type),
 		Token: token,
 	}, nil
+}
+
+type envCredentialResolver struct{}
+
+func (r *envCredentialResolver) Resolve(_ context.Context, _ string, req actions.AuthRequirement) (*actions.ResolvedCredentialSet, error) {
+	if req.Type != actions.AuthTypeBearer && req.Type != actions.AuthTypeOAuth2 && req.Type != actions.AuthTypeSession {
+		return nil, nil
+	}
+
+	connectorName := strings.TrimSpace(req.CredentialRef)
+	if connectorName == "" {
+		return nil, nil
+	}
+
+	connectorName, ok := connectorNameFromRef(connectorName)
+	if !ok {
+		return nil, nil
+	}
+
+	envKey := "KIMBAP_" + strings.ToUpper(strings.ReplaceAll(connectorName, "-", "_")) + "_TOKEN"
+	token := strings.TrimSpace(os.Getenv(envKey))
+	if token == "" {
+		return nil, nil
+	}
+
+	return &actions.ResolvedCredentialSet{Type: string(req.Type), Token: token}, nil
 }
 
 func connectorNameFromRef(ref string) (string, bool) {

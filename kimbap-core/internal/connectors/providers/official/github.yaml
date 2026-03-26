@@ -14,7 +14,6 @@ scope_presets:
   full: "repo read:org admin:org"
 connection_scope_model: [user]
 pkce_required: false
-auth_lanes: [public-client, byo]
-embedded_client_id: ""
+auth_lanes: [byo]
 token_exchange:
   auth_method: body

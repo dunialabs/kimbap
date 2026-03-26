@@ -38,6 +38,10 @@ func manifestToDefinition(m *connectors.ProviderManifest) connectors.ProviderDef
 		PKCERequired:         m.PKCERequired,
 		Notes:                m.Notes,
 		AuthLanes:            m.AuthLanes,
+		EmbeddedClientID:     m.EmbeddedClientID,
+		ManagedClientID:      m.ManagedClientID,
+		TokenExchange:        m.TokenExchange,
+		EndpointPlaceholders: m.EndpointPlaceholders,
 	}
 }
 

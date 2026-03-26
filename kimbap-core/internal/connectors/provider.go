@@ -19,7 +19,11 @@ type ProviderDefinition struct {
 	// AuthLanes lists supported authentication lanes for this provider.
 	// Values: "public-client", "managed-confidential", "byo".
 	// Populated when loaded from YAML manifests.
-	AuthLanes []string `json:"auth_lanes,omitempty" yaml:"auth_lanes,omitempty"`
+	AuthLanes            []string            `json:"auth_lanes,omitempty" yaml:"auth_lanes,omitempty"`
+	EmbeddedClientID     string              `json:"embedded_client_id,omitempty" yaml:"embedded_client_id,omitempty"`
+	ManagedClientID      string              `json:"managed_client_id,omitempty" yaml:"managed_client_id,omitempty"`
+	TokenExchange        TokenExchangeConfig `json:"token_exchange,omitempty" yaml:"token_exchange,omitempty"`
+	EndpointPlaceholders []string            `json:"endpoint_placeholders,omitempty" yaml:"endpoint_placeholders,omitempty"`
 }
 
 func (p ProviderDefinition) SupportsFlow(flow FlowType) bool {

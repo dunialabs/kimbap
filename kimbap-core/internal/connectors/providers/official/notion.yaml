@@ -9,5 +9,6 @@ connection_scope_model: [workspace]
 pkce_required: false
 notes: "Notion uses workspace-level OAuth. Scopes are defined during OAuth app setup, not at authorization time."
 auth_lanes: [managed-confidential, byo]
+managed_client_id: kimbap-notion-managed-client
 token_exchange:
   auth_method: basic

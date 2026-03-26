@@ -1,6 +1,9 @@
 package connectors
 
-import "fmt"
+import (
+	"fmt"
+	"strings"
+)
 
 // TokenExchangeConfig defines how tokens are exchanged with the provider.
 type TokenExchangeConfig struct {
@@ -80,8 +83,23 @@ func (m *ProviderManifest) Validate() error {
 			return fmt.Errorf("provider manifest %q: invalid auth lane: %q (allowed: public-client, managed-confidential, byo)", m.ID, lane)
 		}
 	}
+	if containsAuthLane(m.AuthLanes, "public-client") && strings.TrimSpace(m.EmbeddedClientID) == "" {
+		return fmt.Errorf("provider manifest %q: public-client auth lane requires embedded_client_id", m.ID)
+	}
+	if containsAuthLane(m.AuthLanes, "managed-confidential") && strings.TrimSpace(m.ManagedClientID) == "" {
+		return fmt.Errorf("provider manifest %q: managed-confidential auth lane requires managed_client_id", m.ID)
+	}
 	if !validAuthMethods[m.TokenExchange.AuthMethod] {
 		return fmt.Errorf("provider manifest %q: invalid token_exchange.auth_method: %q (allowed: basic, body)", m.ID, m.TokenExchange.AuthMethod)
 	}
 	return nil
+}
+
+func containsAuthLane(lanes []string, target string) bool {
+	for _, lane := range lanes {
+		if strings.TrimSpace(lane) == target {
+			return true
+		}
+	}
+	return false
 }

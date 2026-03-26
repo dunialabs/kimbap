@@ -2,6 +2,7 @@ package app
 
 import (
 	"context"
+	"errors"
 	"os"
 	"path/filepath"
 	"testing"
@@ -13,7 +14,8 @@ import (
 	"github.com/dunialabs/kimbap-core/internal/connectors"
 	"github.com/dunialabs/kimbap-core/internal/runtime"
 	"github.com/dunialabs/kimbap-core/internal/security"
-	"github.com/dunialabs/kimbap-core/internal/skills"
+	"github.com/dunialabs/kimbap-core/internal/services"
+	"github.com/dunialabs/kimbap-core/internal/vault"
 )
 
 func TestBuildRuntimeNilConfig(t *testing.T) {
@@ -114,7 +116,7 @@ actions:
 
 func TestBuildRuntimeWithSkillsStrictVerifyPassesWithLock(t *testing.T) {
 	skillsDir := t.TempDir()
-	manifest, err := skills.ParseManifest([]byte(`name: test-skill
+	manifest, err := services.ParseManifest([]byte(`name: test-skill
 version: 1.0.0
 description: test skill
 base_url: https://api.example.com
@@ -134,7 +136,7 @@ actions:
 		t.Fatalf("parse manifest: %v", err)
 	}
 
-	installer := skills.NewLocalInstaller(skillsDir)
+	installer := services.NewLocalInstaller(skillsDir)
 	if _, err := installer.Install(manifest, "local"); err != nil {
 		t.Fatalf("install skill with lockfile: %v", err)
 	}
@@ -282,6 +284,55 @@ func TestApprovalManagerAdapterSplitsServiceAndAction(t *testing.T) {
 	}
 }
 
+func TestVaultCredentialResolverTreatsNotFoundAsSoftMiss(t *testing.T) {
+	store := &bootstrapVaultStore{getValueErr: vault.ErrSecretNotFound}
+	resolver := &vaultCredentialResolver{store: store}
+
+	resolved, err := resolver.Resolve(context.Background(), "tenant-1", actions.AuthRequirement{Type: actions.AuthTypeBearer, CredentialRef: "github.token"})
+	if err != nil {
+		t.Fatalf("resolve credential: %v", err)
+	}
+	if resolved != nil {
+		t.Fatalf("expected nil credential set for missing vault secret, got %+v", resolved)
+	}
+	if store.markUsedCalled {
+		t.Fatal("expected MarkUsed not to be called when secret is missing")
+	}
+}
+
+func TestChainCredentialResolverFallsBackToEnvOnVaultMiss(t *testing.T) {
+	t.Setenv("KIMBAP_GITHUB_TOKEN", "env-token-123")
+
+	chain := &chainCredentialResolver{resolvers: []runtime.CredentialResolver{
+		&vaultCredentialResolver{store: &bootstrapVaultStore{getValueErr: vault.ErrSecretNotFound}},
+		&envCredentialResolver{},
+	}}
+
+	resolved, err := chain.Resolve(context.Background(), "tenant-1", actions.AuthRequirement{Type: actions.AuthTypeOAuth2, CredentialRef: "github.token"})
+	if err != nil {
+		t.Fatalf("resolve chain credential: %v", err)
+	}
+	if resolved == nil {
+		t.Fatal("expected credential set from env resolver")
+	}
+	if resolved.Token != "env-token-123" {
+		t.Fatalf("expected env token, got %q", resolved.Token)
+	}
+}
+
+func TestEnvCredentialResolverReturnsSoftMissWhenEnvMissing(t *testing.T) {
+	t.Setenv("KIMBAP_GITHUB_TOKEN", "")
+
+	resolver := &envCredentialResolver{}
+	resolved, err := resolver.Resolve(context.Background(), "tenant-1", actions.AuthRequirement{Type: actions.AuthTypeBearer, CredentialRef: "github.token"})
+	if err != nil {
+		t.Fatalf("resolve env credential: %v", err)
+	}
+	if resolved != nil {
+		t.Fatalf("expected nil when env var is not configured, got %+v", resolved)
+	}
+}
+
 type bootstrapMemConnectorStore struct {
 	items map[string]connectors.ConnectorState
 }
@@ -354,6 +405,57 @@ func mustSeedConnectorState(t *testing.T, store *bootstrapMemConnectorStore, ten
 
 type captureApprovalStore struct {
 	last *approvals.ApprovalRequest
+}
+
+type bootstrapVaultStore struct {
+	value          []byte
+	getValueErr    error
+	markUsedErr    error
+	markUsedCalled bool
+}
+
+func (s *bootstrapVaultStore) Create(context.Context, string, string, vault.SecretType, []byte, map[string]string, string) (*vault.SecretRecord, error) {
+	return nil, errors.New("not implemented")
+}
+
+func (s *bootstrapVaultStore) Upsert(context.Context, string, string, vault.SecretType, []byte, map[string]string, string) (*vault.SecretRecord, error) {
+	return nil, errors.New("not implemented")
+}
+
+func (s *bootstrapVaultStore) GetMeta(context.Context, string, string) (*vault.SecretRecord, error) {
+	return nil, errors.New("not implemented")
+}
+
+func (s *bootstrapVaultStore) GetValue(context.Context, string, string) ([]byte, error) {
+	if s.getValueErr != nil {
+		return nil, s.getValueErr
+	}
+	return s.value, nil
+}
+
+func (s *bootstrapVaultStore) List(context.Context, string, vault.ListOptions) ([]vault.SecretRecord, error) {
+	return nil, errors.New("not implemented")
+}
+
+func (s *bootstrapVaultStore) Delete(context.Context, string, string) error {
+	return errors.New("not implemented")
+}
+
+func (s *bootstrapVaultStore) Rotate(context.Context, string, string, []byte, string) (*vault.SecretRecord, error) {
+	return nil, errors.New("not implemented")
+}
+
+func (s *bootstrapVaultStore) GetVersion(context.Context, string, string, int) ([]byte, error) {
+	return nil, errors.New("not implemented")
+}
+
+func (s *bootstrapVaultStore) MarkUsed(context.Context, string, string) error {
+	s.markUsedCalled = true
+	return s.markUsedErr
+}
+
+func (s *bootstrapVaultStore) Exists(context.Context, string, string) (bool, error) {
+	return false, errors.New("not implemented")
 }
 
 func (s *captureApprovalStore) Create(_ context.Context, req *approvals.ApprovalRequest) error {
