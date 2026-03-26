@@ -15,7 +15,7 @@ var AppInfo = struct {
 	Version     string
 	Description string
 }{
-	Name:        "kimbap-core",
+	Name:        "kimbap",
 	Version:     version,
 	Description: "Kimbap - Secure action runtime for AI agents",
 }

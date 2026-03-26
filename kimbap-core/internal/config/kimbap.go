@@ -100,7 +100,7 @@ func DefaultConfig() *KimbapConfig {
 	return &KimbapConfig{
 		Mode:       "embedded",
 		DataDir:    dataDir,
-		ListenAddr: ":3002",
+		ListenAddr: ":8080",
 		ProxyAddr:  ":7788",
 		LogLevel:   "info",
 		LogFormat:  "text",
@@ -239,7 +239,7 @@ func mergeConfigFromFile(cfg *KimbapConfig, path string, required bool) error {
 	var raw map[string]any
 	if err := yaml.Unmarshal(content, &raw); err == nil {
 		if _, hasLegacy := raw["skills"]; hasLegacy {
-			return fmt.Errorf("config contains deprecated 'skills:' key — rename to 'services:'")
+			return fmt.Errorf("config contains unsupported 'skills:' key — use 'services:'")
 		}
 	}
 
