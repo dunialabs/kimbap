@@ -1,9 +1,8 @@
 package providers
 
 import (
-	"log/slog"
-
 	"github.com/dunialabs/kimbap-core/internal/connectors"
+	"github.com/rs/zerolog/log"
 )
 
 func GetProvider(id string) (connectors.ProviderDefinition, error) {
@@ -13,7 +12,7 @@ func GetProvider(id string) (connectors.ProviderDefinition, error) {
 func ListProviders() []connectors.ProviderDefinition {
 	all, err := LoadAllProviders(EmbeddedProviders)
 	if err != nil {
-		slog.Error("failed to load provider manifests", "error", err)
+		log.Error().Err(err).Msg("failed to load provider manifests")
 	}
 	return all
 }

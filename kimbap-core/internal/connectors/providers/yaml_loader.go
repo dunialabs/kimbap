@@ -4,12 +4,12 @@ import (
 	"errors"
 	"fmt"
 	"io/fs"
-	"log/slog"
 	"path/filepath"
 	"sort"
 	"strings"
 
 	"github.com/dunialabs/kimbap-core/internal/connectors"
+	"github.com/rs/zerolog/log"
 )
 
 func manifestToDefinition(m *connectors.ProviderManifest) connectors.ProviderDefinition {
@@ -68,7 +68,7 @@ func LoadProvider(id string, fsys fs.FS) (connectors.ProviderDefinition, error) 
 	}
 
 	def := manifestToDefinition(manifest)
-	slog.Info("provider loaded from YAML", "provider", normalized)
+	log.Debug().Str("provider", normalized).Msg("provider loaded from YAML")
 	return def, nil
 }
 
