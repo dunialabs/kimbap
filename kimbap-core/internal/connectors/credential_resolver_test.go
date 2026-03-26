@@ -60,6 +60,33 @@ func TestResolveOAuthClientMaterial_PublicClient(t *testing.T) {
 	}
 }
 
+func TestResolveOAuthClientMaterial_ManagedConfidential(t *testing.T) {
+	t.Setenv("KIMBAP_SLACK_CLIENT_ID", "")
+	t.Setenv("KIMBAP_SLACK_CLIENT_SECRET", "")
+	t.Setenv("KIMBAP_VAULT_CONNECTOR_SLACK_CLIENT_SECRET", "vault-managed-secret")
+
+	manifest := &ProviderManifest{
+		ID:              "slack",
+		AuthLanes:       []string{"managed-confidential", "byo"},
+		ManagedClientID: "platform-client-id",
+		TokenExchange:   TokenExchangeConfig{AuthMethod: "body"},
+	}
+
+	material, err := ResolveOAuthClientMaterial("slack", manifest)
+	if err != nil {
+		t.Fatalf("ResolveOAuthClientMaterial returned error: %v", err)
+	}
+	if material.Source != "managed-confidential" {
+		t.Fatalf("expected source=managed-confidential, got %q", material.Source)
+	}
+	if material.ClientID != "platform-client-id" {
+		t.Fatalf("expected platform client ID, got %q", material.ClientID)
+	}
+	if material.ClientSecret != "vault-managed-secret" {
+		t.Fatalf("expected vault secret, got %q", material.ClientSecret)
+	}
+}
+
 func TestResolveActionToken_VaultFallback(t *testing.T) {
 	t.Setenv("KIMBAP_CONNECTOR_GITHUB_TOKEN", "")
 	t.Setenv("KIMBAP_GITHUB_TOKEN", "test-token")

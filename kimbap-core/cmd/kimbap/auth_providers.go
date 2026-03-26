@@ -118,6 +118,9 @@ func newAuthProvidersDescribeCommand() *cobra.Command {
 				_, _ = fmt.Fprintf(os.Stdout, "Browser Flow:         %v\n", provider.SupportsBrowserFlow())
 				_, _ = fmt.Fprintf(os.Stdout, "Device Flow:          %v\n", provider.SupportsDeviceFlow())
 				_, _ = fmt.Fprintf(os.Stdout, "Client Credentials:   %v\n", provider.SupportsClientCredentials())
+				if len(provider.AuthLanes) > 0 {
+					_, _ = fmt.Fprintf(os.Stdout, "Auth Lanes:           %s\n", strings.Join(provider.AuthLanes, ", "))
+				}
 				if len(provider.DefaultScopes) > 0 {
 					_, _ = fmt.Fprintf(os.Stdout, "Default Scopes:       %s\n", strings.Join(provider.DefaultScopes, ", "))
 				}
@@ -150,6 +153,7 @@ func newAuthProvidersDescribeCommand() *cobra.Command {
 				"supports_browser_flow":  provider.SupportsBrowserFlow(),
 				"supports_device_flow":   provider.SupportsDeviceFlow(),
 				"supports_client_creds":  provider.SupportsClientCredentials(),
+				"auth_lanes":             provider.AuthLanes,
 				"default_scopes":         provider.DefaultScopes,
 				"scope_presets":          provider.ScopePresets,
 				"auth_endpoint":          provider.AuthEndpoint,
