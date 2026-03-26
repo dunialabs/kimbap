@@ -708,7 +708,7 @@ export default function ApprovalsPage() {
               <div className="text-sm">
                 <div>
                   <Label className="text-xs text-muted-foreground">Policy Version</Label>
-                  <p className="mt-1 font-mono text-xs">{detailDialog.policyVersion}</p>
+                  <p className="mt-1 font-mono text-xs">v{detailDialog.policyVersion}</p>
                 </div>
               </div>
             </div>
