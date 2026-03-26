@@ -18,6 +18,10 @@ Instead of giving agents raw credentials, you give them Kimbap. Agents call `kim
 agent → kimbap → policy → approval → credentials → execution → audit
 ```
 
+**Terminology**
+- **service**: a declarative action manifest (REST API integration)
+- **connector**: an OAuth authentication connection
+
 ---
 
 ## Why CLI, not MCP or raw keys
@@ -59,7 +63,7 @@ kimbap call gmail.send_message --to user@example.com --subject "Hello"
 
 ### Any REST API becomes a CLI action
 
-Write a YAML skill file (auth type, endpoint, arguments, error mapping) and `kimbap call yourservice.action` works immediately. No custom code per integration.
+Write a YAML service file (auth type, endpoint, arguments, error mapping) and `kimbap call yourservice.action` works immediately. No custom code per integration.
 
 ```yaml
 # slack.yaml (simplified)
@@ -110,17 +114,17 @@ kimbap serve --port 8080
 
 ## Agent onboarding
 
-`kimbap agents setup` auto-detects Claude Code, OpenCode, Codex, and Cursor, then writes skill files and operating rules into their config directories.
+`kimbap agents setup` auto-detects Claude Code, OpenCode, Codex, and Cursor, then writes service files and operating rules into their config directories.
 
 ```bash
 kimbap agents setup                           # detect and configure all agents
-kimbap skill install slack.yaml               # add a new skill
+kimbap service install slack.yaml             # add a new service
 kimbap agents sync                            # propagate to connected agents
 kimbap agents sync --agent claude-code        # target a specific agent
 kimbap agents sync --dry-run                  # preview without writing
 ```
 
-Each agent gets `SKILL.md` files in its config directory, a meta-skill for runtime discovery, and `KIMBAP_OPERATING_RULES.md` for credential handling policies.
+Each agent gets `SKILL.md` files in its config directory, a meta-service for runtime discovery, and `KIMBAP_OPERATING_RULES.md` for credential handling policies.
 
 ---
 

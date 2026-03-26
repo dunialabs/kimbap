@@ -16,18 +16,18 @@ import (
 // SyncState tracks when the last global/project sync was performed
 // and a hash of the rendered artifacts at that time.
 type SyncState struct {
-	Version      int       `yaml:"version"`
-	LastSync     time.Time `yaml:"last_sync"`
-	ArtifactHash string    `yaml:"artifact_hash"`
-	SyncedSkills []string  `yaml:"synced_skills"`
+	Version        int       `yaml:"version"`
+	LastSync       time.Time `yaml:"last_sync"`
+	ArtifactHash   string    `yaml:"artifact_hash"`
+	SyncedServices []string  `yaml:"synced_skills"`
 }
 
 // StaleCheckResult describes whether agent artifacts are out of date.
 type StaleCheckResult struct {
-	Stale         bool     `json:"stale"`
-	NewSkills     []string `json:"new_skills,omitempty"`
-	RemovedSkills []string `json:"removed_skills,omitempty"`
-	LastSync      string   `json:"last_sync,omitempty"`
+	Stale           bool     `json:"stale"`
+	NewServices     []string `json:"new_services,omitempty"`
+	RemovedServices []string `json:"removed_services,omitempty"`
+	LastSync        string   `json:"last_sync,omitempty"`
 }
 
 func syncStatePath(scope string) (string, error) {
@@ -95,73 +95,73 @@ func WriteSyncState(scope string, state *SyncState) error {
 	return atomicWriteFile(path, string(data))
 }
 
-// RecordSync updates the sync state with current skill names and artifact hash.
-// skillNames and artifactContents must be parallel slices of equal length.
-func RecordSync(scope string, skillNames []string, artifactContents []string) error {
-	sortedNames, sortedContents, err := sortByName(skillNames, artifactContents)
+// RecordSync updates the sync state with current service names and artifact hash.
+// serviceNames and artifactContents must be parallel slices of equal length.
+func RecordSync(scope string, serviceNames []string, artifactContents []string) error {
+	sortedNames, sortedContents, err := sortByName(serviceNames, artifactContents)
 	if err != nil {
 		return err
 	}
 	state := &SyncState{
-		Version:      1,
-		LastSync:     time.Now().UTC(),
-		ArtifactHash: computeArtifactHash(sortedContents),
-		SyncedSkills: sortedNames,
+		Version:        1,
+		LastSync:       time.Now().UTC(),
+		ArtifactHash:   computeArtifactHash(sortedContents),
+		SyncedServices: sortedNames,
 	}
 	return WriteSyncState(scope, state)
 }
 
-// CheckStaleness compares current installed skills against the last recorded
+// CheckStaleness compares current installed services against the last recorded
 // sync state. Returns whether artifacts are stale and what changed.
-func CheckStaleness(scope string, currentSkillNames []string, currentArtifactContents []string) (*StaleCheckResult, error) {
+func CheckStaleness(scope string, currentServiceNames []string, currentArtifactContents []string) (*StaleCheckResult, error) {
 	state, err := ReadSyncState(scope)
 	if err != nil {
 		return nil, err
 	}
 
 	if state.LastSync.IsZero() {
-		sorted := make([]string, len(currentSkillNames))
-		copy(sorted, currentSkillNames)
+		sorted := make([]string, len(currentServiceNames))
+		copy(sorted, currentServiceNames)
 		sort.Strings(sorted)
 		return &StaleCheckResult{
-			Stale:         true,
-			NewSkills:     sorted,
-			RemovedSkills: make([]string, 0),
+			Stale:           true,
+			NewServices:     sorted,
+			RemovedServices: make([]string, 0),
 		}, nil
 	}
 
-	currentSet := toStringSet(currentSkillNames)
-	syncedSet := toStringSet(state.SyncedSkills)
+	currentSet := toStringSet(currentServiceNames)
+	syncedSet := toStringSet(state.SyncedServices)
 
-	newSkills := make([]string, 0)
-	removedSkills := make([]string, 0)
+	newServices := make([]string, 0)
+	removedServices := make([]string, 0)
 	for name := range currentSet {
 		if !syncedSet[name] {
-			newSkills = append(newSkills, name)
+			newServices = append(newServices, name)
 		}
 	}
 	for name := range syncedSet {
 		if !currentSet[name] {
-			removedSkills = append(removedSkills, name)
+			removedServices = append(removedServices, name)
 		}
 	}
 
-	sort.Strings(newSkills)
-	sort.Strings(removedSkills)
+	sort.Strings(newServices)
+	sort.Strings(removedServices)
 
-	namesDiffer := len(newSkills) > 0 || len(removedSkills) > 0
+	namesDiffer := len(newServices) > 0 || len(removedServices) > 0
 
-	_, sortedContents, sortErr := sortByName(currentSkillNames, currentArtifactContents)
+	_, sortedContents, sortErr := sortByName(currentServiceNames, currentArtifactContents)
 	if sortErr != nil {
 		return nil, sortErr
 	}
 	contentDiffers := state.ArtifactHash != computeArtifactHash(sortedContents)
 
 	return &StaleCheckResult{
-		Stale:         namesDiffer || contentDiffers,
-		NewSkills:     newSkills,
-		RemovedSkills: removedSkills,
-		LastSync:      state.LastSync.Format(time.RFC3339),
+		Stale:           namesDiffer || contentDiffers,
+		NewServices:     newServices,
+		RemovedServices: removedServices,
+		LastSync:        state.LastSync.Format(time.RFC3339),
 	}, nil
 }
 
@@ -173,21 +173,21 @@ func FormatStaleWarning(result *StaleCheckResult) string {
 	}
 
 	var sb strings.Builder
-	sb.WriteString("warning: agent skills out of sync")
+	sb.WriteString("warning: agent services out of sync")
 
-	changes := len(result.NewSkills) + len(result.RemovedSkills)
+	changes := len(result.NewServices) + len(result.RemovedServices)
 	switch {
 	case changes > 0:
 		_, _ = fmt.Fprintf(&sb, " (%d change(s))", changes)
 	default:
-		sb.WriteString(" (skill content changed)")
+		sb.WriteString(" (service content changed)")
 	}
 	sb.WriteString(".\n")
 
-	for _, name := range result.NewSkills {
+	for _, name := range result.NewServices {
 		_, _ = fmt.Fprintf(&sb, "  + %s (new)\n", name)
 	}
-	for _, name := range result.RemovedSkills {
+	for _, name := range result.RemovedServices {
 		_, _ = fmt.Fprintf(&sb, "  - %s (removed)\n", name)
 	}
 	_, _ = fmt.Fprintf(&sb, "  Run: kimbap agents sync    (this project)\n")

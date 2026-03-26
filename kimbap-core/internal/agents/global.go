@@ -37,13 +37,13 @@ Kimbap is available.
 
 // GlobalSetupResult holds the outcome of a global setup operation.
 type GlobalSetupResult struct {
-	Agent            AgentKind `json:"agent"`
-	SkillWritten     bool      `json:"skill_written"`
-	SkillPath        string    `json:"skill_path"`
-	InstructionFile  string    `json:"instruction_file,omitempty"`
-	InjectWritten    bool      `json:"inject_written"`
-	Skipped          bool      `json:"skipped"`
-	Error            string    `json:"error,omitempty"`
+	Agent           AgentKind `json:"agent"`
+	SkillWritten    bool      `json:"skill_written"`
+	SkillPath       string    `json:"skill_path"`
+	InstructionFile string    `json:"instruction_file,omitempty"`
+	InjectWritten   bool      `json:"inject_written"`
+	Skipped         bool      `json:"skipped"`
+	Error           string    `json:"error,omitempty"`
 }
 
 // GlobalSetupOptions controls global setup behavior.
@@ -55,10 +55,10 @@ type GlobalSetupOptions struct {
 
 // GlobalTeardownResult holds the outcome of a global teardown operation.
 type GlobalTeardownResult struct {
-	Agent           AgentKind `json:"agent"`
-	SkillRemoved    bool      `json:"skill_removed"`
-	InjectRemoved   bool      `json:"inject_removed"`
-	Error           string    `json:"error,omitempty"`
+	Agent         AgentKind `json:"agent"`
+	SkillRemoved  bool      `json:"skill_removed"`
+	InjectRemoved bool      `json:"inject_removed"`
+	Error         string    `json:"error,omitempty"`
 }
 
 // resolveGlobalConfigs builds the global agent config for each known agent,
@@ -127,7 +127,7 @@ func GlobalDetectAgents() ([]GlobalAgentConfig, error) {
 	return detected, nil
 }
 
-// GlobalSetup writes the kimbap meta-skill to global agent skill directories
+// GlobalSetup writes the kimbap meta-service to global agent skill directories
 // and injects a discovery block into native instruction files.
 func GlobalSetup(metaSkillContent string, opts GlobalSetupOptions) ([]GlobalSetupResult, error) {
 	allConfigs, err := resolveGlobalConfigs()
@@ -159,7 +159,7 @@ func globalSetupOne(cfg GlobalAgentConfig, metaSkillContent string, opts GlobalS
 	skillPath := filepath.Join(skillDir, "SKILL.md")
 	needsWrite, checkErr := fileNeedsWrite(skillPath, metaSkillContent, opts.Force)
 	if checkErr != nil {
-		result.Error = fmt.Sprintf("check skill file: %v", checkErr)
+		result.Error = fmt.Sprintf("check service file: %v", checkErr)
 		return result
 	}
 
@@ -168,11 +168,11 @@ func globalSetupOne(cfg GlobalAgentConfig, metaSkillContent string, opts GlobalS
 			result.SkillWritten = true
 		} else {
 			if err := os.MkdirAll(skillDir, 0o755); err != nil {
-				result.Error = fmt.Sprintf("create skill directory: %v", err)
+				result.Error = fmt.Sprintf("create service directory: %v", err)
 				return result
 			}
 			if err := atomicWriteFile(skillPath, metaSkillContent); err != nil {
-				result.Error = fmt.Sprintf("write skill file: %v", err)
+				result.Error = fmt.Sprintf("write service file: %v", err)
 				return result
 			}
 			result.SkillWritten = true
@@ -196,7 +196,7 @@ func globalSetupOne(cfg GlobalAgentConfig, metaSkillContent string, opts GlobalS
 	return result
 }
 
-// GlobalTeardown removes kimbap global skill directories and marker blocks
+// GlobalTeardown removes kimbap global service directories and marker blocks
 // from instruction files.
 func GlobalTeardown(opts GlobalSetupOptions) ([]GlobalTeardownResult, error) {
 	allConfigs, err := resolveGlobalConfigs()

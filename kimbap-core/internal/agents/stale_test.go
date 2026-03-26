@@ -63,10 +63,10 @@ func TestSyncStateReadWrite(t *testing.T) {
 
 	now := time.Now().UTC().Truncate(time.Second)
 	write := &SyncState{
-		Version:      1,
-		LastSync:     now,
-		ArtifactHash: "sha256:abc",
-		SyncedSkills: []string{"github", "slack"},
+		Version:        1,
+		LastSync:       now,
+		ArtifactHash:   "sha256:abc",
+		SyncedServices: []string{"github", "slack"},
 	}
 	if err := WriteSyncState("project-a", write); err != nil {
 		t.Fatalf("write sync state: %v", err)
@@ -85,8 +85,8 @@ func TestSyncStateReadWrite(t *testing.T) {
 	if readBack.ArtifactHash != "sha256:abc" {
 		t.Fatalf("unexpected artifact hash: %q", readBack.ArtifactHash)
 	}
-	if !reflect.DeepEqual(readBack.SyncedSkills, []string{"github", "slack"}) {
-		t.Fatalf("unexpected synced skills: %+v", readBack.SyncedSkills)
+	if !reflect.DeepEqual(readBack.SyncedServices, []string{"github", "slack"}) {
+		t.Fatalf("unexpected synced services: %+v", readBack.SyncedServices)
 	}
 }
 
@@ -149,7 +149,7 @@ func TestCheckStaleness(t *testing.T) {
 			expectLastSyncSet: true,
 		},
 		{
-			name: "synced then new skill added",
+			name: "synced then new service added",
 			prepare: func(t *testing.T) {
 				t.Helper()
 				if err := RecordSync("project-a", []string{"github"}, []string{"a"}); err != nil {
@@ -164,7 +164,7 @@ func TestCheckStaleness(t *testing.T) {
 			expectLastSyncSet: true,
 		},
 		{
-			name: "synced then skill removed",
+			name: "synced then service removed",
 			prepare: func(t *testing.T) {
 				t.Helper()
 				if err := RecordSync("project-a", []string{"github", "slack"}, []string{"a", "b"}); err != nil {
@@ -210,11 +210,11 @@ func TestCheckStaleness(t *testing.T) {
 			if result.Stale != tt.expectStale {
 				t.Fatalf("expected stale=%v, got %v", tt.expectStale, result.Stale)
 			}
-			if !reflect.DeepEqual(result.NewSkills, tt.expectNew) {
-				t.Fatalf("unexpected new skills: %+v", result.NewSkills)
+			if !reflect.DeepEqual(result.NewServices, tt.expectNew) {
+				t.Fatalf("unexpected new services: %+v", result.NewServices)
 			}
-			if !reflect.DeepEqual(result.RemovedSkills, tt.expectRemoved) {
-				t.Fatalf("unexpected removed skills: %+v", result.RemovedSkills)
+			if !reflect.DeepEqual(result.RemovedServices, tt.expectRemoved) {
+				t.Fatalf("unexpected removed services: %+v", result.RemovedServices)
 			}
 			if tt.expectLastSyncSet && result.LastSync == "" {
 				t.Fatal("expected last sync to be set")
@@ -236,12 +236,12 @@ func TestFormatStaleWarning(t *testing.T) {
 		{
 			name: "stale with changes",
 			result: &StaleCheckResult{
-				Stale:         true,
-				NewSkills:     []string{"notion"},
-				RemovedSkills: []string{"slack"},
+				Stale:           true,
+				NewServices:     []string{"notion"},
+				RemovedServices: []string{"slack"},
 			},
 			contains: []string{
-				"warning: agent skills out of sync",
+				"warning: agent services out of sync",
 				"+ notion (new)",
 				"- slack (removed)",
 				"Run: kimbap agents sync",
@@ -250,13 +250,13 @@ func TestFormatStaleWarning(t *testing.T) {
 		{
 			name: "content only change shows reason",
 			result: &StaleCheckResult{
-				Stale:         true,
-				NewSkills:     []string{},
-				RemovedSkills: []string{},
+				Stale:           true,
+				NewServices:     []string{},
+				RemovedServices: []string{},
 			},
 			contains: []string{
-				"warning: agent skills out of sync",
-				"skill content changed",
+				"warning: agent services out of sync",
+				"service content changed",
 				"Run: kimbap agents sync",
 			},
 		},
