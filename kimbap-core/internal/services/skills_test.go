@@ -302,6 +302,11 @@ func TestInstallWritesLockfileAndVerifyPasses(t *testing.T) {
 		t.Fatalf("install failed: %v", err)
 	}
 
+	lockPath := filepath.Join(dir, "kimbap-services.lock")
+	if _, err := os.Stat(lockPath); os.IsNotExist(err) {
+		t.Errorf("expected kimbap-services.lock to exist at %s", lockPath)
+	}
+
 	lf, err := installer.readLockfile()
 	if err != nil {
 		t.Fatalf("read lockfile failed: %v", err)
@@ -326,6 +331,40 @@ func TestInstallWritesLockfileAndVerifyPasses(t *testing.T) {
 	}
 	if result.ExpectedDigest != result.ActualDigest {
 		t.Fatalf("expected digest match, got expected=%q actual=%q", result.ExpectedDigest, result.ActualDigest)
+	}
+}
+
+func TestRemoveAndVerifyGone(t *testing.T) {
+	tmpDir := t.TempDir()
+	inst := NewLocalInstaller(tmpDir)
+	manifest := &ServiceManifest{
+		Name:    "myservice",
+		Version: "1.0.0",
+		BaseURL: "https://example.com",
+		Auth:    ServiceAuth{Type: "none"},
+		Actions: map[string]ServiceAction{
+			"get": {Method: "GET", Path: "/v1/items", Risk: RiskSpec{Level: "low"}},
+		},
+	}
+
+	if _, err := inst.Install(manifest, "test"); err != nil {
+		t.Fatalf("install: %v", err)
+	}
+
+	if err := inst.Remove("myservice"); err != nil {
+		t.Fatalf("remove: %v", err)
+	}
+
+	if _, err := inst.Verify("myservice"); err == nil {
+		t.Fatalf("expected verify to fail for removed service")
+	}
+
+	installed, err := inst.List()
+	if err != nil {
+		t.Fatalf("list after remove: %v", err)
+	}
+	if len(installed) != 0 {
+		t.Errorf("expected empty list after remove, got %d entries", len(installed))
 	}
 }
 
@@ -622,6 +661,50 @@ func TestMapAuthBodyUsesBodyField(t *testing.T) {
 	}
 	if defs[0].Auth.QueryName != "" {
 		t.Errorf("expected Auth.QueryName to be empty for body auth, got %q", defs[0].Auth.QueryName)
+	}
+}
+
+func TestToActionDefinitionsBearerAuth(t *testing.T) {
+	m := &ServiceManifest{
+		Name:    "svc",
+		Version: "1.0.0",
+		BaseURL: "https://api.example.com",
+		Auth:    ServiceAuth{Type: "bearer", CredentialRef: "svc.token"},
+		Actions: map[string]ServiceAction{
+			"get": {Method: "GET", Path: "/v1/items", Risk: RiskSpec{Level: "low"}},
+		},
+	}
+	defs, err := ToActionDefinitions(m)
+	if err != nil {
+		t.Fatalf("ToActionDefinitions: %v", err)
+	}
+	if len(defs) == 0 {
+		t.Fatal("expected at least one action")
+	}
+	if defs[0].Auth.Prefix != "Bearer" {
+		t.Errorf("expected Auth.Prefix=Bearer, got %q", defs[0].Auth.Prefix)
+	}
+}
+
+func TestToActionDefinitionsBasicAuth(t *testing.T) {
+	m := &ServiceManifest{
+		Name:    "svc",
+		Version: "1.0.0",
+		BaseURL: "https://api.example.com",
+		Auth:    ServiceAuth{Type: "basic", CredentialRef: "svc.creds"},
+		Actions: map[string]ServiceAction{
+			"get": {Method: "GET", Path: "/v1/items", Risk: RiskSpec{Level: "low"}},
+		},
+	}
+	defs, err := ToActionDefinitions(m)
+	if err != nil {
+		t.Fatalf("ToActionDefinitions: %v", err)
+	}
+	if len(defs) == 0 {
+		t.Fatal("expected at least one action")
+	}
+	if defs[0].Auth.Type != actions.AuthTypeBasic {
+		t.Errorf("expected Auth.Type=basic, got %v", defs[0].Auth.Type)
 	}
 }
 

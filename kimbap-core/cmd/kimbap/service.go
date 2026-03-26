@@ -9,8 +9,6 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/dunialabs/kimbap-core/internal/agents"
-	"github.com/dunialabs/kimbap-core/internal/config"
 	"github.com/dunialabs/kimbap-core/internal/services"
 	"github.com/spf13/cobra"
 	"gopkg.in/yaml.v3"
@@ -40,7 +38,11 @@ func newServiceInstallCommand() *cobra.Command {
 		Use:   "install <path-to-yaml> [--force]",
 		Short: "Install a local service manifest",
 		Args:  cobra.ExactArgs(1),
-		RunE: func(_ *cobra.Command, args []string) error {
+		RunE: func(cmd *cobra.Command, args []string) error {
+			if cmd.Flags().Changed("dir") && cmd.Flags().Changed("output") {
+				return fmt.Errorf("--dir and --output are mutually exclusive")
+			}
+
 			cfg, err := loadAppConfig()
 			if err != nil {
 				return err
@@ -55,7 +57,6 @@ func newServiceInstallCommand() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			printServiceStaleWarningIfNeeded(cfg)
 			return printOutput(installed)
 		},
 	}
@@ -95,7 +96,6 @@ func newServiceRemoveCommand() *cobra.Command {
 			if err := installerFromConfig(cfg).Remove(args[0]); err != nil {
 				return err
 			}
-			printServiceStaleWarningIfNeeded(cfg)
 			return printOutput(map[string]any{"removed": true, "name": args[0]})
 		},
 	}
@@ -364,32 +364,4 @@ func isServiceHTTPURL(value string) bool {
 		return false
 	}
 	return parsed.Scheme == "http" || parsed.Scheme == "https"
-}
-
-func printServiceStaleWarningIfNeeded(cfg *config.KimbapConfig) {
-	installer := installerFromConfig(cfg)
-	installed, err := installer.List()
-	if err != nil {
-		return
-	}
-
-	names := make([]string, 0, len(installed))
-	contents := make([]string, 0, len(installed))
-	for _, s := range installed {
-		md, genErr := services.GenerateSkillMD(&s.Manifest)
-		if genErr != nil {
-			continue
-		}
-		names = append(names, s.Manifest.Name)
-		contents = append(contents, md)
-	}
-
-	result, err := agents.CheckStaleness(projectSyncScope("."), names, contents)
-	if err != nil {
-		return
-	}
-
-	if warning := agents.FormatStaleWarning(result); warning != "" {
-		_, _ = fmt.Fprint(os.Stderr, warning)
-	}
 }

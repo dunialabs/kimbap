@@ -1,8 +1,10 @@
 package agents
 
 import (
+	"encoding/json"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -323,5 +325,32 @@ func TestSyncSkillsPrunesRemovedSkills(t *testing.T) {
 	slackDir := filepath.Join(dir, ".claude", "skills", "slack")
 	if _, err := os.Stat(slackDir); !os.IsNotExist(err) {
 		t.Fatal("expected slack directory to be removed after prune")
+	}
+}
+
+func TestSyncResultAndStatusResultJSONFieldNames(t *testing.T) {
+	sr := SyncResult{
+		Agent:       AgentClaudeCode,
+		ServicesDir: "/some/path",
+		Written:     []string{"svc-a"},
+	}
+	b, err := json.Marshal(sr)
+	if err != nil {
+		t.Fatalf("marshal SyncResult: %v", err)
+	}
+	if !strings.Contains(string(b), `"services_dir"`) {
+		t.Errorf("SyncResult JSON missing services_dir field, got: %s", b)
+	}
+
+	st := StatusResult{
+		Agent:          AgentOpenCode,
+		SyncedServices: []string{"svc-b"},
+	}
+	b2, err := json.Marshal(st)
+	if err != nil {
+		t.Fatalf("marshal StatusResult: %v", err)
+	}
+	if !strings.Contains(string(b2), `"synced_services"`) {
+		t.Errorf("StatusResult JSON missing synced_services field, got: %s", b2)
 	}
 }

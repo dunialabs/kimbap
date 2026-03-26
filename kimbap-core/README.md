@@ -141,7 +141,7 @@ Kimbap is early-stage. The action runtime and REST v1 API are available now. The
 | Policy engine | Available | YAML DSL, dry-run simulation |
 | Approval workflow | Available | Console + webhook notification |
 | Audit trail | Available | Structured events, export |
-| Tier 1 skills (YAML) | Available | Declarative REST API integration |
+| Tier 1 services (YAML) | Available | Declarative REST API integration |
 | Console (admin UI) | Available | Monitoring, approvals, audit viewer |
 | `kimbap call` (CLI) | Available | Explicit action execution |
 | `kimbap run` (subprocess) | Available | Agent process wrapper |
@@ -149,7 +149,7 @@ Kimbap is early-stage. The action runtime and REST v1 API are available now. The
 | `kimbap serve` (connected) | Available | Multi-tenant REST server |
 | Embedded mode (local-only) | Available | SQLite-backed, no external DB required |
 | SDKs | Planned | Python, TypeScript, Go |
-| Skill registry | Planned | Install, publish, verify |
+| Service registry | Planned | Install, publish, verify |
 | Webhook notifications (Slack, Telegram, Email, Webhook) | Available | Approval notification channels; configure via YAML |
 
 ### API interfaces

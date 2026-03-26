@@ -378,7 +378,7 @@ func listSyncedSkills(skillsDir string) ([]string, error) {
 
 	out := make([]string, 0)
 	for _, entry := range entries {
-		if !entry.IsDir() {
+		if !entry.IsDir() || entry.Name() == "kimbap" {
 			continue
 		}
 		skillFile := filepath.Join(skillsDir, entry.Name(), "SKILL.md")
@@ -398,7 +398,10 @@ func listSyncedSkills(skillsDir string) ([]string, error) {
 func pruneStaleSkills(skillsDir string, installed []InstalledService, dryRun bool) ([]string, []string) {
 	entries, err := os.ReadDir(skillsDir)
 	if err != nil {
-		return nil, nil
+		if os.IsNotExist(err) {
+			return nil, nil
+		}
+		return nil, []string{fmt.Sprintf("read skills dir: %v", err)}
 	}
 
 	active := map[string]bool{"kimbap": true}

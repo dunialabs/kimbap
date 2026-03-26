@@ -236,6 +236,13 @@ func mergeConfigFromFile(cfg *KimbapConfig, path string, required bool) error {
 		return fmt.Errorf("parse config file %q: %w", path, err)
 	}
 
+	var raw map[string]any
+	if err := yaml.Unmarshal(content, &raw); err == nil {
+		if _, hasLegacy := raw["skills"]; hasLegacy {
+			return fmt.Errorf("config contains deprecated 'skills:' key — rename to 'services:'")
+		}
+	}
+
 	mergeConfig(cfg, &loaded)
 	return nil
 }

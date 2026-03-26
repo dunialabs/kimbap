@@ -12,17 +12,17 @@ interface Request22003 {
     rawToken?: string;
   };
   params: {
-    timeRange: number; // 时间范围: 1-今天, 7-最近7天, 30-最近30天
-    limit: number;     // 返回数量限制，默认5
+    timeRange: number; // time range: 1-today, 7-recent7day, 30-recent30day
+    limit: number;     // Return quantity limit，default5
   };
 }
 
 interface ActiveTokenStat {
-  tokenName: string;         // 令牌名称
-  tokenMask: string;         // 令牌掩码（脱敏显示）
-  requestCount: number;      // 请求数量
-  isCurrentlyActive: boolean; // 是否当前活跃（最近5分钟内有请求）
-  lastUsedMinutesAgo: number; // 最后使用时间（多少分钟前）
+  tokenName: string;         // Token name
+  tokenMask: string;         // Token mask（Desensitized display）
+  requestCount: number;      // Number of requests
+  isCurrentlyActive: boolean; // Is it currently active?（recent5Request within minutes）
+  lastUsedMinutesAgo: number; // last use time（how many minutes ago）
 }
 
 interface Response22003Data {
@@ -31,7 +31,7 @@ interface Response22003Data {
 
 /**
  * Protocol 22003 - Get Active Tokens Overview
- * 获取活跃令牌概览
+ * Get an overview of active tokens
  */
 export async function handleProtocol22003(body: Request22003): Promise<Response22003Data> {
   try {
@@ -43,7 +43,7 @@ export async function handleProtocol22003(body: Request22003): Promise<Response2
     const normalizedLimit = Math.floor(parsedLimit);
     const limit = Number.isFinite(normalizedLimit) && normalizedLimit >= 1 ? normalizedLimit : 5;
     
-    // 1. 获取当前proxy的proxyKey（不用token）
+    // 1. Get currentproxyofproxyKey（Need nottoken）
     let proxyKey = '';
     try {
       const proxy = await getProxy();
@@ -56,7 +56,7 @@ export async function handleProtocol22003(body: Request22003): Promise<Response2
       });
     }
     
-    // 2. 从proxy-api获取用户列表（过滤删除的用户）
+    // 2. fromproxy-apiGet user list（Filter deleted users）
     let allUsers: any[] = [];
     try {
       const usersResult = await getUsers({}, body.common.userid, rawToken);
@@ -67,13 +67,13 @@ export async function handleProtocol22003(body: Request22003): Promise<Response2
       allUsers = [];
     }
     
-    // 计算时间范围
+    // Calculation time range
     const now = Math.floor(Date.now() / 1000);
     const timeRangeSeconds = timeRange * 24 * 60 * 60;
     const startTime = now - timeRangeSeconds;
     const fiveMinutesAgo = now - (5 * 60);
     
-    // 3. 基于proxyKey、action 1000-1099和非空userid查询活动令牌
+    // 3. based onproxyKey、action 1000-1099and non-emptyuseridQuery activity token
     const validUserIds = allUsers.map(u => u.userId).filter(Boolean);
     
     const tokenWhereCondition: any = {
@@ -97,13 +97,13 @@ export async function handleProtocol22003(body: Request22003): Promise<Response2
       _max: { addtime: true },
     });
     
-    // 创建用户映射表
+    // Create user mapping table
     const usersMap = new Map(allUsers.map(u => [u.userId, u]));
     
-    // 转换为响应格式
+    // Convert to responsive format
     const activeTokens: ActiveTokenStat[] = tokenUsageStats.map((stat) => {
       const userId = stat.userid!;
-      // 跳过没有userid的错误数据已在查询中处理
+      // skip nouseridof error data has been processed in the query
       const user = usersMap.get(userId);
       const requestCount = stat._count.id;
       const lastUsedTimestamp = Number(stat._max.addtime);
@@ -112,14 +112,14 @@ export async function handleProtocol22003(body: Request22003): Promise<Response2
       
       let tokenName: string;
       if (user) {
-        // 用户存在，显示name(userName)，如果userName和name相同或为空则只显示name
+        // User exists，showname(userName)，ifuserNameandnameIf the same or empty, only displayname
         if (user.userName && user.userName !== user.name) {
           tokenName = `${user.name}(${user.userName})`;
         } else {
           tokenName = user.name || userId;
         }
       } else {
-        // 用户已删除，显示userid + (Deleted)
+        // User has been deleted，showuserid + (Deleted)
         tokenName = `${userId} (Deleted)`;
       }
       
@@ -132,7 +132,7 @@ export async function handleProtocol22003(body: Request22003): Promise<Response2
       };
     });
     
-    // 按活跃程度排序：当前活跃的排在前面，然后按请求数量排序
+    // Sort by activity：Currently active ones are ranked first，Then sort by number of requests
     activeTokens.sort((a, b) => {
       if (a.isCurrentlyActive && !b.isCurrentlyActive) return -1;
       if (!a.isCurrentlyActive && b.isCurrentlyActive) return 1;

@@ -20,29 +20,29 @@ interface Request20007 {
 }
 
 interface ToolUsage {
-  toolId: string;       // 工具ID
-  toolName: string;     // 工具名称
-  requestCount: number; // 请求次数
+  toolId: string;       // toolID
+  toolName: string;     // Tool name
+  requestCount: number; // Number of requests
 }
 
 interface UserUsage {
-  userId: string;         // 用户ID
-  userName: string;       // 用户名称
-  role: number;           // 用户角色: 1-owner, 2-admin, 3-member
-  totalRequests: number;  // 总请求数
-  toolsUsed: number;      // 使用的工具数量
-  topTools: ToolUsage[];  // 最常用的工具TOP5
-  lastActive: number;     // 最后活跃时间(时间戳)
+  userId: string;         // userID
+  userName: string;       // Username
+  role: number;           // user role: 1-owner, 2-admin, 3-member
+  totalRequests: number;  // total requests
+  toolsUsed: number;      // Number of tools used
+  topTools: ToolUsage[];  // most commonly used toolsTOP5
+  lastActive: number;     // Last active time(Timestamp)
 }
 
 interface Response20007Data {
   userUsage: UserUsage[];
-  totalCount: number; // 总数量（用于分页）
+  totalCount: number; // total quantity（for paging）
 }
 
 /**
  * Protocol 20007 - Get User Tool Usage
- * 获取用户工具使用情况
+ * Get user tool usage status
  */
 export async function handleProtocol20007(body: Request20007): Promise<Response20007Data> {
   try {
@@ -60,12 +60,12 @@ export async function handleProtocol20007(body: Request20007): Promise<Response2
       });
     }
     
-    // 计算时间范围
+    // Calculation time range
     const now = Math.floor(Date.now() / 1000);
     const timeRangeSeconds = timeRange * 24 * 60 * 60;
     const startTime = now - timeRangeSeconds;
     
-    // 构建where条件
+    // buildwherecondition
     const whereCondition: any = {
       proxyKey,
       addtime: {
@@ -82,12 +82,12 @@ export async function handleProtocol20007(body: Request20007): Promise<Response2
       }
     };
     
-    // 如果指定了userId，添加过滤条件
+    // If specifieduserId，Add filter
     if (userId && userId.trim()) {
       whereCondition.userid = userId.trim();
     }
     
-    // 1. 获取所有活跃用户
+    // 1. Get all active users
     const activeUsers = await prisma.log.findMany({
       where: whereCondition,
       select: {
@@ -116,18 +116,18 @@ export async function handleProtocol20007(body: Request20007): Promise<Response2
     const pagedUserIds = sortedUserIds.slice(offset, offset + pageSize);
     const pagedUsers = pagedUserIds.map(id => ({ userid: id }));
     
-    // 3. 为每个用户计算详细统计
+    // 3. Calculate detailed statistics for each user
     const userUsage: UserUsage[] = await Promise.all(
       pagedUsers.map(async (user) => {
         const currentUserId = user.userid;
         
-        // 该用户的所有日志条件
+        // All log conditions for this user
         const userWhereCondition = {
           ...whereCondition,
           userid: currentUserId
         };
         
-        // 并行查询该用户的各项指标
+        // Query various indicators of the user in parallel
         const [
           userInfo,
           totalRequestsCount,
@@ -135,7 +135,7 @@ export async function handleProtocol20007(body: Request20007): Promise<Response2
           lastActiveLog,
           toolUsageStats
         ] = await Promise.all([
-          // 从user表获取用户信息
+          // fromuserGet user information from table
           prisma.user.findFirst({
             where: {
               userid: currentUserId
@@ -146,12 +146,12 @@ export async function handleProtocol20007(body: Request20007): Promise<Response2
             }
           }),
           
-          // 总请求数
+          // total requests
           prisma.log.count({
             where: userWhereCondition
           }),
           
-          // 使用的工具数量（去重serverId）
+          // Number of tools used（Remove duplicatesserverId）
           prisma.log.findMany({
             where: userWhereCondition,
             select: {
@@ -160,7 +160,7 @@ export async function handleProtocol20007(body: Request20007): Promise<Response2
             distinct: ['serverId']
           }),
           
-          // 最后活跃时间
+          // Last active time
           prisma.log.findFirst({
             where: userWhereCondition,
             orderBy: {
@@ -171,7 +171,7 @@ export async function handleProtocol20007(body: Request20007): Promise<Response2
             }
           }),
           
-          // 各工具使用统计
+          // Usage statistics of each tool
           prisma.log.groupBy({
             by: ['serverId'],
             where: userWhereCondition,
@@ -181,7 +181,7 @@ export async function handleProtocol20007(body: Request20007): Promise<Response2
           })
         ]);
         
-        // 处理工具使用统计，获取TOP5
+        // Process tool usage statistics，getTOP5
         const topTools: ToolUsage[] = toolUsageStats
           .filter(stat => stat.serverId)
           .map(stat => ({
@@ -190,13 +190,13 @@ export async function handleProtocol20007(body: Request20007): Promise<Response2
             requestCount: stat._count.id
           }))
           .sort((a, b) => b.requestCount - a.requestCount)
-          .slice(0, 5); // 取前5个
+          .slice(0, 5); // Before picking up5indivual
         
-        // 用户角色和名称
+        // User role and name
         const role = userInfo?.role || 3;
         const userName = userNameMap.get(currentUserId) || currentUserId;
         
-        // 最后活跃时间
+        // Last active time
         const lastActive = lastActiveLog ? Number(lastActiveLog.addtime) : 0;
         
         return {
