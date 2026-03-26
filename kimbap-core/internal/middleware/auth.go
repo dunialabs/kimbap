@@ -31,6 +31,13 @@ const (
 	userAPIErrorInternal     = 5001
 )
 
+var (
+	errAuthorizationTokenRequired  = errors.New("authorization token is required")
+	errUserRepositoryNotConfigured = errors.New("user repository is not configured")
+	errInvalidPermissionsFormat    = errors.New("invalid permissions format")
+	errInvalidPermissionsStructure = errors.New("invalid permissions structure")
+)
+
 type User struct {
 	UserID           string
 	Role             int
@@ -135,7 +142,7 @@ func WriteRequestEntityTooLargeLikeExpress(w http.ResponseWriter) {
 
 func (m *AuthMiddleware) AuthenticateRequest(r *http.Request) (*types.AuthContext, error) {
 	if m.userRepository == nil {
-		return nil, errors.New("user repository is not configured")
+		return nil, errUserRepositoryNotConfigured
 	}
 
 	token, err := ExtractAuthToken(r)
@@ -276,7 +283,7 @@ func ExtractAuthToken(r *http.Request) (string, error) {
 			return token, nil
 		}
 
-		return "", errors.New("authorization token is required")
+		return "", errAuthorizationTokenRequired
 	}
 
 	return "", nil
@@ -368,16 +375,16 @@ func decodePermissions(raw json.RawMessage) (mcptypes.Permissions, error) {
 		return permissions, nil
 	}
 	if bytes.Equal(bytes.TrimSpace(raw), []byte("null")) {
-		return mcptypes.Permissions{}, fmt.Errorf("invalid permissions format: null")
+		return mcptypes.Permissions{}, fmt.Errorf("%w: null", errInvalidPermissionsFormat)
 	}
 	if err := json.Unmarshal(raw, &permissions); err != nil {
-		return mcptypes.Permissions{}, fmt.Errorf("invalid permissions format: %w", err)
+		return mcptypes.Permissions{}, fmt.Errorf("%w: %w", errInvalidPermissionsFormat, err)
 	}
 	if permissions == nil {
-		return mcptypes.Permissions{}, fmt.Errorf("invalid permissions format: null")
+		return mcptypes.Permissions{}, fmt.Errorf("%w: null", errInvalidPermissionsFormat)
 	}
 	if err := validatePermissions(permissions); err != nil {
-		return mcptypes.Permissions{}, fmt.Errorf("invalid permissions structure: %w", err)
+		return mcptypes.Permissions{}, fmt.Errorf("%w: %w", errInvalidPermissionsStructure, err)
 	}
 	return permissions, nil
 }
@@ -409,21 +416,12 @@ func authStatusCodeForError(err error) int {
 			return http.StatusUnauthorized
 		}
 	}
-	msg := strings.ToLower(err.Error())
 	switch {
-	case strings.Contains(msg, "authorization token is required"):
+	case errors.Is(err, errAuthorizationTokenRequired):
 		return http.StatusUnauthorized
-	case strings.Contains(msg, "missing or invalid authorization"):
-		return http.StatusUnauthorized
-	case strings.Contains(msg, "disabled") || strings.Contains(msg, "expired"):
-		return http.StatusForbidden
-	case strings.Contains(msg, "rate limit"):
-		return http.StatusTooManyRequests
-	case strings.Contains(msg, "not configured"):
-		return http.StatusInternalServerError
-	case strings.Contains(msg, "invalid permissions format"):
-		return http.StatusInternalServerError
-	case strings.Contains(msg, "invalid permissions structure"):
+	case errors.Is(err, errUserRepositoryNotConfigured),
+		errors.Is(err, errInvalidPermissionsFormat),
+		errors.Is(err, errInvalidPermissionsStructure):
 		return http.StatusInternalServerError
 	default:
 		return http.StatusInternalServerError
