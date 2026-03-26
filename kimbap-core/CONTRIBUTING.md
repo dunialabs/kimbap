@@ -122,6 +122,31 @@ actions:
 
 **Action naming convention:** Use kebab-case within the skill file (e.g., `list-repos`, `create-issue`). The canonical name becomes `service.action-name` (e.g., `github.create-issue`).
 
+### Adding a New Provider
+
+Providers define OAuth endpoints and authentication configuration for external services. They are stored as YAML files in `internal/connectors/providers/official/`.
+
+#### Steps
+
+1. Copy `internal/connectors/providers/official/TEMPLATE.yaml` to `{provider-id}.yaml`
+2. Fill in all required fields (see template comments)
+3. Choose the appropriate `auth_lanes`:
+   - `public-client` — embeds `client_id` in the binary (device/PKCE flows only; no secret)
+   - `managed-confidential` — platform manages a registered app; `client_secret` stored in vault at `connector:{id}:client_secret`
+   - `byo` — users provide their own credentials via `KIMBAP_{PROVIDER}_CLIENT_ID` / `KIMBAP_{PROVIDER}_CLIENT_SECRET` env vars
+4. Set `token_exchange.auth_method` (usually `body`; use `basic` for providers like Notion or Stripe that require HTTP Basic auth)
+5. Run `go test ./internal/connectors/providers/... -v` to verify parsing and parity
+
+#### Auth Lanes Summary
+
+| Lane | client_id source | client_secret source | When to use |
+|------|-----------------|---------------------|-------------|
+| `public-client` | `embedded_client_id` in YAML | None | Device/PKCE flows; public clients |
+| `managed-confidential` | `managed_client_id` in YAML | Vault: `connector:{id}:client_secret` | Platform-operated app |
+| `byo` | `KIMBAP_{ID}_CLIENT_ID` env | `KIMBAP_{ID}_CLIENT_SECRET` env | Enterprise/self-hosted |
+
+Never put secrets in YAML files or source code.
+
 ### Environment variables
 
 - Kimbap Core vars use the `KIMBAP_*` prefix where possible

@@ -21,7 +21,7 @@ type OAuthClientMaterial struct {
 	// One of: "public-client", "managed-confidential", "byo"
 	Source string
 	// AuthMethod is the token exchange method from the provider manifest.
-	// One of: "basic", "body", "header". Defaults to "body" if empty.
+	// One of: "basic", "body". Defaults to "body" if empty.
 	AuthMethod string
 }
 

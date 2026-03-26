@@ -48,7 +48,7 @@ func DeviceCodeRequest(cfg ConnectorConfig) (*DeviceFlowResult, error) {
 		form.Set("scope", strings.Join(cfg.Scopes, " "))
 	}
 
-	body, err := postForm(cfg.DeviceURL, form)
+	body, err := postFormWithAuth(context.Background(), cfg.DeviceURL, form, cfg.AuthMethod, cfg.ClientID, cfg.ClientSecret)
 	if err != nil {
 		return nil, err
 	}
@@ -107,22 +107,19 @@ func PollForTokenWithContext(ctx context.Context, cfg ConnectorConfig, deviceCod
 		form.Set("grant_type", "urn:ietf:params:oauth:grant-type:device_code")
 		form.Set("client_id", cfg.ClientID)
 		form.Set("device_code", deviceCode)
-		if cfg.ClientSecret != "" {
-			form.Set("client_secret", cfg.ClientSecret)
-		}
 
-		body, err := postFormWithContext(ctx, cfg.TokenURL, form)
+		body, err := postFormWithAuth(ctx, cfg.TokenURL, form, cfg.AuthMethod, cfg.ClientID, cfg.ClientSecret)
 		if err == nil {
 			return parseTokenResponse(body)
 		}
 
-		oauthErr, ok := err.(*oauthHTTPError)
+		oauthErr, ok := err.(*OAuthHTTPError)
 		if !ok {
 			return nil, err
 		}
 
 		var tokenErr tokenErrorResponse
-		if json.Unmarshal(oauthErr.body, &tokenErr) != nil {
+		if json.Unmarshal(oauthErr.RawBody, &tokenErr) != nil {
 			return nil, err
 		}
 
@@ -177,11 +174,8 @@ func RefreshAccessTokenWithContext(ctx context.Context, cfg ConnectorConfig, ref
 	form.Set("grant_type", "refresh_token")
 	form.Set("client_id", cfg.ClientID)
 	form.Set("refresh_token", refreshToken)
-	if cfg.ClientSecret != "" {
-		form.Set("client_secret", cfg.ClientSecret)
-	}
 
-	body, err := postFormWithContext(ctx, cfg.TokenURL, form)
+	body, err := postFormWithAuth(ctx, cfg.TokenURL, form, cfg.AuthMethod, cfg.ClientID, cfg.ClientSecret)
 	if err != nil {
 		return nil, err
 	}
@@ -201,14 +195,11 @@ func RequestClientCredentialsTokenWithContext(ctx context.Context, cfg Connector
 	form := url.Values{}
 	form.Set("grant_type", "client_credentials")
 	form.Set("client_id", cfg.ClientID)
-	if cfg.ClientSecret != "" {
-		form.Set("client_secret", cfg.ClientSecret)
-	}
 	if len(cfg.Scopes) > 0 {
 		form.Set("scope", strings.Join(cfg.Scopes, " "))
 	}
 
-	body, err := postFormWithContext(ctx, cfg.TokenURL, form)
+	body, err := postFormWithAuth(ctx, cfg.TokenURL, form, cfg.AuthMethod, cfg.ClientID, cfg.ClientSecret)
 	if err != nil {
 		return nil, err
 	}
@@ -216,29 +207,32 @@ func RequestClientCredentialsTokenWithContext(ctx context.Context, cfg Connector
 	return parseTokenResponse(body)
 }
 
-type oauthHTTPError struct {
-	status int
-	body   []byte
+type OAuthHTTPError struct {
+	Status  int
+	RawBody []byte
 }
 
-func (e *oauthHTTPError) Error() string {
-	return fmt.Sprintf("oauth endpoint returned status %d", e.status)
+func (e *OAuthHTTPError) Error() string {
+	return fmt.Sprintf("oauth endpoint returned status %d", e.Status)
 }
 
-func postForm(endpoint string, form url.Values) ([]byte, error) {
-	return postFormWithContext(context.Background(), endpoint, form)
+// PostFormWithAuth is the exported variant used by sub-packages (e.g. browser flow).
+func PostFormWithAuth(ctx context.Context, endpoint string, form url.Values, authMethod, clientID, clientSecret string) ([]byte, error) {
+	return postFormWithAuth(ctx, endpoint, form, authMethod, clientID, clientSecret)
 }
 
-func postFormWithContext(ctx context.Context, endpoint string, form url.Values) ([]byte, error) {
+func postFormWithAuth(ctx context.Context, endpoint string, form url.Values, authMethod, clientID, clientSecret string) ([]byte, error) {
 	if ctx == nil {
 		ctx = context.Background()
 	}
-
 	reqCtx := ctx
 	if oauthHTTPClient.Timeout > 0 {
 		var cancel context.CancelFunc
 		reqCtx, cancel = context.WithTimeout(reqCtx, oauthHTTPClient.Timeout)
 		defer cancel()
+	}
+	if authMethod != "basic" && strings.TrimSpace(clientSecret) != "" {
+		form.Set("client_secret", clientSecret)
 	}
 	req, err := http.NewRequestWithContext(reqCtx, http.MethodPost, endpoint, strings.NewReader(form.Encode()))
 	if err != nil {
@@ -246,13 +240,14 @@ func postFormWithContext(ctx context.Context, endpoint string, form url.Values) 
 	}
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	req.Header.Set("Accept", "application/json")
-
+	if authMethod == "basic" && strings.TrimSpace(clientSecret) != "" {
+		req.SetBasicAuth(clientID, clientSecret)
+	}
 	res, err := oauthHTTPClient.Do(req)
 	if err != nil {
 		return nil, fmt.Errorf("execute oauth request: %w", err)
 	}
 	defer res.Body.Close()
-
 	body, err := io.ReadAll(io.LimitReader(res.Body, maxOAuthResponseBodyBytes+1))
 	if err != nil {
 		return nil, fmt.Errorf("read oauth response: %w", err)
@@ -260,11 +255,9 @@ func postFormWithContext(ctx context.Context, endpoint string, form url.Values) 
 	if int64(len(body)) > maxOAuthResponseBodyBytes {
 		return nil, fmt.Errorf("oauth response exceeded %d bytes", maxOAuthResponseBodyBytes)
 	}
-
 	if res.StatusCode < http.StatusOK || res.StatusCode >= http.StatusMultipleChoices {
-		return nil, &oauthHTTPError{status: res.StatusCode, body: body}
+		return nil, &OAuthHTTPError{Status: res.StatusCode, RawBody: body}
 	}
-
 	return body, nil
 }
 

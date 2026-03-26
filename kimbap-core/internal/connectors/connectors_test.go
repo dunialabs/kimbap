@@ -4,6 +4,7 @@ import (
 	"context"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"strings"
 	"sync"
 	"testing"
@@ -583,4 +584,88 @@ func mustEncryptToken(t *testing.T, value, key string) string {
 		t.Fatalf("encrypt token: %v", err)
 	}
 	return encrypted
+}
+
+func TestPostFormWithAuth_BasicSendsHeaderNotBody(t *testing.T) {
+	var capturedAuth string
+	var capturedBodySecret string
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		capturedAuth = r.Header.Get("Authorization")
+		if err := r.ParseForm(); err != nil {
+			t.Fatalf("parse form: %v", err)
+		}
+		capturedBodySecret = r.Form.Get("client_secret")
+		_, _ = w.Write([]byte(`{"access_token":"tok","token_type":"bearer"}`))
+	}))
+	defer server.Close()
+
+	form := url.Values{}
+	form.Set("grant_type", "client_credentials")
+	form.Set("client_id", "test-client")
+	_, err := postFormWithAuth(context.Background(), server.URL, form, "basic", "test-client", "test-secret")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if capturedBodySecret != "" {
+		t.Errorf("client_secret should NOT be in body for basic auth, got: %q", capturedBodySecret)
+	}
+	if !strings.Contains(capturedAuth, "Basic ") {
+		t.Errorf("expected Basic auth header, got: %q", capturedAuth)
+	}
+}
+
+func TestPostFormWithAuth_BodySendsSecretInForm(t *testing.T) {
+	var capturedBodySecret string
+	var capturedAuth string
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		capturedAuth = r.Header.Get("Authorization")
+		if err := r.ParseForm(); err != nil {
+			t.Fatalf("parse form: %v", err)
+		}
+		capturedBodySecret = r.Form.Get("client_secret")
+		_, _ = w.Write([]byte(`{"access_token":"tok","token_type":"bearer"}`))
+	}))
+	defer server.Close()
+
+	form := url.Values{}
+	form.Set("grant_type", "client_credentials")
+	form.Set("client_id", "test-client")
+	_, err := postFormWithAuth(context.Background(), server.URL, form, "body", "test-client", "test-secret")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if capturedBodySecret != "test-secret" {
+		t.Errorf("expected client_secret in body, got: %q", capturedBodySecret)
+	}
+	if capturedAuth != "" {
+		t.Errorf("expected no Authorization header for body auth, got: %q", capturedAuth)
+	}
+}
+
+func TestPostFormWithAuth_NoSecretPublicClient(t *testing.T) {
+	var capturedBodySecret string
+	var capturedAuth string
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		capturedAuth = r.Header.Get("Authorization")
+		if err := r.ParseForm(); err != nil {
+			t.Fatalf("parse form: %v", err)
+		}
+		capturedBodySecret = r.Form.Get("client_secret")
+		_, _ = w.Write([]byte(`{"access_token":"tok","token_type":"bearer"}`))
+	}))
+	defer server.Close()
+
+	form := url.Values{}
+	form.Set("grant_type", "device_code")
+	form.Set("client_id", "public-id")
+	_, err := postFormWithAuth(context.Background(), server.URL, form, "body", "public-id", "")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if capturedBodySecret != "" {
+		t.Errorf("expected no client_secret in body for public client, got: %q", capturedBodySecret)
+	}
+	if capturedAuth != "" {
+		t.Errorf("expected no Authorization header for public client, got: %q", capturedAuth)
+	}
 }

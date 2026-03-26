@@ -1,0 +1,20 @@
+id: slack
+display_name: Slack
+supported_flows: [browser]
+auth_endpoint: https://slack.com/oauth/v2/authorize
+token_endpoint: https://slack.com/api/oauth.v2.access
+revocation_endpoint: https://slack.com/api/auth.revoke
+user_info_endpoint: https://slack.com/api/auth.test
+default_scopes:
+  - "channels:read"
+  - "chat:write"
+scope_presets:
+  minimal: "channels:read"
+  default: "channels:read chat:write"
+  bot: "channels:read chat:write users:read"
+connection_scope_model: [workspace]
+pkce_required: false
+notes: "Slack uses workspace-level OAuth with bot tokens. Scopes must match your Slack app configuration."
+auth_lanes: [managed-confidential, byo]
+token_exchange:
+  auth_method: body

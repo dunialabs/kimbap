@@ -1,0 +1,20 @@
+id: github
+display_name: GitHub
+supported_flows: [browser, device]
+auth_endpoint: https://github.com/login/oauth/authorize
+token_endpoint: https://github.com/login/oauth/access_token
+device_endpoint: https://github.com/login/device/code
+user_info_endpoint: https://api.github.com/user
+default_scopes:
+  - repo
+  - "read:org"
+scope_presets:
+  minimal: "read:user"
+  default: "repo read:org"
+  full: "repo read:org admin:org"
+connection_scope_model: [user]
+pkce_required: false
+auth_lanes: [public-client, byo]
+embedded_client_id: ""
+token_exchange:
+  auth_method: body

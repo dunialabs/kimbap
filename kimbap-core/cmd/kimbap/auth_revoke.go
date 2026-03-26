@@ -80,7 +80,8 @@ func newAuthRevokeCommand() *cobra.Command {
 					revocationResult = "skipped: token unavailable for remote revocation"
 				} else {
 					revocationAttempted = true
-					revokeErr := callRevocationEndpoint(provider.RevocationEndpoint, resolveClientID(cfg, providerID), resolveClientSecret(cfg, providerID), revokeToken)
+					revokeCreds := resolveOAuthCreds(cfg, providerID)
+					revokeErr := callRevocationEndpoint(provider.RevocationEndpoint, revokeCreds.ClientID, revokeCreds.ClientSecret, revokeToken)
 					if revokeErr != nil {
 						revocationResult = fmt.Sprintf("failed: %v", revokeErr)
 					} else {

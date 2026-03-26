@@ -16,6 +16,10 @@ type ProviderDefinition struct {
 	ConnectionScopeModel []ConnectionScope `json:"connection_scope_model" yaml:"connection_scope_model"`
 	PKCERequired         bool              `json:"pkce_required" yaml:"pkce_required"`
 	Notes                string            `json:"notes,omitempty" yaml:"notes,omitempty"`
+	// AuthLanes lists supported authentication lanes for this provider.
+	// Values: "public-client", "managed-confidential", "byo".
+	// Populated when loaded from YAML manifests.
+	AuthLanes []string `json:"auth_lanes,omitempty" yaml:"auth_lanes,omitempty"`
 }
 
 func (p ProviderDefinition) SupportsFlow(flow FlowType) bool {

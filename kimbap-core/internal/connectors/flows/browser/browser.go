@@ -15,6 +15,8 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/dunialabs/kimbap-core/internal/connectors"
 )
 
 const maxTokenBodyBytes int64 = 4 << 20
@@ -31,6 +33,7 @@ type BrowserFlowConfig struct {
 	Port          int
 	NoOpen        bool
 	Timeout       time.Duration
+	AuthMethod    string
 }
 
 type BrowserFlowResult struct {
@@ -234,30 +237,23 @@ func exchangeAuthorizationCode(ctx context.Context, cfg BrowserFlowConfig, redir
 	form.Set("code", code)
 	form.Set("redirect_uri", redirectURI)
 	form.Set("code_verifier", verifier)
-	if strings.TrimSpace(cfg.ClientSecret) != "" {
-		form.Set("client_secret", cfg.ClientSecret)
-	}
 
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, cfg.TokenEndpoint, strings.NewReader(form.Encode()))
+	body, err := connectors.PostFormWithAuth(ctx, cfg.TokenEndpoint, form, cfg.AuthMethod, cfg.ClientID, cfg.ClientSecret)
 	if err != nil {
-		return nil, fmt.Errorf("build token request: %w", err)
-	}
-	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
-	req.Header.Set("Accept", "application/json")
-
-	client := &http.Client{Timeout: 15 * time.Second}
-	res, err := client.Do(req)
-	if err != nil {
+		var httpErr *connectors.OAuthHTTPError
+		if errors.As(err, &httpErr) {
+			var raw map[string]any
+			if json.Unmarshal(httpErr.RawBody, &raw) == nil {
+				if oauthErr := stringFromAny(raw["error"]); oauthErr != "" {
+					oauthDesc := stringFromAny(raw["error_description"])
+					if oauthDesc != "" {
+						return nil, fmt.Errorf("oauth token error: %s (%s)", oauthErr, oauthDesc)
+					}
+					return nil, fmt.Errorf("oauth token error: %s", oauthErr)
+				}
+			}
+		}
 		return nil, fmt.Errorf("exchange authorization code: %w", err)
-	}
-	defer res.Body.Close()
-
-	body, err := io.ReadAll(io.LimitReader(res.Body, maxTokenBodyBytes+1))
-	if err != nil {
-		return nil, fmt.Errorf("read token response: %w", err)
-	}
-	if int64(len(body)) > maxTokenBodyBytes {
-		return nil, fmt.Errorf("token response exceeded %d bytes", maxTokenBodyBytes)
 	}
 
 	var raw map[string]any
@@ -265,16 +261,12 @@ func exchangeAuthorizationCode(ctx context.Context, cfg BrowserFlowConfig, redir
 		return nil, fmt.Errorf("decode token response: %w", err)
 	}
 
-	if res.StatusCode < http.StatusOK || res.StatusCode >= http.StatusMultipleChoices {
-		oauthErr := stringFromAny(raw["error"])
+	if oauthErr := stringFromAny(raw["error"]); oauthErr != "" {
 		oauthDesc := stringFromAny(raw["error_description"])
-		if oauthErr != "" && oauthDesc != "" {
+		if oauthDesc != "" {
 			return nil, fmt.Errorf("oauth token error: %s (%s)", oauthErr, oauthDesc)
 		}
-		if oauthErr != "" {
-			return nil, fmt.Errorf("oauth token error: %s", oauthErr)
-		}
-		return nil, fmt.Errorf("token endpoint returned status %d", res.StatusCode)
+		return nil, fmt.Errorf("oauth token error: %s", oauthErr)
 	}
 
 	accessToken := stringFromAny(raw["access_token"])

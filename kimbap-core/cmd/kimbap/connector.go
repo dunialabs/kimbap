@@ -265,11 +265,13 @@ func newConnectorRefreshCommand() *cobra.Command {
 				return fmt.Errorf("provider %q endpoint validation failed: %w", name, vErr)
 			}
 
+			connCreds := resolveOAuthCreds(cfg, provider.ID)
 			mgr.RegisterConfig(connectors.ConnectorConfig{
 				Name:         name,
 				Provider:     provider.ID,
-				ClientID:     resolveClientID(cfg, name),
-				ClientSecret: resolveClientSecret(cfg, name),
+				ClientID:     connCreds.ClientID,
+				ClientSecret: connCreds.ClientSecret,
+				AuthMethod:   connCreds.AuthMethod,
 				TokenURL:     provider.TokenEndpoint,
 				DeviceURL:    provider.DeviceEndpoint,
 				Scopes:       provider.DefaultScopes,

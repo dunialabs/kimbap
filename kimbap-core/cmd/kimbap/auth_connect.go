@@ -12,8 +12,43 @@ import (
 	"github.com/dunialabs/kimbap-core/internal/connectors/flows/browser"
 	"github.com/dunialabs/kimbap-core/internal/connectors/flows/clientcred"
 	"github.com/dunialabs/kimbap-core/internal/connectors/flows/device"
+	realProviders "github.com/dunialabs/kimbap-core/internal/connectors/providers"
 	"github.com/spf13/cobra"
 )
+
+// resolveOAuthCreds resolves OAuth client credentials using the 3-lane model.
+// Falls back to legacy env-var resolution if the manifest-based resolver fails,
+// ensuring backward compatibility for users with existing KIMBAP_*_CLIENT_ID env vars.
+func resolveOAuthCreds(cfg *config.KimbapConfig, providerID string) *connectors.OAuthClientMaterial {
+	manifest := loadProviderManifestForConnect(providerID)
+	creds, err := connectors.ResolveOAuthClientMaterial(providerID, manifest)
+	if err != nil {
+		authMethod := "body"
+		if manifest != nil && manifest.TokenExchange.AuthMethod != "" {
+			authMethod = manifest.TokenExchange.AuthMethod
+		}
+		return &connectors.OAuthClientMaterial{
+			ClientID:     resolveClientID(cfg, providerID),
+			ClientSecret: resolveClientSecret(cfg, providerID),
+			Source:       "legacy",
+			AuthMethod:   authMethod,
+		}
+	}
+	return creds
+}
+
+func loadProviderManifestForConnect(providerID string) *connectors.ProviderManifest {
+	path := "official/" + strings.ToLower(strings.TrimSpace(providerID)) + ".yaml"
+	data, err := realProviders.EmbeddedProviders.ReadFile(path)
+	if err != nil {
+		return nil
+	}
+	m, err := connectors.ParseProviderManifest(data)
+	if err != nil {
+		return nil
+	}
+	return m
+}
 
 func newAuthConnectCommand() *cobra.Command {
 	var flow string
@@ -138,11 +173,13 @@ func newAuthReconnectCommand() *cobra.Command {
 				if err := validateProviderEndpoints(provider); err != nil {
 					return fmt.Errorf("provider %q endpoint validation failed: %w", providerID, err)
 				}
+				reconnectCreds := resolveOAuthCreds(cfg, providerID)
 				mgr.RegisterConfig(connectors.ConnectorConfig{
 					Name:         storeName,
 					Provider:     providerID,
-					ClientID:     resolveClientID(cfg, providerID),
-					ClientSecret: resolveClientSecret(cfg, providerID),
+					ClientID:     reconnectCreds.ClientID,
+					ClientSecret: reconnectCreds.ClientSecret,
+					AuthMethod:   reconnectCreds.AuthMethod,
 					TokenURL:     provider.TokenEndpoint,
 					DeviceURL:    provider.DeviceEndpoint,
 					Scopes:       scopeValues(scopeInput, provider.DefaultScopes),
@@ -333,11 +370,13 @@ func runAuthConnect(
 			existingPrincipal = strings.TrimSpace(prev.ConnectedPrincipal)
 		}
 	}
+	creds := resolveOAuthCreds(cfg, providerID)
 	mgr.RegisterConfig(connectors.ConnectorConfig{
 		Name:         storeName,
 		Provider:     providerID,
-		ClientID:     resolveClientID(cfg, providerID),
-		ClientSecret: resolveClientSecret(cfg, providerID),
+		ClientID:     creds.ClientID,
+		ClientSecret: creds.ClientSecret,
+		AuthMethod:   creds.AuthMethod,
 		TokenURL:     provider.TokenEndpoint,
 		DeviceURL:    provider.DeviceEndpoint,
 		Scopes:       scopes,
@@ -355,8 +394,9 @@ func runAuthConnect(
 		deviceResult, deviceErr := device.RunDeviceFlow(ctx, device.DeviceFlowConfig{
 			DeviceEndpoint: provider.DeviceEndpoint,
 			TokenEndpoint:  provider.TokenEndpoint,
-			ClientID:       resolveClientID(cfg, providerID),
-			ClientSecret:   resolveClientSecret(cfg, providerID),
+			ClientID:       creds.ClientID,
+			ClientSecret:   creds.ClientSecret,
+			AuthMethod:     creds.AuthMethod,
 			Scopes:         scopes,
 			Timeout:        timeout,
 		}, os.Stderr)
@@ -379,8 +419,9 @@ func runAuthConnect(
 		browserResult, browserErr := browser.RunBrowserFlow(ctx, browser.BrowserFlowConfig{
 			AuthEndpoint:  provider.AuthEndpoint,
 			TokenEndpoint: provider.TokenEndpoint,
-			ClientID:      resolveClientID(cfg, providerID),
-			ClientSecret:  resolveClientSecret(cfg, providerID),
+			ClientID:      creds.ClientID,
+			ClientSecret:  creds.ClientSecret,
+			AuthMethod:    creds.AuthMethod,
 			Scopes:        scopes,
 			Port:          port,
 			NoOpen:        noOpen || strings.EqualFold(browserName, "none"),
@@ -398,8 +439,9 @@ func runAuthConnect(
 				deviceResult, deviceErr := device.RunDeviceFlow(ctx, device.DeviceFlowConfig{
 					DeviceEndpoint: provider.DeviceEndpoint,
 					TokenEndpoint:  provider.TokenEndpoint,
-					ClientID:       resolveClientID(cfg, providerID),
-					ClientSecret:   resolveClientSecret(cfg, providerID),
+					ClientID:       creds.ClientID,
+					ClientSecret:   creds.ClientSecret,
+					AuthMethod:     creds.AuthMethod,
 					Scopes:         scopes,
 					Timeout:        timeout,
 				}, os.Stderr)
@@ -431,11 +473,12 @@ func runAuthConnect(
 
 	case connectors.FlowClientCredentials:
 		_, _ = fmt.Fprintf(os.Stderr, "Starting client credentials flow for %s (service-level connection)...\n", provider.DisplayName)
-		_, _ = fmt.Fprintf(os.Stderr, "Client: %s\n", resolveClientID(cfg, providerID))
+		_, _ = fmt.Fprintf(os.Stderr, "Client: %s\n", creds.ClientID)
 		ccResult, ccErr := clientcred.RunClientCredentialsFlow(ctx, clientcred.ClientCredentialsConfig{
 			TokenEndpoint: provider.TokenEndpoint,
-			ClientID:      resolveClientID(cfg, providerID),
-			ClientSecret:  resolveClientSecret(cfg, providerID),
+			ClientID:      creds.ClientID,
+			ClientSecret:  creds.ClientSecret,
+			AuthMethod:    creds.AuthMethod,
 			Scopes:        scopes,
 		})
 		if ccErr != nil {

@@ -18,6 +18,7 @@ type DeviceFlowConfig struct {
 	ClientSecret   string
 	Scopes         []string
 	Timeout        time.Duration
+	AuthMethod     string
 }
 
 type DeviceFlowResult struct {
@@ -44,6 +45,7 @@ func RunDeviceFlow(ctx context.Context, cfg DeviceFlowConfig, output io.Writer) 
 	connectorCfg := connectors.ConnectorConfig{
 		ClientID:     cfg.ClientID,
 		ClientSecret: cfg.ClientSecret,
+		AuthMethod:   cfg.AuthMethod,
 		Scopes:       cfg.Scopes,
 		DeviceURL:    cfg.DeviceEndpoint,
 		TokenURL:     cfg.TokenEndpoint,

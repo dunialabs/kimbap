@@ -37,28 +37,25 @@ func manifestToDefinition(m *connectors.ProviderManifest) connectors.ProviderDef
 		ConnectionScopeModel: scopes,
 		PKCERequired:         m.PKCERequired,
 		Notes:                m.Notes,
+		AuthLanes:            m.AuthLanes,
 	}
 }
 
+// LoadProvider loads a provider definition by ID from the given fs.FS.
+// Returns an error if the provider is not found or the YAML is invalid.
 func LoadProvider(id string, fsys fs.FS) (connectors.ProviderDefinition, error) {
 	normalized := strings.ToLower(strings.TrimSpace(id))
-	if normalized == "_placeholder" {
+	if normalized == "_placeholder" || normalized == "" {
 		return connectors.ProviderDefinition{}, fmt.Errorf("provider %q: %w", id, fs.ErrNotExist)
 	}
 
 	providerPath := filepath.ToSlash(filepath.Join("official", normalized+".yaml"))
 	data, err := fs.ReadFile(fsys, providerPath)
 	if err != nil {
-		if !errors.Is(err, fs.ErrNotExist) {
-			return connectors.ProviderDefinition{}, fmt.Errorf("read provider YAML %q: %w", providerPath, err)
+		if errors.Is(err, fs.ErrNotExist) {
+			return connectors.ProviderDefinition{}, fmt.Errorf("unknown provider: %s", id)
 		}
-
-		def, regErr := GetProvider(id)
-		if regErr != nil {
-			return connectors.ProviderDefinition{}, regErr
-		}
-		slog.Info(fmt.Sprintf("provider %s loaded from hardcoded registry", normalized))
-		return def, nil
+		return connectors.ProviderDefinition{}, fmt.Errorf("read provider YAML %q: %w", providerPath, err)
 	}
 
 	manifest, err := connectors.ParseProviderManifest(data)
@@ -71,6 +68,8 @@ func LoadProvider(id string, fsys fs.FS) (connectors.ProviderDefinition, error) 
 	return def, nil
 }
 
+// LoadAllProviders loads all provider definitions from the given fs.FS.
+// Only YAML files in the official/ directory are loaded; _placeholder.yaml is skipped.
 func LoadAllProviders(fsys fs.FS) ([]connectors.ProviderDefinition, error) {
 	merged := map[string]connectors.ProviderDefinition{}
 
@@ -85,7 +84,7 @@ func LoadAllProviders(fsys fs.FS) ([]connectors.ProviderDefinition, error) {
 		}
 
 		name := entry.Name()
-		if filepath.Ext(name) != ".yaml" || name == "_placeholder.yaml" {
+		if filepath.Ext(name) != ".yaml" || name == "_placeholder.yaml" || name == "TEMPLATE.yaml" {
 			continue
 		}
 
@@ -102,12 +101,6 @@ func LoadAllProviders(fsys fs.FS) ([]connectors.ProviderDefinition, error) {
 
 		def := manifestToDefinition(manifest)
 		merged[def.ID] = def
-	}
-
-	for _, hardcoded := range ListProviders() {
-		if _, exists := merged[hardcoded.ID]; !exists {
-			merged[hardcoded.ID] = hardcoded
-		}
 	}
 
 	ids := make([]string, 0, len(merged))

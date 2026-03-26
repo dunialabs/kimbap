@@ -33,7 +33,7 @@ func newAuthProvidersListCommand() *cobra.Command {
 
 			out := make([]map[string]any, 0, len(items))
 			for _, item := range items {
-				configured := providerIsConfigured(item) && strings.TrimSpace(resolveClientID(cfg, item.ID)) != ""
+				configured := providerIsConfigured(item) && strings.TrimSpace(resolveOAuthCreds(cfg, item.ID).ClientID) != ""
 				out = append(out, map[string]any{
 					"id":                     item.ID,
 					"display_name":           item.DisplayName,
@@ -43,6 +43,7 @@ func newAuthProvidersListCommand() *cobra.Command {
 					"supports_device_flow":   item.SupportsDeviceFlow(),
 					"supports_client_creds":  item.SupportsClientCredentials(),
 					"connection_scope_model": item.ConnectionScopeModel,
+					"auth_lanes":             item.AuthLanes,
 				})
 			}
 
@@ -53,7 +54,7 @@ func newAuthProvidersListCommand() *cobra.Command {
 				}
 				_, _ = fmt.Fprintf(os.Stdout, "%-15s  %-20s  %-30s  %-12s  %s\n", "ID", "NAME", "FLOWS", "CONFIGURED", "SCOPES")
 				for _, item := range items {
-					configured := providerIsConfigured(item) && strings.TrimSpace(resolveClientID(cfg, item.ID)) != ""
+					configured := providerIsConfigured(item) && strings.TrimSpace(resolveOAuthCreds(cfg, item.ID).ClientID) != ""
 					flowStrs := make([]string, 0, len(item.SupportedFlows))
 					for _, f := range item.SupportedFlows {
 						flowStrs = append(flowStrs, string(f))

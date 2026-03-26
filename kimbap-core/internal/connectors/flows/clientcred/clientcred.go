@@ -13,6 +13,7 @@ type ClientCredentialsConfig struct {
 	ClientID      string
 	ClientSecret  string
 	Scopes        []string
+	AuthMethod    string
 }
 
 type ClientCredentialsResult struct {
@@ -33,6 +34,7 @@ func RunClientCredentialsFlow(ctx context.Context, cfg ClientCredentialsConfig) 
 		TokenURL:     cfg.TokenEndpoint,
 		ClientID:     cfg.ClientID,
 		ClientSecret: cfg.ClientSecret,
+		AuthMethod:   cfg.AuthMethod,
 		Scopes:       cfg.Scopes,
 	})
 	if err != nil {

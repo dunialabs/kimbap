@@ -133,11 +133,13 @@ func buildServeRuntime(cfg *config.KimbapConfig, st *store.SQLStore) (*runtime.R
 	if cs, csErr := openConnectorStore(cfg); csErr == nil {
 		connStore = cs
 		for _, prov := range providers.ListProviders() {
+			creds := resolveOAuthCreds(cfg, prov.ID)
 			connConfigs = append(connConfigs, connectors.ConnectorConfig{
 				Name:         prov.ID,
 				Provider:     prov.ID,
-				ClientID:     resolveClientID(cfg, prov.ID),
-				ClientSecret: resolveClientSecret(cfg, prov.ID),
+				ClientID:     creds.ClientID,
+				ClientSecret: creds.ClientSecret,
+				AuthMethod:   creds.AuthMethod,
 				TokenURL:     prov.TokenEndpoint,
 				DeviceURL:    prov.DeviceEndpoint,
 				Scopes:       prov.DefaultScopes,

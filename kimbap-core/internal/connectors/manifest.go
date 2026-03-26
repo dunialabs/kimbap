@@ -5,8 +5,7 @@ import "fmt"
 // TokenExchangeConfig defines how tokens are exchanged with the provider.
 type TokenExchangeConfig struct {
 	// AuthMethod controls how client credentials are sent during token exchange.
-	// Values: "basic" (HTTP Basic auth header), "body" (form body params), "header" (custom header).
-	// Defaults to "body" if empty.
+	// Values: "basic" (HTTP Basic auth header), "body" (form body params). Defaults to "body" if empty.
 	AuthMethod string `yaml:"auth_method,omitempty" json:"auth_method,omitempty"`
 }
 
@@ -51,10 +50,9 @@ var validAuthLanes = map[string]bool{
 
 // validAuthMethods is the set of allowed token exchange auth method values.
 var validAuthMethods = map[string]bool{
-	"":       true,
-	"basic":  true,
-	"body":   true,
-	"header": true,
+	"":      true,
+	"basic": true,
+	"body":  true,
 }
 
 // Validate checks required fields and enum values on the manifest.
@@ -83,7 +81,7 @@ func (m *ProviderManifest) Validate() error {
 		}
 	}
 	if !validAuthMethods[m.TokenExchange.AuthMethod] {
-		return fmt.Errorf("provider manifest %q: invalid token_exchange.auth_method: %q (allowed: basic, body, header)", m.ID, m.TokenExchange.AuthMethod)
+		return fmt.Errorf("provider manifest %q: invalid token_exchange.auth_method: %q (allowed: basic, body)", m.ID, m.TokenExchange.AuthMethod)
 	}
 	return nil
 }
