@@ -23,6 +23,7 @@ import (
 	"github.com/dunialabs/kimbap-core/internal/store"
 	"github.com/dunialabs/kimbap-core/internal/webhooks"
 	"github.com/go-chi/chi/v5"
+	"github.com/rs/zerolog/log"
 )
 
 type createTokenRequest struct {
@@ -711,7 +712,9 @@ func (s *Server) handleExportAudit(w http.ResponseWriter, r *http.Request) {
 	}
 	w.Header().Set("Content-Type", contentType)
 	w.WriteHeader(http.StatusOK)
-	_, _ = io.Copy(w, &buf)
+	if written, copyErr := io.Copy(w, &buf); copyErr != nil {
+		log.Warn().Err(copyErr).Str("requestId", requestIDFromContext(r.Context())).Str("tenantId", tenantID).Str("format", format).Int64("bytesWritten", written).Msg("failed to write audit export response body")
+	}
 }
 
 const maxAPIRequestBodyBytes int64 = 4 << 20

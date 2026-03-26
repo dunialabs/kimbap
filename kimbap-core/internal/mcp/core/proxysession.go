@@ -2118,7 +2118,9 @@ func (p *ProxySession) Cleanup(ctx context.Context) {
 		ServerManagerInstance().CleanupSessionSubscriptions(ctx, p.sessionID, p.userID)
 		if p.upstreamServer != nil {
 			if closer, ok := any(p.upstreamServer).(interface{ Close() error }); ok {
-				_ = closer.Close()
+				if err := closer.Close(); err != nil {
+					log.Warn().Err(err).Str("sessionId", p.sessionID).Msg("failed to close upstream server during proxy session cleanup")
+				}
 			}
 		}
 	})
