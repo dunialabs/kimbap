@@ -8,20 +8,45 @@ const isDev = process.env.NODE_ENV === 'development';
 const AUTH_TOKEN_KEY = 'auth_token';
 const LEGACY_AUTH_TOKEN_KEY = 'accessToken';
 
+const safeStorageGet = (key: string): string | null => {
+  try {
+    return localStorage.getItem(key);
+  } catch {
+    return null;
+  }
+};
+
+const safeStorageSet = (key: string, value: string): boolean => {
+  try {
+    localStorage.setItem(key, value);
+    return true;
+  } catch {
+    return false;
+  }
+};
+
+const safeStorageRemove = (key: string): void => {
+  try {
+    localStorage.removeItem(key);
+  } catch {
+    return;
+  }
+};
+
 const readAuthTokenFromStorage = () => {
   if (typeof window === 'undefined') {
     return null;
   }
 
-  const canonicalToken = localStorage.getItem(AUTH_TOKEN_KEY);
+  const canonicalToken = safeStorageGet(AUTH_TOKEN_KEY);
   if (canonicalToken) {
     return canonicalToken;
   }
 
-  const legacyToken = localStorage.getItem(LEGACY_AUTH_TOKEN_KEY);
+  const legacyToken = safeStorageGet(LEGACY_AUTH_TOKEN_KEY);
   if (legacyToken) {
-    localStorage.setItem(AUTH_TOKEN_KEY, legacyToken);
-    localStorage.removeItem(LEGACY_AUTH_TOKEN_KEY);
+    safeStorageSet(AUTH_TOKEN_KEY, legacyToken);
+    safeStorageRemove(LEGACY_AUTH_TOKEN_KEY);
     return legacyToken;
   }
 
@@ -49,7 +74,7 @@ apiClient.interceptors.request.use((config) => {
       config.headers.Authorization = `Bearer ${token}`;
     }
     if (config.url?.includes('/api/v1') && config.data) {
-      const userid = localStorage.getItem('userid');
+      const userid = safeStorageGet('userid');
       if (isDev) {
         console.log('[API Client Interceptor] userid from localStorage:', userid);
       }
@@ -605,24 +630,30 @@ export const setAuthToken = (token: string) => {
   if (typeof window === 'undefined') {
     return;
   }
-  localStorage.setItem(AUTH_TOKEN_KEY, token);
-  localStorage.removeItem(LEGACY_AUTH_TOKEN_KEY);
+  if (!safeStorageSet(AUTH_TOKEN_KEY, token)) {
+    throw new Error('Unable to persist auth token in browser storage');
+  }
+  safeStorageRemove(LEGACY_AUTH_TOKEN_KEY);
 };
 
 export const clearAuthState = () => {
   if (typeof window === 'undefined') {
     return;
   }
-  localStorage.removeItem(AUTH_TOKEN_KEY);
-  localStorage.removeItem(LEGACY_AUTH_TOKEN_KEY);
-  localStorage.removeItem('userid');
-  localStorage.removeItem('token');
-  localStorage.removeItem('manualAccessToken');
-  localStorage.removeItem('selectedServer');
+  safeStorageRemove(AUTH_TOKEN_KEY);
+  safeStorageRemove(LEGACY_AUTH_TOKEN_KEY);
+  safeStorageRemove('userid');
+  safeStorageRemove('token');
+  safeStorageRemove('manualAccessToken');
+  safeStorageRemove('selectedServer');
   document.cookie = 'kimbap_session=; path=/; max-age=0';
   import('@/lib/crypto')
     .then(({ MasterPasswordManager }) => MasterPasswordManager.clearCache())
-    .catch(() => {});
+    .catch((error) => {
+      if (isDev) {
+        console.warn('[API Client] Failed to clear master password cache:', error);
+      }
+    });
 };
 
 export const getAuthToken = () => {

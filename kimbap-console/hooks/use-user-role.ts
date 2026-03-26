@@ -2,13 +2,21 @@
 
 import { useState, useEffect } from 'react'
 
+const safeStorageGet = (key: string): string | null => {
+  try {
+    return localStorage.getItem(key)
+  } catch {
+    return null
+  }
+}
+
 export function useUserRole() {
   const [userRole, setUserRole] = useState<string>('Member')
 
   useEffect(() => {
     const getUserRole = (): string => {
       if (typeof window !== 'undefined') {
-        const storedServer = localStorage.getItem('selectedServer')
+        const storedServer = safeStorageGet('selectedServer')
         if (storedServer) {
           try {
             const parsedServer = JSON.parse(storedServer)

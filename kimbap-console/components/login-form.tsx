@@ -13,6 +13,23 @@ interface LoginFormProps {
   defaultToken?: string
 }
 
+const safeStorageSet = (key: string, value: string): boolean => {
+  try {
+    localStorage.setItem(key, value)
+    return true
+  } catch {
+    return false
+  }
+}
+
+const safeStorageRemove = (key: string): void => {
+  try {
+    localStorage.removeItem(key)
+  } catch {
+    return
+  }
+}
+
 const generateSessionCookieValue = () => {
   const bytes = new Uint8Array(16)
   window.crypto.getRandomValues(bytes)
@@ -80,8 +97,8 @@ export function LoginForm({
       const { tokenInfo, accessToken: masterPwdAccessToken } = response.data.data
 
       // Store userid in localStorage for API requests
-      if (tokenInfo.userid) {
-        localStorage.setItem('userid', tokenInfo.userid)
+      if (tokenInfo.userid && !safeStorageSet('userid', tokenInfo.userid)) {
+        throw new Error('Unable to persist user session state in browser storage')
       }
 
       // If using master password, it's always Owner role
@@ -114,14 +131,20 @@ export function LoginForm({
         userRole: role === 'Owner' ? 'Admin' : role
       }
 
-      localStorage.setItem('selectedServer', JSON.stringify(serverInfo))
+      if (!safeStorageSet('selectedServer', JSON.stringify(serverInfo))) {
+        throw new Error('Unable to persist selected server in browser storage')
+      }
 
       if (loginMode === 'token') {
-        localStorage.setItem('auth_token', token.trim())
-        localStorage.removeItem('accessToken')
+        if (!safeStorageSet('auth_token', token.trim())) {
+          throw new Error('Unable to persist auth token in browser storage')
+        }
+        safeStorageRemove('accessToken')
       } else if (masterPwdAccessToken) {
-        localStorage.setItem('auth_token', masterPwdAccessToken)
-        localStorage.removeItem('accessToken')
+        if (!safeStorageSet('auth_token', masterPwdAccessToken)) {
+          throw new Error('Unable to persist auth token in browser storage')
+        }
+        safeStorageRemove('accessToken')
       }
 
       document.cookie = `kimbap_session=${generateSessionCookieValue()}; path=/; max-age=${60 * 60 * 24 * 7}; SameSite=Lax`

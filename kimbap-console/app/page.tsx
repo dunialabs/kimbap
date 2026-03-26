@@ -6,14 +6,22 @@ import { Suspense, useEffect, useState } from 'react'
 import { LoginForm } from '@/components/login-form'
 import { clearAuthState } from '@/lib/api-client'
 
+const safeStorageGet = (key: string): string | null => {
+  try {
+    return localStorage.getItem(key)
+  } catch {
+    return null
+  }
+}
+
 function WelcomePageContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const [checkingAuth, setCheckingAuth] = useState(true)
 
   useEffect(() => {
-    const userid = localStorage.getItem('userid')
-    const authToken = localStorage.getItem('auth_token')
+    const userid = safeStorageGet('userid')
+    const authToken = safeStorageGet('auth_token')
     const hasSessionCookie = document.cookie
       .split('; ')
       .some((cookie) => cookie.startsWith('kimbap_session='))

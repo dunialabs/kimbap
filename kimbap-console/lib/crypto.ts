@@ -316,7 +316,15 @@ export class MasterPasswordManager {
    * Check if master password is set
    */
   static hasMasterPassword(): boolean {
-    return localStorage.getItem(this.STORAGE_KEY) !== null;
+    if (typeof window === 'undefined') {
+      return false;
+    }
+
+    try {
+      return localStorage.getItem(this.STORAGE_KEY) !== null;
+    } catch {
+      return false;
+    }
   }
 
   /**
@@ -327,7 +335,11 @@ export class MasterPasswordManager {
       throw new Error('Master password cannot be empty');
     }
 
-    localStorage.setItem(this.STORAGE_KEY, 'configured');
+    try {
+      localStorage.setItem(this.STORAGE_KEY, 'configured');
+    } catch {
+      throw new Error('Unable to persist master password setup state');
+    }
     this.clearCache();
   }
 
@@ -335,11 +347,27 @@ export class MasterPasswordManager {
    * Clear cached master password
    */
   static clearCache(): void {
-    sessionStorage.removeItem(this.CACHE_KEY);
+    if (typeof window === 'undefined') {
+      return;
+    }
+
+    try {
+      sessionStorage.removeItem(this.CACHE_KEY);
+    } catch {
+      return;
+    }
   }
 
   static clearMasterPassword(): void {
-    localStorage.removeItem(this.STORAGE_KEY);
+    if (typeof window === 'undefined') {
+      return;
+    }
+
+    try {
+      localStorage.removeItem(this.STORAGE_KEY);
+    } catch {
+      return;
+    }
     this.clearCache();
   }
 }
