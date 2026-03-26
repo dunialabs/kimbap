@@ -12,38 +12,38 @@ import (
 	"github.com/dunialabs/kimbap-core/internal/actions"
 )
 
-func ToActionDefinitions(skill *ServiceManifest) ([]actions.ActionDefinition, error) {
-	if skill == nil {
+func ToActionDefinitions(svc *ServiceManifest) ([]actions.ActionDefinition, error) {
+	if svc == nil {
 		return nil, fmt.Errorf("service manifest is nil")
 	}
-	if errs := ValidateManifest(skill); len(errs) > 0 {
+	if errs := ValidateManifest(svc); len(errs) > 0 {
 		return nil, validationErrorsToError("invalid service manifest", errs)
 	}
 
-	adapterType := strings.ToLower(strings.TrimSpace(skill.Adapter))
+	adapterType := strings.ToLower(strings.TrimSpace(svc.Adapter))
 	if adapterType == "" {
 		adapterType = "http"
 	}
 
 	switch adapterType {
 	case "applescript":
-		return toAppleScriptDefinitions(skill)
+		return toAppleScriptDefinitions(svc)
 	default:
-		return toHTTPDefinitions(skill)
+		return toHTTPDefinitions(svc)
 	}
 }
 
-func toHTTPDefinitions(skill *ServiceManifest) ([]actions.ActionDefinition, error) {
-	u, err := url.Parse(skill.BaseURL)
+func toHTTPDefinitions(svc *ServiceManifest) ([]actions.ActionDefinition, error) {
+	u, err := url.Parse(svc.BaseURL)
 	if err != nil {
 		return nil, fmt.Errorf("invalid base url: %w", err)
 	}
 
-	keys := sortedKeys(skill.Actions)
+	keys := sortedKeys(svc.Actions)
 
 	out := make([]actions.ActionDefinition, 0, len(keys))
 	for _, key := range keys {
-		actionSpec := skill.Actions[key]
+		actionSpec := svc.Actions[key]
 		retry := actions.RetryConfig{}
 		if actionSpec.Retry != nil {
 			retry.MaxAttempts = actionSpec.Retry.MaxAttempts
@@ -53,23 +53,23 @@ func toHTTPDefinitions(skill *ServiceManifest) ([]actions.ActionDefinition, erro
 		}
 
 		definition := actions.ActionDefinition{
-			Name:         skill.Name + "." + key,
+			Name:         svc.Name + "." + key,
 			Version:      1,
 			DisplayName:  nonEmpty(actionSpec.Description, key),
-			Namespace:    skill.Name,
+			Namespace:    svc.Name,
 			Verb:         strings.ToLower(actionSpec.Method),
 			Resource:     actionSpec.Path,
 			Description:  actionSpec.Description,
 			Risk:         mapRisk(actionSpec.Risk.Level),
 			Idempotent:   isIdempotent(actionSpec.Method),
 			ApprovalHint: mapApprovalHint(actionSpec.Risk.Level),
-			Auth:         mapAuth(resolveActionAuth(skill.Auth, actionSpec.Auth)),
+			Auth:         mapAuth(resolveActionAuth(svc.Auth, actionSpec.Auth)),
 			InputSchema:  buildInputSchema(actionSpec.Args, actionSpec.Request.PathParams),
 			OutputSchema: buildOutputSchema(actionSpec.Response),
 			Adapter: actions.AdapterConfig{
 				Type:        "http",
 				Method:      strings.ToUpper(actionSpec.Method),
-				BaseURL:     skill.BaseURL,
+				BaseURL:     svc.BaseURL,
 				URLTemplate: actionSpec.Path,
 				Headers:     cloneStringMap(actionSpec.Request.Headers),
 				Query:       cloneStringMap(actionSpec.Request.Query),
@@ -80,7 +80,7 @@ func toHTTPDefinitions(skill *ServiceManifest) ([]actions.ActionDefinition, erro
 				Retry: retry,
 			},
 			Classifiers: []actions.ClassifierRule{{
-				Service:     skill.Name,
+				Service:     svc.Name,
 				Action:      key,
 				Method:      strings.ToUpper(actionSpec.Method),
 				PathPattern: actionSpec.Path,
@@ -96,11 +96,11 @@ func toHTTPDefinitions(skill *ServiceManifest) ([]actions.ActionDefinition, erro
 	return out, nil
 }
 
-func toAppleScriptDefinitions(skill *ServiceManifest) ([]actions.ActionDefinition, error) {
-	keys := sortedKeys(skill.Actions)
+func toAppleScriptDefinitions(svc *ServiceManifest) ([]actions.ActionDefinition, error) {
+	keys := sortedKeys(svc.Actions)
 	out := make([]actions.ActionDefinition, 0, len(keys))
 	for _, key := range keys {
-		actionSpec := skill.Actions[key]
+		actionSpec := svc.Actions[key]
 
 		idempotent := false
 		if actionSpec.Idempotent != nil {
@@ -108,22 +108,22 @@ func toAppleScriptDefinitions(skill *ServiceManifest) ([]actions.ActionDefinitio
 		}
 
 		definition := actions.ActionDefinition{
-			Name:         skill.Name + "." + key,
+			Name:         svc.Name + "." + key,
 			Version:      1,
 			DisplayName:  nonEmpty(actionSpec.Description, key),
-			Namespace:    skill.Name,
+			Namespace:    svc.Name,
 			Verb:         actionSpec.Command,
-			Resource:     skill.TargetApp,
+			Resource:     svc.TargetApp,
 			Description:  actionSpec.Description,
 			Risk:         mapRisk(actionSpec.Risk.Level),
 			Idempotent:   idempotent,
 			ApprovalHint: mapApprovalHint(actionSpec.Risk.Level),
-			Auth:         mapAuth(resolveActionAuth(skill.Auth, actionSpec.Auth)),
+			Auth:         mapAuth(resolveActionAuth(svc.Auth, actionSpec.Auth)),
 			InputSchema:  buildInputSchema(actionSpec.Args, nil),
 			OutputSchema: buildOutputSchema(actionSpec.Response),
 			Adapter: actions.AdapterConfig{
 				Type:      "applescript",
-				TargetApp: skill.TargetApp,
+				TargetApp: svc.TargetApp,
 				Command:   actionSpec.Command,
 			},
 			Classifiers:  nil,

@@ -91,9 +91,13 @@ func (a *AppleScriptAdapter) Execute(ctx context.Context, req AdapterRequest) (*
 	}
 
 	execCtx := ctx
-	if req.Action.Adapter.Timeout > 0 {
+	timeout := req.Timeout
+	if timeout <= 0 {
+		timeout = req.Action.Adapter.Timeout
+	}
+	if timeout > 0 {
 		var cancel context.CancelFunc
-		execCtx, cancel = context.WithTimeout(ctx, req.Action.Adapter.Timeout)
+		execCtx, cancel = context.WithTimeout(ctx, timeout)
 		defer cancel()
 	}
 

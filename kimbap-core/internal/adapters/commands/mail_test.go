@@ -73,3 +73,16 @@ func TestMailTargetApp(t *testing.T) {
 		}
 	}
 }
+
+func TestGetMessageIncludesMailboxField(t *testing.T) {
+	cmd, ok := MailCommands()["get-message"]
+	if !ok {
+		t.Fatal("get-message command not found")
+	}
+	if !strings.Contains(cmd.Script, "foundMailbox") {
+		t.Fatal("get-message script does not capture foundMailbox for the result")
+	}
+	if !strings.Contains(cmd.Script, "mailbox: foundMailbox") {
+		t.Fatal("get-message result object does not include mailbox field")
+	}
+}

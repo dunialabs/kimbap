@@ -72,23 +72,44 @@ JSON.stringify(result);`,
 var app = Application("Mail");
 app.includeStandardAdditions = false;
 if (!input.subject) throw new Error("subject is required");
-var matches = app.messages.whose({subject: input.subject})();
-if (matches.length === 0) throw new Error("message not found");
-var m = matches[0];
-var sent = m.dateSent();
+var found = null;
+var foundMailbox = null;
+var accounts = app.accounts();
+outer: for (var i = 0; i < accounts.length; i++) {
+	var boxes = accounts[i].mailboxes();
+	for (var j = 0; j < boxes.length; j++) {
+		var boxName = boxes[j].name();
+		var msgs = boxes[j].messages();
+		for (var k = 0; k < msgs.length; k++) {
+			if (msgs[k].subject() === input.subject) {
+				found = msgs[k];
+				foundMailbox = boxName;
+				break outer;
+			}
+		}
+	}
+}
+if (!found) throw new Error("message not found");
+var sent = found.dateSent();
 var read = false;
 try {
-	read = m.readStatus();
+	read = found.readStatus();
 } catch (e) {
 	read = false;
 }
+var content = "";
+try {
+	content = found.content();
+} catch (e) {
+	content = "";
+}
 var result = {
-	subject: m.subject(),
-	sender: m.sender(),
+	subject: found.subject(),
+	sender: found.sender(),
 	dateSent: sent ? sent.toISOString() : null,
 	read: read,
-	mailbox: m.mailbox().name(),
-	content: m.content()
+	mailbox: foundMailbox,
+	content: content
 };
 JSON.stringify(result);`,
 		},
@@ -127,27 +148,36 @@ JSON.stringify({subject: input.subject, to: toList, sent: true});`,
 var app = Application("Mail");
 app.includeStandardAdditions = false;
 var query = (input.query || "").toLowerCase();
-var all = app.messages();
-var result = all.filter(function(m) {
-	var subject = (m.subject() || "").toLowerCase();
-	var sender = (m.sender() || "").toLowerCase();
-	return subject.indexOf(query) >= 0 || sender.indexOf(query) >= 0;
-}).map(function(m) {
-	var sent = m.dateSent();
-	var read = false;
-	try {
-		read = m.readStatus();
-	} catch (e) {
-		read = false;
+var result = [];
+var accounts = app.accounts();
+for (var i = 0; i < accounts.length; i++) {
+	var boxes = accounts[i].mailboxes();
+	for (var j = 0; j < boxes.length; j++) {
+		var boxName = boxes[j].name();
+		var msgs = boxes[j].messages();
+		for (var k = 0; k < msgs.length; k++) {
+			var m = msgs[k];
+			var subject = (m.subject() || "").toLowerCase();
+			var sender = (m.sender() || "").toLowerCase();
+			if (subject.indexOf(query) >= 0 || sender.indexOf(query) >= 0) {
+				var sent = m.dateSent();
+				var read = false;
+				try {
+					read = m.readStatus();
+				} catch (e) {
+					read = false;
+				}
+				result.push({
+					subject: m.subject(),
+					sender: m.sender(),
+					dateSent: sent ? sent.toISOString() : null,
+					read: read,
+					mailbox: boxName
+				});
+			}
+		}
 	}
-	return {
-		subject: m.subject(),
-		sender: m.sender(),
-		dateSent: sent ? sent.toISOString() : null,
-		read: read,
-		mailbox: m.mailbox().name()
-	};
-});
+}
 JSON.stringify(result);`,
 		},
 	}

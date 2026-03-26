@@ -261,8 +261,8 @@ func loadInstalledActions(cfg *config.KimbapConfig) ([]actions.ActionDefinition,
 	}
 
 	out := make([]actions.ActionDefinition, 0)
-	for _, installedSkill := range installed {
-		defs, convErr := services.ToActionDefinitions(&installedSkill.Manifest)
+	for _, installedService := range installed {
+		defs, convErr := services.ToActionDefinitions(&installedService.Manifest)
 		if convErr != nil {
 			return nil, convErr
 		}

@@ -6,6 +6,7 @@ import (
 	"errors"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/dunialabs/kimbap-core/internal/actions"
 )
@@ -306,5 +307,82 @@ func TestInputSanitization(t *testing.T) {
 	}
 	if got["query"] != suspicious {
 		t.Fatalf("stdin query = %q, want %q", got["query"], suspicious)
+	}
+}
+
+func TestAppleScriptAdapterExecute_NilInput(t *testing.T) {
+	mock := NewMockRunner([]byte(`{"ok":true}`), nil, nil)
+	a := NewAppleScriptAdapter(mock)
+
+	res, err := a.Execute(context.Background(), AdapterRequest{
+		Action: actions.ActionDefinition{Adapter: actions.AdapterConfig{Command: "list-notes", TargetApp: "Notes"}},
+		Input:  nil,
+	})
+
+	if err != nil {
+		t.Fatalf("Execute() with nil input error = %v, want nil", err)
+	}
+	if res.HTTPStatus != 200 {
+		t.Fatalf("HTTPStatus = %d, want 200", res.HTTPStatus)
+	}
+
+	var got map[string]any
+	if jsonErr := json.Unmarshal(mock.Calls[0].Stdin, &got); jsonErr != nil {
+		t.Fatalf("stdin JSON unmarshal failed: %v (nil input should produce {})", jsonErr)
+	}
+	if len(got) != 0 {
+		t.Fatalf("stdin = %v, want empty map {}", got)
+	}
+}
+
+func TestAppleScriptAdapterExecute_ConfigurableTimeout(t *testing.T) {
+	mock := NewMockRunner([]byte(`{"ok":true}`), nil, nil)
+	a := NewAppleScriptAdapter(mock)
+
+	res, err := a.Execute(context.Background(), AdapterRequest{
+		Action: actions.ActionDefinition{
+			Adapter: actions.AdapterConfig{
+				Command:   "list-notes",
+				TargetApp: "Notes",
+				Timeout:   5 * time.Second,
+			},
+		},
+		Input: map[string]any{},
+	})
+
+	if err != nil {
+		t.Fatalf("Execute() error = %v, want nil", err)
+	}
+	if res.HTTPStatus != 200 {
+		t.Fatalf("HTTPStatus = %d, want 200", res.HTTPStatus)
+	}
+	if len(mock.Calls) != 1 {
+		t.Fatalf("mock calls = %d, want 1", len(mock.Calls))
+	}
+}
+
+func TestAppleScriptAdapterExecute_RequestTimeoutTakesPriority(t *testing.T) {
+	mock := NewMockRunner([]byte(`{"ok":true}`), nil, nil)
+	a := NewAppleScriptAdapter(mock)
+
+	res, err := a.Execute(context.Background(), AdapterRequest{
+		Timeout: 3 * time.Second,
+		Action: actions.ActionDefinition{
+			Adapter: actions.AdapterConfig{
+				Command:   "list-notes",
+				TargetApp: "Notes",
+			},
+		},
+		Input: map[string]any{},
+	})
+
+	if err != nil {
+		t.Fatalf("Execute() with req.Timeout error = %v, want nil", err)
+	}
+	if res.HTTPStatus != 200 {
+		t.Fatalf("HTTPStatus = %d, want 200", res.HTTPStatus)
+	}
+	if len(mock.Calls) != 1 {
+		t.Fatalf("mock calls = %d, want 1", len(mock.Calls))
 	}
 }
