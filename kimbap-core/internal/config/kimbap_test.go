@@ -3,6 +3,7 @@ package config
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"gopkg.in/yaml.v3"
@@ -310,6 +311,25 @@ func TestLoadKimbapConfigIgnoresLegacySkillsEnvOverrides(t *testing.T) {
 
 	if cfg.Services.Dir == "/tmp/legacy-skills" {
 		t.Fatalf("expected legacy KIMBAP_SKILLS_DIR to be ignored")
+	}
+}
+
+func TestLoadKimbapConfigRejectsLegacySkillsKey(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
+
+	cfgPath := filepath.Join(t.TempDir(), "kimbap.yaml")
+	content := "skills:\n  dir: /tmp/old-skills\n"
+	if err := os.WriteFile(cfgPath, []byte(content), 0o600); err != nil {
+		t.Fatalf("write config: %v", err)
+	}
+
+	_, err := LoadKimbapConfigWithoutDefault(cfgPath)
+	if err == nil {
+		t.Fatal("expected error for legacy 'skills:' key, got nil")
+	}
+	if !strings.Contains(err.Error(), "deprecated") || !strings.Contains(err.Error(), "skills") {
+		t.Errorf("expected legacy skills deprecation error, got: %v", err)
 	}
 }
 

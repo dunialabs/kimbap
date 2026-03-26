@@ -59,6 +59,9 @@ func ValidateManifest(m *ServiceManifest) []ValidationError {
 	if !serviceNamePattern.MatchString(m.Name) {
 		errs = append(errs, ValidationError{Field: "name", Message: "must match [a-z][a-z0-9-]*"})
 	}
+	if err := ValidateServiceName(m.Name); err != nil {
+		errs = append(errs, ValidationError{Field: "name", Message: err.Error()})
+	}
 
 	if !semverLikePattern.MatchString(m.Version) {
 		errs = append(errs, ValidationError{Field: "version", Message: "must be semver-like (e.g. 1.2.3 or v1.2.3)"})

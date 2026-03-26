@@ -104,6 +104,34 @@ func TestValidateManifestMissingFields(t *testing.T) {
 	}
 }
 
+func TestValidateServiceNameRejectsReserved(t *testing.T) {
+	err := ValidateServiceName("kimbap")
+	if err == nil {
+		t.Error("expected error for reserved name 'kimbap', got nil")
+	}
+	if err != nil && !strings.Contains(err.Error(), "reserved") {
+		t.Errorf("expected 'reserved' in error message, got: %v", err)
+	}
+}
+
+func TestInstallRejectsReservedName(t *testing.T) {
+	tmpDir := t.TempDir()
+	inst := NewLocalInstaller(tmpDir)
+	m := &ServiceManifest{
+		Name:    "kimbap",
+		Version: "1.0.0",
+		BaseURL: "https://example.com",
+		Auth:    ServiceAuth{Type: "none"},
+		Actions: map[string]ServiceAction{
+			"get": {Method: "GET", Path: "/v1/items", Risk: RiskSpec{Level: "low"}},
+		},
+	}
+	_, err := inst.Install(m, "test")
+	if err == nil {
+		t.Error("expected error installing reserved name 'kimbap', got nil")
+	}
+}
+
 func TestValidateManifestHeaderAuthRequiresHeaderName(t *testing.T) {
 	m := &ServiceManifest{
 		Name:    "svc",
@@ -365,6 +393,20 @@ func TestRemoveAndVerifyGone(t *testing.T) {
 	}
 	if len(installed) != 0 {
 		t.Errorf("expected empty list after remove, got %d entries", len(installed))
+	}
+}
+
+func TestListReturnsErrorOnInvalidInstalledManifest(t *testing.T) {
+	tmpDir := t.TempDir()
+	inst := NewLocalInstaller(tmpDir)
+
+	if err := os.WriteFile(filepath.Join(tmpDir, "broken.yaml"), []byte("name: broken\n"), 0o644); err != nil {
+		t.Fatalf("write broken manifest: %v", err)
+	}
+
+	_, err := inst.List()
+	if err == nil {
+		t.Fatal("expected list to fail on invalid installed manifest")
 	}
 }
 
