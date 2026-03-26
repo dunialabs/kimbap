@@ -239,18 +239,20 @@ func (r *servicesActionRegistry) verifyInstalledService(name string) (bool, erro
 }
 
 func normalizeVerifyMode(mode string) string {
-	switch strings.ToLower(strings.TrimSpace(mode)) {
+	normalized := strings.ToLower(strings.TrimSpace(mode))
+	switch normalized {
 	case "off", "strict", "warn":
-		return strings.ToLower(strings.TrimSpace(mode))
+		return normalized
 	default:
 		return "warn"
 	}
 }
 
 func normalizeSignaturePolicy(policy string) string {
-	switch strings.ToLower(strings.TrimSpace(policy)) {
+	normalized := strings.ToLower(strings.TrimSpace(policy))
+	switch normalized {
 	case "off", "optional", "required":
-		return strings.ToLower(strings.TrimSpace(policy))
+		return normalized
 	default:
 		return "optional"
 	}

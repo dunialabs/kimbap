@@ -584,9 +584,10 @@ func writeRuntimeConnResponse(w io.Writer, result actions.ExecutionResult) error
 	if err != nil {
 		return err
 	}
+	statusCode := runtimeResultStatus(result)
 	resp := &http.Response{
-		StatusCode: runtimeResultStatus(result),
-		Status:     fmt.Sprintf("%d %s", runtimeResultStatus(result), http.StatusText(runtimeResultStatus(result))),
+		StatusCode: statusCode,
+		Status:     fmt.Sprintf("%d %s", statusCode, http.StatusText(statusCode)),
 		ProtoMajor: 1,
 		ProtoMinor: 1,
 		Header:     make(http.Header),
