@@ -45,9 +45,9 @@ func newDoctorCommand() *cobra.Command {
 			checks = append(checks, vaultCheck)
 			hasFailure = hasFailure || vaultCheck.Status == "fail"
 
-			skillsCheck := checkSkillsDir(cfg.Services.Dir)
-			checks = append(checks, skillsCheck)
-			hasFailure = hasFailure || skillsCheck.Status == "fail"
+			servicesCheck := checkServicesDir(cfg.Services.Dir)
+			checks = append(checks, servicesCheck)
+			hasFailure = hasFailure || servicesCheck.Status == "fail"
 
 			policyCheck := checkPolicyFile(cfg.Policy.Path)
 			checks = append(checks, policyCheck)
@@ -208,15 +208,15 @@ func checkVaultAccessible(cfg *config.KimbapConfig) doctorCheck {
 	return doctorCheck{Name: "vault accessible", Status: "ok", Detail: cfg.Vault.Path}
 }
 
-func checkSkillsDir(skillsDir string) doctorCheck {
-	st, err := os.Stat(skillsDir)
+func checkServicesDir(servicesDir string) doctorCheck {
+	st, err := os.Stat(servicesDir)
 	if err != nil {
 		return doctorCheck{Name: "services directory exists", Status: "fail", Detail: err.Error()}
 	}
 	if !st.IsDir() {
 		return doctorCheck{Name: "services directory exists", Status: "fail", Detail: "path is not a directory"}
 	}
-	return doctorCheck{Name: "services directory exists", Status: "ok", Detail: skillsDir}
+	return doctorCheck{Name: "services directory exists", Status: "ok", Detail: servicesDir}
 }
 
 func checkPolicyFile(path string) doctorCheck {

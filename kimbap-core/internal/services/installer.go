@@ -186,6 +186,9 @@ func ValidateServiceName(name string) error {
 	if strings.TrimSpace(name) == "" {
 		return fmt.Errorf("service name is required")
 	}
+	if name == "kimbap" {
+		return fmt.Errorf("service name %q is reserved", name)
+	}
 	if strings.Contains(name, "..") || strings.ContainsAny(name, "/\\") {
 		return fmt.Errorf("invalid service name %q: must not contain path separators or '..'", name)
 	}
@@ -244,7 +247,12 @@ func (i *LocalInstaller) Verify(name string) (*VerifyResult, error) {
 		}
 		pubKeyBytes, decErr := hex.DecodeString(lf.PublicKey)
 		if decErr == nil {
-			result.SignatureValid, _ = verifySignature(ed25519.PublicKey(pubKeyBytes), entry.Digest, entry.Signature)
+			sigValid, sigErr := verifySignature(ed25519.PublicKey(pubKeyBytes), entry.Digest, entry.Signature)
+			if sigErr != nil {
+				result.SignatureValid = false
+				return &result, fmt.Errorf("verify signature: %w", sigErr)
+			}
+			result.SignatureValid = sigValid
 		}
 	}
 
@@ -263,7 +271,12 @@ func (i *LocalInstaller) VerifyWithKey(name string, pinnedPubKey ed25519.PublicK
 	result.Verified = strings.TrimSpace(entry.Digest) != "" && entry.Digest == result.ActualDigest
 
 	if result.Signed {
-		result.SignatureValid, _ = verifySignature(pinnedPubKey, entry.Digest, entry.Signature)
+		sigValid, sigErr := verifySignature(pinnedPubKey, entry.Digest, entry.Signature)
+		if sigErr != nil {
+			result.SignatureValid = false
+			return &result, fmt.Errorf("verify signature: %w", sigErr)
+		}
+		result.SignatureValid = sigValid
 	}
 
 	return &result, nil

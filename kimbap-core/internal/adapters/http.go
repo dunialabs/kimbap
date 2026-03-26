@@ -598,8 +598,8 @@ func injectBodyCredential(payload map[string]any, auth actions.AuthRequirement, 
 	if value == "" {
 		return actions.NewExecutionError(actions.ErrCredentialMissing, "missing body credential", http.StatusUnauthorized, false, nil)
 	}
-	payload[field] = auth.Prefix + value
 	maps.Copy(payload, creds.Body)
+	payload[field] = auth.Prefix + value
 	return nil
 }
 

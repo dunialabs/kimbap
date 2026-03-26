@@ -131,7 +131,8 @@ func (e *Evaluator) Evaluate(_ context.Context, req EvalRequest) (*EvalResult, e
 			res.RateStatus = status
 			if !status.Allowed {
 				res.Decision = DecisionDeny
-				res.Reason = fmt.Sprintf("rate limit exceeded for rule %s (%d/%d)", rule.ID, rule.RateLimit.MaxRequests, rule.RateLimit.MaxRequests)
+				attempted := rule.RateLimit.MaxRequests - status.Remaining + 1
+				res.Reason = fmt.Sprintf("rate limit exceeded for rule %s (%d/%d)", rule.ID, attempted, rule.RateLimit.MaxRequests)
 			}
 		}
 		return res, nil

@@ -62,7 +62,7 @@ func (d *Doctor) RunAll(ctx context.Context) []CheckResult {
 
 	results = append(results, d.checkDataDirWritable(cfg.DataDir))
 	results = append(results, d.checkVaultAccessible(ctx, cfg.Vault.Path))
-	results = append(results, d.checkSkillsDir(cfg.Services.Dir))
+	results = append(results, d.checkServicesDir(cfg.Services.Dir))
 	results = append(results, d.checkPolicyFile(cfg.Policy.Path))
 	results = append(results, d.checkCACertificate(cfg.Mode, cfg.DataDir))
 	results = append(results, d.checkConnectivity(ctx, cfg.Mode, cfg.Auth.ServerURL))
@@ -189,15 +189,15 @@ func (d *Doctor) checkVaultAccessible(ctx context.Context, vaultPath string) Che
 	return CheckResult{Name: "vault database accessible", Status: "ok", Message: vaultPath}
 }
 
-func (d *Doctor) checkSkillsDir(skillsDir string) CheckResult {
-	st, err := os.Stat(skillsDir)
+func (d *Doctor) checkServicesDir(servicesDir string) CheckResult {
+	st, err := os.Stat(servicesDir)
 	if err != nil {
 		return CheckResult{Name: "services directory exists", Status: "fail", Message: err.Error()}
 	}
 	if !st.IsDir() {
 		return CheckResult{Name: "services directory exists", Status: "fail", Message: "path is not a directory"}
 	}
-	return CheckResult{Name: "services directory exists", Status: "ok", Message: skillsDir}
+	return CheckResult{Name: "services directory exists", Status: "ok", Message: servicesDir}
 }
 
 func (d *Doctor) checkPolicyFile(path string) CheckResult {

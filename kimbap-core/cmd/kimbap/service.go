@@ -39,10 +39,6 @@ func newServiceInstallCommand() *cobra.Command {
 		Short: "Install a local service manifest",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			if cmd.Flags().Changed("dir") && cmd.Flags().Changed("output") {
-				return fmt.Errorf("--dir and --output are mutually exclusive")
-			}
-
 			cfg, err := loadAppConfig()
 			if err != nil {
 				return err
@@ -312,7 +308,11 @@ func newServiceExportSkillMDCommand() *cobra.Command {
 		Short: "Export installed service as SKILL.md (Agent Skills open standard)",
 		Long:  "Generate a SKILL.md file compatible with Claude Code, OpenAI Codex, GitHub Copilot, and other AI agents.",
 		Args:  cobra.ExactArgs(1),
-		RunE: func(_ *cobra.Command, args []string) error {
+		RunE: func(cmd *cobra.Command, args []string) error {
+			if cmd.Flags().Changed("dir") && cmd.Flags().Changed("output") {
+				return fmt.Errorf("--dir and --output are mutually exclusive")
+			}
+
 			cfg, err := loadAppConfig()
 			if err != nil {
 				return err
