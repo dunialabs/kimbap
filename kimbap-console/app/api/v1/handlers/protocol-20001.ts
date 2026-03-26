@@ -10,31 +10,31 @@ interface Request20001 {
     rawToken?: string;
   };
   params: {
-    timeRange: number; // 时间范围: 1-今天, 7-最近7天, 30-最近30天, 90-最近90天
+    timeRange: number; // : 1-, 7-7, 30-30, 90-90
   };
 }
 
 interface Response20001Data {
-  totalTools: number;        // 工具总数
-  activeTools: number;       // 活跃工具数（有请求的）
-  totalRequests: number;     // 总请求数
-  successRequests: number;   // 成功请求数
-  failedRequests: number;    // 失败请求数
-  avgSuccessRate: number;    // 平均成功率(%)
-  avgResponseTime: number;   // 平均响应时间(ms)
-  totalUsers: number;        // 使用工具的用户总数
+  totalTools: number;        // 
+  activeTools: number;       // （）
+  totalRequests: number;     // 
+  successRequests: number;   // 
+  failedRequests: number;    // 
+  avgSuccessRate: number;    // (%)
+  avgResponseTime: number;   // (ms)
+  totalUsers: number;        // 
 }
 
 /**
  * Protocol 20001 - Get Tool Usage Summary
- * 获取工具使用情况汇总统计（基于proxyKey和action 1000-1099）
+ * （proxyKeyaction 1000-1099）
  */
 export async function handleProtocol20001(body: Request20001): Promise<Response20001Data> {
   try {
     const { timeRange } = body.params;
     const rawToken = body.common?.rawToken;
     
-    // 1. 获取当前proxy的proxyKey（不用token）
+    // 1. proxyproxyKey（token）
     let proxyKey = '';
     try {
       const proxy = await getProxy();
@@ -47,12 +47,12 @@ export async function handleProtocol20001(body: Request20001): Promise<Response2
       });
     }
     
-    // 计算时间范围
+    // 
     const now = Math.floor(Date.now() / 1000);
-    const timeRangeSeconds = timeRange * 24 * 60 * 60; // 转换为秒
+    const timeRangeSeconds = timeRange * 24 * 60 * 60; // 
     const startTime = now - timeRangeSeconds;
     
-    // 2. 从proxy-api获取有效的server列表
+    // 2. proxy-apiserver
     let totalToolsCount = 0;
     let serversMap: { [serverId: string]: any } = {};
     let validServerIds = new Set<string>();
@@ -76,7 +76,7 @@ export async function handleProtocol20001(body: Request20001): Promise<Response2
 
     const validServerIdList = Array.from(validServerIds);
 
-    // 3. 构建where条件：基于proxyKey、action 1000-1099和有效serverId
+    // 3. where：proxyKey、action 1000-1099serverId
     const whereCondition: any = {
       proxyKey: proxyKey,
       addtime: {
@@ -92,18 +92,18 @@ export async function handleProtocol20001(body: Request20001): Promise<Response2
       }
     };
 
-    // 4. 并行查询统计数据（基于action 1000-1099）
+    // 4. （action 1000-1099）
     const [
       totalRequestsCount,
       uniqueUsers
     ] = await Promise.all([
       
-      // 总请求数
+      // 
       prisma.log.count({
         where: whereCondition
       }),
       
-      // 使用工具的用户总数
+      // 
       prisma.log.findMany({
         where: whereCondition,
         select: {
@@ -148,23 +148,23 @@ export async function handleProtocol20001(body: Request20001): Promise<Response2
       avgDuration = Number(avgDurationRows[0]?.avg_duration || 0);
     }
     
-    // 活跃工具数：基于proxy-api 3004获取真正启动的服务器数量
+    // ：proxy-api 3004
     let activeToolsCount = 0;
     try {
       const serversStatus = await getServersStatus(body.common.userid, rawToken);
-      // 过滤出状态为Online(0)的服务器
+      // Online(0)
       const onlineServerIds = Object.keys(serversStatus).filter(serverId => 
         serversStatus[serverId] === 0 // ServerStatus.Online = 0
       );
       
-      // 通过工具名称去重计算活跃工具数（使用统一的分组规则）
+      // （）
       const uniqueActiveToolNames = new Set();
       onlineServerIds.forEach(serverId => {
         if (serversMap[serverId]) {
-          // 存在的工具，使用serverName
+          // ，serverName
           uniqueActiveToolNames.add(serversMap[serverId].serverName);
         } else {
-          // 已删除的工具，归类为Unknown（但在线服务器状态下，这种情况应该很少见）
+          // ，Unknown（，）
           uniqueActiveToolNames.add('Unknown');
         }
       });
@@ -173,23 +173,23 @@ export async function handleProtocol20001(body: Request20001): Promise<Response2
       console.log('[Protocol-20001] Active tools from server status:', activeToolsCount, 'online servers:', onlineServerIds.length);
     } catch (error) {
       console.error('[Protocol-20001] Failed to get servers status:', error);
-      // 回退：活跃工具数设为0或基于已配置工具数
+      // ：0
       activeToolsCount = 0;
       console.warn('[Protocol-20001] Using fallback: activeTools = 0 due to server status query failure');
     }
     
-    // 请求统计
+    // 
     const totalRequests = totalRequestsCount;
     const successRequests = successRequestsCount;
     const failedRequests = totalRequests - successRequests;
     
-    // 计算成功率
+    // 
     const avgSuccessRate = totalRequests > 0 ? (successRequests / totalRequests) * 100 : 0;
     
-    // 计算平均响应时间（毫秒）
+    // （）
     const avgResponseTime = Math.round(avgDuration);
     
-    // 用户总数
+    // 
     const totalUsers = uniqueUsers.filter(u => u.userid).length;
     
     const response: Response20001Data = {
@@ -198,7 +198,7 @@ export async function handleProtocol20001(body: Request20001): Promise<Response2
       totalRequests,
       successRequests,
       failedRequests,
-      avgSuccessRate: Math.round(avgSuccessRate * 10) / 10, // 保留1位小数
+      avgSuccessRate: Math.round(avgSuccessRate * 10) / 10, // 1
       avgResponseTime,
       totalUsers
     };

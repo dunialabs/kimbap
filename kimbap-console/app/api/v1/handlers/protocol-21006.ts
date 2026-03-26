@@ -11,16 +11,16 @@ interface Request21006 {
     userid: string;
   };
   params: {
-    timeRange: number;   // 时间范围: 1-今天, 7-最近7天, 30-最近30天, 90-最近90天
-    metricType: number;  // 指标类型: 1-按请求数, 2-按客户端数, 3-按成功率
+    timeRange: number;   // : 1-, 7-7, 30-30, 90-90
+    metricType: number;  // : 1-, 2-, 3-
   };
 }
 
 interface TokenDistribution {
-  tokenId: string;      // 令牌ID
-  tokenName: string;    // 令牌名称
-  value: number;        // 数值（请求数/客户端数/成功率*100）
-  percentage: number;   // 占比(%)
+  tokenId: string;      // ID
+  tokenName: string;    // 
+  value: number;        // （//*100）
+  percentage: number;   // (%)
 }
 
 interface Response21006Data {
@@ -29,7 +29,7 @@ interface Response21006Data {
 
 /**
  * Protocol 21006 - Get Token Distribution
- * 获取令牌使用分布数据（用于饼图）
+ * （）
  */
 export async function handleProtocol21006(body: Request21006): Promise<Response21006Data> {
   try {
@@ -46,12 +46,12 @@ export async function handleProtocol21006(body: Request21006): Promise<Response2
       });
     }
     
-    // 计算时间范围
+    // 
     const now = Math.floor(Date.now() / 1000);
     const timeRangeSeconds = timeRange * 24 * 60 * 60;
     const startTime = now - timeRangeSeconds;
     
-    // 构建where条件
+    // where
     const whereCondition: any = {
       proxyKey,
       addtime: {
@@ -65,7 +65,7 @@ export async function handleProtocol21006(body: Request21006): Promise<Response2
     let distribution: TokenDistribution[] = [];
     
     switch (metricType) {
-      case 1: { // 按请求数分布
+      case 1: { // 
         const requestCounts = await prisma.log.groupBy({
           by: ['tokenMask'],
           where: whereCondition,
@@ -88,8 +88,8 @@ export async function handleProtocol21006(body: Request21006): Promise<Response2
         break;
       }
       
-      case 2: { // 按客户端数分布
-        // 先获取所有token
+      case 2: { // 
+        // token
         const allTokens = await prisma.log.findMany({
           where: whereCondition,
           select: {
@@ -98,7 +98,7 @@ export async function handleProtocol21006(body: Request21006): Promise<Response2
           distinct: ['tokenMask']
         });
         
-        // 为每个token计算独立客户端数
+        // token
         const tokenClientCounts = await Promise.all(
           allTokens
             .filter(token => token.tokenMask)
@@ -138,7 +138,7 @@ export async function handleProtocol21006(body: Request21006): Promise<Response2
         break;
       }
       
-      case 3: { // 按成功率分布
+      case 3: { // 
         const tokenStats = await prisma.log.groupBy({
           by: ['tokenMask'],
           where: whereCondition,
@@ -147,14 +147,14 @@ export async function handleProtocol21006(body: Request21006): Promise<Response2
           }
         });
         
-        // 为每个token计算成功率
+        // token
         const tokenSuccessRates = await Promise.all(
           tokenStats
             .filter(item => item.tokenMask)
             .map(async (item) => {
               const totalRequests = item._count.id;
               
-              // 查询成功请求数
+              // 
               const successRequests = await prisma.log.count({
                 where: {
                   ...whereCondition,
@@ -177,16 +177,16 @@ export async function handleProtocol21006(body: Request21006): Promise<Response2
         );
         
         distribution = tokenSuccessRates
-          .filter(item => item.totalRequests > 0) // 只显示有请求的token
+          .filter(item => item.totalRequests > 0) // token
           .map(item => ({
             tokenId: item.tokenMask.substring(0, 8) + '...',
             tokenName: `Token ${item.tokenMask.substring(0, 8)}...`,
-            value: Math.round(item.successRate), // 成功率作为整数值
-            percentage: 0 // 成功率分布不使用百分比，而是显示实际成功率
+            value: Math.round(item.successRate), // 
+            percentage: 0 // ，
           }))
           .sort((a, b) => b.value - a.value);
         
-        // 为成功率分布计算相对百分比（基于最高成功率）
+        // （）
         if (distribution.length > 0) {
           const maxSuccessRate = distribution[0].value;
           distribution = distribution.map(item => ({

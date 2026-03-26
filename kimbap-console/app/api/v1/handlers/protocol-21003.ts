@@ -9,15 +9,15 @@ interface Request21003 {
     rawToken?: string;
   };
   params: {
-    timeRange: number;      // 时间范围: 7-最近7天, 30-最近30天, 90-最近90天
-    tokenIds: string[];     // 要查看趋势的令牌ID列表，空表示所有令牌
-    granularity: number;    // 数据粒度: 1-按小时, 2-按天, 3-按周
+    timeRange: number;      // : 7-7, 30-30, 90-90
+    tokenIds: string[];     // ID，
+    granularity: number;    // : 1-, 2-, 3-
   };
 }
 
 interface TrendPoint {
-  date: string;           // 日期/时间点
-  [tokenName: string]: string | number; // 动态属性，每个token作为一个属性
+  date: string;           // /
+  [tokenName: string]: string | number; // ，token
 }
 
 interface Response21003Data {
@@ -26,14 +26,14 @@ interface Response21003Data {
 
 /**
  * Protocol 21003 - Get Token Usage Trends
- * 获取令牌使用趋势数据（基于proxyKey和action 1000-1099）
+ * （proxyKeyaction 1000-1099）
  */
 export async function handleProtocol21003(body: Request21003): Promise<Response21003Data> {
   try {
     const { timeRange, tokenIds, granularity } = body.params;
     const rawToken = body.common?.rawToken;
     
-    // 1. 获取当前proxy的proxyKey（不用token）
+    // 1. proxyproxyKey（token）
     let proxyKey = '';
     try {
       const proxy = await getProxy();
@@ -46,12 +46,12 @@ export async function handleProtocol21003(body: Request21003): Promise<Response2
       });
     }
     
-    // 2. 从proxy-api获取用户列表（包括有效用户）
+    // 2. proxy-api（）
     let validUsers: any[] = [];
     try {
       const filters: any = {};
       if (tokenIds && tokenIds.length > 0) {
-        // 如果指定了tokenIds，只获取这些用户
+        // tokenIds，
         filters.userIds = tokenIds;
       }
       
@@ -63,24 +63,24 @@ export async function handleProtocol21003(body: Request21003): Promise<Response2
       validUsers = [];
     }
     
-    // 计算时间范围
+    // 
     const now = Math.floor(Date.now() / 1000);
     const timeRangeSeconds = timeRange * 24 * 60 * 60;
     const startTime = now - timeRangeSeconds;
     
-    // 计算时间间隔
+    // 
     let intervalSeconds: number;
     let dateFormat: (timestamp: number) => string;
     
     switch (granularity) {
-      case 1: // 按小时
+      case 1: // 
         intervalSeconds = 60 * 60;
         dateFormat = (ts: number) => {
           const date = new Date(ts * 1000);
           return `${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')} ${String(date.getHours()).padStart(2, '0')}:00`;
         };
         break;
-      case 3: // 按周
+      case 3: // 
         intervalSeconds = 7 * 24 * 60 * 60;
         dateFormat = (ts: number) => {
           const date = new Date(ts * 1000);
@@ -89,7 +89,7 @@ export async function handleProtocol21003(body: Request21003): Promise<Response2
           return `${String(startOfWeek.getMonth() + 1).padStart(2, '0')}-${String(startOfWeek.getDate()).padStart(2, '0')}`;
         };
         break;
-      case 2: // 按天（默认）
+      case 2: // （）
       default:
         intervalSeconds = 24 * 60 * 60;
         dateFormat = (ts: number) => {
@@ -99,7 +99,7 @@ export async function handleProtocol21003(body: Request21003): Promise<Response2
         break;
     }
     
-    // 3. 构建日志查询条件（基于proxyKey和action 1000-1099）
+    // 3. （proxyKeyaction 1000-1099）
     const logWhereCondition: any = {
       proxyKey: proxyKey,
       action: {
@@ -114,13 +114,13 @@ export async function handleProtocol21003(body: Request21003): Promise<Response2
       }
     };
     
-    // 生成时间点列表
+    // 
     const timePoints: number[] = [];
     for (let time = startTime; time <= now; time += intervalSeconds) {
       timePoints.push(time);
     }
     
-    // 3.5. 获取所有在日志中出现的unique userid（包括已删除用户的数据）
+    // 3.5. unique userid（）
     const allLogUserIds = await prisma.log.findMany({
       where: logWhereCondition,
       select: {
@@ -131,14 +131,14 @@ export async function handleProtocol21003(body: Request21003): Promise<Response2
     
     let uniqueUserIds = allLogUserIds
       .map(log => log.userid!)
-      .filter(Boolean); // 过滤掉没有userid的错误数据
+      .filter(Boolean); // userid
     
-    // 过滤特定tokenIds（如果指定）
+    // tokenIds（）
     if (tokenIds && tokenIds.length > 0) {
       uniqueUserIds = uniqueUserIds.filter(userId => tokenIds.includes(userId));
     }
     
-    // 创建用户映射表
+    // 
     const usersMap = new Map(validUsers.map(u => [u.userId, u]));
     
     console.log('[Protocol-21003] Found unique user IDs in logs:', uniqueUserIds.length);

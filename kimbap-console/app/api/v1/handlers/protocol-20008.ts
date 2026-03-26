@@ -12,18 +12,18 @@ interface Request20008 {
     rawToken?: string;
   };
   params: {
-    serverId: number; // 服务器ID，0表示所有服务器
+    serverId: number; // ID，0
   };
 }
 
 interface ToolStatus {
-  toolId: string;           // 工具ID
-  toolName: string;         // 工具名称
-  status: number;           // 状态: 0-online, 1-offline, 2-connecting, 3-error
-  activeConnections: number; // 当前活跃连接数
-  queuedRequests: number;   // 排队请求数
-  lastHeartbeat: number;    // 最后心跳时间(时间戳)
-  errorMessage: string;     // 错误信息（如果有）
+  toolId: string;           // ID
+  toolName: string;         // 
+  status: number;           // : 0-online, 1-offline, 2-connecting, 3-error
+  activeConnections: number; // 
+  queuedRequests: number;   // 
+  lastHeartbeat: number;    // ()
+  errorMessage: string;     // （）
 }
 
 interface Response20008Data {
@@ -32,7 +32,7 @@ interface Response20008Data {
 
 /**
  * Protocol 20008 - Get Real-time Tool Status
- * 获取工具实时状态
+ * 
  */
 export async function handleProtocol20008(body: Request20008): Promise<Response20008Data> {
   try {
@@ -51,8 +51,8 @@ export async function handleProtocol20008(body: Request20008): Promise<Response2
     }
     
     const now = Math.floor(Date.now() / 1000);
-    const oneHourAgo = now - (60 * 60); // 1小时前
-    const fiveMinutesAgo = now - (5 * 60); // 5分钟前
+    const oneHourAgo = now - (60 * 60); // 1
+    const fiveMinutesAgo = now - (5 * 60); // 5
 
     let serverStatusMap: { [serverId: string]: ServerStatus } = {};
     let serversList: any[] = [];
@@ -96,18 +96,18 @@ export async function handleProtocol20008(body: Request20008): Promise<Response2
       return true;
     });
     
-    // 为每个工具查询状态信息
+    // 
     const toolStatus: ToolStatus[] = await Promise.all(
       targetToolIds.map(async (toolId) => {
           
-          // 并行查询该工具的状态指标
+          // 
           const [
             recentActivity,
             lastActivity,
             recentErrors,
             activeSessionsCount
           ] = await Promise.all([
-            // 最近5分钟的活动
+            // 5
             prisma.log.count({
               where: {
                 proxyKey,
@@ -121,7 +121,7 @@ export async function handleProtocol20008(body: Request20008): Promise<Response2
               }
             }),
             
-            // 最后一次活动
+            // 
             prisma.log.findFirst({
               where: {
                 proxyKey,
@@ -140,7 +140,7 @@ export async function handleProtocol20008(body: Request20008): Promise<Response2
               }
             }),
             
-            // 最近1小时的错误
+            // 1
             prisma.log.count({
               where: {
                 proxyKey,
@@ -168,7 +168,7 @@ export async function handleProtocol20008(body: Request20008): Promise<Response2
               }
             }),
             
-            // 活跃会话数（基于最近5分钟的不同sessionId）
+            // （5sessionId）
             prisma.log.findMany({
               where: {
                 proxyKey,
@@ -196,8 +196,8 @@ export async function handleProtocol20008(body: Request20008): Promise<Response2
             errorMessage = lastActivity.error.substring(0, 100);
           }
           
-          // 模拟排队请求数（实际可能需要从其他数据源获取）
-          const queuedRequests = 0; // 暂时设为0
+          // （）
+          const queuedRequests = 0; // 0
           
           return {
             toolId,
@@ -211,7 +211,7 @@ export async function handleProtocol20008(body: Request20008): Promise<Response2
         })
     );
     
-    // 按状态排序：error > connecting > offline > online
+    // ：error > connecting > offline > online
     const statusPriority = { 3: 0, 2: 1, 1: 2, 0: 3 };
     toolStatus.sort((a, b) => {
       const priorityA = statusPriority[a.status as keyof typeof statusPriority] || 4;

@@ -11,18 +11,18 @@ interface Request20006 {
     userid: string;
   };
   params: {
-    timeRange: number;   // 时间范围: 1-今天, 7-最近7天, 30-最近30天, 90-最近90天
-    serverId: number;    // 服务器ID，0表示所有服务器
-    metricType: number;  // 对比指标: 1-响应时间, 2-成功率, 3-请求量
+    timeRange: number;   // : 1-, 7-7, 30-30, 90-90
+    serverId: number;    // ID，0
+    metricType: number;  // : 1-, 2-, 3-
   };
 }
 
 interface ToolComparison {
-  toolId: string;      // 工具ID
-  toolName: string;    // 工具名称
-  avgValue: number;    // 平均值
-  minValue: number;    // 最小值
-  maxValue: number;    // 最大值
+  toolId: string;      // ID
+  toolName: string;    // 
+  avgValue: number;    // 
+  minValue: number;    // 
+  maxValue: number;    // 
 }
 
 interface Response20006Data {
@@ -31,7 +31,7 @@ interface Response20006Data {
 
 /**
  * Protocol 20006 - Get Tool Performance Comparison
- * 获取工具性能对比数据（用于柱状图）
+ * （）
  */
 export async function handleProtocol20006(body: Request20006): Promise<Response20006Data> {
   try {
@@ -48,12 +48,12 @@ export async function handleProtocol20006(body: Request20006): Promise<Response2
       });
     }
     
-    // 计算时间范围
+    // 
     const now = Math.floor(Date.now() / 1000);
     const timeRangeSeconds = timeRange * 24 * 60 * 60;
     const startTime = now - timeRangeSeconds;
     
-    // 构建where条件
+    // where
     const whereCondition: any = {
       proxyKey,
       addtime: {
@@ -67,7 +67,7 @@ export async function handleProtocol20006(body: Request20006): Promise<Response2
       }
     };
     
-    // 如果指定了serverId，添加过滤条件
+    // serverId，
     if (serverId > 0) {
       whereCondition.serverId = serverId.toString();
     }
@@ -75,7 +75,7 @@ export async function handleProtocol20006(body: Request20006): Promise<Response2
     let comparison: ToolComparison[] = [];
     
     switch (metricType) {
-      case 1: { // 响应时间对比
+      case 1: { // 
         const responseTimeStats = await prisma.log.groupBy({
           by: ['serverId'],
           where: {
@@ -104,11 +104,11 @@ export async function handleProtocol20006(body: Request20006): Promise<Response2
             minValue: Math.round(item._min.duration!),
             maxValue: Math.round(item._max.duration!)
           }))
-          .sort((a, b) => a.avgValue - b.avgValue); // 按平均响应时间升序排列
+          .sort((a, b) => a.avgValue - b.avgValue); // 
         break;
       }
       
-      case 2: { // 成功率对比
+      case 2: { // 
         const successRateStats = await prisma.log.groupBy({
           by: ['serverId'],
           where: whereCondition,
@@ -117,7 +117,7 @@ export async function handleProtocol20006(body: Request20006): Promise<Response2
           }
         });
         
-        // 为每个工具计算成功率
+        // 
         const toolSuccessRates = await Promise.all(
           successRateStats
             .filter(item => item.serverId)
@@ -142,16 +142,16 @@ export async function handleProtocol20006(body: Request20006): Promise<Response2
               return {
                 toolId,
                 toolName: `Tool ${toolId}`,
-                avgValue: Math.round(successRate * 10) / 10, // 保留1位小数
-                minValue: 0, // 成功率最小值通常为0
-                maxValue: 100, // 成功率最大值为100
+                avgValue: Math.round(successRate * 10) / 10, // 1
+                minValue: 0, // 0
+                maxValue: 100, // 100
                 totalRequests
               };
             })
         );
         
         comparison = toolSuccessRates
-          .filter(item => item.totalRequests > 0) // 只显示有请求的工具
+          .filter(item => item.totalRequests > 0) // 
           .map(item => ({
             toolId: item.toolId,
             toolName: item.toolName,
@@ -159,12 +159,12 @@ export async function handleProtocol20006(body: Request20006): Promise<Response2
             minValue: item.minValue,
             maxValue: item.maxValue
           }))
-          .sort((a, b) => b.avgValue - a.avgValue); // 按成功率降序排列
+          .sort((a, b) => b.avgValue - a.avgValue); // 
         break;
       }
       
-      case 3: { // 请求量对比
-        // 按天分组统计每个工具的请求量
+      case 3: { // 
+        // 
         const dailyStats = await prisma.log.findMany({
           where: whereCondition,
           select: {
@@ -173,7 +173,7 @@ export async function handleProtocol20006(body: Request20006): Promise<Response2
           }
         });
         
-        // 按工具和天分组
+        // 
         const toolDayMap = new Map<string, Map<string, number>>();
 
         dailyStats.forEach(log => {
@@ -189,7 +189,7 @@ export async function handleProtocol20006(body: Request20006): Promise<Response2
           Array.from(toolDayMap.entries()).map(([toolId, dayBuckets]) => [toolId, Array.from(dayBuckets.values())])
         );
         
-        // 计算每个工具的请求量统计
+        // 
         comparison = Array.from(toolDailyStats.entries())
           .map(([toolId, dailyCounts]) => {
             const totalRequests = dailyCounts.reduce((sum, count) => sum + count, 0);
@@ -205,7 +205,7 @@ export async function handleProtocol20006(body: Request20006): Promise<Response2
               maxValue: maxRequests
             };
           })
-          .sort((a, b) => b.avgValue - a.avgValue); // 按平均请求量降序排列
+          .sort((a, b) => b.avgValue - a.avgValue); // 
         break;
       }
       

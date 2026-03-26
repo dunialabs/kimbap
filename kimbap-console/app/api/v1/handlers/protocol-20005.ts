@@ -19,10 +19,10 @@ interface Request20005 {
 }
 
 interface Distribution {
-  toolId: string;      // 工具ID
-  toolName: string;    // 工具名称
-  value: number;       // 数值（请求数/用户数/响应时间）
-  percentage: number;  // 占比(%)
+  toolId: string;      // ID
+  toolName: string;    // 
+  value: number;       // （//）
+  percentage: number;  // (%)
 }
 
 interface Response20005Data {
@@ -31,7 +31,7 @@ interface Response20005Data {
 
 /**
  * Protocol 20005 - Get Tool Usage Distribution
- * 获取工具使用分布数据（用于饼图）
+ * （）
  */
 export async function handleProtocol20005(body: Request20005): Promise<Response20005Data> {
   try {
@@ -56,12 +56,12 @@ export async function handleProtocol20005(body: Request20005): Promise<Response2
       });
     }
     
-    // 计算时间范围
+    // 
     const now = Math.floor(Date.now() / 1000);
     const timeRangeSeconds = timeRange * 24 * 60 * 60;
     const startTime = now - timeRangeSeconds;
     
-    // 构建where条件
+    // where
     const whereCondition: any = {
       proxyKey,
       addtime: {
@@ -75,7 +75,7 @@ export async function handleProtocol20005(body: Request20005): Promise<Response2
       }
     };
     
-    // 如果指定了serverId，添加过滤条件
+    // serverId，
     if (serverId > 0) {
       whereCondition.serverId = serverId.toString();
     }
@@ -83,7 +83,7 @@ export async function handleProtocol20005(body: Request20005): Promise<Response2
     let distribution: Distribution[] = [];
     
     switch (metricType) {
-      case 1: { // 按请求数分布
+      case 1: { // 
         const requestCounts = await prisma.log.groupBy({
           by: ['serverId'],
           where: whereCondition,
@@ -106,8 +106,8 @@ export async function handleProtocol20005(body: Request20005): Promise<Response2
         break;
       }
       
-      case 2: { // 按用户数分布
-        // 先获取所有工具ID
+      case 2: { // 
+        // ID
         const allTools = await prisma.log.findMany({
           where: whereCondition,
           select: {
@@ -116,7 +116,7 @@ export async function handleProtocol20005(body: Request20005): Promise<Response2
           distinct: ['serverId']
         });
         
-        // 为每个工具计算独立用户数
+        // 
         const toolUserCounts = await Promise.all(
           allTools
             .filter(tool => tool.serverId)
@@ -156,7 +156,7 @@ export async function handleProtocol20005(body: Request20005): Promise<Response2
         break;
       }
       
-      case 3: { // 按平均响应时间分布
+      case 3: { // 
         const responseTimeStats = await prisma.log.groupBy({
           by: ['serverId'],
           where: {
@@ -181,12 +181,12 @@ export async function handleProtocol20005(body: Request20005): Promise<Response2
               toolId: item.serverId!,
               toolName: serversMap[item.serverId!] ?? `Tool ${item.serverId}`,
               value: avgResponseTime,
-              percentage: 0 // 响应时间不计算百分比，而是显示相对比值
+              percentage: 0 // ，
             };
           })
           .sort((a, b) => b.value - a.value);
         
-        // 为响应时间计算相对百分比（基于最大值）
+        // （）
         if (distribution.length > 0) {
           const maxResponseTime = distribution[0].value;
           distribution = distribution.map(item => ({

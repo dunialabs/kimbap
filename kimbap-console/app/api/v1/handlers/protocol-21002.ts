@@ -11,47 +11,47 @@ interface Request21002 {
     rawToken?: string;
   };
   params: {
-    timeRange: number;  // 时间范围: 1-今天, 7-最近7天, 30-最近30天, 90-最近90天
-    tokenIds?: string[]; // 特定令牌ID列表，空表示所有令牌
-    page: number;       // 分页-页码
-    pageSize: number;   // 分页-每页数量
+    timeRange: number;  // : 1-, 7-7, 30-30, 90-90
+    tokenIds?: string[]; // ID，
+    page: number;       // -
+    pageSize: number;   // -
   };
 }
 
 interface Location {
-  country: string;    // 国家代码
-  city: string;       // 城市名称
-  requests: number;   // 请求数
-  percentage: number; // 占比(%)
+  country: string;    // 
+  city: string;       // 
+  requests: number;   // 
+  percentage: number; // (%)
 }
 
 interface TokenMetrics {
-  tokenId: string;           // 令牌ID（脱敏后）
-  tokenName: string;         // 令牌名称
-  totalRequests: number;     // 总请求数
-  successfulRequests: number; // 成功请求数 (匹配前端)
-  failedRequests: number;    // 失败请求数
-  rateLimit: number;         // 速率限制(请求/分钟)
-  lastUsed: string;          // 最后使用时间(字符串格式)
-  status: "active" | "inactive" | "expired" | "limited"; // 状态字符串
-  createdDate: string;       // 创建时间字符串
-  expiryDate: string | null; // 过期时间字符串，null表示永不过期
-  clientCount: number;       // 使用该令牌的客户端数量
-  topLocations: Location[];  // 热门使用地点TOP5
-  minuteUsage: Array<{       // 分钟级使用模式
+  tokenId: string;           // ID（）
+  tokenName: string;         // 
+  totalRequests: number;     // 
+  successfulRequests: number; //  ()
+  failedRequests: number;    // 
+  rateLimit: number;         // (/)
+  lastUsed: string;          // ()
+  status: "active" | "inactive" | "expired" | "limited"; // 
+  createdDate: string;       // 
+  expiryDate: string | null; // ，null
+  clientCount: number;       // 
+  topLocations: Location[];  // TOP5
+  minuteUsage: Array<{       // 
     minute: string;
     requests: number;
   }>;
 }
 
 interface Response21002Data {
-  tokens: TokenMetrics[]; // 改为tokens以匹配前端期望
-  totalCount: number; // 总数量（用于分页）
+  tokens: TokenMetrics[]; // tokens
+  totalCount: number; // （）
 }
 
 /**
  * Protocol 21002 - Get Token Detailed Metrics
- * 获取各令牌详细指标数据（基于proxyKey和action 1000-1099）
+ * （proxyKeyaction 1000-1099）
  */
 export async function handleProtocol21002(body: Request21002): Promise<Response21002Data> {
   try {
@@ -61,7 +61,7 @@ export async function handleProtocol21002(body: Request21002): Promise<Response2
       ? tokenIds.map((id) => String(id).trim()).filter(Boolean)
       : [];
     
-    // 1. 获取当前proxy的proxyKey（不用token）
+    // 1. proxyproxyKey（token）
     let proxyKey = '';
     try {
       const proxy = await getProxy();
@@ -74,7 +74,7 @@ export async function handleProtocol21002(body: Request21002): Promise<Response2
       });
     }
     
-    // 2. 从proxy-api获取用户列表（包括有效用户）
+    // 2. proxy-api（）
     let validUsers: any[] = [];
     try {
       let filters: any = {};
@@ -91,12 +91,12 @@ export async function handleProtocol21002(body: Request21002): Promise<Response2
       validUsers = [];
     }
     
-    // 计算时间范围
+    // 
     const now = Math.floor(Date.now() / 1000);
     const timeRangeSeconds = timeRange * 24 * 60 * 60;
     const startTime = now - timeRangeSeconds;
     
-    // 3. 构建日志查询条件（基于proxyKey和action 1000-1099）
+    // 3. （proxyKeyaction 1000-1099）
     const logWhereCondition: any = {
       proxyKey: proxyKey,
       action: {
@@ -111,7 +111,7 @@ export async function handleProtocol21002(body: Request21002): Promise<Response2
       }
     };
     
-    // 3. 获取所有在日志中出现的unique userid（包括已删除用户的数据）
+    // 3. unique userid（）
     const allLogUserIds = await prisma.log.findMany({
       where: logWhereCondition,
       select: {
@@ -122,11 +122,11 @@ export async function handleProtocol21002(body: Request21002): Promise<Response2
     
     const uniqueUserIds = allLogUserIds
       .map(log => log.userid!)
-      .filter(Boolean); // 过滤掉没有userid的错误数据
+      .filter(Boolean); // userid
     
     console.log('[Protocol-21002] Found unique user IDs in logs:', uniqueUserIds.length);
     
-    // 过滤特定tokenIds（如果指定）
+    // tokenIds（）
     let filteredUserIds = uniqueUserIds;
     if (normalizedTokenIds.length > 0) {
       const tokenIdSet = new Set(normalizedTokenIds);
@@ -135,11 +135,11 @@ export async function handleProtocol21002(body: Request21002): Promise<Response2
     
     const totalCount = filteredUserIds.length;
     
-    // 分页处理
+    // 
     const offset = (page - 1) * pageSize;
     const pagedUserIds = filteredUserIds.slice(offset, offset + pageSize);
     
-    // 创建用户映射表
+    // 
     const usersMap = new Map(validUsers.map(u => [u.userId, u]));
     
     const pagedUserLogs = pagedUserIds.length > 0
@@ -175,7 +175,7 @@ export async function handleProtocol21002(body: Request21002): Promise<Response2
     const currentMinute = Math.floor(now / 60) * 60;
     const sixtyMinutesAgo = currentMinute - (59 * 60);
 
-    // 4. 为每个用户计算详细指标
+    // 4. 
     const tokenMetrics: TokenMetrics[] = [];
 
     for (const userId of pagedUserIds) {
@@ -183,20 +183,20 @@ export async function handleProtocol21002(body: Request21002): Promise<Response2
       let userName: string;
       
       if (user) {
-        // 用户存在，显示name(userName)，如果userName和name相同或为空则只显示name
+        // ，name(userName)，userNamenamename
         if (user.userName && user.userName !== user.name) {
           userName = `${user.name}(${user.userName})`;
         } else {
           userName = user.name || userId;
         }
       } else {
-        // 用户已删除，显示userid + (Deleted)
+        // ，userid + (Deleted)
         userName = `${userId} (Deleted)`;
       }
 
       const userLogs = logsByUser.get(userId) || [];
       
-      // 5. 计算统计指标
+      // 5. 
       const totalRequests = userLogs.length;
       let successRequests = 0;
       let lastUsedTimestamp = 0;
@@ -231,28 +231,28 @@ export async function handleProtocol21002(body: Request21002): Promise<Response2
       const failedRequests = totalRequests - successRequests;
       const successRate = totalRequests > 0 ? (successRequests / totalRequests) * 100 : 0;
       
-      // 最后使用时间
+      // 
       const lastUsedDate = lastUsedTimestamp > 0 ? new Date(lastUsedTimestamp * 1000).toLocaleString() : 'Never';
       
-      // 状态判断
+      // 
       let statusStr: "active" | "inactive" | "expired" | "limited" = "inactive";
       if (totalRequests > 0) {
-        const recentTime = now - (24 * 60 * 60); // 最近24小时
+        const recentTime = now - (24 * 60 * 60); // 24
         if (lastUsedTimestamp > recentTime) {
           statusStr = "active";
         }
       }
       
-      // 5. 计算地理位置分布（基于IP地址）
-      // 使用地理位置工具函数聚合统计
+      // 5. （IP）
+      // 
       const topLocations: Location[] = aggregateLocationStats(ipRequestCounts);
       
-      // 6. 计算分钟级使用模式（最近60分钟）
+      // 6. （60）
       const minuteUsage: Array<{ minute: string; requests: number }> = [];
       
-      // 生成最近60分钟的时间点
+      // 60
       for (let i = 59; i >= 0; i--) {
-        const minuteTime = currentMinute - (i * 60); // 每分钟一个数据点
+        const minuteTime = currentMinute - (i * 60); // 
         const minuteRequests = minuteBucketCounts.get(minuteTime) || 0;
         
         const date = new Date(minuteTime * 1000);

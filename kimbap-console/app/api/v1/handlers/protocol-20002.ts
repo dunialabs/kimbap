@@ -10,24 +10,24 @@ interface Request20002 {
     rawToken?: string;
   };
   params: {
-    timeRange: number;  // 时间范围: 1-今天, 7-最近7天, 30-最近30天, 90-最近90天
-    toolIds?: string[]; // 特定工具ID列表，空表示所有工具
-    page?: number;      // 分页-页码
-    pageSize?: number;  // 分页-每页数量
+    timeRange: number;  // : 1-, 7-7, 30-30, 90-90
+    toolIds?: string[]; // ID，
+    page?: number;      // -
+    pageSize?: number;  // -
   };
 }
 
 interface ToolMetrics {
   toolId: string;
-  toolName: string;         // 工具名称 (matches frontend)
-  totalRequests: number;    // 总请求数
-  successfulRequests: number;  // 成功请求数 (matches frontend)
-  failedRequests: number;   // 失败请求数
-  averageResponseTime: number;  // 平均响应时间(ms) (matches frontend)
-  successRate: number;      // 成功率(%)
-  lastUsed: string;         // 最后使用时间(字符串) (matches frontend)
-  status: "active" | "inactive" | "error";  // 工具状态 (matches frontend)
-  errorTypes: Array<{       // 错误类型统计 (matches frontend)
+  toolName: string;         //  (matches frontend)
+  totalRequests: number;    // 
+  successfulRequests: number;  //  (matches frontend)
+  failedRequests: number;   // 
+  averageResponseTime: number;  // (ms) (matches frontend)
+  successRate: number;      // (%)
+  lastUsed: string;         // () (matches frontend)
+  status: "active" | "inactive" | "error";  //  (matches frontend)
+  errorTypes: Array<{       //  (matches frontend)
     type: string;
     count: number;
   }>;
@@ -35,12 +35,12 @@ interface ToolMetrics {
 
 interface Response20002Data {
   tools: ToolMetrics[];  // Changed from toolMetrics to tools to match frontend expectation
-  totalCount: number; // 总数量（用于分页）
+  totalCount: number; // （）
 }
 
 /**
  * Protocol 20002 - Get Tool Detailed Metrics
- * 获取各工具详细指标数据（基于proxyKey和action 1000-1099）
+ * （proxyKeyaction 1000-1099）
  */
 export async function handleProtocol20002(body: Request20002): Promise<Response20002Data> {
   try {
@@ -49,7 +49,7 @@ export async function handleProtocol20002(body: Request20002): Promise<Response2
     const safePage = Math.max(1, Math.floor(Number(page) || 1));
     const safePageSize = Math.min(1000, Math.max(1, Math.floor(Number(pageSize) || 50)));
     
-    // 1. 获取当前proxy的proxyKey（不用token）
+    // 1. proxyproxyKey（token）
     let proxyKey = '';
     try {
       const proxy = await getProxy();
@@ -62,12 +62,12 @@ export async function handleProtocol20002(body: Request20002): Promise<Response2
       });
     }
     
-    // 计算时间范围
+    // 
     const now = Math.floor(Date.now() / 1000);
     const timeRangeSeconds = timeRange * 24 * 60 * 60;
     const startTime = now - timeRangeSeconds;
     
-    // 2. 从proxy-api获取有效的server列表
+    // 2. proxy-apiserver
     let serversMap: { [serverId: string]: any } = {};
     let validServerIds = new Set<string>();
     try {
@@ -85,7 +85,7 @@ export async function handleProtocol20002(body: Request20002): Promise<Response2
       console.warn('[Protocol-20002] Failed to get servers from proxy-api:', error);
     }
     
-    // 3. 构建where条件：基于proxyKey、action 1000-1099和非空serverId
+    // 3. where：proxyKey、action 1000-1099serverId
     const logWhereCondition: any = {
       proxyKey: proxyKey,
       addtime: {
@@ -96,7 +96,7 @@ export async function handleProtocol20002(body: Request20002): Promise<Response2
         lte: 1099
       },
       serverId: {
-        notIn: ['', 'Unknown', 'unknown', 'null', 'undefined', '0'] // 排除明显无效的serverId
+        notIn: ['', 'Unknown', 'unknown', 'null', 'undefined', '0'] // serverId
       }
     };
 
@@ -126,7 +126,7 @@ export async function handleProtocol20002(body: Request20002): Promise<Response2
 
     const totalCount = groupedServers.length;
     
-    // 分页处理
+    // 
     const offset = (safePage - 1) * safePageSize;
     const pagedGroups = groupedServers.slice(offset, offset + safePageSize);
     const pagedServerIds = pagedGroups
@@ -160,7 +160,7 @@ export async function handleProtocol20002(body: Request20002): Promise<Response2
       logsByServerId.set(log.serverId, existing);
     });
     
-    // 6. 为每个工具计算详细指标
+    // 6. 
     const toolMetrics: ToolMetrics[] = [];
     
     for (const group of pagedGroups) {
@@ -170,7 +170,7 @@ export async function handleProtocol20002(body: Request20002): Promise<Response2
       const toolName = server ? server.serverName : `${currentServerId} (Deleted)`;
       const logs = logsByServerId.get(currentServerId) || [];
       
-      // 基于内存中的logs计算指标
+      // logs
       const totalRequests = logs.length;
       const successfulRequests = logs.filter((log) => isSuccessfulRequestLog(log)).length;
       const failedRequests = totalRequests - successfulRequests;
@@ -182,12 +182,12 @@ export async function handleProtocol20002(body: Request20002): Promise<Response2
         ? Math.round(validDurations.reduce((sum, d) => sum + d, 0) / validDurations.length)
         : 0;
       
-      // 最后使用时间
+      // 
       const addtimes = logs.map(log => Number(log.addtime));
       const lastUsedTimestamp = addtimes.length > 0 ? Math.max(...addtimes) : 0;
       const lastUsed = lastUsedTimestamp > 0 ? new Date(lastUsedTimestamp * 1000).toISOString() : new Date().toISOString();
       
-      // 错误统计
+      // 
       const errorGroups: { [error: string]: number } = {};
       logs.forEach(log => {
         if (log.error && log.error !== '') {
@@ -200,10 +200,10 @@ export async function handleProtocol20002(body: Request20002): Promise<Response2
         .slice(0, 5)
         .map(([error, count]) => ({ type: error, count }));
       
-      // 计算成功率
+      // 
       const successRate = totalRequests > 0 ? (successfulRequests / totalRequests) * 100 : 0;
       
-      // 工具状态
+      // 
       let status: "active" | "inactive" | "error" = "active";
       if (successRate < 70) {
         status = "error";

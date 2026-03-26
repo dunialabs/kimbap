@@ -13,27 +13,27 @@ interface Request22002 {
     rawToken?: string;
   };
   params: {
-    timeRange: number; // 时间范围: 1-今天, 7-最近7天, 30-最近30天
-    limit: number;     // 返回数量限制，默认10
+    timeRange: number; // : 1-, 7-7, 30-30
+    limit: number;     // ，10
   };
 }
 
 interface ToolUsageStat {
-  toolName: string;      // 工具名称
-  toolType: string;      // 工具类型
-  requestCount: number;  // 请求数量
-  percentage: number;    // 占总请求的百分比
-  color: string;         // 显示颜色（用于UI）
+  toolName: string;      // 
+  toolType: string;      // 
+  requestCount: number;  // 
+  percentage: number;    // 
+  color: string;         // （UI）
 }
 
 interface Response22002Data {
   tools: ToolUsageStat[];  // Changed from topTools to tools to match frontend expectation
-  totalRequests: number; // 总请求数（用于计算百分比）
+  totalRequests: number; // （）
 }
 
 /**
  * Protocol 22002 - Get Top Tools by Usage
- * 获取使用量最高的工具（基于proxyKey和action 1000-1099）
+ * （proxyKeyaction 1000-1099）
  */
 export async function handleProtocol22002(body: Request22002): Promise<Response22002Data> {
   try {
@@ -45,7 +45,7 @@ export async function handleProtocol22002(body: Request22002): Promise<Response2
     const normalizedLimit = Math.floor(parsedLimit);
     const limit = Number.isFinite(normalizedLimit) && normalizedLimit >= 1 ? normalizedLimit : 10;
     
-    // 预定义的颜色列表，用于UI显示
+    // ，UI
     const colors = [
       '#3b82f6', // blue-500
       '#10b981', // emerald-500  
@@ -59,7 +59,7 @@ export async function handleProtocol22002(body: Request22002): Promise<Response2
       '#6366f1'  // indigo-500
     ];
     
-    // 1. 获取当前proxy的proxyKey（不用token）
+    // 1. proxyproxyKey（token）
     let proxyKey = '';
     try {
       const proxy = await getProxy();
@@ -72,12 +72,12 @@ export async function handleProtocol22002(body: Request22002): Promise<Response2
       });
     }
     
-    // 计算时间范围
+    // 
     const now = Math.floor(Date.now() / 1000);
     const timeRangeSeconds = timeRange * 24 * 60 * 60;
     const startTime = now - timeRangeSeconds;
     
-    // 2. 获取有效的server列表
+    // 2. server
     let serversMap: Record<string, any> = {};
     try {
       const serversResult = await getServers({}, body.common.userid, rawToken);
@@ -90,7 +90,7 @@ export async function handleProtocol22002(body: Request22002): Promise<Response2
       console.warn('[Protocol-22002] Failed to get servers from proxy-api:', error);
     }
     
-    // 3. 基于proxyKey、action 1000-1099和有效serverId查询相关日志
+    // 3. proxyKey、action 1000-1099serverId
     const logWhereCondition = {
       proxyKey: proxyKey,
       action: {
@@ -100,7 +100,7 @@ export async function handleProtocol22002(body: Request22002): Promise<Response2
       addtime: { gte: BigInt(startTime) },
       serverId: {
         not: '',
-        notIn: ['Unknown', 'unknown', 'null', 'undefined', '0'] // 排除明显无效的serverId
+        notIn: ['Unknown', 'unknown', 'null', 'undefined', '0'] // serverId
       }
     };
     
