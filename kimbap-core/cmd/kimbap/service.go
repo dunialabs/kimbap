@@ -1,16 +1,23 @@
 package main
 
 import (
+	"context"
 	"crypto/ed25519"
 	"encoding/hex"
+	"errors"
 	"fmt"
+	"io"
+	"io/fs"
+	"net/http"
 	"net/url"
 	"os"
 	"path/filepath"
 	"sort"
 	"strings"
+	"time"
 
 	"github.com/dunialabs/kimbap-core/internal/services"
+	"github.com/dunialabs/kimbap-core/skills"
 	"github.com/spf13/cobra"
 	"gopkg.in/yaml.v3"
 )
@@ -23,21 +30,24 @@ func newServiceCommand() *cobra.Command {
 
 	cmd.AddCommand(newServiceInstallCommand())
 	cmd.AddCommand(newServiceListCommand())
+	cmd.AddCommand(newServiceEnableCommand())
+	cmd.AddCommand(newServiceDisableCommand())
 	cmd.AddCommand(newServiceRemoveCommand())
 	cmd.AddCommand(newServiceVerifyCommand())
 	cmd.AddCommand(newServiceSignCommand())
 	cmd.AddCommand(newServiceValidateCommand())
 	cmd.AddCommand(newServiceGenerateCommand())
-	cmd.AddCommand(newServiceExportSkillMDCommand())
+	cmd.AddCommand(newServiceExportAgentSkillCommand())
 
 	return cmd
 }
 
 func newServiceInstallCommand() *cobra.Command {
 	var force bool
+	var noActivate bool
 	cmd := &cobra.Command{
-		Use:   "install <path-to-yaml> [--force]",
-		Short: "Install a local service manifest",
+		Use:   "install <name|path-to-yaml|url> [--force]",
+		Short: "Install a service manifest",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			cfg, err := loadAppConfig()
@@ -45,12 +55,12 @@ func newServiceInstallCommand() *cobra.Command {
 				return err
 			}
 
-			manifest, err := services.ParseManifestFile(args[0])
+			manifest, source, err := resolveServiceInstallSource(args[0])
 			if err != nil {
 				return err
 			}
 
-			installed, err := installerFromConfig(cfg).InstallWithForce(manifest, args[0], force)
+			installed, err := installerFromConfig(cfg).InstallWithForceAndActivation(manifest, source, force, !noActivate)
 			if err != nil {
 				return err
 			}
@@ -58,10 +68,12 @@ func newServiceInstallCommand() *cobra.Command {
 		},
 	}
 	cmd.Flags().BoolVar(&force, "force", false, "overwrite existing service if already installed")
+	cmd.Flags().BoolVar(&noActivate, "no-activate", false, "install service as disabled")
 	return cmd
 }
 
 func newServiceListCommand() *cobra.Command {
+	var available bool
 	cmd := &cobra.Command{
 		Use:   "list",
 		Short: "List installed services",
@@ -70,11 +82,87 @@ func newServiceListCommand() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			installed, err := installerFromConfig(cfg).List()
+
+			installer := installerFromConfig(cfg)
+			installed, err := installer.List()
 			if err != nil {
 				return err
 			}
+
+			if available {
+				official, listErr := skills.List()
+				if listErr != nil {
+					return fmt.Errorf("list official services: %w", listErr)
+				}
+
+				installedByName := make(map[string]services.InstalledService, len(installed))
+				for _, svc := range installed {
+					installedByName[svc.Manifest.Name] = svc
+				}
+
+				rows := make([]map[string]any, 0, len(official))
+				for _, name := range official {
+					row := map[string]any{
+						"name":      name,
+						"official":  true,
+						"installed": false,
+						"enabled":   false,
+						"status":    "not-installed",
+					}
+					if svc, ok := installedByName[name]; ok {
+						row["installed"] = true
+						row["enabled"] = svc.Enabled
+						if svc.Enabled {
+							row["status"] = "enabled"
+						} else {
+							row["status"] = "disabled"
+						}
+					}
+					rows = append(rows, row)
+				}
+				return printOutput(rows)
+			}
+
 			return printOutput(installed)
+		},
+	}
+	cmd.Flags().BoolVar(&available, "available", false, "list all official services with installed/enabled status")
+	return cmd
+}
+
+func newServiceEnableCommand() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "enable <name>",
+		Short: "Enable an installed service",
+		Args:  cobra.ExactArgs(1),
+		RunE: func(_ *cobra.Command, args []string) error {
+			cfg, err := loadAppConfig()
+			if err != nil {
+				return err
+			}
+			if err := installerFromConfig(cfg).Enable(args[0]); err != nil {
+				return err
+			}
+			return printOutput(map[string]any{"enabled": true, "name": args[0]})
+		},
+	}
+	return cmd
+}
+
+func newServiceDisableCommand() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "disable <name>",
+		Short: "Disable an installed service",
+		Args:  cobra.ExactArgs(1),
+		RunE: func(_ *cobra.Command, args []string) error {
+			cfg, err := loadAppConfig()
+			if err != nil {
+				return err
+			}
+			if err := installerFromConfig(cfg).Disable(args[0]); err != nil {
+				return err
+			}
+			return printOutput(map[string]any{"enabled": false, "name": args[0]})
 		},
 	}
 	return cmd
@@ -297,14 +385,14 @@ func newServiceGenerateCommand() *cobra.Command {
 	return cmd
 }
 
-func newServiceExportSkillMDCommand() *cobra.Command {
+func newServiceExportAgentSkillCommand() *cobra.Command {
 	var outputPath string
 	var outputDir string
 	var exportPack bool
 
 	cmd := &cobra.Command{
-		Use:   "export-skillmd <name> [--output file] [--dir directory]",
-		Short: "Export installed service as SKILL.md (Agent Skills open standard)",
+		Use:   "export-agent-skill <name> [--output file] [--dir directory]",
+		Short: "Export installed service as agent SKILL.md",
 		Long:  "Generate a SKILL.md file compatible with Claude Code, OpenAI Codex, GitHub Copilot, and other AI agents.",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -325,7 +413,7 @@ func newServiceExportSkillMDCommand() *cobra.Command {
 				return fmt.Errorf("service %q not found: %w", args[0], err)
 			}
 
-			content, err := services.GenerateSkillMD(&installed.Manifest)
+			content, err := services.GenerateAgentSkillMD(&installed.Manifest, services.WithSource(installed.Source))
 			if err != nil {
 				return err
 			}
@@ -333,18 +421,18 @@ func newServiceExportSkillMDCommand() *cobra.Command {
 			if strings.TrimSpace(outputDir) != "" {
 				serviceDir := filepath.Join(outputDir, installed.Manifest.Name)
 				if exportPack {
-					pack, packErr := services.GenerateSkillPack(&installed.Manifest)
+					pack, packErr := services.GenerateAgentSkillPack(&installed.Manifest, services.WithSource(installed.Source))
 					if packErr != nil {
 						return packErr
 					}
-					writtenFiles, writeErr := writeSkillPackDir(serviceDir, pack)
+					writtenFiles, writeErr := writeAgentSkillPackDir(serviceDir, pack)
 					if writeErr != nil {
 						return writeErr
 					}
 					sort.Strings(writtenFiles)
 					return printOutput(map[string]any{"exported": true, "pack": true, "files": writtenFiles})
 				}
-				if _, writeErr := writeSkillPackDir(serviceDir, map[string]string{"SKILL.md": content}); writeErr != nil {
+				if _, writeErr := writeAgentSkillPackDir(serviceDir, map[string]string{"SKILL.md": content}); writeErr != nil {
 					return writeErr
 				}
 				outPath := filepath.Join(serviceDir, "SKILL.md")
@@ -370,7 +458,7 @@ func newServiceExportSkillMDCommand() *cobra.Command {
 	return cmd
 }
 
-func writeSkillPackDir(serviceDir string, pack map[string]string) ([]string, error) {
+func writeAgentSkillPackDir(serviceDir string, pack map[string]string) ([]string, error) {
 	names := make([]string, 0, len(pack))
 	for filename := range pack {
 		if err := validateExportPackFileName(filename); err != nil {
@@ -451,4 +539,86 @@ func isServiceHTTPURL(value string) bool {
 		return false
 	}
 	return parsed.Scheme == "http" || parsed.Scheme == "https"
+}
+
+func resolveServiceInstallSource(arg string) (*services.ServiceManifest, string, error) {
+	trimmed := strings.TrimSpace(arg)
+	if trimmed == "" {
+		return nil, "", fmt.Errorf("service source is required")
+	}
+
+	if strings.HasPrefix(trimmed, "http://") || strings.HasPrefix(trimmed, "https://") {
+		manifest, err := parseServiceManifestURL(trimmed)
+		if err != nil {
+			return nil, "", err
+		}
+		return manifest, "remote:" + trimmed, nil
+	}
+
+	if stat, err := os.Stat(trimmed); err == nil {
+		if stat.IsDir() {
+			return nil, "", fmt.Errorf("service source %q is a directory. Pass a YAML file path, URL, or official service name", trimmed)
+		}
+		manifest, parseErr := services.ParseManifestFile(trimmed)
+		if parseErr != nil {
+			return nil, "", parseErr
+		}
+		return manifest, "local:" + trimmed, nil
+	} else if !os.IsNotExist(err) {
+		return nil, "", fmt.Errorf("stat service source %q: %w", trimmed, err)
+	}
+
+	if err := services.ValidateServiceName(trimmed); err != nil {
+		return nil, "", err
+	}
+
+	data, err := skills.Get(trimmed)
+	if err != nil {
+		if errors.Is(err, fs.ErrNotExist) {
+			return nil, "", fmt.Errorf("service %q not found: not a local file and not in official catalog. Run 'kimbap service list --available' to see official services", trimmed)
+		}
+		return nil, "", fmt.Errorf("load official service %q: %w", trimmed, err)
+	}
+
+	manifest, err := services.ParseManifest(data)
+	if err != nil {
+		return nil, "", fmt.Errorf("parse official service %q: %w", trimmed, err)
+	}
+	return manifest, "official:" + trimmed, nil
+}
+
+func parseServiceManifestURL(serviceURL string) (*services.ServiceManifest, error) {
+	ctx, cancel := context.WithTimeout(contextBackground(), 30*time.Second)
+	defer cancel()
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, serviceURL, nil)
+	if err != nil {
+		return nil, fmt.Errorf("build request for %q: %w", serviceURL, err)
+	}
+
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("fetch service manifest from %q: %w", serviceURL, err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("fetch service manifest from %q: got HTTP %d. Check the URL or use a local file path", serviceURL, resp.StatusCode)
+	}
+
+	const maxManifestBytes = 1 << 20 // 1MB
+	body, err := io.ReadAll(io.LimitReader(resp.Body, maxManifestBytes+1))
+	if err != nil {
+		return nil, fmt.Errorf("read service manifest from %q: %w", serviceURL, err)
+	}
+	if int64(len(body)) > maxManifestBytes {
+		return nil, fmt.Errorf("service manifest from %q exceeds %d bytes", serviceURL, maxManifestBytes)
+	}
+
+	manifest, err := services.ParseManifest(body)
+	if err != nil {
+		return nil, fmt.Errorf("parse service manifest from %q: %w", serviceURL, err)
+	}
+
+	return manifest, nil
 }
