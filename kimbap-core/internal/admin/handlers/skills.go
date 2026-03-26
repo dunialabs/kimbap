@@ -132,8 +132,8 @@ func (h *ServicesHandler) DeleteServerServices(data map[string]any, token string
 	}, nil
 }
 
-// reloadServicesServer reconnects the skills server so that newly uploaded/deleted
-// skills are picked up immediately without requiring a manual restart.
+// reloadServicesServer reconnects the services server so that newly uploaded/deleted
+// services are picked up immediately without requiring a manual restart.
 func (h *ServicesHandler) reloadServicesServer(serverID, token string) {
 	if h.serverReconnect == nil || h.db == nil {
 		return

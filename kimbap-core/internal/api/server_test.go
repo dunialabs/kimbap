@@ -1048,6 +1048,58 @@ func TestCreateWebhookRejectsTrailingJSONPayload(t *testing.T) {
 	}
 }
 
+func TestHandleListRecentEventsLimitValidation(t *testing.T) {
+	dispatcher := webhooks.NewDispatcher()
+	server := &Server{webhookDispatcher: dispatcher}
+
+	reqWithTenant := func(url string) *http.Request {
+		req := httptest.NewRequest(http.MethodGet, url, nil)
+		return req.WithContext(context.WithValue(req.Context(), contextKeyTenant, "tenant-a"))
+	}
+
+	// invalid (non-numeric) limit → 400
+	rr := httptest.NewRecorder()
+	server.handleListRecentEvents(rr, reqWithTenant("/v1/webhooks/events?limit=abc"))
+	if rr.Code != http.StatusBadRequest {
+		t.Fatalf("non-numeric limit: expected 400, got %d", rr.Code)
+	}
+
+	// zero limit → 400
+	rr = httptest.NewRecorder()
+	server.handleListRecentEvents(rr, reqWithTenant("/v1/webhooks/events?limit=0"))
+	if rr.Code != http.StatusBadRequest {
+		t.Fatalf("zero limit: expected 400, got %d", rr.Code)
+	}
+
+	// negative limit → 400
+	rr = httptest.NewRecorder()
+	server.handleListRecentEvents(rr, reqWithTenant("/v1/webhooks/events?limit=-5"))
+	if rr.Code != http.StatusBadRequest {
+		t.Fatalf("negative limit: expected 400, got %d", rr.Code)
+	}
+
+	// oversized limit → 200 (capped, not rejected)
+	rr = httptest.NewRecorder()
+	server.handleListRecentEvents(rr, reqWithTenant("/v1/webhooks/events?limit=99999"))
+	if rr.Code != http.StatusOK {
+		t.Fatalf("oversized limit: expected 200, got %d", rr.Code)
+	}
+
+	// valid limit → 200
+	rr = httptest.NewRecorder()
+	server.handleListRecentEvents(rr, reqWithTenant("/v1/webhooks/events?limit=10"))
+	if rr.Code != http.StatusOK {
+		t.Fatalf("valid limit: expected 200, got %d", rr.Code)
+	}
+
+	// no limit param → 200 (defaults to 50)
+	rr = httptest.NewRecorder()
+	server.handleListRecentEvents(rr, reqWithTenant("/v1/webhooks/events"))
+	if rr.Code != http.StatusOK {
+		t.Fatalf("no limit param: expected 200, got %d", rr.Code)
+	}
+}
+
 func TestServerInspectAndRevokeTokenHideCrossTenantExistence(t *testing.T) {
 	ts, rawBootstrap, st := newTestAPIServerWithStore(t)
 

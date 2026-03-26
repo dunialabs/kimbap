@@ -151,6 +151,38 @@ func TestSQLiteStoreAuditQueryOffsetWithoutLimit(t *testing.T) {
 	}
 }
 
+func TestSQLiteStoreAuditQueryLimitCap(t *testing.T) {
+	st := newTestSQLiteStore(t)
+	ctx := context.Background()
+	now := time.Now().UTC()
+
+	rec := &AuditRecord{
+		ID: "cap-1", Timestamp: now, TenantID: "tenant-a",
+		AgentName: "agent-a", Service: "github", Action: "issues.list",
+		Status: "success", RequestID: "r1", TraceID: "t1", PrincipalID: "p1",
+		Mode: "call", PolicyDecision: "allow", InputJSON: `{}`, MetaJSON: `{}`,
+	}
+	if err := st.WriteAuditEvent(ctx, rec); err != nil {
+		t.Fatalf("write audit event: %v", err)
+	}
+
+	gotZero, err := st.QueryAuditEvents(ctx, AuditFilter{TenantID: "tenant-a", Limit: 0})
+	if err != nil {
+		t.Fatalf("query with limit 0: %v", err)
+	}
+	if len(gotZero) != 1 {
+		t.Fatalf("limit 0 should default to maxAuditQueryLimit, got %d results", len(gotZero))
+	}
+
+	gotOver, err := st.QueryAuditEvents(ctx, AuditFilter{TenantID: "tenant-a", Limit: maxAuditQueryLimit + 1})
+	if err != nil {
+		t.Fatalf("query with oversized limit: %v", err)
+	}
+	if len(gotOver) != 1 {
+		t.Fatalf("oversized limit should be capped, got %d results", len(gotOver))
+	}
+}
+
 func TestSQLiteStoreApprovalCreateAndUpdateStatus(t *testing.T) {
 	st := newTestSQLiteStore(t)
 	ctx := context.Background()
