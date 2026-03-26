@@ -873,7 +873,7 @@ function ToolUsagePageContent() {
                           ) : (
                             <details>
                               <summary className="cursor-pointer text-xs text-muted-foreground">View details</summary>
-                              <pre className="mt-1 max-h-24 overflow-auto rounded bg-muted p-2 text-[10px]">{log.details || '-'}</pre>
+                              <pre className="mt-1 max-h-24 overflow-auto rounded bg-muted p-2 text-xs">{log.details || '-'}</pre>
                             </details>
                           )}
                         </TableCell>
