@@ -145,14 +145,16 @@ function LogsPageContent() {
 
   useEffect(() => {
     const currentParam = searchParams.get('timeRange')
-    if (currentParam === timeFilter) {
+    const syncedTimeRange = activeTab === 'statistics' ? statisticsTimeFilter : timeFilter
+  
+    if (currentParam === syncedTimeRange) {
       return
     }
-
+  
     const params = new URLSearchParams(searchParams.toString())
-    params.set('timeRange', timeFilter)
+    params.set('timeRange', syncedTimeRange)
     router.replace(`${pathname}?${params.toString()}`, { scroll: false })
-  }, [pathname, router, searchParams, timeFilter])
+  }, [activeTab, pathname, router, searchParams, statisticsTimeFilter, timeFilter])
 
   useEffect(() => {
     const currentTab = searchParams.get('tab')

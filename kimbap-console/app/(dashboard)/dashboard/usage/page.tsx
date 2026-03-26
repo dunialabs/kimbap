@@ -327,7 +327,7 @@ function UsagePageContent() {
       {/* Top Tools by Usage */}
       <Card>
         <CardHeader>
-            <CardTitle><Link href={`/dashboard/usage/tool-usage?timeRange=${timeRange}`} className="hover:underline">Top Tools</Link></CardTitle>
+            <CardTitle><Link href={`/dashboard/usage/tool-usage?timeRange=${timeRange}`} className="rounded-sm hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2">Top Tools</Link></CardTitle>
             <CardDescription>Most-used tools in the last {timeRangeLabel}</CardDescription>
         </CardHeader>
         <CardContent>
@@ -370,7 +370,7 @@ function UsagePageContent() {
       <div className="grid lg:grid-cols-2 gap-3">
         <Card>
           <CardHeader>
-            <CardTitle><Link href={`/dashboard/usage/token-usage?timeRange=${timeRange}`} className="hover:underline">Active Tokens</Link></CardTitle>
+            <CardTitle><Link href={`/dashboard/usage/token-usage?timeRange=${timeRange}`} className="rounded-sm hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2">Active Tokens</Link></CardTitle>
             <CardDescription>Most active tokens in the last {timeRangeLabel}</CardDescription>
           </CardHeader>
           <CardContent>
@@ -412,7 +412,7 @@ function UsagePageContent() {
 
         <Card>
           <CardHeader>
-            <CardTitle><Link href={`/dashboard/logs?timeRange=${logsTimeRange}`} className="hover:underline">Recent Activity</Link></CardTitle>
+            <CardTitle><Link href={`/dashboard/logs?timeRange=${logsTimeRange}`} className="rounded-sm hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2">Recent Activity</Link></CardTitle>
             <CardDescription>Recent events in the last {timeRangeLabel}</CardDescription>
           </CardHeader>
           <CardContent>
@@ -438,7 +438,7 @@ function UsagePageContent() {
                   <p className="text-xs text-amber-600 dark:text-amber-400">{recentActivityError}</p>
                 ) : null}
                 {recentActivity.map((activity) => (
-                  <Link key={`${activity.timestamp}-${activity.description}`} href={`/dashboard/logs?timeRange=${logsTimeRange}`} className="flex items-start gap-3 hover:opacity-90">
+                  <Link key={`${activity.timestamp}-${activity.description}`} href={`/dashboard/logs?timeRange=${logsTimeRange}`} className="flex items-start gap-3 rounded-md p-1 -m-1 hover:bg-muted/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2">
                     <div className={`w-2 h-2 rounded-full mt-2`} style={{ backgroundColor: activity.color }}></div>
                     <div className="flex-1">
                       <div className="text-sm font-medium">{activity.description}</div>

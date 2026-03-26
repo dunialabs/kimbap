@@ -87,8 +87,10 @@ var result = chats.slice(0, limit).map(function(chat) {
 	var displayName = "";
 	try { displayName = chat.displayName(); } catch (e) {}
 
+	var chatId = "";
+	try { chatId = chat.id(); } catch (e) {}
 	return {
-		id: chat.id(),
+		id: chatId,
 		participants: participants,
 		displayName: displayName,
 		lastMessage: lastMessage

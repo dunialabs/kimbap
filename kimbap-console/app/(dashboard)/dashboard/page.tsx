@@ -520,7 +520,7 @@ export default function DashboardPage() {
       <Card>
         <CardHeader>
           <CardTitle>
-            <Link href="/dashboard/usage/tool-usage?timeRange=30" className="hover:underline">Tool Usage</Link>
+            <Link href="/dashboard/usage/tool-usage?timeRange=30" className="rounded-sm hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2">Tool Usage</Link>
           </CardTitle>
           <CardDescription>
             Requests by tool over the last 30 days
@@ -569,7 +569,7 @@ export default function DashboardPage() {
       <Card>
         <CardHeader>
           <CardTitle>
-            <Link href="/dashboard/usage/token-usage?timeRange=30" className="hover:underline">Access Token Usage</Link>
+            <Link href="/dashboard/usage/token-usage?timeRange=30" className="rounded-sm hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2">Access Token Usage</Link>
           </CardTitle>
           <CardDescription>
             Requests by token over the last 30 days
@@ -620,7 +620,7 @@ export default function DashboardPage() {
       <Card>
           <CardHeader>
             <CardTitle>
-              <Link href="/dashboard/logs?timeRange=30d" className="hover:underline">Recent Activity</Link>
+              <Link href="/dashboard/logs?timeRange=30d" className="rounded-sm hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2">Recent Activity</Link>
             </CardTitle>
             <CardDescription>Last 30 days</CardDescription>
           </CardHeader>

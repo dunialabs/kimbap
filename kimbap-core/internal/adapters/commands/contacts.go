@@ -23,12 +23,22 @@ function mapLabeledValues(values) {
 }
 
 function mapPerson(person, includeExtra) {
+	var name = "";
+	var firstName = "";
+	var lastName = "";
+	try { name = person.name() || ""; } catch (e) {}
+	try { firstName = person.firstName() || ""; } catch (e) {}
+	try { lastName = person.lastName() || ""; } catch (e) {}
+	var rawEmails = [];
+	var rawPhones = [];
+	try { rawEmails = person.emails(); } catch (e) {}
+	try { rawPhones = person.phones(); } catch (e) {}
 	var result = {
-		name: person.name(),
-		firstName: person.firstName(),
-		lastName: person.lastName(),
-		emails: mapLabeledValues(person.emails()),
-		phones: mapLabeledValues(person.phones())
+		name: name,
+		firstName: firstName,
+		lastName: lastName,
+		emails: mapLabeledValues(rawEmails),
+		phones: mapLabeledValues(rawPhones)
 	};
 
 	if (includeExtra) {
@@ -77,12 +87,22 @@ function mapLabeledValues(values) {
 }
 
 function mapPerson(person) {
+	var name = "";
+	var firstName = "";
+	var lastName = "";
+	try { name = person.name() || ""; } catch (e) {}
+	try { firstName = person.firstName() || ""; } catch (e) {}
+	try { lastName = person.lastName() || ""; } catch (e) {}
+	var rawEmails = [];
+	var rawPhones = [];
+	try { rawEmails = person.emails(); } catch (e) {}
+	try { rawPhones = person.phones(); } catch (e) {}
 	return {
-		name: person.name(),
-		firstName: person.firstName(),
-		lastName: person.lastName(),
-		emails: mapLabeledValues(person.emails()),
-		phones: mapLabeledValues(person.phones())
+		name: name,
+		firstName: firstName,
+		lastName: lastName,
+		emails: mapLabeledValues(rawEmails),
+		phones: mapLabeledValues(rawPhones)
 	};
 }
 
@@ -130,19 +150,29 @@ function mapLabeledValues(values) {
 }
 
 function mapPerson(person) {
+	var name = "";
+	var firstName = "";
+	var lastName = "";
 	var org = "";
 	var job = "";
 	var notes = "";
+	try { name = person.name() || ""; } catch (e) {}
+	try { firstName = person.firstName() || ""; } catch (e) {}
+	try { lastName = person.lastName() || ""; } catch (e) {}
 	try { org = person.organization(); } catch (e) {}
 	try { job = person.jobTitle(); } catch (e) {}
 	try { notes = person.note(); } catch (e) {}
+	var rawEmails = [];
+	var rawPhones = [];
+	try { rawEmails = person.emails(); } catch (e) {}
+	try { rawPhones = person.phones(); } catch (e) {}
 
 	return {
-		name: person.name(),
-		firstName: person.firstName(),
-		lastName: person.lastName(),
-		emails: mapLabeledValues(person.emails()),
-		phones: mapLabeledValues(person.phones()),
+		name: name,
+		firstName: firstName,
+		lastName: lastName,
+		emails: mapLabeledValues(rawEmails),
+		phones: mapLabeledValues(rawPhones),
 		organization: org,
 		jobTitle: job,
 		notes: notes

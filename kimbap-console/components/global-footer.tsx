@@ -7,7 +7,7 @@ export function GlobalFooter() {
           href="https://kimbap.sh"
           target="_blank"
           rel="noopener noreferrer"
-          className="hover:underline text-slate-600 dark:text-slate-300"
+          className="rounded-sm text-slate-600 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 dark:text-slate-300"
         >
           Dunia Labs, Inc.
         </a>
