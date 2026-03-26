@@ -26,6 +26,10 @@ func newSearchCommand() *cobra.Command {
 		Short: "Search actions by keyword or description",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(_ *cobra.Command, args []string) error {
+			if limit < 0 {
+				return fmt.Errorf("--limit must be non-negative")
+			}
+
 			cfg, err := loadAppConfig()
 			if err != nil {
 				return err
@@ -34,10 +38,6 @@ func newSearchCommand() *cobra.Command {
 			defs, err := loadInstalledActions(cfg)
 			if err != nil {
 				return err
-			}
-
-			if limit < 0 {
-				return fmt.Errorf("--limit must be non-negative")
 			}
 
 			terms := splitSearchTerms(args[0])

@@ -78,9 +78,6 @@ func newLinkCommand() *cobra.Command {
 			tenantID := connectorTenant(tenant)
 			oauthStates, oauthErr := listConnectorStates(contextBackground(), cfg, tenantID)
 			if oauthErr != nil {
-				if statusOnly {
-					return fmt.Errorf("connector store unavailable: %w", oauthErr)
-				}
 				_, _ = fmt.Fprintf(os.Stderr, "warning: connector store unavailable: %v\n", oauthErr)
 			}
 
@@ -92,6 +89,9 @@ func newLinkCommand() *cobra.Command {
 				}
 
 				if statusOnly {
+					if oauthErr != nil {
+						return fmt.Errorf("connector store unavailable: %w", oauthErr)
+					}
 					status := linkOAuthConnectionStatus(providerID, profile, oauthStates)
 					if outputAsJSON() {
 						return printOutput(map[string]any{
