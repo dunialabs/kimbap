@@ -33,6 +33,7 @@ const operatingRulesTemplate = `# Kimbap Operating Rules for Agents
 6. Never ask for, print, or store raw API keys, passwords, refresh tokens, cookies, or session files.
 7. If the needed capability is missing, request a new Kimbap service instead of using direct credentials.
 8. Treat Kimbap as the only approved pathway for third-party API access in this repository.
+9. When a skill folder contains GOTCHAS.md or RECIPES.md, read them before executing unfamiliar or high-risk actions.
 `
 
 func GetProfile(name ProfileType) (*Profile, error) {

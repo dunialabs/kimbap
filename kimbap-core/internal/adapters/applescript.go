@@ -33,6 +33,8 @@ func NewAppleScriptAdapter(runner CommandRunner) *AppleScriptAdapter {
 	maps.Copy(allCmds, commands.SafariCommands())
 	maps.Copy(allCmds, commands.MessagesCommands())
 	maps.Copy(allCmds, commands.ContactsCommands())
+	maps.Copy(allCmds, commands.MSOfficeCommands())
+	maps.Copy(allCmds, commands.IWorkCommands())
 
 	return &AppleScriptAdapter{
 		runner:   runner,

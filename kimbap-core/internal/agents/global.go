@@ -483,6 +483,77 @@ func atomicWriteFile(path string, content string) error {
 	return nil
 }
 
+func atomicWriteDir(targetDir string, files map[string]string) error {
+	if len(files) == 0 {
+		return nil
+	}
+	parentDir := filepath.Dir(targetDir)
+	if err := os.MkdirAll(parentDir, 0o755); err != nil {
+		return fmt.Errorf("create parent directory: %w", err)
+	}
+	tmpDir, err := os.MkdirTemp(parentDir, ".kimbap-pack-*.tmp")
+	if err != nil {
+		return fmt.Errorf("create temp directory: %w", err)
+	}
+	success := false
+	defer func() {
+		if !success {
+			os.RemoveAll(tmpDir)
+		}
+	}()
+	names := make([]string, 0, len(files))
+	for name := range files {
+		if err := validatePackFileName(name); err != nil {
+			return err
+		}
+		names = append(names, name)
+	}
+	sort.Strings(names)
+
+	for _, name := range names {
+		if err := os.WriteFile(filepath.Join(tmpDir, name), []byte(files[name]), 0o644); err != nil {
+			return fmt.Errorf("write file %q to temp dir: %w", name, err)
+		}
+	}
+	oldDir := targetDir + ".old"
+	hasOld := false
+	if _, statErr := os.Stat(targetDir); statErr == nil {
+		if err := os.Rename(targetDir, oldDir); err != nil {
+			return fmt.Errorf("backup existing dir: %w", err)
+		}
+		hasOld = true
+	}
+	if err := os.Rename(tmpDir, targetDir); err != nil {
+		if hasOld {
+			_ = os.Rename(oldDir, targetDir)
+		}
+		return fmt.Errorf("rename temp to target: %w", err)
+	}
+	if hasOld {
+		os.RemoveAll(oldDir)
+	}
+	success = true
+	return nil
+}
+
+func validatePackFileName(name string) error {
+	trimmed := strings.TrimSpace(name)
+	if trimmed == "" {
+		return fmt.Errorf("pack filename must be non-empty")
+	}
+	if filepath.IsAbs(trimmed) {
+		return fmt.Errorf("pack filename %q must be relative", name)
+	}
+	clean := filepath.Clean(trimmed)
+	if clean == "." || clean == ".." || strings.HasPrefix(clean, "../") {
+		return fmt.Errorf("pack filename %q must not escape pack directory", name)
+	}
+	if strings.Contains(clean, string(filepath.Separator)) {
+		return fmt.Errorf("pack filename %q must not contain path separators", name)
+	}
+	return nil
+}
+
 // GlobalStatus returns the global setup state for all known agents.
 func GlobalStatus() ([]GlobalStatusResult, error) {
 	configs, err := resolveGlobalConfigs()

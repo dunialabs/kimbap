@@ -31,8 +31,8 @@ import { cn } from '@/lib/utils'
 
 export const navItems = [
   { href: '/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
-  { href: '/dashboard/policies', icon: Shield, label: 'Policies' },
   { href: '/dashboard/approvals', icon: UserCheck, label: 'Approvals' },
+  { href: '/dashboard/logs', icon: Activity, label: 'Logs & Monitoring' },
   {
     href: '/dashboard/usage',
     icon: TrendingUp,
@@ -43,7 +43,7 @@ export const navItems = [
       { href: '/dashboard/usage/token-usage', label: 'Access token usage' },
     ]
   },
-  { href: '/dashboard/logs', icon: Activity, label: 'Logs & Monitoring' }
+  { href: '/dashboard/policies', icon: Shield, label: 'Policies' }
 ]
 
 interface SidebarNavProps {

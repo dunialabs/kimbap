@@ -188,10 +188,15 @@ func runAgentsSync(projectDir string, rawAgentKinds string, force bool, dryRun b
 	if err != nil {
 		return agentSetupResult{}, err
 	}
+	installedPacks, packsErr := buildInstalledPacksForSync(cfg)
+	if packsErr != nil {
+		_, _ = fmt.Fprintf(os.Stderr, "warning: failed to build skill packs, using legacy mode: %v\n", packsErr)
+		installedPacks = nil
+	}
 
 	rulesContent := buildRulesContent(cfg)
 	syncResults, err := agents.SyncServices(
-		staticServiceInstaller{services: installedServices},
+		staticServiceInstaller{services: installedServices, packs: installedPacks},
 		rulesContent,
 		agents.SyncOptions{
 			ProjectDir: projectDir,
@@ -267,7 +272,7 @@ func runAgentsSync(projectDir string, rawAgentKinds string, force bool, dryRun b
 	}
 
 	if !dryRun && len(syncResults) > 0 {
-		recordProjectSyncState(projectSyncScope(projectDir), installedServices)
+		recordProjectSyncState(projectSyncScope(projectDir), installedServices, installedPacks)
 	}
 
 	return agentSetupResult{
@@ -318,6 +323,30 @@ func buildInstalledServicesForSync(cfg *config.KimbapConfig) ([]agents.Installed
 	return out, nil
 }
 
+func buildInstalledPacksForSync(cfg *config.KimbapConfig) ([]agents.InstalledServicePack, error) {
+	installed, err := installerFromConfig(cfg).List()
+	if err != nil {
+		return nil, err
+	}
+	out := make([]agents.InstalledServicePack, 0, len(installed))
+	for _, s := range installed {
+		pack, genErr := services.GenerateSkillPack(&s.Manifest)
+		if genErr != nil {
+			_, _ = fmt.Fprintf(os.Stderr, "warning: failed to generate skill pack for %q: %v\n", s.Manifest.Name, genErr)
+			continue
+		}
+		skillMD := pack["SKILL.md"]
+		packFiles := make(map[string]string)
+		for k, v := range pack {
+			if k != "SKILL.md" {
+				packFiles[k] = v
+			}
+		}
+		out = append(out, agents.InstalledServicePack{Name: s.Manifest.Name, SkillMD: skillMD, PackFiles: packFiles})
+	}
+	return out, nil
+}
+
 func buildRulesContent(cfg *config.KimbapConfig) string {
 	services, svcErr := collectInstalledServicesFromConfig(cfg.Services.Dir)
 	if svcErr != nil {
@@ -340,10 +369,15 @@ func buildRulesContent(cfg *config.KimbapConfig) string {
 
 type staticServiceInstaller struct {
 	services []agents.InstalledService
+	packs    []agents.InstalledServicePack
 }
 
 func (i staticServiceInstaller) List() ([]agents.InstalledService, error) {
 	return i.services, nil
+}
+
+func (i staticServiceInstaller) ListPacks() ([]agents.InstalledServicePack, error) {
+	return i.packs, nil
 }
 
 func projectSyncScope(projectDir string) string {
@@ -358,7 +392,15 @@ func projectSyncScope(projectDir string) string {
 	return normalizedProjectDir
 }
 
-func recordProjectSyncState(scope string, installedServices []agents.InstalledService) {
+func recordProjectSyncState(scope string, installedServices []agents.InstalledService, installedPacks []agents.InstalledServicePack) {
+	if len(installedPacks) > 0 && len(installedPacks) == len(installedServices) {
+		if err := agents.RecordSyncPacks(scope, installedPacks); err != nil {
+			_, _ = fmt.Fprintf(os.Stderr, "warning: failed to record pack-aware sync state: %v\n", err)
+		} else {
+			return
+		}
+	}
+
 	names := make([]string, 0, len(installedServices))
 	contents := make([]string, 0, len(installedServices))
 	for _, s := range installedServices {

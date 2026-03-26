@@ -7,6 +7,7 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 
 	"github.com/dunialabs/kimbap-core/internal/services"
@@ -302,6 +303,7 @@ func newServiceGenerateCommand() *cobra.Command {
 func newServiceExportSkillMDCommand() *cobra.Command {
 	var outputPath string
 	var outputDir string
+	var exportPack bool
 
 	cmd := &cobra.Command{
 		Use:   "export-skillmd <name> [--output file] [--dir directory]",
@@ -311,6 +313,9 @@ func newServiceExportSkillMDCommand() *cobra.Command {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if cmd.Flags().Changed("dir") && cmd.Flags().Changed("output") {
 				return fmt.Errorf("--dir and --output are mutually exclusive")
+			}
+			if exportPack && strings.TrimSpace(outputDir) == "" {
+				return fmt.Errorf("--pack requires --dir")
 			}
 
 			cfg, err := loadAppConfig()
@@ -330,13 +335,22 @@ func newServiceExportSkillMDCommand() *cobra.Command {
 
 			if strings.TrimSpace(outputDir) != "" {
 				serviceDir := filepath.Join(outputDir, installed.Manifest.Name)
-				if err := os.MkdirAll(serviceDir, 0o755); err != nil {
-					return fmt.Errorf("create service directory: %w", err)
+				if exportPack {
+					pack, packErr := services.GenerateSkillPack(&installed.Manifest)
+					if packErr != nil {
+						return packErr
+					}
+					writtenFiles, writeErr := writeSkillPackDir(serviceDir, pack)
+					if writeErr != nil {
+						return writeErr
+					}
+					sort.Strings(writtenFiles)
+					return printOutput(map[string]any{"exported": true, "pack": true, "files": writtenFiles})
+				}
+				if _, writeErr := writeSkillPackDir(serviceDir, map[string]string{"SKILL.md": content}); writeErr != nil {
+					return writeErr
 				}
 				outPath := filepath.Join(serviceDir, "SKILL.md")
-				if err := os.WriteFile(outPath, []byte(content), 0o644); err != nil {
-					return fmt.Errorf("write SKILL.md: %w", err)
-				}
 				return printOutput(map[string]any{"exported": true, "path": outPath})
 			}
 
@@ -354,8 +368,53 @@ func newServiceExportSkillMDCommand() *cobra.Command {
 
 	cmd.Flags().StringVar(&outputPath, "output", "", "output file path")
 	cmd.Flags().StringVar(&outputDir, "dir", "", "output directory (creates name/SKILL.md structure)")
+	cmd.Flags().BoolVar(&exportPack, "pack", false, "export as folder-based skill pack")
 
 	return cmd
+}
+
+func writeSkillPackDir(serviceDir string, pack map[string]string) ([]string, error) {
+	if err := os.RemoveAll(serviceDir); err != nil {
+		return nil, fmt.Errorf("clean service directory: %w", err)
+	}
+	if err := os.MkdirAll(serviceDir, 0o755); err != nil {
+		return nil, fmt.Errorf("create service directory: %w", err)
+	}
+	writtenFiles := make([]string, 0, len(pack))
+	names := make([]string, 0, len(pack))
+	for filename := range pack {
+		names = append(names, filename)
+	}
+	sort.Strings(names)
+	for _, filename := range names {
+		if err := validateExportPackFileName(filename); err != nil {
+			return nil, err
+		}
+		outPath := filepath.Join(serviceDir, filename)
+		if err := os.WriteFile(outPath, []byte(pack[filename]), 0o644); err != nil {
+			return nil, fmt.Errorf("write %s: %w", filename, err)
+		}
+		writtenFiles = append(writtenFiles, outPath)
+	}
+	return writtenFiles, nil
+}
+
+func validateExportPackFileName(name string) error {
+	trimmed := strings.TrimSpace(name)
+	if trimmed == "" {
+		return fmt.Errorf("pack filename must be non-empty")
+	}
+	if filepath.IsAbs(trimmed) {
+		return fmt.Errorf("pack filename %q must be relative", name)
+	}
+	clean := filepath.Clean(trimmed)
+	if clean == "." || clean == ".." || strings.HasPrefix(clean, "../") {
+		return fmt.Errorf("pack filename %q must not escape export directory", name)
+	}
+	if strings.Contains(clean, string(filepath.Separator)) {
+		return fmt.Errorf("pack filename %q must not contain path separators", name)
+	}
+	return nil
 }
 
 func isServiceHTTPURL(value string) bool {

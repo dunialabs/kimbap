@@ -83,6 +83,7 @@ type StatusFilter =
   | 'FAILED';
 
 const BASE_PAGE_SIZE = 20;
+const DEFAULT_STATUS_FILTER: StatusFilter = 'PENDING';
 
 // ─── Helpers ────────────────────────────────────────────
 
@@ -200,7 +201,7 @@ export default function ApprovalsPage() {
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
   const [hasMore, setHasMore] = useState(false);
-  const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>(DEFAULT_STATUS_FILTER);
   const [userFilter, setUserFilter] = useState('');
   const [detailDialog, setDetailDialog] = useState<ApprovalRequest | null>(null);
   const [decideDialog, setDecideDialog] = useState<{
@@ -369,7 +370,7 @@ export default function ApprovalsPage() {
   };
 
   return (
-    <div className="space-y-6 p-6">
+    <div className="space-y-6">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
@@ -378,7 +379,7 @@ export default function ApprovalsPage() {
             Approvals
           </h1>
           <p className="text-base text-muted-foreground">
-            Review tool requests that need approval.
+            Review tool requests that are waiting for a decision.
           </p>
         </div>
         <div className="flex items-center gap-3">
@@ -448,7 +449,7 @@ export default function ApprovalsPage() {
                 </Select>
               </div>
               <Input
-                placeholder="Filter by user..."
+                placeholder="Filter by user ID"
                 value={userFilter}
                 onChange={(e) => setUserFilter(e.target.value)}
                 className="h-8 w-[160px] text-sm"
@@ -470,7 +471,9 @@ export default function ApprovalsPage() {
               <ShieldCheck className="h-10 w-10 text-muted-foreground/40 mb-3" />
               <p className="text-sm text-muted-foreground">
                 {statusFilter === 'all' && !userFilter.trim()
-                  ? 'No approval requests yet'
+                  ? 'No approval requests right now'
+                  : statusFilter === DEFAULT_STATUS_FILTER && !userFilter.trim()
+                  ? 'No pending approvals right now.'
                   : 'No requests match your filters'}
               </p>
             </div>
@@ -609,8 +612,10 @@ export default function ApprovalsPage() {
             <DialogHeader>
               <DialogTitle>Approval Request Details</DialogTitle>
               <DialogDescription>
-                Request for <strong>{detailDialog.toolName}</strong> on server{' '}
-                <strong>{detailDialog.serverId || '—'}</strong>
+                Request for <strong>{detailDialog.toolName}</strong>
+                {detailDialog.serverId?.trim() && (
+                  <> on server <strong>{detailDialog.serverId}</strong></>
+                )}
               </DialogDescription>
             </DialogHeader>
             <div className="space-y-4 py-2">

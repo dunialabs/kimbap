@@ -208,7 +208,7 @@ export default function DashboardPage() {
         <div aria-live="polite" className="text-center">
           <div className="w-8 h-8 border-2 border-muted-foreground/30 border-t-foreground rounded-full animate-spin mx-auto mb-4" aria-hidden="true" />
           <h3 className="text-lg font-semibold mb-2">Loading Dashboard</h3>
-          <p className="text-muted-foreground">Loading server data…</p>
+          <p className="text-muted-foreground">Loading server overview…</p>
         </div>
       </div>
     )
@@ -221,9 +221,9 @@ export default function DashboardPage() {
           <Server className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
           <h3 className="text-lg font-semibold mb-2">Could not reach server</h3>
           <p className="text-muted-foreground mb-4">
-            Check your connection and try refreshing. If the problem persists, reconnect from the home screen.
+            Check your connection and retry. If the problem persists, return to sign in and reconnect.
           </p>
-          <Button onClick={() => window.location.reload()}>Refresh</Button>
+          <Button onClick={() => window.location.reload()}>Retry</Button>
         </div>
       </div>
     )
@@ -234,12 +234,12 @@ export default function DashboardPage() {
       <div className="flex items-center justify-center min-h-[400px]">
         <div className="text-center">
           <Server className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
-          <h3 className="text-lg font-semibold mb-2">No server connected yet</h3>
+          <h3 className="text-lg font-semibold mb-2">No server connected</h3>
           <p className="text-muted-foreground mb-4">
-            Connect a server from the home screen to start using the dashboard.
+            Return to sign in and reconnect to start using the dashboard.
           </p>
           <Link href="/">
-            <Button>Go to Home</Button>
+            <Button>Back to sign in</Button>
           </Link>
         </div>
       </div>
@@ -252,7 +252,7 @@ export default function DashboardPage() {
         <div>
           <h1 className="text-[30px] font-bold tracking-tight">Dashboard</h1>
           <p className="text-[14px] text-foreground">
-            {serverInfo?.proxyName || 'MCP Server'}
+            {serverInfo?.proxyName || 'Kimbap Server'}
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -284,15 +284,6 @@ export default function DashboardPage() {
 
         <div className="actions grid grid-cols-2 md:grid-cols-4 gap-3">
           <Link
-            href="/dashboard/policies"
-            className="block rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2"
-          >
-            <Card className="w-full flex items-center gap-1 justify-center h-[44px] cursor-pointer hover:bg-muted/50 transition-colors">
-              <Shield className="h-4 w-4" />
-              <span className="text-sm font-medium">Manage Policies</span>
-            </Card>
-          </Link>
-          <Link
             href="/dashboard/approvals"
             aria-label={pendingApprovalCount > 0 ? `Review Approvals, ${pendingApprovalCount} pending` : undefined}
             className="block rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2"
@@ -308,21 +299,30 @@ export default function DashboardPage() {
             </Card>
           </Link>
           <Link
-            href="/dashboard/usage"
-            className="block rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2"
-          >
-            <Card className="w-full flex items-center gap-1 justify-center h-[44px] cursor-pointer hover:bg-muted/50 transition-colors">
-              <TrendingUp className="h-4 w-4" />
-              <span className="text-sm font-medium">View Usage</span>
-            </Card>
-          </Link>
-          <Link
             href="/dashboard/logs"
             className="block rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2"
           >
             <Card className="w-full flex items-center gap-1 justify-center h-[44px] cursor-pointer hover:bg-muted/50 transition-colors">
               <Activity className="h-4 w-4" />
-              <span className="text-sm font-medium">View Logs</span>
+              <span className="text-sm font-medium">Open logs</span>
+            </Card>
+          </Link>
+          <Link
+            href="/dashboard/usage"
+            className="block rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2"
+          >
+            <Card className="w-full flex items-center gap-1 justify-center h-[44px] cursor-pointer hover:bg-muted/50 transition-colors">
+              <TrendingUp className="h-4 w-4" />
+              <span className="text-sm font-medium">Open usage</span>
+            </Card>
+          </Link>
+          <Link
+            href="/dashboard/policies"
+            className="block rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2"
+          >
+            <Card className="w-full flex items-center gap-1 justify-center h-[44px] cursor-pointer hover:bg-muted/50 transition-colors">
+              <Shield className="h-4 w-4" />
+              <span className="text-sm font-medium">Open policies</span>
             </Card>
           </Link>
         </div>
@@ -332,7 +332,7 @@ export default function DashboardPage() {
               <div className="flex items-center justify-between h-full gap-3">
                 <div className="flex flex-col gap-1 justify-center min-w-0">
                   <p className="text-sm text-muted-foreground">
-                    Local Connection
+                    Local address
                   </p>
                   <p className="font-mono text-sm font-normal break-words">
                     {dashboardData?.manualConnection || 'Not configured'}
@@ -346,7 +346,7 @@ export default function DashboardPage() {
             <div className="flex items-center justify-between h-full gap-3">
               <div className="flex flex-col gap-1 justify-center min-w-0">
                 <p className="text-sm text-muted-foreground">
-                  Remote Connection
+                  Remote address
                 </p>
                 <p className="font-mono text-sm font-normal break-words">
                   {dashboardData?.sshTunnelAddress || 'Not configured'}
@@ -367,7 +367,7 @@ export default function DashboardPage() {
               <div className="flex items-center justify-between h-full">
                 <div className="flex flex-col gap-1 justify-center">
                   <p className="text-sm text-muted-foreground">
-                    Recent Clients (24h)
+                    Recent clients (24h)
                   </p>
                   <p className="font-mono text-sm font-normal">
                     {stats.connectedClients == null ? '—' : stats.connectedClients}
@@ -418,7 +418,7 @@ export default function DashboardPage() {
               </div>
             </Link>
             <Link
-              href="/dashboard/usage/token-usage"
+              href="/dashboard/usage/token-usage?timeRange=30"
               className="text-center p-3 rounded-lg border cursor-pointer hover:bg-blue-50 hover:border-blue-200 dark:hover:bg-blue-950/50 dark:hover:border-blue-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 transition-all duration-200 h-full flex flex-col gap-1 justify-center"
             >
               <div className="text-sm text-muted-foreground">Active Tokens</div>
@@ -433,7 +433,7 @@ export default function DashboardPage() {
               </div>
             </Link>
             <Link
-              href="/dashboard/usage/tool-usage"
+              href="/dashboard/usage/tool-usage?timeRange=30"
               className="text-center p-3 rounded-lg border cursor-pointer hover:bg-blue-50 hover:border-blue-200 dark:hover:bg-blue-950/50 dark:hover:border-blue-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 transition-all duration-200 h-full flex flex-col gap-1 justify-center"
             >
               <div className="text-sm text-muted-foreground">
@@ -598,7 +598,7 @@ export default function DashboardPage() {
             </DialogTitle>
             <DialogDescription>
               Clients seen in the last 24 hours on your{' '}
-              {serverInfo?.proxyName || 'MCP server'}
+              {serverInfo?.proxyName || 'Kimbap Server'}
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4">

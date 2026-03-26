@@ -369,7 +369,7 @@ function TokenUsagePageContent() {
     <div className="space-y-6">
       <div className="space-y-0">
         <h1 className="text-[30px] font-bold">Access token usage</h1>
-        <p className="text-base text-muted-foreground">See which tokens are used and how often.</p>
+        <p className="text-base text-muted-foreground">See which tokens are active, where they are used, and when patterns change.</p>
       </div>
       <div className="flex flex-wrap items-center gap-2">
         <Select value={String(timeRange)} onValueChange={(value) => setTimeRange(Number(value))}>
@@ -380,9 +380,9 @@ function TokenUsagePageContent() {
             <SelectItem value="30">Last 30 days</SelectItem>
           </SelectContent>
         </Select>
-        <Button variant="outline" onClick={handleRefresh} disabled={loading || refreshing}><RefreshCw className={`mr-2 h-4 w-4 ${loading || refreshing ? 'animate-spin' : ''}`} />Refresh</Button>
+        <Button variant="outline" onClick={handleRefresh} disabled={loading || refreshing}><RefreshCw className={`mr-2 h-4 w-4 ${loading || refreshing ? 'animate-spin' : ''}`} />Refresh data</Button>
       </div>
-      <p className="text-xs text-muted-foreground">Minute-level patterns are available only for the last 24 hours.</p>
+      <p className="text-xs text-muted-foreground">Minute-level patterns are available only in the 24-hour view.</p>
       {!loading && loadError ? (
         <div className="flex items-center gap-2 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700 dark:border-red-900/40 dark:bg-red-950/20 dark:text-red-300">
           <AlertTriangle className="h-4 w-4 shrink-0" aria-hidden="true" />
@@ -528,7 +528,7 @@ function TokenUsagePageContent() {
               {loading || !pieData || pieData.length === 0 ? (
                 <div className="flex items-center justify-center h-[300px]">
                   {loading ? (
-                    <p className="text-sm text-muted-foreground">Loading...</p>
+                    <p className="text-sm text-muted-foreground">Loading token distribution...</p>
                   ) : tokenDataError ? (
                     <div className="text-center">
                       <p className="text-sm text-red-600 dark:text-red-400">{tokenDataError}</p>
@@ -867,7 +867,7 @@ export default function TokenUsagePage() {
   return (
     <Suspense
       fallback={(
-        <div className="space-y-6 p-6">
+        <div className="space-y-6">
           <Card>
             <CardContent className="py-10">
               <div className="flex items-center justify-center gap-2 text-sm text-muted-foreground" role="status">

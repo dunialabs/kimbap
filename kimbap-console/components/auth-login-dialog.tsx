@@ -111,12 +111,12 @@ export function AuthLoginDialog({
               </Button>
             )}
             <LogIn className="h-6 w-6 text-blue-600 dark:text-blue-400" />
-            {step === "login" ? "Sign In" : "Verify Email"}
+            {step === "login" ? "Sign in" : "Enter code"}
           </DialogTitle>
           <DialogDescription>
             {step === "login" 
-              ? "Sign in to your account."
-              : `We've sent a verification code to ${email}`
+              ? "Enter your email to receive a sign-in code."
+              : `Check ${email} for your verification code.`
             }
           </DialogDescription>
         </DialogHeader>
@@ -133,7 +133,7 @@ export function AuthLoginDialog({
                 }}
               >
                 <div className="space-y-2">
-                  <Label htmlFor="login-email">Email Address</Label>
+                  <Label htmlFor="login-email">Email address</Label>
                   <Input
                     id="login-email"
                     type="email"
@@ -165,12 +165,12 @@ export function AuthLoginDialog({
                   {isLoading ? (
                     <>
                       <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                      Sending code...
+                      Sending sign-in code...
                     </>
                   ) : (
                     <>
                       <Mail className="w-4 h-4 mr-2" />
-                      Send Code
+                      Send sign-in code
                     </>
                   )}
                 </Button>
@@ -191,12 +191,12 @@ export function AuthLoginDialog({
                     <Mail className="h-8 w-8 text-blue-600 dark:text-blue-400" />
                   </div>
                   <p className="text-sm text-muted-foreground">
-                    Enter the 6-digit code sent to your email.
+                    Enter the 6-digit code from your email.
                   </p>
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="verification-code">Verification Code</Label>
+                  <Label htmlFor="verification-code">Verification code</Label>
                   <Input
                     id="verification-code"
                     type="text"
@@ -231,7 +231,7 @@ export function AuthLoginDialog({
                   {isLoading ? (
                     <>
                       <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                      Verifying...
+                      Verifying code...
                     </>
                   ) : (
                     <>
@@ -248,7 +248,7 @@ export function AuthLoginDialog({
                     className="text-sm text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300"
                     disabled={isLoading}
                   >
-                    Didn't receive the code? Resend
+                    Resend code
                   </button>
                 </div>
               </form>

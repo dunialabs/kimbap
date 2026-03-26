@@ -51,3 +51,19 @@ func TestMessagesTargetApp(t *testing.T) {
 		}
 	}
 }
+
+func TestMessagesSendNormalizesHandleAndSanitizesNotFound(t *testing.T) {
+	cmd := MessagesCommands()["messages-send"]
+	if !strings.Contains(cmd.Script, "function normalizeHandle(value)") {
+		t.Fatal("messages-send should define normalizeHandle")
+	}
+	if !strings.Contains(cmd.Script, "handle = handle.replace(/[\\s\\-()\\.]/g, \"\");") {
+		t.Error("messages-send should normalize common phone punctuation")
+	}
+	if !strings.Contains(cmd.Script, "throw new Error(\"[NOT_FOUND] contact not found\");") {
+		t.Error("messages-send should use sanitized not-found sentinel")
+	}
+	if strings.Contains(cmd.Script, "contact not found:") {
+		t.Error("messages-send should not echo handle values in not-found error")
+	}
+}

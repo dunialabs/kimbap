@@ -1043,8 +1043,12 @@ func TestCreateWebhookRejectsTrailingJSONPayload(t *testing.T) {
 	if err := json.NewDecoder(resp.Body).Decode(&payload); err != nil {
 		t.Fatalf("decode payload: %v", err)
 	}
-	if payload["error"] != "unexpected trailing content after JSON body" {
-		t.Fatalf("expected trailing JSON error, got %v", payload["error"])
+	errBody, ok := payload["error"].(map[string]any)
+	if !ok {
+		t.Fatalf("expected error envelope, got %v", payload["error"])
+	}
+	if errBody["message"] != "unexpected trailing content after JSON body" {
+		t.Fatalf("expected trailing JSON error, got %v", errBody["message"])
 	}
 }
 

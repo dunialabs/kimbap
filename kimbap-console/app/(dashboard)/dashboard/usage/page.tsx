@@ -179,7 +179,7 @@ export default function UsagePage() {
     <div className="space-y-4">
       <div className="space-y-0">
         <h1 className="text-[30px] font-bold">Usage Overview</h1>
-        <p className="text-base text-muted-foreground">Monitor server usage and resources.</p>
+        <p className="text-base text-muted-foreground">Check request volume, token activity, and recent changes.</p>
       </div>
       <div className="flex flex-wrap items-center gap-2">
         <Select value={String(timeRange)} onValueChange={(value) => setTimeRange(Number(value))}>
@@ -194,7 +194,7 @@ export default function UsagePage() {
         </Select>
         <Button variant="outline" onClick={handleRefresh} disabled={loading || refreshing}>
           <RefreshCw className={`mr-2 h-4 w-4 ${loading || refreshing ? 'animate-spin' : ''}`} />
-          Refresh
+          Refresh data
         </Button>
       </div>
       {!loading && loadError ? (
@@ -306,8 +306,8 @@ export default function UsagePage() {
       {/* Top Tools by Usage */}
       <Card>
         <CardHeader>
-            <CardTitle><Link href={`/dashboard/usage/tool-usage?timeRange=${timeRange}`} className="hover:underline">Top Tools →</Link></CardTitle>
-            <CardDescription>Last {timeRangeLabel}</CardDescription>
+            <CardTitle><Link href={`/dashboard/usage/tool-usage?timeRange=${timeRange}`} className="hover:underline">Top tools</Link></CardTitle>
+            <CardDescription>Most-used tools in the last {timeRangeLabel}</CardDescription>
         </CardHeader>
         <CardContent>
           {loading || !topTools || topTools.length === 0 ? (
@@ -315,7 +315,7 @@ export default function UsagePage() {
               {loading ? (
                 <div className="text-center">
                   <Loader2 className="h-8 w-8 animate-spin mx-auto mb-3 text-muted-foreground" />
-                  <p className="text-sm text-muted-foreground">Loading...</p>
+                  <p className="text-sm text-muted-foreground">Loading tool usage...</p>
                 </div>
               ) : topToolsError ? (
                 <div className="text-center">
@@ -323,7 +323,7 @@ export default function UsagePage() {
                   <Button variant="outline" size="sm" className="mt-2" onClick={handleRefresh}>Retry</Button>
                 </div>
               ) : (
-                <p className="text-sm text-muted-foreground">No tool requests in this period.</p>
+                <p className="text-sm text-muted-foreground">No tool requests in the selected range.</p>
               )}
             </div>
           ) : (
@@ -349,8 +349,8 @@ export default function UsagePage() {
       <div className="grid lg:grid-cols-2 gap-3">
         <Card>
           <CardHeader>
-            <CardTitle><Link href={`/dashboard/usage/token-usage?timeRange=${timeRange}`} className="hover:underline">Active Tokens →</Link></CardTitle>
-            <CardDescription>Token usage in the last {timeRangeLabel}</CardDescription>
+            <CardTitle><Link href={`/dashboard/usage/token-usage?timeRange=${timeRange}`} className="hover:underline">Active tokens</Link></CardTitle>
+            <CardDescription>Most active tokens in the last {timeRangeLabel}</CardDescription>
           </CardHeader>
           <CardContent>
             {loading || !activeTokens || activeTokens.length === 0 ? (
@@ -358,7 +358,7 @@ export default function UsagePage() {
                 {loading ? (
                   <div className="text-center">
                     <Loader2 className="h-8 w-8 animate-spin mx-auto mb-3 text-muted-foreground" />
-                    <p className="text-sm text-muted-foreground">Loading...</p>
+                    <p className="text-sm text-muted-foreground">Loading token activity...</p>
                   </div>
                 ) : activeTokensError ? (
                   <div className="text-center">
@@ -391,8 +391,8 @@ export default function UsagePage() {
 
         <Card>
           <CardHeader>
-            <CardTitle><Link href={`/dashboard/logs?timeRange=${logsTimeRange}`} className="hover:underline">Recent Activity →</Link></CardTitle>
-            <CardDescription>Last {timeRangeLabel}</CardDescription>
+            <CardTitle><Link href={`/dashboard/logs?timeRange=${logsTimeRange}`} className="hover:underline">Recent activity</Link></CardTitle>
+            <CardDescription>Recent events in the last {timeRangeLabel}</CardDescription>
           </CardHeader>
           <CardContent>
             {loading || !recentActivity || recentActivity.length === 0 ? (
@@ -400,7 +400,7 @@ export default function UsagePage() {
                 {loading ? (
                   <div className="text-center">
                     <Loader2 className="h-8 w-8 animate-spin mx-auto mb-3 text-muted-foreground" />
-                    <p className="text-sm text-muted-foreground">Loading...</p>
+                    <p className="text-sm text-muted-foreground">Loading recent activity...</p>
                   </div>
                 ) : recentActivityError ? (
                   <div className="text-center">
@@ -408,7 +408,7 @@ export default function UsagePage() {
                     <Button variant="outline" size="sm" className="mt-2" onClick={handleRefresh}>Retry</Button>
                   </div>
                 ) : (
-                  <p className="text-sm text-muted-foreground">No recent activity in this period.</p>
+                  <p className="text-sm text-muted-foreground">No recent activity in the selected range.</p>
                 )}
               </div>
             ) : (

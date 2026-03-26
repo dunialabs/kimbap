@@ -54,3 +54,15 @@ func TestFinderTargetApp(t *testing.T) {
 		}
 	}
 }
+
+func TestFinderNotFoundMessagesDoNotEchoInputValues(t *testing.T) {
+	cmds := FinderCommands()
+	for name, cmd := range cmds {
+		if strings.Contains(cmd.Script, "[NOT_FOUND] folder not found: ") ||
+			strings.Contains(cmd.Script, "[NOT_FOUND] item not found: ") ||
+			strings.Contains(cmd.Script, "[NOT_FOUND] source item not found: ") ||
+			strings.Contains(cmd.Script, "[NOT_FOUND] destination folder not found: ") {
+			t.Errorf("%s: should not include dynamic path values in not-found errors", name)
+		}
+	}
+}

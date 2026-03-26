@@ -9,6 +9,7 @@ import (
 
 	"github.com/dunialabs/kimbap-core/internal/actions"
 	"github.com/dunialabs/kimbap-core/internal/runtime"
+	"github.com/google/uuid"
 )
 
 type RuntimeAdapter struct {
@@ -84,7 +85,7 @@ func (a *RuntimeAdapter) ExecuteToolCall(ctx context.Context, req ToolCallReques
 	}
 
 	if strings.TrimSpace(execReq.RequestID) == "" {
-		execReq.RequestID = fmt.Sprintf("mcp_%d", time.Now().UTC().UnixNano())
+		execReq.RequestID = "mcp_" + uuid.NewString()
 	}
 	if strings.TrimSpace(execReq.TraceID) == "" {
 		execReq.TraceID = execReq.RequestID

@@ -7,6 +7,7 @@ import (
 	"regexp"
 	"strings"
 
+	adaptercommands "github.com/dunialabs/kimbap-core/internal/adapters/commands"
 	"gopkg.in/yaml.v3"
 )
 
@@ -18,25 +19,38 @@ var (
 	validAuthTypeSet         = map[string]struct{}{"header": {}, "bearer": {}, "basic": {}, "query": {}, "body": {}, "none": {}}
 	validHTTPMethodSet       = map[string]struct{}{"GET": {}, "POST": {}, "PUT": {}, "PATCH": {}, "DELETE": {}, "HEAD": {}, "OPTIONS": {}}
 	validAdapterTypeSet      = map[string]struct{}{"http": {}, "applescript": {}}
-	validAppleScriptCommands = map[string]struct{}{
-		"list-folders": {}, "list-notes": {}, "get-note": {}, "search-notes": {}, "create-note": {},
-		"list-calendars": {}, "list-events": {}, "get-event": {}, "create-event": {}, "search-events": {},
-		"list-lists": {}, "list-reminders": {}, "get-reminder": {}, "create-reminder": {}, "complete-reminder": {},
-		"list-mailboxes": {}, "list-messages": {}, "get-message": {}, "send-message": {}, "search-messages": {},
-		"finder-list-items": {}, "finder-get-info": {}, "finder-create-folder": {}, "finder-move-item": {},
-		"finder-copy-item": {}, "finder-delete-item": {}, "finder-open-item": {},
-		"safari-get-url": {}, "safari-open-url": {}, "safari-list-tabs": {}, "safari-close-tab": {}, "safari-get-source": {},
-		"messages-send": {}, "messages-list-chats": {},
-		"contacts-list": {}, "contacts-search": {}, "contacts-get": {}, "contacts-create": {},
-	}
-	validArgTypeSet      = map[string]struct{}{"string": {}, "integer": {}, "number": {}, "boolean": {}, "array": {}, "object": {}}
-	validPageTypeSet     = map[string]struct{}{"cursor": {}, "offset": {}}
-	validResponseTypeSet = map[string]struct{}{"object": {}, "array": {}}
+	validAppleScriptCommands = buildValidAppleScriptCommands()
+	validArgTypeSet          = map[string]struct{}{"string": {}, "integer": {}, "number": {}, "boolean": {}, "array": {}, "object": {}}
+	validPageTypeSet         = map[string]struct{}{"cursor": {}, "offset": {}}
+	validResponseTypeSet     = map[string]struct{}{"object": {}, "array": {}}
+	validGotchaSeveritySet   = map[string]struct{}{"low": {}, "medium": {}, "high": {}, "critical": {}, "common": {}, "rare": {}}
 )
 
 type ValidationError struct {
 	Field   string
 	Message string
+}
+
+func buildValidAppleScriptCommands() map[string]struct{} {
+	allowed := make(map[string]struct{})
+	registries := []map[string]adaptercommands.Command{
+		adaptercommands.NotesCommands(),
+		adaptercommands.CalendarCommands(),
+		adaptercommands.RemindersCommands(),
+		adaptercommands.MailCommands(),
+		adaptercommands.FinderCommands(),
+		adaptercommands.SafariCommands(),
+		adaptercommands.MessagesCommands(),
+		adaptercommands.ContactsCommands(),
+		adaptercommands.MSOfficeCommands(),
+		adaptercommands.IWorkCommands(),
+	}
+	for _, registry := range registries {
+		for name := range registry {
+			allowed[name] = struct{}{}
+		}
+	}
+	return allowed
 }
 
 func ParseManifest(data []byte) (*ServiceManifest, error) {
@@ -124,7 +138,15 @@ func ValidateManifest(m *ServiceManifest) []ValidationError {
 		if action.Auth != nil {
 			errs = append(errs, validateAuth(*action.Auth, prefix+".auth")...)
 		}
+
+		for warningIdx, warning := range action.Warnings {
+			if strings.TrimSpace(warning) == "" {
+				errs = append(errs, ValidationError{Field: fmt.Sprintf("%s.warnings[%d]", prefix, warningIdx), Message: "must be non-empty"})
+			}
+		}
 	}
+
+	errs = append(errs, validatePackMetadata(m)...)
 
 	switch adapterType {
 	case "http":
@@ -138,6 +160,75 @@ func ValidateManifest(m *ServiceManifest) []ValidationError {
 	}
 
 	return errs
+}
+
+func validatePackMetadata(m *ServiceManifest) []ValidationError {
+	errList := make([]ValidationError, 0)
+
+	if m.Triggers != nil {
+		if len(m.Triggers.TaskVerbs) == 0 {
+			errList = append(errList, ValidationError{Field: "triggers.task_verbs", Message: "must define at least one task verb"})
+		}
+		for idx, v := range m.Triggers.TaskVerbs {
+			if strings.TrimSpace(v) == "" {
+				errList = append(errList, ValidationError{Field: fmt.Sprintf("triggers.task_verbs[%d]", idx), Message: "must be non-empty"})
+			}
+		}
+		if len(m.Triggers.Objects) == 0 {
+			errList = append(errList, ValidationError{Field: "triggers.objects", Message: "must define at least one object"})
+		}
+		for idx, o := range m.Triggers.Objects {
+			if strings.TrimSpace(o) == "" {
+				errList = append(errList, ValidationError{Field: fmt.Sprintf("triggers.objects[%d]", idx), Message: "must be non-empty"})
+			}
+		}
+		for idx, it := range m.Triggers.InsteadOf {
+			if strings.TrimSpace(it) == "" {
+				errList = append(errList, ValidationError{Field: fmt.Sprintf("triggers.instead_of[%d]", idx), Message: "must be non-empty"})
+			}
+		}
+		for idx, ex := range m.Triggers.Exclusions {
+			if strings.TrimSpace(ex) == "" {
+				errList = append(errList, ValidationError{Field: fmt.Sprintf("triggers.exclusions[%d]", idx), Message: "must be non-empty"})
+			}
+		}
+	}
+
+	for idx, g := range m.Gotchas {
+		prefix := fmt.Sprintf("gotchas[%d]", idx)
+		if strings.TrimSpace(g.Symptom) == "" {
+			errList = append(errList, ValidationError{Field: prefix + ".symptom", Message: "is required"})
+		}
+		if strings.TrimSpace(g.LikelyCause) == "" {
+			errList = append(errList, ValidationError{Field: prefix + ".likely_cause", Message: "is required"})
+		}
+		if strings.TrimSpace(g.Recovery) == "" {
+			errList = append(errList, ValidationError{Field: prefix + ".recovery", Message: "is required"})
+		}
+		sev := strings.ToLower(strings.TrimSpace(g.Severity))
+		if sev != "" {
+			if _, ok := validGotchaSeveritySet[sev]; !ok {
+				errList = append(errList, ValidationError{Field: prefix + ".severity", Message: "must be one of low, medium, high, critical, common, rare"})
+			}
+		}
+	}
+
+	for idx, r := range m.Recipes {
+		prefix := fmt.Sprintf("recipes[%d]", idx)
+		if strings.TrimSpace(r.Name) == "" {
+			errList = append(errList, ValidationError{Field: prefix + ".name", Message: "is required"})
+		}
+		if len(r.Steps) == 0 {
+			errList = append(errList, ValidationError{Field: prefix + ".steps", Message: "must include at least one step"})
+		}
+		for stepIdx, step := range r.Steps {
+			if strings.TrimSpace(step) == "" {
+				errList = append(errList, ValidationError{Field: fmt.Sprintf("%s.steps[%d]", prefix, stepIdx), Message: "must be non-empty"})
+			}
+		}
+	}
+
+	return errList
 }
 
 func validateHTTPManifest(m *ServiceManifest) []ValidationError {

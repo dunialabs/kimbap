@@ -19,13 +19,13 @@ export function AuthLayout({ children }: AuthLayoutProps) {
       <div className="hidden lg:flex lg:w-1/2  p-12 flex-col justify-center">
         <div className="max-w-md">
           <h1 className="text-[52px] font-bold text-orange-600 dark:text-orange-500 mb-[4px] leading-tight">
-            Secure MCP Infrastructure
+            Kimbap Console
           </h1>
           <h2 className="text-[52px] font-bold text-slate-900 dark:text-slate-100 mb-[24px] leading-tight">
-            for Production AI
+            Operations Console
           </h2>
           <p className="text-muted-foreground text-[16px] leading-relaxed">
-            Manage, secure, and monitor your MCP servers from a single console.
+            Review logs, handle approvals, manage policies, and monitor usage from one place.
           </p>
         </div>
       </div>

@@ -2,11 +2,10 @@ package connectors
 
 import (
 	"context"
-	"crypto/rand"
-	"encoding/hex"
 	"time"
 
 	"github.com/dunialabs/kimbap-core/internal/audit"
+	"github.com/google/uuid"
 	"github.com/rs/zerolog/log"
 )
 
@@ -87,7 +86,5 @@ func (e *AuditEmitter) DeviceFlowCompleted(ctx context.Context, provider, tenant
 }
 
 func generateEventID() string {
-	b := make([]byte, 16)
-	_, _ = rand.Read(b)
-	return hex.EncodeToString(b)
+	return uuid.NewString()
 }

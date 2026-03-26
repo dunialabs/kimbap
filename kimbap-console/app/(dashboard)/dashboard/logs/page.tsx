@@ -140,7 +140,7 @@ function LogsPageContent() {
   const tableScopedFiltersEnabled = activeTab !== 'statistics'
   const [latestLogId, setLatestLogId] = useState<number>(0)
   const [realtimeHealthy, setRealtimeHealthy] = useState<boolean>(true)
-  const [filtersOpen, setFiltersOpen] = useState<boolean>(false)
+  const [filtersOpen, setFiltersOpen] = useState<boolean>(true)
   const logsRequestSeqRef = useRef(0)
   const statsRequestSeqRef = useRef(0)
 
@@ -494,7 +494,7 @@ function LogsPageContent() {
     ? ((statistics?.totalLogs ?? 0) === 0)
     : logs.length === 0
   const isRealtimePaused = currentPage !== 1 || activeTab !== 'table' || !!debouncedSearchTerm
-  const liveStatusText = loading ? 'Loading...' : isRealtimePaused ? 'Paused' : realtimeHealthy ? 'Live' : 'Refresh needed'
+  const liveStatusText = loading ? 'Loading...' : isRealtimePaused ? 'Paused' : realtimeHealthy ? 'Live' : 'Refresh required'
   const selectedTimeRange = activeTab === 'statistics' ? statisticsTimeFilter : timeFilter
   const levelDisplayLabel: Record<string, string> = {
     ERROR: 'Error',
@@ -531,7 +531,7 @@ function LogsPageContent() {
         <div className="space-y-0">
           <h1 className="text-[30px] font-bold">Logs & Monitoring</h1>
           <p className="text-base text-muted-foreground">
-            Track server requests and errors in real-time.
+            Investigate requests, errors, and live activity.
           </p>
         </div>
         <div className="flex gap-2">
@@ -545,7 +545,7 @@ function LogsPageContent() {
               className={`mr-2 h-4 w-4 ${loading ? 'animate-spin' : ''}`}
               aria-hidden="true"
             />
-            Refresh
+            Refresh data
           </Button>
           <Button
             variant="outline"
@@ -739,7 +739,7 @@ function LogsPageContent() {
                       : 'Live updates pause while searching or browsing older pages.'
                     : realtimeHealthy
                     ? 'Live updates run every 10 seconds.'
-                    : 'Realtime updates need refresh. Use Refresh to load the latest logs.'}
+                    : 'Live updates stopped. Select Refresh data to load the latest logs.'}
                 </span>
               </CardDescription>
             </CardHeader>
@@ -952,6 +952,10 @@ function LogsPageContent() {
                               {hasActiveFilters ? (
                                 <Button variant="ghost" size="sm" onClick={clearFilters}>
                                   Reset filters
+                                </Button>
+                              ) : timeFilter === '1h' ? (
+                                <Button variant="outline" size="sm" onClick={() => { setTimeFilter('24h'); setCurrentPage(1) }}>
+                                  Show last 24 hours
                                 </Button>
                               ) : null}
                             </div>
@@ -1233,7 +1237,7 @@ export default function LogsPage() {
   return (
     <Suspense
       fallback={(
-        <div className="space-y-6 p-6">
+        <div className="space-y-6">
           <Card>
             <CardContent className="py-10">
               <div className="flex items-center justify-center gap-2 text-sm text-muted-foreground" role="status">

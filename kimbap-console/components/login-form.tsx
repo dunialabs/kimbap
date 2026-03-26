@@ -67,7 +67,7 @@ export function LoginForm({
       if (loginMode === 'password') {
         // Master password login
         if (!loginMasterPassword.trim()) {
-          setLoginError('Please enter master password')
+          setLoginError('Enter master password')
           setIsLoggingIn(false)
           return
         }
@@ -75,7 +75,7 @@ export function LoginForm({
       } else {
         // Token login
         if (!token.trim()) {
-          setTokenError('Please enter a valid token')
+          setTokenError('Enter access token')
           setIsLoggingIn(false)
           return
         }
@@ -86,9 +86,9 @@ export function LoginForm({
 
       if (!response.data?.data?.tokenInfo) {
         if (loginMode === 'password') {
-          setLoginError('Invalid master password')
+          setLoginError('Master password not recognized')
         } else {
-          setTokenError('Invalid token')
+          setTokenError('Access token not recognized')
         }
         setIsLoggingIn(false)
         return
@@ -122,8 +122,8 @@ export function LoginForm({
       const serverInfo = {
         id: tokenInfo.proxyId || 'default',
         proxyId: tokenInfo.proxyId || 'default',
-        name: tokenInfo.proxyName || 'MCP Server',
-        proxyName: tokenInfo.proxyName || 'MCP Server',
+        name: tokenInfo.proxyName || 'Kimbap Server',
+        proxyName: tokenInfo.proxyName || 'Kimbap Server',
         proxyKey: tokenInfo.proxyKey || '',
         address: `https://server-${tokenInfo.proxyId}.mcp.local`,
         status: 'running',
@@ -172,7 +172,7 @@ export function LoginForm({
       {loginMode === null ? (
         <div className="space-y-[12px]">
           <div>
-            <h2 className="text-[24px] font-bold mb-[4px]">Login to Server</h2>
+            <h2 className="text-[24px] font-bold mb-[4px]">Sign in to Kimbap Console</h2>
             <p className="text-muted-foreground text-[14px]">&nbsp;</p>
           </div>
           <div className="h-[44px] border-b border-border" />
@@ -182,11 +182,11 @@ export function LoginForm({
       ) : (
       <>
       <div>
-        <h2 className="text-[24px] font-bold mb-[4px]">Login to Server</h2>
+        <h2 className="text-[24px] font-bold mb-[4px]">Sign in to Kimbap Console</h2>
         <p className="text-muted-foreground text-[14px]">
           {loginMode === 'password'
-            ? 'Enter your master password.'
-            : 'Enter your access token.'}
+            ? 'Use the master password to manage this console.'
+            : 'Use an access token when you already have one for this server.'}
         </p>
       </div>
 
@@ -194,10 +194,10 @@ export function LoginForm({
         <legend className="sr-only">Login method</legend>
         <div className="flex border-b border-border" role="radiogroup">
           <label
-            className={`p-[12px] pl-[0] text-[14px] transition-colors cursor-pointer rounded focus-within:ring-2 focus-within:ring-blue-500 focus-within:ring-offset-2 ${
+            className={`p-[12px] pl-[0] text-[14px] transition-colors cursor-pointer rounded focus-within:ring-2 focus-within:ring-blue-500 focus-within:ring-offset-2 border-b-2 -mb-px ${
               loginMode === 'password'
-                ? 'text-foreground font-bold'
-                : 'text-foreground/60 font-[400]'
+                ? 'text-foreground font-bold border-foreground'
+                : 'text-foreground/60 font-[400] border-transparent'
             }`}
           >
             <input
@@ -215,10 +215,10 @@ export function LoginForm({
             Master Password
           </label>
           <label
-            className={`p-[12px] pl-[0] text-[14px] transition-colors cursor-pointer rounded focus-within:ring-2 focus-within:ring-blue-500 focus-within:ring-offset-2 ${
+            className={`p-[12px] pl-[0] text-[14px] transition-colors cursor-pointer rounded focus-within:ring-2 focus-within:ring-blue-500 focus-within:ring-offset-2 border-b-2 -mb-px ${
               loginMode === 'token'
-                ? 'text-foreground font-bold'
-                : 'text-foreground/60 font-[400]'
+                ? 'text-foreground font-bold border-foreground'
+                : 'text-foreground/60 font-[400] border-transparent'
             }`}
           >
             <input
@@ -251,8 +251,8 @@ export function LoginForm({
             }
             placeholder={
               loginMode === 'password'
-                ? 'Enter Master Password'
-                : 'Enter Access Token'
+                ? 'Enter master password'
+                : 'Enter access token'
             }
             aria-label={loginMode === 'password' ? 'Master Password' : 'Access Token'}
             value={loginMode === 'password' ? loginMasterPassword : token}
@@ -290,8 +290,7 @@ export function LoginForm({
         {loginMode === 'password' && !loginError && (
           <Alert className="border-blue-200 bg-blue-50 dark:bg-blue-950/20 dark:border-blue-900">
             <AlertDescription className="text-sm text-blue-700 dark:text-blue-200">
-              <span className="font-[700]">Note:</span> The master password is
-              required to access the console.
+              <span className="font-[700]">Note:</span> Use the master password when you manage this console from the browser.
             </AlertDescription>
           </Alert>
         )}

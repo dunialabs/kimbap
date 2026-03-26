@@ -35,12 +35,25 @@ type RateStatus struct {
 }
 
 type Evaluator struct {
-	document *PolicyDocument
-	rl       rateLimiter
+	document    *PolicyDocument
+	sortedRules []PolicyRule
+	rl          rateLimiter
 }
 
 func NewEvaluator(doc *PolicyDocument) *Evaluator {
-	return &Evaluator{document: doc, rl: rateLimiter{windows: make(map[string][]time.Time)}}
+	rules := make([]PolicyRule, 0)
+	if doc != nil {
+		rules = make([]PolicyRule, len(doc.Rules))
+		copy(rules, doc.Rules)
+		sort.SliceStable(rules, func(i, j int) bool {
+			return rules[i].Priority < rules[j].Priority
+		})
+	}
+	return &Evaluator{
+		document:    doc,
+		sortedRules: rules,
+		rl:          rateLimiter{windows: make(map[string][]time.Time)},
+	}
 }
 
 type rateLimiter struct {
@@ -115,14 +128,8 @@ func (e *Evaluator) Evaluate(_ context.Context, req EvalRequest) (*EvalResult, e
 		return nil, fmt.Errorf("policy document is required")
 	}
 
-	rules := make([]PolicyRule, len(e.document.Rules))
-	copy(rules, e.document.Rules)
-	sort.SliceStable(rules, func(i, j int) bool {
-		return rules[i].Priority < rules[j].Priority
-	})
-
-	for i := range rules {
-		rule := rules[i]
+	for i := range e.sortedRules {
+		rule := e.sortedRules[i]
 		if !matchesRule(rule.Match, req) {
 			continue
 		}

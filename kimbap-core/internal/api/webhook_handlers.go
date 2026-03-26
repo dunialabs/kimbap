@@ -1,7 +1,6 @@
 package api
 
 import (
-	"encoding/json"
 	"errors"
 	"fmt"
 	"net"
@@ -9,10 +8,11 @@ import (
 	"net/url"
 	"strconv"
 	"strings"
-	"time"
 
+	"github.com/dunialabs/kimbap-core/internal/actions"
 	"github.com/dunialabs/kimbap-core/internal/webhooks"
 	"github.com/go-chi/chi/v5"
+	"github.com/google/uuid"
 )
 
 func (s *Server) registerWebhookRoutes(r chi.Router) {
@@ -31,7 +31,7 @@ func (s *Server) handleListWebhooks(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	subs := s.webhookDispatcher.ListSubscriptionsByTenant(tenantID)
-	respondJSON(w, http.StatusOK, map[string]any{"webhooks": subs})
+	writeSuccess(w, r, http.StatusOK, map[string]any{"webhooks": subs})
 }
 
 func (s *Server) handleCreateWebhook(w http.ResponseWriter, r *http.Request) {
@@ -46,23 +46,23 @@ func (s *Server) handleCreateWebhook(w http.ResponseWriter, r *http.Request) {
 		if errors.Is(err, errRequestBodyTooLarge) {
 			status = http.StatusRequestEntityTooLarge
 		}
-		respondJSON(w, status, map[string]any{"error": err.Error()})
+		writeEnvelopeError(w, r, actions.NewExecutionError(actions.ErrValidationFailed, err.Error(), status, false, nil))
 		return
 	}
 	if sub.URL == "" {
-		respondJSON(w, http.StatusBadRequest, map[string]any{"error": "url is required"})
+		writeEnvelopeError(w, r, actions.NewExecutionError(actions.ErrValidationFailed, "url is required", http.StatusBadRequest, false, nil))
 		return
 	}
 	if err := validateWebhookURL(sub.URL); err != nil {
-		respondJSON(w, http.StatusBadRequest, map[string]any{"error": err.Error()})
+		writeEnvelopeError(w, r, actions.NewExecutionError(actions.ErrValidationFailed, err.Error(), http.StatusBadRequest, false, nil))
 		return
 	}
 	if sub.ID == "" {
-		sub.ID = fmt.Sprintf("wh_%d", time.Now().UnixNano())
+		sub.ID = "wh_" + uuid.NewString()
 	}
 	sub.TenantID = tenantID
 	s.webhookDispatcher.Subscribe(sub)
-	respondJSON(w, http.StatusCreated, map[string]any{"webhook": map[string]string{"id": sub.ID}})
+	writeSuccess(w, r, http.StatusCreated, map[string]any{"webhook": map[string]string{"id": sub.ID}})
 }
 
 func (s *Server) handleDeleteWebhook(w http.ResponseWriter, r *http.Request) {
@@ -72,7 +72,7 @@ func (s *Server) handleDeleteWebhook(w http.ResponseWriter, r *http.Request) {
 	}
 	id := chi.URLParam(r, "id")
 	s.webhookDispatcher.UnsubscribeByTenant(id, tenantID)
-	respondJSON(w, http.StatusOK, map[string]any{"deleted": true})
+	writeSuccess(w, r, http.StatusOK, map[string]any{"deleted": true})
 }
 
 const maxWebhookEventsLimit = 1000
@@ -86,7 +86,7 @@ func (s *Server) handleListRecentEvents(w http.ResponseWriter, r *http.Request) 
 	if raw := r.URL.Query().Get("limit"); raw != "" {
 		parsed, err := strconv.Atoi(raw)
 		if err != nil || parsed <= 0 {
-			respondJSON(w, http.StatusBadRequest, map[string]any{"error": "limit must be a positive integer"})
+			writeEnvelopeError(w, r, actions.NewExecutionError(actions.ErrValidationFailed, "limit must be a positive integer", http.StatusBadRequest, false, nil))
 			return
 		}
 		if parsed > maxWebhookEventsLimit {
@@ -95,7 +95,7 @@ func (s *Server) handleListRecentEvents(w http.ResponseWriter, r *http.Request) 
 		limit = parsed
 	}
 	events := s.webhookDispatcher.RecentEventsByTenant(tenantID, limit)
-	respondJSON(w, http.StatusOK, map[string]any{"events": events})
+	writeSuccess(w, r, http.StatusOK, map[string]any{"events": events})
 }
 
 // validateWebhookURL validates the URL format and rejects known private/loopback
@@ -149,10 +149,4 @@ func isPrivateIP(ip net.IP) bool {
 		ip = v4
 	}
 	return ip.IsLoopback() || ip.IsPrivate() || ip.IsLinkLocalUnicast() || ip.IsLinkLocalMulticast() || ip.IsUnspecified()
-}
-
-func respondJSON(w http.ResponseWriter, status int, data any) {
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(status)
-	_ = json.NewEncoder(w).Encode(data)
 }

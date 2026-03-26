@@ -60,7 +60,7 @@ function WelcomePageContent() {
               Operations Console
             </h2>
             <p className="text-muted-foreground leading-[24px] text-[16px]">
-              Audit activity, handle approvals, manage policies, and monitor usage from one place.
+              Review logs, handle approvals, manage policies, and monitor usage from one place.
             </p>
           </div>
         </div>
@@ -94,7 +94,7 @@ function WelcomePageContent() {
           >
             Dunia Labs, Inc.
           </a>
-          <span> The control plane for MCP servers.</span>
+          <span> Operations console for the Kimbap platform.</span>
         </div>
       </footer>
     </div>

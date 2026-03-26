@@ -24,8 +24,12 @@ var app = Application("Safari");
 app.includeStandardAdditions = true;
 if (!input.url) throw new Error("url is required");
 
-app.openLocation(input.url);
-JSON.stringify({url: input.url, opened: true});`,
+var urlStr = String(input.url);
+if (!/^https?:\/\//i.test(urlStr)) {
+	throw new Error("url must use http or https scheme");
+}
+app.openLocation(urlStr);
+JSON.stringify({url: urlStr, opened: true});`,
 		},
 		"safari-list-tabs": {
 			Name: "safari-list-tabs", TargetApp: "Safari",
@@ -83,7 +87,7 @@ var text = app.doJavaScript("document.documentElement.outerHTML", {in: tab});
 
 JSON.stringify({
 	url: tab.url(),
-	text: text
+	html: text
 });`,
 		},
 	}

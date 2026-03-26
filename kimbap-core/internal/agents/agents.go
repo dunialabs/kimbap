@@ -119,6 +119,17 @@ type InstalledService struct {
 	Content string
 }
 
+type InstalledServicePack struct {
+	Name      string
+	SkillMD   string
+	PackFiles map[string]string
+}
+
+type PackServiceInstaller interface {
+	ServiceInstaller
+	ListPacks() ([]InstalledServicePack, error)
+}
+
 func SyncServices(installer ServiceInstaller, rulesContent string, opts SyncOptions) ([]SyncResult, error) {
 	if installer == nil {
 		return nil, fmt.Errorf("installer is nil")
@@ -132,6 +143,42 @@ func SyncServices(installer ServiceInstaller, rulesContent string, opts SyncOpti
 	installedSkills, err := installer.List()
 	if err != nil {
 		return nil, fmt.Errorf("list installed services: %w", err)
+	}
+
+	var installedPacks []InstalledServicePack
+	if packInstaller, ok := installer.(PackServiceInstaller); ok {
+		if packs, pErr := packInstaller.ListPacks(); pErr == nil {
+			if len(packs) > 0 && len(packs) == len(installedSkills) {
+				packByName := make(map[string]InstalledServicePack, len(packs))
+				for _, p := range packs {
+					if p.Name == "" {
+						packByName = nil
+						break
+					}
+					if _, exists := packByName[p.Name]; exists {
+						packByName = nil
+						break
+					}
+					if p.SkillMD == "" && len(p.PackFiles) == 0 {
+						packByName = nil
+						break
+					}
+					packByName[p.Name] = p
+				}
+				if packByName != nil {
+					completeCoverage := true
+					for _, s := range installedSkills {
+						if _, ok := packByName[s.Name]; !ok {
+							completeCoverage = false
+							break
+						}
+					}
+					if completeCoverage {
+						installedPacks = packs
+					}
+				}
+			}
+		}
 	}
 
 	agentsToProcess := selectedAgents(projectDir, opts.Agents)
@@ -157,52 +204,99 @@ func SyncServices(installer ServiceInstaller, rulesContent string, opts SyncOpti
 			continue
 		}
 
-		for _, skill := range installedSkills {
-			if err := services.ValidateServiceName(skill.Name); err != nil {
-				result.Failed = append(result.Failed, skill.Name)
-				result.Errors = append(result.Errors, fmt.Sprintf("service %q: %v", skill.Name, err))
-				continue
+		if installedPacks != nil {
+			for _, pack := range installedPacks {
+				if err := services.ValidateServiceName(pack.Name); err != nil {
+					result.Failed = append(result.Failed, pack.Name)
+					result.Errors = append(result.Errors, fmt.Sprintf("service %q: %v", pack.Name, err))
+					continue
+				}
+				packDir := filepath.Join(projectDir, selected.cfg.SkillsDir, pack.Name)
+				allFiles := make(map[string]string, len(pack.PackFiles)+1)
+				if pack.SkillMD != "" {
+					allFiles["SKILL.md"] = pack.SkillMD
+				}
+				for k, v := range pack.PackFiles {
+					allFiles[k] = v
+				}
+				needsWrite, checkErr := packNeedsWrite(packDir, allFiles, opts.Force)
+				if checkErr != nil {
+					result.Failed = append(result.Failed, pack.Name)
+					result.Errors = append(result.Errors, fmt.Sprintf("service %q: %v", pack.Name, checkErr))
+					continue
+				}
+				if !needsWrite {
+					result.Skipped = append(result.Skipped, pack.Name)
+					continue
+				}
+				if opts.DryRun {
+					result.Written = append(result.Written, pack.Name)
+					continue
+				}
+				if err := atomicWriteDir(packDir, allFiles); err != nil {
+					result.Failed = append(result.Failed, pack.Name)
+					result.Errors = append(result.Errors, fmt.Sprintf("service %q: write pack: %v", pack.Name, err))
+					continue
+				}
+				result.Written = append(result.Written, pack.Name)
 			}
+			packNames := make([]InstalledService, len(installedPacks))
+			for i, p := range installedPacks {
+				packNames[i] = InstalledService{Name: p.Name}
+			}
+			pruned, pruneErrs := pruneStaleSkills(filepath.Join(projectDir, selected.cfg.SkillsDir), packNames, opts.DryRun)
+			result.Pruned = pruned
+			for _, e := range pruneErrs {
+				result.Errors = append(result.Errors, e)
+			}
+		} else {
+			for _, skill := range installedSkills {
+				if err := services.ValidateServiceName(skill.Name); err != nil {
+					result.Failed = append(result.Failed, skill.Name)
+					result.Errors = append(result.Errors, fmt.Sprintf("service %q: %v", skill.Name, err))
+					continue
+				}
 
-			skillPath := filepath.Join(projectDir, selected.cfg.SkillsDir, skill.Name, "SKILL.md")
-			needsWrite, checkErr := fileNeedsWrite(skillPath, skill.Content, opts.Force)
-			if checkErr != nil {
-				result.Failed = append(result.Failed, skill.Name)
-				result.Errors = append(result.Errors, fmt.Sprintf("service %q: %v", skill.Name, checkErr))
-				continue
-			}
-			if !needsWrite {
-				result.Skipped = append(result.Skipped, skill.Name)
-				continue
-			}
+				skillPath := filepath.Join(projectDir, selected.cfg.SkillsDir, skill.Name, "SKILL.md")
+				needsWrite, checkErr := fileNeedsWrite(skillPath, skill.Content, opts.Force)
+				if checkErr != nil {
+					result.Failed = append(result.Failed, skill.Name)
+					result.Errors = append(result.Errors, fmt.Sprintf("service %q: %v", skill.Name, checkErr))
+					continue
+				}
+				if !needsWrite {
+					result.Skipped = append(result.Skipped, skill.Name)
+					continue
+				}
 
-			if opts.DryRun {
+				if opts.DryRun {
+					result.Written = append(result.Written, skill.Name)
+					continue
+				}
+
+				if err := os.MkdirAll(filepath.Dir(skillPath), 0o755); err != nil {
+					result.Failed = append(result.Failed, skill.Name)
+					result.Errors = append(result.Errors, fmt.Sprintf("service %q: create dir: %v", skill.Name, err))
+					continue
+				}
+				if err := os.WriteFile(skillPath, []byte(skill.Content), 0o644); err != nil {
+					result.Failed = append(result.Failed, skill.Name)
+					result.Errors = append(result.Errors, fmt.Sprintf("service %q: write file: %v", skill.Name, err))
+					continue
+				}
+
 				result.Written = append(result.Written, skill.Name)
-				continue
 			}
 
-			if err := os.MkdirAll(filepath.Dir(skillPath), 0o755); err != nil {
-				result.Failed = append(result.Failed, skill.Name)
-				result.Errors = append(result.Errors, fmt.Sprintf("service %q: create dir: %v", skill.Name, err))
-				continue
+			pruned, pruneErrs := pruneStaleSkills(
+				filepath.Join(projectDir, selected.cfg.SkillsDir),
+				installedSkills,
+				opts.DryRun,
+			)
+			result.Pruned = pruned
+			for _, e := range pruneErrs {
+				result.Errors = append(result.Errors, e)
 			}
-			if err := os.WriteFile(skillPath, []byte(skill.Content), 0o644); err != nil {
-				result.Failed = append(result.Failed, skill.Name)
-				result.Errors = append(result.Errors, fmt.Sprintf("service %q: write file: %v", skill.Name, err))
-				continue
-			}
-
-			result.Written = append(result.Written, skill.Name)
-		}
-
-		pruned, pruneErrs := pruneStaleSkills(
-			filepath.Join(projectDir, selected.cfg.SkillsDir),
-			installedSkills,
-			opts.DryRun,
-		)
-		result.Pruned = pruned
-		for _, e := range pruneErrs {
-			result.Errors = append(result.Errors, e)
 		}
 
 		if !opts.SkipRules {
@@ -365,6 +459,48 @@ func fileNeedsWrite(path string, content string, force bool) (bool, error) {
 		return false, nil
 	}
 	return true, nil
+}
+
+func packNeedsWrite(packDir string, packFiles map[string]string, force bool) (bool, error) {
+	if force {
+		return true, nil
+	}
+
+	entries, err := os.ReadDir(packDir)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return true, nil
+		}
+		return false, fmt.Errorf("read existing pack dir %q: %w", packDir, err)
+	}
+
+	allowed := make(map[string]struct{}, len(packFiles))
+	for name := range packFiles {
+		allowed[name] = struct{}{}
+	}
+	for _, entry := range entries {
+		if entry.IsDir() {
+			return true, nil
+		}
+		if _, ok := allowed[entry.Name()]; !ok {
+			return true, nil
+		}
+	}
+
+	for name, content := range packFiles {
+		filePath := filepath.Join(packDir, name)
+		existing, err := os.ReadFile(filePath)
+		if err != nil {
+			if os.IsNotExist(err) {
+				return true, nil
+			}
+			return false, fmt.Errorf("read existing pack file %q: %w", name, err)
+		}
+		if string(existing) != content {
+			return true, nil
+		}
+	}
+	return false, nil
 }
 
 func listSyncedSkills(skillsDir string) ([]string, error) {

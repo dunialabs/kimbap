@@ -67,10 +67,10 @@ export function ResetTokenDialog({
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Key className="h-5 w-5" />
-            Reset Token
+            Reset token
           </DialogTitle>
           <DialogDescription>
-            Connection to <strong>{serverName}</strong> failed. Enter a new token.
+            Connection to <strong>{serverName}</strong> failed. Enter a new access token to reconnect.
           </DialogDescription>
         </DialogHeader>
 
@@ -92,14 +92,14 @@ export function ResetTokenDialog({
                     <strong>Address:</strong> {serverAddress}
                   </p>
                   <p>
-                    <strong>Issue:</strong> Token is invalid or expired
+                    <strong>Issue:</strong> Access token is invalid or expired
                   </p>
                 </div>
               </AlertDescription>
             </Alert>
 
             <div className="space-y-2">
-              <Label htmlFor="new-token">Access Token</Label>
+              <Label htmlFor="new-token">Access token</Label>
               <Input
                 id="new-token"
                 type="password"
@@ -128,7 +128,7 @@ export function ResetTokenDialog({
               <div className="flex items-start gap-2">
                 <CheckCircle className="h-4 w-4 text-blue-600 dark:text-blue-400 mt-0.5 flex-shrink-0" />
                 <div className="text-xs text-blue-800 dark:text-blue-200">
-                  <p className="font-medium mb-1">Get a new token:</p>
+                  <p className="font-medium mb-1">Get a new access token:</p>
                   <ul className="space-y-1">
                     <li>• Open your server admin panel</li>
                     <li>• Go to Access Tokens</li>

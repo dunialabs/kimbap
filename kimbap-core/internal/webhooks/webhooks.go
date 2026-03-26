@@ -6,12 +6,13 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
-	"fmt"
-	"log"
 	"net/http"
 	"slices"
 	"sync"
 	"time"
+
+	"github.com/google/uuid"
+	"github.com/rs/zerolog/log"
 )
 
 type EventType string
@@ -156,7 +157,7 @@ func (d *Dispatcher) Emit(eventType EventType, data any) {
 
 func (d *Dispatcher) EmitForTenant(tenantID string, eventType EventType, data any) {
 	event := Event{
-		ID:        fmt.Sprintf("evt_%d", time.Now().UnixNano()),
+		ID:        "evt_" + uuid.NewString(),
 		Type:      eventType,
 		TenantID:  tenantID,
 		Timestamp: time.Now().UTC(),
@@ -198,13 +199,13 @@ func (d *Dispatcher) RecentEvents(limit int) []Event {
 func (d *Dispatcher) deliver(sub Subscription, event Event) {
 	body, err := json.Marshal(event)
 	if err != nil {
-		log.Printf("webhook deliver: marshal event %s: %v", event.ID, err)
+		log.Warn().Err(err).Str("eventId", event.ID).Msg("webhook deliver marshal event failed")
 		return
 	}
 
 	req, err := http.NewRequest(http.MethodPost, sub.URL, bytes.NewReader(body))
 	if err != nil {
-		log.Printf("webhook deliver: build request id=%s url=%s: %v", sub.ID, sub.URL, err)
+		log.Warn().Err(err).Str("subscriptionId", sub.ID).Str("url", sub.URL).Msg("webhook deliver build request failed")
 		return
 	}
 	req.Header.Set("Content-Type", "application/json")
@@ -219,12 +220,12 @@ func (d *Dispatcher) deliver(sub Subscription, event Event) {
 
 	resp, err := d.client.Do(req)
 	if err != nil {
-		log.Printf("webhook deliver: post id=%s url=%s: %v", sub.ID, sub.URL, err)
+		log.Warn().Err(err).Str("subscriptionId", sub.ID).Str("url", sub.URL).Msg("webhook deliver post failed")
 		return
 	}
 	_ = resp.Body.Close()
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		log.Printf("webhook deliver: id=%s url=%s status=%d", sub.ID, sub.URL, resp.StatusCode)
+		log.Warn().Str("subscriptionId", sub.ID).Str("url", sub.URL).Int("statusCode", resp.StatusCode).Msg("webhook deliver non-2xx response")
 	}
 }
 

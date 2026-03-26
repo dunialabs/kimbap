@@ -784,7 +784,7 @@ export default function PoliciesPage() {
   }
 
   return (
-    <div className="space-y-6 p-6">
+    <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div className="space-y-2">
           <h1 className="flex items-center gap-2 text-[30px] font-bold tracking-tight">
@@ -792,7 +792,7 @@ export default function PoliciesPage() {
             Tool Access Policies
           </h1>
           <p className="text-base text-muted-foreground">
-            Policies decide which tool calls run automatically, which are blocked, and which need approval.
+            See which tool calls run automatically, require approval, or stay blocked.
           </p>
           <div className="flex flex-wrap items-center gap-2">
             <Badge variant="outline" className="bg-emerald-500/10 text-emerald-600 border-emerald-500/20">
@@ -833,11 +833,11 @@ export default function PoliciesPage() {
           ) : policies.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-12 text-center">
               <Shield className="mb-3 h-10 w-10 text-muted-foreground/40" />
-              <p className="text-sm text-muted-foreground">No access policies yet</p>
+              <p className="text-sm text-muted-foreground">No access policies yet for this server.</p>
               {canManagePolicies ? (
                 <Button variant="outline" className="mt-4" onClick={openCreate}>
                   <Plus className="mr-2 h-4 w-4" />
-                  Create your first policy
+                  Create policy
                 </Button>
               ) : null}
             </div>
@@ -994,7 +994,7 @@ export default function PoliciesPage() {
                 {formRules.length === 0 && (
                   <div className="flex flex-col items-center rounded-lg border border-dashed py-8 text-center">
                     <Shield className="mb-2 h-8 w-8 text-muted-foreground/30" />
-                    <p className="text-sm text-muted-foreground">No rules yet</p>
+                    <p className="text-sm text-muted-foreground">No rules added yet</p>
                     <Button
                       variant="link"
                       size="sm"

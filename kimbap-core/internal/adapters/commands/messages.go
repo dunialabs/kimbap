@@ -11,11 +11,26 @@ app.includeStandardAdditions = false;
 if (!input.to) throw new Error("to is required");
 if (!input.body) throw new Error("body is required");
 
+function normalizeHandle(value) {
+	var handle = String(value || "").trim();
+	if (handle.indexOf("@") >= 0) {
+		return handle;
+	}
+	// Normalize common phone punctuation while preserving E.164 prefix.
+	handle = handle.replace(/[\s\-()\.]/g, "");
+	if (handle.indexOf("00") === 0) {
+		handle = "+" + handle.slice(2);
+	}
+	return handle;
+}
+
+var toHandle = normalizeHandle(input.to);
+
 var target = null;
 var services = app.services();
 for (var i = 0; i < services.length; i++) {
 	var service = services[i];
-	var buddies = service.buddies.whose({handle: input.to})();
+	var buddies = service.buddies.whose({handle: toHandle})();
 	if (buddies.length > 0) {
 		target = buddies[0];
 		break;
@@ -23,11 +38,11 @@ for (var i = 0; i < services.length; i++) {
 }
 
 if (!target) {
-	throw new Error("[NOT_FOUND] contact not found: " + input.to);
+	throw new Error("[NOT_FOUND] contact not found");
 }
 
 app.send(input.body, {to: target});
-JSON.stringify({to: input.to, sent: true});`,
+JSON.stringify({to: toHandle, sent: true});`,
 		},
 		"messages-list-chats": {
 			Name: "messages-list-chats", TargetApp: "Messages",

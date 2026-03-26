@@ -175,7 +175,7 @@ if (!match) {
 	}
 }
 
-if (!match) throw new Error("[NOT_FOUND] contact not found: " + input.name);
+if (!match) throw new Error("[NOT_FOUND] contact not found");
 JSON.stringify(mapPerson(match));`,
 		},
 		"contacts-create": {
@@ -190,25 +190,38 @@ var person = app.Person({
 	lastName: input.last_name || ""
 });
 
-if (input.email) {
-	person.emails.push(app.Email({label: "home", value: input.email}));
-}
-
-if (input.phone) {
-	person.phones.push(app.Phone({label: "mobile", value: input.phone}));
-}
-
 if (input.organization) {
 	person.organization = input.organization;
 }
 
 app.people.push(person);
-app.save();
+
+if (input.email) {
+	var emailEntry = app.Email({label: "home", value: input.email});
+	person.emails.push(emailEntry);
+}
+if (input.phone) {
+	var phoneEntry = app.Phone({label: "mobile", value: input.phone});
+	person.phones.push(phoneEntry);
+}
+
+try {
+	app.save();
+} catch (e) {
+	throw new Error("Failed to save contact");
+}
+
+var name = "";
+var firstName = "";
+var lastName = "";
+try { name = person.name(); } catch(e) {}
+try { firstName = person.firstName(); } catch(e) {}
+try { lastName = person.lastName(); } catch(e) {}
 
 JSON.stringify({
-	name: person.name(),
-	firstName: person.firstName(),
-	lastName: person.lastName()
+	name: name,
+	firstName: firstName,
+	lastName: lastName
 });`,
 		},
 	}

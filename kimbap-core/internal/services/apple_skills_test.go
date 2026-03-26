@@ -36,6 +36,14 @@ func TestInstallAppleCalendarService(t *testing.T) {
 	if len(defs) != 5 {
 		t.Errorf("got %d, want 5", len(defs))
 	}
+	for _, d := range defs {
+		if d.Adapter.TargetApp != "Calendar" {
+			t.Errorf("action %s: target_app = %q, want Calendar", d.Name, d.Adapter.TargetApp)
+		}
+		if d.Adapter.Command == "" {
+			t.Errorf("action %s: command is empty", d.Name)
+		}
+	}
 }
 
 func TestInstallAppleRemindersService(t *testing.T) {
@@ -49,6 +57,14 @@ func TestInstallAppleRemindersService(t *testing.T) {
 	}
 	if len(defs) != 5 {
 		t.Errorf("got %d, want 5", len(defs))
+	}
+	for _, d := range defs {
+		if d.Adapter.TargetApp != "Reminders" {
+			t.Errorf("action %s: target_app = %q, want Reminders", d.Name, d.Adapter.TargetApp)
+		}
+		if d.Adapter.Command == "" {
+			t.Errorf("action %s: command is empty", d.Name)
+		}
 	}
 }
 
@@ -65,6 +81,12 @@ func TestInstallAppleMailService(t *testing.T) {
 		t.Errorf("got %d, want 5", len(defs))
 	}
 	for _, d := range defs {
+		if d.Adapter.TargetApp != "Mail" {
+			t.Errorf("action %s: target_app = %q, want Mail", d.Name, d.Adapter.TargetApp)
+		}
+		if d.Adapter.Command == "" {
+			t.Errorf("action %s: command is empty", d.Name)
+		}
 		if d.Adapter.Command == "send-message" && d.Risk != "admin" && d.Risk != "destructive" {
 			t.Errorf("send-message risk = %q, want admin or destructive", d.Risk)
 		}

@@ -11,7 +11,7 @@ export function GlobalFooter() {
         >
           Dunia Labs, Inc.
         </a>
-        <span> The control plane for MCP servers.</span>
+        <span> Operations console for the Kimbap platform.</span>
       </div>
     </footer>
   )

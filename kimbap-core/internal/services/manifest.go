@@ -9,6 +9,9 @@ type ServiceManifest struct {
 	BaseURL     string                   `yaml:"base_url"`
 	Auth        ServiceAuth              `yaml:"auth"`
 	Actions     map[string]ServiceAction `yaml:"actions"`
+	Gotchas     []ServiceGotcha          `yaml:"gotchas,omitempty"`
+	Triggers    *TriggerConfig           `yaml:"triggers,omitempty"`
+	Recipes     []ServiceRecipe          `yaml:"recipes,omitempty"`
 }
 
 type ServiceAuth struct {
@@ -70,4 +73,25 @@ type PageSpec struct {
 	Type     string `yaml:"type"`
 	MaxPages int    `yaml:"max_pages"`
 	NextPath string `yaml:"next_path"`
+}
+
+type ServiceGotcha struct {
+	AppliesTo   string `yaml:"applies_to,omitempty"`
+	Symptom     string `yaml:"symptom"`
+	LikelyCause string `yaml:"likely_cause"`
+	Recovery    string `yaml:"recovery"`
+	Severity    string `yaml:"severity,omitempty"`
+}
+
+type TriggerConfig struct {
+	TaskVerbs  []string `yaml:"task_verbs"`
+	Objects    []string `yaml:"objects"`
+	InsteadOf  []string `yaml:"instead_of,omitempty"`
+	Exclusions []string `yaml:"exclusions,omitempty"`
+}
+
+type ServiceRecipe struct {
+	Name        string   `yaml:"name"`
+	Description string   `yaml:"description"`
+	Steps       []string `yaml:"steps"`
 }

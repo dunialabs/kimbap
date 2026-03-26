@@ -251,3 +251,182 @@ kimbap agents setup
 func GenerateMetaSkillMD() string {
 	return metaSkillTemplate
 }
+
+func GenerateSkillPack(manifest *ServiceManifest) (map[string]string, error) {
+	if manifest == nil {
+		return nil, fmt.Errorf("manifest is nil")
+	}
+	files := make(map[string]string)
+	skillMD, err := generatePackSkillMD(manifest)
+	if err != nil {
+		return nil, fmt.Errorf("generate SKILL.md: %w", err)
+	}
+	files["SKILL.md"] = skillMD
+	if g := generatePackGotchasMD(manifest); g != "" {
+		files["GOTCHAS.md"] = g
+	}
+	if r := generatePackRecipesMD(manifest); r != "" {
+		files["RECIPES.md"] = r
+	}
+	return files, nil
+}
+
+func generatePackSkillMD(manifest *ServiceManifest) (string, error) {
+	var sb strings.Builder
+	sb.WriteString("---\n")
+	sb.WriteString(fmt.Sprintf("name: %s\n", manifest.Name))
+	desc := buildPackDescription(manifest)
+	sb.WriteString(fmt.Sprintf("description: |\n  %s\n", strings.ReplaceAll(desc, "\n", "\n  ")))
+	sb.WriteString("allowed-tools: Bash\n")
+	sb.WriteString("---\n\n")
+	sb.WriteString(fmt.Sprintf("# %s\n\n", manifest.Name))
+	if manifest.Description != "" {
+		sb.WriteString(fmt.Sprintf("%s\n\n", manifest.Description))
+	}
+	sb.WriteString("## Prerequisites\n\n")
+	sb.WriteString("- Kimbap CLI installed and in PATH\n")
+	sb.WriteString(fmt.Sprintf("- Service installed: `kimbap service install %s.yaml`\n", manifest.Name))
+	for _, ref := range collectCredentialRefs(manifest) {
+		sb.WriteString(fmt.Sprintf("- Credential configured: `kimbap vault set %s`\n", ref))
+	}
+	sb.WriteString("\n")
+	sb.WriteString("## Available Actions\n\n")
+	sb.WriteString("| Action | Description | Risk |\n")
+	sb.WriteString("|--------|-------------|------|\n")
+	for _, key := range sortedActionKeys(manifest.Actions) {
+		action := manifest.Actions[key]
+		risk := strings.ToLower(strings.TrimSpace(action.Risk.Level))
+		if risk == "" {
+			risk = "unknown"
+		}
+		d := action.Description
+		if d == "" {
+			d = "-"
+		}
+		sb.WriteString(fmt.Sprintf("| `%s.%s` | %s | %s |\n", manifest.Name, key, d, risk))
+	}
+	sb.WriteString("\n")
+	if len(manifest.Gotchas) > 0 {
+		sb.WriteString("## Top Gotchas\n\n")
+		limit := 3
+		if len(manifest.Gotchas) < limit {
+			limit = len(manifest.Gotchas)
+		}
+		for _, g := range manifest.Gotchas[:limit] {
+			sb.WriteString(fmt.Sprintf("- **%s** → %s\n", g.Symptom, g.Recovery))
+		}
+		sb.WriteString("\n")
+	}
+	hasGotchas := len(manifest.Gotchas) > 0 || packHasActionWarnings(manifest)
+	hasRecipes := len(manifest.Recipes) > 0
+	if hasGotchas || hasRecipes {
+		sb.WriteString("## Files in This Pack\n\n")
+		if hasGotchas {
+			sb.WriteString("- **GOTCHAS.md** — Common pitfalls, error patterns, and recovery steps\n")
+		}
+		if hasRecipes {
+			sb.WriteString("- **RECIPES.md** — Multi-step workflow playbooks\n")
+		}
+		sb.WriteString("\n")
+	}
+	sb.WriteString("## Discovery\n\n")
+	sb.WriteString("```bash\n")
+	sb.WriteString(fmt.Sprintf("kimbap actions list --service %s --format json\n", manifest.Name))
+	sb.WriteString(fmt.Sprintf("kimbap actions describe %s.<action> --format json\n", manifest.Name))
+	sb.WriteString("```\n")
+	return sb.String(), nil
+}
+
+func buildPackDescription(manifest *ServiceManifest) string {
+	if manifest.Triggers != nil {
+		t := manifest.Triggers
+		var parts []string
+		if len(t.TaskVerbs) > 0 && len(t.Objects) > 0 {
+			parts = append(parts, fmt.Sprintf("Use when you need to %s %s through approved Kimbap actions.",
+				strings.Join(t.TaskVerbs, ", "),
+				strings.Join(t.Objects, ", ")))
+		}
+		if len(t.InsteadOf) > 0 {
+			parts = append(parts, fmt.Sprintf("Use instead of: %s.", strings.Join(t.InsteadOf, ", ")))
+		}
+		if len(t.Exclusions) > 0 {
+			parts = append(parts, fmt.Sprintf("Do not use for: %s.", strings.Join(t.Exclusions, ", ")))
+		}
+		if len(parts) > 0 {
+			return strings.Join(parts, "\n")
+		}
+	}
+	return buildSkillDescription(manifest)
+}
+
+func generatePackGotchasMD(manifest *ServiceManifest) string {
+	if len(manifest.Gotchas) == 0 && !packHasActionWarnings(manifest) {
+		return ""
+	}
+	var sb strings.Builder
+	sb.WriteString(fmt.Sprintf("# %s — Common Pitfalls\n\n", manifest.Name))
+	if len(manifest.Gotchas) > 0 {
+		sb.WriteString("## Service-Level Gotchas\n\n")
+		for _, g := range manifest.Gotchas {
+			sb.WriteString(fmt.Sprintf("### %s\n\n", g.Symptom))
+			sb.WriteString(fmt.Sprintf("**Likely cause**: %s\n\n", g.LikelyCause))
+			sb.WriteString(fmt.Sprintf("**Recovery**: %s\n\n", g.Recovery))
+			if g.Severity != "" {
+				sb.WriteString(fmt.Sprintf("**Severity**: %s\n\n", g.Severity))
+			}
+		}
+	}
+	keys := sortedActionKeys(manifest.Actions)
+	headerWritten := false
+	for _, key := range keys {
+		action := manifest.Actions[key]
+		if len(action.Warnings) == 0 {
+			continue
+		}
+		if !headerWritten {
+			sb.WriteString("## Action-Specific Warnings\n\n")
+			headerWritten = true
+		}
+		sb.WriteString(fmt.Sprintf("### %s.%s\n\n", manifest.Name, key))
+		for _, w := range action.Warnings {
+			sb.WriteString(fmt.Sprintf("- %s\n", w))
+		}
+		sb.WriteString("\n")
+	}
+	return sb.String()
+}
+
+func generatePackRecipesMD(manifest *ServiceManifest) string {
+	if len(manifest.Recipes) == 0 {
+		return ""
+	}
+	var sb strings.Builder
+	sb.WriteString(fmt.Sprintf("# %s — Recipes\n\n", manifest.Name))
+	for _, recipe := range manifest.Recipes {
+		sb.WriteString(fmt.Sprintf("## %s\n\n", recipe.Name))
+		if recipe.Description != "" {
+			sb.WriteString(fmt.Sprintf("%s\n\n", recipe.Description))
+		}
+		if len(recipe.Steps) > 0 {
+			sb.WriteString("### Steps\n\n")
+			for i, step := range recipe.Steps {
+				sb.WriteString(fmt.Sprintf("%d. %s\n", i+1, step))
+			}
+			sb.WriteString("\n")
+		}
+	}
+	return sb.String()
+}
+
+func packHasActionWarnings(manifest *ServiceManifest) bool {
+	for _, action := range manifest.Actions {
+		if len(action.Warnings) > 0 {
+			return true
+		}
+	}
+	return false
+}
+
+func GenerateMetaSkillPack() map[string]string {
+	return map[string]string{"SKILL.md": GenerateMetaSkillMD()}
+}

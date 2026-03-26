@@ -4,11 +4,11 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"log"
 	"sync"
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/rs/zerolog/log"
 )
 
 type ApprovalStore interface {
@@ -69,7 +69,7 @@ func (m *ApprovalManager) Submit(ctx context.Context, req *ApprovalRequest) erro
 	}
 	if m.notifier != nil {
 		if err := m.notifier.Notify(ctx, req); err != nil {
-			log.Printf("approvals notifier failed for request %s: %v", req.ID, err)
+			log.Warn().Err(err).Str("requestId", req.ID).Msg("approvals notifier failed")
 		}
 	}
 

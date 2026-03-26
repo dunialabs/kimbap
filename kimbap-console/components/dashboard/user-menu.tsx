@@ -52,7 +52,7 @@ export function UserMenu({
           clearAuthState()
           onLogout()
         }}>
-          Log Out
+          Sign out
         </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>

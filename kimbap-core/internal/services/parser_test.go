@@ -5,6 +5,8 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	adaptercommands "github.com/dunialabs/kimbap-core/internal/adapters/commands"
 )
 
 func TestValidateAppleScriptManifest_Valid(t *testing.T) {
@@ -116,6 +118,38 @@ func TestValidateHTTPManifest_Unchanged(t *testing.T) {
 	errList := ValidateManifest(m)
 	if !hasValidationError(errList, "actions.get_item.template_ref", `undeclared arg "item_id"`) {
 		t.Fatalf("expected legacy template_ref validation error, got %v", errList)
+	}
+}
+
+func TestAppleScriptCommandAllowlistMatchesRegisteredCommands(t *testing.T) {
+	registered := make(map[string]struct{})
+	registries := []map[string]adaptercommands.Command{
+		adaptercommands.NotesCommands(),
+		adaptercommands.CalendarCommands(),
+		adaptercommands.RemindersCommands(),
+		adaptercommands.MailCommands(),
+		adaptercommands.FinderCommands(),
+		adaptercommands.SafariCommands(),
+		adaptercommands.MessagesCommands(),
+		adaptercommands.ContactsCommands(),
+		adaptercommands.MSOfficeCommands(),
+		adaptercommands.IWorkCommands(),
+	}
+	for _, registry := range registries {
+		for name := range registry {
+			registered[name] = struct{}{}
+		}
+	}
+
+	for name := range registered {
+		if _, ok := validAppleScriptCommands[name]; !ok {
+			t.Errorf("registered command %q missing from parser allowlist", name)
+		}
+	}
+	for name := range validAppleScriptCommands {
+		if _, ok := registered[name]; !ok {
+			t.Errorf("parser allowlist command %q missing implementation registry", name)
+		}
 	}
 }
 

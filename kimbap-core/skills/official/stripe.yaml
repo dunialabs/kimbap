@@ -86,6 +86,9 @@ actions:
     method: POST
     path: /customers
     description: Create a new customer
+    warnings:
+      - Creates a real customer record in your Stripe account
+      - "Uses JSON body (Content-Type: application/json)"
     args:
       - name: email
         type: string
@@ -158,6 +161,8 @@ actions:
     description: Create a payment link for collecting payments
     warnings:
       - Creates a live payment link that can be used to collect real payments
+      - "Uses JSON body (Content-Type: application/json)"
+      - line_items must be an array of objects with price and quantity keys
     args:
       - name: line_items
         type: array

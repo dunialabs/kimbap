@@ -83,10 +83,10 @@ export function MasterPasswordForm({ onSuccess }: MasterPasswordFormProps) {
     <div className="space-y-[12px] max-w-[460px] py-[32px] px-[24px]">
       <div>
         <h2 className="text-[24px] font-bold mb-[4px]">
-          Set Your Master Password
+          Create a Master Password
         </h2>
         <p className="text-muted-foreground text-[14px]">
-          This password protects your server configuration.
+          This password protects access to this console.
         </p>
       </div>
 
@@ -198,7 +198,7 @@ export function MasterPasswordForm({ onSuccess }: MasterPasswordFormProps) {
           ) : (
             <>
               <Lock className="w-4 h-4 mr-2" />
-              Create Password
+              Create master password
             </>
           )}
         </Button>

@@ -353,7 +353,7 @@ function ToolUsagePageContent() {
     <div className="space-y-6">
       <div className="space-y-0">
         <h1 className="text-[30px] font-bold">Tool usage</h1>
-        <p className="text-base text-muted-foreground">Track tool requests, success rates, and response times.</p>
+        <p className="text-base text-muted-foreground">See which tools are busiest, failing, or slowing down.</p>
       </div>
       <div className="flex flex-wrap items-center gap-2">
         <Select value={String(timeRange)} onValueChange={(value) => { setTimeRange(Number(value)); setActionLogToolId('all'); setActionLogStatus('all'); setActionLogType('all'); setActionLogsPage(1) }}>
@@ -364,7 +364,7 @@ function ToolUsagePageContent() {
             <SelectItem value="30">Last 30 days</SelectItem>
           </SelectContent>
         </Select>
-        <Button variant="outline" onClick={handleRefresh} disabled={loading || refreshing}><RefreshCw className={`mr-2 h-4 w-4 ${loading || refreshing ? 'animate-spin' : ''}`} />Refresh</Button>
+        <Button variant="outline" onClick={handleRefresh} disabled={loading || refreshing}><RefreshCw className={`mr-2 h-4 w-4 ${loading || refreshing ? 'animate-spin' : ''}`} />Refresh data</Button>
       </div>
 
       {!loading && loadError ? (
@@ -470,14 +470,14 @@ function ToolUsagePageContent() {
               {loading || !pieData || pieData.length === 0 ? (
                 <div className="flex items-center justify-center h-[300px]">
                   {loading ? (
-                    <p className="text-sm text-muted-foreground">Loading...</p>
+                    <p className="text-sm text-muted-foreground">Loading tool distribution...</p>
                   ) : toolDataError ? (
                     <div className="text-center">
                       <p className="text-sm text-red-600 dark:text-red-400">{toolDataError}</p>
                       <Button variant="outline" size="sm" className="mt-2" onClick={handleRefresh}>Retry</Button>
                     </div>
                   ) : (
-                    <p className="text-sm text-muted-foreground">No tool usage data in this period.</p>
+                    <p className="text-sm text-muted-foreground">No tool usage data in the selected range.</p>
                   )}
                 </div>
               ) : (
@@ -518,14 +518,14 @@ function ToolUsagePageContent() {
               {loading || !toolUsageData || toolUsageData.length === 0 ? (
                 <div className="flex items-center justify-center py-8">
                   {loading ? (
-                    <p className="text-sm text-muted-foreground">Loading...</p>
+                    <p className="text-sm text-muted-foreground">Loading tool details...</p>
                   ) : toolDataError ? (
                     <div className="text-center">
                       <p className="text-sm text-red-600 dark:text-red-400">{toolDataError}</p>
                       <Button variant="outline" size="sm" className="mt-2" onClick={handleRefresh}>Retry</Button>
                     </div>
                   ) : (
-                    <p className="text-sm text-muted-foreground">No tool usage data in this period.</p>
+                    <p className="text-sm text-muted-foreground">No tool usage data in the selected range.</p>
                   )}
                 </div>
               ) : (
@@ -589,14 +589,14 @@ function ToolUsagePageContent() {
               {loading || toolUsageData.length === 0 ? (
                 <div className="flex items-center justify-center h-[300px]">
                   {loading ? (
-                    <p className="text-sm text-muted-foreground">Loading...</p>
+                    <p className="text-sm text-muted-foreground">Loading response times...</p>
                   ) : toolDataError ? (
                     <div className="text-center">
                       <p className="text-sm text-red-600 dark:text-red-400">{toolDataError}</p>
                       <Button variant="outline" size="sm" className="mt-2" onClick={handleRefresh}>Retry</Button>
                     </div>
                   ) : (
-                    <p className="text-sm text-muted-foreground">No tool usage data in this period.</p>
+                    <p className="text-sm text-muted-foreground">No response time data in the selected range.</p>
                   )}
                 </div>
               ) : (
@@ -626,14 +626,14 @@ function ToolUsagePageContent() {
               {loading || toolUsageData.length === 0 ? (
                 <div className="flex items-center justify-center h-[300px]">
                   {loading ? (
-                    <p className="text-sm text-muted-foreground">Loading...</p>
+                    <p className="text-sm text-muted-foreground">Loading request outcomes...</p>
                   ) : toolDataError ? (
                     <div className="text-center">
                       <p className="text-sm text-red-600 dark:text-red-400">{toolDataError}</p>
                       <Button variant="outline" size="sm" className="mt-2" onClick={handleRefresh}>Retry</Button>
                     </div>
                   ) : (
-                    <p className="text-sm text-muted-foreground">No tool usage data in this period.</p>
+                    <p className="text-sm text-muted-foreground">No request outcome data in the selected range.</p>
                   )}
                 </div>
               ) : (
@@ -662,14 +662,14 @@ function ToolUsagePageContent() {
             <Card>
               <CardContent className="flex items-center justify-center py-8">
                 {loading ? (
-                  <p className="text-sm text-muted-foreground">Loading...</p>
+                  <p className="text-sm text-muted-foreground">Loading error analysis...</p>
                 ) : errorDataError ? (
                   <div className="text-center">
                     <p className="text-sm text-red-600 dark:text-red-400">{errorDataError}</p>
                     <Button variant="outline" size="sm" className="mt-2" onClick={handleRefresh}>Retry</Button>
                   </div>
                 ) : (
-                  <p className="text-sm text-muted-foreground">No tool error analysis data in this period.</p>
+                  <p className="text-sm text-muted-foreground">No tool error analysis data in the selected range.</p>
                 )}
               </CardContent>
             </Card>
@@ -705,14 +705,14 @@ function ToolUsagePageContent() {
               {loading || trendData.length === 0 ? (
                 <div className="flex items-center justify-center h-[400px]">
                   {loading ? (
-                    <p className="text-sm text-muted-foreground">Loading...</p>
+                    <p className="text-sm text-muted-foreground">Loading usage trends...</p>
                   ) : trendDataError ? (
                     <div className="text-center">
                       <p className="text-sm text-red-600 dark:text-red-400">{trendDataError}</p>
                       <Button variant="outline" size="sm" className="mt-2" onClick={handleRefresh}>Retry</Button>
                     </div>
                   ) : (
-                    <p className="text-sm text-muted-foreground">No tool usage trends in this period.</p>
+                    <p className="text-sm text-muted-foreground">No tool usage trends in the selected range.</p>
                   )}
                 </div>
               ) : (
@@ -758,7 +758,7 @@ function ToolUsagePageContent() {
           <Card>
             <CardHeader>
               <CardTitle>Tool Action Logs</CardTitle>
-              <CardDescription>Recent tool operations for review</CardDescription>
+              <CardDescription>Recent tool operations in the selected time range</CardDescription>
             </CardHeader>
             <CardContent>
               <div className="mb-3 grid grid-cols-1 gap-2 md:grid-cols-3">
@@ -818,7 +818,7 @@ function ToolUsagePageContent() {
               {actionLoading || actionLogs.length === 0 ? (
                 <div className="flex items-center justify-center py-8">
                   {actionLoading ? (
-                    <p className="text-sm text-muted-foreground">Loading...</p>
+                    <p className="text-sm text-muted-foreground">Loading tool action logs...</p>
                   ) : actionLogsError ? (
                     <div className="text-center">
                       <p className="text-sm text-red-600 dark:text-red-400">{actionLogsError}</p>
@@ -830,7 +830,7 @@ function ToolUsagePageContent() {
                       <Button variant="ghost" size="sm" className="mt-2" onClick={clearActionFilters}>Reset filters</Button>
                     </div>
                   ) : (
-                    <p className="text-sm text-muted-foreground">No tool action logs in this period.</p>
+                    <p className="text-sm text-muted-foreground">No tool action logs in the selected range.</p>
                   )}
                 </div>
               ) : (
@@ -894,7 +894,7 @@ export default function ToolUsagePage() {
   return (
     <Suspense
       fallback={(
-        <div className="space-y-6 p-6">
+        <div className="space-y-6">
           <Card>
             <CardContent className="py-10">
               <div className="flex items-center justify-center gap-2 text-sm text-muted-foreground" role="status">

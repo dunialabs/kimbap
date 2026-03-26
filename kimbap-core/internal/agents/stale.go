@@ -226,6 +226,61 @@ func computeArtifactHash(contents []string) string {
 	return "sha256:" + hex.EncodeToString(h.Sum(nil))
 }
 
+func computePackArtifactHash(packs []InstalledServicePack) string {
+	h := sha256.New()
+	sorted := make([]InstalledServicePack, len(packs))
+	copy(sorted, packs)
+	sort.Slice(sorted, func(i, j int) bool { return sorted[i].Name < sorted[j].Name })
+	for _, pack := range sorted {
+		h.Write([]byte(pack.Name))
+		h.Write([]byte{0})
+		fileNames := make([]string, 0, len(pack.PackFiles)+1)
+		if pack.SkillMD != "" {
+			fileNames = append(fileNames, "SKILL.md")
+		} else if _, ok := pack.PackFiles["SKILL.md"]; ok {
+			fileNames = append(fileNames, "SKILL.md")
+		}
+		for name := range pack.PackFiles {
+			if name != "SKILL.md" {
+				fileNames = append(fileNames, name)
+			}
+		}
+		sort.Strings(fileNames)
+		for _, name := range fileNames {
+			h.Write([]byte(name))
+			h.Write([]byte{0})
+			var content string
+			if name == "SKILL.md" {
+				if pack.SkillMD != "" {
+					content = pack.SkillMD
+				} else {
+					content = pack.PackFiles[name]
+				}
+			} else {
+				content = pack.PackFiles[name]
+			}
+			h.Write([]byte(content))
+			h.Write([]byte{0})
+		}
+	}
+	return "sha256:" + hex.EncodeToString(h.Sum(nil))
+}
+
+func RecordSyncPacks(scope string, packs []InstalledServicePack) error {
+	names := make([]string, len(packs))
+	for i, p := range packs {
+		names[i] = p.Name
+	}
+	sort.Strings(names)
+	state := &SyncState{
+		Version:        1,
+		LastSync:       time.Now().UTC(),
+		ArtifactHash:   computePackArtifactHash(packs),
+		SyncedServices: names,
+	}
+	return WriteSyncState(scope, state)
+}
+
 func toStringSet(items []string) map[string]bool {
 	set := make(map[string]bool, len(items))
 	for _, item := range items {

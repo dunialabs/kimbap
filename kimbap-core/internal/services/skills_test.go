@@ -1174,6 +1174,238 @@ func TestGenerateSkillMDHTTPUnchanged(t *testing.T) {
 	}
 }
 
+func TestGenerateSkillPack(t *testing.T) {
+	manifest := &ServiceManifest{
+		Name:        "notes-service",
+		Version:     "1.0.0",
+		Description: "Notes service",
+		BaseURL:     "https://example.com",
+		Auth:        ServiceAuth{Type: "none"},
+		Actions: map[string]ServiceAction{
+			"list_notes": {
+				Method:      "GET",
+				Path:        "/notes",
+				Description: "List notes",
+				Risk:        RiskSpec{Level: "low"},
+				Warnings:    []string{"May return large result sets"},
+			},
+		},
+		Gotchas: []ServiceGotcha{
+			{Symptom: "429 responses", LikelyCause: "Rate limit", Recovery: "Retry with backoff", Severity: "medium"},
+			{Symptom: "Auth failures", LikelyCause: "Missing token", Recovery: "Set credential ref"},
+		},
+		Recipes: []ServiceRecipe{{
+			Name:        "List and summarize",
+			Description: "Fetch notes then summarize",
+			Steps:       []string{"Run list action", "Summarize results"},
+		}},
+		Triggers: &TriggerConfig{
+			TaskVerbs:  []string{"list", "summarize"},
+			Objects:    []string{"notes"},
+			InsteadOf:  []string{"calling notes API directly"},
+			Exclusions: []string{"editing local files"},
+		},
+	}
+
+	pack, err := GenerateSkillPack(manifest)
+	if err != nil {
+		t.Fatalf("GenerateSkillPack: %v", err)
+	}
+	if len(pack) != 3 {
+		t.Fatalf("expected 3 pack files, got %d", len(pack))
+	}
+
+	skill := pack["SKILL.md"]
+	if !strings.Contains(skill, "## Files in This Pack") {
+		t.Fatalf("SKILL.md missing pack file section:\n%s", skill)
+	}
+	if !strings.Contains(skill, "GOTCHAS.md") || !strings.Contains(skill, "RECIPES.md") {
+		t.Fatalf("SKILL.md missing pack file references:\n%s", skill)
+	}
+	if !strings.Contains(skill, "Use when you need to list, summarize notes through approved Kimbap actions.") {
+		t.Fatalf("SKILL.md missing trigger-based description:\n%s", skill)
+	}
+
+	gotchas := pack["GOTCHAS.md"]
+	if !strings.Contains(gotchas, "## Service-Level Gotchas") || !strings.Contains(gotchas, "## Action-Specific Warnings") {
+		t.Fatalf("GOTCHAS.md missing expected sections:\n%s", gotchas)
+	}
+
+	recipes := pack["RECIPES.md"]
+	if !strings.Contains(recipes, "## List and summarize") || !strings.Contains(recipes, "1. Run list action") {
+		t.Fatalf("RECIPES.md missing expected content:\n%s", recipes)
+	}
+
+	nilResult, nilErr := GenerateSkillPack(nil)
+	if nilErr == nil || nilResult != nil {
+		t.Fatalf("expected nil manifest to return error and nil result, got result=%v err=%v", nilResult, nilErr)
+	}
+}
+
+func TestManifestGotchasParsing(t *testing.T) {
+	manifest := `name: github
+version: 1.0.0
+description: GitHub API integration
+base_url: https://api.github.com
+auth:
+  type: bearer
+  credential_ref: github.token
+triggers:
+  task_verbs: [list, create]
+  objects: [issues, pull requests]
+gotchas:
+  - symptom: 422 validation failed
+    likely_cause: payload shape mismatch
+    recovery: validate body schema before retrying
+    severity: medium
+recipes:
+  - name: Create issue safely
+    description: Validate, then create an issue
+    steps:
+      - Validate payload
+      - Call create issue action
+actions:
+  list_issues:
+    method: GET
+    path: /issues
+    risk:
+      level: low
+`
+
+	m, err := ParseManifest([]byte(manifest))
+	if err != nil {
+		t.Fatalf("ParseManifest: %v", err)
+	}
+	if len(m.Gotchas) != 1 {
+		t.Fatalf("expected 1 gotcha, got %d", len(m.Gotchas))
+	}
+	if m.Gotchas[0].LikelyCause != "payload shape mismatch" {
+		t.Fatalf("unexpected gotcha likely_cause: %q", m.Gotchas[0].LikelyCause)
+	}
+	if m.Triggers == nil || len(m.Triggers.TaskVerbs) != 2 {
+		t.Fatalf("expected triggers parsed, got %+v", m.Triggers)
+	}
+	if len(m.Recipes) != 1 || len(m.Recipes[0].Steps) != 2 {
+		t.Fatalf("expected recipes parsed, got %+v", m.Recipes)
+	}
+}
+
+func TestManifestBackwardCompat(t *testing.T) {
+	manifest := `name: legacy-notes
+version: 1.0.0
+description: Legacy notes API manifest without pack metadata
+base_url: https://api.example.com
+auth:
+  type: none
+actions:
+  list_notes:
+    method: GET
+    path: /notes
+    description: List notes
+    risk:
+      level: low
+`
+
+	m, err := ParseManifest([]byte(manifest))
+	if err != nil {
+		t.Fatalf("ParseManifest: %v", err)
+	}
+	if len(m.Gotchas) != 0 {
+		t.Fatalf("expected no gotchas for legacy manifest, got %+v", m.Gotchas)
+	}
+	if m.Triggers != nil {
+		t.Fatalf("expected nil triggers for legacy manifest, got %+v", m.Triggers)
+	}
+	if len(m.Recipes) != 0 {
+		t.Fatalf("expected no recipes for legacy manifest, got %+v", m.Recipes)
+	}
+
+	content, genErr := GenerateSkillMD(m)
+	if genErr != nil {
+		t.Fatalf("GenerateSkillMD: %v", genErr)
+	}
+	if !strings.Contains(content, "### legacy-notes.list_notes") {
+		t.Fatalf("expected legacy action output unchanged, got:\n%s", content)
+	}
+}
+
+func TestManifestPackMetadataValidation(t *testing.T) {
+	manifestYAML := []byte(`name: invalid-pack
+version: 1.0.0
+description: invalid pack metadata fixture
+base_url: https://api.example.com
+auth:
+  type: bearer
+  credential_ref: token
+triggers:
+  task_verbs: []
+  objects:
+    - ""
+gotchas:
+  - symptom: ""
+    likely_cause: ""
+    recovery: ""
+    severity: impossible
+recipes:
+  - name: ""
+    steps:
+      - ""
+actions:
+  list:
+    method: GET
+    path: /items
+    description: list items
+    warnings:
+      - ""
+    args: []
+    request: {}
+    response:
+      type: array
+    risk:
+      level: low
+`)
+
+	_, err := ParseManifest(manifestYAML)
+	if err == nil {
+		t.Fatal("expected parse to fail for invalid pack metadata")
+	}
+
+	errText := err.Error()
+	checks := []string{
+		"triggers.task_verbs",
+		"triggers.objects[0]",
+		"gotchas[0].symptom",
+		"gotchas[0].likely_cause",
+		"gotchas[0].recovery",
+		"gotchas[0].severity",
+		"recipes[0].name",
+		"recipes[0].steps[0]",
+		"actions.list.warnings[0]",
+	}
+	for _, want := range checks {
+		if !strings.Contains(errText, want) {
+			t.Fatalf("expected validation error to include %q, got: %s", want, errText)
+		}
+	}
+}
+
+func TestGenerateMetaSkillPack(t *testing.T) {
+	pack := GenerateMetaSkillPack()
+	if len(pack) != 1 {
+		t.Fatalf("expected exactly one file in meta pack, got %d", len(pack))
+	}
+	skill, ok := pack["SKILL.md"]
+	if !ok {
+		t.Fatal("expected SKILL.md in meta pack")
+	}
+	if skill != GenerateMetaSkillMD() {
+		t.Fatal("expected meta pack SKILL.md to match GenerateMetaSkillMD output")
+	}
+	if !strings.Contains(skill, "name: kimbap") {
+		t.Fatalf("meta SKILL.md missing expected frontmatter:\n%s", skill)
+	}
+}
+
 func TestGenerateSkillMDRiskLevelHints(t *testing.T) {
 	cases := []struct {
 		riskLevel        string

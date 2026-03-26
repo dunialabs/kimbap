@@ -9,8 +9,13 @@ var app = Application("Finder");
 app.includeStandardAdditions = false;
 if (!input.path) throw new Error("path is required");
 
-function safeISODate(value) {
-	try { return value ? value.toISOString() : null; } catch (e) { return null; }
+function safeISODate(item, prop) {
+	try {
+		var v = item[prop]();
+		return v ? v.toISOString() : null;
+	} catch (e) {
+		return null;
+	}
 }
 
 function safeSize(item) {
@@ -21,7 +26,8 @@ function decodeItemPath(item) {
 	try {
 		var url = item.url();
 		if (!url) return null;
-		return decodeURIComponent(url.replace("file://", ""));
+		var path = url.replace(/^file:\/\/(localhost)?/, "");
+		return decodeURIComponent(path);
 	} catch (e) {
 		return null;
 	}
@@ -36,7 +42,7 @@ try {
 	folder = app.folders[Path(input.path)];
 	folder.name();
 } catch (e) {
-	throw new Error("[NOT_FOUND] folder not found: " + input.path);
+	throw new Error("[NOT_FOUND] folder not found");
 }
 
 var result = folder.items().map(function(item) {
@@ -45,7 +51,7 @@ var result = folder.items().map(function(item) {
 		path: decodeItemPath(item),
 		kind: item.kind(),
 		size: safeSize(item),
-		modifiedDate: safeISODate(item.modificationDate()),
+		modifiedDate: safeISODate(item, "modificationDate"),
 		isFolder: isFolder(item)
 	};
 });
@@ -59,8 +65,13 @@ var app = Application("Finder");
 app.includeStandardAdditions = false;
 if (!input.path) throw new Error("path is required");
 
-function safeISODate(value) {
-	try { return value ? value.toISOString() : null; } catch (e) { return null; }
+function safeISODate(item, prop) {
+	try {
+		var v = item[prop]();
+		return v ? v.toISOString() : null;
+	} catch (e) {
+		return null;
+	}
 }
 
 function safeSize(item) {
@@ -71,7 +82,8 @@ function decodeItemPath(item) {
 	try {
 		var url = item.url();
 		if (!url) return null;
-		return decodeURIComponent(url.replace("file://", ""));
+		var path = url.replace(/^file:\/\/(localhost)?/, "");
+		return decodeURIComponent(path);
 	} catch (e) {
 		return null;
 	}
@@ -86,7 +98,7 @@ try {
 	item = app.items[Path(input.path)];
 	item.name();
 } catch (e) {
-	throw new Error("[NOT_FOUND] item not found: " + input.path);
+	throw new Error("[NOT_FOUND] item not found");
 }
 
 var result = {
@@ -94,8 +106,8 @@ var result = {
 	path: decodeItemPath(item),
 	kind: item.kind(),
 	size: safeSize(item),
-	modifiedDate: safeISODate(item.modificationDate()),
-	creationDate: safeISODate(item.creationDate()),
+	modifiedDate: safeISODate(item, "modificationDate"),
+	creationDate: safeISODate(item, "creationDate"),
 	isFolder: isFolder(item)
 };
 
@@ -114,7 +126,7 @@ try {
 	container = app.folders[Path(input.path)];
 	container.name();
 } catch (e) {
-	throw new Error("[NOT_FOUND] folder not found: " + input.path);
+	throw new Error("[NOT_FOUND] folder not found");
 }
 
 var created = app.make({
@@ -125,7 +137,7 @@ var created = app.make({
 
 var createdPath = null;
 try {
-	createdPath = decodeURIComponent(created.url().replace("file://", ""));
+	createdPath = decodeURIComponent(created.url().replace(/^file:\/\/(localhost)?/, ""));
 } catch (e) {
 	createdPath = input.path.replace(/\/$/, "") + "/" + input.name;
 }
@@ -148,7 +160,7 @@ try {
 	sourceItem = app.items[Path(input.source_path)];
 	sourceItem.name();
 } catch (e) {
-	throw new Error("[NOT_FOUND] source item not found: " + input.source_path);
+	throw new Error("[NOT_FOUND] source item not found");
 }
 
 var destinationFolder;
@@ -156,14 +168,14 @@ try {
 	destinationFolder = app.folders[Path(input.destination_path)];
 	destinationFolder.name();
 } catch (e) {
-	throw new Error("[NOT_FOUND] destination folder not found: " + input.destination_path);
+	throw new Error("[NOT_FOUND] destination folder not found");
 }
 
 var itemName = sourceItem.name();
 var moved = app.move(sourceItem, {to: destinationFolder});
 var movedPath = null;
 try {
-	movedPath = decodeURIComponent(moved.url().replace("file://", ""));
+	movedPath = decodeURIComponent(moved.url().replace(/^file:\/\/(localhost)?/, ""));
 } catch (e) {
 	movedPath = input.destination_path.replace(/\/$/, "") + "/" + itemName;
 }
@@ -186,7 +198,7 @@ try {
 	sourceItem = app.items[Path(input.source_path)];
 	sourceItem.name();
 } catch (e) {
-	throw new Error("[NOT_FOUND] source item not found: " + input.source_path);
+	throw new Error("[NOT_FOUND] source item not found");
 }
 
 var destinationFolder;
@@ -194,14 +206,14 @@ try {
 	destinationFolder = app.folders[Path(input.destination_path)];
 	destinationFolder.name();
 } catch (e) {
-	throw new Error("[NOT_FOUND] destination folder not found: " + input.destination_path);
+	throw new Error("[NOT_FOUND] destination folder not found");
 }
 
 var itemName = sourceItem.name();
 var copied = app.duplicate(sourceItem, {to: destinationFolder});
 var copiedPath = null;
 try {
-	copiedPath = decodeURIComponent(copied.url().replace("file://", ""));
+	copiedPath = decodeURIComponent(copied.url().replace(/^file:\/\/(localhost)?/, ""));
 } catch (e) {
 	copiedPath = input.destination_path.replace(/\/$/, "") + "/" + itemName;
 }
@@ -223,7 +235,7 @@ try {
 	item = app.items[Path(input.path)];
 	item.name();
 } catch (e) {
-	throw new Error("[NOT_FOUND] item not found: " + input.path);
+	throw new Error("[NOT_FOUND] item not found");
 }
 
 var name = item.name();
@@ -242,7 +254,7 @@ try {
 	item = app.items[Path(input.path)];
 	item.name();
 } catch (e) {
-	throw new Error("[NOT_FOUND] item not found: " + input.path);
+	throw new Error("[NOT_FOUND] item not found");
 }
 
 app.open(item);

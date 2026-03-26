@@ -13,8 +13,8 @@ func TestAllOfficialSkillsValidate(t *testing.T) {
 	if !ok {
 		t.Fatal("failed to resolve current test file path")
 	}
-	skillsDir := filepath.Join(filepath.Dir(file), "..", "..", "skills", "official")
-
+	repoRoot := filepath.Join(filepath.Dir(file), "..", "..")
+	skillsDir := filepath.Join(repoRoot, "skills", "official")
 	entries, err := os.ReadDir(skillsDir)
 	if err != nil {
 		t.Fatalf("read skills/official: %v", err)

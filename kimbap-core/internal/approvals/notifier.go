@@ -7,10 +7,11 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
-	"log"
 	"net/http"
 	"strings"
 	"time"
+
+	"github.com/rs/zerolog/log"
 )
 
 type Notifier interface {
@@ -92,7 +93,7 @@ func (w *WebhookNotifier) sign(body []byte) string {
 type LogNotifier struct{}
 
 func (l *LogNotifier) Notify(_ context.Context, req *ApprovalRequest) error {
-	log.Printf("approval pending id=%s tenant=%s service=%s action=%s", req.ID, req.TenantID, req.Service, req.Action)
+	log.Info().Str("id", req.ID).Str("tenantId", req.TenantID).Str("service", req.Service).Str("action", req.Action).Msg("approval pending")
 	return nil
 }
 
@@ -114,7 +115,7 @@ func (m *MultiNotifier) Notify(ctx context.Context, req *ApprovalRequest) error 
 	for _, notifier := range m.notifiers {
 		if err := notifier.Notify(ctx, req); err != nil {
 			lastErr = err
-			log.Printf("approval notifier: adapter error (continuing): %v", err)
+			log.Warn().Err(err).Msg("approval notifier: adapter error (continuing)")
 			continue
 		}
 		succeeded = true

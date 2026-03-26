@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/dunialabs/kimbap-core/internal/auth"
@@ -40,7 +41,7 @@ type SessionService struct {
 	mu              sync.RWMutex
 	tokens          map[string]SessionToken
 	ttl             time.Duration
-	validationCount int
+	validationCount atomic.Int64
 }
 
 func NewSessionService(ttl time.Duration) *SessionService {
@@ -122,11 +123,8 @@ func (s *SessionService) Validate(_ context.Context, rawSession string) (*Sessio
 }
 
 func (s *SessionService) maybePruneExpired() {
-	s.mu.Lock()
-	s.validationCount++
-	shouldPrune := s.validationCount%sessionPruneEveryValidations == 0
-	s.mu.Unlock()
-	if shouldPrune {
+	count := s.validationCount.Add(1)
+	if count%sessionPruneEveryValidations == 0 {
 		s.pruneExpired()
 	}
 }

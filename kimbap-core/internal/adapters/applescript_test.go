@@ -57,6 +57,12 @@ func TestAppleScriptAdapterLoadsAllRegistries(t *testing.T) {
 		{Command: "list-events", TargetApp: "Calendar"},
 		{Command: "list-reminders", TargetApp: "Reminders"},
 		{Command: "list-mailboxes", TargetApp: "Mail"},
+		{Command: "word-create-document", TargetApp: "Microsoft Word"},
+		{Command: "excel-create-workbook", TargetApp: "Microsoft Excel"},
+		{Command: "ppt-create-presentation", TargetApp: "Microsoft PowerPoint"},
+		{Command: "keynote-create-presentation", TargetApp: "Keynote"},
+		{Command: "numbers-create-spreadsheet", TargetApp: "Numbers"},
+		{Command: "pages-create-document", TargetApp: "Pages"},
 	}
 
 	for _, tc := range tests {

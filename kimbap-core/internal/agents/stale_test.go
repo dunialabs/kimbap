@@ -46,6 +46,69 @@ func TestComputeArtifactHash(t *testing.T) {
 	}
 }
 
+func TestComputePackArtifactHashDeterministicAndOrderIndependent(t *testing.T) {
+	packsA := []InstalledServicePack{
+		{Name: "svc-b", SkillMD: "# B\n", PackFiles: map[string]string{"GOTCHAS.md": "B"}},
+		{Name: "svc-a", SkillMD: "# A\n", PackFiles: map[string]string{"RECIPES.md": "A"}},
+	}
+	packsB := []InstalledServicePack{
+		{Name: "svc-a", SkillMD: "# A\n", PackFiles: map[string]string{"RECIPES.md": "A"}},
+		{Name: "svc-b", SkillMD: "# B\n", PackFiles: map[string]string{"GOTCHAS.md": "B"}},
+	}
+
+	h1 := computePackArtifactHash(packsA)
+	h2 := computePackArtifactHash(packsB)
+	if h1 != h2 {
+		t.Fatalf("expected order-independent pack hash, got %q vs %q", h1, h2)
+	}
+
+	packsB[0].PackFiles["RECIPES.md"] = "A-changed"
+	h3 := computePackArtifactHash(packsB)
+	if h1 == h3 {
+		t.Fatalf("expected hash to change when pack content changes, got %q", h1)
+	}
+}
+
+func TestRecordSyncPacksWritesState(t *testing.T) {
+	tmp := t.TempDir()
+	t.Setenv("XDG_CONFIG_HOME", tmp)
+	t.Setenv("HOME", tmp)
+
+	packs := []InstalledServicePack{
+		{Name: "svc-a", SkillMD: "# A\n", PackFiles: map[string]string{"RECIPES.md": "A"}},
+		{Name: "svc-b", SkillMD: "# B\n", PackFiles: map[string]string{"GOTCHAS.md": "B"}},
+	}
+	if err := RecordSyncPacks("project-a", packs); err != nil {
+		t.Fatalf("RecordSyncPacks: %v", err)
+	}
+
+	state, err := ReadSyncState("project-a")
+	if err != nil {
+		t.Fatalf("ReadSyncState: %v", err)
+	}
+	if state.ArtifactHash != computePackArtifactHash(packs) {
+		t.Fatalf("unexpected pack hash: got %q want %q", state.ArtifactHash, computePackArtifactHash(packs))
+	}
+	if !reflect.DeepEqual(state.SyncedServices, []string{"svc-a", "svc-b"}) {
+		t.Fatalf("unexpected synced services: %+v", state.SyncedServices)
+	}
+}
+
+func TestComputePackArtifactHashIncludesSkillFromPackFilesWhenSkillMDEmpty(t *testing.T) {
+	withSkillMD := []InstalledServicePack{
+		{Name: "svc-a", SkillMD: "# A\n", PackFiles: map[string]string{"GOTCHAS.md": "A"}},
+	}
+	withSkillInPackFiles := []InstalledServicePack{
+		{Name: "svc-a", PackFiles: map[string]string{"SKILL.md": "# A\n", "GOTCHAS.md": "A"}},
+	}
+
+	h1 := computePackArtifactHash(withSkillMD)
+	h2 := computePackArtifactHash(withSkillInPackFiles)
+	if h1 != h2 {
+		t.Fatalf("expected equivalent pack hashes when SKILL.md source differs, got %q vs %q", h1, h2)
+	}
+}
+
 func TestSyncStateReadWrite(t *testing.T) {
 	tmp := t.TempDir()
 	t.Setenv("XDG_CONFIG_HOME", tmp)
@@ -360,5 +423,59 @@ func TestStaleCheckResultJSONFieldNamesUseServices(t *testing.T) {
 	}
 	if strings.Contains(payload, `"new_skills"`) || strings.Contains(payload, `"removed_skills"`) {
 		t.Fatalf("unexpected stale skill JSON fields in payload: %s", payload)
+	}
+}
+
+func TestComputePackArtifactHashChangesOnGotchas(t *testing.T) {
+	base := []InstalledServicePack{{
+		Name:    "github",
+		SkillMD: "# skill\n",
+		PackFiles: map[string]string{
+			"GOTCHAS.md": "rate limit recovery A\n",
+		},
+	}}
+	changed := []InstalledServicePack{{
+		Name:    "github",
+		SkillMD: "# skill\n",
+		PackFiles: map[string]string{
+			"GOTCHAS.md": "rate limit recovery B\n",
+		},
+	}}
+
+	h1 := computePackArtifactHash(base)
+	h2 := computePackArtifactHash(changed)
+	if h1 == h2 {
+		t.Fatalf("expected gotchas content change to alter hash, got %q", h1)
+	}
+}
+
+func TestComputePackArtifactHashDeterministic(t *testing.T) {
+	packsA := []InstalledServicePack{
+		{Name: "slack", SkillMD: "# slack\n", PackFiles: map[string]string{"GOTCHAS.md": "g1\n", "RECIPES.md": "r1\n"}},
+		{Name: "github", SkillMD: "# github\n", PackFiles: map[string]string{"GOTCHAS.md": "g2\n"}},
+	}
+	packsB := []InstalledServicePack{
+		{Name: "github", SkillMD: "# github\n", PackFiles: map[string]string{"GOTCHAS.md": "g2\n"}},
+		{Name: "slack", SkillMD: "# slack\n", PackFiles: map[string]string{"RECIPES.md": "r1\n", "GOTCHAS.md": "g1\n"}},
+	}
+
+	h1 := computePackArtifactHash(packsA)
+	h2 := computePackArtifactHash(packsB)
+	if h1 != h2 {
+		t.Fatalf("expected deterministic hash across orderings, got %q and %q", h1, h2)
+	}
+	if !strings.HasPrefix(h1, "sha256:") {
+		t.Fatalf("expected sha256 prefix, got %q", h1)
+	}
+}
+
+func TestComputePackArtifactHashEmptyPacks(t *testing.T) {
+	hNil := computePackArtifactHash(nil)
+	hEmpty := computePackArtifactHash([]InstalledServicePack{})
+	if hNil != hEmpty {
+		t.Fatalf("expected nil and empty packs to hash equally, got %q and %q", hNil, hEmpty)
+	}
+	if !strings.HasPrefix(hNil, "sha256:") {
+		t.Fatalf("expected sha256 prefix, got %q", hNil)
 	}
 }

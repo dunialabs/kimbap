@@ -5,6 +5,45 @@ base_url: https://slack.com/api
 auth:
   type: bearer
   credential_ref: slack.token
+triggers:
+  task_verbs: [post, send, reply, list, fetch, summarize]
+  objects: [messages, channels, threads]
+  instead_of:
+    - sending Slack HTTP requests directly
+  exclusions:
+    - non-Slack communication tools
+gotchas:
+  - symptom: channel_not_found when posting
+    likely_cause: Used channel name (#general) instead of canonical channel ID (C...)
+    recovery: Resolve and pass channel ID from conversations.list before posting
+    severity: medium
+  - symptom: not_in_channel response on post/reply
+    likely_cause: Bot/app user is not a member of the target channel
+    recovery: Invite the app/bot to the channel or use a channel where it is already present
+    severity: high
+  - symptom: Reply lands as a new root message
+    likely_cause: thread_ts does not match the parent message ts in that channel
+    recovery: Fetch parent message ts from channel history and reuse exact thread_ts
+    severity: medium
+  - symptom: 429 or ratelimited errors
+    likely_cause: Workspace/app method rate limits exceeded
+    recovery: Respect Retry-After, queue retries with jittered backoff, and limit burst calls
+    severity: high
+  - symptom: Message formatting appears broken
+    likely_cause: mrkdwn expectations differ from plain text and escaping rules were missed
+    recovery: Use mrkdwn-safe formatting/escaping and validate mentions/links syntax
+    severity: low
+  - symptom: Private channels missing from list/history
+    likely_cause: Missing private channel scopes or bot is not joined to private channel
+    recovery: Add required scopes (e.g., groups:read/history where applicable) and join channel
+    severity: high
+recipes:
+  - name: Post update in thread safely
+    description: Send a channel update and keep follow-ups in a consistent thread
+    steps:
+      - Resolve target channel ID and verify bot membership
+      - Post root summary message and capture returned ts
+      - Send follow-up details with thread_ts set to the captured ts
 actions:
   post-message:
     method: POST

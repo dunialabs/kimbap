@@ -438,6 +438,94 @@ func TestAtomicWriteFile(t *testing.T) {
 	}
 }
 
+func TestAtomicWriteDir(t *testing.T) {
+	dir := t.TempDir()
+	target := filepath.Join(dir, "skills", "github")
+	files := map[string]string{
+		"SKILL.md":   "# skill\n",
+		"GOTCHAS.md": "# gotchas\n",
+	}
+
+	if err := atomicWriteDir(target, files); err != nil {
+		t.Fatalf("atomicWriteDir: %v", err)
+	}
+
+	for name, want := range files {
+		data, err := os.ReadFile(filepath.Join(target, name))
+		if err != nil {
+			t.Fatalf("read %s: %v", name, err)
+		}
+		if string(data) != want {
+			t.Fatalf("unexpected content for %s: %q", name, string(data))
+		}
+	}
+}
+
+func TestAtomicWriteDirOverwrite(t *testing.T) {
+	dir := t.TempDir()
+	target := filepath.Join(dir, "skills", "github")
+	if err := os.MkdirAll(target, 0o755); err != nil {
+		t.Fatalf("create target dir: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(target, "old.txt"), []byte("old\n"), 0o644); err != nil {
+		t.Fatalf("seed old file: %v", err)
+	}
+
+	files := map[string]string{"SKILL.md": "# new\n"}
+	if err := atomicWriteDir(target, files); err != nil {
+		t.Fatalf("atomicWriteDir overwrite: %v", err)
+	}
+
+	if _, err := os.Stat(filepath.Join(target, "old.txt")); !os.IsNotExist(err) {
+		t.Fatalf("expected old file removed after overwrite, stat err=%v", err)
+	}
+	data, err := os.ReadFile(filepath.Join(target, "SKILL.md"))
+	if err != nil {
+		t.Fatalf("read SKILL.md: %v", err)
+	}
+	if string(data) != "# new\n" {
+		t.Fatalf("unexpected SKILL.md content: %q", string(data))
+	}
+}
+
+func TestAtomicWriteDirEmpty(t *testing.T) {
+	dir := t.TempDir()
+	target := filepath.Join(dir, "skills", "github")
+	if err := os.MkdirAll(target, 0o755); err != nil {
+		t.Fatalf("create target dir: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(target, "keep.txt"), []byte("keep\n"), 0o644); err != nil {
+		t.Fatalf("seed keep file: %v", err)
+	}
+
+	if err := atomicWriteDir(target, map[string]string{}); err != nil {
+		t.Fatalf("atomicWriteDir empty: %v", err)
+	}
+
+	data, err := os.ReadFile(filepath.Join(target, "keep.txt"))
+	if err != nil {
+		t.Fatalf("read keep file: %v", err)
+	}
+	if string(data) != "keep\n" {
+		t.Fatalf("expected existing dir unchanged on empty write, got %q", string(data))
+	}
+}
+
+func TestAtomicWriteDirRejectsUnsafeFileNames(t *testing.T) {
+	dir := t.TempDir()
+	target := filepath.Join(dir, "skills", "github")
+
+	err := atomicWriteDir(target, map[string]string{"../escape.md": "bad"})
+	if err == nil {
+		t.Fatal("expected error for unsafe filename")
+	}
+
+	err = atomicWriteDir(target, map[string]string{"nested/child.md": "bad"})
+	if err == nil {
+		t.Fatal("expected error for nested filename")
+	}
+}
+
 func TestGlobalStatus(t *testing.T) {
 	home := t.TempDir()
 	xdg := filepath.Join(home, "xdg")

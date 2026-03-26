@@ -21,8 +21,7 @@ export function useUserRole() {
           try {
             const parsedServer = JSON.parse(storedServer)
             return parsedServer.role || 'Member'
-          } catch (error) {
-            console.error('Failed to parse selectedServer:', error)
+          } catch {
           }
         }
       }

@@ -51,3 +51,23 @@ func TestContactsTargetApp(t *testing.T) {
 		}
 	}
 }
+
+func TestContactsGetUsesSanitizedNotFoundMessage(t *testing.T) {
+	cmd := ContactsCommands()["contacts-get"]
+	if !strings.Contains(cmd.Script, "throw new Error(\"[NOT_FOUND] contact not found\");") {
+		t.Error("contacts-get should use sanitized not-found sentinel")
+	}
+	if strings.Contains(cmd.Script, "contact not found: \" + input.name") {
+		t.Error("contacts-get should not echo input.name in not-found error")
+	}
+}
+
+func TestContactsCreateSaveErrorIsSanitized(t *testing.T) {
+	cmd := ContactsCommands()["contacts-create"]
+	if !strings.Contains(cmd.Script, "throw new Error(\"Failed to save contact\");") {
+		t.Error("contacts-create should use sanitized save error message")
+	}
+	if strings.Contains(cmd.Script, "e.message") {
+		t.Error("contacts-create should not expose internal e.message details")
+	}
+}

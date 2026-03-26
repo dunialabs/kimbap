@@ -20,6 +20,26 @@ func (f fakeInstaller) List() ([]InstalledService, error) {
 	return f.skills, nil
 }
 
+type fakePackInstaller struct {
+	skills []InstalledService
+	packs  []InstalledServicePack
+	err    error
+}
+
+func (f fakePackInstaller) List() ([]InstalledService, error) {
+	if f.err != nil {
+		return nil, f.err
+	}
+	return f.skills, nil
+}
+
+func (f fakePackInstaller) ListPacks() ([]InstalledServicePack, error) {
+	if f.err != nil {
+		return nil, f.err
+	}
+	return f.packs, nil
+}
+
 func TestDetectAgents(t *testing.T) {
 	tests := []struct {
 		name       string
@@ -328,11 +348,138 @@ func TestSyncSkillsPrunesRemovedSkills(t *testing.T) {
 	}
 }
 
+func TestSyncServicesFallsBackWhenPackCoverageIsPartial(t *testing.T) {
+	dir := t.TempDir()
+	installer := fakePackInstaller{
+		skills: []InstalledService{
+			{Name: "github", Content: "# github\n"},
+			{Name: "slack", Content: "# slack\n"},
+		},
+		packs: []InstalledServicePack{
+			{
+				Name:    "github",
+				SkillMD: "# github\n",
+				PackFiles: map[string]string{
+					"GOTCHAS.md": "# gotchas\n",
+				},
+			},
+		},
+	}
+
+	results, err := SyncServices(installer, "# rules\n", SyncOptions{
+		ProjectDir: dir,
+		Agents:     []AgentKind{AgentClaudeCode},
+	})
+	if err != nil {
+		t.Fatalf("sync failed: %v", err)
+	}
+	if len(results) != 1 {
+		t.Fatalf("expected one result, got %d", len(results))
+	}
+	result := results[0]
+	if len(result.Errors) > 0 {
+		t.Fatalf("expected no sync errors, got %+v", result.Errors)
+	}
+	if len(result.Written) != 2 {
+		t.Fatalf("expected legacy fallback to write two services, got %+v", result.Written)
+	}
+
+	for _, service := range []string{"github", "slack"} {
+		skillPath := filepath.Join(dir, ".claude", "skills", service, "SKILL.md")
+		if _, statErr := os.Stat(skillPath); statErr != nil {
+			t.Fatalf("expected %s skill file to exist, stat err=%v", service, statErr)
+		}
+	}
+}
+
+func TestSyncServicesFallsBackWhenPackNamesDuplicate(t *testing.T) {
+	dir := t.TempDir()
+	installer := fakePackInstaller{
+		skills: []InstalledService{
+			{Name: "github", Content: "# github\n"},
+			{Name: "slack", Content: "# slack\n"},
+		},
+		packs: []InstalledServicePack{
+			{Name: "github", SkillMD: "# g1\n"},
+			{Name: "github", SkillMD: "# g2\n"},
+		},
+	}
+
+	results, err := SyncServices(installer, "# rules\n", SyncOptions{ProjectDir: dir, Agents: []AgentKind{AgentClaudeCode}})
+	if err != nil {
+		t.Fatalf("sync failed: %v", err)
+	}
+	if len(results) != 1 {
+		t.Fatalf("expected one result, got %d", len(results))
+	}
+	if len(results[0].Errors) > 0 {
+		t.Fatalf("expected no sync errors, got %+v", results[0].Errors)
+	}
+
+	for _, service := range []string{"github", "slack"} {
+		skillPath := filepath.Join(dir, ".claude", "skills", service, "SKILL.md")
+		if _, statErr := os.Stat(skillPath); statErr != nil {
+			t.Fatalf("expected %s skill file via legacy fallback, stat err=%v", service, statErr)
+		}
+	}
+}
+
+func TestSyncServicesFallsBackWhenPackHasNoFiles(t *testing.T) {
+	dir := t.TempDir()
+	installer := fakePackInstaller{
+		skills: []InstalledService{{Name: "github", Content: "# github\n"}},
+		packs:  []InstalledServicePack{{Name: "github"}},
+	}
+
+	results, err := SyncServices(installer, "# rules\n", SyncOptions{ProjectDir: dir, Agents: []AgentKind{AgentClaudeCode}})
+	if err != nil {
+		t.Fatalf("sync failed: %v", err)
+	}
+	if len(results) != 1 {
+		t.Fatalf("expected one result, got %d", len(results))
+	}
+	if len(results[0].Errors) > 0 {
+		t.Fatalf("expected no sync errors, got %+v", results[0].Errors)
+	}
+
+	skillPath := filepath.Join(dir, ".claude", "skills", "github", "SKILL.md")
+	if _, statErr := os.Stat(skillPath); statErr != nil {
+		t.Fatalf("expected github SKILL.md via legacy fallback, stat err=%v", statErr)
+	}
+}
+
+func TestPackNeedsWriteDetectsUnexpectedFiles(t *testing.T) {
+	packDir := filepath.Join(t.TempDir(), "svc")
+	if err := os.MkdirAll(packDir, 0o755); err != nil {
+		t.Fatalf("mkdir: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(packDir, "SKILL.md"), []byte("# skill\n"), 0o644); err != nil {
+		t.Fatalf("write skill: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(packDir, "GOTCHAS.md"), []byte("# gotchas\n"), 0o644); err != nil {
+		t.Fatalf("write gotchas: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(packDir, "OLD.md"), []byte("stale\n"), 0o644); err != nil {
+		t.Fatalf("write old: %v", err)
+	}
+
+	needsWrite, err := packNeedsWrite(packDir, map[string]string{
+		"SKILL.md":   "# skill\n",
+		"GOTCHAS.md": "# gotchas\n",
+	}, false)
+	if err != nil {
+		t.Fatalf("packNeedsWrite error: %v", err)
+	}
+	if !needsWrite {
+		t.Fatal("expected packNeedsWrite=true when unexpected file exists")
+	}
+}
+
 func TestSyncResultAndStatusResultJSONFieldNames(t *testing.T) {
 	sr := SyncResult{
-		Agent:       AgentClaudeCode,
+		Agent:     AgentClaudeCode,
 		SkillsDir: "/some/path",
-		Written:     []string{"svc-a"},
+		Written:   []string{"svc-a"},
 	}
 	b, err := json.Marshal(sr)
 	if err != nil {
@@ -343,7 +490,7 @@ func TestSyncResultAndStatusResultJSONFieldNames(t *testing.T) {
 	}
 
 	st := StatusResult{
-		Agent:          AgentOpenCode,
+		Agent:        AgentOpenCode,
 		SyncedSkills: []string{"svc-b"},
 	}
 	b2, err := json.Marshal(st)
@@ -352,5 +499,157 @@ func TestSyncResultAndStatusResultJSONFieldNames(t *testing.T) {
 	}
 	if !strings.Contains(string(b2), `"synced_skills"`) {
 		t.Errorf("StatusResult JSON missing synced_skills field, got: %s", b2)
+	}
+}
+
+func TestPackNeedsWrite(t *testing.T) {
+	dir := t.TempDir()
+	packDir := filepath.Join(dir, "github")
+	if err := os.MkdirAll(packDir, 0o755); err != nil {
+		t.Fatalf("create pack dir: %v", err)
+	}
+	packFiles := map[string]string{
+		"SKILL.md":   "# skill\n",
+		"GOTCHAS.md": "# gotchas\n",
+	}
+	for name, content := range packFiles {
+		if err := os.WriteFile(filepath.Join(packDir, name), []byte(content), 0o644); err != nil {
+			t.Fatalf("seed pack file %s: %v", name, err)
+		}
+	}
+
+	needsWrite, err := packNeedsWrite(packDir, packFiles, false)
+	if err != nil {
+		t.Fatalf("packNeedsWrite: %v", err)
+	}
+	if needsWrite {
+		t.Fatal("expected unchanged pack to not require write")
+	}
+}
+
+func TestPackNeedsWriteContentDiffers(t *testing.T) {
+	dir := t.TempDir()
+	packDir := filepath.Join(dir, "github")
+	if err := os.MkdirAll(packDir, 0o755); err != nil {
+		t.Fatalf("create pack dir: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(packDir, "SKILL.md"), []byte("# old\n"), 0o644); err != nil {
+		t.Fatalf("seed skill file: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(packDir, "GOTCHAS.md"), []byte("# gotchas\n"), 0o644); err != nil {
+		t.Fatalf("seed gotchas file: %v", err)
+	}
+
+	needsWrite, err := packNeedsWrite(packDir, map[string]string{
+		"SKILL.md":   "# new\n",
+		"GOTCHAS.md": "# gotchas\n",
+	}, false)
+	if err != nil {
+		t.Fatalf("packNeedsWrite: %v", err)
+	}
+	if !needsWrite {
+		t.Fatal("expected content diff to require write")
+	}
+}
+
+func TestPackNeedsWriteMissingFile(t *testing.T) {
+	dir := t.TempDir()
+	packDir := filepath.Join(dir, "github")
+	if err := os.MkdirAll(packDir, 0o755); err != nil {
+		t.Fatalf("create pack dir: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(packDir, "SKILL.md"), []byte("# skill\n"), 0o644); err != nil {
+		t.Fatalf("seed skill file: %v", err)
+	}
+
+	needsWrite, err := packNeedsWrite(packDir, map[string]string{
+		"SKILL.md":   "# skill\n",
+		"GOTCHAS.md": "# gotchas\n",
+	}, false)
+	if err != nil {
+		t.Fatalf("packNeedsWrite: %v", err)
+	}
+	if !needsWrite {
+		t.Fatal("expected missing pack file to require write")
+	}
+}
+
+func TestSyncServicesPack(t *testing.T) {
+	dir := t.TempDir()
+	installer := fakePackInstaller{
+		skills: []InstalledService{{Name: "github", Content: "# legacy\n"}},
+		packs: []InstalledServicePack{{
+			Name:    "github",
+			SkillMD: "# SKILL\n",
+			PackFiles: map[string]string{
+				"GOTCHAS.md": "# GOTCHAS\n",
+				"RECIPES.md": "# RECIPES\n",
+			},
+		}},
+	}
+
+	results, err := SyncServices(installer, "# rules\n", SyncOptions{
+		ProjectDir: dir,
+		Agents:     []AgentKind{AgentClaudeCode},
+	})
+	if err != nil {
+		t.Fatalf("sync pack services: %v", err)
+	}
+	if len(results) != 1 {
+		t.Fatalf("expected one result, got %d", len(results))
+	}
+	if len(results[0].Written) != 1 || results[0].Written[0] != "github" {
+		t.Fatalf("expected github pack written, got %+v", results[0].Written)
+	}
+	if !results[0].RulesWritten {
+		t.Fatal("expected rules to be written")
+	}
+
+	base := filepath.Join(dir, ".claude", "skills", "github")
+	checks := map[string]string{
+		"SKILL.md":   "# SKILL\n",
+		"GOTCHAS.md": "# GOTCHAS\n",
+		"RECIPES.md": "# RECIPES\n",
+	}
+	for name, want := range checks {
+		data, readErr := os.ReadFile(filepath.Join(base, name))
+		if readErr != nil {
+			t.Fatalf("read pack file %s: %v", name, readErr)
+		}
+		if string(data) != want {
+			t.Fatalf("unexpected content for %s: %q", name, string(data))
+		}
+	}
+}
+
+func TestPruneStaleSkillsPackDir(t *testing.T) {
+	dir := t.TempDir()
+	skillsDir := filepath.Join(dir, ".claude", "skills")
+	for _, name := range []string{"github", "stale", "kimbap"} {
+		path := filepath.Join(skillsDir, name)
+		if err := os.MkdirAll(path, 0o755); err != nil {
+			t.Fatalf("create skill dir %s: %v", name, err)
+		}
+		if err := os.WriteFile(filepath.Join(path, "SKILL.md"), []byte("# skill\n"), 0o644); err != nil {
+			t.Fatalf("write skill file %s: %v", name, err)
+		}
+	}
+
+	pruned, errs := pruneStaleSkills(skillsDir, []InstalledService{{Name: "github"}}, false)
+	if len(errs) != 0 {
+		t.Fatalf("unexpected prune errors: %+v", errs)
+	}
+	if len(pruned) != 1 || pruned[0] != "stale" {
+		t.Fatalf("expected stale to be pruned, got %+v", pruned)
+	}
+
+	if _, err := os.Stat(filepath.Join(skillsDir, "stale")); !os.IsNotExist(err) {
+		t.Fatalf("expected stale dir removed, stat err=%v", err)
+	}
+	if _, err := os.Stat(filepath.Join(skillsDir, "github")); err != nil {
+		t.Fatalf("expected github dir kept, stat err=%v", err)
+	}
+	if _, err := os.Stat(filepath.Join(skillsDir, "kimbap")); err != nil {
+		t.Fatalf("expected kimbap dir kept, stat err=%v", err)
 	}
 }

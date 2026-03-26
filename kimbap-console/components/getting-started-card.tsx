@@ -40,7 +40,7 @@ export function GettingStartedCard() {
         <div className="flex items-start justify-between gap-4 mb-4">
           <div className="flex-1">
             <h2 className="text-[24px] font-bold text-blue-700 dark:text-blue-100 mb-[4px]">
-              Start here
+              Operator shortcuts
             </h2>
             <p className="text-[14px] text-foreground dark:text-blue-300">
               Open these common operator views to get oriented quickly.
@@ -83,21 +83,21 @@ export function GettingStartedCard() {
           <div className="flex items-center gap-4 px-[16px] py-[12px] bg-white dark:bg-slate-800 rounded-lg border border-blue-100 dark:border-blue-900 flex-wrap sm:flex-nowrap">
             <div className="flex-1">
               <h3 className="font-[700] text-[14px] text-foreground dark:text-slate-100 mb-1">
-                Check Usage Trends
+                Check Recent Logs
               </h3>
               <p className="text-[14px] text-muted-foreground dark:text-slate-400">
-                See request volume and activity changes over the last 30 days.
+                Open live request and error logs to investigate issues quickly.
               </p>
             </div>
             <div className="w-full sm:w-auto flex justify-end">
               <Link
-                href="/dashboard/usage"
+                href="/dashboard/logs"
                 className={cn(
                   buttonVariants({ size: 'sm' }),
                   'w-[140px] bg-slate-900 hover:bg-slate-800 dark:bg-slate-100 dark:hover:bg-slate-200 text-white dark:text-slate-900'
                 )}
               >
-                Open usage
+                Open logs
               </Link>
             </div>
           </div>
