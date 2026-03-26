@@ -333,7 +333,9 @@ func (h *RequestHandler) ConfigureServer(userID, userToken string, data map[stri
 		prefsJSON = string(mustJSON(prefs))
 		return tx.Model(&database.User{}).Where("user_id = ?", userID).Updates(map[string]any{"user_preferences": prefsJSON, "updated_at": int(time.Now().Unix())}).Error
 	}); err != nil {
-		_, _ = core.ServerManagerInstance().CloseTemporaryServer(context.Background(), serverID, userID)
+		if _, closeErr := core.ServerManagerInstance().CloseTemporaryServer(context.Background(), serverID, userID); closeErr != nil {
+			log.Warn().Err(closeErr).Str("userID", userID).Str("serverID", serverID).Msg("failed to close temporary server after preferences update failure")
+		}
 		if rbErr := h.rollbackLaunchConfig(userID, serverID); rbErr != nil {
 			log.Error().Err(rbErr).Str("userID", userID).Str("serverID", serverID).Msg("failed to rollback launch config after preferences update failure")
 		}
@@ -511,7 +513,9 @@ func (h *RequestHandler) UnconfigureServer(userID string, data map[string]any) (
 	if serverID == "" {
 		return nil, &UserError{Message: "serverId is required", Code: UserErrorInvalidRequest}
 	}
-	_, _ = core.ServerManagerInstance().CloseTemporaryServer(context.Background(), serverID, userID)
+	if _, err := core.ServerManagerInstance().CloseTemporaryServer(context.Background(), serverID, userID); err != nil {
+		log.Warn().Err(err).Str("userID", userID).Str("serverID", serverID).Msg("failed to close temporary server during unconfigure")
+	}
 
 	var launchConfigsJSON, prefsJSON string
 	if err := h.db.Transaction(func(tx *gorm.DB) error {

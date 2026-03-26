@@ -1672,11 +1672,13 @@ func (p *ProxySession) emitApprovalWaitKeepalive(upstreamRequestID any, approval
 		return
 	}
 	message := fmt.Sprintf("Waiting for approval for tool %s (request %s)", toolName, approvalRequestID)
-	_ = session.NotifyProgress(context.Background(), &mcp.ProgressNotificationParams{
+	if err := session.NotifyProgress(context.Background(), &mcp.ProgressNotificationParams{
 		ProgressToken: upstreamRequestID,
 		Progress:      float64(waited.Milliseconds()),
 		Message:       message,
-	})
+	}); err != nil {
+		log.Warn().Err(err).Str("sessionId", p.sessionID).Str("approvalRequestId", approvalRequestID).Msg("failed to emit approval wait keepalive")
+	}
 }
 
 func (p *ProxySession) buildApprovalOutcomeResult(approvalRequestID string, toolName string, reason string, policyVersion int, requestHash string, status string, summary string) *mcp.CallToolResult {
@@ -1896,7 +1898,9 @@ func (p *ProxySession) SendResourceUpdatedToClient(serverID string, notification
 		return
 	}
 	uri := p.clientSession.GenerateNewName(ctx.ID, notification.Params.URI)
-	_ = p.upstreamServer.ResourceUpdated(context.Background(), &mcp.ResourceUpdatedNotificationParams{URI: uri})
+	if err := p.upstreamServer.ResourceUpdated(context.Background(), &mcp.ResourceUpdatedNotificationParams{URI: uri}); err != nil {
+		log.Warn().Err(err).Str("sessionId", p.sessionID).Str("serverId", serverID).Str("resourceUri", uri).Msg("failed to forward resource updated notification to client")
+	}
 }
 
 func (p *ProxySession) ForwardProgressToClient(params *mcp.ProgressNotificationParams) {
@@ -1916,7 +1920,9 @@ func (p *ProxySession) ForwardProgressToClient(params *mcp.ProgressNotificationP
 		}
 		forward.ProgressToken = original
 	}
-	_ = session.NotifyProgress(context.Background(), &forward)
+	if err := session.NotifyProgress(context.Background(), &forward); err != nil {
+		log.Warn().Err(err).Str("sessionId", p.sessionID).Interface("progressToken", forward.ProgressToken).Msg("failed to forward progress notification to client")
+	}
 }
 
 func (p *ProxySession) HandleDownstreamCancellation(proxyRequestID string) {

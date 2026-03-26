@@ -23,6 +23,7 @@ import (
 	"github.com/dunialabs/kimbap-core/internal/actions"
 	"github.com/dunialabs/kimbap-core/internal/classifier"
 	"github.com/dunialabs/kimbap-core/internal/runtime"
+	"github.com/rs/zerolog/log"
 )
 
 type UnmatchedPolicy string
@@ -264,7 +265,9 @@ func (p *ProxyServer) handleHTTP(w http.ResponseWriter, req *http.Request) {
 
 	copyHeader(w.Header(), resp.Header)
 	w.WriteHeader(resp.StatusCode)
-	_, _ = io.Copy(w, resp.Body)
+	if written, copyErr := io.Copy(w, resp.Body); copyErr != nil {
+		log.Warn().Err(copyErr).Str("requestId", reqID).Int64("bytesWritten", written).Msg("failed to write proxy upstream response body")
+	}
 }
 
 func (p *ProxyServer) handleConnect(w http.ResponseWriter, req *http.Request) {
