@@ -79,7 +79,7 @@ func init() {
 	rootCmd.AddCommand(newPolicyCommand())
 	rootCmd.AddCommand(newDoctorCommand())
 	rootCmd.AddCommand(newInitCommand())
-	rootCmd.AddCommand(newSkillCommand())
+	rootCmd.AddCommand(newServiceCommand())
 	rootCmd.AddCommand(newConnectorCommand())
 	rootCmd.AddCommand(newAuthCommand())
 	rootCmd.AddCommand(newApproveCommand())
