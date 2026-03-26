@@ -127,3 +127,43 @@ version: 1.0.0
 		t.Fatalf("expected no uploaded services on mismatch, found %d", len(entries))
 	}
 }
+
+func TestUploadServiceRejectsDuplicateZipEntryTargets(t *testing.T) {
+	service := &ServicesService{servicesDir: t.TempDir()}
+
+	var zipBuf bytes.Buffer
+	zw := zip.NewWriter(&zipBuf)
+	for _, body := range []string{`---
+name: github
+description: First
+version: 1.0.0
+---
+`, `---
+name: github
+description: Second
+version: 1.0.0
+---
+`} {
+		entry, err := zw.Create(filepath.ToSlash(filepath.Join("github", "SKILL.md")))
+		if err != nil {
+			t.Fatalf("create zip entry: %v", err)
+		}
+		if _, err := entry.Write([]byte(body)); err != nil {
+			t.Fatalf("write zip entry: %v", err)
+		}
+	}
+	if err := zw.Close(); err != nil {
+		t.Fatalf("close zip writer: %v", err)
+	}
+
+	uploaded, err := service.UploadService("tenant", zipBuf.Bytes())
+	if err == nil {
+		t.Fatalf("expected duplicate zip entry error, got uploaded=%v", uploaded)
+	}
+	if !strings.Contains(err.Error(), "duplicate zip entry target") {
+		t.Fatalf("unexpected upload error: %v", err)
+	}
+	if len(uploaded) != 0 {
+		t.Fatalf("expected no uploaded services on duplicate entry error, got %v", uploaded)
+	}
+}

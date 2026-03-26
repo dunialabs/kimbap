@@ -1039,6 +1039,50 @@ func TestSignAndVerifyRoundtrip(t *testing.T) {
 	}
 }
 
+func TestVerifyFailsOnMalformedEmbeddedPublicKey(t *testing.T) {
+	manifest, err := ParseManifest([]byte(braveSearchFixture))
+	if err != nil {
+		t.Fatalf("parse: %v", err)
+	}
+
+	dir := t.TempDir()
+	installer := NewLocalInstaller(dir)
+	if _, err := installer.Install(manifest, "local"); err != nil {
+		t.Fatalf("install: %v", err)
+	}
+
+	_, priv, err := ed25519.GenerateKey(nil)
+	if err != nil {
+		t.Fatalf("keygen: %v", err)
+	}
+	if err := installer.Sign(priv); err != nil {
+		t.Fatalf("sign: %v", err)
+	}
+
+	lf, err := installer.readLockfile()
+	if err != nil {
+		t.Fatalf("read lockfile: %v", err)
+	}
+	lf.PublicKey = "not-hex"
+	if err := installer.writeLockfile(lf); err != nil {
+		t.Fatalf("write malformed lockfile: %v", err)
+	}
+
+	result, err := installer.Verify("brave-search")
+	if err == nil {
+		t.Fatal("expected malformed embedded public key to fail verify")
+	}
+	if result == nil {
+		t.Fatal("expected verify result alongside error")
+	}
+	if !strings.Contains(err.Error(), "decode embedded public key") {
+		t.Fatalf("unexpected verify error: %v", err)
+	}
+	if result.SignatureValid {
+		t.Fatal("expected invalid signature state for malformed embedded public key")
+	}
+}
+
 func TestVerifyWithWrongPinnedKeyFails(t *testing.T) {
 	manifest, err := ParseManifest([]byte(braveSearchFixture))
 	if err != nil {
@@ -1171,6 +1215,33 @@ func TestGenerateSkillMDHTTPUnchanged(t *testing.T) {
 
 	if content != expected {
 		t.Fatalf("HTTP SKILL.md output changed unexpectedly:\nexpected:\n%s\nactual:\n%s", expected, content)
+	}
+}
+
+func TestGenerateSkillPackEscapesMarkdownTableCells(t *testing.T) {
+	manifest := &ServiceManifest{
+		Name:        "notes-service",
+		Version:     "1.0.0",
+		Description: "Notes service",
+		BaseURL:     "https://example.com",
+		Auth:        ServiceAuth{Type: "none"},
+		Actions: map[string]ServiceAction{
+			"list_notes": {
+				Method:      "GET",
+				Path:        "/notes",
+				Description: "List notes | summarize\nSecond line",
+				Risk:        RiskSpec{Level: "low"},
+			},
+		},
+	}
+
+	pack, err := GenerateSkillPack(manifest)
+	if err != nil {
+		t.Fatalf("GenerateSkillPack: %v", err)
+	}
+	skill := pack["SKILL.md"]
+	if !strings.Contains(skill, "| `notes-service.list_notes` | List notes \\| summarize<br>Second line | low |") {
+		t.Fatalf("expected markdown table cells escaped, got:\n%s", skill)
 	}
 }
 

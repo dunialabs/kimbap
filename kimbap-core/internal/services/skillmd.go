@@ -303,6 +303,10 @@ func generatePackSkillMD(manifest *ServiceManifest) (string, error) {
 		if d == "" {
 			d = "-"
 		}
+		d = strings.ReplaceAll(d, "\r\n", "\n")
+		d = strings.ReplaceAll(d, "\n", "<br>")
+		d = strings.ReplaceAll(d, "|", `\|`)
+		risk = strings.ReplaceAll(risk, "|", `\|`)
 		sb.WriteString(fmt.Sprintf("| `%s.%s` | %s | %s |\n", manifest.Name, key, d, risk))
 	}
 	sb.WriteString("\n")

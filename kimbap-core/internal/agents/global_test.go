@@ -618,3 +618,10 @@ func TestGlobalStatus(t *testing.T) {
 		t.Fatal("did not expect opencode skill present")
 	}
 }
+
+func TestValidatePackFileNameRejectsBackslash(t *testing.T) {
+	err := validatePackFileName(`nested\child.md`)
+	if err == nil {
+		t.Fatal("expected error for backslash path separator")
+	}
+}

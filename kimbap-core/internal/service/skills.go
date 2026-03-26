@@ -230,6 +230,7 @@ func (s *ServicesService) safeExtractZip(reader *zip.Reader, targetDir string) e
 		targetPath string
 	}
 	validEntries := make([]extractionEntry, 0, len(reader.File))
+	seenTargets := make(map[string]struct{}, len(reader.File))
 
 	for _, file := range reader.File {
 		totalSize += file.UncompressedSize64
@@ -259,6 +260,10 @@ func (s *ServicesService) safeExtractZip(reader *zip.Reader, targetDir string) e
 		if !strings.HasPrefix(resolvedTarget+string(filepath.Separator), targetBase+string(filepath.Separator)) {
 			return fmt.Errorf("entry escapes target directory: %s", name)
 		}
+		if _, exists := seenTargets[resolvedTarget]; exists {
+			return fmt.Errorf("duplicate zip entry target: %s", name)
+		}
+		seenTargets[resolvedTarget] = struct{}{}
 
 		validEntries = append(validEntries, extractionEntry{file: file, targetPath: resolvedTarget})
 	}

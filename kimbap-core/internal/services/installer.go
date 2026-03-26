@@ -246,14 +246,16 @@ func (i *LocalInstaller) Verify(name string) (*VerifyResult, error) {
 			return &result, nil
 		}
 		pubKeyBytes, decErr := hex.DecodeString(lf.PublicKey)
-		if decErr == nil {
-			sigValid, sigErr := verifySignature(ed25519.PublicKey(pubKeyBytes), entry.Digest, entry.Signature)
-			if sigErr != nil {
-				result.SignatureValid = false
-				return &result, fmt.Errorf("verify signature: %w", sigErr)
-			}
-			result.SignatureValid = sigValid
+		if decErr != nil {
+			result.SignatureValid = false
+			return &result, fmt.Errorf("decode embedded public key: %w", decErr)
 		}
+		sigValid, sigErr := verifySignature(ed25519.PublicKey(pubKeyBytes), entry.Digest, entry.Signature)
+		if sigErr != nil {
+			result.SignatureValid = false
+			return &result, fmt.Errorf("verify signature: %w", sigErr)
+		}
+		result.SignatureValid = sigValid
 	}
 
 	return &result, nil

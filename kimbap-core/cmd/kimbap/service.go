@@ -439,7 +439,7 @@ func validateExportPackFileName(name string) error {
 	if clean == "." || clean == ".." || strings.HasPrefix(clean, "../") {
 		return fmt.Errorf("pack filename %q must not escape export directory", name)
 	}
-	if strings.Contains(clean, string(filepath.Separator)) {
+	if strings.ContainsAny(clean, `/\`) {
 		return fmt.Errorf("pack filename %q must not contain path separators", name)
 	}
 	return nil

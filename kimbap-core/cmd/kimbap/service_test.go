@@ -42,3 +42,10 @@ func TestWriteSkillPackDirRemovesStaleBackupDir(t *testing.T) {
 		t.Fatalf("unexpected SKILL.md content: %q", string(data))
 	}
 }
+
+func TestValidateExportPackFileNameRejectsBackslash(t *testing.T) {
+	err := validateExportPackFileName(`nested\child.md`)
+	if err == nil {
+		t.Fatal("expected error for backslash path separator")
+	}
+}
