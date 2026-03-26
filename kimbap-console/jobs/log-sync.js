@@ -488,9 +488,9 @@ function startScheduler() {
 }
 
 // Graceful shutdown
-function gracefulShutdown() {
+async function gracefulShutdown() {
   console.log('[LogSync] Shutting down...');
-  prisma.$disconnect();
+  await prisma.$disconnect();
   process.exit(0);
 }
 
