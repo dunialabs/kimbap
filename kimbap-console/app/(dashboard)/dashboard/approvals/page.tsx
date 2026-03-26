@@ -763,7 +763,7 @@ export default function ApprovalsPage() {
             </DialogHeader>
             <div className="space-y-3 py-2">
               <div className="space-y-1.5">
-                <Label>Reason (optional)</Label>
+                <Label>Decision reason (optional)</Label>
                 <Textarea
                   placeholder="Add a reason for this decision..."
                   value={decideReason}

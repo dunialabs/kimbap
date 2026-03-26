@@ -889,7 +889,7 @@ function ToolUsagePageContent() {
                   <span>{actionLogsTotal.toLocaleString()} total logs</span>
                   <div className="flex items-center gap-2">
                     <Button variant="outline" size="sm" onClick={() => setActionLogsPage((p) => Math.max(1, p - 1))} disabled={actionLogsPage <= 1}>Previous</Button>
-                    <span>Page {actionLogsPage}</span>
+                    <span>Page {actionLogsPage} of {Math.max(1, Math.ceil(actionLogsTotal / 20))}</span>
                     <Button variant="outline" size="sm" onClick={() => setActionLogsPage((p) => p + 1)} disabled={actionLogs.length < 20 || actionLogsPage * 20 >= actionLogsTotal}>Next</Button>
                   </div>
                 </div>

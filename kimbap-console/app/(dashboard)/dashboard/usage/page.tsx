@@ -312,7 +312,7 @@ function UsagePageContent() {
       {/* Top Tools by Usage */}
       <Card>
         <CardHeader>
-            <CardTitle><Link href={`/dashboard/usage/tool-usage?timeRange=${timeRange}`} className="hover:underline">Top tools</Link></CardTitle>
+            <CardTitle><Link href={`/dashboard/usage/tool-usage?timeRange=${timeRange}`} className="hover:underline">Top Tools</Link></CardTitle>
             <CardDescription>Most-used tools in the last {timeRangeLabel}</CardDescription>
         </CardHeader>
         <CardContent>
@@ -355,7 +355,7 @@ function UsagePageContent() {
       <div className="grid lg:grid-cols-2 gap-3">
         <Card>
           <CardHeader>
-            <CardTitle><Link href={`/dashboard/usage/token-usage?timeRange=${timeRange}`} className="hover:underline">Active tokens</Link></CardTitle>
+            <CardTitle><Link href={`/dashboard/usage/token-usage?timeRange=${timeRange}`} className="hover:underline">Active Tokens</Link></CardTitle>
             <CardDescription>Most active tokens in the last {timeRangeLabel}</CardDescription>
           </CardHeader>
           <CardContent>
@@ -397,7 +397,7 @@ function UsagePageContent() {
 
         <Card>
           <CardHeader>
-            <CardTitle><Link href={`/dashboard/logs?timeRange=${logsTimeRange}`} className="hover:underline">Recent activity</Link></CardTitle>
+            <CardTitle><Link href={`/dashboard/logs?timeRange=${logsTimeRange}`} className="hover:underline">Recent Activity</Link></CardTitle>
             <CardDescription>Recent events in the last {timeRangeLabel}</CardDescription>
           </CardHeader>
           <CardContent>
