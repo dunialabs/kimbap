@@ -1,6 +1,44 @@
 package services
 
-import "testing"
+import (
+	"os"
+	"path/filepath"
+	"strings"
+	"testing"
+)
+
+func TestAllOfficialServiceYAMLsParseAndConvert(t *testing.T) {
+	dir := "../../skills/official"
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		t.Fatalf("read official skills dir: %v", err)
+	}
+	if len(entries) == 0 {
+		t.Fatal("no official service YAMLs found — expected at least one")
+	}
+	for _, entry := range entries {
+		if entry.IsDir() || !strings.HasSuffix(entry.Name(), ".yaml") {
+			continue
+		}
+		name := strings.TrimSuffix(entry.Name(), ".yaml")
+		t.Run(name, func(t *testing.T) {
+			manifest, err := ParseManifestFile(filepath.Join(dir, entry.Name()))
+			if err != nil {
+				t.Fatalf("parse %s: %v", entry.Name(), err)
+			}
+			if len(manifest.Actions) == 0 {
+				t.Errorf("%s: must define at least one action", entry.Name())
+			}
+			defs, err := ToActionDefinitions(manifest)
+			if err != nil {
+				t.Fatalf("convert %s: %v", entry.Name(), err)
+			}
+			if len(defs) != len(manifest.Actions) {
+				t.Errorf("%s: got %d defs, want %d", entry.Name(), len(defs), len(manifest.Actions))
+			}
+		})
+	}
+}
 
 func TestInstallAppleNotesService(t *testing.T) {
 	manifest, err := ParseManifestFile("../../skills/official/apple-notes.yaml")
