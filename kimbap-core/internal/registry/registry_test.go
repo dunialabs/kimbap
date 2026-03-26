@@ -149,3 +149,33 @@ func TestRegistryDiffShowsMeaningfulChanges(t *testing.T) {
 		t.Fatalf("expected added line in diff, got: %s", diff)
 	}
 }
+
+func TestRegistryVerifyRejectsUnsafeLockfileName(t *testing.T) {
+	tempDir := t.TempDir()
+	skillsDir := filepath.Join(tempDir, "skills")
+	if err := os.MkdirAll(skillsDir, 0o755); err != nil {
+		t.Fatalf("create skills dir: %v", err)
+	}
+
+	// Write a lockfile with a path-traversal name directly.
+	lockContent := `{"version":"1","entries":[{"name":"../../etc/passwd","version":"1.0.0","source":"local","sha256":"abc"}]}`
+	lockPath := filepath.Join(skillsDir, "skills.lock.json")
+	if err := os.WriteFile(lockPath, []byte(lockContent), 0o644); err != nil {
+		t.Fatalf("write lockfile: %v", err)
+	}
+
+	r := NewRegistry(skillsDir)
+	results, err := r.Verify(context.Background())
+	if err != nil {
+		t.Fatalf("verify: %v", err)
+	}
+	if len(results) != 1 {
+		t.Fatalf("expected 1 verify result, got %d", len(results))
+	}
+	if results[0].Status != "fail" {
+		t.Fatalf("expected fail status for unsafe name, got %s: %s", results[0].Status, results[0].Message)
+	}
+	if !strings.Contains(results[0].Message, "unsafe name") {
+		t.Fatalf("expected 'unsafe name' in message, got: %s", results[0].Message)
+	}
+}
