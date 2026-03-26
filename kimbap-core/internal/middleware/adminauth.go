@@ -35,21 +35,6 @@ func (m *AdminAuthMiddleware) Middleware(next http.Handler) http.Handler {
 
 		authHeader := strings.TrimSpace(r.Header.Get("Authorization"))
 		if authHeader == "" {
-			remoteIP := r.RemoteAddr
-			if idx := strings.LastIndex(remoteIP, ":"); idx > 0 {
-				remoteIP = remoteIP[:idx]
-			}
-			remoteIP = strings.Trim(remoteIP, "[]")
-			isLoopback := remoteIP == "127.0.0.1" || remoteIP == "::1" || remoteIP == "localhost"
-			hostName := r.Host
-			if idx := strings.LastIndex(hostName, ":"); idx > 0 {
-				hostName = hostName[:idx]
-			}
-			isLoopbackHost := hostName == "127.0.0.1" || hostName == "::1" || hostName == "localhost"
-			if isLoopback && isLoopbackHost {
-				next.ServeHTTP(w, r)
-				return
-			}
 			writeAdminUnauthorized(w, r, "invalid_request", "Authorization header with Bearer token is required")
 			return
 		}
@@ -62,7 +47,16 @@ func (m *AdminAuthMiddleware) Middleware(next http.Handler) http.Handler {
 
 		authContext, err := m.auth.AuthenticateRequest(r)
 		if err != nil {
-			writeAdminUnauthorized(w, r, "invalid_token", sanitizeAuthError(err))
+			status := authStatusCodeForError(err)
+			if status == http.StatusForbidden {
+				writeAdminForbidden(w, r, "access_denied", sanitizeAuthError(err))
+				return
+			}
+			if status == http.StatusUnauthorized {
+				writeAdminUnauthorized(w, r, "invalid_token", sanitizeAuthError(err))
+				return
+			}
+			writeJSONError(w, status, "authentication service unavailable")
 			return
 		}
 		if authContext == nil {

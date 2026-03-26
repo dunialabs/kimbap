@@ -44,13 +44,22 @@ func NewEvaluator(doc *PolicyDocument) *Evaluator {
 }
 
 type rateLimiter struct {
-	mu      sync.Mutex
-	windows map[string][]time.Time
+	mu            sync.Mutex
+	windows       map[string][]time.Time
+	expires       map[string]time.Time
+	lastSweep     time.Time
+	sweepInterval time.Duration
 }
 
 func (rl *rateLimiter) check(key string, maxRequests int, windowSec int) *RateStatus {
 	rl.mu.Lock()
 	defer rl.mu.Unlock()
+	if rl.expires == nil {
+		rl.expires = make(map[string]time.Time)
+	}
+	if rl.sweepInterval <= 0 {
+		rl.sweepInterval = time.Minute
+	}
 
 	now := time.Now().UTC()
 	windowDur := time.Duration(windowSec) * time.Second
@@ -70,8 +79,20 @@ func (rl *rateLimiter) check(key string, maxRequests int, windowSec int) *RateSt
 	}
 	if len(pruned) == 0 {
 		delete(rl.windows, key)
+		delete(rl.expires, key)
 	} else {
 		rl.windows[key] = pruned
+		rl.expires[key] = pruned[len(pruned)-1].Add(windowDur)
+	}
+
+	if now.Sub(rl.lastSweep) >= rl.sweepInterval {
+		for k, expiresAt := range rl.expires {
+			if !expiresAt.After(now) {
+				delete(rl.windows, k)
+				delete(rl.expires, k)
+			}
+		}
+		rl.lastSweep = now
 	}
 
 	remaining := maxRequests - len(pruned)
@@ -122,10 +143,7 @@ func (e *Evaluator) Evaluate(_ context.Context, req EvalRequest) (*EvalResult, e
 			Reason:      "matched rule " + rule.ID,
 		}
 		if rule.RateLimit != nil && rule.RateLimit.MaxRequests > 0 && rule.RateLimit.WindowSec > 0 {
-			keyPart := fmt.Sprintf("%s:%s:%s", req.TenantID, req.AgentName, req.Service)
-			if rule.RateLimit.Scope != "" {
-				keyPart = rule.RateLimit.Scope
-			}
+			keyPart := rateLimitKeyPart(rule.RateLimit.Scope, req)
 			key := fmt.Sprintf("%s:%s", keyPart, rule.ID)
 			status := e.rl.check(key, rule.RateLimit.MaxRequests, rule.RateLimit.WindowSec)
 			res.RateStatus = status
@@ -142,6 +160,19 @@ func (e *Evaluator) Evaluate(_ context.Context, req EvalRequest) (*EvalResult, e
 		Decision: DecisionDeny,
 		Reason:   "no matching policy rule",
 	}, nil
+}
+
+func rateLimitKeyPart(scope string, req EvalRequest) string {
+	switch strings.ToLower(strings.TrimSpace(scope)) {
+	case "tenant":
+		return req.TenantID
+	case "agent":
+		return fmt.Sprintf("%s:%s", req.TenantID, req.AgentName)
+	case "action":
+		return fmt.Sprintf("%s:%s:%s:%s", req.TenantID, req.AgentName, req.Service, req.Action)
+	default:
+		return fmt.Sprintf("%s:%s:%s", req.TenantID, req.AgentName, req.Service)
+	}
 }
 
 func timeWindowActive(tw *TimeWindow, now time.Time) bool {

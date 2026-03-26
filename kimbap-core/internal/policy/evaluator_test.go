@@ -3,6 +3,7 @@ package policy
 import (
 	"context"
 	"testing"
+	"time"
 )
 
 func TestEvaluatorAllowRuleMatches(t *testing.T) {
@@ -201,5 +202,83 @@ func TestEvaluatorMutatingConditionCheck(t *testing.T) {
 	}
 	if res.Decision != DecisionRequireApproval {
 		t.Fatalf("expected require approval for mutating action, got %s", res.Decision)
+	}
+}
+
+func TestEvaluatorRateLimitScopeTenantIsolated(t *testing.T) {
+	e := NewEvaluator(&PolicyDocument{
+		Version: "1.0.0",
+		Rules: []PolicyRule{{
+			ID:       "tenant-limit",
+			Priority: 1,
+			Match:    PolicyMatch{Actions: []string{"payments.create"}},
+			Decision: DecisionAllow,
+			RateLimit: &RateLimitRule{
+				MaxRequests: 1,
+				WindowSec:   60,
+				Scope:       "tenant",
+			},
+		}},
+	})
+
+	resA1, err := e.Evaluate(context.Background(), EvalRequest{
+		TenantID: "tenant-a",
+		Action:   "payments.create",
+	})
+	if err != nil {
+		t.Fatalf("evaluate tenant-a first request failed: %v", err)
+	}
+	if resA1.Decision != DecisionAllow {
+		t.Fatalf("expected tenant-a first request allow, got %s", resA1.Decision)
+	}
+
+	resA2, err := e.Evaluate(context.Background(), EvalRequest{
+		TenantID: "tenant-a",
+		Action:   "payments.create",
+	})
+	if err != nil {
+		t.Fatalf("evaluate tenant-a second request failed: %v", err)
+	}
+	if resA2.Decision != DecisionDeny {
+		t.Fatalf("expected tenant-a second request deny, got %s", resA2.Decision)
+	}
+
+	resB1, err := e.Evaluate(context.Background(), EvalRequest{
+		TenantID: "tenant-b",
+		Action:   "payments.create",
+	})
+	if err != nil {
+		t.Fatalf("evaluate tenant-b first request failed: %v", err)
+	}
+	if resB1.Decision != DecisionAllow {
+		t.Fatalf("expected tenant-b first request allow, got %s", resB1.Decision)
+	}
+}
+
+func TestRateLimiterSweepsExpiredKeys(t *testing.T) {
+	now := time.Now().UTC()
+	rl := rateLimiter{
+		windows: map[string][]time.Time{
+			"stale": []time.Time{now.Add(-2 * time.Minute)},
+		},
+		expires: map[string]time.Time{
+			"stale": now.Add(-1 * time.Minute),
+		},
+		lastSweep:     now.Add(-2 * time.Minute),
+		sweepInterval: time.Second,
+	}
+
+	status := rl.check("active", 2, 60)
+	if !status.Allowed {
+		t.Fatalf("expected active key to be allowed")
+	}
+
+	rl.mu.Lock()
+	defer rl.mu.Unlock()
+	if _, ok := rl.windows["stale"]; ok {
+		t.Fatalf("expected stale key to be swept from rate limiter")
+	}
+	if _, ok := rl.expires["stale"]; ok {
+		t.Fatalf("expected stale expiry metadata to be swept from rate limiter")
 	}
 }

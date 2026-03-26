@@ -79,12 +79,12 @@ func (m *AuthMiddleware) Middleware(next http.Handler) http.Handler {
 		authContext, err := m.AuthenticateRequest(r)
 		if err != nil {
 			safeMsg := sanitizeAuthError(err)
+			status := authStatusCodeForError(err)
 			if strings.HasPrefix(r.URL.Path, "/user") {
-				status := authStatusCodeForError(err)
 				writeUserAuthError(w, status, safeMsg)
 				return
 			}
-			writeJSONError(w, http.StatusUnauthorized, safeMsg)
+			writeJSONError(w, status, safeMsg)
 			return
 		}
 		if authContext == nil {
@@ -232,7 +232,7 @@ func (m *AuthMiddleware) validateToken(ctx context.Context, token string) (userI
 		if err == nil {
 			return userID, "", nil, nil
 		}
-		return "", "", nil, err
+		return "", "", nil, types.NewAuthError(types.AuthErrorTypeInvalidToken, "invalid or expired token", "", nil)
 	}
 
 	if isHexFormat {
@@ -243,7 +243,7 @@ func (m *AuthMiddleware) validateToken(ctx context.Context, token string) (userI
 		if err == nil {
 			return userID, "", nil, nil
 		}
-		return "", "", nil, err
+		return "", "", nil, types.NewAuthError(types.AuthErrorTypeInvalidToken, "invalid or expired token", "", nil)
 	}
 
 	if m.oauthValidator != nil {
@@ -261,7 +261,7 @@ func (m *AuthMiddleware) validateToken(ctx context.Context, token string) (userI
 		return userID, "", nil, nil
 	}
 
-	return "", "", nil, err
+	return "", "", nil, types.NewAuthError(types.AuthErrorTypeInvalidToken, "invalid or expired token", "", nil)
 }
 
 func ExtractAuthToken(r *http.Request) (string, error) {
@@ -410,10 +410,24 @@ func authStatusCodeForError(err error) int {
 		}
 	}
 	msg := strings.ToLower(err.Error())
-	if strings.Contains(msg, "disabled") || strings.Contains(msg, "expired") {
+	switch {
+	case strings.Contains(msg, "authorization token is required"):
+		return http.StatusUnauthorized
+	case strings.Contains(msg, "missing or invalid authorization"):
+		return http.StatusUnauthorized
+	case strings.Contains(msg, "disabled") || strings.Contains(msg, "expired"):
 		return http.StatusForbidden
+	case strings.Contains(msg, "rate limit"):
+		return http.StatusTooManyRequests
+	case strings.Contains(msg, "not configured"):
+		return http.StatusInternalServerError
+	case strings.Contains(msg, "invalid permissions format"):
+		return http.StatusInternalServerError
+	case strings.Contains(msg, "invalid permissions structure"):
+		return http.StatusInternalServerError
+	default:
+		return http.StatusInternalServerError
 	}
-	return http.StatusUnauthorized
 }
 
 func BuildWWWAuthenticateHeader(r *http.Request, errCode string, errDescription string) string {
