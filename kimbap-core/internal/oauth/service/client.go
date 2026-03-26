@@ -19,8 +19,9 @@ import (
 )
 
 type OAuthClientService struct {
-	db    *gorm.DB
-	oauth *OAuthService
+	db              *gorm.DB
+	oauth           *OAuthService
+	metadataFetcher *ClientMetadataFetcher
 }
 
 func NewOAuthClientService(db *gorm.DB, oauth *OAuthService) *OAuthClientService {
@@ -30,13 +31,12 @@ func NewOAuthClientService(db *gorm.DB, oauth *OAuthService) *OAuthClientService
 	if oauth == nil {
 		oauth = NewOAuthService(db)
 	}
-	return &OAuthClientService{db: db, oauth: oauth}
+	return &OAuthClientService{db: db, oauth: oauth, metadataFetcher: NewClientMetadataFetcher()}
 }
 
 func (s *OAuthClientService) RegisterClient(ctx context.Context, metadata oauthtypes.OAuthClientMetadata, userID *string) (*oauthtypes.OAuthClientInformation, error) {
 	if strings.HasPrefix(metadata.ClientID, "https://") {
-		fetcher := NewClientMetadataFetcher()
-		fetched, err := fetcher.FetchClientMetadata(metadata.ClientID)
+		fetched, err := s.metadataFetcher.FetchClientMetadata(metadata.ClientID)
 		if err != nil {
 			return nil, err
 		}
@@ -59,11 +59,8 @@ func (s *OAuthClientService) RegisterClient(ctx context.Context, metadata oautht
 	if requiresRedirectURIs && len(metadata.RedirectURIs) == 0 {
 		return nil, fmt.Errorf("invalid_client_metadata: redirect_uris is required and must be a non-empty array")
 	}
-	for _, uri := range metadata.RedirectURIs {
-		parsed, err := url.Parse(uri)
-		if err != nil || parsed == nil || strings.TrimSpace(parsed.Scheme) == "" || strings.TrimSpace(parsed.Host) == "" {
-			return nil, fmt.Errorf("invalid_redirect_uri: Invalid redirect_uri: %s", uri)
-		}
+	if err := validateRedirectURIs(metadata.RedirectURIs); err != nil {
+		return nil, err
 	}
 
 	validGrantTypes := map[string]bool{"authorization_code": true, "refresh_token": true, "client_credentials": true}
@@ -184,11 +181,8 @@ func (s *OAuthClientService) registerURLClient(ctx context.Context, metadata oau
 	if requiresRedirectURIs && len(metadata.RedirectURIs) == 0 {
 		return nil, fmt.Errorf("invalid_client_metadata: redirect_uris is required and must be a non-empty array")
 	}
-	for _, uri := range metadata.RedirectURIs {
-		parsed, err := url.Parse(uri)
-		if err != nil || parsed == nil || strings.TrimSpace(parsed.Scheme) == "" || strings.TrimSpace(parsed.Host) == "" {
-			return nil, fmt.Errorf("invalid_redirect_uri: Invalid redirect_uri: %s", uri)
-		}
+	if err := validateRedirectURIs(metadata.RedirectURIs); err != nil {
+		return nil, err
 	}
 	scopes := s.oauth.ParseScope(metadata.Scope)
 
@@ -238,11 +232,8 @@ func (s *OAuthClientService) UpdateClient(ctx context.Context, clientID string, 
 		data["name"] = updates.ClientName
 	}
 	if len(updates.RedirectURIs) > 0 {
-		for _, uri := range updates.RedirectURIs {
-			parsed, err := url.Parse(uri)
-			if err != nil || parsed == nil || strings.TrimSpace(parsed.Scheme) == "" || strings.TrimSpace(parsed.Host) == "" {
-				return nil, fmt.Errorf("invalid_redirect_uri: Invalid redirect_uri: %s", uri)
-			}
+		if err := validateRedirectURIs(updates.RedirectURIs); err != nil {
+			return nil, err
 		}
 		b, _ := json.Marshal(updates.RedirectURIs)
 		data["redirect_uris"] = b
@@ -376,6 +367,16 @@ func (s *OAuthClientService) findDuplicate(ctx context.Context, name string, red
 
 func sameStringSlice(a, b []string) bool {
 	return slices.Equal(a, b)
+}
+
+func validateRedirectURIs(uris []string) error {
+	for _, uri := range uris {
+		parsed, err := url.Parse(uri)
+		if err != nil || parsed == nil || strings.TrimSpace(parsed.Scheme) == "" || strings.TrimSpace(parsed.Host) == "" {
+			return fmt.Errorf("invalid_redirect_uri: Invalid redirect_uri: %s", uri)
+		}
+	}
+	return nil
 }
 
 func toClientInfo(c database.OAuthClient, includeSecret bool) (*oauthtypes.OAuthClientInformation, error) {
