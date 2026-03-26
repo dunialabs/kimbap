@@ -393,7 +393,7 @@ function UsagePageContent() {
             ) : (
               <div className="space-y-3">
                 {activeTokens.map((token) => (
-                  <Link key={token.tokenMask} href={`/dashboard/usage/token-usage?timeRange=${timeRange}`} className="flex items-center justify-between p-3 border rounded-lg hover:bg-muted/40">
+                  <Link key={token.tokenMask} href={`/dashboard/usage/token-usage?timeRange=${timeRange}`} className="flex items-center justify-between p-3 border rounded-lg hover:bg-muted/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2">
                     <div>
                       <div className="font-medium">{token.tokenName}</div>
                     </div>
