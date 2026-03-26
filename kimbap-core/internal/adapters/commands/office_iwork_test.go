@@ -80,3 +80,33 @@ func TestIWorkCommandsBasicCoverage(t *testing.T) {
 		}
 	}
 }
+
+func TestKeynoteSetSlideTextUsesAssignment(t *testing.T) {
+	cmds := IWorkCommands()
+	cmd, ok := cmds["keynote-set-slide-text"]
+	if !ok {
+		t.Fatal("keynote-set-slide-text not found")
+	}
+	if strings.Contains(cmd.Script, "objectText().set(") {
+		t.Error("keynote-set-slide-text must not use objectText().set() — invalid JXA; use objectText = value assignment")
+	}
+	if !strings.Contains(cmd.Script, "objectText = input.text") {
+		t.Error("keynote-set-slide-text must assign objectText = input.text")
+	}
+}
+
+func TestNumbersCellAccessUsesRanges(t *testing.T) {
+	cmds := IWorkCommands()
+	for _, name := range []string{"numbers-read-cell", "numbers-write-cell"} {
+		cmd, ok := cmds[name]
+		if !ok {
+			t.Fatalf("%s not found", name)
+		}
+		if strings.Contains(cmd.Script, "cells.whose({name:") {
+			t.Errorf("%s must not use cells.whose({name:...}) — use table.ranges[cell] instead", name)
+		}
+		if !strings.Contains(cmd.Script, "table.ranges[input.cell]") {
+			t.Errorf("%s must access cells via table.ranges[input.cell]", name)
+		}
+	}
+}

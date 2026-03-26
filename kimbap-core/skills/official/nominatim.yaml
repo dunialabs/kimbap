@@ -4,6 +4,37 @@ description: OpenStreetMap Nominatim API for geocoding, reverse geocoding, and l
 base_url: https://nominatim.openstreetmap.org
 auth:
   type: none
+triggers:
+  task_verbs: [geocode, search, find, locate, reverse]
+  objects: [addresses, locations, coordinates]
+  instead_of:
+    - calling Nominatim APIs directly without usage-policy-safe request shaping
+  exclusions:
+    - unrelated actions outside geocoding and reverse geocoding
+gotchas:
+  - symptom: Requests are denied with 403 despite valid query
+    likely_cause: Missing required User-Agent header
+    recovery: Always send a descriptive User-Agent header on requests
+    severity: high
+  - symptom: Burst queries start returning 429 errors
+    likely_cause: Nominatim public rate limit exceeded (about 1 request/second)
+    recovery: Throttle requests and queue geocoding calls to respect rate limits
+    severity: high
+  - symptom: lookup results are empty for known OSM entities
+    likely_cause: osm_ids format is invalid
+    recovery: Use prefixed IDs like R123, W456, or N789 as required
+    severity: medium
+  - symptom: Reverse geocode result does not exactly match clicked point
+    likely_cause: Endpoint returns nearest known address/road feature
+    recovery: Treat reverse output as nearest address approximation, not exact parcel identity
+    severity: low
+recipes:
+  - name: Address to coordinates
+    description: Convert a full address string into usable latitude/longitude coordinates
+    steps:
+      - Search using the full address query
+      - Select the best match from returned candidates
+      - Use lat/lon from the first valid result for downstream mapping
 actions:
   search:
     method: GET

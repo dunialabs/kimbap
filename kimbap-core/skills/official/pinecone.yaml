@@ -6,6 +6,37 @@ auth:
   type: header
   header_name: Api-Key
   credential_ref: pinecone.api_key
+triggers:
+  task_verbs: [list, create, manage]
+  objects: [indexes, collections, vector stores]
+  instead_of:
+    - calling Pinecone APIs directly with unmanaged index lifecycle operations
+  exclusions:
+    - unrelated actions outside vector index and collection management
+gotchas:
+  - symptom: create-index rejected for naming rules
+    likely_cause: Index name contains uppercase letters, spaces, or invalid characters
+    recovery: Use lowercase alphanumeric names with hyphens only
+    severity: common
+  - symptom: Queries fail or embeddings mismatch after index creation
+    likely_cause: Index dimension does not match embedding model output size
+    recovery: Set dimension to the exact embedding size used by your model
+    severity: high
+  - symptom: Missing vectors after index deletion
+    likely_cause: Index deletion is irreversible
+    recovery: Require confirmation and backup strategy before delete-index
+    severity: high
+  - symptom: New index cannot be used immediately
+    likely_cause: Provisioning delay (often 30-60 seconds) before ready state
+    recovery: Poll get-index/status until ready before querying or writing vectors
+    severity: medium
+recipes:
+  - name: New index readiness workflow
+    description: Provision a new index and confirm it is ready before use
+    steps:
+      - Create index with valid name, dimension, metric, and spec
+      - Poll get-index details for readiness status
+      - Begin vector operations only after index reports ready
 actions:
   list-indexes:
     method: GET

@@ -70,6 +70,7 @@ JSON.stringify({name: doc.name(), updated: true});`,
 var app = Application("Microsoft Word");
 app.includeStandardAdditions = false;
 if (typeof input.find !== "string") throw new Error("find is required");
+if (input.find.length === 0) throw new Error("find must not be empty");
 if (typeof input.replace !== "string") throw new Error("replace is required");
 
 var doc;

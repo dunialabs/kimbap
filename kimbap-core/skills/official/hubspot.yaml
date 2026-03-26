@@ -5,6 +5,37 @@ base_url: https://api.hubapi.com
 auth:
   type: bearer
   credential_ref: hubspot.token
+triggers:
+  task_verbs: [list, create, search, manage]
+  objects: [contacts, deals, companies, notes]
+  instead_of:
+    - calling HubSpot APIs directly with mismatched token/property formats
+  exclusions:
+    - unrelated actions outside HubSpot CRM object management
+gotchas:
+  - symptom: Authentication fails despite token-looking credential
+    likely_cause: Token is not a private app token (pat-)
+    recovery: Use HubSpot private app bearer token with required scopes
+    severity: high
+  - symptom: Contact creation/update silently misses fields
+    likely_cause: properties object used labels instead of internal property names
+    recovery: Use internal property keys like email, firstname, lastname
+    severity: common
+  - symptom: search-contacts returns unexpected boolean logic
+    likely_cause: filterGroups are ORed while filters within each group are ANDed
+    recovery: Structure filterGroups intentionally based on OR/AND semantics
+    severity: medium
+  - symptom: create-contact returns 409 conflict
+    likely_cause: Contact with the same email already exists
+    recovery: Search by email first and create only if no matching contact exists
+    severity: medium
+recipes:
+  - name: Safe contact creation and note
+    description: Prevent duplicate contacts, then add a follow-up note after create
+    steps:
+      - Search contacts by email to detect existing records
+      - Create contact only when no matching email is found
+      - Create a note associated with the target contact record
 actions:
   list-contacts:
     method: GET

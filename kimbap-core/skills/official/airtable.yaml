@@ -5,6 +5,37 @@ base_url: https://api.airtable.com
 auth:
   type: bearer
   credential_ref: airtable.token
+triggers:
+  task_verbs: [list, read, create, update, delete]
+  objects: [records, tables, bases]
+  instead_of:
+    - calling Airtable APIs directly with manual formula/query composition
+  exclusions:
+    - unrelated actions outside Airtable base/table record management
+gotchas:
+  - symptom: Requests fail for base/table path despite valid names
+    likely_cause: base_id/table identifier mismatch or wrong base_id format
+    recovery: Use base_id that starts with app and correct table name or table ID
+    severity: medium
+  - symptom: Frequent 429 responses during batch operations
+    likely_cause: Exceeded Airtable limit of about 5 requests/second per base
+    recovery: Throttle per-base request rate and add retry backoff
+    severity: high
+  - symptom: Filters return no rows despite expected matches
+    likely_cause: filterByFormula is Airtable formula syntax, not SQL
+    recovery: Use valid Airtable formulas such as {Status} = "Done"
+    severity: common
+  - symptom: Field updates are ignored or create wrong keys
+    likely_cause: Record fields must use display field names, not internal IDs
+    recovery: Send payload fields using exact Airtable field names
+    severity: medium
+recipes:
+  - name: Formula-based record update
+    description: Find records via Airtable formula and update the matched record safely
+    steps:
+      - List records with filterByFormula to locate target rows
+      - Select the intended record_id from filtered results
+      - Update that record with the required field changes
 actions:
   list-records:
     method: GET

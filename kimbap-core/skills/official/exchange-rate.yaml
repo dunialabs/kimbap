@@ -4,6 +4,33 @@ description: Frankfurter API for current and historical foreign exchange rates
 base_url: https://api.frankfurter.app
 auth:
   type: none
+triggers:
+  task_verbs: [convert, check, get, fetch]
+  objects: [exchange rates, currencies, forex]
+  instead_of:
+    - calling Frankfurter APIs directly with ad-hoc currency/date formatting
+  exclusions:
+    - unrelated actions outside currency conversion and rate retrieval
+gotchas:
+  - symptom: Currency lookup returns 404 or missing rates
+    likely_cause: Requested currency is outside Frankfurter supported major set
+    recovery: Validate currency support first and fallback to supported majors
+    severity: medium
+  - symptom: Historical query fails for old dates
+    likely_cause: Rates are only available from 1999-01-04 onward
+    recovery: Use dates on or after 1999-01-04
+    severity: low
+  - symptom: Multi-target conversion returns only one or no targets
+    likely_cause: to parameter format is incorrect
+    recovery: Provide comma-separated targets like USD,EUR,GBP
+    severity: common
+recipes:
+  - name: Multi-currency conversion check
+    description: Retrieve latest rates from one base currency to several targets in one call
+    steps:
+      - Set from_currency to the base currency (for example USD)
+      - Set to_currency as comma-separated targets such as EUR,GBP,JPY
+      - Call get-latest and read the returned rates object
 actions:
   get-latest:
     method: GET

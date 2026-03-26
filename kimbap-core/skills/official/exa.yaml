@@ -5,6 +5,33 @@ base_url: https://api.exa.ai
 auth:
   type: bearer
   credential_ref: exa.api_key
+triggers:
+  task_verbs: [search, discover, find, research, retrieve]
+  objects: [web pages, documents, URLs]
+  instead_of:
+    - calling Exa APIs directly with raw tokens and manual result stitching
+  exclusions:
+    - unrelated actions outside web research and content retrieval
+gotchas:
+  - symptom: Search relevance is poor for concept queries
+    likely_cause: Keyword-style query used where neural search expects natural language intent
+    recovery: Use natural language prompts for neural mode or switch to keyword mode for exact terms
+    severity: medium
+  - symptom: get-contents returns not found for provided IDs
+    likely_cause: IDs are not Exa document IDs from prior search results
+    recovery: Pass only ids returned by Exa search results
+    severity: high
+  - symptom: Fewer results returned than requested numResults
+    likely_cause: Plan-level caps or service truncation limits
+    recovery: Handle truncated results gracefully and paginate or narrow scope
+    severity: low
+recipes:
+  - name: Research and deep-read workflow
+    description: Search broadly, then fetch full content for top relevant documents
+    steps:
+      - Search the topic with a natural language query
+      - Extract top result IDs from search response
+      - Call get-contents with those IDs to retrieve detailed text
 actions:
   search:
     method: POST

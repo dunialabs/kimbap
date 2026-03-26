@@ -5,6 +5,47 @@ base_url: https://api.notion.com/v1
 auth:
   type: bearer
   credential_ref: notion.token
+triggers:
+  task_verbs: [search, create, query, update, read]
+  objects: [pages, databases, blocks, properties]
+  instead_of:
+    - calling Notion APIs directly with raw tokens
+  exclusions:
+    - unrelated actions outside Notion workspace content management
+gotchas:
+  - symptom: Requests fail with validation or unsupported-version style errors
+    likely_cause: Missing or incorrect Notion-Version header
+    recovery: Send Notion-Version header exactly as 2022-06-28 on every request
+    severity: high
+  - symptom: Page creation fails even though title/properties look valid
+    likely_cause: New pages require a valid parent (page_id or database_id)
+    recovery: Provide a parent object explicitly when calling create-page
+    severity: high
+  - symptom: 403 or object_not_found when reading known pages/databases
+    likely_cause: Integration has not been shared with the page/database in Notion UI
+    recovery: Open target page/database in Notion and connect/share it with the integration
+    severity: common
+  - symptom: query-database returns not found or bad request from copied links
+    likely_cause: Passed a page URL/ID instead of a database_id
+    recovery: Resolve and pass the actual database_id for query-database
+    severity: medium
+  - symptom: Appending many blocks fails or only partially writes content
+    likely_cause: append block children calls are limited to 100 blocks per request
+    recovery: Chunk large documents into multiple append-blocks calls
+    severity: medium
+recipes:
+  - name: Create page in database
+    description: Create structured content in a target database and then add body blocks
+    steps:
+      - Query databases to locate the target database_id
+      - Create a page with parent set to that database_id and initial properties
+      - Append page blocks in one or more calls until content is complete
+  - name: Search and update page
+    description: Locate existing content and safely modify page properties
+    steps:
+      - Search by title or keyword to find candidate pages
+      - Get the page to inspect current properties and state
+      - Update page properties with the required changes
 actions:
   search:
     method: POST
@@ -13,7 +54,7 @@ actions:
     args:
       - name: query
         type: string
-        required: true
+        required: false
     request:
       headers:
         Notion-Version: "2022-06-28"

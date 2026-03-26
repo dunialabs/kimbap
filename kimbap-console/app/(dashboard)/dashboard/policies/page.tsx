@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { toast } from 'sonner'
 import {
   Plus,
@@ -13,6 +13,7 @@ import {
   ArrowDown,
   X,
   Loader2,
+  AlertTriangle,
 } from 'lucide-react'
 
 import { api } from '@/lib/api-client'
@@ -650,6 +651,7 @@ export default function PoliciesPage() {
   const { isOwner, isAdmin } = useUserRole()
   const [policies, setPolicies] = useState<PolicySet[]>([])
   const [loading, setLoading] = useState(true)
+  const [loadError, setLoadError] = useState<string | null>(null)
   const [dialogOpen, setDialogOpen] = useState(false)
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
   const [deleteTarget, setDeleteTarget] = useState<PolicySet | null>(null)
@@ -659,6 +661,7 @@ export default function PoliciesPage() {
   const [editingId, setEditingId] = useState<string | null>(null)
   const [formRules, setFormRules] = useState<PolicyRule[]>([])
   const [discardDialogOpen, setDiscardDialogOpen] = useState(false)
+  const policyDialogBodyRef = useRef<HTMLDivElement>(null)
   const canManagePolicies = isOwner || isAdmin
   const canTogglePolicy = isOwner || isAdmin
 
@@ -668,7 +671,9 @@ export default function PoliciesPage() {
       const res = await api.policies.list()
       const data = res.data?.data || res.data
       setPolicies(data?.policySets || [])
+      setLoadError(null)
     } catch {
+      setLoadError('Could not load policies. Check your connection and try again.')
       toast.error('Could not load policies')
     } finally {
       setLoading(false)
@@ -678,6 +683,18 @@ export default function PoliciesPage() {
   useEffect(() => {
     fetchPolicies()
   }, [fetchPolicies])
+
+  useEffect(() => {
+    if (!dialogOpen) {
+      return
+    }
+  
+    const frame = window.requestAnimationFrame(() => {
+      policyDialogBodyRef.current?.querySelector<HTMLInputElement>('input')?.focus()
+    })
+  
+    return () => window.cancelAnimationFrame(frame)
+  }, [dialogOpen])
 
   const openCreate = () => {
     setEditingId(null)
@@ -823,6 +840,13 @@ export default function PoliciesPage() {
           </CardHeader>
         )}
         <CardContent>
+          {loadError ? (
+            <div className="mb-4 flex items-center gap-2 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700 dark:border-red-900/40 dark:bg-red-950/20 dark:text-red-300">
+              <AlertTriangle className="h-4 w-4 shrink-0" aria-hidden="true" />
+              <span>{loadError}</span>
+              <Button variant="outline" size="sm" className="ml-auto" onClick={fetchPolicies}>Retry</Button>
+            </div>
+          ) : null}
           {loading ? (
             <div className="flex min-h-[200px] items-center justify-center">
               <div className="text-center">
@@ -833,8 +857,14 @@ export default function PoliciesPage() {
           ) : policies.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-12 text-center">
               <Shield className="mb-3 h-10 w-10 text-muted-foreground/40" />
-              <p className="text-sm text-muted-foreground">No access policies yet for this server.</p>
-              {canManagePolicies ? (
+              <p className="text-sm text-muted-foreground">
+                {loadError ? 'Policies could not be loaded right now.' : 'No access policies yet for this server.'}
+              </p>
+              {loadError ? (
+                <Button variant="outline" className="mt-4" onClick={fetchPolicies}>
+                  Retry
+                </Button>
+              ) : canManagePolicies ? (
                 <Button variant="outline" className="mt-4" onClick={openCreate}>
                   <Plus className="mr-2 h-4 w-4" />
                   Create Policy
@@ -842,8 +872,9 @@ export default function PoliciesPage() {
               ) : null}
             </div>
           ) : (
-            <Table>
-              <TableHeader>
+            <div className="overflow-x-auto">
+              <Table>
+                <TableHeader>
                 <TableRow>
                   <TableHead>Policy</TableHead>
                   <TableHead>What happens</TableHead>
@@ -947,8 +978,9 @@ export default function PoliciesPage() {
                     </TableRow>
                   )
                 })}
-              </TableBody>
-            </Table>
+                </TableBody>
+              </Table>
+            </div>
           )}
         </CardContent>
       </Card>
@@ -966,7 +998,7 @@ export default function PoliciesPage() {
             </DialogHeader>
           </div>
 
-          <div className="px-6 py-5">
+          <div ref={policyDialogBodyRef} className="px-6 py-5">
             <div className="space-y-5">
               <div className="space-y-3">
                 <div className="flex items-center justify-between">

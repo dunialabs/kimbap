@@ -1,5 +1,7 @@
 'use client'
+import Image from 'next/image'
 import { Menu, LogOut } from 'lucide-react'
+import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { clearAuthState } from '@/lib/api-client'
 import { useState, useEffect, useRef, useCallback } from 'react'
@@ -52,8 +54,15 @@ export function DashboardSidebar() {
           <SheetContent side="left" className="flex flex-col p-0 w-[280px]">
             <SheetTitle className="sr-only">Navigation Menu</SheetTitle>
             <div className="flex h-14 items-center border-b px-4">
-              <img src="/new_logo.svg" width={237} height={34} alt="Kimbap Logo" className="block dark:hidden" />
-              <img src="/darklogo.svg" width={237} height={34} alt="Kimbap Logo" className="hidden dark:block" />
+              <Link
+                href="/dashboard"
+                className="rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2"
+                onClick={() => setMobileMenuOpen(false)}
+                aria-label="Go to dashboard"
+              >
+                <Image src="/new_logo.svg" width={237} height={34} alt="Kimbap Logo" className="block dark:hidden" priority />
+                <Image src="/darklogo.svg" width={237} height={34} alt="Kimbap Logo" className="hidden dark:block" priority />
+              </Link>
             </div>
             <div className="flex-1 overflow-y-auto py-2">
               <SidebarNav onNavigate={() => setMobileMenuOpen(false)} pendingApprovalCount={pendingApprovalCount} />
@@ -70,20 +79,28 @@ export function DashboardSidebar() {
             </div>
           </SheetContent>
         </Sheet>
-        <div className="ml-3">
-          <img src="/new_logo.svg" width={160} height={23} alt="Kimbap Logo" className="block dark:hidden" />
-          <img src="/darklogo.svg" width={160} height={23} alt="Kimbap Logo" className="hidden dark:block" />
-        </div>
+        <Link
+          href="/dashboard"
+          className="ml-3 rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2"
+          aria-label="Go to dashboard"
+        >
+          <Image src="/new_logo.svg" width={160} height={23} alt="Kimbap Logo" className="block dark:hidden" priority />
+          <Image src="/darklogo.svg" width={160} height={23} alt="Kimbap Logo" className="hidden dark:block" priority />
+        </Link>
       </div>
 
       {/* Desktop sidebar */}
       <div className="hidden border-r bg-background md:block fixed h-full w-[220px] lg:w-[280px]">
         <div className="flex h-full max-h-screen flex-col gap-2">
           <div className="flex h-14 items-center border-b px-4 lg:h-[60px] lg:px-6">
-            <div className="flex items-center gap-2 font-semibold flex-1 min-w-0">
-              <img src="/new_logo.svg" width={237} height={34} alt="Kimbap Logo" className="block dark:hidden max-w-full h-auto" />
-              <img src="/darklogo.svg" width={237} height={34} alt="Kimbap Logo" className="hidden dark:block max-w-full h-auto" />
-            </div>
+            <Link
+              href="/dashboard"
+              className="flex items-center gap-2 font-semibold flex-1 min-w-0 rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2"
+              aria-label="Go to dashboard"
+            >
+              <Image src="/new_logo.svg" width={237} height={34} alt="Kimbap Logo" className="block dark:hidden max-w-full h-auto" priority />
+              <Image src="/darklogo.svg" width={237} height={34} alt="Kimbap Logo" className="hidden dark:block max-w-full h-auto" priority />
+            </Link>
           </div>
           <div className="flex-1">
             <SidebarNav pendingApprovalCount={pendingApprovalCount} />

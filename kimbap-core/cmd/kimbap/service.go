@@ -374,28 +374,56 @@ func newServiceExportSkillMDCommand() *cobra.Command {
 }
 
 func writeSkillPackDir(serviceDir string, pack map[string]string) ([]string, error) {
-	if err := os.RemoveAll(serviceDir); err != nil {
-		return nil, fmt.Errorf("clean service directory: %w", err)
-	}
-	if err := os.MkdirAll(serviceDir, 0o755); err != nil {
-		return nil, fmt.Errorf("create service directory: %w", err)
-	}
-	writtenFiles := make([]string, 0, len(pack))
 	names := make([]string, 0, len(pack))
 	for filename := range pack {
-		names = append(names, filename)
-	}
-	sort.Strings(names)
-	for _, filename := range names {
 		if err := validateExportPackFileName(filename); err != nil {
 			return nil, err
 		}
-		outPath := filepath.Join(serviceDir, filename)
-		if err := os.WriteFile(outPath, []byte(pack[filename]), 0o644); err != nil {
+		names = append(names, filename)
+	}
+	sort.Strings(names)
+
+	parentDir := filepath.Dir(serviceDir)
+	if err := os.MkdirAll(parentDir, 0o755); err != nil {
+		return nil, fmt.Errorf("create parent directory: %w", err)
+	}
+	tmpDir, err := os.MkdirTemp(parentDir, ".kimbap-export-*.tmp")
+	if err != nil {
+		return nil, fmt.Errorf("create temp directory: %w", err)
+	}
+	staged := false
+	defer func() {
+		if !staged {
+			os.RemoveAll(tmpDir)
+		}
+	}()
+
+	writtenFiles := make([]string, 0, len(names))
+	for _, filename := range names {
+		if err := os.WriteFile(filepath.Join(tmpDir, filename), []byte(pack[filename]), 0o644); err != nil {
 			return nil, fmt.Errorf("write %s: %w", filename, err)
 		}
-		writtenFiles = append(writtenFiles, outPath)
+		writtenFiles = append(writtenFiles, filepath.Join(serviceDir, filename))
 	}
+
+	oldDir := serviceDir + ".old"
+	hasOld := false
+	if _, statErr := os.Stat(serviceDir); statErr == nil {
+		if err := os.Rename(serviceDir, oldDir); err != nil {
+			return nil, fmt.Errorf("backup existing export dir: %w", err)
+		}
+		hasOld = true
+	}
+	if err := os.Rename(tmpDir, serviceDir); err != nil {
+		if hasOld {
+			_ = os.Rename(oldDir, serviceDir)
+		}
+		return nil, fmt.Errorf("promote temp to target: %w", err)
+	}
+	if hasOld {
+		os.RemoveAll(oldDir)
+	}
+	staged = true
 	return writtenFiles, nil
 }
 

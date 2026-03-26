@@ -9,7 +9,7 @@ import {
   AlertTriangle
 } from 'lucide-react'
 import { Suspense, useState, useEffect, useCallback, useRef } from 'react'
-import { useSearchParams } from 'next/navigation'
+import { usePathname, useRouter, useSearchParams } from 'next/navigation'
 import {
   XAxis,
   YAxis,
@@ -128,13 +128,18 @@ function maskIdentifier(value: string | null | undefined): string {
 
 function TokenUsagePageContent() {
   const searchParams = useSearchParams()
+  const pathname = usePathname()
+  const router = useRouter()
   const [timeRange, setTimeRange] = useState(() => {
     const param = searchParams.get('timeRange')
     const num = param ? Number(param) : NaN
     return [1, 7, 30].includes(num) ? num : 1
   })
   const [loading, setLoading] = useState(true)
-  const [activeTab, setActiveTab] = useState('overview')
+  const [activeTab, setActiveTab] = useState(() => {
+    const requestedTab = searchParams.get('tab')
+    return ['overview', 'geographic', 'patterns'].includes(requestedTab || '') ? requestedTab || 'overview' : 'overview'
+  })
   const [refreshing, setRefreshing] = useState(false)
   const [loadError, setLoadError] = useState<string | null>(null)
   const [tokenDataError, setTokenDataError] = useState<string | null>(null)
@@ -155,6 +160,30 @@ function TokenUsagePageContent() {
       hasDataRef.current = false
     }
   }, [timeRange])
+
+  useEffect(() => {
+    const currentParam = searchParams.get('timeRange')
+    const nextParam = String(timeRange)
+
+    if (currentParam === nextParam) {
+      return
+    }
+
+    const params = new URLSearchParams(searchParams.toString())
+    params.set('timeRange', nextParam)
+    router.replace(`${pathname}?${params.toString()}`, { scroll: false })
+  }, [pathname, router, searchParams, timeRange])
+
+  useEffect(() => {
+    const currentTab = searchParams.get('tab')
+    if (currentTab === activeTab) {
+      return
+    }
+
+    const params = new URLSearchParams(searchParams.toString())
+    params.set('tab', activeTab)
+    router.replace(`${pathname}?${params.toString()}`, { scroll: false })
+  }, [activeTab, pathname, router, searchParams])
 
   const fetchTokenUsageData = useCallback(async () => {
     try {
@@ -409,14 +438,14 @@ function TokenUsagePageContent() {
                 <Key className="h-4 w-4 text-muted-foreground" />
               </CardHeader>
               <CardContent className="flex flex-col gap-1 justify-center">
-                <div
-                  className={
-                    loading ||
-                    summary?.totalTokens == null
-                      ? 'text-sm text-muted-foreground'
-                      : 'text-2xl font-bold'
-                  }
-                >
+                 <div
+                   className={
+                     loading ||
+                     summary?.totalTokens == null
+                       ? (loadError ? 'text-sm text-red-600 dark:text-red-400' : 'text-sm text-muted-foreground')
+                       : 'text-2xl font-bold'
+                   }
+                 >
                   {loading
                     ? 'Loading...'
                     : summary?.totalTokens == null
@@ -442,14 +471,14 @@ function TokenUsagePageContent() {
                 <Zap className="h-4 w-4 text-muted-foreground" />
               </CardHeader>
               <CardContent className="flex flex-col gap-1 justify-center">
-                <div
-                  className={
-                    loading ||
-                    summary?.totalRequests == null
-                      ? 'text-sm text-muted-foreground'
-                      : 'text-2xl font-bold'
-                  }
-                >
+                 <div
+                   className={
+                     loading ||
+                     summary?.totalRequests == null
+                       ? (loadError ? 'text-sm text-red-600 dark:text-red-400' : 'text-sm text-muted-foreground')
+                       : 'text-2xl font-bold'
+                   }
+                 >
                   {loading
                     ? 'Loading...'
                     : summary?.totalRequests == null
@@ -477,8 +506,8 @@ function TokenUsagePageContent() {
                   if (summary?.avgSuccessRate != null) {
                     successRate = summary.avgSuccessRate
                   }
-                  return successRate === null ? (
-                    <div className="text-sm text-muted-foreground">{loadError ? 'Unavailable' : '—'}</div>
+                   return successRate === null ? (
+                    <div className={loadError ? "text-sm text-red-600 dark:text-red-400" : "text-sm text-muted-foreground"}>{loadError ? 'Unavailable' : '—'}</div>
                   ) : (
                     <div className={`text-2xl font-bold ${
                       successRate >= HEALTHY_SUCCESS_RATE_THRESHOLD
@@ -504,14 +533,14 @@ function TokenUsagePageContent() {
                 <Globe className="h-4 w-4 text-muted-foreground" />
               </CardHeader>
               <CardContent className="flex flex-col gap-1 justify-center">
-                <div
-                  className={
-                    loading ||
-                    summary?.totalClients == null
-                      ? 'text-sm text-muted-foreground'
-                      : 'text-2xl font-bold'
-                  }
-                >
+                 <div
+                   className={
+                     loading ||
+                     summary?.totalClients == null
+                       ? (loadError ? 'text-sm text-red-600 dark:text-red-400' : 'text-sm text-muted-foreground')
+                       : 'text-2xl font-bold'
+                   }
+                 >
                   {loading
                     ? 'Loading...'
                     : summary?.totalClients == null

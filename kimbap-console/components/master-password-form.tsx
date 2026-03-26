@@ -1,7 +1,7 @@
 'use client'
 
 import type React from 'react'
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { Button } from '@/components/ui/button'
 import { Label } from '@/components/ui/label'
 import { Alert, AlertDescription } from '@/components/ui/alert'
@@ -20,6 +20,7 @@ export function MasterPasswordForm({ onSuccess }: MasterPasswordFormProps) {
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState('')
   const [cryptoAvailable, setCryptoAvailable] = useState(true)
+  const masterPasswordInputRef = useRef<HTMLInputElement>(null)
 
   // Check Web Crypto API availability on component mount
   useEffect(() => {
@@ -36,6 +37,18 @@ export function MasterPasswordForm({ onSuccess }: MasterPasswordFormProps) {
       }
     }
   }, []) // Only run on mount
+
+  useEffect(() => {
+    if (!cryptoAvailable) {
+      return
+    }
+
+    const frame = window.requestAnimationFrame(() => {
+      masterPasswordInputRef.current?.focus()
+    })
+
+    return () => window.cancelAnimationFrame(frame)
+  }, [cryptoAvailable])
 
   const handleCreatePassword = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -101,6 +114,7 @@ export function MasterPasswordForm({ onSuccess }: MasterPasswordFormProps) {
               id="master-password"
               type={showPassword ? 'text' : 'password'}
               placeholder="At least 10 characters"
+              ref={masterPasswordInputRef}
               value={masterPassword}
               onChange={(e) => {
                 setMasterPassword(e.target.value)
@@ -108,6 +122,9 @@ export function MasterPasswordForm({ onSuccess }: MasterPasswordFormProps) {
               }}
               disabled={isLoading || !cryptoAvailable}
               autoComplete="new-password"
+              autoCapitalize="none"
+              autoCorrect="off"
+              spellCheck={false}
               className="h-12 w-full pl-3 pr-10 rounded-lg border border-input bg-background focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
               required
             />
@@ -149,6 +166,9 @@ export function MasterPasswordForm({ onSuccess }: MasterPasswordFormProps) {
               }}
               disabled={isLoading || !cryptoAvailable}
               autoComplete="new-password"
+              autoCapitalize="none"
+              autoCorrect="off"
+              spellCheck={false}
               className="h-12 w-full pl-3 pr-10 rounded-lg border border-input bg-background focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
               required
             />

@@ -5,6 +5,37 @@ base_url: https://app.posthog.com
 auth:
   type: bearer
   credential_ref: posthog.api_key
+triggers:
+  task_verbs: [list, track, manage, check]
+  objects: [events, feature flags, users, analytics]
+  instead_of:
+    - calling PostHog APIs directly with mixed management/capture credentials
+  exclusions:
+    - unrelated actions outside PostHog analytics and feature management
+gotchas:
+  - symptom: Management API calls fail despite valid project key
+    likely_cause: Personal API key and project capture key were confused
+    recovery: Use bearer personal API key for management endpoints and project_key only for capture
+    severity: high
+  - symptom: Feature flag endpoints return not found for valid project
+    likely_cause: project_id is incorrect or not the numeric project ID
+    recovery: Use numeric project_id from PostHog project settings URL
+    severity: common
+  - symptom: create-feature-flag returns 400 on seemingly valid payload
+    likely_cause: Feature flag key already exists in the project
+    recovery: Use a unique key per project or update existing flag
+    severity: medium
+  - symptom: capture-event fails with bearer token used for management
+    likely_cause: capture endpoint requires project_key rather than personal API key
+    recovery: Call capture-event with project_key credential configured for capture
+    severity: high
+recipes:
+  - name: Feature flag rollout setup
+    description: Audit current flags and create a new uniquely keyed feature flag
+    steps:
+      - List existing feature flags for the project
+      - Choose a unique key not already in use
+      - Create the new feature flag with key, name, and activation settings
 actions:
   list-feature-flags:
     method: GET
@@ -106,6 +137,8 @@ actions:
     method: POST
     path: /capture/
     description: Capture an analytics event
+    warnings:
+      - EU Cloud users must update base_url to https://eu.posthog.com; self-hosted users must use their own instance URL
     auth:
       type: body
       body_field: api_key

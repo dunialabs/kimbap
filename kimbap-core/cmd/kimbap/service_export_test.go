@@ -73,3 +73,94 @@ func TestWriteSkillPackDirRejectsUnsafeFileNames(t *testing.T) {
 		t.Fatal("expected nested filename error")
 	}
 }
+
+func TestWriteSkillPackDirPreservesExistingDirOnUnsafeName(t *testing.T) {
+	base := t.TempDir()
+	serviceDir := filepath.Join(base, "out", "github")
+	if err := os.MkdirAll(serviceDir, 0o755); err != nil {
+		t.Fatalf("mkdir: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(serviceDir, "SKILL.md"), []byte("existing\n"), 0o644); err != nil {
+		t.Fatalf("seed: %v", err)
+	}
+
+	_, err := writeSkillPackDir(serviceDir, map[string]string{"../escape.md": "bad"})
+	if err == nil {
+		t.Fatal("expected unsafe filename error")
+	}
+
+	if _, statErr := os.Stat(filepath.Join(serviceDir, "SKILL.md")); statErr != nil {
+		t.Fatalf("existing SKILL.md should not have been removed on validation error: %v", statErr)
+	}
+}
+
+func TestWriteSkillPackDirReturnsFinalTargetPaths(t *testing.T) {
+	base := t.TempDir()
+	serviceDir := filepath.Join(base, "out", "github")
+
+	pack := map[string]string{
+		"SKILL.md":   "# skill\n",
+		"GOTCHAS.md": "# gotchas\n",
+	}
+
+	written, err := writeSkillPackDir(serviceDir, pack)
+	if err != nil {
+		t.Fatalf("writeSkillPackDir: %v", err)
+	}
+	if len(written) != 2 {
+		t.Fatalf("written count = %d, want 2", len(written))
+	}
+	for _, p := range written {
+		if !filepath.IsAbs(p) {
+			t.Fatalf("expected absolute path, got %q", p)
+		}
+		if dir := filepath.Dir(p); dir != serviceDir {
+			t.Fatalf("expected path under serviceDir %q, got dir %q in %q", serviceDir, dir, p)
+		}
+		if _, statErr := os.Stat(p); statErr != nil {
+			t.Fatalf("reported path %q does not exist: %v", p, statErr)
+		}
+	}
+}
+
+func TestWriteSkillPackDirLeavesNoTmpDirOnSuccess(t *testing.T) {
+	base := t.TempDir()
+	parentDir := filepath.Join(base, "out")
+	serviceDir := filepath.Join(parentDir, "github")
+
+	_, err := writeSkillPackDir(serviceDir, map[string]string{"SKILL.md": "# skill\n"})
+	if err != nil {
+		t.Fatalf("writeSkillPackDir: %v", err)
+	}
+
+	entries, readErr := os.ReadDir(parentDir)
+	if readErr != nil {
+		t.Fatalf("read parent dir: %v", readErr)
+	}
+	for _, e := range entries {
+		if e.IsDir() && e.Name() != "github" {
+			t.Fatalf("unexpected leftover directory in parent: %q", e.Name())
+		}
+	}
+}
+
+func TestWriteSkillPackDirLeavesNoTmpDirOnValidationFailure(t *testing.T) {
+	base := t.TempDir()
+	parentDir := filepath.Join(base, "out")
+	serviceDir := filepath.Join(parentDir, "github")
+	if err := os.MkdirAll(serviceDir, 0o755); err != nil {
+		t.Fatalf("mkdir: %v", err)
+	}
+
+	_, _ = writeSkillPackDir(serviceDir, map[string]string{"../escape.md": "bad"})
+
+	entries, readErr := os.ReadDir(parentDir)
+	if readErr != nil {
+		t.Fatalf("read parent dir: %v", readErr)
+	}
+	for _, e := range entries {
+		if e.IsDir() && e.Name() != "github" {
+			t.Fatalf("unexpected leftover directory in parent after validation error: %q", e.Name())
+		}
+	}
+}

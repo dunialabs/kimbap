@@ -3,7 +3,7 @@
 import { AlertTriangle, Loader2, RefreshCw } from "lucide-react"
 import Link from "next/link"
 import { useState, useEffect, useCallback, useRef, Suspense } from "react"
-import { useSearchParams } from "next/navigation"
+import { usePathname, useRouter, useSearchParams } from "next/navigation"
 
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -48,6 +48,8 @@ interface RecentActivity {
 
 function UsagePageContent() {
   const searchParams = useSearchParams()
+  const pathname = usePathname()
+  const router = useRouter()
   const [overviewSummary, setOverviewSummary] = useState<OverviewSummary | null>(null)
   const [topTools, setTopTools] = useState<TopTool[]>([])
   const [activeTokens, setActiveTokens] = useState<ActiveToken[]>([])
@@ -71,6 +73,19 @@ function UsagePageContent() {
       hasDataRef.current = false
     }
   }, [timeRange])
+
+  useEffect(() => {
+    const currentParam = searchParams.get('timeRange')
+    const nextParam = String(timeRange)
+
+    if (currentParam === nextParam) {
+      return
+    }
+
+    const params = new URLSearchParams(searchParams.toString())
+    params.set('timeRange', nextParam)
+    router.replace(`${pathname}?${params.toString()}`, { scroll: false })
+  }, [pathname, router, searchParams, timeRange])
 
   const fetchUsageData = useCallback(async () => {
     try {
@@ -335,7 +350,7 @@ function UsagePageContent() {
           ) : (
             <div className="space-y-4">
               {topTools.map((tool) => (
-                <Link key={tool.toolName} href={`/dashboard/usage/tool-usage?timeRange=${timeRange}`} className="flex items-center justify-between hover:opacity-90">
+                <Link key={tool.toolName} href={`/dashboard/usage/tool-usage?timeRange=${timeRange}`} className="flex items-center justify-between rounded-md p-1 -m-1 hover:bg-muted/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2">
                   <div className="flex items-center gap-3">
                     <div className={`w-2 h-2 rounded-full`} style={{ backgroundColor: tool.color }}></div>
                     <span className="font-medium">{tool.toolName}</span>
@@ -444,8 +459,11 @@ export default function UsagePage() {
   return (
     <Suspense
       fallback={
-        <div className="flex items-center justify-center py-10">
-          <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" aria-hidden="true" />
+        <div className="flex items-center justify-center py-10" role="status" aria-live="polite">
+          <div className="flex items-center gap-2 text-sm text-muted-foreground">
+            <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
+            <span>Loading usage overview…</span>
+          </div>
         </div>
       }
     >

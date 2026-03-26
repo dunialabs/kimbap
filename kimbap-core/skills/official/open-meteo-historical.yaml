@@ -1,0 +1,77 @@
+name: open-meteo-historical
+version: 1.0.0
+description: Open-Meteo historical weather archive API for past weather data by date range
+base_url: https://archive-api.open-meteo.com
+auth:
+  type: none
+triggers:
+  task_verbs: [get, fetch, query]
+  objects: [historical weather, past conditions, archive data]
+  instead_of:
+    - calling Open-Meteo archive API directly with handcrafted parameters
+  exclusions:
+    - real-time forecasts (use open-meteo service instead)
+gotchas:
+  - symptom: 400 error on date range request
+    likely_cause: Date format is wrong or a future date was requested
+    recovery: Use YYYY-MM-DD format and only past date ranges
+    severity: high
+  - symptom: Empty response for daily or hourly variables
+    likely_cause: Requested variable names are invalid or misspelled
+    recovery: Verify variable names against Open-Meteo API documentation
+    severity: medium
+  - symptom: Missing data for daily aggregates
+    likely_cause: timezone parameter not set when requesting daily variables
+    recovery: Always include timezone when requesting daily aggregates
+    severity: medium
+recipes:
+  - name: Historical weather lookup
+    description: Retrieve daily weather history for a past date range at a given location
+    steps:
+      - Resolve coordinates via open-meteo-geocoding if only a city name is available
+      - Call get-historical with latitude, longitude, start_date, end_date, and desired variables
+actions:
+  get-historical:
+    method: GET
+    path: /v1/archive
+    description: Get historical weather data for a past date range
+    args:
+      - name: latitude
+        type: number
+        required: true
+      - name: longitude
+        type: number
+        required: true
+      - name: start_date
+        type: string
+        required: true
+      - name: end_date
+        type: string
+        required: true
+      - name: daily
+        type: string
+        required: false
+      - name: hourly
+        type: string
+        required: false
+      - name: timezone
+        type: string
+        required: false
+        default: "auto"
+    request:
+      query:
+        latitude: "{latitude}"
+        longitude: "{longitude}"
+        start_date: "{start_date}"
+        end_date: "{end_date}"
+        daily: "{daily}"
+        hourly: "{hourly}"
+        timezone: "{timezone}"
+    response:
+      type: object
+    risk:
+      level: low
+    retry:
+      max_attempts: 3
+      backoff_ms: 200
+      retry_on: [429, 500, 502, 503]

@@ -5,6 +5,37 @@ base_url: https://api.sendgrid.com/v3
 auth:
   type: bearer
   credential_ref: sendgrid.api_key
+triggers:
+  task_verbs: [send, deliver, report, check]
+  objects: [emails, stats, templates]
+  instead_of:
+    - calling SendGrid APIs directly with raw tokens
+  exclusions:
+    - unrelated actions outside email delivery and reporting
+gotchas:
+  - symptom: send-email returns 403 forbidden for valid payload
+    likely_cause: from address is not a verified sender identity in SendGrid
+    recovery: Verify sender domain/address in SendGrid and use that address for from
+    severity: high
+  - symptom: Large recipient batch fails or is partially accepted
+    likely_cause: personalizations supports up to 1000 recipients per send call
+    recovery: Split recipients into batches under the 1000-recipient limit
+    severity: medium
+  - symptom: Recipient rendering differs across email clients
+    likely_cause: Only one body format was set (text or html)
+    recovery: Provide both text_body and HTML body for better client compatibility
+    severity: medium
+  - symptom: get-stats returns 400 for date filters
+    likely_cause: start_date is not formatted as YYYY-MM-DD
+    recovery: Pass start_date using strict YYYY-MM-DD format
+    severity: common
+recipes:
+  - name: Transactional send and verification
+    description: Send a transactional email and verify delivery metrics after sending
+    steps:
+      - Send email with to, verified from, subject, and text body
+      - Optionally include HTML body for richer client rendering
+      - Query stats with a valid start_date to confirm activity
 actions:
   send-email:
     method: POST

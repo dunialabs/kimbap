@@ -1,7 +1,7 @@
 'use client'
 
 import type React from 'react'
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { Button } from '@/components/ui/button'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Eye, EyeOff, LogIn } from 'lucide-react'
@@ -47,10 +47,23 @@ export function LoginForm({
   const [loginError, setLoginError] = useState('')
   const [tokenError, setTokenError] = useState('')
   const [isLoggingIn, setIsLoggingIn] = useState(false)
+  const credentialInputRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
     setLoginMode(MasterPasswordManager.hasMasterPassword() ? 'password' : 'token')
   }, [])
+
+  useEffect(() => {
+    if (!loginMode) {
+      return
+    }
+
+    const frame = window.requestAnimationFrame(() => {
+      credentialInputRef.current?.focus()
+    })
+
+    return () => window.cancelAnimationFrame(frame)
+  }, [loginMode])
 
   const handleLogin = async () => {
     if (!loginMode) return
@@ -255,6 +268,7 @@ export function LoginForm({
                 : 'Enter access token'
             }
             aria-label={loginMode === 'password' ? 'Master Password' : 'Access Token'}
+            ref={credentialInputRef}
             value={loginMode === 'password' ? loginMasterPassword : token}
             onChange={(e) => {
               if (loginMode === 'password') {
@@ -268,6 +282,9 @@ export function LoginForm({
             disabled={isLoggingIn}
             className="h-12 w-full pl-3 pr-10 rounded-lg border border-input bg-background focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-foreground"
             autoComplete={loginMode === 'password' ? 'current-password' : 'off'}
+            autoCapitalize="none"
+            autoCorrect="off"
+            spellCheck={false}
           />
           {loginMode === 'password' && (
             <button

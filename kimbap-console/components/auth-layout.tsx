@@ -6,6 +6,8 @@
  * @FilePath: /kimbap-console/components/auth-layout.tsx
  * @Description: Authentication page layout wrapper
  */
+import Image from 'next/image'
+import Link from 'next/link'
 import type React from 'react'
 
 interface AuthLayoutProps {
@@ -35,8 +37,14 @@ export function AuthLayout({ children }: AuthLayoutProps) {
         <div className="w-full flex flex-col">
           {/* Logo */}
           <div className="p-[14px]">
-            <img src="/new_logo.svg" alt="Kimbap Logo" width={239} height={34} className="block dark:hidden" />
-            <img src="/darklogo.svg" alt="Kimbap Logo" width={239} height={34} className="hidden dark:block" />
+            <Link
+              href="/"
+              className="inline-block rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2"
+              aria-label="Go to sign in"
+            >
+              <Image src="/new_logo.svg" alt="Kimbap Logo" width={239} height={34} className="block dark:hidden" priority />
+              <Image src="/darklogo.svg" alt="Kimbap Logo" width={239} height={34} className="hidden dark:block" priority />
+            </Link>
           </div>
 
           {/* Content */}

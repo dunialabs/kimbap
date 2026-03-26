@@ -4,6 +4,37 @@ description: CoinGecko API for cryptocurrency prices, market data, and trending 
 base_url: https://api.coingecko.com
 auth:
   type: none
+triggers:
+  task_verbs: [get, check, fetch, list]
+  objects: [crypto prices, coins, markets]
+  instead_of:
+    - calling CoinGecko APIs directly with guessed IDs and currencies
+  exclusions:
+    - unrelated actions outside cryptocurrency market and pricing data
+gotchas:
+  - symptom: API starts returning 429 on routine polling
+    likely_cause: Free-tier rate limit exceeded
+    recovery: Add retry/backoff and reduce request frequency
+    severity: high
+  - symptom: Price responses return empty object for expected coin
+    likely_cause: Coin ID must be lowercase slug, not ticker symbol
+    recovery: Use canonical IDs like bitcoin or ethereum from list-coins
+    severity: common
+  - symptom: Missing currency values in returned prices
+    likely_cause: vs_currencies contains invalid or unsupported entries
+    recovery: Pass valid comma-separated currencies like usd,eur
+    severity: medium
+  - symptom: Repeated list-coins calls are slow and expensive
+    likely_cause: list-coins returns very large datasets
+    recovery: Cache list-coins results and filter client-side instead of refetching repeatedly
+    severity: low
+recipes:
+  - name: Multi-coin price check
+    description: Fetch prices for one or more coin IDs in multiple fiat currencies
+    steps:
+      - Resolve canonical coin IDs (for example bitcoin,ethereum)
+      - Call get-price with ids and vs_currencies (for example usd,eur)
+      - Read per-coin currency values from the response object
 actions:
   get-price:
     method: GET

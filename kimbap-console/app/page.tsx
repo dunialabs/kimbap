@@ -1,5 +1,6 @@
 'use client'
 
+import Image from 'next/image'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { Suspense, useEffect, useState } from 'react'
 
@@ -40,12 +41,15 @@ function WelcomePageContent() {
 
   if (checkingAuth) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-muted" role="status">
-        <div
-          className="h-8 w-8 animate-spin rounded-full border-2 border-muted-foreground/30 border-t-foreground"
-          aria-hidden="true"
-        />
-        <span className="sr-only">Checking authentication…</span>
+      <div className="flex min-h-screen items-center justify-center bg-muted px-4" role="status" aria-live="polite">
+        <div className="text-center">
+          <div
+            className="mx-auto mb-4 h-8 w-8 animate-spin rounded-full border-2 border-muted-foreground/30 border-t-foreground"
+            aria-hidden="true"
+          />
+          <h1 className="text-lg font-semibold">Checking your session</h1>
+          <p className="text-sm text-muted-foreground">Confirming whether this browser is already connected…</p>
+        </div>
       </div>
     )
   }
@@ -68,8 +72,8 @@ function WelcomePageContent() {
         <div className="flex-1 flex bg-white dark:bg-slate-900 rounded-[12px]">
           <div className="w-full flex flex-col">
             <div className="p-[14px]">
-              <img src="/new_logo.svg" alt="Kimbap Logo" width={226} height={32} className="block dark:hidden" />
-              <img src="/darklogo.svg" alt="Kimbap Logo" width={226} height={32} className="hidden dark:block" />
+              <Image src="/new_logo.svg" alt="Kimbap Logo" width={226} height={32} className="block dark:hidden" priority />
+              <Image src="/darklogo.svg" alt="Kimbap Logo" width={226} height={32} className="hidden dark:block" priority />
             </div>
             <div className="flex-1 flex flex-col justify-center items-center">
               <LoginForm

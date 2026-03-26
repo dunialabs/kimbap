@@ -1,7 +1,7 @@
 "use client"
 
 import { Mail, LogIn, ArrowLeft, Loader2 } from "lucide-react"
-import { useState } from "react"
+import { useRef, useState, useEffect } from "react"
 
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Button } from "@/components/ui/button"
@@ -31,6 +31,8 @@ export function AuthLoginDialog({
   const [verificationCode, setVerificationCode] = useState("")
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState("")
+  const emailInputRef = useRef<HTMLInputElement>(null)
+  const verificationCodeInputRef = useRef<HTMLInputElement>(null)
 
   const resetForm = () => {
     setStep("login")
@@ -43,6 +45,23 @@ export function AuthLoginDialog({
   const validateEmail = (email: string) => {
     return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)
   }
+
+  useEffect(() => {
+    if (!open) {
+      return
+    }
+
+    const frame = window.requestAnimationFrame(() => {
+      if (step === "login") {
+        emailInputRef.current?.focus()
+        return
+      }
+
+      verificationCodeInputRef.current?.focus()
+    })
+
+    return () => window.cancelAnimationFrame(frame)
+  }, [open, step])
 
   const handleSendVerificationCode = async () => {
     if (!email.trim()) {
@@ -138,14 +157,18 @@ export function AuthLoginDialog({
                     id="login-email"
                     type="email"
                     placeholder="your@email.com"
+                    ref={emailInputRef}
                     value={email}
                     onChange={(e) => {
                       setEmail(e.target.value)
                       setError("")
                     }}
                     disabled={isLoading}
+                    autoCapitalize="none"
+                    autoCorrect="off"
+                    spellCheck={false}
+                    autoComplete="email"
                     className={error ? "border-red-500" : ""}
-                    autoFocus
                   />
                 </div>
 
@@ -201,12 +224,15 @@ export function AuthLoginDialog({
                     id="verification-code"
                     type="text"
                     placeholder="000000"
+                    ref={verificationCodeInputRef}
                     value={verificationCode}
                     onChange={(e) => {
                       setVerificationCode(e.target.value.replace(/\D/g, '').slice(0, 6))
                       setError("")
                     }}
                     disabled={isLoading}
+                    inputMode="numeric"
+                    autoComplete="one-time-code"
                     className={`text-center text-lg tracking-widest ${error ? "border-red-500" : ""}`}
                     maxLength={6}
                   />

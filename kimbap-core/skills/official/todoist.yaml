@@ -5,6 +5,43 @@ base_url: https://api.todoist.com/rest/v2
 auth:
   type: bearer
   credential_ref: todoist.token
+triggers:
+  task_verbs: [create, complete, list, manage, prioritize]
+  objects: [tasks, projects, labels]
+  instead_of:
+    - calling Todoist APIs directly with raw tokens
+  exclusions:
+    - unrelated actions outside Todoist task/project management
+gotchas:
+  - symptom: Task lookup/update fails after converting IDs in code
+    likely_cause: Todoist v2 task IDs are strings, not integers
+    recovery: Treat task_id values as strings end-to-end without numeric coercion
+    severity: common
+  - symptom: close-task appears to fail because response body is empty
+    likely_cause: close-task returns HTTP 204 No Content by design
+    recovery: Treat 204 as success and do not expect JSON payload
+    severity: low
+  - symptom: due_string scheduling behaves unexpectedly for natural dates
+    likely_cause: due_string natural language parsing expects English phrases
+    recovery: Use English values like tomorrow or next Monday
+    severity: medium
+  - symptom: create-task returns 400 when assigning to project
+    likely_cause: project_id does not exist or is not accessible
+    recovery: List projects first and pass a valid existing project_id
+    severity: medium
+recipes:
+  - name: Task triage and completion
+    description: Prioritize open tasks and close completed items in one flow
+    steps:
+      - List tasks using a filter or project scope
+      - Update task priority/metadata for important items
+      - Close tasks that are already completed
+  - name: Project onboarding setup
+    description: Create a new project and seed it with initial actionable tasks
+    steps:
+      - Create a project for the new initiative
+      - Create starter tasks using the returned project_id
+      - List project tasks to confirm setup
 actions:
   list-tasks:
     method: GET

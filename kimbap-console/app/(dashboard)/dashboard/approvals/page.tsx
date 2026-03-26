@@ -200,6 +200,7 @@ export default function ApprovalsPage() {
   const [pendingCount, setPendingCount] = useState(0);
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [hasMore, setHasMore] = useState(false);
   const [statusFilter, setStatusFilter] = useState<StatusFilter>(DEFAULT_STATUS_FILTER);
   const [userFilter, setUserFilter] = useState('');
@@ -211,9 +212,11 @@ export default function ApprovalsPage() {
   const [decideReason, setDecideReason] = useState('');
   const [deciding, setDeciding] = useState(false);
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
+  const decideReasonRef = useRef<HTMLTextAreaElement>(null);
   const [refreshFailed, setRefreshFailed] = useState(false);
   const [timeAgo, setTimeAgo] = useState('');
   const [loadedPages, setLoadedPages] = useState(1);
+  const hasActiveFilters = statusFilter !== DEFAULT_STATUS_FILTER || userFilter.trim().length > 0;
   const refreshTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const tickRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const loadedPagesRef = useRef(1);
@@ -271,6 +274,7 @@ export default function ApprovalsPage() {
           setPendingCount(countData?.count || 0);
         }
         setHasMore(Boolean(listData?.hasMore));
+        setLoadError(null);
         const resolvedPages = append ? page : Math.max(1, Math.ceil(pageSize / BASE_PAGE_SIZE));
         loadedPagesRef.current = resolvedPages;
         setLoadedPages(resolvedPages);
@@ -282,6 +286,7 @@ export default function ApprovalsPage() {
           return;
         }
         if (isInitialLoad.current) toast.error('Could not load approval requests');
+        setLoadError('Could not load approval requests. Check your connection and try again.');
         setRefreshFailed(true);
       } finally {
         if (fetchVersion !== fetchVersionRef.current) {
@@ -333,6 +338,18 @@ export default function ApprovalsPage() {
     };
   }, [fetchData, statusFilter, userFilter]);
 
+  useEffect(() => {
+    if (!decideDialog) {
+      return;
+    }
+
+    const frame = window.requestAnimationFrame(() => {
+      decideReasonRef.current?.focus();
+    });
+
+    return () => window.cancelAnimationFrame(frame);
+  }, [decideDialog]);
+
   const handleLoadMore = async () => {
     if (loadingMore || !hasMore) return;
     await fetchData({
@@ -345,6 +362,11 @@ export default function ApprovalsPage() {
   const openDecideDialog = (request: ApprovalRequest, decision: 'APPROVED' | 'REJECTED') => {
     setDecideDialog({ request, decision });
     setDecideReason('');
+  };
+
+  const resetFilters = () => {
+    setStatusFilter(DEFAULT_STATUS_FILTER);
+    setUserFilter('');
   };
 
   const handleDecide = async () => {
@@ -396,8 +418,9 @@ export default function ApprovalsPage() {
                 pageSize: loadedPagesRef.current * BASE_PAGE_SIZE,
               })
             }
+            disabled={loading || loadingMore}
           >
-            <RefreshCw className="h-4 w-4 mr-2" />
+            <RefreshCw className={`h-4 w-4 mr-2 ${loading || loadingMore ? 'animate-spin' : ''}`} />
             Refresh
           </Button>
         </div>
@@ -454,11 +477,29 @@ export default function ApprovalsPage() {
                 onChange={(e) => setUserFilter(e.target.value)}
                 className="h-8 w-[160px] text-sm"
                 aria-label="Filter by user"
+                autoCapitalize="none"
+                autoCorrect="off"
+                spellCheck={false}
               />
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={resetFilters}
+                disabled={!hasActiveFilters}
+              >
+                Reset filters
+              </Button>
             </div>
           </div>
         </CardHeader>
         <CardContent>
+          {loadError ? (
+            <div className="mb-4 flex items-center gap-2 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700 dark:border-red-900/40 dark:bg-red-950/20 dark:text-red-300">
+              <AlertTriangle className="h-4 w-4 shrink-0" aria-hidden="true" />
+              <span>{loadError}</span>
+              <Button variant="outline" size="sm" className="ml-auto" onClick={() => void fetchData({ page: 1, pageSize: loadedPagesRef.current * BASE_PAGE_SIZE, status: statusFilter, userId: userFilter })}>Retry</Button>
+            </div>
+          ) : null}
           {loading ? (
             <div className="flex items-center justify-center min-h-[200px]" role="status">
               <div className="text-center">
@@ -470,12 +511,28 @@ export default function ApprovalsPage() {
             <div className="flex flex-col items-center justify-center py-12 text-center">
               <ShieldCheck className="h-10 w-10 text-muted-foreground/40 mb-3" />
               <p className="text-sm text-muted-foreground">
-                {statusFilter === 'all' && !userFilter.trim()
+                {loadError
+                  ? 'Approval requests could not be loaded right now.'
+                  : statusFilter === 'all' && !userFilter.trim()
                   ? 'No approval requests right now'
                   : statusFilter === DEFAULT_STATUS_FILTER && !userFilter.trim()
                   ? 'No pending approvals right now.'
                   : 'No requests match your filters'}
               </p>
+              {loadError ? (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="mt-2"
+                  onClick={() => void fetchData({ page: 1, pageSize: loadedPagesRef.current * BASE_PAGE_SIZE, status: statusFilter, userId: userFilter })}
+                >
+                  Retry
+                </Button>
+              ) : hasActiveFilters && (
+                <Button variant="ghost" size="sm" className="mt-2" onClick={resetFilters}>
+                  Reset filters
+                </Button>
+              )}
             </div>
           ) : (
             <div className="max-h-[min(65dvh,42rem)] overflow-auto">
@@ -768,6 +825,7 @@ export default function ApprovalsPage() {
                   placeholder="Add a reason for this decision..."
                   value={decideReason}
                   onChange={(e) => setDecideReason(e.target.value)}
+                  ref={decideReasonRef}
                   rows={3}
                 />
               </div>

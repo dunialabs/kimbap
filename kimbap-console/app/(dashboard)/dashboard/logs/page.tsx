@@ -15,7 +15,7 @@ import {
   ChevronUp
 } from 'lucide-react'
 import { Suspense, useState, useEffect, useCallback, useRef } from 'react'
-import { useSearchParams } from 'next/navigation'
+import { usePathname, useRouter, useSearchParams } from 'next/navigation'
 import { toast } from 'sonner'
 
 import { api } from '@/lib/api-client'
@@ -114,6 +114,8 @@ interface LogStatistics {
 
 function LogsPageContent() {
   const searchParams = useSearchParams()
+  const pathname = usePathname()
+  const router = useRouter()
   const [logs, setLogs] = useState<LogEntry[]>([])
   const [totalCount, setTotalCount] = useState<number>(0)
   const [totalPages, setTotalPages] = useState<number>(0)
@@ -135,8 +137,33 @@ function LogsPageContent() {
   const [statistics, setStatistics] = useState<LogStatistics | null>(null)
   const [statsLoading, setStatsLoading] = useState<boolean>(false)
   const [statsError, setStatsError] = useState<string | null>(null)
-  const [activeTab, setActiveTab] = useState<string>('table')
+  const [activeTab, setActiveTab] = useState<string>(() => {
+    const requestedTab = searchParams.get('tab')
+    return ['table', 'raw', 'statistics'].includes(requestedTab || '') ? requestedTab || 'table' : 'table'
+  })
   const [statisticsTimeFilter, setStatisticsTimeFilter] = useState<string>(() => getStatisticsTimeRange(timeFilter))
+
+  useEffect(() => {
+    const currentParam = searchParams.get('timeRange')
+    if (currentParam === timeFilter) {
+      return
+    }
+
+    const params = new URLSearchParams(searchParams.toString())
+    params.set('timeRange', timeFilter)
+    router.replace(`${pathname}?${params.toString()}`, { scroll: false })
+  }, [pathname, router, searchParams, timeFilter])
+
+  useEffect(() => {
+    const currentTab = searchParams.get('tab')
+    if (currentTab === activeTab) {
+      return
+    }
+
+    const params = new URLSearchParams(searchParams.toString())
+    params.set('tab', activeTab)
+    router.replace(`${pathname}?${params.toString()}`, { scroll: false })
+  }, [activeTab, pathname, router, searchParams])
   const tableScopedFiltersEnabled = activeTab !== 'statistics'
   const [latestLogId, setLatestLogId] = useState<number>(0)
   const [realtimeHealthy, setRealtimeHealthy] = useState<boolean>(true)
@@ -602,6 +629,9 @@ function LogsPageContent() {
                       value={searchTerm}
                       onChange={(e) => { setSearchTerm(e.target.value); setCurrentPage(1) }}
                       className="pl-10"
+                      autoCapitalize="none"
+                      autoCorrect="off"
+                      spellCheck={false}
                     />
                   </div>
                 </div>
@@ -1050,6 +1080,15 @@ function LogsPageContent() {
                   <Activity className="h-12 w-12 mb-3 opacity-40" />
                   <p className="text-sm">{loadError || 'No logs available'}</p>
                   <p className="text-xs mt-1">{loadError ? 'Try refresh to load data again' : 'Try adjusting your filters or check back later'}</p>
+                  {loadError ? (
+                    <Button variant="outline" size="sm" className="mt-3" onClick={handleRefresh}>
+                      Retry
+                    </Button>
+                  ) : hasActiveFilters ? (
+                    <Button variant="ghost" size="sm" className="mt-3" onClick={clearFilters}>
+                      Reset filters
+                    </Button>
+                  ) : null}
                 </div>
               ) : (
                 <Textarea
@@ -1065,6 +1104,13 @@ function LogsPageContent() {
         </TabsContent>
 
         <TabsContent value="statistics" className="space-y-4">
+          {statsError ? (
+            <div className="flex items-center gap-2 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700 dark:border-red-900/40 dark:bg-red-950/20 dark:text-red-300">
+              <AlertTriangle className="h-4 w-4 shrink-0" aria-hidden="true" />
+              <span>{statsError}</span>
+              <Button variant="outline" size="sm" className="ml-auto" onClick={() => void loadStatistics()}>Retry</Button>
+            </div>
+          ) : null}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
             <Card className="h-full">
               <CardHeader className="pb-2">
@@ -1072,7 +1118,7 @@ function LogsPageContent() {
                 <CardDescription className="text-xs">{getTimeRangeLabel(statisticsTimeFilter)}</CardDescription>
               </CardHeader>
               <CardContent className="flex flex-col gap-1 justify-center">
-                <div className={statsLoading || !statistics ? "text-sm text-muted-foreground" : "text-2xl font-bold"}>
+                <div className={statsLoading || !statistics ? (statsError ? "text-sm text-red-600 dark:text-red-400" : "text-sm text-muted-foreground") : "text-2xl font-bold"}>
                   {statsLoading
                     ? 'Loading...'
                     : !statistics
@@ -1088,7 +1134,7 @@ function LogsPageContent() {
                 <CardDescription className="text-xs">{getTimeRangeLabel(statisticsTimeFilter)}</CardDescription>
               </CardHeader>
               <CardContent className="flex flex-col gap-1 justify-center">
-                <div className={statsLoading || !statistics ? "text-sm text-muted-foreground" : "text-2xl font-bold"}>
+                <div className={statsLoading || !statistics ? (statsError ? "text-sm text-red-600 dark:text-red-400" : "text-sm text-muted-foreground") : "text-2xl font-bold"}>
                   {statsLoading
                     ? 'Loading...'
                     : !statistics
@@ -1107,7 +1153,7 @@ function LogsPageContent() {
                 <CardDescription className="text-xs">{getTimeRangeLabel(statisticsTimeFilter)}</CardDescription>
               </CardHeader>
               <CardContent className="flex flex-col gap-1 justify-center">
-                <div className={statsLoading || !statistics ? "text-sm text-muted-foreground" : "text-2xl font-bold"}>
+                <div className={statsLoading || !statistics ? (statsError ? "text-sm text-red-600 dark:text-red-400" : "text-sm text-muted-foreground") : "text-2xl font-bold"}>
                   {statsLoading
                     ? 'Loading...'
                     : !statistics
@@ -1124,7 +1170,7 @@ function LogsPageContent() {
                 <CardDescription className="text-xs">{getTimeRangeLabel(statisticsTimeFilter)}</CardDescription>
               </CardHeader>
               <CardContent className="flex flex-col gap-1 justify-center">
-                <div className={statsLoading || !statistics ? "text-sm text-muted-foreground" : "text-2xl font-bold"}>
+                <div className={statsLoading || !statistics ? (statsError ? "text-sm text-red-600 dark:text-red-400" : "text-sm text-muted-foreground") : "text-2xl font-bold"}>
                   {statsLoading
                     ? 'Loading...'
                     : !statistics

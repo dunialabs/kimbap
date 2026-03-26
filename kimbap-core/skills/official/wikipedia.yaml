@@ -4,6 +4,33 @@ description: Wikipedia REST API for article summaries, search, and historical ev
 base_url: https://en.wikipedia.org/api/rest_v1
 auth:
   type: none
+triggers:
+  task_verbs: [search, look up, find, read, summarize]
+  objects: [articles, pages, topics, facts]
+  instead_of:
+    - calling Wikipedia APIs directly with raw title/path guessing
+  exclusions:
+    - unrelated actions outside encyclopedic lookup and summaries
+gotchas:
+  - symptom: get-summary returns 404 for seemingly valid topic
+    likely_cause: Requested title is a disambiguation page rather than a concrete article
+    recovery: Use search first and retry with a more specific page title
+    severity: common
+  - symptom: Summary lookup misses expected article
+    likely_cause: Title casing/format mismatch, including underscore vs space conventions
+    recovery: Use canonical title from search results and encode spaces as underscores
+    severity: medium
+  - symptom: on-this-day queries return empty/error for selected date
+    likely_cause: Requested date is in the future
+    recovery: Use historical dates only for on-this-day endpoints
+    severity: low
+recipes:
+  - name: Topic research lookup
+    description: Find the best-matching page for a keyword and retrieve concise summary content
+    steps:
+      - Search Wikipedia with the target keyword
+      - Select the top relevant title from results
+      - Get-summary for that title to produce a concise briefing
 actions:
   get-summary:
     method: GET

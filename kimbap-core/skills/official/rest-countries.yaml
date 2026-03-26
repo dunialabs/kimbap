@@ -4,6 +4,33 @@ description: REST Countries API for country information, search, and regional da
 base_url: https://restcountries.com/v3.1
 auth:
   type: none
+triggers:
+  task_verbs: [look up, find, get, list]
+  objects: [countries, regions, capitals]
+  instead_of:
+    - calling REST Countries APIs directly with raw endpoint guessing
+  exclusions:
+    - unrelated actions outside country and region metadata lookup
+gotchas:
+  - symptom: Name-based search misses obvious country intent
+    likely_cause: Query term is too vague or does not match official naming
+    recovery: Use more specific names such as United States instead of America
+    severity: common
+  - symptom: Code-based lookup fails for valid-looking values
+    likely_cause: Code is not ISO alpha-2 or alpha-3 format
+    recovery: Pass only 2-letter or 3-letter ISO country codes
+    severity: medium
+  - symptom: get-all responses are slow or heavy to process
+    likely_cause: Endpoint returns very large full country payloads by default
+    recovery: Use fields parameter to request only required properties
+    severity: medium
+recipes:
+  - name: Regional country listing
+    description: Retrieve all countries in a region and then narrow by population criteria
+    steps:
+      - Call get-by-region with the target region name (for example europe)
+      - Read returned country list and associated population fields
+      - Filter client-side to keep countries matching the desired population range
 actions:
   get-all:
     method: GET

@@ -2,7 +2,7 @@
 
 import { Wrench, TrendingUp, CheckCircle, XCircle, Clock, Activity, Zap, RefreshCw, AlertTriangle } from "lucide-react"
 import { Suspense, useState, useEffect, useCallback, useRef } from "react"
-import { useSearchParams } from "next/navigation"
+import { usePathname, useRouter, useSearchParams } from "next/navigation"
 import {
   BarChart,
   Bar,
@@ -100,13 +100,18 @@ const HEALTHY_SUCCESS_RATE_THRESHOLD = 95
 
 function ToolUsagePageContent() {
   const searchParams = useSearchParams()
+  const pathname = usePathname()
+  const router = useRouter()
   const [timeRange, setTimeRange] = useState(() => {
     const param = searchParams.get('timeRange')
     const num = param ? Number(param) : NaN
     return [1, 7, 30].includes(num) ? num : 1
   })
   const [loading, setLoading] = useState(true)
-  const [activeTab, setActiveTab] = useState('overview')
+  const [activeTab, setActiveTab] = useState(() => {
+    const requestedTab = searchParams.get('tab')
+    return ['overview', 'performance', 'errors', 'trends', 'actions'].includes(requestedTab || '') ? requestedTab || 'overview' : 'overview'
+  })
   const [actionLoading, setActionLoading] = useState(false)
   const [refreshing, setRefreshing] = useState(false)
   const [loadError, setLoadError] = useState<string | null>(null)
@@ -134,6 +139,30 @@ function ToolUsagePageContent() {
       hasDataRef.current = false
     }
   }, [timeRange])
+
+  useEffect(() => {
+    const currentParam = searchParams.get('timeRange')
+    const nextParam = String(timeRange)
+
+    if (currentParam === nextParam) {
+      return
+    }
+
+    const params = new URLSearchParams(searchParams.toString())
+    params.set('timeRange', nextParam)
+    router.replace(`${pathname}?${params.toString()}`, { scroll: false })
+  }, [pathname, router, searchParams, timeRange])
+
+  useEffect(() => {
+    const currentTab = searchParams.get('tab')
+    if (currentTab === activeTab) {
+      return
+    }
+
+    const params = new URLSearchParams(searchParams.toString())
+    params.set('tab', activeTab)
+    router.replace(`${pathname}?${params.toString()}`, { scroll: false })
+  }, [activeTab, pathname, router, searchParams])
 
   const fetchToolUsageData = useCallback(async () => {
     try {
@@ -393,7 +422,7 @@ function ToolUsagePageContent() {
                 <Wrench className="h-4 w-4 text-muted-foreground" />
               </CardHeader>
               <CardContent className="flex flex-col gap-1 justify-center">
-                <div className={loading || summary?.totalTools == null ? "text-sm text-muted-foreground" : "text-2xl font-bold"}>
+                <div className={loading || summary?.totalTools == null ? (loadError ? "text-sm text-red-600 dark:text-red-400" : "text-sm text-muted-foreground") : "text-2xl font-bold"}>
                   {loading
                     ? 'Loading...'
                     : summary?.totalTools == null
@@ -417,7 +446,7 @@ function ToolUsagePageContent() {
                 <Zap className="h-4 w-4 text-muted-foreground" />
               </CardHeader>
               <CardContent className="flex flex-col gap-1 justify-center">
-                <div className={loading || summary?.totalRequests == null ? "text-sm text-muted-foreground" : "text-2xl font-bold"}>
+                <div className={loading || summary?.totalRequests == null ? (loadError ? "text-sm text-red-600 dark:text-red-400" : "text-sm text-muted-foreground") : "text-2xl font-bold"}>
                   {loading
                     ? 'Loading...'
                     : summary?.totalRequests == null
@@ -433,9 +462,9 @@ function ToolUsagePageContent() {
                 <TrendingUp className="h-4 w-4 text-muted-foreground" />
               </CardHeader>
               <CardContent className="flex flex-col gap-1 justify-center">
-                <div className={
+                 <div className={
                   loading || summary?.avgSuccessRate == null
-                    ? "text-sm text-muted-foreground"
+                    ? (loadError ? "text-sm text-red-600 dark:text-red-400" : "text-sm text-muted-foreground")
                     : summary.avgSuccessRate >= HEALTHY_SUCCESS_RATE_THRESHOLD
                     ? "text-2xl font-bold text-green-600 dark:text-green-400"
                     : summary.avgSuccessRate < 80
@@ -457,7 +486,7 @@ function ToolUsagePageContent() {
                 <Clock className="h-4 w-4 text-muted-foreground" />
               </CardHeader>
               <CardContent className="flex flex-col gap-1 justify-center">
-                <div className={loading || summary?.avgResponseTime == null ? "text-sm text-muted-foreground" : "text-2xl font-bold"}>
+                <div className={loading || summary?.avgResponseTime == null ? (loadError ? "text-sm text-red-600 dark:text-red-400" : "text-sm text-muted-foreground") : "text-2xl font-bold"}>
                   {loading
                     ? 'Loading...'
                     : summary?.avgResponseTime == null

@@ -13,7 +13,7 @@ import {
   BookOpen
 } from 'lucide-react'
 import Link from 'next/link'
-import { usePathname } from 'next/navigation'
+import { usePathname, useRouter } from 'next/navigation'
 import { useState, useEffect } from 'react'
 
 import {
@@ -53,6 +53,7 @@ interface SidebarNavProps {
 
 export function SidebarNav({ onNavigate, pendingApprovalCount = 0 }: SidebarNavProps) {
   const pathname = usePathname()
+  const router = useRouter()
   const [expandedItems, setExpandedItems] = useState<string[]>([])
 
   useEffect(() => {
@@ -78,7 +79,6 @@ export function SidebarNav({ onNavigate, pendingApprovalCount = 0 }: SidebarNavP
           {item.subItems ? (
             <Collapsible
               open={expandedItems.includes(item.href)}
-              onOpenChange={() => toggleExpanded(item.href)}
             >
               <CollapsibleTrigger asChild>
                 <button
@@ -89,6 +89,15 @@ export function SidebarNav({ onNavigate, pendingApprovalCount = 0 }: SidebarNavP
                     pathname.startsWith(item.href) &&
                       'bg-slate-100 dark:bg-slate-800'
                   )}
+                  onClick={() => {
+                    if (!pathname.startsWith(item.href)) {
+                      router.push(item.href)
+                      onNavigate?.()
+                      return
+                    }
+
+                    toggleExpanded(item.href)
+                  }}
                 >
                   <item.icon className="h-4 w-4" aria-hidden="true" focusable="false" />
                   {item.label}

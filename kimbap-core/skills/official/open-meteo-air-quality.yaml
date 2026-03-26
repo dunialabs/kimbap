@@ -1,0 +1,62 @@
+name: open-meteo-air-quality
+version: 1.0.0
+description: Open-Meteo air quality API for PM2.5, PM10, and AQI data
+base_url: https://air-quality-api.open-meteo.com
+auth:
+  type: none
+triggers:
+  task_verbs: [get, fetch, check]
+  objects: [air quality, pollution, AQI, PM2.5, PM10]
+  instead_of:
+    - calling Open-Meteo air quality API directly
+  exclusions:
+    - weather forecasts (use open-meteo service instead)
+gotchas:
+  - symptom: Empty response for requested air quality variables
+    likely_cause: Invalid variable name in the hourly parameter
+    recovery: Use only supported variables such as pm2_5, pm10, us_aqi, european_aqi
+    severity: medium
+  - symptom: Coordinates return no data
+    likely_cause: Air quality data has less global coverage than weather data
+    recovery: Try a nearby major city location if the exact point lacks coverage
+    severity: low
+recipes:
+  - name: City air quality snapshot
+    description: Get current and forecast air quality for a city
+    steps:
+      - Resolve city coordinates via open-meteo-geocoding if needed
+      - Call get-air-quality with lat/lon and desired hourly variables
+actions:
+  get-air-quality:
+    method: GET
+    path: /v1/air-quality
+    description: Get air quality data including PM2.5, PM10, and AQI for a location
+    args:
+      - name: latitude
+        type: number
+        required: true
+      - name: longitude
+        type: number
+        required: true
+      - name: hourly
+        type: string
+        required: false
+        default: "pm2_5,pm10,us_aqi"
+      - name: forecast_days
+        type: integer
+        required: false
+        default: 5
+    request:
+      query:
+        latitude: "{latitude}"
+        longitude: "{longitude}"
+        hourly: "{hourly}"
+        forecast_days: "{forecast_days}"
+    response:
+      type: object
+    risk:
+      level: low
+    retry:
+      max_attempts: 3
+      backoff_ms: 200
+      retry_on: [429, 500, 502, 503]

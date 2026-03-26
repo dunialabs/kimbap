@@ -1,7 +1,7 @@
 "use client"
 
 import { Key, AlertTriangle, CheckCircle, Loader2 } from "lucide-react"
-import { useState } from "react"
+import { useEffect, useRef, useState } from "react"
 
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Button } from "@/components/ui/button"
@@ -34,6 +34,19 @@ export function ResetTokenDialog({
   const [newToken, setNewToken] = useState("")
   const [isResetting, setIsResetting] = useState(false)
   const [error, setError] = useState("")
+  const tokenInputRef = useRef<HTMLInputElement>(null)
+
+  useEffect(() => {
+    if (!open || isResetting) {
+      return
+    }
+
+    const frame = window.requestAnimationFrame(() => {
+      tokenInputRef.current?.focus()
+    })
+
+    return () => window.cancelAnimationFrame(frame)
+  }, [open, isResetting])
 
   const handleReset = async () => {
     if (!newToken.trim()) {
@@ -104,6 +117,7 @@ export function ResetTokenDialog({
                 id="new-token"
                 type="password"
                 placeholder="kimbap_..."
+                ref={tokenInputRef}
                 value={newToken}
                 onChange={(e) => {
                   setNewToken(e.target.value)
@@ -111,6 +125,9 @@ export function ResetTokenDialog({
                 }}
                 disabled={isResetting}
                 autoFocus
+                autoCapitalize="none"
+                autoCorrect="off"
+                spellCheck={false}
               />
               <p className="text-xs text-muted-foreground">
                 Use a token with access to this server.

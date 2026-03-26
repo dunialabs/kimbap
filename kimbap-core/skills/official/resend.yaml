@@ -5,6 +5,33 @@ base_url: https://api.resend.com
 auth:
   type: bearer
   credential_ref: resend.api_key
+triggers:
+  task_verbs: [send, deliver, list, manage]
+  objects: [emails, contacts, audiences]
+  instead_of:
+    - calling Resend APIs directly with raw tokens
+  exclusions:
+    - unrelated actions outside email sending and contact management
+gotchas:
+  - symptom: send-email returns unauthorized/validation errors for sender
+    likely_cause: from address domain is not verified in Resend dashboard
+    recovery: Verify the sending domain and use a matching from_email address
+    severity: high
+  - symptom: Send request fails despite valid single recipient string
+    likely_cause: to must be an array even for one recipient
+    recovery: Pass to as an array like [user@example.com]
+    severity: common
+  - symptom: API responds with 422 Unprocessable Entity
+    likely_cause: from/to values are malformed email addresses
+    recovery: Validate email formats before calling send-email
+    severity: medium
+recipes:
+  - name: Contact lifecycle messaging
+    description: Create a contact, send to that contact, then verify contact presence
+    steps:
+      - Create contact in the target audience
+      - Send email using the contact email in the to array
+      - List contacts to confirm contact and audience state
 actions:
   send-email:
     method: POST

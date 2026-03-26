@@ -8,10 +8,12 @@ import {
   Globe,
   MapPin,
   Users,
-  TrendingUp
+  TrendingUp,
+  Copy
 } from 'lucide-react'
 import Link from 'next/link'
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useCallback } from 'react'
+import { toast } from 'sonner'
 
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -69,6 +71,7 @@ export default function DashboardPage() {
   const [isServerInfoLoading, setIsServerInfoLoading] = useState(true)
   const [isClientsDialogOpen, setIsClientsDialogOpen] = useState(false)
   const [dashboardData, setDashboardData] = useState<DashboardData | null>(null)
+  const [dashboardLoadError, setDashboardLoadError] = useState(false)
   const [pendingApprovalCount, setPendingApprovalCount] = useState(0)
 
 
@@ -166,26 +169,31 @@ export default function DashboardPage() {
     fetchPendingApprovals()
   }, [])
 
-  useEffect(() => {
-    const fetchDashboardData = async () => {
-      if (!serverInfo?.proxyId) return
+  const fetchDashboardData = useCallback(async () => {
+    if (!serverInfo?.proxyId) return
 
-      try {
-        const { api } = await import('@/lib/api-client')
+    try {
+      const { api } = await import('@/lib/api-client')
 
-        // Fetch dashboard overview data using protocol 10023
-        const overviewResponse = await api.dashboard.overview('30d')
+      // Fetch dashboard overview data using protocol 10023
+      const overviewResponse = await api.dashboard.overview('30d')
 
-        if (overviewResponse.data?.data) {
-          setDashboardData(overviewResponse.data.data)
-        }
-      } catch {
+      if (overviewResponse.data?.data) {
+        setDashboardData(overviewResponse.data.data)
+        setDashboardLoadError(false)
+      } else {
         setDashboardData(null)
+        setDashboardLoadError(true)
       }
+    } catch {
+      setDashboardData(null)
+      setDashboardLoadError(true)
     }
-
-    fetchDashboardData()
   }, [serverInfo])
+
+  useEffect(() => {
+    void fetchDashboardData()
+  }, [fetchDashboardData])
 
   // Use real data if available, otherwise show empty stats
   const stats = {
@@ -201,6 +209,26 @@ export default function DashboardPage() {
   const tokenUsage = dashboardData?.tokenUsage || []
   const connectedClients = dashboardData?.connectedClients || []
   const recentActivity = dashboardData?.recentActivity || []
+  const localAddress = dashboardData?.manualConnection ?? null
+  const remoteAddress = dashboardData?.sshTunnelAddress ?? null
+
+  const copyConnectionAddress = async (label: string, value: string | null) => {
+    if (!value) {
+      return
+    }
+
+    try {
+      if (!navigator?.clipboard?.writeText) {
+        toast.error('Clipboard not available')
+        return
+      }
+
+      await navigator.clipboard.writeText(value)
+      toast.success(`${label} copied`)
+    } catch {
+      toast.error(`Could not copy ${label.toLowerCase()}`)
+    }
+  }
 
   if (isServerInfoLoading) {
     return (
@@ -329,27 +357,53 @@ export default function DashboardPage() {
         {/* Connection Info */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
           <Card className="p-4 h-full">
-              <div className="flex items-center justify-between h-full gap-3">
-                <div className="flex flex-col gap-1 justify-center min-w-0">
+            <div className="flex items-center justify-between h-full gap-3">
+              <div className="flex flex-col gap-1 justify-center min-w-0">
+                <div className="flex flex-wrap items-center gap-2">
                   <p className="text-sm text-muted-foreground">
                     Local address
                   </p>
-                  <p className="font-mono text-sm font-normal break-words">
-                    {dashboardData?.manualConnection || 'Not configured'}
-                  </p>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    className="h-7 px-2 text-xs"
+                    disabled={!localAddress}
+                    onClick={() => void copyConnectionAddress('Local address', localAddress)}
+                  >
+                    <Copy className="mr-1 h-3.5 w-3.5" aria-hidden="true" />
+                    Copy
+                  </Button>
                 </div>
-                <MapPin className="h-5 w-5 text-muted-foreground" />
+                <p className="font-mono text-sm font-normal break-words">
+                  {localAddress || 'Not configured'}
+                </p>
               </div>
+              <MapPin className="h-5 w-5 text-muted-foreground" />
+            </div>
           </Card>
 
           <Card className="p-4 h-full">
             <div className="flex items-center justify-between h-full gap-3">
               <div className="flex flex-col gap-1 justify-center min-w-0">
-                <p className="text-sm text-muted-foreground">
-                  Remote address
-                </p>
+                <div className="flex flex-wrap items-center gap-2">
+                  <p className="text-sm text-muted-foreground">
+                    Remote address
+                  </p>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    className="h-7 px-2 text-xs"
+                    disabled={!remoteAddress}
+                    onClick={() => void copyConnectionAddress('Remote address', remoteAddress)}
+                  >
+                    <Copy className="mr-1 h-3.5 w-3.5" aria-hidden="true" />
+                    Copy
+                  </Button>
+                </div>
                 <p className="font-mono text-sm font-normal break-words">
-                  {dashboardData?.sshTunnelAddress || 'Not configured'}
+                  {remoteAddress || 'Not configured'}
                 </p>
               </div>
               <Globe className="h-5 w-5 text-muted-foreground" />
@@ -379,6 +433,14 @@ export default function DashboardPage() {
           </button>
         </div>
       </div>
+
+      {dashboardLoadError ? (
+        <div className="flex items-center gap-2 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700 dark:border-red-900/40 dark:bg-red-950/20 dark:text-red-300">
+          <Server className="h-4 w-4 shrink-0" aria-hidden="true" />
+          <span>Could not load dashboard metrics. Check your connection and try again.</span>
+          <Button variant="outline" size="sm" className="ml-auto" onClick={() => void fetchDashboardData()}>Retry</Button>
+        </div>
+      ) : null}
 
       {/* Server Metrics */}
       <Card>
@@ -475,24 +537,28 @@ export default function DashboardPage() {
               style={{ gridTemplateColumns: 'max-content 1fr max-content' }}
             >
               {toolsUsage.map((tool) => (
-                <div key={tool.name} className="contents">
+                <Link
+                  key={tool.name}
+                  href="/dashboard/usage/tool-usage?timeRange=30"
+                  className="contents focus-visible:outline-none"
+                >
                   <div
-                    className="text-sm max-w-[200px] truncate"
+                    className="text-sm max-w-[200px] truncate rounded-sm"
                     title={tool.name}
                   >
                     {tool.name}
                   </div>
-                  <div className="min-w-0">
+                  <div className="min-w-0 rounded-sm">
                     <Progress
                       value={tool.percentage}
                       aria-label={`${tool.name} usage ${tool.percentage}%`}
                       className="h-[8px] [&>div]:bg-slate-900 dark:[&>div]:bg-slate-100"
                     />
                   </div>
-                  <div className="text-sm text-muted-foreground text-right whitespace-nowrap">
+                  <div className="text-sm text-muted-foreground text-right whitespace-nowrap rounded-sm">
                     {typeof tool.requests === 'number' ? tool.requests.toLocaleString() : tool.requests}
                   </div>
-                </div>
+                </Link>
               ))}
             </div>
           )}
@@ -519,27 +585,31 @@ export default function DashboardPage() {
               className="grid gap-y-3 gap-x-2 items-center grid-cols-[max-content_1fr_max-content] md:grid-cols-[max-content_1fr_max-content_max-content]"
             >
               {tokenUsage.map((token) => (
-                <div key={`${token.name || 'token'}-${token.token?.trim() || ''}`} className="contents">
+                <Link
+                  key={`${token.name || 'token'}-${token.token?.trim() || ''}`}
+                  href="/dashboard/usage/token-usage?timeRange=30"
+                  className="contents focus-visible:outline-none"
+                >
                   <div
-                    className="text-sm max-w-[200px] truncate"
+                    className="text-sm max-w-[200px] truncate rounded-sm"
                     title={token.name}
                   >
                     {token.name}
                   </div>
-                  <div className="min-w-0">
+                  <div className="min-w-0 rounded-sm">
                     <Progress
                       value={token.percentage}
                       aria-label={`${token.name} usage ${token.percentage}%`}
                       className="h-[8px] [&>div]:bg-slate-900 dark:[&>div]:bg-slate-100"
                     />
                   </div>
-                  <div className="text-sm text-muted-foreground text-right whitespace-nowrap">
+                  <div className="text-sm text-muted-foreground text-right whitespace-nowrap rounded-sm">
                     {typeof token.requests === 'number' ? token.requests.toLocaleString() : token.requests}
                   </div>
-                  <div className="text-xs text-muted-foreground font-mono text-right whitespace-nowrap hidden md:block">
+                  <div className="text-xs text-muted-foreground font-mono text-right whitespace-nowrap hidden md:block rounded-sm">
                     {token.token?.trim() || '-'}
                   </div>
-                </div>
+                </Link>
               ))}
             </div>
           )}
@@ -562,7 +632,11 @@ export default function DashboardPage() {
             ) : (
               <div className="space-y-3">
                 {recentActivity.map((activity) => (
-                  <div key={`${activity.action}-${activity.time}`} className="flex items-center gap-3">
+                  <Link
+                    key={`${activity.action}-${activity.time}`}
+                    href="/dashboard/logs?timeRange=30d"
+                    className="flex items-center gap-3 rounded-md p-1 -m-1 hover:bg-muted/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2"
+                  >
                     <div className="flex-shrink-0">
                       {(() => {
                         const statusMap: Record<string, { dot: string; label: string }> = {
@@ -588,7 +662,7 @@ export default function DashboardPage() {
                         </span>
                       </p>
                     </div>
-                  </div>
+                  </Link>
                 ))}
               </div>
             )}
@@ -629,7 +703,30 @@ export default function DashboardPage() {
                       <TableRow key={client.id}>
                         <TableCell>{client.name}</TableCell>
                         <TableCell className="font-mono text-sm">
-                          {client.ip}
+                          <div className="flex items-center gap-2">
+                            <span>{client.ip}</span>
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="sm"
+                              className="h-7 px-2 text-xs"
+                              onClick={async () => {
+                                try {
+                                  if (!navigator?.clipboard?.writeText) {
+                                    toast.error('Clipboard not available')
+                                    return
+                                  }
+                                  await navigator.clipboard.writeText(client.ip)
+                                  toast.success('Client IP copied')
+                                } catch {
+                                  toast.error('Could not copy client IP')
+                                }
+                              }}
+                            >
+                              <Copy className="mr-1 h-3.5 w-3.5" aria-hidden="true" />
+                              Copy
+                            </Button>
+                          </div>
                         </TableCell>
                         <TableCell>
                           <div className="flex items-center gap-1">

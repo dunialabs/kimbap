@@ -5,6 +5,37 @@ base_url: https://api.stripe.com/v1
 auth:
   type: bearer
   credential_ref: stripe.api_key
+triggers:
+  task_verbs: [list, get, charge, create, invoice]
+  objects: [customers, charges, payments, invoices]
+  instead_of:
+    - calling Stripe APIs directly with raw keys in agent context
+  exclusions:
+    - unrelated actions outside payments, customers, and billing operations
+gotchas:
+  - symptom: Test execution causes unexpected real charges
+    likely_cause: Live secret key used instead of test key
+    recovery: Use sk_test_ keys for non-production runs and isolate environments
+    severity: high
+  - symptom: Resource lookup fails with seemingly valid IDs
+    likely_cause: Wrong object prefix/type used (cus_, ch_, pi_, etc.)
+    recovery: Validate ID prefixes against endpoint resource type before request
+    severity: medium
+  - symptom: list endpoints miss older records
+    likely_cause: Stripe pagination uses cursor starting_after rather than page offsets
+    recovery: Iterate using starting_after cursors until has_more is false
+    severity: common
+  - symptom: Payment link created unexpectedly during test workflows
+    likely_cause: create-payment-link always produces a real URL artifact (mode depends on key)
+    recovery: Confirm key mode and cleanup test links when running in test environments
+    severity: medium
+recipes:
+  - name: Customer billing status check
+    description: Gather customer, invoice, and charge context to assess billing health
+    steps:
+      - List customers and filter by target email
+      - List invoices for the selected customer ID
+      - List recent charges to correlate payment outcomes
 actions:
   list-charges:
     method: GET

@@ -5,6 +5,37 @@ base_url: https://sentry.io/api/0
 auth:
   type: bearer
   credential_ref: sentry.token
+triggers:
+  task_verbs: [list, inspect, resolve, assign, triage]
+  objects: [issues, errors, events, projects]
+  instead_of:
+    - calling Sentry APIs directly with raw tokens
+  exclusions:
+    - unrelated actions outside Sentry issue and event operations
+gotchas:
+  - symptom: list-issues/get-issue returns not found for known project paths
+    likely_cause: organization_slug and project_slug are URL slugs, not numeric IDs
+    recovery: Copy slugs from the Sentry URL and use those exact slug values
+    severity: common
+  - symptom: update-issue rejects status changes with 400
+    likely_cause: Unsupported status value passed
+    recovery: Use only resolved, ignored, or unresolved
+    severity: medium
+  - symptom: list-issues returns overwhelming result sets
+    likely_cause: Query filter was omitted on high-volume projects
+    recovery: Use query parameter such as is:unresolved to narrow results
+    severity: medium
+  - symptom: Issue assignment update fails unexpectedly
+    likely_cause: assigned_to expects username string rather than user ID
+    recovery: Pass a valid Sentry username in assigned_to
+    severity: medium
+recipes:
+  - name: Unresolved issue triage
+    description: Pull unresolved issues, inspect details, and update status during triage
+    steps:
+      - List issues with query set to is:unresolved
+      - Get a target issue for full details and context
+      - Update issue status or assignee to reflect triage decision
 actions:
   list-issues:
     method: GET
