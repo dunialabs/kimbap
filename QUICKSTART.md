@@ -1,59 +1,53 @@
-# Kimbap Quick Start — Core + Console
+# Kimbap Quick Start
 
 ## Prerequisites
 
 - Go 1.24+
-- Node.js 18+
-- Docker
-- PostgreSQL 15+
+- Docker (optional, for postgres)
 
-## Step 1: Start Kimbap Core
+## Install & Run
 
 ```bash
 cd kimbap-core
 make deps
-cp .env.example .env
-docker compose up -d
-make dev
+make build
+./bin/kimbap --help
 ```
 
-Core runs on http://localhost:3002.
-
-## Step 2: Start Kimbap Console
+## Embedded Mode (local, no server)
 
 ```bash
-cd kimbap-console
-npm install
-cp .env.example .env.local
-npm run dev
+# Install a service
+./bin/kimbap service install github
+
+# Store credentials
+./bin/kimbap vault set github.token ghp_xxx
+
+# Execute an action
+./bin/kimbap call github.list-repos --input '{"owner": "octocat"}'
 ```
 
-Console runs on http://localhost:3000.
+## Connected Mode (REST API server)
 
-## Step 3: First Use
-
-1. Open http://localhost:3000
-2. Set master password; creates owner token; done.
-
-## Connection Details
-
-To configure Core connection, set in `kimbap-console/.env.local`:
-
-```env
-KIMBAP_CORE_URL="http://localhost:3002"
+```bash
+./bin/kimbap serve
 ```
 
-> **Note:** Priority: 1. Database config → 2. `KIMBAP_CORE_URL` env var → 3. Error (no auto-detection)
+API runs on http://localhost:8080.
 
-## Supported Interfaces
+```bash
+curl http://localhost:8080/v1/health
+curl http://localhost:8080/v1/actions
+```
 
-Kimbap Core exposes multiple API surfaces. Use the canonical ones for all new work:
+## Create a Token
 
-| Interface | Path | Status | Use When |
-|---|---|---|---|
-| **REST v1 API** | `/api/v1/*` | **Canonical** | Programmatic access, automation, new integrations |
-| Admin API | `/admin` | Legacy (frozen) | Internal use only; do not build new features against this |
-| User API | `/user` | Legacy (frozen) | Internal use only; do not build new features against this |
-| Health | `/health`, `/ready` | Stable | Liveness and readiness probes |
+```bash
+./bin/kimbap token create --agent my-agent --scopes actions:execute
+```
 
-**For new integrations, always use `/api/v1`.**
+Use the returned token as `Authorization: Bearer <token>` for API calls.
+
+## API Reference
+
+See [docs/api/API.md](kimbap-core/docs/api/API.md) for the full endpoint list.

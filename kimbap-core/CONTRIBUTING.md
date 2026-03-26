@@ -86,17 +86,15 @@ If you find a bug or have a feature request:
 
 ### Adding a new feature to Kimbap Core
 
-**API endpoints:** Add new endpoints to the REST v1 API (`/api/v1`):
+**API endpoints:** Add new endpoints to the REST v1 API (`/v1`):
 - Routes go in `internal/api/routes.go`
 - Handlers go in `internal/api/handlers.go`
 - Follow existing RESTful resource patterns (see tokens, policies, approvals)
 - Use scope-based authorization: `r.With(RequireScope("resource:action"))`
 
-**Do NOT** add new handlers to `/admin` or `/user` — these are legacy and frozen.
-
 ### Adding a new service integration
 
-Create a YAML file in `skills/official/`:
+Create a YAML file in `skills/official/` (historical directory name for service manifests):
 
 ```yaml
 name: service-name
@@ -104,8 +102,9 @@ version: 1.0.0
 description: Short description
 base_url: https://api.example.com
 auth:
-  type: bearer                    # bearer | header | query_param | basic | oauth2
+  type: bearer                    # none | header | bearer | basic | query | body
   credential_ref: service.token   # vault key reference
+  query_param: api_key            # only used when type: query
 actions:
   action-name:
     method: GET
@@ -115,9 +114,9 @@ actions:
       - name: id
         type: string
         required: true
+    idempotent: true
     risk:
       level: low                  # low | medium | high | critical
-      mutating: false
 ```
 
 **Action naming convention:** Use kebab-case within the service file (e.g., `list-repos`, `create-issue`). The canonical name becomes `service.action-name` (e.g., `github.create-issue`).
@@ -150,8 +149,7 @@ Never put secrets in YAML files or source code.
 ### Environment variables
 
 - Kimbap Core vars use the `KIMBAP_*` prefix where possible
-- `KIMBAP_CORE_URL` is the canonical name for the Core connection URL
-- `JWT_SECRET` must match between Core and Console
+- See `~/.kimbap/config.yaml` for all configuration options
 
 ## Testing
 

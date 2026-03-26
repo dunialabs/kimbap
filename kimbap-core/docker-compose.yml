@@ -1,25 +1,35 @@
 services:
-  # NOTE: Postgres is optional. kimbap uses SQLite by default (embedded, no setup required).
-  # Use postgres only if you need multi-instance/connected mode with a shared DB.
-  postgres:
-    image: postgres:16-alpine
-    container_name: kimbap-core-postgres
+  kimbap:
+    build: .
+    container_name: kimbap
     restart: unless-stopped
     environment:
-      POSTGRES_USER: kimbap
-      POSTGRES_PASSWORD: kimbap123
-      POSTGRES_DB: kimbap_db
+      KIMBAP_LISTEN_ADDR: ":8080"
+      KIMBAP_MASTER_KEY_HEX: ${KIMBAP_MASTER_KEY_HEX:-}
+      LOG_LEVEL: ${LOG_LEVEL:-info}
     ports:
-      - '${KIMBAP_POSTGRES_PORT:-5433}:5432'
+      - '${KIMBAP_PORT:-8080}:8080'
     volumes:
-      - postgres_data:/var/lib/postgresql/data
-    healthcheck:
-      test: ['CMD-SHELL', 'pg_isready -U kimbap -d kimbap_db']
-      interval: 10s
-      timeout: 5s
-      retries: 5
+      - kimbap_data:/root/.kimbap
     networks:
-      - kimbap-core-network
+      - kimbap-network
+
+  # Postgres is optional. kimbap uses SQLite by default.
+  # Uncomment for multi-instance/connected mode with a shared DB.
+  # postgres:
+  #   image: postgres:16-alpine
+  #   container_name: kimbap-postgres
+  #   restart: unless-stopped
+  #   environment:
+  #     POSTGRES_USER: kimbap
+  #     POSTGRES_PASSWORD: kimbap123
+  #     POSTGRES_DB: kimbap_db
+  #   ports:
+  #     - '${KIMBAP_POSTGRES_PORT:-5433}:5432'
+  #   volumes:
+  #     - postgres_data:/var/lib/postgresql/data
+  #   networks:
+  #     - kimbap-network
 
   kimbap-auth:
     image: dunialabs/kimbap-auth:latest
@@ -28,16 +38,18 @@ services:
     ports:
       - '7788:7788'
     networks:
-      - kimbap-core-network
+      - kimbap-network
     volumes:
       - kimbap-auth-data:/data
 
 volumes:
-  postgres_data:
+  kimbap_data:
     driver: local
+  # postgres_data:
+  #   driver: local
   kimbap-auth-data:
     driver: local
 
 networks:
-  kimbap-core-network:
+  kimbap-network:
     driver: bridge
