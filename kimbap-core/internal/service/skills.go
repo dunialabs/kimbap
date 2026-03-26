@@ -91,8 +91,7 @@ func (s *ServicesService) UploadService(serverID string, zipBuffer []byte) ([]st
 	if len(zipBuffer) > config.SKILLS_CONFIG.MaxZipSize {
 		return nil, fmt.Errorf("zip file exceeds maximum size of %d bytes", config.SKILLS_CONFIG.MaxZipSize)
 	}
-	serverDir, err := s.ensureServerServicesDir(serverID)
-	if err != nil {
+	if err := validateName(serverID); err != nil {
 		return nil, err
 	}
 	reader, err := zip.NewReader(bytes.NewReader(zipBuffer), int64(len(zipBuffer)))
@@ -127,6 +126,11 @@ func (s *ServicesService) UploadService(serverID string, zipBuffer []byte) ([]st
 		if metaName != "" && metaName != serviceName {
 			return nil, fmt.Errorf("service directory %q does not match metadata name %q", serviceName, metaName)
 		}
+	}
+
+	serverDir, err := s.ensureServerServicesDir(serverID)
+	if err != nil {
+		return nil, err
 	}
 
 	uploaded := make([]string, 0, len(serviceDirs))

@@ -421,6 +421,46 @@ func TestInstallWithForceOverwritesExisting(t *testing.T) {
 	}
 }
 
+func TestInstallWithForcePreservesExistingManifestOnLockfileWriteFailure(t *testing.T) {
+	manifest, err := ParseManifest([]byte(braveSearchFixture))
+	if err != nil {
+		t.Fatalf("parse fixture: %v", err)
+	}
+
+	dir := t.TempDir()
+	installer := NewLocalInstaller(dir)
+	if _, err := installer.Install(manifest, "local"); err != nil {
+		t.Fatalf("initial install: %v", err)
+	}
+
+	manifestPath := filepath.Join(dir, "brave-search.yaml")
+	originalData, err := os.ReadFile(manifestPath)
+	if err != nil {
+		t.Fatalf("read original manifest: %v", err)
+	}
+
+	updated := *manifest
+	updated.Description = "Updated description"
+
+	lockPath := installer.lockfilePath()
+	if err := os.Chmod(lockPath, 0o444); err != nil {
+		t.Fatalf("chmod lockfile read-only: %v", err)
+	}
+	defer os.Chmod(lockPath, 0o644)
+
+	if _, err := installer.InstallWithForce(&updated, "local", true); err == nil {
+		t.Fatal("expected force install to fail when lockfile cannot be written")
+	}
+
+	restoredData, err := os.ReadFile(manifestPath)
+	if err != nil {
+		t.Fatalf("read restored manifest: %v", err)
+	}
+	if string(restoredData) != string(originalData) {
+		t.Fatalf("expected original manifest restored after lockfile failure\nwant:\n%s\n\ngot:\n%s", string(originalData), string(restoredData))
+	}
+}
+
 func TestInstallWritesLockfileAndVerifyPasses(t *testing.T) {
 	manifest, err := ParseManifest([]byte(braveSearchFixture))
 	if err != nil {
@@ -567,6 +607,51 @@ func TestRemoveDeletesLockEntry(t *testing.T) {
 	}
 	if _, ok := lf.Services["brave-search"]; ok {
 		t.Fatal("expected brave-search lock entry to be removed")
+	}
+}
+
+func TestRemovePreservesManifestOnLockfileWriteFailure(t *testing.T) {
+	manifest, err := ParseManifest([]byte(braveSearchFixture))
+	if err != nil {
+		t.Fatalf("parse fixture: %v", err)
+	}
+
+	dir := t.TempDir()
+	installer := NewLocalInstaller(dir)
+	if _, err := installer.Install(manifest, "local"); err != nil {
+		t.Fatalf("install failed: %v", err)
+	}
+
+	manifestPath := filepath.Join(dir, "brave-search.yaml")
+	originalData, err := os.ReadFile(manifestPath)
+	if err != nil {
+		t.Fatalf("read original manifest: %v", err)
+	}
+
+	lockPath := installer.lockfilePath()
+	if err := os.Chmod(lockPath, 0o444); err != nil {
+		t.Fatalf("chmod lockfile read-only: %v", err)
+	}
+	defer os.Chmod(lockPath, 0o644)
+
+	if err := installer.Remove("brave-search"); err == nil {
+		t.Fatal("expected remove to fail when lockfile cannot be written")
+	}
+
+	restoredData, err := os.ReadFile(manifestPath)
+	if err != nil {
+		t.Fatalf("read restored manifest: %v", err)
+	}
+	if string(restoredData) != string(originalData) {
+		t.Fatalf("expected original manifest restored after remove failure\nwant:\n%s\n\ngot:\n%s", string(originalData), string(restoredData))
+	}
+
+	lf, err := installer.readLockfile()
+	if err != nil {
+		t.Fatalf("read lockfile: %v", err)
+	}
+	if _, ok := lf.Services["brave-search"]; !ok {
+		t.Fatal("expected lock entry to remain when remove rollback occurs")
 	}
 }
 

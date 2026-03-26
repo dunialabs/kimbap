@@ -136,6 +136,52 @@ func TestRegistryVerifyPassesUntamperedFiles(t *testing.T) {
 	}
 }
 
+func TestRegistryInstallPreservesExistingManifestOnLockfileWriteFailure(t *testing.T) {
+	tempDir := t.TempDir()
+	skillsDir := filepath.Join(tempDir, "skills")
+	if err := os.MkdirAll(skillsDir, 0o755); err != nil {
+		t.Fatalf("create skills dir: %v", err)
+	}
+	manifestPath := filepath.Join(skillsDir, "skill.yaml")
+	if err := os.WriteFile(manifestPath, []byte(sampleManifest), 0o644); err != nil {
+		t.Fatalf("write manifest fixture: %v", err)
+	}
+
+	r := NewRegistry(skillsDir)
+	if _, err := r.Install(context.Background(), "local", manifestPath); err != nil {
+		t.Fatalf("initial install: %v", err)
+	}
+
+	installedPath := filepath.Join(skillsDir, "test-skill.yaml")
+	originalData, err := os.ReadFile(installedPath)
+	if err != nil {
+		t.Fatalf("read installed manifest: %v", err)
+	}
+
+	updatedManifest := strings.Replace(sampleManifest, "Test skill", "Updated test skill", 1)
+	if err := os.WriteFile(manifestPath, []byte(updatedManifest), 0o644); err != nil {
+		t.Fatalf("write updated manifest fixture: %v", err)
+	}
+
+	lockPath := filepath.Join(skillsDir, "skills.lock.json")
+	if err := os.Chmod(lockPath, 0o444); err != nil {
+		t.Fatalf("chmod lockfile read-only: %v", err)
+	}
+	defer os.Chmod(lockPath, 0o644)
+
+	if _, err := r.Install(context.Background(), "local", manifestPath); err == nil {
+		t.Fatal("expected install to fail when lockfile cannot be written")
+	}
+
+	restoredData, err := os.ReadFile(installedPath)
+	if err != nil {
+		t.Fatalf("read restored installed manifest: %v", err)
+	}
+	if string(restoredData) != string(originalData) {
+		t.Fatalf("expected original installed manifest restored after lockfile failure\nwant:\n%s\n\ngot:\n%s", string(originalData), string(restoredData))
+	}
+}
+
 func TestRegistryDiffShowsMeaningfulChanges(t *testing.T) {
 	r := NewRegistry(t.TempDir())
 	oldManifest := []byte("name: test-skill\nversion: 1.0.0\n")

@@ -102,8 +102,9 @@ func (r *Registry) Install(ctx context.Context, source, ref string) (*LockEntry,
 	}
 
 	dstPath := filepath.Join(r.skillsDir, manifest.Name+".yaml")
-	if err := os.WriteFile(dstPath, manifestYAML, 0o644); err != nil {
-		return nil, fmt.Errorf("write installed service: %w", err)
+	existingData, hadExisting, err := readInstalledServiceFile(dstPath)
+	if err != nil {
+		return nil, err
 	}
 
 	sum := sha256.Sum256(manifestYAML)
@@ -119,9 +120,15 @@ func (r *Registry) Install(ctx context.Context, source, ref string) (*LockEntry,
 	if err != nil {
 		return nil, err
 	}
+	if err := writeInstalledServiceFile(dstPath, manifestYAML); err != nil {
+		return nil, fmt.Errorf("write installed service: %w", err)
+	}
 	lf.Entries = upsertLockEntry(lf.Entries, entry)
 	if err := r.SaveLockfile(lf); err != nil {
-		return nil, err
+		if restoreErr := restoreInstalledServiceFile(dstPath, existingData, hadExisting); restoreErr != nil {
+			return nil, fmt.Errorf("save lockfile: %w (restore installed service: %v)", err, restoreErr)
+		}
+		return nil, fmt.Errorf("save lockfile: %w", err)
 	}
 
 	return &entry, nil
@@ -364,6 +371,56 @@ func upsertLockEntry(entries []LockEntry, entry LockEntry) []LockEntry {
 		}
 	}
 	return append(entries, entry)
+}
+
+func readInstalledServiceFile(path string) ([]byte, bool, error) {
+	data, err := os.ReadFile(path)
+	if err == nil {
+		return data, true, nil
+	}
+	if os.IsNotExist(err) {
+		return nil, false, nil
+	}
+	return nil, false, fmt.Errorf("read installed service: %w", err)
+}
+
+func restoreInstalledServiceFile(path string, data []byte, hadFile bool) error {
+	if !hadFile {
+		if err := os.Remove(path); err != nil && !os.IsNotExist(err) {
+			return fmt.Errorf("remove installed service: %w", err)
+		}
+		return nil
+	}
+	if err := writeInstalledServiceFile(path, data); err != nil {
+		return fmt.Errorf("write installed service: %w", err)
+	}
+	return nil
+}
+
+func writeInstalledServiceFile(path string, data []byte) error {
+	tmp, err := os.CreateTemp(filepath.Dir(path), ".kimbap-registry-*.tmp")
+	if err != nil {
+		return fmt.Errorf("create temp installed service: %w", err)
+	}
+	tmpPath := tmp.Name()
+	if _, err := tmp.Write(data); err != nil {
+		_ = tmp.Close()
+		_ = os.Remove(tmpPath)
+		return fmt.Errorf("write temp installed service: %w", err)
+	}
+	if err := tmp.Close(); err != nil {
+		_ = os.Remove(tmpPath)
+		return fmt.Errorf("close temp installed service: %w", err)
+	}
+	if err := os.Chmod(tmpPath, 0o644); err != nil {
+		_ = os.Remove(tmpPath)
+		return fmt.Errorf("chmod temp installed service: %w", err)
+	}
+	if err := os.Rename(tmpPath, path); err != nil {
+		_ = os.Remove(tmpPath)
+		return fmt.Errorf("rename temp installed service: %w", err)
+	}
+	return nil
 }
 
 func splitLines(b []byte) []string {

@@ -81,14 +81,14 @@ func (i *LocalInstaller) InstallWithForce(manifest *ServiceManifest, source stri
 	if !force {
 		if _, err := os.Stat(p); err == nil {
 			return nil, ErrServiceAlreadyInstalled
+		} else if !os.IsNotExist(err) {
+			return nil, fmt.Errorf("stat manifest file: %w", err)
 		}
 	}
+
 	data, err := yaml.Marshal(manifest)
 	if err != nil {
 		return nil, fmt.Errorf("marshal manifest yaml: %w", err)
-	}
-	if err := os.WriteFile(p, data, 0o644); err != nil {
-		return nil, fmt.Errorf("write manifest file: %w", err)
 	}
 	digest := computeDigest(data)
 
@@ -96,10 +96,19 @@ func (i *LocalInstaller) InstallWithForce(manifest *ServiceManifest, source stri
 		source = "local"
 	}
 
+	existingData, hadExisting, err := readInstalledManifestFile(p)
+	if err != nil {
+		return nil, err
+	}
+
 	lf, err := i.readLockfile()
 	if err != nil {
 		return nil, fmt.Errorf("read lockfile: %w", err)
 	}
+	if err := writeInstalledManifestFile(p, data); err != nil {
+		return nil, fmt.Errorf("write manifest file: %w", err)
+	}
+
 	lf.Services[manifest.Name] = LockEntry{
 		Name:     manifest.Name,
 		Version:  manifest.Version,
@@ -108,7 +117,9 @@ func (i *LocalInstaller) InstallWithForce(manifest *ServiceManifest, source stri
 		LockedAt: time.Now().UTC(),
 	}
 	if err := i.writeLockfile(lf); err != nil {
-		_ = os.Remove(p)
+		if restoreErr := restoreInstalledManifestFile(p, existingData, hadExisting); restoreErr != nil {
+			return nil, fmt.Errorf("write lockfile: %w (restore manifest: %v)", err, restoreErr)
+		}
 		return nil, fmt.Errorf("write lockfile: %w", err)
 	}
 
@@ -135,8 +146,12 @@ func (i *LocalInstaller) Remove(name string) error {
 	_, hasLockEntry := lf.Services[name]
 
 	p := filepath.Join(i.skillsDir, name+".yaml")
-	if err := os.Remove(p); err != nil {
-		if !os.IsNotExist(err) {
+	existingData, hadManifest, err := readInstalledManifestFile(p)
+	if err != nil {
+		return err
+	}
+	if hadManifest {
+		if err := os.Remove(p); err != nil {
 			return fmt.Errorf("remove manifest file: %w", err)
 		}
 	}
@@ -144,6 +159,9 @@ func (i *LocalInstaller) Remove(name string) error {
 	if hasLockEntry {
 		delete(lf.Services, name)
 		if err := i.writeLockfile(lf); err != nil {
+			if restoreErr := restoreInstalledManifestFile(p, existingData, hadManifest); restoreErr != nil {
+				return fmt.Errorf("write lockfile: %w (restore manifest: %v)", err, restoreErr)
+			}
 			return fmt.Errorf("write lockfile: %w", err)
 		}
 	}
@@ -374,6 +392,56 @@ func (i *LocalInstaller) writeLockfile(lf *Lockfile) error {
 		return fmt.Errorf("marshal lockfile: %w", err)
 	}
 	return os.WriteFile(i.lockfilePath(), data, 0o644)
+}
+
+func readInstalledManifestFile(path string) ([]byte, bool, error) {
+	data, err := os.ReadFile(path)
+	if err == nil {
+		return data, true, nil
+	}
+	if os.IsNotExist(err) {
+		return nil, false, nil
+	}
+	return nil, false, fmt.Errorf("read manifest file: %w", err)
+}
+
+func restoreInstalledManifestFile(path string, data []byte, hadFile bool) error {
+	if !hadFile {
+		if err := os.Remove(path); err != nil && !os.IsNotExist(err) {
+			return fmt.Errorf("remove manifest file: %w", err)
+		}
+		return nil
+	}
+	if err := writeInstalledManifestFile(path, data); err != nil {
+		return fmt.Errorf("write manifest file: %w", err)
+	}
+	return nil
+}
+
+func writeInstalledManifestFile(path string, data []byte) error {
+	tmp, err := os.CreateTemp(filepath.Dir(path), ".kimbap-service-*.tmp")
+	if err != nil {
+		return fmt.Errorf("create temp manifest file: %w", err)
+	}
+	tmpPath := tmp.Name()
+	if _, err := tmp.Write(data); err != nil {
+		_ = tmp.Close()
+		_ = os.Remove(tmpPath)
+		return fmt.Errorf("write temp manifest file: %w", err)
+	}
+	if err := tmp.Close(); err != nil {
+		_ = os.Remove(tmpPath)
+		return fmt.Errorf("close temp manifest file: %w", err)
+	}
+	if err := os.Chmod(tmpPath, 0o644); err != nil {
+		_ = os.Remove(tmpPath)
+		return fmt.Errorf("chmod temp manifest file: %w", err)
+	}
+	if err := os.Rename(tmpPath, path); err != nil {
+		_ = os.Remove(tmpPath)
+		return fmt.Errorf("rename temp manifest file: %w", err)
+	}
+	return nil
 }
 
 func computeDigest(data []byte) string {

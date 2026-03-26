@@ -119,12 +119,9 @@ version: 1.0.0
 		t.Fatalf("unexpected upload error: %v", err)
 	}
 
-	entries, readErr := os.ReadDir(filepath.Join(service.servicesDir, "tenant"))
-	if readErr != nil && !os.IsNotExist(readErr) {
-		t.Fatalf("read tenant service dir: %v", readErr)
-	}
-	if len(entries) != 0 {
-		t.Fatalf("expected no uploaded services on mismatch, found %d", len(entries))
+	tenantDir := filepath.Join(service.servicesDir, "tenant")
+	if _, statErr := os.Stat(tenantDir); !os.IsNotExist(statErr) {
+		t.Fatalf("expected tenant service dir to remain absent on mismatch, stat err=%v", statErr)
 	}
 }
 
