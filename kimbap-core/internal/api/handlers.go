@@ -21,6 +21,7 @@ import (
 	"github.com/dunialabs/kimbap-core/internal/policy"
 	runtimepkg "github.com/dunialabs/kimbap-core/internal/runtime"
 	"github.com/dunialabs/kimbap-core/internal/store"
+	"github.com/dunialabs/kimbap-core/internal/vault"
 	"github.com/dunialabs/kimbap-core/internal/webhooks"
 	"github.com/go-chi/chi/v5"
 	"github.com/rs/zerolog/log"
@@ -155,7 +156,35 @@ func (s *Server) handleValidateAction(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) handleListVaultKeys(w http.ResponseWriter, r *http.Request) {
-	writeSuccess(w, r, http.StatusOK, []any{})
+	if s.vaultStore == nil {
+		writeEnvelopeError(w, r, actions.NewExecutionError(actions.ErrDownstreamUnavailable, "vault store unavailable", http.StatusInternalServerError, false, nil))
+		return
+	}
+	tenantID, ok := requireTenantContext(w, r)
+	if !ok {
+		return
+	}
+	limit, err := parseNonNegativeIntParam(r.URL.Query().Get("limit"), "limit")
+	if err != nil {
+		writeEnvelopeError(w, r, actions.NewExecutionError(actions.ErrValidationFailed, err.Error(), http.StatusBadRequest, false, nil))
+		return
+	}
+	offset, err := parseNonNegativeIntParam(r.URL.Query().Get("offset"), "offset")
+	if err != nil {
+		writeEnvelopeError(w, r, actions.NewExecutionError(actions.ErrValidationFailed, err.Error(), http.StatusBadRequest, false, nil))
+		return
+	}
+	listOpts := vault.ListOptions{Limit: limit, Offset: offset}
+	if secretType := strings.TrimSpace(r.URL.Query().Get("type")); secretType != "" {
+		t := vault.SecretType(secretType)
+		listOpts.Type = &t
+	}
+	records, listErr := s.vaultStore.List(r.Context(), tenantID, listOpts)
+	if listErr != nil {
+		writeEnvelopeError(w, r, actions.NewExecutionError(actions.ErrDownstreamUnavailable, "internal server error", http.StatusInternalServerError, false, nil))
+		return
+	}
+	writeSuccess(w, r, http.StatusOK, map[string]any{"items": records})
 }
 
 func (s *Server) handleCreateToken(w http.ResponseWriter, r *http.Request) {
@@ -493,11 +522,19 @@ func (s *Server) requirePendingApproval(w http.ResponseWriter, r *http.Request, 
 		if !expired {
 			refreshed, getErr := s.store.GetApproval(r.Context(), id)
 			if getErr != nil {
-				writeEnvelopeError(w, r, actions.NewExecutionError(actions.ErrDownstreamUnavailable, "internal server error", http.StatusInternalServerError, false, nil))
+				if errors.Is(getErr, store.ErrNotFound) {
+					writeEnvelopeError(w, r, actions.NewExecutionError(actions.ErrActionNotFound, "approval not found", http.StatusNotFound, false, nil))
+				} else {
+					writeEnvelopeError(w, r, actions.NewExecutionError(actions.ErrDownstreamUnavailable, "internal server error", http.StatusInternalServerError, false, nil))
+				}
 				return nil, false
 			}
-			if refreshed == nil || refreshed.Status != "expired" {
-				writeEnvelopeError(w, r, actions.NewExecutionError(actions.ErrDownstreamUnavailable, "internal server error", http.StatusInternalServerError, false, nil))
+			if refreshed == nil {
+				writeEnvelopeError(w, r, actions.NewExecutionError(actions.ErrActionNotFound, "approval not found", http.StatusNotFound, false, nil))
+				return nil, false
+			}
+			if refreshed.Status != "expired" {
+				writeEnvelopeError(w, r, actions.NewExecutionError(actions.ErrValidationFailed, "approval already resolved", http.StatusConflict, false, nil))
 				return nil, false
 			}
 			existing = refreshed

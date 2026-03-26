@@ -504,7 +504,9 @@ func writeAgentSkillPackDir(serviceDir string, pack map[string]string) ([]string
 	}
 	if err := os.Rename(tmpDir, serviceDir); err != nil {
 		if hasOld {
-			_ = os.Rename(oldDir, serviceDir)
+			if restoreErr := os.Rename(oldDir, serviceDir); restoreErr != nil {
+				return nil, fmt.Errorf("promote temp to target: %w (restore from backup %q failed: %v)", err, oldDir, restoreErr)
+			}
 		}
 		return nil, fmt.Errorf("promote temp to target: %w", err)
 	}

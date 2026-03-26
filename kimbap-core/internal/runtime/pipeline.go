@@ -2,6 +2,7 @@ package runtime
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"os"
@@ -190,11 +191,6 @@ func (r *Runtime) ResumeApproved(ctx context.Context, approvalRequestID string) 
 	}
 
 	earlyFail := func(result actions.ExecutionResult) actions.ExecutionResult {
-		removeCtx, removeCancel := context.WithTimeout(context.WithoutCancel(ctx), 3*time.Second)
-		defer removeCancel()
-		if removeErr := r.HeldExecutionStore.Remove(removeCtx, approvalRequestID); removeErr != nil {
-			_, _ = fmt.Fprintf(os.Stderr, "warning: failed to remove held execution %s: %v\n", approvalRequestID, removeErr)
-		}
 		if r.AuditWriter != nil {
 			auditCtx, auditCancel := context.WithTimeout(context.WithoutCancel(ctx), 3*time.Second)
 			defer auditCancel()
@@ -222,15 +218,7 @@ func (r *Runtime) ResumeApproved(ctx context.Context, approvalRequestID string) 
 		return earlyFail(actions.ExecutionResult{Status: actions.StatusError, Error: actions.AsExecutionError(sanitizeErr)})
 	}
 
-	result := r.executeFromCredentialsWithState(ctx, *held, nil, r.now(), "require_approval", approvalRequestID)
-
-	removeCtx, removeCancel := context.WithTimeout(context.WithoutCancel(ctx), 3*time.Second)
-	defer removeCancel()
-	if removeErr := r.HeldExecutionStore.Remove(removeCtx, approvalRequestID); removeErr != nil {
-		_, _ = fmt.Fprintf(os.Stderr, "warning: failed to remove held execution %s: %v\n", approvalRequestID, removeErr)
-	}
-
-	return result
+	return r.executeFromCredentialsWithState(ctx, *held, nil, r.now(), "require_approval", approvalRequestID)
 }
 
 func (r *Runtime) execute(ctx context.Context, req actions.ExecutionRequest, trace *TraceCollector) actions.ExecutionResult {
@@ -270,6 +258,22 @@ func (r *Runtime) execute(ctx context.Context, req actions.ExecutionRequest, tra
 	}
 	req.Action = actionDef
 	trace.Record("resolve_action", "ok", req.Action.Name)
+
+	if req.Action.Defaults != nil {
+		cloned := make(map[string]any, len(req.Input)+len(req.Action.Defaults))
+		for k, v := range req.Input {
+			cloned[k] = v
+		}
+		applied := 0
+		for k, v := range req.Action.Defaults {
+			if _, exists := cloned[k]; !exists {
+				cloned[k] = deepCloneValue(v)
+				applied++
+			}
+		}
+		req.Input = cloned
+		trace.Record("apply_defaults", "ok", fmt.Sprintf("%d defaults applied", applied))
+	}
 
 	if validationErr := actions.ValidateInput(req.Action.InputSchema, req.Input); validationErr != nil {
 		trace.Record("validate_input", "error", validationErr.Error())
@@ -686,6 +690,23 @@ func withTimeout(ctx context.Context, timeout time.Duration) (context.Context, c
 		return ctx, func() {}
 	}
 	return context.WithTimeout(ctx, timeout)
+}
+
+func deepCloneValue(v any) any {
+	switch v.(type) {
+	case map[string]any, []any:
+		b, err := json.Marshal(v)
+		if err != nil {
+			return v
+		}
+		var out any
+		if err := json.Unmarshal(b, &out); err != nil {
+			return v
+		}
+		return out
+	default:
+		return v
+	}
 }
 
 func normalizePolicyDecision(decision string) string {

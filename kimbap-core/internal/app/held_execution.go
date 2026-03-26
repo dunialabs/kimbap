@@ -2,7 +2,6 @@ package app
 
 import (
 	"context"
-	"fmt"
 	"sync"
 
 	"github.com/dunialabs/kimbap-core/internal/actions"
@@ -30,8 +29,9 @@ func (s *memoryHeldExecutionStore) Resume(_ context.Context, approvalRequestID s
 	defer s.mu.Unlock()
 	req, ok := s.held[approvalRequestID]
 	if !ok {
-		return nil, fmt.Errorf("held execution %q not found", approvalRequestID)
+		return nil, nil
 	}
+	delete(s.held, approvalRequestID)
 	return &req, nil
 }
 

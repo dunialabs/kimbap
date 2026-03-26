@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 	"sort"
 	"strings"
+	"sync"
 	"time"
 
 	"gopkg.in/yaml.v3"
@@ -18,6 +19,7 @@ type InstalledService struct {
 	Manifest    ServiceManifest
 	InstalledAt time.Time
 	Source      string
+	Enabled     bool
 	Path        string
 }
 
@@ -27,6 +29,7 @@ type LockEntry struct {
 	Digest    string    `yaml:"digest"`
 	Source    string    `yaml:"source"`
 	Signature string    `yaml:"signature,omitempty"`
+	Enabled   bool      `yaml:"enabled"`
 	LockedAt  time.Time `yaml:"locked_at"`
 }
 
@@ -48,6 +51,7 @@ type VerifyResult struct {
 
 type LocalInstaller struct {
 	skillsDir string
+	mu        sync.Mutex
 }
 
 func NewLocalInstaller(skillsDir string) *LocalInstaller {
@@ -61,9 +65,15 @@ func (i *LocalInstaller) Install(manifest *ServiceManifest, source string) (*Ins
 }
 
 func (i *LocalInstaller) InstallWithForce(manifest *ServiceManifest, source string, force bool) (*InstalledService, error) {
+	return i.InstallWithForceAndActivation(manifest, source, force, true)
+}
+
+func (i *LocalInstaller) InstallWithForceAndActivation(manifest *ServiceManifest, source string, force bool, enabled bool) (*InstalledService, error) {
 	if i == nil {
 		return nil, fmt.Errorf("installer is nil")
 	}
+	i.mu.Lock()
+	defer i.mu.Unlock()
 	if manifest == nil {
 		return nil, fmt.Errorf("manifest is nil")
 	}
@@ -114,6 +124,7 @@ func (i *LocalInstaller) InstallWithForce(manifest *ServiceManifest, source stri
 		Version:  manifest.Version,
 		Digest:   digest,
 		Source:   source,
+		Enabled:  enabled,
 		LockedAt: time.Now().UTC(),
 	}
 	if err := i.writeLockfile(lf); err != nil {
@@ -127,14 +138,51 @@ func (i *LocalInstaller) InstallWithForce(manifest *ServiceManifest, source stri
 		Manifest:    *manifest,
 		InstalledAt: time.Now().UTC(),
 		Source:      source,
+		Enabled:     enabled,
 		Path:        p,
 	}, nil
+}
+
+func (i *LocalInstaller) Enable(name string) error {
+	return i.setEnabled(name, true)
+}
+
+func (i *LocalInstaller) Disable(name string) error {
+	return i.setEnabled(name, false)
+}
+
+func (i *LocalInstaller) setEnabled(name string, enabled bool) error {
+	if i == nil {
+		return fmt.Errorf("installer is nil")
+	}
+	i.mu.Lock()
+	defer i.mu.Unlock()
+	if err := ValidateServiceName(name); err != nil {
+		return err
+	}
+
+	lf, err := i.readLockfile()
+	if err != nil {
+		return fmt.Errorf("read lockfile: %w", err)
+	}
+	entry, ok := lf.Services[name]
+	if !ok {
+		return fmt.Errorf("service %q is not installed. Run 'kimbap service list' to see installed services", name)
+	}
+	entry.Enabled = enabled
+	lf.Services[name] = entry
+	if err := i.writeLockfile(lf); err != nil {
+		return fmt.Errorf("write lockfile: %w", err)
+	}
+	return nil
 }
 
 func (i *LocalInstaller) Remove(name string) error {
 	if i == nil {
 		return fmt.Errorf("installer is nil")
 	}
+	i.mu.Lock()
+	defer i.mu.Unlock()
 	if err := ValidateServiceName(name); err != nil {
 		return err
 	}
@@ -200,6 +248,26 @@ func (i *LocalInstaller) List() ([]InstalledService, error) {
 	return out, nil
 }
 
+func (i *LocalInstaller) ListEnabled() ([]InstalledService, error) {
+	if i == nil {
+		return nil, fmt.Errorf("installer is nil")
+	}
+
+	installed, err := i.List()
+	if err != nil {
+		return nil, err
+	}
+
+	enabledOnly := make([]InstalledService, 0, len(installed))
+	for _, svc := range installed {
+		if svc.Enabled {
+			enabledOnly = append(enabledOnly, svc)
+		}
+	}
+
+	return enabledOnly, nil
+}
+
 func ValidateServiceName(name string) error {
 	if strings.TrimSpace(name) == "" {
 		return fmt.Errorf("service name is required")
@@ -236,10 +304,24 @@ func (i *LocalInstaller) Get(name string) (*InstalledService, error) {
 		return nil, fmt.Errorf("stat installed service manifest: %w", err)
 	}
 
+	source := "local"
+	enabled := true
+	lf, err := i.readLockfile()
+	if err != nil {
+		return nil, fmt.Errorf("read lockfile: %w", err)
+	}
+	if entry, ok := lf.Services[name]; ok {
+		if strings.TrimSpace(entry.Source) != "" {
+			source = entry.Source
+		}
+		enabled = entry.Enabled
+	}
+
 	return &InstalledService{
 		Manifest:    *manifest,
 		InstalledAt: fi.ModTime().UTC(),
-		Source:      "local",
+		Source:      source,
+		Enabled:     enabled,
 		Path:        p,
 	}, nil
 }
@@ -341,6 +423,8 @@ func (i *LocalInstaller) verifyBuildContext(name string) (digest string, entry L
 }
 
 func (i *LocalInstaller) Sign(privateKey ed25519.PrivateKey) error {
+	i.mu.Lock()
+	defer i.mu.Unlock()
 	lf, err := i.readLockfile()
 	if err != nil {
 		return err
@@ -373,9 +457,30 @@ func (i *LocalInstaller) readLockfile() (*Lockfile, error) {
 		return nil, err
 	}
 
-	var lf Lockfile
-	if err := yaml.Unmarshal(data, &lf); err != nil {
+	var disk lockfileDisk
+	if err := yaml.Unmarshal(data, &disk); err != nil {
 		return nil, fmt.Errorf("parse lockfile: %w", err)
+	}
+
+	lf := Lockfile{
+		Version:   disk.Version,
+		PublicKey: disk.PublicKey,
+		Services:  make(map[string]LockEntry, len(disk.Services)),
+	}
+	for name, entry := range disk.Services {
+		enabled := true
+		if entry.Enabled != nil {
+			enabled = *entry.Enabled
+		}
+		lf.Services[name] = LockEntry{
+			Name:      entry.Name,
+			Version:   entry.Version,
+			Digest:    entry.Digest,
+			Source:    entry.Source,
+			Signature: entry.Signature,
+			Enabled:   enabled,
+			LockedAt:  entry.LockedAt,
+		}
 	}
 	if lf.Version == 0 {
 		lf.Version = 1
@@ -386,12 +491,61 @@ func (i *LocalInstaller) readLockfile() (*Lockfile, error) {
 	return &lf, nil
 }
 
+type lockEntryDisk struct {
+	Name      string    `yaml:"name"`
+	Version   string    `yaml:"version"`
+	Digest    string    `yaml:"digest"`
+	Source    string    `yaml:"source"`
+	Signature string    `yaml:"signature,omitempty"`
+	Enabled   *bool     `yaml:"enabled,omitempty"`
+	LockedAt  time.Time `yaml:"locked_at"`
+}
+
+type lockfileDisk struct {
+	Version   int                      `yaml:"version"`
+	PublicKey string                   `yaml:"public_key,omitempty"`
+	Services  map[string]lockEntryDisk `yaml:"services"`
+}
+
 func (i *LocalInstaller) writeLockfile(lf *Lockfile) error {
 	data, err := yaml.Marshal(lf)
 	if err != nil {
 		return fmt.Errorf("marshal lockfile: %w", err)
 	}
-	return os.WriteFile(i.lockfilePath(), data, 0o644)
+	lockPath := i.lockfilePath()
+	if _, err := os.Stat(lockPath); err == nil {
+		f, openErr := os.OpenFile(lockPath, os.O_WRONLY, 0)
+		if openErr != nil {
+			return fmt.Errorf("open lockfile for write: %w", openErr)
+		}
+		_ = f.Close()
+	} else if !os.IsNotExist(err) {
+		return fmt.Errorf("stat lockfile: %w", err)
+	}
+
+	tmp, err := os.CreateTemp(filepath.Dir(lockPath), ".kimbap-services-lock-*.tmp")
+	if err != nil {
+		return fmt.Errorf("create temp lockfile: %w", err)
+	}
+	tmpPath := tmp.Name()
+	if _, err := tmp.Write(data); err != nil {
+		_ = tmp.Close()
+		_ = os.Remove(tmpPath)
+		return fmt.Errorf("write temp lockfile: %w", err)
+	}
+	if err := tmp.Close(); err != nil {
+		_ = os.Remove(tmpPath)
+		return fmt.Errorf("close temp lockfile: %w", err)
+	}
+	if err := os.Chmod(tmpPath, 0o644); err != nil {
+		_ = os.Remove(tmpPath)
+		return fmt.Errorf("chmod temp lockfile: %w", err)
+	}
+	if err := os.Rename(tmpPath, lockPath); err != nil {
+		_ = os.Remove(tmpPath)
+		return fmt.Errorf("rename temp lockfile: %w", err)
+	}
+	return nil
 }
 
 func readInstalledManifestFile(path string) ([]byte, bool, error) {

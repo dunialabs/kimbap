@@ -95,6 +95,7 @@ func (m *mockHeldExecutionStore) Resume(ctx context.Context, approvalRequestID s
 	if !ok {
 		return nil, nil
 	}
+	delete(m.held, approvalRequestID)
 	copyReq := req
 	return &copyReq, nil
 }
@@ -463,8 +464,8 @@ func TestRuntimeApprovalHoldAndResume(t *testing.T) {
 	if resumed.Output["resumed"] != true {
 		t.Fatalf("expected resumed output marker, got %+v", resumed.Output)
 	}
-	if store.removeCalls != 1 {
-		t.Fatalf("expected held store Remove once, got %d", store.removeCalls)
+	if store.removeCalls != 0 {
+		t.Fatalf("expected Remove not called (Resume is now consume-once), got %d", store.removeCalls)
 	}
 }
 

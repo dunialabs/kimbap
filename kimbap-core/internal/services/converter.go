@@ -8,6 +8,7 @@ import (
 	"slices"
 	"sort"
 	"strings"
+	"time"
 
 	"github.com/dunialabs/kimbap-core/internal/actions"
 )
@@ -25,6 +26,8 @@ func ToActionDefinitions(svc *ServiceManifest) ([]actions.ActionDefinition, erro
 	switch adapterType {
 	case "applescript":
 		return toAppleScriptDefinitions(svc)
+	case "command":
+		return toCommandDefinitions(svc)
 	default:
 		return toHTTPDefinitions(svc)
 	}
@@ -68,6 +71,7 @@ func toHTTPDefinitions(svc *ServiceManifest) ([]actions.ActionDefinition, error)
 			Auth:         mapAuth(resolveActionAuth(svc.Auth, actionSpec.Auth)),
 			InputSchema:  buildInputSchema(actionSpec.Args, actionSpec.Request.PathParams),
 			OutputSchema: buildOutputSchema(actionSpec.Response),
+			Defaults:     collectDefaults(actionSpec.Args),
 			Adapter: actions.AdapterConfig{
 				Type:        "http",
 				Method:      strings.ToUpper(actionSpec.Method),
@@ -123,10 +127,68 @@ func toAppleScriptDefinitions(svc *ServiceManifest) ([]actions.ActionDefinition,
 			Auth:         mapAuth(resolveActionAuth(svc.Auth, actionSpec.Auth)),
 			InputSchema:  buildInputSchema(actionSpec.Args, nil),
 			OutputSchema: buildOutputSchema(actionSpec.Response),
+			Defaults:     collectDefaults(actionSpec.Args),
 			Adapter: actions.AdapterConfig{
 				Type:      "applescript",
 				TargetApp: svc.TargetApp,
 				Command:   actionSpec.Command,
+			},
+			Classifiers:  nil,
+			ErrorMapping: nil,
+			Pagination:   nil,
+		}
+
+		out = append(out, definition)
+	}
+
+	return out, nil
+}
+
+func toCommandDefinitions(svc *ServiceManifest) ([]actions.ActionDefinition, error) {
+	keys := sortedKeys(svc.Actions)
+	out := make([]actions.ActionDefinition, 0, len(keys))
+
+	executable := ""
+	jsonFlag := ""
+	timeout := time.Duration(0)
+	var envInject map[string]string
+	if svc.CommandSpec != nil {
+		executable = strings.TrimSpace(svc.CommandSpec.Executable)
+		jsonFlag = strings.TrimSpace(svc.CommandSpec.JSONFlag)
+		timeout = parseDurationOrZero(svc.CommandSpec.Timeout)
+		envInject = cloneStringMap(svc.CommandSpec.EnvInject)
+	}
+
+	for _, key := range keys {
+		actionSpec := svc.Actions[key]
+
+		idempotent := false
+		if actionSpec.Idempotent != nil {
+			idempotent = *actionSpec.Idempotent
+		}
+
+		definition := actions.ActionDefinition{
+			Name:         svc.Name + "." + key,
+			Version:      1,
+			DisplayName:  nonEmpty(actionSpec.Description, key),
+			Namespace:    svc.Name,
+			Verb:         actionSpec.Command,
+			Resource:     executable,
+			Description:  actionSpec.Description,
+			Risk:         mapRisk(actionSpec.Risk.Level),
+			Idempotent:   idempotent,
+			ApprovalHint: mapApprovalHint(actionSpec.Risk.Level),
+			Auth:         mapAuth(resolveActionAuth(svc.Auth, actionSpec.Auth)),
+			InputSchema:  buildInputSchema(actionSpec.Args, nil),
+			OutputSchema: buildOutputSchema(actionSpec.Response),
+			Defaults:     collectDefaults(actionSpec.Args),
+			Adapter: actions.AdapterConfig{
+				Type:           "command",
+				ExecutablePath: executable,
+				Command:        actionSpec.Command,
+				JSONFlag:       jsonFlag,
+				EnvInject:      cloneStringMap(envInject),
+				Timeout:        timeout,
 			},
 			Classifiers:  nil,
 			ErrorMapping: nil,
@@ -252,6 +314,23 @@ func buildInputSchema(args []ActionArg, pathParams map[string]string) *actions.S
 	}
 }
 
+func collectDefaults(args []ActionArg) map[string]any {
+	defaults := map[string]any{}
+	for _, arg := range args {
+		if arg.Required || arg.Default == nil {
+			continue
+		}
+		if !isArgDefaultTypeCompatible(arg.Default, arg.Type) {
+			continue
+		}
+		defaults[arg.Name] = arg.Default
+	}
+	if len(defaults) == 0 {
+		return nil
+	}
+	return defaults
+}
+
 func buildOutputSchema(resp ResponseSpec) *actions.Schema {
 	t := strings.ToLower(strings.TrimSpace(resp.Type))
 	if t == "array" {
@@ -308,6 +387,18 @@ func marshalBody(body map[string]any) string {
 		return ""
 	}
 	return string(encoded)
+}
+
+func parseDurationOrZero(raw string) time.Duration {
+	trimmed := strings.TrimSpace(raw)
+	if trimmed == "" {
+		return 0
+	}
+	d, err := time.ParseDuration(trimmed)
+	if err != nil {
+		return 0
+	}
+	return d
 }
 
 func cloneStringMap(in map[string]string) map[string]string {
