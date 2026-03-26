@@ -274,12 +274,18 @@ func run() error {
 		keyPath := config.Env("SSL_KEY_PATH")
 		httpsPort := app.ParseIntDefault(config.Env("BACKEND_HTTPS_PORT", strconv.Itoa(port)), port)
 
+		certExists, certErr := app.FileExists(certPath)
+		keyExists, keyErr := app.FileExists(keyPath)
 		switch {
+		case certErr != nil:
+			appLog.Fatal().Err(certErr).Str("certPath", certPath).Msg("failed to stat SSL cert file")
+		case keyErr != nil:
+			appLog.Fatal().Err(keyErr).Str("keyPath", keyPath).Msg("failed to stat SSL key file")
 		case certPath == "" || keyPath == "":
 			appLog.Warn().Str("certPath", certPath).Str("keyPath", keyPath).Msg("HTTPS enabled but certificate or key path is missing, falling back to HTTP")
-		case !app.FileExists(certPath):
+		case !certExists:
 			appLog.Warn().Str("certPath", certPath).Msg("SSL cert file not found, falling back to HTTP")
-		case !app.FileExists(keyPath):
+		case !keyExists:
 			appLog.Warn().Str("keyPath", keyPath).Msg("SSL key file not found, falling back to HTTP")
 		default:
 			httpsServer = &http.Server{

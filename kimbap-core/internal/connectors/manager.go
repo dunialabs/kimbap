@@ -206,7 +206,9 @@ func (m *Manager) Refresh(ctx context.Context, tenantID, name string) error {
 			token, err = RequestClientCredentialsTokenWithContext(ctx, cfg)
 			if err != nil {
 				now := time.Now().UTC()
-				state.Status = StatusReauthNeeded
+				if isPermanentOAuthError(err) {
+					state.Status = StatusReauthNeeded
+				}
 				state.LastRefreshError = err.Error()
 				state.LastRefresh = &now
 				state.UpdatedAt = now
@@ -231,7 +233,9 @@ func (m *Manager) Refresh(ctx context.Context, tenantID, name string) error {
 	}
 	if err != nil {
 		now := time.Now().UTC()
-		state.Status = StatusReauthNeeded
+		if isPermanentOAuthError(err) {
+			state.Status = StatusReauthNeeded
+		}
 		state.LastRefreshError = err.Error()
 		state.LastRefresh = &now
 		state.UpdatedAt = now

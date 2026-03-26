@@ -263,6 +263,37 @@ func postFormWithAuth(ctx context.Context, endpoint string, form url.Values, aut
 
 var pollIntervalWait = waitForPollInterval
 
+// permanentOAuthErrorCodes are OAuth 2.0 error codes indicating the token
+// is permanently invalid and the user must re-authenticate.
+var permanentOAuthErrorCodes = map[string]bool{
+	"invalid_grant":       true,
+	"invalid_client":      true,
+	"invalid_token":       true,
+	"access_denied":       true,
+	"unauthorized_client": true,
+}
+
+// isPermanentOAuthError returns true when err is an OAuth token endpoint error
+// whose error code indicates a permanent failure (e.g. invalid_grant).
+// Transient failures like network errors or 5xx responses return false.
+func isPermanentOAuthError(err error) bool {
+	var oauthErr *OAuthHTTPError
+	if !errors.As(err, &oauthErr) {
+		return false
+	}
+	// Only 400/401 responses carry meaningful OAuth error codes.
+	if oauthErr.Status != 400 && oauthErr.Status != 401 {
+		return false
+	}
+	var body struct {
+		Error string `json:"error"`
+	}
+	if jsonErr := json.Unmarshal(oauthErr.RawBody, &body); jsonErr != nil {
+		return false
+	}
+	return permanentOAuthErrorCodes[strings.ToLower(strings.TrimSpace(body.Error))]
+}
+
 func parseTokenResponse(body []byte) (*TokenResponse, error) {
 	var token TokenResponse
 	if err := json.Unmarshal(body, &token); err != nil {

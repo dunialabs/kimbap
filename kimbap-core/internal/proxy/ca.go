@@ -3,6 +3,7 @@ package proxy
 import (
 	"crypto/rand"
 	"crypto/rsa"
+	"crypto/tls"
 	"crypto/x509"
 	"crypto/x509/pkix"
 	"encoding/pem"
@@ -88,11 +89,8 @@ func LoadCA(dataDir string) (*CAConfig, error) {
 		return nil, fmt.Errorf("read key: %w", err)
 	}
 
-	if _, err := parseCACertificate(certPEM); err != nil {
-		return nil, err
-	}
-	if _, err := parseCAPrivateKey(keyPEM); err != nil {
-		return nil, err
+	if _, err := tls.X509KeyPair(certPEM, keyPEM); err != nil {
+		return nil, fmt.Errorf("CA cert and key do not match: %w", err)
 	}
 
 	return &CAConfig{CertPEM: certPEM, KeyPEM: keyPEM, CertPath: certPath, KeyPath: keyPath}, nil

@@ -405,9 +405,12 @@ func (p *ProxyServer) handleConnect(w http.ResponseWriter, req *http.Request) {
 
 		_ = mitmReq.Body.Close()
 		_ = tlsConn.SetWriteDeadline(time.Now().Add(defaultProxyConnWriteTimeout))
-		_ = resp.Write(tlsConn)
+		writeErr := resp.Write(tlsConn)
 		_ = tlsConn.SetWriteDeadline(time.Time{})
 		_ = resp.Body.Close()
+		if writeErr != nil {
+			return
+		}
 
 		if mitmReq.Close {
 			return
@@ -652,7 +655,12 @@ func copyHeader(dst, src http.Header) {
 }
 
 func clearHopHeaders(h http.Header) {
-	hopHeaders := []string{
+	for _, connVal := range h["Connection"] {
+		for _, token := range strings.Split(connVal, ",") {
+			h.Del(strings.TrimSpace(token))
+		}
+	}
+	for _, key := range []string{
 		"Connection",
 		"Proxy-Connection",
 		"Keep-Alive",
@@ -662,8 +670,7 @@ func clearHopHeaders(h http.Header) {
 		"Trailer",
 		"Transfer-Encoding",
 		"Upgrade",
-	}
-	for _, key := range hopHeaders {
+	} {
 		h.Del(key)
 	}
 }

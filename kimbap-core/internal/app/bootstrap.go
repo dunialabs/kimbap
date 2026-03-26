@@ -55,13 +55,16 @@ func BuildRuntime(deps RuntimeDeps) (*runtime.Runtime, error) {
 
 	var policyEvaluator runtime.PolicyEvaluator
 	if policyPath != "" {
-		if stat, err := os.Stat(policyPath); err == nil && !stat.IsDir() {
+		if stat, err := os.Stat(policyPath); err == nil {
+			if stat.IsDir() {
+				return nil, fmt.Errorf("policy path %q is a directory, not a file", policyPath)
+			}
 			doc, parseErr := policy.ParseDocumentFile(policyPath)
 			if parseErr != nil {
 				return nil, parseErr
 			}
 			policyEvaluator = &policyEvaluatorAdapter{evaluator: policy.NewEvaluator(doc)}
-		} else if err != nil && !errors.Is(err, os.ErrNotExist) {
+		} else if !errors.Is(err, os.ErrNotExist) {
 			return nil, fmt.Errorf("stat policy path: %w", err)
 		}
 	}

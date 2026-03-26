@@ -284,7 +284,7 @@ func (a *HTTPAdapter) executeSingle(ctx context.Context, req AdapterRequest) (*A
 		resp, doErr := a.client.Do(httpReq)
 		if doErr != nil {
 			cancel()
-			if attemptCtx.Err() == context.DeadlineExceeded {
+			if attemptCtx.Err() == context.DeadlineExceeded || isTimeoutError(doErr) {
 				return nil, actions.NewExecutionError(actions.ErrDownstreamUnavailable, "adapter request timed out", http.StatusGatewayTimeout, true, nil)
 			}
 			if attempt < maxAttempts {
@@ -417,11 +417,15 @@ const (
 func resolveTemplateString(tmpl string, values map[string]any, context templateContext) string {
 	out := tmpl
 	for key, value := range values {
+		placeholder := "{" + key + "}"
+		if !strings.Contains(tmpl, placeholder) {
+			continue
+		}
 		replacement := toString(value)
 		if context == templateContextPath {
 			replacement = url.PathEscape(replacement)
 		}
-		out = strings.ReplaceAll(out, "{"+key+"}", replacement)
+		out = strings.ReplaceAll(out, placeholder, replacement)
 	}
 	return out
 }
@@ -503,7 +507,10 @@ func resolveBodyTemplateValue(s string, input map[string]any) any {
 	}
 	out := s
 	for key, value := range input {
-		out = strings.ReplaceAll(out, "{"+key+"}", fmt.Sprintf("%v", value))
+		placeholder := "{" + key + "}"
+		if strings.Contains(s, placeholder) {
+			out = strings.ReplaceAll(out, placeholder, fmt.Sprintf("%v", value))
+		}
 	}
 	return out
 }
@@ -841,4 +848,11 @@ func normalizeAuthType(authType actions.AuthType) actions.AuthType {
 		return actions.AuthTypeNone
 	}
 	return authType
+}
+
+func isTimeoutError(err error) bool {
+	if netErr, ok := err.(interface{ Timeout() bool }); ok {
+		return netErr.Timeout()
+	}
+	return false
 }

@@ -19,14 +19,18 @@ func ParseIntDefault(raw string, fallback int) int {
 	return n
 }
 
-func FileExists(path string) bool {
+func FileExists(path string) (bool, error) {
 	if strings.TrimSpace(path) == "" {
-		return false
+		return false, nil
 	}
-	if _, err := os.Stat(path); err != nil {
-		return false
+	_, err := os.Stat(path)
+	if err == nil {
+		return true, nil
 	}
-	return true
+	if os.IsNotExist(err) {
+		return false, nil
+	}
+	return false, err
 }
 
 func FormParserMiddleware(next http.Handler) http.Handler {

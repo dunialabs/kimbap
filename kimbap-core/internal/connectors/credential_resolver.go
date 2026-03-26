@@ -76,12 +76,13 @@ func ResolveOAuthClientMaterial(providerID string, manifest *ProviderManifest) (
 	return nil, fmt.Errorf("no auth credentials available for provider %q: configure BYO env vars or managed app", providerID)
 }
 
-// ResolveActionToken resolves the bearer token for a runtime skill action call.
-// Used by kimbap call <service>.<action> — NOT by the OAuth login flow.
+// ResolveActionToken resolves the bearer token for a runtime skill action call
+// using environment variables only. Used as a standalone utility for embedded/CLI mode.
+// For server mode with OAuth connectors, use connectorCredentialResolver in app/bootstrap.go.
 //
 // Resolution order (first non-empty wins):
-//  1. Connector-managed token: ConnectorManager.GetAccessToken(ctx, tenantID, providerID)
-//  2. Vault lookup: vault key = credRef (e.g. "github.token")
+//  1. Env var: KIMBAP_CONNECTOR_{PROVIDER}_TOKEN
+//  2. Env var: KIMBAP_{CREDREF} (vault ref key)
 //  3. Env var: KIMBAP_{PROVIDER}_TOKEN
 //  4. Error: "credential not configured for {providerID}"
 func ResolveActionToken(ctx context.Context, providerID, credRef, tenantID string) (token string, source string, err error) {
