@@ -14,9 +14,9 @@ import (
 )
 
 type agentSetupResult struct {
-	SyncResults    []agents.SyncResult `json:"sync_results"`
-	MetaSkillPaths []string            `json:"meta_skill_paths,omitempty"`
-	AgentsFound    int                 `json:"agents_found"`
+	SyncResults         []agents.SyncResult `json:"sync_results"`
+	MetaAgentSkillPaths []string            `json:"meta_agent_skill_paths,omitempty"`
+	AgentsFound         int                 `json:"agents_found"`
 }
 
 func newAgentsCommand() *cobra.Command {
@@ -42,7 +42,7 @@ func newAgentsSetupCommand() *cobra.Command {
 		Use:   "setup",
 		Short: "Install global kimbap discovery hints for detected AI agents",
 		RunE: func(_ *cobra.Command, _ []string) error {
-			metaContent := services.GenerateMetaSkillMD()
+			metaContent := services.GenerateMetaAgentSkillMD()
 			results, err := agents.GlobalSetup(metaContent, agents.GlobalSetupOptions{
 				Agents: parseAgentKinds(agentRaw),
 				Force:  force,
@@ -121,6 +121,7 @@ func newAgentsSyncCommand() *cobra.Command {
 	var (
 		dir      string
 		agentRaw string
+		services string
 		force    bool
 		dryRun   bool
 	)
@@ -129,7 +130,7 @@ func newAgentsSyncCommand() *cobra.Command {
 		Use:   "sync",
 		Short: "Sync installed services to detected agent directories",
 		RunE: func(_ *cobra.Command, _ []string) error {
-			result, err := runAgentsSync(dir, agentRaw, force, dryRun)
+			result, err := runAgentsSync(dir, agentRaw, services, force, dryRun)
 			if err != nil {
 				return err
 			}
@@ -139,6 +140,7 @@ func newAgentsSyncCommand() *cobra.Command {
 
 	cmd.Flags().StringVar(&dir, "dir", ".", "target project directory")
 	cmd.Flags().StringVar(&agentRaw, "agent", "", "comma-separated agent kinds")
+	cmd.Flags().StringVar(&services, "services", "", "comma-separated service names to sync")
 	cmd.Flags().BoolVar(&force, "force", false, "overwrite unchanged files")
 	cmd.Flags().BoolVar(&dryRun, "dry-run", false, "show planned changes without writing files")
 
@@ -178,23 +180,30 @@ func newAgentsStatusCommand() *cobra.Command {
 	return cmd
 }
 
-func runAgentsSync(projectDir string, rawAgentKinds string, force bool, dryRun bool) (agentSetupResult, error) {
+func runAgentsSync(projectDir string, rawAgentKinds string, rawServices string, force bool, dryRun bool) (agentSetupResult, error) {
 	cfg, err := loadAppConfigReadOnly()
 	if err != nil {
 		return agentSetupResult{}, err
 	}
 
-	installedServices, err := buildInstalledServicesForSync(cfg)
+	isPartialSync := strings.TrimSpace(rawServices) != ""
+
+	serviceFilter, err := resolveSyncServiceFilter(cfg, rawServices)
 	if err != nil {
 		return agentSetupResult{}, err
 	}
-	installedPacks, packsErr := buildInstalledPacksForSync(cfg)
+
+	installedServices, err := buildInstalledServicesForSync(cfg, serviceFilter)
+	if err != nil {
+		return agentSetupResult{}, err
+	}
+	installedPacks, packsErr := buildInstalledPacksForSync(cfg, serviceFilter)
 	if packsErr != nil {
-		_, _ = fmt.Fprintf(os.Stderr, "warning: failed to build skill packs, using legacy mode: %v\n", packsErr)
+		_, _ = fmt.Fprintf(os.Stderr, "warning: failed to build agent skill packs, using legacy mode: %v\n", packsErr)
 		installedPacks = nil
 	}
 
-	rulesContent := buildRulesContent(cfg)
+	rulesContent := buildRulesContent(cfg, serviceFilter)
 	syncResults, err := agents.SyncServices(
 		staticServiceInstaller{services: installedServices, packs: installedPacks},
 		rulesContent,
@@ -203,13 +212,20 @@ func runAgentsSync(projectDir string, rawAgentKinds string, force bool, dryRun b
 			Agents:     parseAgentKinds(rawAgentKinds),
 			Force:      force,
 			DryRun:     dryRun,
+			SkipPrune:  isPartialSync,
 		},
 	)
 	if err != nil {
 		return agentSetupResult{}, err
 	}
 
-	metaContent := services.GenerateMetaSkillMD()
+	if !isPartialSync {
+		if cleanupErr := cleanupStaleAgentSkillDirs(syncResults, serviceFilter, dryRun); cleanupErr != nil {
+			return agentSetupResult{}, cleanupErr
+		}
+	}
+
+	metaContent := services.GenerateMetaAgentSkillMD()
 	metaPaths := make([]string, 0, len(syncResults))
 
 	normalizedProjectDir := strings.TrimSpace(projectDir)
@@ -234,7 +250,7 @@ func runAgentsSync(projectDir string, rawAgentKinds string, force bool, dryRun b
 			continue
 		}
 
-		metaDir := filepath.Join(normalizedProjectDir, agentCfg.SkillsDir, "kimbap")
+		metaDir := filepath.Join(normalizedProjectDir, agentCfg.AgentSkillsDir, "kimbap")
 		metaPath := filepath.Join(metaDir, "SKILL.md")
 
 		needsWrite := force
@@ -276,9 +292,9 @@ func runAgentsSync(projectDir string, rawAgentKinds string, force bool, dryRun b
 	}
 
 	return agentSetupResult{
-		SyncResults:    syncResults,
-		MetaSkillPaths: metaPaths,
-		AgentsFound:    len(syncResults),
+		SyncResults:         syncResults,
+		MetaAgentSkillPaths: metaPaths,
+		AgentsFound:         len(syncResults),
 	}, nil
 }
 
@@ -304,15 +320,27 @@ func parseAgentKinds(raw string) []agents.AgentKind {
 	return out
 }
 
-func buildInstalledServicesForSync(cfg *config.KimbapConfig) ([]agents.InstalledService, error) {
-	installed, err := installerFromConfig(cfg).List()
+func loadServicesForSync(cfg *config.KimbapConfig, serviceFilter []string) ([]services.InstalledService, error) {
+	installer := installerFromConfig(cfg)
+	if len(serviceFilter) == 0 {
+		return installer.ListEnabled()
+	}
+	installed, err := installer.List()
+	if err != nil {
+		return nil, err
+	}
+	return filterInstalledServices(installed, serviceFilter), nil
+}
+
+func buildInstalledServicesForSync(cfg *config.KimbapConfig, serviceFilter []string) ([]agents.InstalledService, error) {
+	installed, err := loadServicesForSync(cfg, serviceFilter)
 	if err != nil {
 		return nil, err
 	}
 
 	out := make([]agents.InstalledService, 0, len(installed))
 	for _, s := range installed {
-		content, genErr := services.GenerateSkillMD(&s.Manifest)
+		content, genErr := services.GenerateAgentSkillMD(&s.Manifest, services.WithSource(s.Source))
 		if genErr != nil {
 			_, _ = fmt.Fprintf(os.Stderr, "warning: failed to generate SKILL.md for %q: %v\n", s.Manifest.Name, genErr)
 			continue
@@ -323,14 +351,14 @@ func buildInstalledServicesForSync(cfg *config.KimbapConfig) ([]agents.Installed
 	return out, nil
 }
 
-func buildInstalledPacksForSync(cfg *config.KimbapConfig) ([]agents.InstalledServicePack, error) {
-	installed, err := installerFromConfig(cfg).List()
+func buildInstalledPacksForSync(cfg *config.KimbapConfig, serviceFilter []string) ([]agents.InstalledServicePack, error) {
+	installed, err := loadServicesForSync(cfg, serviceFilter)
 	if err != nil {
 		return nil, err
 	}
 	out := make([]agents.InstalledServicePack, 0, len(installed))
 	for _, s := range installed {
-		pack, genErr := services.GenerateSkillPack(&s.Manifest)
+		pack, genErr := services.GenerateAgentSkillPack(&s.Manifest, services.WithSource(s.Source))
 		if genErr != nil {
 			_, _ = fmt.Fprintf(os.Stderr, "warning: failed to generate skill pack for %q: %v\n", s.Manifest.Name, genErr)
 			continue
@@ -342,15 +370,25 @@ func buildInstalledPacksForSync(cfg *config.KimbapConfig) ([]agents.InstalledSer
 				packFiles[k] = v
 			}
 		}
-		out = append(out, agents.InstalledServicePack{Name: s.Manifest.Name, SkillMD: skillMD, PackFiles: packFiles})
+		out = append(out, agents.InstalledServicePack{Name: s.Manifest.Name, AgentSkillMD: skillMD, PackFiles: packFiles})
 	}
 	return out, nil
 }
 
-func buildRulesContent(cfg *config.KimbapConfig) string {
-	services, svcErr := collectInstalledServicesFromConfig(cfg.Services.Dir)
+func buildRulesContent(cfg *config.KimbapConfig, serviceFilter []string) string {
+	allServices, svcErr := collectInstalledServicesFromConfig(cfg.Services.Dir)
 	if svcErr != nil {
 		_, _ = fmt.Fprintf(os.Stderr, "warning: %v\n", svcErr)
+	}
+	allowed := make(map[string]struct{}, len(serviceFilter))
+	for _, name := range serviceFilter {
+		allowed[name] = struct{}{}
+	}
+	services := make([]profiles.InstalledService, 0, len(allServices))
+	for _, svc := range allServices {
+		if _, ok := allowed[svc.Name]; ok {
+			services = append(services, svc)
+		}
 	}
 
 	profile, err := profiles.GenerateDynamicProfile(profiles.ProfileGeneric, services)
@@ -365,6 +403,133 @@ func buildRulesContent(cfg *config.KimbapConfig) string {
 		return ""
 	}
 	return fallback
+}
+
+func resolveSyncServiceFilter(cfg *config.KimbapConfig, rawServices string) ([]string, error) {
+	requested := parseCSV(rawServices)
+	if len(requested) > 0 {
+		installed, listErr := installerFromConfig(cfg).List()
+		if listErr != nil {
+			return nil, listErr
+		}
+		installedNames := make(map[string]struct{}, len(installed))
+		for _, svc := range installed {
+			installedNames[svc.Manifest.Name] = struct{}{}
+		}
+		for _, name := range requested {
+			if _, ok := installedNames[name]; !ok {
+				_, _ = fmt.Fprintf(os.Stderr, "warning: service %q is not installed and will be skipped\n", name)
+			}
+		}
+		return requested, nil
+	}
+
+	enabled, err := installerFromConfig(cfg).ListEnabled()
+	if err != nil {
+		return nil, err
+	}
+	selected := make([]string, 0, len(enabled))
+	for _, svc := range enabled {
+		selected = append(selected, svc.Manifest.Name)
+	}
+	return selected, nil
+}
+
+func filterInstalledServices(installed []services.InstalledService, serviceFilter []string) []services.InstalledService {
+	if len(serviceFilter) == 0 {
+		return installed
+	}
+	allowed := make(map[string]struct{}, len(serviceFilter))
+	for _, name := range serviceFilter {
+		allowed[name] = struct{}{}
+	}
+	filtered := make([]services.InstalledService, 0, len(installed))
+	for _, svc := range installed {
+		if _, ok := allowed[svc.Manifest.Name]; ok {
+			filtered = append(filtered, svc)
+		}
+	}
+	return filtered
+}
+
+func filterProfileInstalledServices(installed []profiles.InstalledService, serviceFilter []string) []profiles.InstalledService {
+	if len(serviceFilter) == 0 {
+		return installed
+	}
+	allowed := make(map[string]struct{}, len(serviceFilter))
+	for _, name := range serviceFilter {
+		allowed[name] = struct{}{}
+	}
+	filtered := make([]profiles.InstalledService, 0, len(installed))
+	for _, svc := range installed {
+		if _, ok := allowed[svc.Name]; ok {
+			filtered = append(filtered, svc)
+		}
+	}
+	return filtered
+}
+
+func cleanupStaleAgentSkillDirs(syncResults []agents.SyncResult, serviceFilter []string, dryRun bool) error {
+	active := make(map[string]bool, len(serviceFilter)+1)
+	active["kimbap"] = true
+	for _, name := range serviceFilter {
+		active[name] = true
+	}
+
+	var cleanupErrs []string
+	for i := range syncResults {
+		skillsDir := strings.TrimSpace(syncResults[i].AgentSkillsDir)
+		if skillsDir == "" {
+			continue
+		}
+
+		entries, err := os.ReadDir(skillsDir)
+		if err != nil {
+			if os.IsNotExist(err) {
+				continue
+			}
+			cleanupErrs = append(cleanupErrs, fmt.Sprintf("[%s] read skills dir: %v", syncResults[i].Agent, err))
+			continue
+		}
+
+		prunedSet := make(map[string]bool, len(syncResults[i].Pruned))
+		for _, name := range syncResults[i].Pruned {
+			prunedSet[name] = true
+		}
+
+		for _, entry := range entries {
+			name := entry.Name()
+			if !entry.IsDir() || active[name] {
+				continue
+			}
+
+			skillPath := filepath.Join(skillsDir, name, "SKILL.md")
+			if _, statErr := os.Stat(skillPath); statErr != nil {
+				if os.IsNotExist(statErr) {
+					continue
+				}
+				cleanupErrs = append(cleanupErrs, fmt.Sprintf("[%s] check stale service %q: %v", syncResults[i].Agent, name, statErr))
+				continue
+			}
+
+			if !dryRun {
+				if rmErr := os.RemoveAll(filepath.Join(skillsDir, name)); rmErr != nil {
+					cleanupErrs = append(cleanupErrs, fmt.Sprintf("[%s] prune stale service %q: %v", syncResults[i].Agent, name, rmErr))
+					continue
+				}
+			}
+
+			if !prunedSet[name] {
+				syncResults[i].Pruned = append(syncResults[i].Pruned, name)
+				prunedSet[name] = true
+			}
+		}
+	}
+
+	if len(cleanupErrs) > 0 {
+		return fmt.Errorf("stale cleanup errors: %s", strings.Join(cleanupErrs, "; "))
+	}
+	return nil
 }
 
 type staticServiceInstaller struct {
