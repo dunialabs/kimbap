@@ -197,7 +197,7 @@ func loadAppConfigReadOnly() (*config.KimbapConfig, error) {
 	if strings.TrimSpace(opts.dataDir) != "" {
 		cfg.DataDir = opts.dataDir
 		cfg.Vault.Path = filepath.Join(cfg.DataDir, "vault.db")
-		cfg.Skills.Dir = filepath.Join(cfg.DataDir, "skills")
+		cfg.Services.Dir = filepath.Join(cfg.DataDir, "services")
 		cfg.Audit.Path = filepath.Join(cfg.DataDir, "audit.jsonl")
 		cfg.Database.DSN = filepath.Join(cfg.DataDir, "kimbap.db")
 		cfg.Policy.Path = filepath.Join(cfg.DataDir, "policy.yaml")
@@ -250,7 +250,7 @@ func defaultTenantID() string {
 }
 
 func installerFromConfig(cfg *config.KimbapConfig) *services.LocalInstaller {
-	return services.NewLocalInstaller(cfg.Skills.Dir)
+	return services.NewLocalInstaller(cfg.Services.Dir)
 }
 
 func loadInstalledActions(cfg *config.KimbapConfig) ([]actions.ActionDefinition, error) {
@@ -434,7 +434,7 @@ func buildRuntimeFromConfig(cfg *config.KimbapConfig) (*runtime.Runtime, error) 
 		ConnectorStore:   connStore,
 		ConnectorConfigs: connConfigs,
 		PolicyPath:       cfg.Policy.Path,
-		SkillsDir:        cfg.Skills.Dir,
+		SkillsDir:        cfg.Services.Dir,
 		AuditWriter:      auditWriter,
 		ApprovalManager:  approvalManager,
 	})

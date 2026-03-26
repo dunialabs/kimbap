@@ -153,7 +153,7 @@ func buildServeRuntime(cfg *config.KimbapConfig, st *store.SQLStore) (*runtime.R
 		ConnectorStore:   connStore,
 		ConnectorConfigs: connConfigs,
 		PolicyPath:       cfg.Policy.Path,
-		SkillsDir:        cfg.Skills.Dir,
+		SkillsDir:        cfg.Services.Dir,
 		AuditWriter:      auditWriter,
 		ApprovalManager:  app.NewApprovalManagerAdapter(approvalMgr),
 	})

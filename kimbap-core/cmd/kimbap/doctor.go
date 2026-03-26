@@ -45,7 +45,7 @@ func newDoctorCommand() *cobra.Command {
 			checks = append(checks, vaultCheck)
 			hasFailure = hasFailure || vaultCheck.Status == "fail"
 
-			skillsCheck := checkSkillsDir(cfg.Skills.Dir)
+			skillsCheck := checkSkillsDir(cfg.Services.Dir)
 			checks = append(checks, skillsCheck)
 			hasFailure = hasFailure || skillsCheck.Status == "fail"
 
@@ -102,8 +102,8 @@ func loadDoctorConfig() (*config.KimbapConfig, error) {
 		if cfg.Vault.Path == filepath.Join(prevDataDir, "vault.db") {
 			cfg.Vault.Path = filepath.Join(cfg.DataDir, "vault.db")
 		}
-		if cfg.Skills.Dir == filepath.Join(prevDataDir, "skills") {
-			cfg.Skills.Dir = filepath.Join(cfg.DataDir, "skills")
+		if cfg.Services.Dir == filepath.Join(prevDataDir, "services") {
+			cfg.Services.Dir = filepath.Join(cfg.DataDir, "services")
 		}
 		if cfg.Audit.Path == filepath.Join(prevDataDir, "audit.jsonl") {
 			cfg.Audit.Path = filepath.Join(cfg.DataDir, "audit.jsonl")

@@ -33,7 +33,7 @@ func newInitCommand() *cobra.Command {
 			checks = append(checks, configCheck)
 			hasFailure = hasFailure || configCheck.Status == "fail"
 
-			skillsCheck := ensureDirWithStatus("skills directory exists", cfg.Skills.Dir)
+			skillsCheck := ensureDirWithStatus("skills directory exists", cfg.Services.Dir)
 			checks = append(checks, skillsCheck)
 			hasFailure = hasFailure || skillsCheck.Status == "fail"
 
@@ -77,7 +77,7 @@ func buildInitConfig() *config.KimbapConfig {
 	if strings.TrimSpace(opts.dataDir) != "" {
 		cfg.DataDir = opts.dataDir
 		cfg.Vault.Path = filepath.Join(cfg.DataDir, "vault.db")
-		cfg.Skills.Dir = filepath.Join(cfg.DataDir, "skills")
+		cfg.Services.Dir = filepath.Join(cfg.DataDir, "services")
 		cfg.Audit.Path = filepath.Join(cfg.DataDir, "audit.jsonl")
 		cfg.Database.DSN = filepath.Join(cfg.DataDir, "kimbap.db")
 		cfg.Policy.Path = filepath.Join(cfg.DataDir, "policy.yaml")

@@ -9,8 +9,8 @@ import (
 
 func TestRunAllReturnsResultsForAllChecks(t *testing.T) {
 	dataDir := t.TempDir()
-	if err := os.MkdirAll(filepath.Join(dataDir, "skills"), 0o755); err != nil {
-		t.Fatalf("create skills dir: %v", err)
+	if err := os.MkdirAll(filepath.Join(dataDir, "services"), 0o755); err != nil {
+		t.Fatalf("create services dir: %v", err)
 	}
 
 	configPath := filepath.Join(t.TempDir(), "config.yaml")
@@ -46,8 +46,8 @@ func TestRunAllMissingDataDirReturnsFail(t *testing.T) {
 
 func TestRunAllValidConfigReturnsOK(t *testing.T) {
 	dataDir := t.TempDir()
-	if err := os.MkdirAll(filepath.Join(dataDir, "skills"), 0o755); err != nil {
-		t.Fatalf("create skills dir: %v", err)
+	if err := os.MkdirAll(filepath.Join(dataDir, "services"), 0o755); err != nil {
+		t.Fatalf("create services dir: %v", err)
 	}
 	configPath := filepath.Join(t.TempDir(), "config.yaml")
 	if err := os.WriteFile(configPath, []byte(validConfigYAML(dataDir)), 0o644); err != nil {
@@ -79,8 +79,8 @@ func validConfigYAML(dataDir string) string {
 		"data_dir: " + dataDir + "\n" +
 		"vault:\n" +
 		"  path: " + filepath.Join(dataDir, "vault.db") + "\n" +
-		"skills:\n" +
-		"  dir: " + filepath.Join(dataDir, "skills") + "\n" +
+		"services:\n" +
+		"  dir: " + filepath.Join(dataDir, "services") + "\n" +
 		"auth:\n" +
 		"  server_url: https://example.com\n"
 }
@@ -210,8 +210,8 @@ func TestRunAllWithExplicitConfigIgnoresBrokenDefaultConfig(t *testing.T) {
 	}
 
 	dataDir := t.TempDir()
-	if err := os.MkdirAll(filepath.Join(dataDir, "skills"), 0o755); err != nil {
-		t.Fatalf("create skills dir: %v", err)
+	if err := os.MkdirAll(filepath.Join(dataDir, "services"), 0o755); err != nil {
+		t.Fatalf("create services dir: %v", err)
 	}
 	configPath := filepath.Join(t.TempDir(), "config.yaml")
 	if err := os.WriteFile(configPath, []byte(validConfigYAML(dataDir)), 0o644); err != nil {
@@ -231,13 +231,13 @@ func TestRunAllWithExplicitConfigIgnoresBrokenDefaultConfig(t *testing.T) {
 
 func TestRunAllRebasesDefaultDerivedPolicyPathForDataDirOverride(t *testing.T) {
 	configDataDir := t.TempDir()
-	if err := os.MkdirAll(filepath.Join(configDataDir, "skills"), 0o755); err != nil {
-		t.Fatalf("create config skills dir: %v", err)
+	if err := os.MkdirAll(filepath.Join(configDataDir, "services"), 0o755); err != nil {
+		t.Fatalf("create config services dir: %v", err)
 	}
 
 	overrideDataDir := t.TempDir()
-	if err := os.MkdirAll(filepath.Join(overrideDataDir, "skills"), 0o755); err != nil {
-		t.Fatalf("create override skills dir: %v", err)
+	if err := os.MkdirAll(filepath.Join(overrideDataDir, "services"), 0o755); err != nil {
+		t.Fatalf("create override services dir: %v", err)
 	}
 	overridePolicyPath := filepath.Join(overrideDataDir, "policy.yaml")
 	if err := os.WriteFile(overridePolicyPath, []byte(`version: "1.0.0"

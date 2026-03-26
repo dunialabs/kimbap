@@ -49,8 +49,8 @@ func (d *Doctor) RunAll(ctx context.Context) []CheckResult {
 		if cfg.Vault.Path == filepath.Join(prevDataDir, "vault.db") {
 			cfg.Vault.Path = filepath.Join(cfg.DataDir, "vault.db")
 		}
-		if cfg.Skills.Dir == filepath.Join(prevDataDir, "skills") {
-			cfg.Skills.Dir = filepath.Join(cfg.DataDir, "skills")
+		if cfg.Services.Dir == filepath.Join(prevDataDir, "services") {
+			cfg.Services.Dir = filepath.Join(cfg.DataDir, "services")
 		}
 		if cfg.Policy.Path == filepath.Join(prevDataDir, "policy.yaml") {
 			cfg.Policy.Path = filepath.Join(cfg.DataDir, "policy.yaml")
@@ -62,7 +62,7 @@ func (d *Doctor) RunAll(ctx context.Context) []CheckResult {
 
 	results = append(results, d.checkDataDirWritable(cfg.DataDir))
 	results = append(results, d.checkVaultAccessible(ctx, cfg.Vault.Path))
-	results = append(results, d.checkSkillsDir(cfg.Skills.Dir))
+	results = append(results, d.checkSkillsDir(cfg.Services.Dir))
 	results = append(results, d.checkPolicyFile(cfg.Policy.Path))
 	results = append(results, d.checkCACertificate(cfg.Mode, cfg.DataDir))
 	results = append(results, d.checkConnectivity(ctx, cfg.Mode, cfg.Auth.ServerURL))

@@ -23,7 +23,7 @@ type KimbapConfig struct {
 	Auth          AuthConfig          `yaml:"auth"`
 	Audit         AuditConfig         `yaml:"audit"`
 	Policy        PolicyConfig        `yaml:"policy"`
-	Skills        SkillsConfig        `yaml:"skills"`
+	Services      ServicesConfig      `yaml:"services"`
 	Database      DatabaseConfig      `yaml:"database"`
 	Notifications NotificationsConfig `yaml:"notifications"`
 }
@@ -48,7 +48,7 @@ type PolicyConfig struct {
 	Path string `yaml:"path"`
 }
 
-type SkillsConfig struct {
+type ServicesConfig struct {
 	Dir             string `yaml:"dir"`
 	Official        string `yaml:"official"`
 	Verify          string `yaml:"verify"`
@@ -118,9 +118,9 @@ func DefaultConfig() *KimbapConfig {
 			Path: filepath.Join(dataDir, "audit.jsonl"),
 		},
 		Policy: PolicyConfig{Path: filepath.Join(dataDir, "policy.yaml")},
-		Skills: SkillsConfig{
-			Dir:             filepath.Join(dataDir, "skills"),
-			Official:        "https://skills.kimbap.ai",
+		Services: ServicesConfig{
+			Dir:             filepath.Join(dataDir, "services"),
+			Official:        "https://services.kimbap.ai",
 			Verify:          "warn",
 			SignaturePolicy: "optional",
 		},
@@ -170,8 +170,8 @@ func loadKimbapConfig(includeDefault bool, paths ...string) (*KimbapConfig, erro
 		rebaseDerivedPathsForDataDir(&prev, cfg)
 	}
 
-	cfg.Skills.Verify = normalizeSkillVerifyMode(cfg.Skills.Verify)
-	cfg.Skills.SignaturePolicy = normalizeSkillSignaturePolicy(cfg.Skills.SignaturePolicy)
+	cfg.Services.Verify = normalizeSkillVerifyMode(cfg.Services.Verify)
+	cfg.Services.SignaturePolicy = normalizeSkillSignaturePolicy(cfg.Services.SignaturePolicy)
 
 	return cfg, nil
 }
@@ -254,8 +254,8 @@ func rebaseDerivedPathsForDataDir(prev *KimbapConfig, cfg *KimbapConfig) {
 	if cfg.Policy.Path == prev.Policy.Path && prev.Policy.Path == filepath.Join(prev.DataDir, "policy.yaml") {
 		cfg.Policy.Path = filepath.Join(cfg.DataDir, "policy.yaml")
 	}
-	if cfg.Skills.Dir == prev.Skills.Dir && prev.Skills.Dir == filepath.Join(prev.DataDir, "skills") {
-		cfg.Skills.Dir = filepath.Join(cfg.DataDir, "skills")
+	if cfg.Services.Dir == prev.Services.Dir && prev.Services.Dir == filepath.Join(prev.DataDir, "services") {
+		cfg.Services.Dir = filepath.Join(cfg.DataDir, "services")
 	}
 	if cfg.Database.DSN == prev.Database.DSN && prev.Database.DSN == filepath.Join(prev.DataDir, "kimbap.db") {
 		cfg.Database.DSN = filepath.Join(cfg.DataDir, "kimbap.db")
@@ -282,10 +282,10 @@ func applyKimbapEnv(cfg *KimbapConfig) {
 
 	setIfNotEmpty(&cfg.Policy.Path, os.Getenv("KIMBAP_POLICY_PATH"))
 
-	setIfNotEmpty(&cfg.Skills.Dir, os.Getenv("KIMBAP_SKILLS_DIR"))
-	setIfNotEmpty(&cfg.Skills.Official, os.Getenv("KIMBAP_SKILLS_OFFICIAL"))
-	setIfNotEmpty(&cfg.Skills.Verify, os.Getenv("KIMBAP_SKILLS_VERIFY"))
-	setIfNotEmpty(&cfg.Skills.SignaturePolicy, os.Getenv("KIMBAP_SKILLS_SIGNATURE_POLICY"))
+	setIfNotEmpty(&cfg.Services.Dir, os.Getenv("KIMBAP_SERVICES_DIR"))
+	setIfNotEmpty(&cfg.Services.Official, os.Getenv("KIMBAP_SERVICES_OFFICIAL"))
+	setIfNotEmpty(&cfg.Services.Verify, os.Getenv("KIMBAP_SERVICES_VERIFY"))
+	setIfNotEmpty(&cfg.Services.SignaturePolicy, os.Getenv("KIMBAP_SERVICES_SIGNATURE_POLICY"))
 
 	setIfNotEmpty(&cfg.Database.Driver, os.Getenv("KIMBAP_DATABASE_DRIVER"))
 	setIfNotEmpty(&cfg.Database.DSN, os.Getenv("KIMBAP_DATABASE_DSN"))
@@ -339,10 +339,10 @@ func mergeConfig(dst, src *KimbapConfig) {
 
 	setIfNotEmpty(&dst.Policy.Path, src.Policy.Path)
 
-	setIfNotEmpty(&dst.Skills.Dir, src.Skills.Dir)
-	setIfNotEmpty(&dst.Skills.Official, src.Skills.Official)
-	setIfNotEmpty(&dst.Skills.Verify, src.Skills.Verify)
-	setIfNotEmpty(&dst.Skills.SignaturePolicy, src.Skills.SignaturePolicy)
+	setIfNotEmpty(&dst.Services.Dir, src.Services.Dir)
+	setIfNotEmpty(&dst.Services.Official, src.Services.Official)
+	setIfNotEmpty(&dst.Services.Verify, src.Services.Verify)
+	setIfNotEmpty(&dst.Services.SignaturePolicy, src.Services.SignaturePolicy)
 
 	setIfNotEmpty(&dst.Database.Driver, src.Database.Driver)
 	setIfNotEmpty(&dst.Database.DSN, src.Database.DSN)

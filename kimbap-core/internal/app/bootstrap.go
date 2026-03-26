@@ -41,7 +41,7 @@ func BuildRuntime(deps RuntimeDeps) (*runtime.Runtime, error) {
 	skillsDir := strings.TrimSpace(deps.SkillsDir)
 	policyPath := strings.TrimSpace(deps.PolicyPath)
 	if skillsDir == "" {
-		skillsDir = strings.TrimSpace(deps.Config.Skills.Dir)
+		skillsDir = strings.TrimSpace(deps.Config.Services.Dir)
 	}
 	if policyPath == "" {
 		policyPath = strings.TrimSpace(deps.Config.Policy.Path)
@@ -49,8 +49,8 @@ func BuildRuntime(deps RuntimeDeps) (*runtime.Runtime, error) {
 
 	actionRegistry := &skillsActionRegistry{
 		installer:       services.NewLocalInstaller(skillsDir),
-		verifyMode:      strings.ToLower(strings.TrimSpace(deps.Config.Skills.Verify)),
-		signaturePolicy: strings.ToLower(strings.TrimSpace(deps.Config.Skills.SignaturePolicy)),
+		verifyMode:      strings.ToLower(strings.TrimSpace(deps.Config.Services.Verify)),
+		signaturePolicy: strings.ToLower(strings.TrimSpace(deps.Config.Services.SignaturePolicy)),
 	}
 
 	var policyEvaluator runtime.PolicyEvaluator

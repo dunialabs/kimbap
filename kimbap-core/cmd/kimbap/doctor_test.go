@@ -69,8 +69,8 @@ func TestDoctorCommandUsesExplicitConfigWithoutBrokenDefault(t *testing.T) {
 	}
 
 	dataDir := t.TempDir()
-	if err := os.MkdirAll(filepath.Join(dataDir, "skills"), 0o755); err != nil {
-		t.Fatalf("mkdir skills dir: %v", err)
+	if err := os.MkdirAll(filepath.Join(dataDir, "services"), 0o755); err != nil {
+		t.Fatalf("mkdir services dir: %v", err)
 	}
 	vaultPath := filepath.Join(dataDir, "vault.db")
 	createTestVaultDB(t, vaultPath)
@@ -79,7 +79,7 @@ func TestDoctorCommandUsesExplicitConfigWithoutBrokenDefault(t *testing.T) {
 	configData := "mode: embedded\n" +
 		"data_dir: " + dataDir + "\n" +
 		"vault:\n  path: " + vaultPath + "\n" +
-		"skills:\n  dir: " + filepath.Join(dataDir, "skills") + "\n"
+		"services:\n  dir: " + filepath.Join(dataDir, "services") + "\n"
 	if err := os.WriteFile(explicitPath, []byte(configData), 0o644); err != nil {
 		t.Fatalf("write explicit config: %v", err)
 	}

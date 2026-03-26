@@ -13,7 +13,6 @@ import (
 	"github.com/dunialabs/kimbap-core/internal/config"
 	"github.com/dunialabs/kimbap-core/internal/connectors"
 	"github.com/dunialabs/kimbap-core/internal/runtime"
-	"github.com/dunialabs/kimbap-core/internal/security"
 	"github.com/dunialabs/kimbap-core/internal/services"
 	"github.com/dunialabs/kimbap-core/internal/vault"
 )
@@ -27,8 +26,8 @@ func TestBuildRuntimeNilConfig(t *testing.T) {
 
 func TestBuildRuntimeMinimalConfig(t *testing.T) {
 	cfg := &config.KimbapConfig{
-		Skills: config.SkillsConfig{Dir: t.TempDir()},
-		Policy: config.PolicyConfig{Path: ""},
+		Services: config.ServicesConfig{Dir: t.TempDir()},
+		Policy:   config.PolicyConfig{Path: ""},
 	}
 
 	rt, err := BuildRuntime(RuntimeDeps{Config: cfg})
@@ -62,7 +61,7 @@ actions:
 		t.Fatalf("write skill manifest: %v", err)
 	}
 
-	cfg := &config.KimbapConfig{Skills: config.SkillsConfig{Dir: skillsDir}}
+	cfg := &config.KimbapConfig{Services: config.ServicesConfig{Dir: skillsDir}}
 	rt, err := BuildRuntime(RuntimeDeps{Config: cfg})
 	if err != nil {
 		t.Fatalf("build runtime: %v", err)
@@ -102,7 +101,7 @@ actions:
 		t.Fatalf("write skill manifest: %v", err)
 	}
 
-	cfg := &config.KimbapConfig{Skills: config.SkillsConfig{Dir: skillsDir, Verify: "strict"}}
+	cfg := &config.KimbapConfig{Services: config.ServicesConfig{Dir: skillsDir, Verify: "strict"}}
 	rt, err := BuildRuntime(RuntimeDeps{Config: cfg})
 	if err != nil {
 		t.Fatalf("build runtime: %v", err)
@@ -141,7 +140,7 @@ actions:
 		t.Fatalf("install skill with lockfile: %v", err)
 	}
 
-	cfg := &config.KimbapConfig{Skills: config.SkillsConfig{Dir: skillsDir, Verify: "strict"}}
+	cfg := &config.KimbapConfig{Services: config.ServicesConfig{Dir: skillsDir, Verify: "strict"}}
 	rt, err := BuildRuntime(RuntimeDeps{Config: cfg})
 	if err != nil {
 		t.Fatalf("build runtime: %v", err)
@@ -178,7 +177,7 @@ actions:
 		t.Fatalf("write skill manifest: %v", err)
 	}
 
-	cfg := &config.KimbapConfig{Skills: config.SkillsConfig{Dir: skillsDir, Verify: "warn", SignaturePolicy: "required"}}
+	cfg := &config.KimbapConfig{Services: config.ServicesConfig{Dir: skillsDir, Verify: "warn", SignaturePolicy: "required"}}
 	rt, err := BuildRuntime(RuntimeDeps{Config: cfg})
 	if err != nil {
 		t.Fatalf("build runtime: %v", err)
@@ -373,34 +372,6 @@ func (s *bootstrapMemConnectorStore) Delete(_ context.Context, tenantID, name st
 
 func (s *bootstrapMemConnectorStore) key(tenantID, name string) string {
 	return tenantID + "::" + name
-}
-
-func mustEncryptBootstrapToken(t *testing.T, value string) string {
-	t.Helper()
-	enc, err := security.EncryptData(value, "connector-test-key")
-	if err != nil {
-		t.Fatalf("encrypt token: %v", err)
-	}
-	return enc
-}
-
-func mustSeedConnectorState(t *testing.T, store *bootstrapMemConnectorStore, tenantID, name, provider, token string) {
-	t.Helper()
-	now := time.Now().UTC()
-	expiresAt := now.Add(30 * time.Minute)
-	state := connectors.ConnectorState{
-		Name:        name,
-		TenantID:    tenantID,
-		Provider:    provider,
-		AccessToken: mustEncryptBootstrapToken(t, token),
-		Status:      connectors.StatusHealthy,
-		ExpiresAt:   &expiresAt,
-		CreatedAt:   now,
-		UpdatedAt:   now,
-	}
-	if err := store.Save(context.Background(), &state); err != nil {
-		t.Fatalf("seed connector state: %v", err)
-	}
 }
 
 type captureApprovalStore struct {

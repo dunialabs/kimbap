@@ -216,8 +216,8 @@ func TestLoadKimbapConfigRebasesDerivedPathsWhenExplicitDataDirChanges(t *testin
 	if cfg.Policy.Path != filepath.Join(dataDir, "policy.yaml") {
 		t.Fatalf("expected rebased policy path, got %q", cfg.Policy.Path)
 	}
-	if cfg.Skills.Dir != filepath.Join(dataDir, "skills") {
-		t.Fatalf("expected rebased skills dir, got %q", cfg.Skills.Dir)
+	if cfg.Services.Dir != filepath.Join(dataDir, "services") {
+		t.Fatalf("expected rebased services dir, got %q", cfg.Services.Dir)
 	}
 	if cfg.Database.DSN != filepath.Join(dataDir, "kimbap.db") {
 		t.Fatalf("expected rebased database dsn, got %q", cfg.Database.DSN)
@@ -239,8 +239,8 @@ func TestLoadKimbapConfigRebasesDerivedPathsWhenEnvDataDirChanges(t *testing.T) 
 	if cfg.Vault.Path != filepath.Join(dataDir, "vault.db") {
 		t.Fatalf("expected rebased vault path, got %q", cfg.Vault.Path)
 	}
-	if cfg.Skills.Dir != filepath.Join(dataDir, "skills") {
-		t.Fatalf("expected rebased skills dir, got %q", cfg.Skills.Dir)
+	if cfg.Services.Dir != filepath.Join(dataDir, "services") {
+		t.Fatalf("expected rebased services dir, got %q", cfg.Services.Dir)
 	}
 }
 
@@ -268,6 +268,48 @@ func TestLoadKimbapConfigPreservesExplicitPathOverridesWhenDataDirChanges(t *tes
 	}
 	if cfg.Policy.Path != filepath.Join(dataDir, "policy.yaml") {
 		t.Fatalf("expected policy path rebased, got %q", cfg.Policy.Path)
+	}
+}
+
+func TestLoadKimbapConfigAppliesServicesEnvOverrides(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	t.Setenv("KIMBAP_SERVICES_DIR", "/tmp/custom-services")
+	t.Setenv("KIMBAP_SERVICES_OFFICIAL", "https://services.example.com")
+	t.Setenv("KIMBAP_SERVICES_VERIFY", "strict")
+	t.Setenv("KIMBAP_SERVICES_SIGNATURE_POLICY", "required")
+
+	cfg, err := LoadKimbapConfigWithoutDefault()
+	if err != nil {
+		t.Fatalf("load config without default: %v", err)
+	}
+
+	if cfg.Services.Dir != "/tmp/custom-services" {
+		t.Fatalf("expected services dir override, got %q", cfg.Services.Dir)
+	}
+	if cfg.Services.Official != "https://services.example.com" {
+		t.Fatalf("expected services official override, got %q", cfg.Services.Official)
+	}
+	if cfg.Services.Verify != "strict" {
+		t.Fatalf("expected services verify override, got %q", cfg.Services.Verify)
+	}
+	if cfg.Services.SignaturePolicy != "required" {
+		t.Fatalf("expected services signature policy override, got %q", cfg.Services.SignaturePolicy)
+	}
+}
+
+func TestLoadKimbapConfigIgnoresLegacySkillsEnvOverrides(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	t.Setenv("KIMBAP_SKILLS_DIR", "/tmp/legacy-skills")
+
+	cfg, err := LoadKimbapConfigWithoutDefault()
+	if err != nil {
+		t.Fatalf("load config without default: %v", err)
+	}
+
+	if cfg.Services.Dir == "/tmp/legacy-skills" {
+		t.Fatalf("expected legacy KIMBAP_SKILLS_DIR to be ignored")
 	}
 }
 

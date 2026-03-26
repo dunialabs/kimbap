@@ -319,7 +319,7 @@ func buildInstalledSkillsForSync(cfg *config.KimbapConfig) ([]agents.InstalledSe
 }
 
 func buildRulesContent(cfg *config.KimbapConfig) string {
-	services, svcErr := collectInstalledServicesFromConfig(cfg.Skills.Dir)
+	services, svcErr := collectInstalledServicesFromConfig(cfg.Services.Dir)
 	if svcErr != nil {
 		_, _ = fmt.Fprintf(os.Stderr, "warning: %v\n", svcErr)
 	}
