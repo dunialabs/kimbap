@@ -94,7 +94,7 @@ If you find a bug or have a feature request:
 
 **Do NOT** add new handlers to `/admin` or `/user` — these are legacy and frozen.
 
-### Adding a new service integration (Skill)
+### Adding a new service integration
 
 Create a YAML file in `skills/official/`:
 
@@ -120,7 +120,7 @@ actions:
       mutating: false
 ```
 
-**Action naming convention:** Use kebab-case within the skill file (e.g., `list-repos`, `create-issue`). The canonical name becomes `service.action-name` (e.g., `github.create-issue`).
+**Action naming convention:** Use kebab-case within the service file (e.g., `list-repos`, `create-issue`). The canonical name becomes `service.action-name` (e.g., `github.create-issue`).
 
 ### Adding a New Provider
 

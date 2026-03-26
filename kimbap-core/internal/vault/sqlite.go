@@ -120,27 +120,67 @@ func (s *SQLiteStore) Create(ctx context.Context, tenantID string, name string, 
 
 func (s *SQLiteStore) Upsert(ctx context.Context, tenantID string, name string, secretType SecretType, plaintext []byte, labels map[string]string, createdBy string) (*SecretRecord, error) {
 	rec, err := s.Create(ctx, tenantID, name, secretType, plaintext, labels, createdBy)
-	if err == ErrSecretAlreadyExists {
-		if _, rotateErr := s.Rotate(ctx, tenantID, name, plaintext, createdBy); rotateErr != nil {
-			return nil, rotateErr
-		}
-		labelsJSON, labelsErr := marshalLabels(labels)
-		if labelsErr != nil {
-			return nil, labelsErr
-		}
-		now := time.Now().UTC()
-		if _, updateErr := s.db.ExecContext(ctx, `
-			UPDATE secrets
-			SET type = ?, labels = ?, updated_at = ?
-			WHERE tenant_id = ? AND name = ?
-		`, string(secretType), labelsJSON, now, tenantID, name); updateErr != nil {
-			return nil, updateErr
-		}
-		metaCtx, cancel := readbackContext(ctx)
-		defer cancel()
-		return s.GetMeta(metaCtx, tenantID, name)
+	if err != ErrSecretAlreadyExists {
+		return rec, err
 	}
-	return rec, err
+
+	envelope, err := s.encryptForTenant(tenantID, plaintext)
+	if err != nil {
+		return nil, err
+	}
+	labelsJSON, err := marshalLabels(labels)
+	if err != nil {
+		return nil, err
+	}
+
+	now := time.Now().UTC()
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return nil, err
+	}
+	defer func() {
+		_ = tx.Rollback()
+	}()
+
+	var secretID string
+	var currentVersion int
+	if err := tx.QueryRowContext(ctx, `SELECT id, current_version FROM secrets WHERE tenant_id = ? AND name = ?`, tenantID, name).Scan(&secretID, &currentVersion); err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, ErrSecretNotFound
+		}
+		return nil, err
+	}
+
+	newVersion := currentVersion + 1
+	versionID := uuid.NewString()
+
+	if _, err := tx.ExecContext(ctx, `UPDATE secret_versions SET active = 0 WHERE secret_id = ?`, secretID); err != nil {
+		return nil, err
+	}
+
+	if _, err := tx.ExecContext(ctx, `
+		INSERT INTO secret_versions (
+			id, secret_id, version, ciphertext, nonce, salt, key_id, algorithm, created_at, created_by, active, wrapped_dek, dek_nonce
+		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?)
+	`, versionID, secretID, newVersion, envelope.Ciphertext, envelope.Nonce, envelope.Salt, envelope.KeyID, envelope.Algorithm, now, createdBy, envelope.WrappedDEK, envelope.DEKNonce); err != nil {
+		return nil, err
+	}
+
+	if _, err := tx.ExecContext(ctx, `
+		UPDATE secrets
+		SET type = ?, labels = ?, updated_at = ?, rotated_at = ?, version_count = version_count + 1, current_version = ?
+		WHERE id = ?
+	`, string(secretType), labelsJSON, now, now, newVersion, secretID); err != nil {
+		return nil, err
+	}
+
+	if err := tx.Commit(); err != nil {
+		return nil, err
+	}
+
+	metaCtx, cancel := readbackContext(ctx)
+	defer cancel()
+	return s.GetMeta(metaCtx, tenantID, name)
 }
 
 func (s *SQLiteStore) GetMeta(ctx context.Context, tenantID string, name string) (*SecretRecord, error) {
