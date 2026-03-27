@@ -1,0 +1,1406 @@
+name: peta
+version: 2.0.0
+description: Peta Console API for full MCP tool management, token and policy control, approval workflows, IP whitelisting, cache control, and session inspection
+base_url: http://localhost:3000/api/external
+auth:
+  type: bearer
+  credential_ref: peta.token
+triggers:
+  task_verbs: [list, create, update, delete, approve, reject, manage, enable, disable, start, connect, configure, purge, check, initialize]
+  objects: [tokens, policies, approvals, tools, capabilities, proxy, sessions, scopes, templates, cache, ip-whitelist, user-servers, peta-core]
+  instead_of:
+    - manually logging into the Peta Console web UI to manage tokens, tools, or approvals
+    - calling Peta APIs directly without credentials stored in the vault
+    - using raw curl commands to manage console state
+  exclusions:
+    - actions unrelated to Peta Console operations
+    - direct database manipulation inside the console container
+gotchas:
+  - symptom: All API calls return 401 Unauthorized
+    likely_cause: peta.token vault entry is missing, wrong, or the token has been revoked
+    recovery: Verify peta.token is correctly set with kimbap vault set peta.token; only call init on a completely fresh uninitialized instance
+    severity: high
+  - symptom: init returns error code E3007 Proxy has already been initialized
+    likely_cause: The console was already bootstrapped; calling init again is not allowed
+    recovery: Use the existing owner token; never call init again on an already-initialized instance
+    severity: high
+  - symptom: enable-tool or disable-tool or start-tool fails with E2004
+    likely_cause: masterPwd is incorrect; these actions decrypt the owner token using the master password
+    recovery: Provide the correct masterPwd used when init was called
+    severity: high
+  - symptom: create-token fails with E4007 Cannot create owner role
+    likely_cause: role value 1 (owner) was passed; only admin (2) and member (3) are creatable via API
+    recovery: Use role=2 for admin tokens or role=3 for member tokens
+    severity: medium
+  - symptom: create-basic-mcp-tool fails with E3004 Template not found
+    likely_cause: toolTmplId does not match any available template
+    recovery: Call list-templates first to get valid toolTmplId values
+    severity: medium
+  - symptom: create-custom-mcp-tool fails with E1001 dual config error
+    likely_cause: Both customRemoteConfig and stdioConfig were provided; only one is allowed
+    recovery: Provide either customRemoteConfig (for HTTP) or stdioConfig (for stdio), not both
+    severity: medium
+  - symptom: create-tool fails with E4001 Tool limit reached
+    likely_cause: License limit on the number of tools has been reached
+    recovery: Delete unused tools first or upgrade the license
+    severity: high
+  - symptom: update-custom-mcp-tool fails when trying to switch transport
+    likely_cause: Cannot switch from stdio to URL or URL to stdio transport type
+    recovery: Delete and recreate the tool with the correct transport type
+    severity: medium
+  - symptom: cache purge with scope server/tool/prompt/resource fails with E1001
+    likely_cause: Required fields like serverId or toolName were omitted for the given scope
+    recovery: Check the scope field and include the corresponding required field (serverId for server scope, toolName for tool scope, etc.)
+    severity: medium
+  - symptom: decide-approval fails with validation error on decision field
+    likely_cause: decision value is lowercase or misspelled; it is case-sensitive
+    recovery: Use exactly APPROVED or REJECTED in uppercase
+    severity: medium
+  - symptom: batch-update-tokens silently overwrites existing tags or permissions
+    likely_cause: tagsMode and permissionsMode both default to replace when omitted
+    recovery: Explicitly set tagsMode=add or permissionsMode=merge to avoid destructive overwrites
+    severity: common
+  - symptom: create-token raw accessToken is lost after the API call
+    likely_cause: The accessToken is only returned once at creation time
+    recovery: Store the accessToken immediately from the response before proceeding
+    severity: high
+recipes:
+  - name: Bootstrap a fresh console instance
+    description: Initialize the proxy, capture the owner token, and verify peta-core connectivity
+    steps:
+      - Call init with a strong masterPwd to create the proxy and obtain the owner accessToken
+      - Store the returned accessToken with kimbap vault set peta.token
+      - Call get-peta-core-status to verify peta-core is configured and connected
+      - Call get-proxy to confirm the proxy is responding
+  - name: Install and start a tool from a template
+    description: Browse available templates, create a tool, and start it
+    steps:
+      - Call list-templates to see all available toolTmplId values and their mcpJsonConf schemas
+      - Call create-basic-mcp-tool with toolTmplId and a filled mcpJsonConf object
+      - If isStarted is false, call start-tool with the returned toolId and masterPwd
+      - Call get-tool with toolId to confirm the tool is running and check its functions
+  - name: Create a custom MCP tool via HTTP URL
+    description: Add a custom remote MCP server by URL
+    steps:
+      - Call create-custom-mcp-tool with customRemoteConfig containing the url (and optional headers)
+      - If isStarted is false, call start-tool with toolId and masterPwd
+      - Call list-tools to confirm the tool appears in the list with the correct runningState
+  - name: Create a custom stdio MCP tool
+    description: Add a local stdio-based MCP server
+    steps:
+      - Call create-custom-stdio-tool with customStdioConfig containing command, args, and env
+      - If isStarted is false, call start-tool with toolId and masterPwd
+      - Call get-tool with toolId to verify functions and resources were registered
+  - name: Process pending approval requests
+    description: Check for pending approvals and make decisions on each one
+    steps:
+      - Call count-pending-approvals to determine how many decisions are waiting
+      - Call list-approvals with status=pending to retrieve all pending requests
+      - Call get-approval for each approval ID to inspect the full request context
+      - Call decide-approval with decision=APPROVED or REJECTED and an optional reason string
+  - name: Manage IP whitelist for access control
+    description: Review and update which IP addresses can access the proxy
+    steps:
+      - Call list-ip-whitelist to see current allowed IPs and whether allow-all is active
+      - Call add-ip-whitelist with an ips array to allow specific CIDR ranges
+      - Call restrict-all-ips to ensure only whitelisted IPs can connect
+      - Call allow-all-ips to open access to any IP (use with caution)
+  - name: Inspect active sessions and cache
+    description: Monitor live agent sessions and cache health
+    steps:
+      - Call list-sessions with limit=100 to see recent active sessions (last 5 minutes)
+      - Call get-cache-health to check the cache backend status and metrics
+      - Call purge-cache with scope=global to clear all cached results if needed
+  - name: Configure and audit policies
+    description: Create access control policies and verify they are active
+    steps:
+      - Call list-policies to see all existing policy sets and their current status
+      - Call create-policy with a dsl object containing schemaVersion=1 and a rules array
+      - Call get-effective-policies to confirm the new policy is being applied
+      - Use update-policy with status=archived to deactivate a policy without deleting it
+  - name: Grant a user access to a specific tool
+    description: Configure which tools a specific user token can access
+    steps:
+      - Call list-tools to find the toolId of the target tool
+      - Call list-tokens to find the userId of the target user token
+      - Call configure-user-server with userId and serverId to grant access
+      - Call get-user-capabilities with userId to confirm the tool appears in capabilities
+actions:
+  init:
+    method: POST
+    path: /auth/init
+    description: >
+      Initialize Peta for the first time. Creates the proxy record and returns the owner
+      access token. Call only once on a fresh install; subsequent calls fail with E3007 if already initialized.
+    auth:
+      type: none
+    warnings:
+      - This endpoint requires NO authentication; it bootstraps the very first owner token
+      - Fails with E3007 if the proxy has already been initialized; do not call again on an existing instance
+      - masterPwd is used to encrypt the owner token server-side; store it securely as it is needed by enable-tool, disable-tool, and start-tool
+      - The returned accessToken must be saved immediately and stored with kimbap vault set peta.token
+    args:
+      - name: masterPwd
+        type: string
+        required: true
+    request:
+      body:
+        masterPwd: "{masterPwd}"
+    response:
+      type: object
+    risk:
+      level: high
+  get-proxy:
+    method: GET
+    path: /proxy
+    description: Get current proxy information including proxyId, proxyName, and createdAt timestamp
+    args: []
+    response:
+      type: object
+    risk:
+      level: low
+    retry:
+      max_attempts: 3
+      backoff_ms: 200
+      retry_on: [429, 500, 502, 503]
+  update-proxy:
+    method: POST
+    path: /proxy/update
+    description: Update the display name of the proxy instance
+    args:
+      - name: proxyId
+        type: integer
+        required: true
+      - name: proxyName
+        type: string
+        required: true
+    request:
+      body:
+        proxyId: "{proxyId}"
+        proxyName: "{proxyName}"
+    response:
+      type: object
+    risk:
+      level: medium
+  get-peta-core-status:
+    method: POST
+    path: /peta-core/connect
+    description: Get the currently configured peta-core connection details including host, port, and connected status
+    args: []
+    request:
+      body: {}
+    response:
+      type: object
+    risk:
+      level: low
+  list-tokens:
+    method: GET
+    path: /tokens
+    description: >
+      List all access tokens with their roles, permissions, namespace, tags, last-used timestamps,
+      and creation dates. Supports pagination and optional filtering by namespace or tags.
+      The tags query parameter accepts a comma-separated string (e.g. prod,agent).
+      Maximum pageSize is 100.
+    args:
+      - name: namespace
+        type: string
+        required: false
+      - name: tags
+        type: string
+        required: false
+      - name: page
+        type: integer
+        required: false
+        default: 1
+      - name: pageSize
+        type: integer
+        required: false
+        default: 20
+    request:
+      query:
+        namespace: "{namespace}"
+        tags: "{tags}"
+        page: "{page}"
+        pageSize: "{pageSize}"
+    response:
+      extract: data.tokens
+      type: array
+    risk:
+      level: low
+    retry:
+      max_attempts: 3
+      backoff_ms: 200
+      retry_on: [429, 500, 502, 503]
+  get-token:
+    method: GET
+    path: /tokens/get
+    description: Get full details of a specific token by its ID including permissions, namespace, and tags
+    args:
+      - name: tokenId
+        type: string
+        required: true
+    request:
+      query:
+        tokenId: "{tokenId}"
+    response:
+      type: object
+    risk:
+      level: low
+  create-token:
+    method: POST
+    path: /tokens/create
+    description: >
+      Batch create one or more access tokens. Returns the plaintext accessToken for each created
+      token; this is the only time it is returned and cannot be retrieved again. Store it immediately.
+      Each token object requires name (string) and role (2=admin or 3=member).
+      Optional fields: notes, expiresAt (unix ts), rateLimit (req/s), permissions, namespace, tags.
+    warnings:
+      - The accessToken in the response is returned exactly once; store it before making any other calls
+      - role must be 2 (admin) or 3 (member); role 1 (owner) cannot be created via API
+      - Up to 50 tokens can be created per request; check the errors array for partial failures
+    args:
+      - name: tokens
+        type: array
+        required: true
+    request:
+      body:
+        tokens: "{tokens}"
+    response:
+      type: object
+    risk:
+      level: high
+  update-token:
+    method: POST
+    path: /tokens/update
+    description: >
+      Update an existing token's name, notes, permissions, namespace, or tags.
+      Only provided fields are changed; omitted fields remain unchanged.
+    args:
+      - name: tokenId
+        type: string
+        required: true
+      - name: name
+        type: string
+        required: false
+      - name: notes
+        type: string
+        required: false
+      - name: permissions
+        type: array
+        required: false
+      - name: namespace
+        type: string
+        required: false
+      - name: tags
+        type: array
+        required: false
+    request:
+      body:
+        tokenId: "{tokenId}"
+        name: "{name}"
+        notes: "{notes}"
+        permissions: "{permissions}"
+        namespace: "{namespace}"
+        tags: "{tags}"
+    response:
+      type: object
+    risk:
+      level: high
+  delete-token:
+    method: POST
+    path: /tokens/delete
+    description: Permanently delete an access token and revoke its ability to authenticate
+    warnings:
+      - This action is irreversible; the token is permanently revoked and cannot be recovered
+    args:
+      - name: tokenId
+        type: string
+        required: true
+    request:
+      body:
+        tokenId: "{tokenId}"
+    response:
+      type: object
+    risk:
+      level: high
+  batch-update-tokens:
+    method: POST
+    path: /tokens/batch-update
+    description: >
+      Update namespace, tags, and/or permissions for up to 50 tokens in one request.
+      Partial success supported; failed tokens listed in failures array.
+      tagsMode and permissionsMode default to replace if omitted.
+    warnings:
+      - tagsMode replace/add/remove require the tags array; clear does not
+      - At least one of permissions, namespace, or tags must be provided
+      - Default replace mode overwrites all existing values; use add/merge to avoid data loss
+    args:
+      - name: tokenIds
+        type: array
+        required: true
+      - name: namespace
+        type: string
+        required: false
+      - name: tags
+        type: array
+        required: false
+      - name: tagsMode
+        type: string
+        required: false
+        enum: [replace, add, remove, clear]
+      - name: permissions
+        type: array
+        required: false
+      - name: permissionsMode
+        type: string
+        required: false
+        enum: [replace, merge]
+    request:
+      body:
+        tokenIds: "{tokenIds}"
+        namespace: "{namespace}"
+        tags: "{tags}"
+        tagsMode: "{tagsMode}"
+        permissions: "{permissions}"
+        permissionsMode: "{permissionsMode}"
+    response:
+      type: object
+    risk:
+      level: high
+  list-policies:
+    method: GET
+    path: /policies
+    description: List all policy sets, optionally filtered by a specific MCP server ID
+    args:
+      - name: serverId
+        type: string
+        required: false
+    request:
+      query:
+        serverId: "{serverId}"
+    response:
+      extract: data.policySets
+      type: array
+    risk:
+      level: low
+    retry:
+      max_attempts: 3
+      backoff_ms: 200
+      retry_on: [429, 500, 502, 503]
+  get-policy:
+    method: GET
+    path: /policies/get
+    description: Get full details of a specific policy set by its ID
+    args:
+      - name: id
+        type: string
+        required: true
+    request:
+      query:
+        id: "{id}"
+    response:
+      type: object
+    risk:
+      level: low
+  create-policy:
+    method: POST
+    path: /policies/create
+    description: >
+      Create a new policy set with DSL-based access control rules.
+      The dsl object must contain schemaVersion (integer 1) and a rules array.
+    warnings:
+      - Policies are active immediately after creation; verify with get-effective-policies
+    args:
+      - name: dsl
+        type: object
+        required: true
+      - name: serverId
+        type: string
+        required: false
+    request:
+      body:
+        dsl: "{dsl}"
+        serverId: "{serverId}"
+    response:
+      type: object
+    risk:
+      level: high
+  update-policy:
+    method: POST
+    path: /policies/update
+    description: >
+      Update an existing policy's DSL rules or lifecycle status.
+      At least one of dsl or status must be provided.
+      Use status=archived to soft-deactivate a policy without deleting it.
+    args:
+      - name: id
+        type: string
+        required: true
+      - name: dsl
+        type: object
+        required: false
+      - name: status
+        type: string
+        required: false
+        enum: [active, archived]
+    request:
+      body:
+        id: "{id}"
+        dsl: "{dsl}"
+        status: "{status}"
+    response:
+      type: object
+    risk:
+      level: high
+  delete-policy:
+    method: POST
+    path: /policies/delete
+    description: >
+      Permanently delete a policy set. Prefer update-policy with status=archived for recoverable deactivation.
+    warnings:
+      - Deleted policies cannot be recovered; use update-policy with status=archived for soft removal
+    args:
+      - name: id
+        type: string
+        required: true
+    request:
+      body:
+        id: "{id}"
+    response:
+      type: object
+    risk:
+      level: high
+  get-effective-policies:
+    method: GET
+    path: /policies/effective
+    description: Get the set of currently active policies being applied, optionally filtered by MCP server ID
+    args:
+      - name: serverId
+        type: string
+        required: false
+    request:
+      query:
+        serverId: "{serverId}"
+    response:
+      type: object
+    risk:
+      level: low
+  list-approvals:
+    method: GET
+    path: /approvals
+    description: List approval requests with optional filters by user, server, tool name, and status
+    args:
+      - name: userId
+        type: string
+        required: false
+      - name: serverId
+        type: string
+        required: false
+      - name: toolName
+        type: string
+        required: false
+      - name: status
+        type: string
+        required: false
+      - name: page
+        type: integer
+        required: false
+        default: 1
+      - name: pageSize
+        type: integer
+        required: false
+        default: 20
+    request:
+      query:
+        userId: "{userId}"
+        serverId: "{serverId}"
+        toolName: "{toolName}"
+        status: "{status}"
+        page: "{page}"
+        pageSize: "{pageSize}"
+    response:
+      extract: data.requests
+      type: array
+    risk:
+      level: low
+    retry:
+      max_attempts: 3
+      backoff_ms: 200
+      retry_on: [429, 500, 502, 503]
+  get-approval:
+    method: GET
+    path: /approvals/get
+    description: Get full details of a specific approval request including tool call context and requestor info
+    args:
+      - name: id
+        type: string
+        required: true
+    request:
+      query:
+        id: "{id}"
+    response:
+      type: object
+    risk:
+      level: low
+  count-pending-approvals:
+    method: GET
+    path: /approvals/count-pending
+    description: Return the count of pending approval requests; optionally scope to a specific user
+    args:
+      - name: userId
+        type: string
+        required: false
+    request:
+      query:
+        userId: "{userId}"
+    response:
+      type: object
+    risk:
+      level: low
+  decide-approval:
+    method: POST
+    path: /approvals/decide
+    description: Approve or reject a pending approval request. The decision is final and cannot be reversed.
+    warnings:
+      - decision must be exactly APPROVED or REJECTED in uppercase; other values are rejected
+      - Once decided the approval status cannot be changed back to pending
+    args:
+      - name: id
+        type: string
+        required: true
+      - name: decision
+        type: string
+        required: true
+        enum: [APPROVED, REJECTED]
+      - name: reason
+        type: string
+        required: false
+    request:
+      body:
+        id: "{id}"
+        decision: "{decision}"
+        reason: "{reason}"
+    response:
+      type: object
+    risk:
+      level: high
+  get-user-capabilities:
+    method: GET
+    path: /user-capabilities
+    description: Get the list of server capabilities (tools and resources) available to a specific token/user
+    args:
+      - name: userId
+        type: string
+        required: true
+    request:
+      query:
+        userId: "{userId}"
+    response:
+      type: object
+    risk:
+      level: low
+  set-user-capabilities:
+    method: POST
+    path: /user-capabilities/set
+    description: >
+      Overwrite the full permissions set for a specific user token.
+      This replaces all existing permissions for the user; not a partial update.
+    warnings:
+      - This fully replaces all existing permissions; use update-token for partial changes
+      - Each permission item requires a non-empty toolId string
+    args:
+      - name: userId
+        type: string
+        required: true
+      - name: permissions
+        type: array
+        required: true
+    request:
+      body:
+        userId: "{userId}"
+        permissions: "{permissions}"
+    response:
+      type: object
+    risk:
+      level: high
+  list-scopes:
+    method: POST
+    path: /scopes
+    description: >
+      Get all available tools (servers) with their functions and resources for permission configuration.
+      Returns the full scope tree used when setting token permissions.
+    args: []
+    request:
+      body: {}
+    response:
+      extract: data.scopes
+      type: array
+    risk:
+      level: low
+  list-sessions:
+    method: POST
+    path: /sessions
+    description: >
+      List active sessions from the last 5 minutes. Each session includes sessionId, userId,
+      serverId, lastActivity timestamp, and IP address. Useful for monitoring live agent activity.
+    args:
+      - name: limit
+        type: integer
+        required: false
+        default: 50
+    request:
+      body:
+        limit: "{limit}"
+    response:
+      extract: data.sessions
+      type: array
+    risk:
+      level: low
+  list-templates:
+    method: POST
+    path: /templates
+    description: >
+      Get all available tool templates from Peta Cloud. Each template includes toolTmplId,
+      name, description, and mcpJsonConf schema used when creating a basic-mcp tool.
+    args: []
+    request:
+      body: {}
+    response:
+      extract: data.templates
+      type: array
+    risk:
+      level: low
+  get-cache-health:
+    method: POST
+    path: /cache/health
+    description: Get result cache health status including backend type, health status, and metrics
+    args: []
+    request:
+      body: {}
+    response:
+      type: object
+    risk:
+      level: low
+  get-cache-policy:
+    method: POST
+    path: /cache/policy
+    description: Get the cache policy configuration for a specific MCP server
+    args:
+      - name: serverId
+        type: string
+        required: true
+    request:
+      body:
+        serverId: "{serverId}"
+    response:
+      type: object
+    risk:
+      level: low
+  purge-cache:
+    method: POST
+    path: /cache/purge
+    description: >
+      Purge cached results at the specified scope.
+      Scope global clears everything; server clears one server; tool/prompt/resource clear specific items.
+      The exact scope requires additional operation, entityId, policy, scopeContext, and requestParams fields.
+    warnings:
+      - scope=server requires serverId
+      - scope=tool requires serverId and toolName
+      - scope=prompt requires serverId and promptName
+      - scope=resource requires serverId and uri
+      - scope=exact requires operation, entityId, policy, scopeContext, and requestParams
+      - scope=global purges ALL cached results for ALL users; use with caution
+    args:
+      - name: scope
+        type: string
+        required: true
+        enum: [global, server, tool, prompt, resource, exact]
+      - name: serverId
+        type: string
+        required: false
+      - name: toolName
+        type: string
+        required: false
+      - name: promptName
+        type: string
+        required: false
+      - name: uri
+        type: string
+        required: false
+      - name: reason
+        type: string
+        required: false
+      - name: operation
+        type: string
+        required: false
+      - name: entityId
+        type: string
+        required: false
+      - name: policy
+        type: object
+        required: false
+      - name: scopeContext
+        type: object
+        required: false
+      - name: requestParams
+        type: object
+        required: false
+    request:
+      body:
+        scope: "{scope}"
+        serverId: "{serverId}"
+        toolName: "{toolName}"
+        promptName: "{promptName}"
+        uri: "{uri}"
+        reason: "{reason}"
+        operation: "{operation}"
+        entityId: "{entityId}"
+        policy: "{policy}"
+        scopeContext: "{scopeContext}"
+        requestParams: "{requestParams}"
+    response:
+      type: object
+    risk:
+      level: high
+  list-ip-whitelist:
+    method: POST
+    path: /ip-whitelist
+    description: List the current IP whitelist entries and whether allow-all (0.0.0.0/0) is active
+    args: []
+    request:
+      body: {}
+    response:
+      type: object
+    risk:
+      level: low
+  add-ip-whitelist:
+    method: POST
+    path: /ip-whitelist/add
+    description: Add one or more IP addresses or CIDR ranges to the whitelist
+    args:
+      - name: ips
+        type: array
+        required: true
+    request:
+      body:
+        ips: "{ips}"
+    response:
+      type: object
+    risk:
+      level: high
+  delete-ip-whitelist:
+    method: POST
+    path: /ip-whitelist/delete
+    description: Remove one or more IP addresses or CIDR ranges from the whitelist
+    args:
+      - name: ips
+        type: array
+        required: true
+    request:
+      body:
+        ips: "{ips}"
+    response:
+      type: object
+    risk:
+      level: high
+  allow-all-ips:
+    method: POST
+    path: /ip-whitelist/allow-all
+    description: Open access to all IP addresses by adding the 0.0.0.0/0 entry to the whitelist
+    warnings:
+      - This removes all IP restrictions and allows any IP to connect; use with caution
+    args: []
+    request:
+      body: {}
+    response:
+      type: object
+    risk:
+      level: high
+  restrict-all-ips:
+    method: POST
+    path: /ip-whitelist/restrict
+    description: Enforce IP restriction mode by removing the 0.0.0.0/0 allow-all entry
+    args: []
+    request:
+      body: {}
+    response:
+      type: object
+    risk:
+      level: medium
+  list-tools:
+    method: POST
+    path: /tools
+    description: >
+      List all configured tools (MCP servers) with their functions, resources, running state,
+      template info, and settings. Optionally filter by enabled status.
+    args:
+      - name: enabled
+        type: boolean
+        required: false
+    request:
+      body:
+        enabled: "{enabled}"
+    response:
+      extract: data.tools
+      type: array
+    risk:
+      level: low
+    retry:
+      max_attempts: 3
+      backoff_ms: 200
+      retry_on: [429, 500, 502, 503]
+  get-tool:
+    method: POST
+    path: /tools/get
+    description: Get full details of a specific tool including live capabilities, running state, and configuration
+    args:
+      - name: toolId
+        type: string
+        required: true
+    request:
+      body:
+        toolId: "{toolId}"
+    response:
+      type: object
+    risk:
+      level: low
+  delete-tool:
+    method: POST
+    path: /tools/delete
+    description: Stop and permanently delete a tool (MCP server). This is irreversible.
+    warnings:
+      - The tool is stopped before deletion; any active connections will be dropped
+      - This action is irreversible; all tool configuration is permanently removed
+    args:
+      - name: toolId
+        type: string
+        required: true
+    request:
+      body:
+        toolId: "{toolId}"
+    response:
+      type: object
+    risk:
+      level: high
+  enable-tool:
+    method: POST
+    path: /tools/enable
+    description: >
+      Enable and start a disabled tool. Requires masterPwd to decrypt the owner token
+      used to start the MCP server process.
+    warnings:
+      - masterPwd must be the password used during init; wrong password returns E2004
+      - Returns E3008 if the tool is already enabled
+    args:
+      - name: toolId
+        type: string
+        required: true
+      - name: masterPwd
+        type: string
+        required: true
+    request:
+      body:
+        toolId: "{toolId}"
+        masterPwd: "{masterPwd}"
+    response:
+      type: object
+    risk:
+      level: high
+  disable-tool:
+    method: POST
+    path: /tools/disable
+    description: >
+      Disable and stop a running tool. Requires masterPwd to decrypt the owner token
+      used to stop the MCP server process.
+    warnings:
+      - masterPwd must be the password used during init; wrong password returns E2004
+      - Returns E3009 if the tool is already disabled
+    args:
+      - name: toolId
+        type: string
+        required: true
+      - name: masterPwd
+        type: string
+        required: true
+    request:
+      body:
+        toolId: "{toolId}"
+        masterPwd: "{masterPwd}"
+    response:
+      type: object
+    risk:
+      level: high
+  start-tool:
+    method: POST
+    path: /tools/start
+    description: >
+      Start a tool without changing its enabled status. Useful for restarting a crashed tool.
+      Requires masterPwd to decrypt the owner token for the MCP server process.
+    warnings:
+      - masterPwd must be the password used during init; wrong password returns E2004
+      - Returns E4008 if the start attempt fails; check peta-core connectivity
+    args:
+      - name: toolId
+        type: string
+        required: true
+      - name: masterPwd
+        type: string
+        required: true
+    request:
+      body:
+        toolId: "{toolId}"
+        masterPwd: "{masterPwd}"
+    response:
+      type: object
+    risk:
+      level: high
+  connect-all-tools:
+    method: POST
+    path: /tools/connect-all
+    description: >
+      Attempt to connect all configured tools at once. Returns lists of successfully
+      connected and failed server IDs.
+    args: []
+    request:
+      body: {}
+    response:
+      type: object
+    risk:
+      level: medium
+  create-basic-mcp-tool:
+    method: POST
+    path: /tools/basic-mcp
+    description: >
+      Create a template-based MCP tool using a Peta Cloud template.
+      Call list-templates first to get valid toolTmplId values and the mcpJsonConf schema.
+      The tool is started automatically; check isStarted in the response.
+    warnings:
+      - Call list-templates first to get valid toolTmplId values
+      - Returns E4001 if the tool creation limit is reached; delete unused tools first
+      - Returns E3004 if toolTmplId does not match any available template
+      - isStarted=false in the response means the MCP server failed to start; call start-tool manually
+    args:
+      - name: toolTmplId
+        type: string
+        required: true
+      - name: mcpJsonConf
+        type: object
+        required: true
+      - name: allowUserInput
+        type: boolean
+        required: false
+      - name: lazyStartEnabled
+        type: boolean
+        required: false
+      - name: publicAccess
+        type: boolean
+        required: false
+    request:
+      body:
+        toolTmplId: "{toolTmplId}"
+        mcpJsonConf: "{mcpJsonConf}"
+        allowUserInput: "{allowUserInput}"
+        lazyStartEnabled: "{lazyStartEnabled}"
+        publicAccess: "{publicAccess}"
+    response:
+      type: object
+    risk:
+      level: high
+  update-basic-mcp-tool:
+    method: POST
+    path: /tools/basic-mcp/update
+    description: >
+      Update a basic MCP tool's auth configuration, function/resource capabilities, or settings.
+      Only applies to tools created with create-basic-mcp-tool (category=1).
+    args:
+      - name: toolId
+        type: string
+        required: true
+      - name: authConfig
+        type: object
+        required: false
+      - name: functions
+        type: array
+        required: false
+      - name: resources
+        type: array
+        required: false
+      - name: lazyStartEnabled
+        type: boolean
+        required: false
+      - name: publicAccess
+        type: boolean
+        required: false
+      - name: allowUserInput
+        type: boolean
+        required: false
+    request:
+      body:
+        toolId: "{toolId}"
+        authConfig: "{authConfig}"
+        functions: "{functions}"
+        resources: "{resources}"
+        lazyStartEnabled: "{lazyStartEnabled}"
+        publicAccess: "{publicAccess}"
+        allowUserInput: "{allowUserInput}"
+    response:
+      type: object
+    risk:
+      level: high
+  create-custom-mcp-tool:
+    method: POST
+    path: /tools/custom-mcp
+    description: >
+      Create a custom MCP tool via HTTP remote URL or stdio command. Provide exactly one of
+      customRemoteConfig (for HTTP) or stdioConfig (for stdio); providing both is an error.
+      The tool is started automatically; check isStarted in the response.
+    warnings:
+      - Provide exactly one of customRemoteConfig or stdioConfig; both is an error
+      - customRemoteConfig.url must be a valid absolute URL
+      - stdioConfig.command is required if using stdio mode
+      - Returns E4001 if the tool creation limit is reached
+    args:
+      - name: customRemoteConfig
+        type: object
+        required: false
+      - name: stdioConfig
+        type: object
+        required: false
+      - name: allowUserInput
+        type: boolean
+        required: false
+      - name: lazyStartEnabled
+        type: boolean
+        required: false
+      - name: publicAccess
+        type: boolean
+        required: false
+    request:
+      body:
+        customRemoteConfig: "{customRemoteConfig}"
+        stdioConfig: "{stdioConfig}"
+        allowUserInput: "{allowUserInput}"
+        lazyStartEnabled: "{lazyStartEnabled}"
+        publicAccess: "{publicAccess}"
+    response:
+      type: object
+    risk:
+      level: high
+  update-custom-mcp-tool:
+    method: POST
+    path: /tools/custom-mcp/update
+    description: >
+      Update a custom MCP tool's connection config, capabilities, or settings.
+      Cannot switch transport type (stdio to HTTP or vice versa); delete and recreate instead.
+      Only applies to tools created with create-custom-mcp-tool (category=2 or 5).
+    warnings:
+      - Cannot switch transport type; delete and recreate the tool to change from stdio to HTTP or vice versa
+      - For personal tools, command and args are immutable; only env can be updated in stdio mode
+      - For personal tools, the base URL cannot be changed in HTTP mode
+    args:
+      - name: toolId
+        type: string
+        required: true
+      - name: customRemoteConfig
+        type: object
+        required: false
+      - name: stdioConfig
+        type: object
+        required: false
+      - name: functions
+        type: array
+        required: false
+      - name: resources
+        type: array
+        required: false
+      - name: lazyStartEnabled
+        type: boolean
+        required: false
+      - name: publicAccess
+        type: boolean
+        required: false
+      - name: allowUserInput
+        type: boolean
+        required: false
+    request:
+      body:
+        toolId: "{toolId}"
+        customRemoteConfig: "{customRemoteConfig}"
+        stdioConfig: "{stdioConfig}"
+        functions: "{functions}"
+        resources: "{resources}"
+        lazyStartEnabled: "{lazyStartEnabled}"
+        publicAccess: "{publicAccess}"
+        allowUserInput: "{allowUserInput}"
+    response:
+      type: object
+    risk:
+      level: high
+  create-custom-stdio-tool:
+    method: POST
+    path: /tools/custom-stdio
+    description: >
+      Create a custom stdio MCP tool by specifying a command to run.
+      The tool is started automatically; check isStarted in the response.
+    warnings:
+      - Returns E4001 if the tool creation limit is reached
+      - customStdioConfig.command is required
+      - isStarted=false means the MCP process failed to start; call start-tool manually
+    args:
+      - name: customStdioConfig
+        type: object
+        required: true
+      - name: serverName
+        type: string
+        required: false
+      - name: allowUserInput
+        type: boolean
+        required: false
+      - name: lazyStartEnabled
+        type: boolean
+        required: false
+      - name: publicAccess
+        type: boolean
+        required: false
+    request:
+      body:
+        customStdioConfig: "{customStdioConfig}"
+        serverName: "{serverName}"
+        allowUserInput: "{allowUserInput}"
+        lazyStartEnabled: "{lazyStartEnabled}"
+        publicAccess: "{publicAccess}"
+    response:
+      type: object
+    risk:
+      level: high
+  update-custom-stdio-tool:
+    method: POST
+    path: /tools/custom-stdio/update
+    description: >
+      Update a custom stdio tool's command, capabilities, or settings.
+      Only applies to tools created with create-custom-stdio-tool (category=5).
+    args:
+      - name: toolId
+        type: string
+        required: true
+      - name: customStdioConfig
+        type: object
+        required: false
+      - name: serverName
+        type: string
+        required: false
+      - name: functions
+        type: array
+        required: false
+      - name: resources
+        type: array
+        required: false
+      - name: lazyStartEnabled
+        type: boolean
+        required: false
+      - name: publicAccess
+        type: boolean
+        required: false
+      - name: allowUserInput
+        type: boolean
+        required: false
+    request:
+      body:
+        toolId: "{toolId}"
+        customStdioConfig: "{customStdioConfig}"
+        serverName: "{serverName}"
+        functions: "{functions}"
+        resources: "{resources}"
+        lazyStartEnabled: "{lazyStartEnabled}"
+        publicAccess: "{publicAccess}"
+        allowUserInput: "{allowUserInput}"
+    response:
+      type: object
+    risk:
+      level: high
+  create-rest-api-tool:
+    method: POST
+    path: /tools/rest-api
+    description: >
+      Create a REST API tool by providing a base URL, optional auth, and a list of API endpoints
+      to expose as MCP functions. Each tool in restApiConfig.tools requires name, method, and path.
+      The tool is started automatically; check isStarted in the response.
+    warnings:
+      - restApiConfig.tools must have at least one entry; each requires name, method, and path
+      - restApiConfig.baseUrl must be a valid absolute URL
+      - Returns E4001 if the tool creation limit is reached
+      - auth.type must be one of none, bearer, basic, api_key
+    args:
+      - name: restApiConfig
+        type: object
+        required: true
+      - name: allowUserInput
+        type: boolean
+        required: false
+      - name: lazyStartEnabled
+        type: boolean
+        required: false
+      - name: publicAccess
+        type: boolean
+        required: false
+    request:
+      body:
+        restApiConfig: "{restApiConfig}"
+        allowUserInput: "{allowUserInput}"
+        lazyStartEnabled: "{lazyStartEnabled}"
+        publicAccess: "{publicAccess}"
+    response:
+      type: object
+    risk:
+      level: high
+  update-rest-api-tool:
+    method: POST
+    path: /tools/rest-api/update
+    description: >
+      Update a REST API tool's configuration, capabilities, or settings.
+      Only applies to tools created with create-rest-api-tool (category=3).
+    args:
+      - name: toolId
+        type: string
+        required: true
+      - name: restApiConfig
+        type: object
+        required: false
+      - name: functions
+        type: array
+        required: false
+      - name: resources
+        type: array
+        required: false
+      - name: lazyStartEnabled
+        type: boolean
+        required: false
+      - name: publicAccess
+        type: boolean
+        required: false
+      - name: allowUserInput
+        type: boolean
+        required: false
+    request:
+      body:
+        toolId: "{toolId}"
+        restApiConfig: "{restApiConfig}"
+        functions: "{functions}"
+        resources: "{resources}"
+        lazyStartEnabled: "{lazyStartEnabled}"
+        publicAccess: "{publicAccess}"
+        allowUserInput: "{allowUserInput}"
+    response:
+      type: object
+    risk:
+      level: high
+  create-skills-tool:
+    method: POST
+    path: /tools/skills
+    description: >
+      Create a Skills-based MCP tool. Skills are stored on the peta-core server at skills/{toolId}/
+      and served via the Skills MCP Server Docker container.
+    warnings:
+      - Returns E4001 if the tool creation limit is reached
+    args:
+      - name: serverName
+        type: string
+        required: false
+      - name: allowUserInput
+        type: boolean
+        required: false
+      - name: lazyStartEnabled
+        type: boolean
+        required: false
+      - name: publicAccess
+        type: boolean
+        required: false
+    request:
+      body:
+        serverName: "{serverName}"
+        allowUserInput: "{allowUserInput}"
+        lazyStartEnabled: "{lazyStartEnabled}"
+        publicAccess: "{publicAccess}"
+    response:
+      type: object
+    risk:
+      level: high
+  update-skills-tool:
+    method: POST
+    path: /tools/skills/update
+    description: >
+      Update a Skills tool's auth configuration, function/resource capabilities, or settings.
+      Only applies to tools created with create-skills-tool (category=4).
+    args:
+      - name: toolId
+        type: string
+        required: true
+      - name: authConfig
+        type: object
+        required: false
+      - name: functions
+        type: array
+        required: false
+      - name: resources
+        type: array
+        required: false
+      - name: lazyStartEnabled
+        type: boolean
+        required: false
+      - name: publicAccess
+        type: boolean
+        required: false
+      - name: allowUserInput
+        type: boolean
+        required: false
+    request:
+      body:
+        toolId: "{toolId}"
+        authConfig: "{authConfig}"
+        functions: "{functions}"
+        resources: "{resources}"
+        lazyStartEnabled: "{lazyStartEnabled}"
+        publicAccess: "{publicAccess}"
+        allowUserInput: "{allowUserInput}"
+    response:
+      type: object
+    risk:
+      level: high
+  configure-user-server:
+    method: POST
+    path: /user-servers/configure
+    description: Grant a specific user token access to a specific tool (MCP server)
+    args:
+      - name: userId
+        type: string
+        required: true
+      - name: serverId
+        type: string
+        required: true
+    request:
+      body:
+        userId: "{userId}"
+        serverId: "{serverId}"
+    response:
+      type: object
+    risk:
+      level: high
+  unconfigure-user-server:
+    method: POST
+    path: /user-servers/unconfigure
+    description: Revoke a specific user token's access to a specific tool (MCP server)
+    args:
+      - name: userId
+        type: string
+        required: true
+      - name: serverId
+        type: string
+        required: true
+    request:
+      body:
+        userId: "{userId}"
+        serverId: "{serverId}"
+    response:
+      type: object
+    risk:
+      level: high

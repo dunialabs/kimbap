@@ -249,13 +249,8 @@ func (p *ProxyServer) handleHTTP(w http.ResponseWriter, req *http.Request) {
 	if classification != nil && classification.Matched {
 		req.Header.Set("X-Kimbap-Request-ID", reqID)
 		result := p.executeClassifiedRequest(req.Context(), req, reqID, classification, targetHost, targetPath)
-		if result.Error != nil {
-			status := runtimeResultStatus(result)
-			msg := result.Error.Message
-			if status >= 500 {
-				msg = "proxy request failed"
-			}
-			http.Error(w, msg, status)
+		if result.Error != nil && runtimeResultStatus(result) >= 500 {
+			http.Error(w, "proxy request failed", runtimeResultStatus(result))
 			return
 		}
 		writeRuntimeHTTPResponse(w, result)
@@ -380,14 +375,9 @@ func (p *ProxyServer) handleConnect(w http.ResponseWriter, req *http.Request) {
 		if classification != nil && classification.Matched {
 			mitmReq.Header.Set("X-Kimbap-Request-ID", reqID)
 			result := p.executeClassifiedRequest(req.Context(), mitmReq, reqID, classification, connectHost, mitmReq.URL.Path)
-			if result.Error != nil {
-				status := runtimeResultStatus(result)
-				msg := result.Error.Message
-				if status >= 500 {
-					msg = "proxy request failed"
-				}
+			if result.Error != nil && runtimeResultStatus(result) >= 500 {
 				_ = tlsConn.SetWriteDeadline(time.Now().Add(defaultProxyConnWriteTimeout))
-				_ = writePlainErrorResponse(tlsConn, status, msg)
+				_ = writePlainErrorResponse(tlsConn, runtimeResultStatus(result), "proxy request failed")
 				_ = tlsConn.SetWriteDeadline(time.Time{})
 				drainBody(mitmReq.Body)
 				continue
