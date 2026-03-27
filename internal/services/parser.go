@@ -301,6 +301,8 @@ func validateHTTPManifest(m *ServiceManifest) []ValidationError {
 		errs = append(errs, ValidationError{Field: "base_url", Message: "must be a valid absolute URL"})
 	} else if u.Scheme != "http" && u.Scheme != "https" {
 		errs = append(errs, ValidationError{Field: "base_url", Message: "scheme must be http or https"})
+	} else if u.RawQuery != "" || u.Fragment != "" {
+		errs = append(errs, ValidationError{Field: "base_url", Message: "must not contain query string or fragment"})
 	}
 
 	for actionKey, action := range m.Actions {
