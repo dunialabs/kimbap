@@ -85,11 +85,20 @@ func NewDispatcher() *Dispatcher {
 					return nil, fmt.Errorf("blocked private address resolution for %s", host)
 				}
 			}
+			var lastErr error
 			for _, ip := range ips {
 				if isPrivateIPAddr(ip) {
 					continue
 				}
-				return (&net.Dialer{}).DialContext(ctx, network, net.JoinHostPort(ip.String(), port))
+				conn, dialErr := (&net.Dialer{}).DialContext(ctx, network, net.JoinHostPort(ip.String(), port))
+				if dialErr != nil {
+					lastErr = dialErr
+					continue
+				}
+				return conn, nil
+			}
+			if lastErr != nil {
+				return nil, lastErr
 			}
 			return nil, fmt.Errorf("no public address resolved for %s", host)
 		},
