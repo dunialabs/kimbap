@@ -2,6 +2,7 @@ package app
 
 import (
 	"context"
+	"crypto/sha256"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -369,19 +370,46 @@ func (a *policyEvaluatorAdapter) Evaluate(ctx context.Context, req runtimepkg.Po
 	return decision, nil
 }
 
+type cachedPolicyEntry struct {
+	eval        *policyEvaluatorAdapter
+	fingerprint [32]byte
+}
+
 type storePolicyEvaluator struct {
 	policyStore store.PolicyStore
 	fallback    runtimepkg.PolicyEvaluator
+
+	mu    sync.Mutex
+	cache map[string]cachedPolicyEntry
 }
 
 func (e *storePolicyEvaluator) Evaluate(ctx context.Context, req runtimepkg.PolicyRequest) (*runtimepkg.PolicyDecision, error) {
 	data, err := e.policyStore.GetPolicy(ctx, req.TenantID)
 	if err == nil && len(data) > 0 {
+		fp := sha256.Sum256(data)
+
+		e.mu.Lock()
+		if e.cache == nil {
+			e.cache = make(map[string]cachedPolicyEntry)
+		}
+		if entry, ok := e.cache[req.TenantID]; ok && entry.fingerprint == fp {
+			eval := entry.eval
+			e.mu.Unlock()
+			return eval.Evaluate(ctx, req)
+		}
 		doc, parseErr := policy.ParseDocument(data)
 		if parseErr != nil {
+			e.mu.Unlock()
 			return nil, fmt.Errorf("parse tenant policy: %w", parseErr)
 		}
-		return (&policyEvaluatorAdapter{evaluator: policy.NewEvaluator(doc)}).Evaluate(ctx, req)
+		newEntry := cachedPolicyEntry{
+			eval:        &policyEvaluatorAdapter{evaluator: policy.NewEvaluator(doc)},
+			fingerprint: fp,
+		}
+		e.cache[req.TenantID] = newEntry
+		eval := newEntry.eval
+		e.mu.Unlock()
+		return eval.Evaluate(ctx, req)
 	}
 	if err != nil && !errors.Is(err, store.ErrNotFound) {
 		return nil, fmt.Errorf("load tenant policy: %w", err)
