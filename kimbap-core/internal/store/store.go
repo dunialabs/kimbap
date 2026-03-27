@@ -6,21 +6,11 @@ import (
 )
 
 type Store interface {
-	TokenStore
 	AuditStore
 	ApprovalStore
 	PolicyStore
 	Close() error
 	Migrate(ctx context.Context) error
-}
-
-type TokenStore interface {
-	CreateToken(ctx context.Context, token *TokenRecord) error
-	GetToken(ctx context.Context, id string) (*TokenRecord, error)
-	GetTokenByHash(ctx context.Context, hash string) (*TokenRecord, error)
-	ListTokens(ctx context.Context, tenantID string) ([]TokenRecord, error)
-	UpdateTokenLastUsed(ctx context.Context, id string) error
-	RevokeToken(ctx context.Context, id string) error
 }
 
 type AuditStore interface {

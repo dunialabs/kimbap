@@ -59,8 +59,10 @@ func newTokenCreateCommand() *cobra.Command {
 				tenant = defaultTenantID()
 			}
 
-			if ttl <= 0 {
+			if ttl == 0 {
 				ttl = 30 * 24 * time.Hour
+			} else if ttl < 0 {
+				return auth.ErrInvalidTTL
 			}
 			raw, tok, err := tokenService.Issue(contextBackground(), tenant, agent, parseCSV(scopes), ttl)
 			if err != nil {

@@ -206,8 +206,10 @@ func newLinkListCommand() *cobra.Command {
 					if vs != nil && strings.TrimSpace(info.CredentialRef) != "" {
 						if raw, getErr := vs.GetValue(contextBackground(), tenantID, info.CredentialRef); getErr == nil && len(raw) > 0 {
 							row.Status = "connected"
-						} else {
+						} else if getErr == nil || errors.Is(getErr, vault.ErrSecretNotFound) {
 							row.Status = "not_connected"
+						} else {
+							row.Status = "unknown"
 						}
 					} else if vsErr != nil {
 						row.Status = "unknown"

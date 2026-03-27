@@ -8,6 +8,10 @@ import (
 	"time"
 )
 
+func newTestDispatcher() *Dispatcher {
+	return newDispatcher(&http.Client{Timeout: 10 * time.Second})
+}
+
 func TestDispatcherEmitAndDeliver(t *testing.T) {
 	received := make(chan Event, 1)
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -19,7 +23,7 @@ func TestDispatcherEmitAndDeliver(t *testing.T) {
 	}))
 	defer server.Close()
 
-	d := NewDispatcher()
+	d := newTestDispatcher()
 	d.Subscribe(Subscription{
 		ID:  "test-1",
 		URL: server.URL,
@@ -45,7 +49,7 @@ func TestDispatcherEventFiltering(t *testing.T) {
 	}))
 	defer server.Close()
 
-	d := NewDispatcher()
+	d := newTestDispatcher()
 	d.Subscribe(Subscription{
 		ID:     "filtered",
 		URL:    server.URL,
@@ -76,7 +80,7 @@ func TestDispatcherHMACSignature(t *testing.T) {
 	}))
 	defer server.Close()
 
-	d := NewDispatcher()
+	d := newTestDispatcher()
 	d.Subscribe(Subscription{
 		ID:     "signed",
 		URL:    server.URL,
@@ -100,7 +104,7 @@ func TestDispatcherHMACSignature(t *testing.T) {
 }
 
 func TestDispatcherRecentEvents(t *testing.T) {
-	d := NewDispatcher()
+	d := newTestDispatcher()
 	d.Emit(EventTokenCreated, nil)
 	d.Emit(EventTokenDeleted, nil)
 	d.Emit(EventPolicyCreated, nil)
@@ -115,7 +119,7 @@ func TestDispatcherRecentEvents(t *testing.T) {
 }
 
 func TestDispatcherUnsubscribe(t *testing.T) {
-	d := NewDispatcher()
+	d := newTestDispatcher()
 	d.Subscribe(Subscription{ID: "x", URL: "http://example.com"})
 	d.Unsubscribe("x")
 	subs := d.ListSubscriptions()
@@ -125,7 +129,7 @@ func TestDispatcherUnsubscribe(t *testing.T) {
 }
 
 func TestDispatcherTenantIsolation(t *testing.T) {
-	d := NewDispatcher()
+	d := newTestDispatcher()
 	d.Subscribe(Subscription{ID: "a1", URL: "http://example.com/a", TenantID: "tenant-a"})
 	d.Subscribe(Subscription{ID: "b1", URL: "http://example.com/b", TenantID: "tenant-b"})
 
@@ -140,7 +144,7 @@ func TestDispatcherTenantIsolation(t *testing.T) {
 }
 
 func TestDispatcherTenantEventFiltering(t *testing.T) {
-	d := NewDispatcher()
+	d := newTestDispatcher()
 
 	d.mu.Lock()
 	d.events = append(d.events,
@@ -161,7 +165,7 @@ func TestDispatcherTenantEventFiltering(t *testing.T) {
 }
 
 func TestSubscribeDuplicateIDOverwrites(t *testing.T) {
-	d := NewDispatcher()
+	d := newTestDispatcher()
 	d.Subscribe(Subscription{ID: "dup", URL: "http://example.com/v1", TenantID: "t1"})
 	d.Subscribe(Subscription{ID: "dup", URL: "http://example.com/v2", TenantID: "t1"})
 
@@ -175,7 +179,7 @@ func TestSubscribeDuplicateIDOverwrites(t *testing.T) {
 }
 
 func TestUnsubscribeByTenantIsolation(t *testing.T) {
-	d := NewDispatcher()
+	d := newTestDispatcher()
 	d.Subscribe(Subscription{ID: "shared", URL: "http://example.com/a", TenantID: "t1"})
 	d.Subscribe(Subscription{ID: "shared-b", URL: "http://example.com/b", TenantID: "t2"})
 
@@ -208,7 +212,7 @@ func TestEmitForTenantOnlyDeliversToSameTenant(t *testing.T) {
 	}))
 	defer t2Server.Close()
 
-	d := NewDispatcher()
+	d := newTestDispatcher()
 	d.Subscribe(Subscription{ID: "s1", URL: t1Server.URL, TenantID: "tenant-1"})
 	d.Subscribe(Subscription{ID: "s2", URL: t2Server.URL, TenantID: "tenant-2"})
 
@@ -243,7 +247,7 @@ func TestEmitWithoutTenantDoesNotDeliverToTenantScopedSubscriptions(t *testing.T
 	}))
 	defer globalServer.Close()
 
-	d := NewDispatcher()
+	d := newTestDispatcher()
 	d.Subscribe(Subscription{ID: "tenant-sub", URL: tenantServer.URL, TenantID: "tenant-1"})
 	d.Subscribe(Subscription{ID: "global-sub", URL: globalServer.URL})
 
@@ -263,7 +267,7 @@ func TestEmitWithoutTenantDoesNotDeliverToTenantScopedSubscriptions(t *testing.T
 }
 
 func TestEmitForTenantRecordsTenantID(t *testing.T) {
-	d := NewDispatcher()
+	d := newTestDispatcher()
 	d.EmitForTenant("t42", EventPolicyCreated, nil)
 
 	events := d.RecentEventsByTenant("t42", 10)
@@ -276,7 +280,7 @@ func TestEmitForTenantRecordsTenantID(t *testing.T) {
 }
 
 func TestSubscribeCrossTenantIDDoesNotOverwrite(t *testing.T) {
-	d := NewDispatcher()
+	d := newTestDispatcher()
 	d.Subscribe(Subscription{ID: "same-id", URL: "http://example.com/t1", TenantID: "t1"})
 	d.Subscribe(Subscription{ID: "same-id", URL: "http://example.com/t2", TenantID: "t2"})
 
@@ -287,7 +291,7 @@ func TestSubscribeCrossTenantIDDoesNotOverwrite(t *testing.T) {
 }
 
 func TestUnsubscribeDeactivatesAllMatches(t *testing.T) {
-	d := NewDispatcher()
+	d := newTestDispatcher()
 	d.mu.Lock()
 	d.subscriptions = append(d.subscriptions,
 		Subscription{ID: "x", URL: "http://example.com/1", Active: true},
@@ -303,7 +307,7 @@ func TestUnsubscribeDeactivatesAllMatches(t *testing.T) {
 }
 
 func TestUnsubscribeRemovesEntriesFromBackingSlice(t *testing.T) {
-	d := NewDispatcher()
+	d := newTestDispatcher()
 	d.mu.Lock()
 	d.subscriptions = append(d.subscriptions,
 		Subscription{ID: "x", URL: "http://example.com/1", Active: true},
@@ -350,7 +354,7 @@ func TestDispatcherDeliversApprovalEvent(t *testing.T) {
 	}))
 	defer srv.Close()
 
-	d := NewDispatcher()
+	d := newTestDispatcher()
 	d.Subscribe(Subscription{
 		ID:       "sub-approval-test",
 		URL:      srv.URL,
@@ -395,7 +399,7 @@ func TestApprovalEventFilteredBySubscription(t *testing.T) {
 	}))
 	defer srv.Close()
 
-	d := NewDispatcher()
+	d := newTestDispatcher()
 	d.Subscribe(Subscription{
 		ID:     "sub-filter-test",
 		URL:    srv.URL,
@@ -420,7 +424,7 @@ func TestApprovalEventFilteredBySubscription(t *testing.T) {
 }
 
 func TestDispatcherRecentEventsByTenantZeroLimitReturnsAllMatches(t *testing.T) {
-	d := NewDispatcher()
+	d := newTestDispatcher()
 	d.EmitForTenant("t1", EventTokenCreated, nil)
 	d.EmitForTenant("t2", EventTokenDeleted, nil)
 	d.EmitForTenant("t1", EventPolicyCreated, nil)
@@ -435,7 +439,7 @@ func TestDispatcherRecentEventsByTenantZeroLimitReturnsAllMatches(t *testing.T) 
 }
 
 func TestDispatcherRecentEventsByTenantNegativeLimitReturnsAllMatches(t *testing.T) {
-	d := NewDispatcher()
+	d := newTestDispatcher()
 	d.EmitForTenant("t1", EventTokenCreated, nil)
 	d.EmitForTenant("t1", EventPolicyCreated, nil)
 

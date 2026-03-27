@@ -76,7 +76,7 @@ kimbap is a CLI-first secure action runtime for AI agents. It runs actions local
 - `cmd/kimbap/` - CLI entry point (main.go + subcommands)
 - `internal/runtime/` - Action execution pipeline
 - `internal/actions/` - Action types and interfaces
-- `internal/approvals/` - Approval manager (email/slack/telegram/webhook notifiers)
+- `internal/approvals/` - Approval manager and notification integrations
 - `internal/policy/` - Policy evaluator (YAML DSL)
 - `internal/store/` - SQL store (SQLite default, Postgres supported)
 - `internal/vault/` - Secret storage (encrypted SQLite)

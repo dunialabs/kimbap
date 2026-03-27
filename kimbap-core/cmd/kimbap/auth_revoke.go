@@ -90,10 +90,12 @@ func newAuthRevokeCommand() *cobra.Command {
 				}
 			}
 
-			deleted := true
+			deleted := false
 			deleteErr := deleteConnectorState(cfg, activeTenant, storeName)
-			if deleteErr != nil && !errors.Is(deleteErr, sql.ErrNoRows) {
-				deleted = false
+			if deleteErr == nil {
+				deleted = true
+			} else if errors.Is(deleteErr, sql.ErrNoRows) {
+				deleteErr = nil
 			}
 
 			if auditEmitter != nil {

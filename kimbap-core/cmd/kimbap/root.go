@@ -211,11 +211,14 @@ func loadAppConfigReadOnly() (*config.KimbapConfig, error) {
 	}
 
 	if strings.TrimSpace(opts.dataDir) != "" {
+		oldDefaultDSN := filepath.Join(cfg.DataDir, "kimbap.db")
 		cfg.DataDir = opts.dataDir
 		cfg.Vault.Path = filepath.Join(cfg.DataDir, "vault.db")
 		cfg.Services.Dir = filepath.Join(cfg.DataDir, "services")
 		cfg.Audit.Path = filepath.Join(cfg.DataDir, "audit.jsonl")
-		cfg.Database.DSN = filepath.Join(cfg.DataDir, "kimbap.db")
+		if cfg.Database.DSN == "" || cfg.Database.DSN == oldDefaultDSN {
+			cfg.Database.DSN = filepath.Join(cfg.DataDir, "kimbap.db")
+		}
 		cfg.Policy.Path = filepath.Join(cfg.DataDir, "policy.yaml")
 	}
 	if strings.TrimSpace(opts.logLevel) != "" {

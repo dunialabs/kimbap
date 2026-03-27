@@ -1,6 +1,13 @@
 #!/usr/bin/env node
 
 /**
+ * LEGACY: This script is for standalone/portable builds that bundled PostgreSQL.
+ * kimbap-console now uses SQLite exclusively for runtime.
+ * This file is only referenced by scripts/build-standalone-complete.js and build-portable scripts.
+ * Do NOT use this for regular development or production deployment.
+ */
+
+/**
  *  - PostgreSQL
  */
 

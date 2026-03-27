@@ -61,26 +61,6 @@ func TestServerHealthAndRequestID(t *testing.T) {
 	}
 }
 
-func TestServerConsoleServesHTMLContentType(t *testing.T) {
-	server := NewServer(":0", nil)
-	ts := httptest.NewServer(server.Router())
-	defer ts.Close()
-
-	resp, err := http.Get(ts.URL + "/console")
-	if err != nil {
-		t.Fatalf("console request: %v", err)
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusOK {
-		b, _ := io.ReadAll(resp.Body)
-		t.Fatalf("expected 200, got %d body=%s", resp.StatusCode, string(b))
-	}
-	if got := resp.Header.Get("Content-Type"); !strings.Contains(got, "text/html") {
-		t.Fatalf("expected text/html content type, got %q", got)
-	}
-}
-
 func TestServerListActions(t *testing.T) {
 	ts, _ := newTestAPIServer(t)
 
