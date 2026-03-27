@@ -1103,7 +1103,7 @@ func TestCreateWebhookRejectsInactiveReservedEventType(t *testing.T) {
 	ts = httptest.NewServer(server.Router())
 	t.Cleanup(func() { ts.Close() })
 
-	body := `{"url":"https://example.com/hook","events":["service.installed"]}`
+	body := `{"url":"https://example.com/hook","events":["connector.unknown"]}`
 	req, _ := http.NewRequest(http.MethodPost, ts.URL+"/v1/webhooks", strings.NewReader(body))
 	req.Header.Set("Authorization", "Bearer "+rawBootstrap)
 	req.Header.Set("Content-Type", "application/json")
