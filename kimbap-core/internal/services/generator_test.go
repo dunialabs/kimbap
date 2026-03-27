@@ -15,6 +15,8 @@ info:
   description: Manage pets
 servers:
   - url: https://api.petstore.example
+security:
+  - ApiKeyAuth: []
 components:
   securitySchemes:
     ApiKeyAuth:
@@ -782,6 +784,8 @@ info:
   version: 1.0.0
 servers:
   - url: https://contract.example.com
+security:
+  - ApiKeyAuth: []
 components:
   securitySchemes:
     ApiKeyAuth:

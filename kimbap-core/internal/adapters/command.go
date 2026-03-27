@@ -104,8 +104,17 @@ func (a *CommandAdapter) Execute(ctx context.Context, req AdapterRequest) (*Adap
 	}
 	if req.Credentials != nil {
 		credRef := strings.TrimSpace(req.Action.Auth.CredentialRef)
-		if credRef != "" && strings.TrimSpace(req.Credentials.Token) != "" {
-			env = append(env, fmt.Sprintf("KIMBAP_CREDENTIAL_%s=%s", sanitizeEnvSegment(credRef), req.Credentials.Token))
+		if credRef != "" {
+			value := strings.TrimSpace(req.Credentials.Token)
+			if value == "" {
+				value = strings.TrimSpace(req.Credentials.APIKey)
+			}
+			if value == "" {
+				value = strings.TrimSpace(req.Credentials.Password)
+			}
+			if value != "" {
+				env = append(env, fmt.Sprintf("KIMBAP_CREDENTIAL_%s=%s", sanitizeEnvSegment(credRef), value))
+			}
 		}
 	}
 	cmd.Env = env

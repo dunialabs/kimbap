@@ -1,11 +1,16 @@
+//go:build ignore
+
 package webhooks
 
 import (
 	"bytes"
+	"context"
 	"crypto/hmac"
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
+	"fmt"
+	"net"
 	"net/http"
 	"slices"
 	"sync"
@@ -64,15 +69,70 @@ type Dispatcher struct {
 }
 
 func NewDispatcher() *Dispatcher {
-	return &Dispatcher{
-		client: &http.Client{
-			Timeout: 10 * time.Second,
-			CheckRedirect: func(_ *http.Request, _ []*http.Request) error {
-				return http.ErrUseLastResponse
-			},
+	transport := &http.Transport{
+		Proxy: http.ProxyFromEnvironment,
+		DialContext: func(ctx context.Context, network, addr string) (net.Conn, error) {
+			host, port, err := net.SplitHostPort(addr)
+			if err != nil {
+				return nil, err
+			}
+			ips, err := net.DefaultResolver.LookupIP(ctx, "ip", host)
+			if err != nil {
+				return nil, err
+			}
+			if len(ips) == 0 {
+				return nil, fmt.Errorf("no address resolved for %s", host)
+			}
+			for _, ip := range ips {
+				if isPrivateIPAddr(ip) {
+					return nil, fmt.Errorf("blocked private address resolution for %s", host)
+				}
+			}
+			for _, ip := range ips {
+				if isPrivateIPAddr(ip) {
+					continue
+				}
+				return (&net.Dialer{}).DialContext(ctx, network, net.JoinHostPort(ip.String(), port))
+			}
+			return nil, fmt.Errorf("no public address resolved for %s", host)
 		},
+	}
+	return newDispatcher(&http.Client{
+		Transport: transport,
+		Timeout:   10 * time.Second,
+		CheckRedirect: func(_ *http.Request, _ []*http.Request) error {
+			return http.ErrUseLastResponse
+		},
+	})
+}
+
+func newDispatcher(client *http.Client) *Dispatcher {
+	return &Dispatcher{
+		client:    client,
 		maxEvents: 1000,
 	}
+}
+
+func isPrivateIPAddr(ip net.IP) bool {
+	if ip == nil {
+		return true
+	}
+	if ip.IsLoopback() || ip.IsUnspecified() || ip.IsLinkLocalUnicast() || ip.IsLinkLocalMulticast() {
+		return true
+	}
+	for _, cidr := range []string{
+		"10.0.0.0/8", "172.16.0.0/12", "192.168.0.0/16",
+		"100.64.0.0/10", "169.254.0.0/16", "fc00::/7",
+	} {
+		_, network, err := net.ParseCIDR(cidr)
+		if err != nil {
+			continue
+		}
+		if network.Contains(ip) {
+			return true
+		}
+	}
+	return false
 }
 
 func (d *Dispatcher) Subscribe(sub Subscription) {
