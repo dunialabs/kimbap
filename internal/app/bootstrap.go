@@ -20,6 +20,7 @@ import (
 	"github.com/dunialabs/kimbap/internal/policy"
 	runtimepkg "github.com/dunialabs/kimbap/internal/runtime"
 	"github.com/dunialabs/kimbap/internal/services"
+	"github.com/dunialabs/kimbap/internal/store"
 	"github.com/dunialabs/kimbap/internal/vault"
 	"github.com/rs/zerolog/log"
 )
@@ -29,6 +30,7 @@ type RuntimeDeps struct {
 	VaultStore       vault.Store
 	ConnectorStore   connectors.ConnectorStore
 	ConnectorConfigs []connectors.ConnectorConfig
+	PolicyStore      store.PolicyStore
 	PolicyPath       string
 	ServicesDir      string
 	AuditWriter      runtimepkg.AuditWriter
@@ -55,7 +57,7 @@ func BuildRuntime(deps RuntimeDeps) (*runtimepkg.Runtime, error) {
 		signaturePolicy: strings.ToLower(strings.TrimSpace(deps.Config.Services.SignaturePolicy)),
 	}
 
-	var policyEvaluator runtimepkg.PolicyEvaluator
+	var filePolicyEvaluator runtimepkg.PolicyEvaluator
 	if policyPath != "" {
 		if stat, err := os.Stat(policyPath); err == nil {
 			if stat.IsDir() {
@@ -65,10 +67,16 @@ func BuildRuntime(deps RuntimeDeps) (*runtimepkg.Runtime, error) {
 			if parseErr != nil {
 				return nil, parseErr
 			}
-			policyEvaluator = &policyEvaluatorAdapter{evaluator: policy.NewEvaluator(doc)}
+			filePolicyEvaluator = &policyEvaluatorAdapter{evaluator: policy.NewEvaluator(doc)}
 		} else if !errors.Is(err, os.ErrNotExist) {
 			return nil, fmt.Errorf("stat policy path: %w", err)
 		}
+	}
+	var policyEvaluator runtimepkg.PolicyEvaluator
+	if deps.PolicyStore != nil {
+		policyEvaluator = &storePolicyEvaluator{policyStore: deps.PolicyStore, fallback: filePolicyEvaluator}
+	} else {
+		policyEvaluator = filePolicyEvaluator
 	}
 
 	var credentialResolver runtimepkg.CredentialResolver
@@ -300,6 +308,26 @@ func (a *policyEvaluatorAdapter) Evaluate(ctx context.Context, req runtimepkg.Po
 		decision.Meta["rate_reset_at"] = res.RateStatus.ResetAt
 	}
 	return decision, nil
+}
+
+type storePolicyEvaluator struct {
+	policyStore store.PolicyStore
+	fallback    runtimepkg.PolicyEvaluator
+}
+
+func (e *storePolicyEvaluator) Evaluate(ctx context.Context, req runtimepkg.PolicyRequest) (*runtimepkg.PolicyDecision, error) {
+	data, err := e.policyStore.GetPolicy(ctx, req.TenantID)
+	if err == nil && len(data) > 0 {
+		doc, parseErr := policy.ParseDocument(data)
+		if parseErr != nil {
+			return nil, fmt.Errorf("parse tenant policy: %w", parseErr)
+		}
+		return (&policyEvaluatorAdapter{evaluator: policy.NewEvaluator(doc)}).Evaluate(ctx, req)
+	}
+	if e.fallback != nil {
+		return e.fallback.Evaluate(ctx, req)
+	}
+	return nil, nil
 }
 
 type vaultCredentialResolver struct {

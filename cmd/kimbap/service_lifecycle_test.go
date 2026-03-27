@@ -66,6 +66,15 @@ func pickOfficialServiceName(t *testing.T) string {
 	return names[0]
 }
 
+func decodeJSONObject(t *testing.T, raw string) map[string]any {
+	t.Helper()
+	var out map[string]any
+	if err := json.Unmarshal([]byte(raw), &out); err != nil {
+		t.Fatalf("decode JSON object output failed: %v\noutput=%s", err, raw)
+	}
+	return out
+}
+
 func writeLocalManifest(t *testing.T, path, name, version string) {
 	t.Helper()
 	raw := "name: " + name + "\n" +
@@ -226,8 +235,9 @@ func TestServiceCLIUpdateFromLocalSourceAndNoOpWhenUpToDate(t *testing.T) {
 		if err != nil {
 			t.Fatalf("service update no-change failed: %v", err)
 		}
-		if !strings.Contains(noChangeOutput, `"updated": false`) {
-			t.Fatalf("expected updated=false output, got: %s", noChangeOutput)
+		noChangePayload := decodeJSONObject(t, noChangeOutput)
+		if updated, _ := noChangePayload["updated"].(bool); updated {
+			t.Fatalf("expected updated=false output, got payload: %+v", noChangePayload)
 		}
 
 		writeLocalManifest(t, manifestPath, serviceName, "1.0.1")
@@ -235,8 +245,9 @@ func TestServiceCLIUpdateFromLocalSourceAndNoOpWhenUpToDate(t *testing.T) {
 		if err != nil {
 			t.Fatalf("service update from local source failed: %v", err)
 		}
-		if !strings.Contains(updateOutput, `"updated": true`) {
-			t.Fatalf("expected updated=true output, got: %s", updateOutput)
+		updatePayload := decodeJSONObject(t, updateOutput)
+		if updated, _ := updatePayload["updated"].(bool); !updated {
+			t.Fatalf("expected updated=true output, got payload: %+v", updatePayload)
 		}
 
 		updated, err := installer.Get(serviceName)
@@ -248,6 +259,69 @@ func TestServiceCLIUpdateFromLocalSourceAndNoOpWhenUpToDate(t *testing.T) {
 		}
 		if !strings.HasPrefix(updated.Source, "local:") {
 			t.Fatalf("updated source = %q, want local:*", updated.Source)
+		}
+	})
+}
+
+func TestServiceCLIRemoveDeletesInstalledManifest(t *testing.T) {
+	dataDir := t.TempDir()
+	servicesDir := filepath.Join(dataDir, "services")
+	configPath := writeServiceCLIConfig(t, dataDir, servicesDir)
+
+	withServiceCLIOpts(t, configPath, func() {
+		manifestPath := filepath.Join(t.TempDir(), "local-remove.yaml")
+		const serviceName = "local-remove"
+		writeLocalManifest(t, manifestPath, serviceName, "1.0.0")
+
+		installCmd := newServiceInstallCommand()
+		installCmd.SetArgs([]string{manifestPath})
+		if _, err := captureStdout(t, installCmd.Execute); err != nil {
+			t.Fatalf("service install failed: %v", err)
+		}
+
+		removeCmd := newServiceRemoveCommand()
+		removeCmd.SetArgs([]string{serviceName})
+		if _, err := captureStdout(t, removeCmd.Execute); err != nil {
+			t.Fatalf("service remove failed: %v", err)
+		}
+
+		cfg, err := loadAppConfig()
+		if err != nil {
+			t.Fatalf("loadAppConfig() error: %v", err)
+		}
+		_, err = installerFromConfig(cfg).Get(serviceName)
+		if err == nil {
+			t.Fatal("expected installer.Get() to fail after remove")
+		}
+
+		if _, err := os.Stat(filepath.Join(servicesDir, serviceName+".yaml")); !os.IsNotExist(err) {
+			t.Fatalf("expected manifest file to be removed, stat err=%v", err)
+		}
+	})
+}
+
+func TestServiceCLIUpdateOfficialNoOp(t *testing.T) {
+	dataDir := t.TempDir()
+	servicesDir := filepath.Join(dataDir, "services")
+	configPath := writeServiceCLIConfig(t, dataDir, servicesDir)
+	serviceName := pickOfficialServiceName(t)
+
+	withServiceCLIOpts(t, configPath, func() {
+		installCmd := newServiceInstallCommand()
+		installCmd.SetArgs([]string{serviceName})
+		if _, err := captureStdout(t, installCmd.Execute); err != nil {
+			t.Fatalf("service install official failed: %v", err)
+		}
+
+		updateCmd := newServiceUpdateCommand()
+		updateCmd.SetArgs([]string{serviceName})
+		output, err := captureStdout(t, updateCmd.Execute)
+		if err != nil {
+			t.Fatalf("service update official no-op failed: %v", err)
+		}
+		payload := decodeJSONObject(t, output)
+		if updated, _ := payload["updated"].(bool); updated {
+			t.Fatalf("expected official no-op update to return updated=false, got payload: %+v", payload)
 		}
 	})
 }

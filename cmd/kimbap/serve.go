@@ -170,6 +170,7 @@ func buildServeRuntime(cfg *config.KimbapConfig, st *store.SQLStore, vaultStore 
 		VaultStore:       vaultStore,
 		ConnectorStore:   connStore,
 		ConnectorConfigs: connConfigs,
+		PolicyStore:      st,
 		PolicyPath:       cfg.Policy.Path,
 		ServicesDir:      cfg.Services.Dir,
 		AuditWriter:      auditWriter,

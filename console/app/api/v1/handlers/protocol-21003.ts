@@ -162,12 +162,9 @@ export async function handleProtocol21003(body: Request21003): Promise<Response2
       const uid = log.userid;
       if (!uid || !uniqueUserIdSet.has(uid)) continue;
       const ts = Number(log.addtime);
-      const bucket = timePoints.findIndex((tp, i) => {
-        const next = timePoints[i + 1] ?? (tp + intervalSeconds);
-        return ts >= tp && ts < next;
-      });
-      if (bucket === -1) continue;
-      const key = `${timePoints[bucket]}:${uid}`;
+      const bucketIndex = Math.floor((ts - startTime) / intervalSeconds);
+      if (bucketIndex < 0 || bucketIndex >= timePoints.length) continue;
+      const key = `${timePoints[bucketIndex]}:${uid}`;
       countMap.set(key, (countMap.get(key) ?? 0) + 1);
     }
 

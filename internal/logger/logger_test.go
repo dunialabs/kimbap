@@ -1,7 +1,9 @@
 package logger
 
 import (
-	"context"
+	"encoding/json"
+	"io"
+	"os"
 	"testing"
 
 	"github.com/rs/zerolog"
@@ -56,13 +58,40 @@ func TestResolveEnvPriorityAndPrettyToggle(t *testing.T) {
 	}
 }
 
-func TestCreateLoggerAddsModuleFieldAndIsUsable(t *testing.T) {
+func TestCreateLoggerEmitsModuleAndExtraFields(t *testing.T) {
 	t.Setenv("NODE_ENV", "production")
 	t.Setenv("LOG_LEVEL", "info")
+	t.Setenv("LOG_PRETTY", "false")
+
+	oldStdout := os.Stdout
+	r, w, err := os.Pipe()
+	if err != nil {
+		t.Fatalf("create stdout pipe: %v", err)
+	}
+	os.Stdout = w
+	t.Cleanup(func() { os.Stdout = oldStdout })
 
 	logger := CreateLogger("unit-test", map[string]any{"component": "logger"})
-	ctx := logger.WithContext(context.Background())
-	if ctx == nil {
-		t.Fatal("expected logger.WithContext to return non-nil context")
+	logger.Info().Str("event", "emit").Msg("hello")
+
+	_ = w.Close()
+	out, readErr := io.ReadAll(r)
+	_ = r.Close()
+	if readErr != nil {
+		t.Fatalf("read logger output: %v", readErr)
+	}
+
+	var payload map[string]any
+	if err := json.Unmarshal(out, &payload); err != nil {
+		t.Fatalf("decode logger JSON output: %v\nraw=%s", err, string(out))
+	}
+	if got := payload["module"]; got != "unit-test" {
+		t.Fatalf("module field = %v, want unit-test", got)
+	}
+	if got := payload["component"]; got != "logger" {
+		t.Fatalf("component field = %v, want logger", got)
+	}
+	if _, ok := payload["pid"]; !ok {
+		t.Fatal("expected pid field in logger payload")
 	}
 }

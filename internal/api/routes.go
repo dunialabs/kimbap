@@ -24,7 +24,7 @@ func (s *Server) registerRoutes() {
 			r.Use(BearerAuth(s.tokenService))
 			r.Use(TenantContext())
 
-			r.Post("/actions/{service}/{action}:execute", s.handleExecuteAction)
+			r.With(RequireScope("actions:execute")).Post("/actions/{service}/{action}:execute", s.handleExecuteAction)
 			r.Post("/actions/validate", s.handleValidateAction)
 
 			r.With(RequireScope("vault:read")).Get("/vault", s.handleListVaultKeys)

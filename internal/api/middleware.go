@@ -208,6 +208,9 @@ func principalHasScope(principal *auth.Principal, scope string) bool {
 	if principal == nil {
 		return false
 	}
+	if len(principal.Scopes) == 0 {
+		return true
+	}
 	for _, s := range principal.Scopes {
 		if s == scope || s == "*" || s == "admin" {
 			return true

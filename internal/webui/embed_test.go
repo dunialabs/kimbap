@@ -2,14 +2,29 @@ package webui
 
 import (
 	"io"
+	"io/fs"
 	"net/http"
 	"net/http/httptest"
 	"strings"
 	"testing"
 )
 
+func readEmbeddedIndexHTML(t *testing.T) string {
+	t.Helper()
+	dist, err := fs.Sub(distFS, "dist")
+	if err != nil {
+		t.Fatalf("fs.Sub(distFS, dist) error: %v", err)
+	}
+	b, err := fs.ReadFile(dist, "index.html")
+	if err != nil {
+		t.Fatalf("read embedded index.html: %v", err)
+	}
+	return string(b)
+}
+
 func TestHandlerServesIndexAtRoot(t *testing.T) {
 	h := Handler()
+	indexHTML := readEmbeddedIndexHTML(t)
 	req := httptest.NewRequest(http.MethodGet, "/", nil)
 	rr := httptest.NewRecorder()
 
@@ -17,12 +32,12 @@ func TestHandlerServesIndexAtRoot(t *testing.T) {
 	if rr.Code != http.StatusOK {
 		t.Fatalf("status code = %d, want 200", rr.Code)
 	}
-	body := rr.Body.String()
-	if !strings.Contains(strings.ToLower(body), "<!doctype html>") {
-		t.Fatalf("expected HTML index content, got: %s", body)
+	if ct := rr.Header().Get("Content-Type"); !strings.Contains(ct, "text/html") {
+		t.Fatalf("content-type = %q, want text/html", ct)
 	}
-	if !strings.Contains(body, "Kimbap Embedded Console") {
-		t.Fatalf("expected embedded console page content")
+	body := rr.Body.String()
+	if body != indexHTML {
+		t.Fatalf("root response should equal embedded index.html")
 	}
 }
 
@@ -39,6 +54,7 @@ func TestHandlerReturnsNotFoundForMissingAssetFile(t *testing.T) {
 
 func TestHandlerFallsBackToIndexForRouteWithoutExtension(t *testing.T) {
 	h := Handler()
+	indexHTML := readEmbeddedIndexHTML(t)
 	req := httptest.NewRequest(http.MethodGet, "/console/dashboard", nil)
 	rr := httptest.NewRecorder()
 
@@ -50,7 +66,7 @@ func TestHandlerFallsBackToIndexForRouteWithoutExtension(t *testing.T) {
 	if err != nil {
 		t.Fatalf("read response body: %v", err)
 	}
-	if !strings.Contains(string(body), "Kimbap Embedded Console") {
-		t.Fatalf("expected SPA fallback index content")
+	if got := string(body); got != indexHTML {
+		t.Fatalf("expected SPA fallback to return embedded index.html")
 	}
 }

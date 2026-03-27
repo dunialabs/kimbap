@@ -220,6 +220,22 @@ func (r *Runtime) ResumeApproved(ctx context.Context, approvalRequestID string) 
 		return r.finalizeWithError(ctx, &result, *held, actions.AsExecutionError(sanitizeErr), startedAt, "require_approval", approvalRequestID)
 	}
 
+	if r.PolicyEvaluator != nil {
+		decision, evalErr := r.PolicyEvaluator.Evaluate(ctx, PolicyRequest{
+			TenantID:  held.TenantID,
+			Principal: held.Principal,
+			Action:    held.Action,
+			Input:     held.Input,
+			Mode:      held.Mode,
+		})
+		if evalErr != nil {
+			return r.finalizeWithError(ctx, &result, *held, actions.NewExecutionError(actions.ErrDownstreamUnavailable, evalErr.Error(), 500, true, nil), startedAt, "deny", approvalRequestID)
+		}
+		if decision != nil && normalizePolicyDecision(decision.Decision) == "deny" {
+			return r.finalizeWithError(ctx, &result, *held, actions.NewExecutionError(actions.ErrUnauthorized, "policy denied action on resume: "+decision.Reason, 403, false, nil), startedAt, "deny", approvalRequestID)
+		}
+	}
+
 	return r.executeFromCredentialsWithState(ctx, *held, nil, startedAt, "require_approval", approvalRequestID)
 }
 

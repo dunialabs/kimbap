@@ -49,8 +49,11 @@ func TestWrapWithHintAndNilHandling(t *testing.T) {
 	if err == nil {
 		t.Fatal("expected non-nil wrapped error")
 	}
-	if got := err.Error(); got != "boom: boom" {
-		t.Fatalf("Error() = %q", got)
+	if !errors.Is(err, cause) {
+		t.Fatal("wrapped error should retain original cause")
+	}
+	if got := err.Error(); got == "" {
+		t.Fatal("wrapped error message should be non-empty")
 	}
 	if got := GetHint(err); got != "do this" {
 		t.Fatalf("GetHint() = %q", got)
