@@ -178,12 +178,12 @@ func withPort(addr string, port int) string {
 	}
 	trimmed := strings.TrimSpace(addr)
 	if trimmed == "" {
-		return fmt.Sprintf(":%d", port)
+		return net.JoinHostPort("127.0.0.1", fmt.Sprintf("%d", port))
 	}
 
 	host := ""
 	if strings.HasPrefix(trimmed, ":") {
-		host = ""
+		host = "127.0.0.1"
 	} else if h, _, err := net.SplitHostPort(trimmed); err == nil {
 		host = h
 	} else {
@@ -191,7 +191,7 @@ func withPort(addr string, port int) string {
 	}
 
 	if host == "" {
-		return fmt.Sprintf(":%d", port)
+		return net.JoinHostPort("127.0.0.1", fmt.Sprintf("%d", port))
 	}
 	return net.JoinHostPort(host, fmt.Sprintf("%d", port))
 }

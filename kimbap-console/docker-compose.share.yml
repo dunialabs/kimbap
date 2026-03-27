@@ -77,7 +77,7 @@ services:
     command: tunnel --no-autoupdate run
     environment:
       # Required when using token mode
-      - TUNNEL_TOKEN=${CLOUDFLARE_TUNNEL_TOKEN:-eyJhIjoiMzY3MmMwODM0MDlkYTVjYTEzM2M1MGUwZDA2ZmQwZTAiLCJ0IjoiY2UwY2Q2MjUtZjdiYy00MWY0LTk2YzQtNzgwMTJkYjg4ZGZkIiwicyI6Ik9HWTFPVEppWVdVdE1qWXpZUzAwT0RjM0xUazRNRGd0WkRneU1tRm1ZemxrWVRJdyJ9}
+      - TUNNEL_TOKEN=${CLOUDFLARE_TUNNEL_TOKEN}
     networks:
       - kimbap-network
     volumes:
