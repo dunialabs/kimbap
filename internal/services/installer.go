@@ -543,12 +543,10 @@ func (i *LocalInstaller) writeLockfile(lf *Lockfile) error {
 		return fmt.Errorf("marshal lockfile: %w", err)
 	}
 	lockPath := i.lockfilePath()
-	if _, err := os.Stat(lockPath); err == nil {
-		f, openErr := os.OpenFile(lockPath, os.O_WRONLY, 0)
-		if openErr != nil {
-			return fmt.Errorf("open lockfile for write: %w", openErr)
+	if info, err := os.Stat(lockPath); err == nil {
+		if info.Mode().Perm()&0o222 == 0 {
+			return fmt.Errorf("lockfile is not writable: %w", os.ErrPermission)
 		}
-		_ = f.Close()
 	} else if !os.IsNotExist(err) {
 		return fmt.Errorf("stat lockfile: %w", err)
 	}

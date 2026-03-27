@@ -27,6 +27,9 @@ func (e *KimbapError) Error() string {
 	if e == nil {
 		return ""
 	}
+	if e.Message == "" && e.Cause != nil {
+		return e.Cause.Error()
+	}
 	if e.Cause != nil {
 		return fmt.Sprintf("%s: %v", e.Message, e.Cause)
 	}
@@ -52,7 +55,7 @@ func WrapWithHint(cause error, hint string) *KimbapError {
 	if cause == nil {
 		return nil
 	}
-	return &KimbapError{Message: cause.Error(), Hint: hint, ExitCode: ExitInternal, Cause: cause}
+	return &KimbapError{Hint: hint, ExitCode: ExitInternal, Cause: cause}
 }
 
 func (e *KimbapError) WithDocs(url string) *KimbapError {

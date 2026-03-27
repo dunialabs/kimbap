@@ -921,7 +921,17 @@ func authFromScheme(scheme map[string]any, skillName string) (ServiceAuth, error
 }
 
 func resolveCompositeSchema(schema map[string]any, resolver *openAPIRefResolver) map[string]any {
-	if len(schema) == 0 {
+	return resolveCompositeSchemaDepth(schema, resolver, 0)
+}
+
+func resolveCompositeSchemaDepth(schema map[string]any, resolver *openAPIRefResolver, depth int) map[string]any {
+	if len(schema) == 0 || depth > 8 {
+		if depth > 8 {
+			merged := cloneAnyMap(schema)
+			merged["type"] = "object"
+			merged[schemaOpaqueKey] = true
+			return merged
+		}
 		return schema
 	}
 
@@ -948,7 +958,7 @@ func resolveCompositeSchema(schema map[string]any, resolver *openAPIRefResolver)
 			if !ok {
 				continue
 			}
-			subResolved := resolveCompositeSchema(sub, resolver)
+			subResolved := resolveCompositeSchemaDepth(sub, resolver, depth+1)
 			if disc, hasDisc := subResolved["discriminator"]; hasDisc {
 				merged["discriminator"] = disc
 			}
@@ -1020,7 +1030,7 @@ func resolveCompositeSchema(schema map[string]any, resolver *openAPIRefResolver)
 		if !ok {
 			break
 		}
-		primary := resolveCompositeSchema(first, resolver)
+		primary := resolveCompositeSchemaDepth(first, resolver, depth+1)
 		merged := cloneAnyMap(resolved)
 		delete(merged, "required")
 		maps.Copy(merged, primary)

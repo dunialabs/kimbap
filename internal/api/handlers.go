@@ -1,7 +1,6 @@
 package api
 
 import (
-	"bytes"
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
@@ -792,20 +791,16 @@ func decodeJSON(r *http.Request, out any) error {
 	if r.Body == nil {
 		return errors.New("request body is required")
 	}
-	limited := io.LimitReader(r.Body, maxAPIRequestBodyBytes+1)
-	raw, readErr := io.ReadAll(limited)
-	if readErr != nil {
-		return errors.New("failed to read request body")
-	}
-	if int64(len(raw)) > maxAPIRequestBodyBytes {
-		return errRequestBodyTooLarge
-	}
-	dec := json.NewDecoder(bytes.NewReader(raw))
+	r.Body = http.MaxBytesReader(nil, r.Body, maxAPIRequestBodyBytes)
+	dec := json.NewDecoder(r.Body)
 	dec.DisallowUnknownFields()
 	if err := dec.Decode(out); err != nil {
 		var syntaxErr *json.SyntaxError
 		var typeErr *json.UnmarshalTypeError
+		var maxErr *http.MaxBytesError
 		switch {
+		case errors.As(err, &maxErr):
+			return errRequestBodyTooLarge
 		case errors.As(err, &syntaxErr):
 			return fmt.Errorf("invalid JSON at offset %d", syntaxErr.Offset)
 		case errors.As(err, &typeErr):

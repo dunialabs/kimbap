@@ -325,11 +325,11 @@ func (m *Manager) refreshOnce(ctx context.Context, tenantID, name string) error 
 	m.refreshMu.Unlock()
 
 	r.err = m.Refresh(context.WithoutCancel(ctx), tenantID, name)
+	close(r.done)
 
 	m.refreshMu.Lock()
 	delete(m.refreshing, key)
 	m.refreshMu.Unlock()
-	close(r.done)
 
 	return r.err
 }

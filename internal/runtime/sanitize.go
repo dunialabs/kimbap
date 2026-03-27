@@ -194,7 +194,7 @@ func checkPathTraversal(value string) error {
 	}
 
 	decoded := trimmed
-	for range 4 {
+	for range 8 {
 		next, decodeErr := url.PathUnescape(decoded)
 		if decodeErr != nil {
 			break
@@ -206,7 +206,13 @@ func checkPathTraversal(value string) error {
 	}
 
 	normalized := strings.ToLower(strings.ReplaceAll(decoded, "\\", "/"))
-	if pathTraversalPattern.MatchString(normalized) || strings.Contains(normalized, "../") || strings.HasPrefix(normalized, "../") || strings.Contains(normalized, "..%2f") || strings.Contains(normalized, "%2e%2e/") {
+	if pathTraversalPattern.MatchString(normalized) ||
+		strings.Contains(normalized, "../") ||
+		strings.HasPrefix(normalized, "../") ||
+		strings.Contains(normalized, "..%2f") ||
+		strings.Contains(normalized, "%2e%2e/") ||
+		strings.Contains(normalized, "%2e%2e%2f") ||
+		strings.Contains(normalized, "%2e%2e%5c") {
 		return validationFailure("potential path traversal sequence detected", map[string]any{"check": "path_traversal"})
 	}
 
