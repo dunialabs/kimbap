@@ -37,7 +37,7 @@ func (m *mockTestAdapter) Execute(_ context.Context, _ adapters.AdapterRequest) 
 
 func TestDaemonCallHandlerMethodNotAllowed(t *testing.T) {
 	rt := buildTestRuntime()
-	handler := daemonCallHandler(rt)
+	handler := daemonCallHandler(nil, rt)
 
 	req := httptest.NewRequest(http.MethodGet, "/call", nil)
 	rec := httptest.NewRecorder()
@@ -50,7 +50,7 @@ func TestDaemonCallHandlerMethodNotAllowed(t *testing.T) {
 
 func TestDaemonCallHandlerEmptyAction(t *testing.T) {
 	rt := buildTestRuntime()
-	handler := daemonCallHandler(rt)
+	handler := daemonCallHandler(nil, rt)
 
 	body, _ := json.Marshal(daemonCallRequest{Action: "", Input: nil})
 	req := httptest.NewRequest(http.MethodPost, "/call", bytes.NewReader(body))
@@ -65,7 +65,7 @@ func TestDaemonCallHandlerEmptyAction(t *testing.T) {
 
 func TestDaemonCallHandlerInvalidJSON(t *testing.T) {
 	rt := buildTestRuntime()
-	handler := daemonCallHandler(rt)
+	handler := daemonCallHandler(nil, rt)
 
 	req := httptest.NewRequest(http.MethodPost, "/call", bytes.NewBufferString("not json"))
 	req.Header.Set("Content-Type", "application/json")

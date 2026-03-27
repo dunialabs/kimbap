@@ -16,6 +16,7 @@ import (
 	"time"
 
 	"github.com/dunialabs/kimbap/internal/actions"
+	"github.com/dunialabs/kimbap/internal/config"
 	"github.com/dunialabs/kimbap/internal/runtime"
 	"github.com/google/uuid"
 	"github.com/spf13/cobra"
@@ -90,7 +91,7 @@ func newDaemonCommand() *cobra.Command {
 			}
 
 			mux := http.NewServeMux()
-			mux.HandleFunc("/call", daemonCallHandler(rt))
+			mux.HandleFunc("/call", daemonCallHandler(cfg, rt))
 			mux.HandleFunc("/health", func(w http.ResponseWriter, _ *http.Request) {
 				w.Header().Set("Content-Type", "application/json")
 				_ = json.NewEncoder(w).Encode(map[string]any{"status": "ok", "pid": os.Getpid()})
@@ -145,7 +146,7 @@ type daemonCallRequest struct {
 	Input  map[string]any `json:"input"`
 }
 
-func daemonCallHandler(rt *runtime.Runtime) http.HandlerFunc {
+func daemonCallHandler(cfg *config.KimbapConfig, rt *runtime.Runtime) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodPost {
 			http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
@@ -168,6 +169,9 @@ func daemonCallHandler(rt *runtime.Runtime) http.HandlerFunc {
 			return
 		}
 
+		// Resolve aliases so daemon behavior matches "kimbap call"
+		actionName := resolveAliasedActionName(cfg, req.Action)
+
 		requestID := "req_" + uuid.NewString()
 		execReq := actions.ExecutionRequest{
 			RequestID:      requestID,
@@ -179,7 +183,7 @@ func daemonCallHandler(rt *runtime.Runtime) http.HandlerFunc {
 				AgentName: "kimbap-daemon",
 				Type:      "operator",
 			},
-			Action: actions.ActionDefinition{Name: req.Action},
+			Action: actions.ActionDefinition{Name: actionName},
 			Input:  req.Input,
 			Mode:   actions.ModeCall,
 		}
