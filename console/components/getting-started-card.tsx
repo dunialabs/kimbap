@@ -61,6 +61,28 @@ export function GettingStartedCard() {
           <div className="flex items-center gap-4 px-[16px] py-[12px] bg-white dark:bg-slate-800 rounded-lg border border-blue-100 dark:border-blue-900 flex-wrap sm:flex-nowrap">
             <div className="flex-1">
               <h3 className="font-[700] text-[14px] text-foreground dark:text-slate-100 mb-1">
+                Set Up Access Policies
+              </h3>
+              <p className="text-[14px] text-muted-foreground dark:text-slate-400">
+                Define which tool calls are allowed, need approval, or are blocked.
+              </p>
+            </div>
+            <div className="w-full sm:w-auto flex justify-end">
+              <Link
+                href="/dashboard/policies"
+                className={cn(
+                  buttonVariants({ size: 'sm' }),
+                  'w-[140px] bg-slate-900 hover:bg-slate-800 dark:bg-slate-100 dark:hover:bg-slate-200 text-white dark:text-slate-900'
+                )}
+              >
+                Open Policies
+              </Link>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-4 px-[16px] py-[12px] bg-white dark:bg-slate-800 rounded-lg border border-blue-100 dark:border-blue-900 flex-wrap sm:flex-nowrap">
+            <div className="flex-1">
+              <h3 className="font-[700] text-[14px] text-foreground dark:text-slate-100 mb-1">
                 Review Pending Approvals
               </h3>
               <p className="text-[14px] text-muted-foreground dark:text-slate-400">

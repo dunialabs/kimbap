@@ -739,7 +739,7 @@ export default function ApprovalsPage() {
               {detailDialog.executionError && (
                 <div>
                   <Label className="text-xs text-muted-foreground">Execution Error</Label>
-                  <p className="mt-1 text-sm text-red-600">{detailDialog.executionError}</p>
+                  <p className="mt-1 text-sm text-red-600 dark:text-red-400">{detailDialog.executionError}</p>
                 </div>
               )}
 

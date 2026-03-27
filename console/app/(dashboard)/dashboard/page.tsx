@@ -424,7 +424,7 @@ export default function DashboardPage() {
                   <p className="text-sm text-muted-foreground">
                     Recent clients (24h)
                   </p>
-                  <p className="font-mono text-sm font-normal">
+                  <p className={stats.connectedClients == null ? 'text-sm text-muted-foreground' : 'font-mono text-sm font-normal'}>
                     {stats.connectedClients == null ? '—' : stats.connectedClients}
                   </p>
                 </div>
