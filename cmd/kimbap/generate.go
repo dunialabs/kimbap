@@ -115,7 +115,8 @@ func renderTypeScriptSnippets(grouped map[string][]actions.ActionDefinition) str
 			if desc == "" {
 				desc = "No description"
 			}
-			_, _ = fmt.Fprintf(&b, "/** %s — %s */\n", def.Name, desc)
+			safeDesc := strings.ReplaceAll(strings.ReplaceAll(desc, "*/", "* /"), "\n", " ")
+			_, _ = fmt.Fprintf(&b, "/** %s — %s */\n", def.Name, safeDesc)
 			_, _ = fmt.Fprintf(&b, "export interface %s {\n", actionInputTypeName(def.Name))
 
 			if def.InputSchema != nil && len(def.InputSchema.Properties) > 0 {
@@ -161,8 +162,8 @@ func renderPythonSnippets(grouped map[string][]actions.ActionDefinition) string 
 			if desc == "" {
 				desc = "No description"
 			}
-
-			_, _ = fmt.Fprintf(&b, "# %s — %s\n", def.Name, desc)
+			safeDesc := strings.ReplaceAll(strings.ReplaceAll(desc, "\n", " "), "\r", "")
+			_, _ = fmt.Fprintf(&b, "# %s — %s\n", def.Name, safeDesc)
 			_, _ = fmt.Fprintf(&b, "# Usage: %s\n", usageLine(def))
 
 			if def.InputSchema == nil || len(def.InputSchema.Properties) == 0 {

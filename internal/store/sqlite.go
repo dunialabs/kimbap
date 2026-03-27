@@ -482,6 +482,9 @@ func (s *SQLStore) CreateApproval(ctx context.Context, req *ApprovalRecord) erro
 	if req == nil {
 		return errors.New("approval is required")
 	}
+	if strings.TrimSpace(req.TenantID) == "" {
+		return errors.New("tenant_id is required")
+	}
 	if strings.TrimSpace(req.ID) == "" {
 		req.ID = uuid.NewString()
 	}

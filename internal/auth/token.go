@@ -136,6 +136,7 @@ func (s *TokenService) Rotate(ctx context.Context, oldTokenID, tenantID, agentNa
 	}
 
 	if revokeErr := s.store.Revoke(ctx, oldTokenID); revokeErr != nil {
+		_ = s.store.Revoke(ctx, token.ID)
 		return "", nil, fmt.Errorf("revoke old token: %w", revokeErr)
 	}
 
