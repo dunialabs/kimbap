@@ -1,5 +1,12 @@
 import { getUserAvailableServersCapabilities } from '@/lib/proxy-api';
 
+export class PermissionsFetchError extends Error {
+  constructor(message: string, public cause?: unknown) {
+    super(message);
+    this.name = 'PermissionsFetchError';
+  }
+}
+
 export interface ToolFunc {
   funcName: string;
   enabled: boolean;
@@ -85,6 +92,6 @@ export async function getUserPermissions(
     return permissions;
   } catch (error) {
     console.error('Failed to get user permissions:', error);
-    return [];
+    throw new PermissionsFetchError(`Failed to get user permissions for ${userId}`, error);
   }
 }

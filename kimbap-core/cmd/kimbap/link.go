@@ -93,21 +93,22 @@ func newLinkCommand() *cobra.Command {
 						return fmt.Errorf("connector store unavailable: %w", oauthErr)
 					}
 					status := linkOAuthConnectionStatus(providerID, profile, oauthStates)
+					connectorName := connectorStoreName(providerID, profile)
 					if outputAsJSON() {
 						return printOutput(map[string]any{
 							"service":   info.Service,
 							"auth_type": "oauth2",
 							"status":    status,
-							"connector": providerID,
+							"connector": connectorName,
 						})
 					}
 					switch status {
 					case string(connectors.StatusConnected):
-						return printOutput(fmt.Sprintf("✓ %s is connected via OAuth (%s)", info.Service, providerID))
+						return printOutput(fmt.Sprintf("✓ %s is connected via OAuth (%s)", info.Service, connectorName))
 					case "not_connected":
-						return printOutput(fmt.Sprintf("%s is not connected via OAuth (%s)", info.Service, providerID))
+						return printOutput(fmt.Sprintf("%s is not connected via OAuth (%s)", info.Service, connectorName))
 					default:
-						return printOutput(fmt.Sprintf("%s OAuth status: %s (%s)", info.Service, status, providerID))
+						return printOutput(fmt.Sprintf("%s OAuth status: %s (%s)", info.Service, status, connectorName))
 					}
 				}
 
@@ -346,9 +347,11 @@ func linkOAuthConnectionStatus(providerID, profile string, states []connectorSta
 			return string(mapped)
 		}
 	}
-	// Fall back to provider-level match.
+	if p := strings.TrimSpace(profile); p != "" && !strings.EqualFold(p, "default") {
+		return "not_connected"
+	}
 	for _, state := range states {
-		if strings.EqualFold(state.Provider, providerID) {
+		if strings.EqualFold(state.Provider, providerID) && strings.EqualFold(state.Name, providerID) {
 			mapped := connectors.MapLegacyStatus(connectors.ConnectorStatus(state.Status))
 			return string(mapped)
 		}

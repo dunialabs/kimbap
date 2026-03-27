@@ -48,9 +48,9 @@ export async function getDashboardLogMetrics(
   const [scalarResult, toolsResult, tokenResult] = await Promise.allSettled([
     prisma.$queryRaw<DashboardLogMetricScalars[]>`
       SELECT
-        COUNT(*) FILTER (WHERE addtime >= ${startTimeBigInt}) AS "apiRequests",
-        COUNT(DISTINCT userid) FILTER (WHERE addtime >= ${startTimeBigInt} AND userid <> '') AS "activeTokens",
-        COUNT(*) FILTER (WHERE addtime >= ${monthStartBigInt}) AS "monthlyRequests"
+        COALESCE(SUM(CASE WHEN addtime >= ${startTimeBigInt} THEN 1 ELSE 0 END), 0) AS "apiRequests",
+        COUNT(DISTINCT CASE WHEN addtime >= ${startTimeBigInt} AND userid <> '' THEN userid ELSE NULL END) AS "activeTokens",
+        COALESCE(SUM(CASE WHEN addtime >= ${monthStartBigInt} THEN 1 ELSE 0 END), 0) AS "monthlyRequests"
       FROM log
       WHERE 1 = 1
       ${scopedFilter}

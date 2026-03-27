@@ -199,7 +199,7 @@ export function applyTagsOperation(
   return result;
 }
 
-function parseTagsJson(raw: string, ctx: { proxyId: number; userid: string }): string[] {
+function parseTagsJson(raw: string, ctx: { userid: string }): string[] {
   try {
     const parsed = JSON.parse(raw);
     return Array.isArray(parsed) ? parsed.filter((t: unknown) => typeof t === 'string') : [];
@@ -210,18 +210,17 @@ function parseTagsJson(raw: string, ctx: { proxyId: number; userid: string }): s
 }
 
 export async function getTokenMetadataMap(
-  proxyId: number,
   userids: string[]
 ): Promise<Map<string, TokenMetadataOutput>> {
   if (userids.length === 0) return new Map();
 
   const rows = await prisma.tokenMetadata.findMany({
-    where: { proxyId, userid: { in: userids } },
+    where: { userid: { in: userids } },
   });
 
   const map = new Map<string, TokenMetadataOutput>();
   for (const row of rows) {
-    map.set(row.userid, { namespace: row.namespace, tags: parseTagsJson(row.tags, { proxyId, userid: row.userid }) });
+    map.set(row.userid, { namespace: row.namespace, tags: parseTagsJson(row.tags, { userid: row.userid }) });
   }
 
   for (const userid of userids) {
@@ -234,19 +233,17 @@ export async function getTokenMetadataMap(
 }
 
 export async function getTokenMetadata(
-  proxyId: number,
   userid: string
 ): Promise<TokenMetadataOutput> {
   const row = await prisma.tokenMetadata.findUnique({
-    where: { proxyId_userid: { proxyId, userid } },
+    where: { userid },
   });
   if (!row) return { namespace: 'default', tags: [] };
 
-  return { namespace: row.namespace, tags: parseTagsJson(row.tags, { proxyId, userid }) };
+  return { namespace: row.namespace, tags: parseTagsJson(row.tags, { userid }) };
 }
 
 export async function upsertTokenMetadata(
-  proxyId: number,
   userid: string,
   input: TokenMetadataInput
 ): Promise<void> {
@@ -254,9 +251,8 @@ export async function upsertTokenMetadata(
   const tags = normalizeTags(input.tags);
 
   await prisma.tokenMetadata.upsert({
-    where: { proxyId_userid: { proxyId, userid } },
+    where: { userid },
     create: {
-      proxyId,
       userid,
       namespace: ns,
       tags: JSON.stringify(tags),
@@ -269,12 +265,11 @@ export async function upsertTokenMetadata(
 }
 
 export async function deleteTokenMetadata(
-  proxyId: number,
   userid: string
 ): Promise<void> {
   try {
     await prisma.tokenMetadata.delete({
-      where: { proxyId_userid: { proxyId, userid } },
+      where: { userid },
     });
   } catch (error: any) {
     if (error?.code === 'P2025') return;

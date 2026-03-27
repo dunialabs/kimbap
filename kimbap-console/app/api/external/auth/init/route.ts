@@ -4,34 +4,15 @@ import { CryptoUtils } from '@/lib/crypto';
 import { getProxy, createProxy, createUser, deleteProxy } from '@/lib/proxy-api';
 import { prisma } from '@/lib/prisma';
 import { hashToken } from '@/lib/auth';
+import { acquireRuntimeLock, checkRateLimitDb, getClientIdentity, releaseRuntimeLock } from '@/lib/request-guard';
 import { ApiResponse } from '../../lib/response';
-import { ExternalApiError, E1001, E2008, E3007, E5001 } from '../../lib/error-codes';
+import { ExternalApiError, E1001, E2008, E3007, E5001, E5005 } from '../../lib/error-codes';
 
 export const dynamic = 'force-dynamic';
 
 const INIT_RATE_LIMIT = 5;
-const INIT_RATE_WINDOW_MS = 60_000;
-const initBuckets = new Map<string, { count: number; resetAt: number }>();
-
-if (typeof globalThis !== 'undefined') {
-  setInterval(() => {
-    const now = Date.now();
-    initBuckets.forEach((bucket, key) => {
-      if (now >= bucket.resetAt) initBuckets.delete(key);
-    });
-  }, INIT_RATE_WINDOW_MS * 2).unref?.();
-}
-
-function checkInitRateLimit(ip: string): boolean {
-  const now = Date.now();
-  const bucket = initBuckets.get(ip);
-  if (!bucket || now >= bucket.resetAt) {
-    initBuckets.set(ip, { count: 1, resetAt: now + INIT_RATE_WINDOW_MS });
-    return true;
-  }
-  bucket.count++;
-  return bucket.count <= INIT_RATE_LIMIT;
-}
+const INIT_LOCK_KEY = 'external:init';
+const INIT_LOCK_TTL_MS = 30_000;
 
 interface InitRequest {
   masterPwd: string;
@@ -41,7 +22,6 @@ interface InitResponse {
   accessToken: string;
   proxyId: number;
   proxyName: string;
-  proxyKey: string;
   role: number;
   userid: string;
 }
@@ -53,13 +33,18 @@ interface InitResponse {
  * This is the first step to set up a new proxy instance.
  */
 export async function POST(request: NextRequest) {
+  let lockAcquired = false;
   try {
-    const clientIp = request.headers.get('x-real-ip')
-      || request.headers.get('x-forwarded-for')?.split(',')[0]?.trim()
-      || 'unknown';
+    const clientIp = getClientIdentity(request);
+    const rateLimitKey = `external:init:${clientIp}`;
 
-    if (!checkInitRateLimit(clientIp)) {
+    if (!await checkRateLimitDb(rateLimitKey, INIT_RATE_LIMIT)) {
       throw new ExternalApiError(E2008, 'Rate limit exceeded. Try again later.');
+    }
+
+    lockAcquired = await acquireRuntimeLock(INIT_LOCK_KEY, INIT_LOCK_TTL_MS);
+    if (!lockAcquired) {
+      throw new ExternalApiError(E5005, 'Initialization already in progress. Please retry shortly.');
     }
 
     // Parse request body
@@ -144,7 +129,7 @@ export async function POST(request: NextRequest) {
         data: {
           userid: userId,
           accessTokenHash: hashToken(accessToken),
-          proxyKey: proxyKey,
+          proxyKey: proxy.proxyKey,
           role: 1, // 1-owner
         },
       });
@@ -168,7 +153,6 @@ export async function POST(request: NextRequest) {
       accessToken: accessToken,
       proxyId: proxy.id,
       proxyName: proxy.name,
-      proxyKey: proxy.proxyKey || '',
       role: 1,
       userid: userId,
     };
@@ -176,5 +160,13 @@ export async function POST(request: NextRequest) {
     return ApiResponse.success(responseData, 201, request);
   } catch (error) {
     return ApiResponse.handleError(error, request);
+  } finally {
+    if (lockAcquired) {
+      try {
+        await releaseRuntimeLock(INIT_LOCK_KEY);
+      } catch (lockReleaseError) {
+        console.warn('Failed to release init lock:', lockReleaseError);
+      }
+    }
   }
 }

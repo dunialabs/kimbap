@@ -1,14 +1,20 @@
 import { NextRequest } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { ExternalApiError, E2001, E2002, E2003, E5005 } from './error-codes';
+import { ExternalApiError, E2001, E2002, E2003, E2008, E5005 } from './error-codes';
 import { hashToken } from '@/lib/auth';
 import { getUserByAccessToken } from '@/lib/proxy-api';
+import { checkRateLimitDb, getBearerToken, getClientIdentity } from '@/lib/request-guard';
 
 export interface AuthUser {
   userid: string;
   role: number; // 1=owner, 2=admin, 3=member
   accessToken: string;
-  proxyKey: string;
+}
+
+const EXTERNAL_GENERAL_RATE_LIMIT = Number(process.env.EXTERNAL_API_RATE_LIMIT || 120);
+
+function toStableTokenKey(token: string): string {
+  return hashToken(token).slice(0, 16);
 }
 
 /**
@@ -16,21 +22,20 @@ export interface AuthUser {
  * Returns the authenticated user info
  */
 export async function authenticate(request: NextRequest): Promise<AuthUser> {
-  const authHeader = request.headers.get('Authorization');
-
-  if (!authHeader) {
+  const token = getBearerToken(request);
+  if (!token) {
     throw new ExternalApiError(E2001, 'Access token is required');
   }
 
-  // Check Bearer token format
-  if (!authHeader.startsWith('Bearer ')) {
-    throw new ExternalApiError(E2002, 'Invalid access token');
+  const clientIp = getClientIdentity(request);
+  const ipKey = `external:ip:${clientIp}`;
+  const tokenKey = `external:token:${toStableTokenKey(token)}`;
+
+  if (!await checkRateLimitDb(ipKey, EXTERNAL_GENERAL_RATE_LIMIT)) {
+    throw new ExternalApiError(E2008, 'Rate limit exceeded. Try again later.');
   }
-
-  const token = authHeader.slice(7); // Remove 'Bearer ' prefix
-
-  if (!token) {
-    throw new ExternalApiError(E2002, 'Invalid access token');
+  if (!await checkRateLimitDb(tokenKey, EXTERNAL_GENERAL_RATE_LIMIT)) {
+    throw new ExternalApiError(E2008, 'Rate limit exceeded. Try again later.');
   }
 
   const user = await prisma.user.findUnique({
@@ -78,6 +83,5 @@ export async function authenticate(request: NextRequest): Promise<AuthUser> {
     userid: user.userid,
     role: resolvedRole,
     accessToken: token,
-    proxyKey: user.proxyKey,
   };
 }

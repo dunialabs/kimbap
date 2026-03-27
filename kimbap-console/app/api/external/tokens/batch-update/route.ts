@@ -166,7 +166,7 @@ export async function POST(request: NextRequest) {
     const userMap = new Map(proxyUsers.map((u) => [u.userId, u]));
     const metadataMap =
       shouldUpdateMetadata && resolvedTagsMode !== 'replace' && resolvedTagsMode !== 'clear' && normalizedTags !== undefined
-        ? await getTokenMetadataMap(proxy.id, normalizedTokenIds)
+      ? await getTokenMetadataMap(normalizedTokenIds)
         : null;
 
     let updatedCount = 0;
@@ -219,7 +219,7 @@ export async function POST(request: NextRequest) {
           }
 
           if (Object.keys(metadataUpdate).length > 0) {
-            await upsertTokenMetadata(proxy.id, tokenId, metadataUpdate);
+            await upsertTokenMetadata(tokenId, metadataUpdate);
           }
         }
 

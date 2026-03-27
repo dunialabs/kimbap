@@ -123,7 +123,7 @@ export async function handleProtocol21001(body: Request21001): Promise<Response2
           AND addtime >= ${BigInt(startTime)}
           AND userid <> ''
           AND userid IN (${Prisma.join(validUserIdList)})
-          AND BTRIM(COALESCE(error, '')) = ''
+          AND TRIM(COALESCE(error, '')) = ''
           AND (status_code IS NULL OR status_code < 400)
       `;
 

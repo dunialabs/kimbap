@@ -4,6 +4,7 @@ import { getProtocolHandler } from './handlers';
 import { prisma } from '@/lib/prisma';
 import { hashToken } from '@/lib/auth';
 import { getUserByAccessToken } from '@/lib/proxy-api';
+import { checkRateLimitDb, getBearerToken, getClientIdentity } from '@/lib/request-guard';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -13,75 +14,6 @@ const PUBLIC_CMD_IDS = new Set([10015]);
 
 const LOGIN_RATE_LIMIT = 10;
 const GENERAL_RATE_LIMIT = 120;
-const RATE_WINDOW_MS = 60_000;
-
-const rateBuckets = new Map<string, { count: number; resetAt: number }>();
-
-function checkRateLimit(key: string, limit: number): boolean {
-  const now = Date.now();
-  const bucket = rateBuckets.get(key);
-  if (!bucket || now >= bucket.resetAt) {
-    rateBuckets.set(key, { count: 1, resetAt: now + RATE_WINDOW_MS });
-    return true;
-  }
-  bucket.count++;
-  return bucket.count <= limit;
-}
-
-if (typeof globalThis !== 'undefined') {
-  setInterval(() => {
-    const now = Date.now();
-    rateBuckets.forEach((bucket, key) => {
-      if (now >= bucket.resetAt) rateBuckets.delete(key);
-    });
-  }, RATE_WINDOW_MS * 2).unref?.();
-}
-
-function getBearerToken(request: NextRequest): string | null {
-  const authHeader = request.headers.get('authorization') || request.headers.get('Authorization');
-  if (!authHeader || !authHeader.startsWith('Bearer ')) return null;
-  const token = authHeader.slice('Bearer '.length).trim();
-  return token ? token : null;
-}
-
-function getClientIdentity(request: NextRequest): string {
-  const directIp = (request as NextRequest & { ip?: string }).ip?.trim();
-  if (directIp) {
-    return directIp;
-  }
-
-  const trustForwarded = process.env.TRUST_PROXY_HEADERS === 'true' || process.env.KIMBAP_TRUST_PROXY === 'true';
-  if (!trustForwarded) {
-    return 'unknown';
-  }
-
-  const forwarded = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim();
-  if (!forwarded) {
-    return 'unknown';
-  }
-
-  const bracketedIpv6 = forwarded.match(/^\[([0-9a-fA-F:.]+)\](?::\d+)?$/);
-  if (bracketedIpv6?.[1]) {
-    return bracketedIpv6[1];
-  }
-
-  const ipv4WithPort = forwarded.match(/^((?:\d{1,3}\.){3}\d{1,3}):\d+$/);
-  if (ipv4WithPort?.[1]) {
-    return ipv4WithPort[1];
-  }
-
-  const hostnameWithPort = forwarded.match(/^([a-zA-Z0-9.-]+):\d+$/);
-  if (hostnameWithPort?.[1]) {
-    return hostnameWithPort[1];
-  }
-
-  const sanitizedForwarded = forwarded.trim();
-  if (!/^[0-9a-zA-Z:.[\]%-]+$/.test(sanitizedForwarded)) {
-    return 'unknown';
-  }
-
-  return sanitizedForwarded || 'unknown';
-}
 
 export async function POST(request: NextRequest) {
   let cmdId = 0;
@@ -111,7 +43,7 @@ export async function POST(request: NextRequest) {
     if (isPublic) {
       const clientIp = getClientIdentity(request);
       const rateLimitKey = `login:${clientIp !== 'unknown' ? clientIp : `unknown:${cmdId}`}`;
-      if (!checkRateLimit(rateLimitKey, LOGIN_RATE_LIMIT)) {
+      if (!await checkRateLimitDb(rateLimitKey, LOGIN_RATE_LIMIT)) {
         return ApiResponse.error(cmdId, 429, 'Rate limit exceeded. Try again later.', 429);
       }
     }
@@ -119,7 +51,7 @@ export async function POST(request: NextRequest) {
     if (!isPublic) {
       const clientIp = getClientIdentity(request);
       const rateLimitKey = `anon:${clientIp !== 'unknown' ? clientIp : `unknown:${cmdId}`}`;
-      if (!checkRateLimit(rateLimitKey, GENERAL_RATE_LIMIT)) {
+      if (!await checkRateLimitDb(rateLimitKey, GENERAL_RATE_LIMIT)) {
         return ApiResponse.error(cmdId, 429, 'Rate limit exceeded. Try again later.', 429);
       }
 
@@ -129,7 +61,7 @@ export async function POST(request: NextRequest) {
       }
 
       const tokenPrefix = token.substring(0, 16);
-      if (!checkRateLimit(`api:${tokenPrefix}`, GENERAL_RATE_LIMIT)) {
+      if (!await checkRateLimitDb(`api:${tokenPrefix}`, GENERAL_RATE_LIMIT)) {
         return ApiResponse.error(cmdId, 429, 'Rate limit exceeded. Try again later.', 429);
       }
 

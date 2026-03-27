@@ -87,7 +87,6 @@ class DatabaseConfig {
    */
   async detectBestConfig() {
     console.log('🔍 Detecting optimal database configuration...');
-    
     // 1. 
     if (await this.testCloudConnection()) {
       console.log('✅ Using cloud PostgreSQL database');

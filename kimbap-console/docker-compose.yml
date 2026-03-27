@@ -1,12 +1,11 @@
 services:
   postgres:
     image: postgres:16-alpine
-    # platform: linux/amd64  # Let Docker pick the right architecture
     container_name: kimbap-postgres
     restart: unless-stopped
     environment:
       POSTGRES_USER: kimbap
-      POSTGRES_PASSWORD: kimbap123
+      POSTGRES_PASSWORD: ${KIMBAP_DB_PASSWORD:-kimbap123}
       POSTGRES_DB: kimbap_db
     ports:
       - '${KIMBAP_POSTGRES_PORT:-5432}:5432'
@@ -30,7 +29,7 @@ services:
       # Cloudflare Tunnel Token (Required for HTTPS remote access)
       # Get your token from: https://dash.cloudflare.com/ → Zero Trust → Networks → Tunnels
       # Set it in .env file: CLOUDFLARE_TUNNEL_TOKEN=your-token-here
-      - TUNNEL_TOKEN=${CLOUDFLARE_TUNNEL_TOKEN:-eyJhIjoiMzY3MmMwODM0MDlkYTVjYTEzM2M1MGUwZDA2ZmQwZTAiLCJ0IjoiY2UwY2Q2MjUtZjdiYy00MWY0LTk2YzQtNzgwMTJkYjg4ZGZkIiwicyI6Ik9HWTFPVEppWVdVdE1qWXpZUzAwT0RjM0xUazRNRGd0WkRneU1tRm1ZemxrWVRJdyJ9}
+      - TUNNEL_TOKEN=${CLOUDFLARE_TUNNEL_TOKEN:-}
     networks:
       - kimbap-network
     volumes:
@@ -58,6 +57,9 @@ services:
       JWT_SECRET: ${KIMBAP_CORE_JWT_SECRET:-${JWT_SECRET:-kimbap-default-jwt-secret-change-in-production}}
     ports:
       - '${KIMBAP_CORE_PORT:-3002}:3002'
+    depends_on:
+      postgres:
+        condition: service_healthy
     networks:
       - kimbap-network
     healthcheck:
@@ -76,19 +78,11 @@ services:
     ports:
       - '${KIMBAP_FRONTEND_PORT:-3000}:3000'
     environment:
-      DB_HOST: postgres
-      DB_PORT: 5432
-      DB_USER: kimbap
-      DB_PASSWORD: kimbap123
-      DB_NAME: kimbap_db
-      DATABASE_URL: postgresql://kimbap:kimbap123@postgres:5432/kimbap_db
+      DATABASE_URL: ${DATABASE_URL:-file:./data/kimbap-console.db}
       NODE_ENV: production
-      # Kimbap Core connection
       KIMBAP_CORE_URL: ${KIMBAP_CORE_URL:-http://kimbap-core:3002}
     entrypoint: ['/app/docker/docker-entrypoint.sh']
     depends_on:
-      postgres:
-        condition: service_healthy
       kimbap-core:
         condition: service_started
     networks:
@@ -99,9 +93,9 @@ services:
   # Optional: Adminer for database management
   adminer:
     image: adminer:latest
-    # platform: linux/amd64  # Let Docker choose the right architecture
     container_name: kimbap-adminer
     restart: unless-stopped
+    profiles: ['postgres']
     ports:
       - '${KIMBAP_ADMINER_PORT:-8080}:8080'
     depends_on:

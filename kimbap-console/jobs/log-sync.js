@@ -6,7 +6,7 @@
  * Runs independently, does not depend on Next.js application
  */
 
-const { PrismaClient } = require('@prisma/client');
+const { PrismaClient } = require('../lib/db/runtime-client');
 const http = require('http');
 const https = require('https');
 

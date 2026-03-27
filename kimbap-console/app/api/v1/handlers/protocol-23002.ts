@@ -92,43 +92,39 @@ export async function handleProtocol23002(body: Request23002): Promise<Response2
     const startTime = parseTimeRange(timeRange);
 
     // 2. Run all aggregation queries in parallel
+    const proxyKeyParam = proxyKey;
+    const startTimeParam = BigInt(startTime);
+
     const [levelCounts, domainRows, hourlyRows, lifecycleInfoResult] = await Promise.all([
-      // Level counts — single row with 4 counters
-      prisma.$queryRawUnsafe<LevelCountRow[]>(
-        `
+      prisma.$queryRaw<LevelCountRow[]>`
         SELECT
-          COUNT(*) FILTER (WHERE
+          COALESCE(SUM(CASE WHEN
             (error IS NOT NULL AND error != '')
             OR status_code >= 500
             OR action IN (4001, 2010, 3010)
-          ) as error_count,
-          COUNT(*) FILTER (WHERE
+          THEN 1 ELSE 0 END), 0) as error_count,
+          COALESCE(SUM(CASE WHEN
             status_code >= 400 AND status_code < 500
             AND (error IS NULL OR error = '')
             AND (action IS NULL OR action NOT IN (4001, 2010, 3010))
-          ) as warn_count,
-          COUNT(*) FILTER (WHERE
+          THEN 1 ELSE 0 END), 0) as warn_count,
+          COALESCE(SUM(CASE WHEN
             status_code IS NOT NULL AND status_code >= 200 AND status_code < 400
             AND (error IS NULL OR error = '')
             AND (action IS NULL OR action NOT IN (4001, 2010, 3010))
-          ) as info_count,
-          COUNT(*) FILTER (WHERE
+          THEN 1 ELSE 0 END), 0) as info_count,
+          COALESCE(SUM(CASE WHEN
             (status_code IS NULL OR status_code < 200)
             AND (error IS NULL OR error = '')
             AND (action IS NULL OR action NOT IN (4001, 2010, 3010))
             AND NOT (action BETWEEN 1301 AND 1314 AND status_code IS NULL)
-          ) as debug_count
+          THEN 1 ELSE 0 END), 0) as debug_count
         FROM log
-        WHERE proxy_key = $1
-          AND addtime >= $2
+        WHERE proxy_key = ${proxyKeyParam}
+          AND addtime >= ${startTimeParam}
       `,
-        proxyKey,
-        BigInt(startTime),
-      ),
 
-      // Domain stats — one row per domain
-      prisma.$queryRawUnsafe<DomainRow[]>(
-        `
+      prisma.$queryRaw<DomainRow[]>`
         SELECT
           CASE
             WHEN action BETWEEN 1001 AND 1009 THEN 'mcp-request'
@@ -141,58 +137,45 @@ export async function handleProtocol23002(body: Request23002): Promise<Response2
             ELSE 'system'
           END as domain,
           COUNT(*) as log_count,
-          COUNT(*) FILTER (WHERE
+          COALESCE(SUM(CASE WHEN
             (error IS NOT NULL AND error != '')
             OR status_code >= 500
             OR action IN (4001, 2010, 3010)
-          ) as error_count
+          THEN 1 ELSE 0 END), 0) as error_count
         FROM log
-        WHERE proxy_key = $1
-          AND addtime >= $2
+        WHERE proxy_key = ${proxyKeyParam}
+          AND addtime >= ${startTimeParam}
         GROUP BY 1
         ORDER BY log_count DESC
       `,
-        proxyKey,
-        BigInt(startTime),
-      ),
 
-      // Hourly stats — skip entirely for 'all' (no bounded time range to bucket)
       timeRange === 'all'
         ? ([] as HourlyRow[])
-        : prisma.$queryRawUnsafe<HourlyRow[]>(
-            `
+        : prisma.$queryRaw<HourlyRow[]>`
         SELECT
           (addtime / 3600) * 3600 as hour_bucket,
           COUNT(*) as total_count,
-          COUNT(*) FILTER (WHERE
+          COALESCE(SUM(CASE WHEN
             (error IS NOT NULL AND error != '')
             OR status_code >= 500
             OR action IN (4001, 2010, 3010)
-          ) as error_count
+          THEN 1 ELSE 0 END), 0) as error_count
         FROM log
-        WHERE proxy_key = $1
-          AND addtime >= $2
+        WHERE proxy_key = ${proxyKeyParam}
+          AND addtime >= ${startTimeParam}
         GROUP BY 1
         ORDER BY hour_bucket ASC
       `,
-            proxyKey,
-            BigInt(startTime),
-          ),
 
-      // Lifecycle-as-info count (events 1301-1314 with no statusCode and no error)
-      prisma.$queryRawUnsafe<{ cnt: bigint }[]>(
-        `
+      prisma.$queryRaw<{ cnt: bigint }[]>`
         SELECT COUNT(*) as cnt
         FROM log
-        WHERE proxy_key = $1
-          AND addtime >= $2
+        WHERE proxy_key = ${proxyKeyParam}
+          AND addtime >= ${startTimeParam}
           AND action BETWEEN 1301 AND 1314
           AND (error IS NULL OR error = '')
           AND (status_code IS NULL)
       `,
-        proxyKey,
-        BigInt(startTime),
-      ),
     ]);
 
     // 3. Parse level counts

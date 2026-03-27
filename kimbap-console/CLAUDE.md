@@ -48,9 +48,9 @@ This is the Kimbap Console — operations and observability console for the Kimb
 ### Technology Stack
 - **Frontend/Backend**: Next.js 15 with App Router, TypeScript, Tailwind CSS
 - **API Routes**: Next.js API routes (`/app/api/*`) for all backend operations
-- **Database**: PostgreSQL with Prisma ORM
+- **Database**: PostgreSQL via Prisma ORM
 - **Authentication**: JWT with bcrypt password hashing
-- **Development**: Docker for PostgreSQL
+- **Development**: Dockerized PostgreSQL for local setup
 
 ### Project Structure
 - **Next.js Application**:
@@ -63,7 +63,7 @@ This is the Kimbap Console — operations and observability console for the Kimb
 
 ### Key Patterns
 - **Unified Application**: Single Next.js application with API routes
-- **Database Management**: PostgreSQL managed via Docker
+- **Database Management**: PostgreSQL via Docker and Prisma migrations
 - **Protocol Handlers**: API routes handle MCP protocols (10001-10020)
 - **Authentication**: JWT-based authentication with role-based access control
 - **Role-Based Access**: Owner, Admin, and Member roles with different permissions
@@ -75,7 +75,6 @@ This is the Kimbap Console — operations and observability console for the Kimb
 - `Event` - MCP event storage
 - `Log` - Activity logging with server_id reference
 - `License` - License management
-- `DnsConf` - DNS configurations for tunneling
 - `IpWhitelist` - IP access control
 
 ### API Routes Structure (`/app/api/`)
@@ -89,8 +88,11 @@ This is the Kimbap Console — operations and observability console for the Kimb
 - PostgreSQL: 5432
 - Adminer: 8080 (optional, for database management)
 
+### Database
+- PostgreSQL is required for the local runtime; start it with `docker compose up -d postgres`
+- Configure via `DATABASE_URL` in `.env.local` or environment
+
 ### Important Notes
-- Always ensure Docker is running before starting development (for database)
 - All backend logic is implemented in Next.js API routes (`/app/api/*`)
 - Database migrations managed through Prisma CLI (`npm run db:migrate:create`)
 - Use `npm run db:studio` to inspect and manage database via Prisma Studio

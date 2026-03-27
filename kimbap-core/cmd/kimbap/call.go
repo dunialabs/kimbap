@@ -21,12 +21,17 @@ func newCallCommand() *cobra.Command {
 		Use:                "call <service.action> [--arg value...]",
 		Short:              "Execute an installed action",
 		DisableFlagParsing: true,
-		Args:               cobra.MinimumNArgs(1),
-		RunE: func(_ *cobra.Command, args []string) error {
-			actionName := strings.TrimSpace(args[0])
-			inputTokens, err := splitGlobalCallFlags(args[1:])
+		Args:               cobra.ArbitraryArgs,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			actionName, inputTokens, showHelp, err := splitCallInvocationArgs(args)
 			if err != nil {
 				return err
+			}
+			if showHelp {
+				return cmd.Help()
+			}
+			if actionName == "" {
+				return fmt.Errorf("missing action name: expected <service.action>")
 			}
 
 			input, err := parseDynamicInput(inputTokens)
@@ -448,15 +453,66 @@ func parseDynamicInput(tokens []string) (map[string]any, error) {
 	return out, nil
 }
 
+func splitCallInvocationArgs(tokens []string) (string, []string, bool, error) {
+	filtered, err := splitGlobalCallFlags(tokens)
+	if err != nil {
+		return "", nil, false, err
+	}
+
+	showHelp := false
+	parts := make([]string, 0, len(filtered))
+	for _, tok := range filtered {
+		trimmed := strings.TrimSpace(tok)
+		if trimmed == "--help" || trimmed == "-h" {
+			showHelp = true
+			continue
+		}
+		parts = append(parts, tok)
+	}
+
+	actionIdx := -1
+	for i, tok := range parts {
+		trimmed := strings.TrimSpace(tok)
+		if trimmed == "--" {
+			continue
+		}
+		if strings.HasPrefix(trimmed, "--") {
+			if actionIdx == -1 {
+				return "", nil, false, fmt.Errorf("missing action name before argument %q", tok)
+			}
+			continue
+		}
+		actionIdx = i
+		break
+	}
+
+	if actionIdx == -1 {
+		if showHelp {
+			return "", nil, true, nil
+		}
+		if len(parts) == 0 {
+			return "", nil, false, nil
+		}
+		return "", nil, false, fmt.Errorf("missing action name: expected <service.action>")
+	}
+
+	actionName := strings.TrimSpace(parts[actionIdx])
+	inputTokens := make([]string, 0, len(parts)-actionIdx-1)
+	inputTokens = append(inputTokens, parts[actionIdx+1:]...)
+
+	if showHelp {
+		return actionName, inputTokens, true, nil
+	}
+
+	return actionName, inputTokens, false, nil
+}
+
 func parseScalar(v string) any {
 	trimmed := strings.TrimSpace(v)
 	if trimmed == "" {
 		return ""
 	}
 
-	if b, err := strconv.ParseBool(trimmed); err == nil {
-		return b
-	}
 	if len(trimmed) > 1 && trimmed[0] == '0' && trimmed[1] != '.' {
 		return v
 	}
@@ -465,6 +521,9 @@ func parseScalar(v string) any {
 	}
 	if f, err := strconv.ParseFloat(trimmed, 64); err == nil {
 		return f
+	}
+	if b, err := strconv.ParseBool(trimmed); err == nil {
+		return b
 	}
 	return v
 }

@@ -4,8 +4,8 @@ import { getTokenMetadata } from '@/lib/token-metadata';
 import { prisma } from '@/lib/prisma';
 import { ApiResponse } from '../../lib/response';
 import { authenticate } from '../../lib/auth';
-import { ExternalApiError, E1001, E3003 } from '../../lib/error-codes';
-import { getUserPermissions, TokenItem } from '../lib/permissions';
+import { ExternalApiError, E1001, E3003, E5005 } from '../../lib/error-codes';
+import { getUserPermissions, PermissionsFetchError, TokenItem } from '../lib/permissions';
 
 export const dynamic = 'force-dynamic';
 
@@ -33,15 +33,25 @@ async function getTokenById(request: NextRequest, tokenIdRaw: string) {
   servers.forEach((server) => {
     serverNameMap[server.serverId] = server.serverName;
   });
-  const [permissions, metadata, lastLog] = await Promise.all([
-    getUserPermissions(targetUser.userId, user.accessToken, serverNameMap),
-    getTokenMetadata(proxy.id, targetUser.userId),
-    prisma.log.findFirst({
-      where: { userid: targetUser.userId },
-      orderBy: { addtime: 'desc' },
-      select: { addtime: true },
-    }),
-  ]);
+  let permissions: Awaited<ReturnType<typeof getUserPermissions>>;
+  let metadata: Awaited<ReturnType<typeof getTokenMetadata>>;
+  let lastLog: { addtime: bigint } | null;
+  try {
+    [permissions, metadata, lastLog] = await Promise.all([
+      getUserPermissions(targetUser.userId, user.accessToken, serverNameMap),
+      getTokenMetadata(targetUser.userId),
+      prisma.log.findFirst({
+        where: { userid: targetUser.userId },
+        orderBy: { addtime: 'desc' },
+        select: { addtime: true },
+      }),
+    ]);
+  } catch (error) {
+    if (error instanceof PermissionsFetchError) {
+      throw new ExternalApiError(E5005, 'Permission service unavailable');
+    }
+    throw error;
+  }
 
   const token: TokenItem = {
     tokenId: targetUser.userId,

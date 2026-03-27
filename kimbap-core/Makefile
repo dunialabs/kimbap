@@ -1,4 +1,4 @@
-.PHONY: build run dev test clean deps lint vet
+.PHONY: build run dev test clean deps lint vet install
 
 VERSION ?= 1.1.0
 LDFLAGS ?= -X github.com/dunialabs/kimbap-core/internal/config.version=$(VERSION)
@@ -29,3 +29,10 @@ deps:
 lint:
 	@which golangci-lint > /dev/null 2>&1 || (echo "golangci-lint not found. Install: go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest" && exit 1)
 	golangci-lint run ./...
+
+install: build
+	@echo "Installing kimbap to /usr/local/bin..."
+	install -m 755 bin/kimbap /usr/local/bin/kimbap
+	@rm -f /usr/local/bin/kb
+	@ln -sf /usr/local/bin/kimbap /usr/local/bin/kb
+	@echo "Installed: kimbap + kb alias -> /usr/local/bin/"

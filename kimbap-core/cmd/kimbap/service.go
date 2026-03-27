@@ -16,6 +16,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/dunialabs/kimbap-core/internal/registry"
 	"github.com/dunialabs/kimbap-core/internal/services"
 	"github.com/dunialabs/kimbap-core/skills"
 	"github.com/spf13/cobra"
@@ -33,6 +34,8 @@ func newServiceCommand() *cobra.Command {
 	cmd.AddCommand(newServiceEnableCommand())
 	cmd.AddCommand(newServiceDisableCommand())
 	cmd.AddCommand(newServiceRemoveCommand())
+	cmd.AddCommand(newServiceUpdateCommand())
+	cmd.AddCommand(newServiceOutdatedCommand())
 	cmd.AddCommand(newServiceVerifyCommand())
 	cmd.AddCommand(newServiceSignCommand())
 	cmd.AddCommand(newServiceValidateCommand())
@@ -182,6 +185,135 @@ func newServiceRemoveCommand() *cobra.Command {
 				return err
 			}
 			return printOutput(map[string]any{"removed": true, "name": args[0]})
+		},
+	}
+	return cmd
+}
+
+func newServiceUpdateCommand() *cobra.Command {
+	var force bool
+	cmd := &cobra.Command{
+		Use:   "update <name>",
+		Short: "Update an installed service to the latest version",
+		Args:  cobra.ExactArgs(1),
+		RunE: func(_ *cobra.Command, args []string) error {
+			name := strings.TrimSpace(args[0])
+			cfg, err := loadAppConfig()
+			if err != nil {
+				return err
+			}
+
+			installer := installerFromConfig(cfg)
+			installed, err := installer.Get(name)
+			if err != nil {
+				return fmt.Errorf("service %q not found: run 'kimbap service list' to see installed services", name)
+			}
+
+			source := strings.TrimSpace(installed.Source)
+			manifest, newSource, resolveErr := resolveServiceInstallSource(sourceToInstallArg(source))
+			if resolveErr != nil {
+				return fmt.Errorf("resolve update source for %q (%s): %w", name, source, resolveErr)
+			}
+
+			if strings.TrimSpace(manifest.Name) != name {
+				return fmt.Errorf("update refused: fetched manifest has name %q but expected %q — source may have changed", manifest.Name, name)
+			}
+
+			if !force && strings.TrimSpace(manifest.Version) == strings.TrimSpace(installed.Manifest.Version) {
+				return printOutput(map[string]any{
+					"updated": false,
+					"name":    installed.Manifest.Name,
+					"version": installed.Manifest.Version,
+					"source":  source,
+					"message": "already up to date (use --force to reinstall)",
+				})
+			}
+
+			updated, installErr := installer.InstallWithForceAndActivation(manifest, newSource, true, installed.Enabled)
+			if installErr != nil {
+				return installErr
+			}
+
+			return printOutput(map[string]any{
+				"updated": true,
+				"name":    updated.Manifest.Name,
+				"version": updated.Manifest.Version,
+				"source":  updated.Source,
+			})
+		},
+	}
+	cmd.Flags().BoolVar(&force, "force", false, "force update even if version is unchanged")
+	return cmd
+}
+
+func newServiceOutdatedCommand() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "outdated",
+		Short: "List outdated services from official catalog",
+		Long:  "Lists installed services from the official catalog when installed version differs from the embedded official catalog version.",
+		RunE: func(_ *cobra.Command, _ []string) error {
+			cfg, err := loadAppConfig()
+			if err != nil {
+				return err
+			}
+
+			installer := installerFromConfig(cfg)
+			installed, err := installer.List()
+			if err != nil {
+				return err
+			}
+
+			official := registry.NewEmbeddedRegistry()
+
+			type outdatedEntry struct {
+				Name             string `json:"name"`
+				InstalledVersion string `json:"installed_version"`
+				LatestVersion    string `json:"latest_version"`
+				Source           string `json:"source"`
+			}
+
+			entries := make([]outdatedEntry, 0)
+			for _, svc := range installed {
+				source := strings.TrimSpace(svc.Source)
+				if !strings.HasPrefix(source, "official:") {
+					continue
+				}
+
+				officialName := strings.TrimSpace(strings.TrimPrefix(source, "official:"))
+				if officialName == "" {
+					officialName = svc.Manifest.Name
+				}
+
+				manifest, _, resolveErr := official.Resolve(contextBackground(), officialName)
+				if resolveErr != nil {
+					continue
+				}
+
+				if strings.TrimSpace(svc.Manifest.Version) == strings.TrimSpace(manifest.Version) {
+					continue
+				}
+
+				entries = append(entries, outdatedEntry{
+					Name:             svc.Manifest.Name,
+					InstalledVersion: svc.Manifest.Version,
+					LatestVersion:    manifest.Version,
+					Source:           source,
+				})
+			}
+
+			if outputAsJSON() {
+				return printOutput(entries)
+			}
+
+			if len(entries) == 0 {
+				return printOutput("No outdated official services found.")
+			}
+
+			for _, e := range entries {
+				fmt.Printf("%-30s %s -> %s (%s)\n", e.Name, e.InstalledVersion, e.LatestVersion, e.Source)
+			}
+			fmt.Printf("\nRun 'kimbap service update <name>' to update a service.\n")
+			return nil
 		},
 	}
 	return cmd
@@ -412,6 +544,9 @@ func newServiceExportAgentSkillCommand() *cobra.Command {
 			if err != nil {
 				return fmt.Errorf("service %q not found: %w", args[0], err)
 			}
+			if !installed.Enabled {
+				return fmt.Errorf("service %q is installed but disabled; enable it before exporting agent skill", args[0])
+			}
 
 			content, err := services.GenerateAgentSkillMD(&installed.Manifest, services.WithSource(installed.Source))
 			if err != nil {
@@ -549,12 +684,30 @@ func resolveServiceInstallSource(arg string) (*services.ServiceManifest, string,
 		return nil, "", fmt.Errorf("service source is required")
 	}
 
-	if strings.HasPrefix(trimmed, "http://") || strings.HasPrefix(trimmed, "https://") {
+	if strings.HasPrefix(trimmed, "http://") {
+		return nil, "", fmt.Errorf("insecure URL %q rejected: use https:// to install service manifests", trimmed)
+	}
+	if strings.HasPrefix(trimmed, "https://") {
 		manifest, err := parseServiceManifestURL(trimmed)
 		if err != nil {
 			return nil, "", err
 		}
 		return manifest, "remote:" + trimmed, nil
+	}
+
+	if strings.HasPrefix(trimmed, "github:") {
+		owner, repo, serviceName, subdir, parseErr := registry.ParseGitHubRef(trimmed)
+		if parseErr != nil {
+			return nil, "", parseErr
+		}
+		reg := registry.NewGitHubRegistry(owner, repo, "", subdir)
+		ctx, cancel := context.WithTimeout(contextBackground(), 30*time.Second)
+		defer cancel()
+		manifest, source, resolveErr := reg.Resolve(ctx, serviceName)
+		if resolveErr != nil {
+			return nil, "", fmt.Errorf("fetch from GitHub %q: %w", trimmed, resolveErr)
+		}
+		return manifest, source, nil
 	}
 
 	if stat, err := os.Stat(trimmed); err == nil {
@@ -577,7 +730,12 @@ func resolveServiceInstallSource(arg string) (*services.ServiceManifest, string,
 	data, err := skills.Get(trimmed)
 	if err != nil {
 		if errors.Is(err, fs.ErrNotExist) {
-			return nil, "", fmt.Errorf("service %q not found: not a local file and not in official catalog. Run 'kimbap service list --available' to see official services", trimmed)
+			officialNames, _ := skills.List()
+			hint := "Run 'kimbap service list --available' to see all official services."
+			if suggestion := didYouMean(trimmed, officialNames); suggestion != "" {
+				hint = fmt.Sprintf("Did you mean %q? Run 'kimbap service list --available' to see all official services.", suggestion)
+			}
+			return nil, "", fmt.Errorf("service %q not found in official catalog. %s", trimmed, hint)
 		}
 		return nil, "", fmt.Errorf("load official service %q: %w", trimmed, err)
 	}
@@ -587,6 +745,28 @@ func resolveServiceInstallSource(arg string) (*services.ServiceManifest, string,
 		return nil, "", fmt.Errorf("parse official service %q: %w", trimmed, err)
 	}
 	return manifest, "official:" + trimmed, nil
+}
+
+func sourceToInstallArg(source string) string {
+	trimmed := strings.TrimSpace(source)
+	if strings.HasPrefix(trimmed, "official:") {
+		return strings.TrimPrefix(trimmed, "official:")
+	}
+	if strings.HasPrefix(trimmed, "remote:") {
+		return strings.TrimPrefix(trimmed, "remote:")
+	}
+	if strings.HasPrefix(trimmed, "local:") {
+		return strings.TrimPrefix(trimmed, "local:")
+	}
+	if strings.HasPrefix(trimmed, "github:") {
+		rest := strings.TrimPrefix(trimmed, "github:")
+		base, serviceName, ok := strings.Cut(rest, ":")
+		if !ok || strings.TrimSpace(serviceName) == "" {
+			return trimmed
+		}
+		return "github:" + strings.Trim(base, "/") + "/" + strings.TrimSpace(serviceName)
+	}
+	return trimmed
 }
 
 func parseServiceManifestURL(serviceURL string) (*services.ServiceManifest, error) {

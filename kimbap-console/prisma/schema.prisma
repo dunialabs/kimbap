@@ -4,7 +4,7 @@ generator client {
 }
 
 datasource db {
-  provider = "postgresql"
+  provider = "sqlite"
   url      = env("DATABASE_URL")
 }
 
@@ -12,23 +12,23 @@ model Log {
   id                     Int     @id @default(autoincrement())
   addtime                BigInt  @default(0)
   action                 Int     @default(0)
-  userid                 String  @default("") @db.VarChar
-  serverId               String? @map("server_id") @db.VarChar(128)
-  sessionId              String  @default("") @map("session_id") @db.VarChar
-  upstreamRequestId      String  @default("") @map("upstream_request_id") @db.VarChar
-  uniformRequestId       String? @map("uniform_request_id") @db.VarChar
-  parentUniformRequestId String? @map("parent_uniform_request_id") @db.VarChar
-  proxyRequestId         String? @map("proxy_request_id") @db.VarChar
-  ip                     String  @default("") @db.VarChar
-  ua                     String  @default("") @db.VarChar
-  tokenMask              String  @default("") @map("token_mask") @db.VarChar
+  userid                 String  @default("")
+  serverId               String? @map("server_id")
+  sessionId              String  @default("") @map("session_id")
+  upstreamRequestId      String  @default("") @map("upstream_request_id")
+  uniformRequestId       String? @map("uniform_request_id")
+  parentUniformRequestId String? @map("parent_uniform_request_id")
+  proxyRequestId         String? @map("proxy_request_id")
+  ip                     String  @default("")
+  ua                     String  @default("")
+  tokenMask              String  @default("") @map("token_mask")
   requestParams          String  @default("") @map("request_params")
   responseResult         String  @default("") @map("response_result")
   error                  String  @default("")
   duration               Int?    @map("duration")
   statusCode             Int?    @map("status_code")
   idInCore               BigInt? @map("id_in_core")
-  proxyKey               String  @default("") @map("proxy_key") @db.VarChar(64)
+  proxyKey               String  @default("") @map("proxy_key")
 
   @@index([userid])
   @@index([sessionId])
@@ -44,9 +44,9 @@ model Log {
 }
 
 model User {
-  userid          String @id @map("userid") @db.VarChar(256)
-  accessTokenHash  String @unique @map("access_token_hash") @db.VarChar(64)
-  proxyKey        String @map("proxy_key") @db.VarChar(64)
+  userid          String @id @map("userid")
+  accessTokenHash String @unique @map("access_token_hash")
+  proxyKey        String @map("proxy_key")
   role            Int    @map("role")
 
   @@map("user")
@@ -54,40 +54,44 @@ model User {
 
 model Config {
   id               Int    @id @default(autoincrement())
-  kimbap_core_host String @default("") @db.VarChar(256)
+  kimbap_core_host String @default("")
   kimbap_core_port Int    @default(80)
 
   @@map("config")
 }
 
 model TokenMetadata {
-  proxyId   Int      @map("proxy_id")
-  userid    String   @map("userid") @db.VarChar(256)
-  namespace String   @default("default") @map("namespace") @db.VarChar(64)
-  tags      String   @default("[]") @map("tags") @db.Text
+  userid    String   @id @map("userid")
+  namespace String   @default("default") @map("namespace")
+  tags      String   @default("[]") @map("tags")
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 
-  @@id([proxyId, userid])
-  @@index([proxyId])
   @@map("token_metadata")
 }
 
-model DnsConf {
-  id         Int    @id @default(autoincrement())
-  subdomain  String @default("") @db.VarChar(128)
-  type       Int    @default(0)
-  publicIp   String @default("") @map("public_ip") @db.VarChar(128)
-  addtime    Int    @default(0)
-  updateTime Int    @default(0) @map("update_time")
-  tunnelId   String @default("") @map("tunnel_id") @db.VarChar(256)
+model RateLimitBucket {
+  key       String   @id
+  count     Int      @default(0)
+  resetAtMs BigInt   @map("reset_at_ms")
+  updatedAt DateTime @updatedAt @map("updated_at")
 
-  @@map("dns_conf")
+  @@index([resetAtMs], map: "idx_rate_limit_reset_at_ms")
+  @@map("rate_limit_bucket")
+}
+
+model RuntimeLock {
+  key         String   @id
+  expiresAtMs BigInt   @map("expires_at_ms")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  @@index([expiresAtMs], map: "idx_runtime_lock_expires_at_ms")
+  @@map("runtime_lock")
 }
 
 model License {
   id         Int    @id @default(autoincrement())
-  licenseStr String @map("license_str") @db.Text
+  licenseStr String @map("license_str")
   addtime    Int
   status     Int
 

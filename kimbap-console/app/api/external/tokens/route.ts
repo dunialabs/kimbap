@@ -1,10 +1,11 @@
 import { NextRequest } from 'next/server';
 import { getProxy, getUsers, getServers } from '@/lib/proxy-api';
 import { getTokenMetadataMap, normalizeNamespace, normalizeTags } from '@/lib/token-metadata';
+import { prisma } from '@/lib/prisma';
 import { ApiResponse } from '../lib/response';
 import { authenticate } from '../lib/auth';
-import { ExternalApiError, E1001, E1003 } from '../lib/error-codes';
-import { getUserPermissions, TokenItem } from './lib/permissions';
+import { ExternalApiError, E1001, E1003, E5005 } from '../lib/error-codes';
+import { getUserPermissions, PermissionsFetchError, TokenItem } from './lib/permissions';
 
 export const dynamic = 'force-dynamic';
 
@@ -29,6 +30,48 @@ interface TokenFilters {
 const DEFAULT_PAGE = 1;
 const DEFAULT_PAGE_SIZE = 20;
 const MAX_PAGE_SIZE = 100;
+const PERMISSIONS_CONCURRENCY = 8;
+
+async function mapWithConcurrency<T, R>(
+  items: T[],
+  concurrency: number,
+  mapper: (item: T, index: number) => Promise<R>
+): Promise<R[]> {
+  if (items.length === 0) return [];
+
+  const results = new Array<R>(items.length);
+  let cursor = 0;
+
+  const workers = Array.from({ length: Math.min(concurrency, items.length) }, async () => {
+    while (true) {
+      const index = cursor;
+      cursor += 1;
+      if (index >= items.length) break;
+      results[index] = await mapper(items[index], index);
+    }
+  });
+
+  await Promise.all(workers);
+  return results;
+}
+
+async function getLastUsedMap(userIds: string[]): Promise<Map<string, number>> {
+  if (userIds.length === 0) return new Map();
+
+  const rows = await prisma.log.groupBy({
+    by: ['userid'],
+    where: { userid: { in: userIds } },
+    _max: { addtime: true },
+  });
+
+  const map = new Map<string, number>();
+  for (const row of rows) {
+    if (row._max.addtime !== null) {
+      map.set(row.userid, Number(row._max.addtime));
+    }
+  }
+  return map;
+}
 
 function parsePositiveInt(value: unknown, field: string): number | undefined {
   if (value === undefined || value === null || value === '') {
@@ -61,7 +104,7 @@ function resolvePagination(pageRaw: unknown, pageSizeRaw: unknown): { page: numb
   return { page, pageSize };
 }
 
-function parseTokenFiltersFromBody(body: any): TokenFilters {
+function parseTokenFiltersFromBody(body: Record<string, unknown>): TokenFilters {
   let filterNamespace: string | undefined;
   let filterTags: string[] | undefined;
 
@@ -83,7 +126,7 @@ function parseTokenFiltersFromBody(body: any): TokenFilters {
     }
   }
 
-  const { page, pageSize } = resolvePagination(body?.page, body?.pageSize);
+  const { page, pageSize } = resolvePagination(body.page, body.pageSize);
 
   return { namespace: filterNamespace, tags: filterTags, page, pageSize };
 }
@@ -119,7 +162,7 @@ async function listTokens(request: NextRequest, filters: TokenFilters) {
 
   const hasMetadataFilters = filters.namespace !== undefined || (filters.tags && filters.tags.length > 0);
   const metadataMap = hasMetadataFilters
-    ? await getTokenMetadataMap(proxy.id, users.map((u) => u.userId))
+    ? await getTokenMetadataMap(users.map((u) => u.userId))
     : new Map<string, { namespace: string; tags: string[] }>();
 
   const matchedUsers = users.filter((u) => {
@@ -143,10 +186,12 @@ async function listTokens(request: NextRequest, filters: TokenFilters) {
 
   const pageMetadataMap = hasMetadataFilters
     ? metadataMap
-    : await getTokenMetadataMap(proxy.id, pagedUsers.map((u) => u.userId));
+    : await getTokenMetadataMap(pagedUsers.map((u) => u.userId));
+  const lastUsedMap = await getLastUsedMap(pagedUsers.map((u) => u.userId));
 
-  const tokens: TokenItem[] = await Promise.all(
-    pagedUsers.map(async (u) => {
+  let tokens: TokenItem[];
+  try {
+    tokens = await mapWithConcurrency(pagedUsers, PERMISSIONS_CONCURRENCY, async (u) => {
       const permissions = await getUserPermissions(u.userId, user.accessToken, serverNameMap);
       const metadata = pageMetadataMap.get(u.userId) || { namespace: 'default', tags: [] };
 
@@ -155,7 +200,7 @@ async function listTokens(request: NextRequest, filters: TokenFilters) {
         name: u.name,
         role: u.role,
         notes: (u as Record<string, unknown>).notes as string || '',
-        lastUsed: 0,
+        lastUsed: lastUsedMap.get(u.userId) || 0,
         createdAt: u.createdAt || 0,
         expiresAt: u.expiresAt || 0,
         rateLimit: u.ratelimit,
@@ -163,8 +208,13 @@ async function listTokens(request: NextRequest, filters: TokenFilters) {
         namespace: metadata.namespace,
         tags: metadata.tags,
       };
-    })
-  );
+    });
+  } catch (error) {
+    if (error instanceof PermissionsFetchError) {
+      throw new ExternalApiError(E5005, 'Permission service unavailable');
+    }
+    throw error;
+  }
 
   const responseData: ListTokensResponse = {
     tokens,
@@ -190,7 +240,7 @@ async function listTokens(request: NextRequest, filters: TokenFilters) {
  */
 export async function POST(request: NextRequest) {
   try {
-    let body: any = {};
+    let body: Record<string, unknown> = {};
     const text = await request.text();
     if (text.trim()) {
       try {

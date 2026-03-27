@@ -152,7 +152,7 @@ export async function POST(request: NextRequest) {
         ...(body.tags !== undefined ? { tags: normalizeTags(body.tags) } : {}),
       };
 
-      await upsertTokenMetadata(proxy.id, tokenId, metadataInput);
+        await upsertTokenMetadata(tokenId, metadataInput);
     }
 
     return ApiResponse.success({

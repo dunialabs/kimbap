@@ -8,7 +8,6 @@ export const dynamic = 'force-dynamic';
 
 interface ProxyResponse {
   proxyId: number;
-  proxyKey: string;
   proxyName: string;
   createdAt: number;
   fingerprint: string;
@@ -20,7 +19,6 @@ async function getProxyInfo(request: NextRequest) {
 
   const responseData: ProxyResponse = {
     proxyId: proxy.id,
-    proxyKey: proxy.proxyKey || '',
     proxyName: proxy.name,
     createdAt: proxy.addtime,
     fingerprint: '',

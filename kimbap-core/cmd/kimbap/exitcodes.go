@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	"github.com/dunialabs/kimbap-core/internal/actions"
+	"github.com/dunialabs/kimbap-core/internal/kerrors"
 )
 
 const (
@@ -19,6 +20,11 @@ const (
 func mapErrorToExitCode(err error) int {
 	if err == nil {
 		return ExitSuccess
+	}
+
+	var kErr *kerrors.KimbapError
+	if errors.As(err, &kErr) && kErr.ExitCode >= 0 {
+		return kErr.ExitCode
 	}
 
 	var execErr *actions.ExecutionError

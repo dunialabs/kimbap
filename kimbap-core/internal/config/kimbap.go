@@ -12,13 +12,12 @@ import (
 )
 
 type KimbapConfig struct {
-	Mode       string `yaml:"mode"`
-	DataDir    string `yaml:"data_dir"`
-	ListenAddr string `yaml:"listen_addr"`
-	ProxyAddr  string `yaml:"proxy_addr"`
-	LogLevel   string `yaml:"log_level"`
-	LogFormat  string `yaml:"log_format"`
-
+	Mode          string              `yaml:"mode"`
+	DataDir       string              `yaml:"data_dir"`
+	ListenAddr    string              `yaml:"listen_addr"`
+	ProxyAddr     string              `yaml:"proxy_addr"`
+	LogLevel      string              `yaml:"log_level"`
+	LogFormat     string              `yaml:"log_format"`
 	Vault         VaultConfig         `yaml:"vault"`
 	Auth          AuthConfig          `yaml:"auth"`
 	Audit         AuditConfig         `yaml:"audit"`
@@ -26,6 +25,7 @@ type KimbapConfig struct {
 	Services      ServicesConfig      `yaml:"services"`
 	Database      DatabaseConfig      `yaml:"database"`
 	Notifications NotificationsConfig `yaml:"notifications"`
+	Aliases       map[string]string   `yaml:"aliases,omitempty"`
 }
 
 type VaultConfig struct {
@@ -104,6 +104,7 @@ func DefaultConfig() *KimbapConfig {
 		ProxyAddr:  ":7788",
 		LogLevel:   "info",
 		LogFormat:  "text",
+		Aliases:    map[string]string{},
 		Vault: VaultConfig{
 			Backend: "sqlite",
 			Path:    filepath.Join(dataDir, "vault.db"),
@@ -241,10 +242,71 @@ func mergeConfigFromFile(cfg *KimbapConfig, path string, required bool) error {
 		if _, hasLegacy := raw["skills"]; hasLegacy {
 			return fmt.Errorf("config contains unsupported 'skills:' key — use 'services:'")
 		}
+		warnUnknownConfigKeys(raw, path)
 	}
 
 	mergeConfig(cfg, &loaded)
 	return nil
+}
+
+func warnUnknownConfigKeys(raw map[string]any, path string) {
+	topLevel := map[string]bool{
+		"mode": true, "data_dir": true, "listen_addr": true,
+		"proxy_addr": true, "log_level": true, "log_format": true,
+		"vault": true, "auth": true, "audit": true, "policy": true,
+		"services": true, "database": true, "notifications": true,
+		"aliases": true,
+	}
+	for key := range raw {
+		if !topLevel[key] {
+			_, _ = fmt.Fprintf(os.Stderr,
+				"warning: unknown config key %q in %s (known: mode, data_dir, vault, auth, audit, policy, services, database, notifications, aliases)\n",
+				key, path)
+		}
+	}
+	sectionKeys := map[string]map[string]bool{
+		"vault":         {"backend": true, "path": true},
+		"auth":          {"token_ttl": true, "session_ttl": true, "server_url": true},
+		"audit":         {"sink": true, "path": true},
+		"policy":        {"path": true},
+		"services":      {"dir": true, "official": true, "verify": true, "signature_policy": true},
+		"database":      {"driver": true, "dsn": true},
+		"notifications": {"slack": true, "telegram": true, "email": true, "webhook": true},
+	}
+	for section, knownKeys := range sectionKeys {
+		val, ok := raw[section]
+		if !ok {
+			continue
+		}
+		nested, ok := val.(map[string]any)
+		if !ok {
+			continue
+		}
+		for key := range nested {
+			if !knownKeys[key] {
+				_, _ = fmt.Fprintf(os.Stderr,
+					"warning: unknown config key %q in %s under %q\n", key, path, section)
+			}
+		}
+	}
+	notifSubKeys := map[string]map[string]bool{
+		"slack":    {"webhook_url": true},
+		"telegram": {"bot_token": true, "chat_id": true},
+		"email":    {"smtp_host": true, "smtp_port": true, "from": true, "to": true, "username": true, "password": true},
+		"webhook":  {"url": true, "sign_key": true},
+	}
+	if notif, ok := raw["notifications"].(map[string]any); ok {
+		for sub, knownKeys := range notifSubKeys {
+			if subMap, ok := notif[sub].(map[string]any); ok {
+				for key := range subMap {
+					if !knownKeys[key] {
+						_, _ = fmt.Fprintf(os.Stderr,
+							"warning: unknown config key %q in %s under notifications.%s\n", key, path, sub)
+					}
+				}
+			}
+		}
+	}
 }
 
 func rebaseDerivedPathsForDataDir(prev *KimbapConfig, cfg *KimbapConfig) {
@@ -333,6 +395,14 @@ func mergeConfig(dst, src *KimbapConfig) {
 	setIfNotEmpty(&dst.ProxyAddr, src.ProxyAddr)
 	setIfNotEmpty(&dst.LogLevel, src.LogLevel)
 	setIfNotEmpty(&dst.LogFormat, src.LogFormat)
+	if len(src.Aliases) > 0 {
+		if dst.Aliases == nil {
+			dst.Aliases = make(map[string]string, len(src.Aliases))
+		}
+		for k, v := range src.Aliases {
+			dst.Aliases[k] = v
+		}
+	}
 
 	setIfNotEmpty(&dst.Vault.Backend, src.Vault.Backend)
 	setIfNotEmpty(&dst.Vault.Path, src.Vault.Path)
@@ -372,6 +442,7 @@ func mergeConfig(dst, src *KimbapConfig) {
 
 	setIfNotEmpty(&dst.Notifications.Webhook.URL, src.Notifications.Webhook.URL)
 	setIfNotEmpty(&dst.Notifications.Webhook.SignKey, src.Notifications.Webhook.SignKey)
+
 }
 
 func setIfNotEmpty(dst *string, value string) {

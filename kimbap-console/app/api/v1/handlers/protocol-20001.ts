@@ -126,18 +126,18 @@ export async function handleProtocol20001(body: Request20001): Promise<Response2
             AND action BETWEEN 1000 AND 1099
             AND server_id <> ''
             AND server_id IN (${Prisma.join(validServerIdList)})
-            AND BTRIM(COALESCE(error, '')) = ''
+            AND TRIM(COALESCE(error, '')) = ''
             AND (status_code IS NULL OR status_code < 400)
         `,
         prisma.$queryRaw<Array<{ avg_duration: number | null }>>`
-          SELECT AVG(duration)::float8 AS avg_duration
+          SELECT AVG(duration) AS avg_duration
           FROM log
           WHERE proxy_key = ${proxyKey}
             AND addtime >= ${BigInt(startTime)}
             AND action BETWEEN 1000 AND 1099
             AND server_id <> ''
             AND server_id IN (${Prisma.join(validServerIdList)})
-            AND BTRIM(COALESCE(error, '')) = ''
+            AND TRIM(COALESCE(error, '')) = ''
             AND (status_code IS NULL OR status_code < 400)
             AND duration > 0
         `,

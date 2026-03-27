@@ -197,11 +197,20 @@ async function detectFormat(input: string): Promise<{ format: 'json' | 'yaml' | 
   if (text.startsWith('{') || text.startsWith('[')) {
     try { return { format: 'json', data: JSON.parse(text) }; } catch {}
   }
+  let yamlErrorMessage: string | undefined;
   try {
     const yaml = await import('js-yaml');
     return { format: 'yaml', data: yaml.load(text) };
-  } catch (e) {}
-  return { format: 'unknown', data: null, error: 'Unable to parse as JSON or YAML' };
+  } catch (error) {
+    yamlErrorMessage = error instanceof Error ? error.message : String(error);
+  }
+  return {
+    format: 'unknown',
+    data: null,
+    error: yamlErrorMessage
+      ? `Unable to parse as JSON or YAML: ${yamlErrorMessage}`
+      : 'Unable to parse as JSON or YAML',
+  };
 }
 
 async function generateRestApiValidationReport(rawInput: string): Promise<RestApiValidationReport> {
@@ -395,9 +404,10 @@ function checkEnvironmentVariables(config: any): string[] {
   const searchObject = (obj: any) => {
     if (typeof obj === 'string') {
       envVarPattern.lastIndex = 0;
-      let match: RegExpExecArray | null;
-      while ((match = envVarPattern.exec(obj)) !== null) {
+      let match: RegExpExecArray | null = envVarPattern.exec(obj);
+      while (match !== null) {
         envVars.add(match[1]);
+        match = envVarPattern.exec(obj);
       }
       return;
     }
@@ -438,13 +448,14 @@ function tokenizePath(path: string, options?: { allowJsonRoot?: boolean }): Path
 
   const tokens: PathToken[] = [];
   const regex = /([^[.\]]+)|\[(\d+)\]/g;
-  let match: RegExpExecArray | null;
-  while ((match = regex.exec(working)) !== null) {
+  let match: RegExpExecArray | null = regex.exec(working);
+  while (match !== null) {
     if (match[1]) {
       tokens.push(match[1]);
     } else if (match[2]) {
       tokens.push(Number(match[2]));
     }
+    match = regex.exec(working);
   }
   return tokens;
 }

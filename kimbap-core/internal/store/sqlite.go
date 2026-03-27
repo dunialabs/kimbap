@@ -83,34 +83,6 @@ func (s *SQLStore) Close() error {
 
 func (s *SQLStore) Migrate(ctx context.Context) error {
 	queries := []string{
-		`CREATE TABLE IF NOT EXISTS tokens (
-			id TEXT PRIMARY KEY,
-			tenant_id TEXT NOT NULL,
-			agent_name TEXT NOT NULL,
-			token_hash TEXT NOT NULL UNIQUE,
-			display_hint TEXT NOT NULL,
-			scopes TEXT NOT NULL,
-			created_at TIMESTAMP NOT NULL,
-			expires_at TIMESTAMP NOT NULL,
-			last_used_at TIMESTAMP NULL,
-			revoked_at TIMESTAMP NULL,
-			created_by TEXT NOT NULL
-		)`,
-		`CREATE INDEX IF NOT EXISTS idx_tokens_tenant_created ON tokens(tenant_id, created_at DESC)`,
-		`CREATE TABLE IF NOT EXISTS service_tokens (
-			id TEXT PRIMARY KEY,
-			tenant_id TEXT NOT NULL,
-			agent_name TEXT NOT NULL,
-			token_hash TEXT NOT NULL UNIQUE,
-			display_hint TEXT NOT NULL,
-			scopes TEXT NOT NULL,
-			created_at TIMESTAMP NOT NULL,
-			expires_at TIMESTAMP NOT NULL,
-			last_used_at TIMESTAMP NULL,
-			revoked_at TIMESTAMP NULL,
-			created_by TEXT NOT NULL
-		)`,
-		`CREATE INDEX IF NOT EXISTS idx_service_tokens_tenant_created ON service_tokens(tenant_id, created_at DESC)`,
 		`CREATE TABLE IF NOT EXISTS audit_events (
 			id TEXT PRIMARY KEY,
 			timestamp TIMESTAMP NOT NULL,
@@ -162,143 +134,10 @@ func (s *SQLStore) Migrate(ctx context.Context) error {
 		)`
 	}
 
-	backfillServiceTokens := `INSERT INTO service_tokens (id, tenant_id, agent_name, token_hash, display_hint, scopes, created_at, expires_at, last_used_at, revoked_at, created_by)
-		SELECT id, tenant_id, agent_name, token_hash, display_hint, scopes, created_at, expires_at, last_used_at, revoked_at, created_by
-		FROM tokens
-		ON CONFLICT (id) DO NOTHING`
-	if s.dialect == "sqlite" {
-		backfillServiceTokens = `INSERT OR IGNORE INTO service_tokens (id, tenant_id, agent_name, token_hash, display_hint, scopes, created_at, expires_at, last_used_at, revoked_at, created_by)
-			SELECT id, tenant_id, agent_name, token_hash, display_hint, scopes, created_at, expires_at, last_used_at, revoked_at, created_by
-			FROM tokens WHERE NOT EXISTS (SELECT 1 FROM service_tokens WHERE service_tokens.id = tokens.id)`
-	}
-	queries = append(queries, backfillServiceTokens)
-
 	for _, q := range queries {
 		if _, err := s.db.ExecContext(ctx, s.bind(q)); err != nil {
 			return err
 		}
-	}
-	return nil
-}
-
-func (s *SQLStore) CreateToken(ctx context.Context, token *TokenRecord) error {
-	if token == nil {
-		return errors.New("token is required")
-	}
-	if strings.TrimSpace(token.ID) == "" {
-		token.ID = "st_" + strings.ReplaceAll(uuid.NewString(), "-", "")
-	}
-	if strings.TrimSpace(token.TenantID) == "" {
-		return ErrInvalidTenantID
-	}
-	if token.CreatedAt.IsZero() {
-		token.CreatedAt = time.Now().UTC()
-	}
-	if token.ExpiresAt.IsZero() {
-		token.ExpiresAt = token.CreatedAt.Add(30 * 24 * time.Hour)
-	}
-	if token.Scopes == "" {
-		token.Scopes = "[]"
-	}
-
-	_, err := s.db.ExecContext(ctx, s.bind(`
-		INSERT INTO service_tokens (
-			id, tenant_id, agent_name, token_hash, display_hint, scopes,
-			created_at, expires_at, last_used_at, revoked_at, created_by
-		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-	`),
-		token.ID,
-		token.TenantID,
-		token.AgentName,
-		token.TokenHash,
-		token.DisplayHint,
-		token.Scopes,
-		token.CreatedAt,
-		token.ExpiresAt,
-		token.LastUsedAt,
-		token.RevokedAt,
-		token.CreatedBy,
-	)
-	return err
-}
-
-func (s *SQLStore) GetToken(ctx context.Context, id string) (*TokenRecord, error) {
-	row := s.db.QueryRowContext(ctx, s.bind(`
-		SELECT id, tenant_id, agent_name, token_hash, display_hint, scopes,
-			created_at, expires_at, last_used_at, revoked_at, created_by
-		FROM service_tokens WHERE id = ?
-	`), id)
-	rec, err := scanToken(row)
-	if err != nil {
-		if errors.Is(err, sql.ErrNoRows) {
-			return nil, ErrNotFound
-		}
-		return nil, err
-	}
-	return rec, nil
-}
-
-func (s *SQLStore) GetTokenByHash(ctx context.Context, hash string) (*TokenRecord, error) {
-	row := s.db.QueryRowContext(ctx, s.bind(`
-		SELECT id, tenant_id, agent_name, token_hash, display_hint, scopes,
-			created_at, expires_at, last_used_at, revoked_at, created_by
-		FROM service_tokens WHERE token_hash = ?
-	`), hash)
-	rec, err := scanToken(row)
-	if err != nil {
-		if errors.Is(err, sql.ErrNoRows) {
-			return nil, ErrNotFound
-		}
-		return nil, err
-	}
-	return rec, nil
-}
-
-func (s *SQLStore) ListTokens(ctx context.Context, tenantID string) ([]TokenRecord, error) {
-	if strings.TrimSpace(tenantID) == "" {
-		return nil, ErrInvalidTenantID
-	}
-	rows, err := s.db.QueryContext(ctx, s.bind(`
-		SELECT id, tenant_id, agent_name, token_hash, display_hint, scopes,
-			created_at, expires_at, last_used_at, revoked_at, created_by
-		FROM service_tokens
-		WHERE tenant_id = ?
-		ORDER BY created_at DESC
-	`), tenantID)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-
-	out := make([]TokenRecord, 0)
-	for rows.Next() {
-		rec, scanErr := scanToken(rows)
-		if scanErr != nil {
-			return nil, scanErr
-		}
-		out = append(out, *rec)
-	}
-	return out, rows.Err()
-}
-
-func (s *SQLStore) UpdateTokenLastUsed(ctx context.Context, id string) error {
-	res, err := s.db.ExecContext(ctx, s.bind(`UPDATE service_tokens SET last_used_at = ? WHERE id = ?`), time.Now().UTC(), id)
-	if err != nil {
-		return err
-	}
-	if affectedRows(res) == 0 {
-		return ErrNotFound
-	}
-	return nil
-}
-
-func (s *SQLStore) RevokeToken(ctx context.Context, id string) error {
-	res, err := s.db.ExecContext(ctx, s.bind(`UPDATE service_tokens SET revoked_at = ? WHERE id = ?`), time.Now().UTC(), id)
-	if err != nil {
-		return err
-	}
-	if affectedRows(res) == 0 {
-		return ErrNotFound
 	}
 	return nil
 }
@@ -649,37 +488,6 @@ func (s *SQLStore) bind(query string) string {
 		b.WriteByte(query[i])
 	}
 	return b.String()
-}
-
-func scanToken(scanner interface{ Scan(dest ...any) error }) (*TokenRecord, error) {
-	var rec TokenRecord
-	var lastUsed sql.NullTime
-	var revoked sql.NullTime
-	err := scanner.Scan(
-		&rec.ID,
-		&rec.TenantID,
-		&rec.AgentName,
-		&rec.TokenHash,
-		&rec.DisplayHint,
-		&rec.Scopes,
-		&rec.CreatedAt,
-		&rec.ExpiresAt,
-		&lastUsed,
-		&revoked,
-		&rec.CreatedBy,
-	)
-	if err != nil {
-		return nil, err
-	}
-	if lastUsed.Valid {
-		ts := lastUsed.Time
-		rec.LastUsedAt = &ts
-	}
-	if revoked.Valid {
-		ts := revoked.Time
-		rec.RevokedAt = &ts
-	}
-	return &rec, nil
 }
 
 func scanAudit(scanner interface{ Scan(dest ...any) error }) (*AuditRecord, error) {

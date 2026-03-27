@@ -73,7 +73,7 @@ export async function POST(request: NextRequest) {
     const cleanupErrors: string[] = [];
 
     try {
-      await deleteTokenMetadata(proxy.id, tokenId);
+      await deleteTokenMetadata(tokenId);
     } catch (error) {
       console.error('Failed to delete token metadata:', error);
       cleanupErrors.push('token_metadata');

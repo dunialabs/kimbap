@@ -233,7 +233,7 @@ export async function POST(request: NextRequest) {
           };
 
           try {
-            await upsertTokenMetadata(proxy.id, userId, metadataInput);
+            await upsertTokenMetadata(userId, metadataInput);
           } catch (metaErr) {
             console.error('Failed to save token metadata (token was created successfully):', metaErr);
             metadataPersisted = false;

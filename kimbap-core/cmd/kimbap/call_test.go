@@ -114,3 +114,49 @@ func TestCoerceJSONNumbersBoolString(t *testing.T) {
 		t.Fatalf("expected label=hello, got %v", result["label"])
 	}
 }
+
+func TestSplitCallInvocationArgs_HelpWithGlobalConfigBeforeAction(t *testing.T) {
+	action, input, showHelp, err := splitCallInvocationArgs([]string{"--config", "/tmp/config.yaml", "--help"})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if action != "" {
+		t.Fatalf("expected empty action for help-only invocation, got %q", action)
+	}
+	if len(input) != 0 {
+		t.Fatalf("expected no input tokens, got %+v", input)
+	}
+	if !showHelp {
+		t.Fatal("expected showHelp=true")
+	}
+}
+
+func TestSplitCallInvocationArgs_GlobalFlagsAroundAction(t *testing.T) {
+	action, input, showHelp, err := splitCallInvocationArgs([]string{"--format", "json", "slack.list-channels", "--dry-run", "--limit", "1"})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if action != "slack.list-channels" {
+		t.Fatalf("expected action slack.list-channels, got %q", action)
+	}
+	if showHelp {
+		t.Fatal("expected showHelp=false")
+	}
+	if len(input) != 2 || input[0] != "--limit" || input[1] != "1" {
+		t.Fatalf("unexpected input tokens: %+v", input)
+	}
+}
+
+func TestSplitCallInvocationArgs_RejectsInputBeforeAction(t *testing.T) {
+	_, _, _, err := splitCallInvocationArgs([]string{"--limit", "1", "slack.list-channels"})
+	if err == nil {
+		t.Fatal("expected error when input flag appears before action")
+	}
+}
+
+func TestParseScalarNumericOneIsInteger(t *testing.T) {
+	v := parseScalar("1")
+	if _, ok := v.(int64); !ok {
+		t.Fatalf("expected int64 for scalar '1', got %T (%v)", v, v)
+	}
+}

@@ -23,7 +23,7 @@ export async function getRecentActivity(
         ORDER BY addtime DESC
         LIMIT 20
       ) recent
-      WHERE userid !~ '^[[:space:]]*$'
+      WHERE TRIM(userid) <> '' AND userid <> ''
         AND LOWER(userid) <> 'unknown'
       ORDER BY addtime DESC
       LIMIT 10

@@ -2,20 +2,6 @@ package store
 
 import "time"
 
-type TokenRecord struct {
-	ID          string     `json:"id"`
-	TenantID    string     `json:"tenant_id"`
-	AgentName   string     `json:"agent_name"`
-	TokenHash   string     `json:"-"`
-	DisplayHint string     `json:"display_hint"`
-	Scopes      string     `json:"scopes"`
-	CreatedAt   time.Time  `json:"created_at"`
-	ExpiresAt   time.Time  `json:"expires_at"`
-	LastUsedAt  *time.Time `json:"last_used_at,omitempty"`
-	RevokedAt   *time.Time `json:"revoked_at,omitempty"`
-	CreatedBy   string     `json:"created_by"`
-}
-
 type AuditRecord struct {
 	ID             string
 	Timestamp      time.Time

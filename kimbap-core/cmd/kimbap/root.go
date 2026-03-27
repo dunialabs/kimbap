@@ -77,7 +77,6 @@ func init() {
 	rootCmd.AddCommand(newGenerateCommand())
 	rootCmd.AddCommand(newSearchCommand())
 	rootCmd.AddCommand(newVaultCommand())
-	rootCmd.AddCommand(newTokenCommand())
 	rootCmd.AddCommand(newPolicyCommand())
 	rootCmd.AddCommand(newDoctorCommand())
 	rootCmd.AddCommand(newInitCommand())
@@ -89,10 +88,10 @@ func init() {
 	rootCmd.AddCommand(newAuditCommand())
 	rootCmd.AddCommand(newRunCommand())
 	rootCmd.AddCommand(newProxyCommand())
-	rootCmd.AddCommand(newServeCommand())
 	rootCmd.AddCommand(newDaemonCommand())
 	rootCmd.AddCommand(newAgentProfileCommand())
 	rootCmd.AddCommand(newAgentsCommand())
+	rootCmd.AddCommand(newAliasCommand())
 }
 
 func showSplashOnce() {
@@ -136,7 +135,7 @@ func loadSplashConfig() (*config.KimbapConfig, error) {
 	if strings.TrimSpace(opts.configPath) == "" {
 		return config.LoadKimbapConfig()
 	}
-	return config.LoadKimbapConfig(opts.configPath)
+	return config.LoadKimbapConfigWithoutDefault(opts.configPath)
 }
 
 func modeFromRaw(raw string) splash.Mode {
@@ -191,7 +190,7 @@ func loadAppConfigReadOnly() (*config.KimbapConfig, error) {
 	if strings.TrimSpace(opts.configPath) == "" {
 		cfg, err = config.LoadKimbapConfig()
 	} else {
-		cfg, err = config.LoadKimbapConfig(opts.configPath)
+		cfg, err = config.LoadKimbapConfigWithoutDefault(opts.configPath)
 	}
 	if err != nil {
 		return nil, err
@@ -256,9 +255,12 @@ func installerFromConfig(cfg *config.KimbapConfig) *services.LocalInstaller {
 	return services.NewLocalInstaller(cfg.Services.Dir)
 }
 
+func loadEnabledInstalledServices(cfg *config.KimbapConfig) ([]services.InstalledService, error) {
+	return installerFromConfig(cfg).ListEnabled()
+}
+
 func loadInstalledActions(cfg *config.KimbapConfig) ([]actions.ActionDefinition, error) {
-	installer := installerFromConfig(cfg)
-	installed, err := installer.List()
+	installed, err := loadEnabledInstalledServices(cfg)
 	if err != nil {
 		return nil, err
 	}
@@ -277,16 +279,43 @@ func loadInstalledActions(cfg *config.KimbapConfig) ([]actions.ActionDefinition,
 }
 
 func resolveActionByName(cfg *config.KimbapConfig, name string) (*actions.ActionDefinition, error) {
+	resolved := resolveAliasedActionName(cfg, name)
 	defs, err := loadInstalledActions(cfg)
 	if err != nil {
 		return nil, err
 	}
 	for i := range defs {
-		if defs[i].Name == name {
+		if defs[i].Name == resolved {
 			return &defs[i], nil
 		}
 	}
-	return nil, fmt.Errorf("action %q not found in installed services", name)
+
+	names := make([]string, len(defs))
+	for i, d := range defs {
+		names[i] = d.Name
+	}
+	hint := "Run 'kimbap actions list' to see available actions, or 'kimbap search <query>' to find by keyword."
+	if suggestion := didYouMean(resolved, names); suggestion != "" {
+		hint = fmt.Sprintf("Did you mean %q? Run 'kimbap actions list' to see all available actions.", suggestion)
+	}
+	return nil, fmt.Errorf("action %q not found in installed services. %s", resolved, hint)
+}
+
+func resolveAliasedActionName(cfg *config.KimbapConfig, actionName string) string {
+	if cfg == nil || len(cfg.Aliases) == 0 {
+		return actionName
+	}
+	service, action := splitActionName(actionName)
+	if service == "" || action == "" {
+		return actionName
+	}
+	if target, ok := cfg.Aliases[service]; ok {
+		target = strings.TrimSpace(target)
+		if target != "" {
+			return target + "." + action
+		}
+	}
+	return actionName
 }
 
 func splitActionName(actionName string) (service string, action string) {
@@ -473,4 +502,34 @@ func buildNotifierFromConfig(cfg *config.KimbapConfig) approvals.Notifier {
 		return &approvals.LogNotifier{}
 	}
 	return approvals.NewMultiNotifier(notifiers...)
+}
+
+func newCompletionCommand() *cobra.Command {
+	return &cobra.Command{
+		Use:   "completion [bash|zsh|fish|powershell]",
+		Short: "Generate shell completion scripts",
+		Long: `Generate shell completion scripts for kimbap (also available as kb).
+
+Add to your shell profile:
+  bash:       source <(kimbap completion bash)
+  zsh:        source <(kimbap completion zsh)
+  fish:       kimbap completion fish | source
+  powershell: kimbap completion powershell | Out-String | Invoke-Expression`,
+		ValidArgs:             []string{"bash", "zsh", "fish", "powershell"},
+		Args:                  cobra.MatchAll(cobra.ExactArgs(1), cobra.OnlyValidArgs),
+		DisableFlagsInUseLine: true,
+		RunE: func(_ *cobra.Command, args []string) error {
+			switch args[0] {
+			case "bash":
+				return rootCmd.GenBashCompletion(os.Stdout)
+			case "zsh":
+				return rootCmd.GenZshCompletion(os.Stdout)
+			case "fish":
+				return rootCmd.GenFishCompletion(os.Stdout, true)
+			case "powershell":
+				return rootCmd.GenPowerShellCompletionWithDesc(os.Stdout)
+			}
+			return nil
+		},
+	}
 }
