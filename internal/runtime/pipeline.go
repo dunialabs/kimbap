@@ -43,6 +43,7 @@ type AuditEvent struct {
 	TraceID         string
 	TenantID        string
 	PrincipalID     string
+	AgentName       string
 	ActionName      string
 	Mode            actions.ExecutionMode
 	Status          actions.ExecutionStatus
@@ -698,6 +699,7 @@ func (r *Runtime) writeAudit(ctx context.Context, req actions.ExecutionRequest, 
 		TraceID:        req.TraceID,
 		TenantID:       req.TenantID,
 		PrincipalID:    req.Principal.ID,
+		AgentName:      req.Principal.AgentName,
 		ActionName:     req.Action.Name,
 		Mode:           req.Mode,
 		Status:         result.Status,

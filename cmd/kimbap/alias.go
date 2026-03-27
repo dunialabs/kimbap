@@ -64,12 +64,18 @@ func newAliasSetCommand() *cobra.Command {
 
 			installer := installerFromConfig(cfg)
 			installed, listErr := installer.List()
-			if listErr == nil {
-				for _, svc := range installed {
-					if svc.Manifest.Name == alias {
-						return fmt.Errorf("alias %q conflicts with installed service %q — choose a different alias name", alias, svc.Manifest.Name)
-					}
+			if listErr != nil {
+				return fmt.Errorf("list installed services: %w", listErr)
+			}
+			installedNames := make(map[string]bool, len(installed))
+			for _, svc := range installed {
+				installedNames[svc.Manifest.Name] = true
+				if svc.Manifest.Name == alias {
+					return fmt.Errorf("alias %q conflicts with installed service %q — choose a different alias name", alias, svc.Manifest.Name)
 				}
+			}
+			if !installedNames[target] {
+				return fmt.Errorf("target service %q is not installed — install it first with 'kimbap service install'", target)
 			}
 
 			if existing, isAlias := cfg.Aliases[target]; isAlias {
