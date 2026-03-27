@@ -6,9 +6,11 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"path/filepath"
 	goruntime "runtime"
 	"sort"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/dunialabs/kimbap/internal/actions"
@@ -55,6 +57,7 @@ func BuildRuntime(deps RuntimeDeps) (*runtimepkg.Runtime, error) {
 		installer:       services.NewLocalInstaller(servicesDir),
 		verifyMode:      strings.ToLower(strings.TrimSpace(deps.Config.Services.Verify)),
 		signaturePolicy: strings.ToLower(strings.TrimSpace(deps.Config.Services.SignaturePolicy)),
+		servicesDir:     servicesDir,
 	}
 
 	var filePolicyEvaluator runtimepkg.PolicyEvaluator
@@ -124,9 +127,13 @@ func BuildRuntime(deps RuntimeDeps) (*runtimepkg.Runtime, error) {
 }
 
 type servicesActionRegistry struct {
-	installer       *services.LocalInstaller
-	verifyMode      string
-	signaturePolicy string
+	installer        *services.LocalInstaller
+	verifyMode       string
+	signaturePolicy  string
+	servicesDir      string
+	mu               sync.RWMutex
+	cachedDefs       []actions.ActionDefinition
+	cacheFingerprint string
 }
 
 func (r *servicesActionRegistry) Lookup(_ context.Context, name string) (*actions.ActionDefinition, error) {
@@ -178,10 +185,57 @@ func (r *servicesActionRegistry) List(_ context.Context, opts runtimepkg.ListOpt
 	return filtered, nil
 }
 
+func (r *servicesActionRegistry) computeFingerprint() string {
+	entries, err := os.ReadDir(r.servicesDir)
+	if err != nil {
+		return ""
+	}
+	var b strings.Builder
+	for _, e := range entries {
+		if e.IsDir() || filepath.Ext(e.Name()) != ".yaml" {
+			continue
+		}
+		info, err := e.Info()
+		if err != nil {
+			continue
+		}
+		fmt.Fprintf(&b, "%s:%d:%d;", e.Name(), info.Size(), info.ModTime().UnixNano())
+	}
+	lockPath := filepath.Join(r.servicesDir, "kimbap-services.lock")
+	if info, err := os.Stat(lockPath); err == nil {
+		fmt.Fprintf(&b, "lock:%d:%d", info.Size(), info.ModTime().UnixNano())
+	}
+	return b.String()
+}
+
 func (r *servicesActionRegistry) loadDefinitions() ([]actions.ActionDefinition, error) {
 	if r == nil || r.installer == nil {
 		return nil, fmt.Errorf("services installer is not initialized")
 	}
+	fp := r.computeFingerprint()
+	r.mu.RLock()
+	if fp != "" && fp == r.cacheFingerprint && r.cachedDefs != nil {
+		defs := r.cachedDefs
+		r.mu.RUnlock()
+		return defs, nil
+	}
+	r.mu.RUnlock()
+
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	if fp != "" && fp == r.cacheFingerprint && r.cachedDefs != nil {
+		return r.cachedDefs, nil
+	}
+	defs, err := r.loadDefinitionsUncached()
+	if err != nil {
+		return nil, err
+	}
+	r.cachedDefs = defs
+	r.cacheFingerprint = fp
+	return defs, nil
+}
+
+func (r *servicesActionRegistry) loadDefinitionsUncached() ([]actions.ActionDefinition, error) {
 	installed, err := r.installer.ListEnabled()
 	if err != nil {
 		return nil, err
