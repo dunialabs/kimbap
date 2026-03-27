@@ -711,6 +711,11 @@ func (r *Runtime) writeAudit(ctx context.Context, req actions.ExecutionRequest, 
 	}
 	if result.Error != nil {
 		event.ErrorCode = result.Error.Code
+		msg := result.Error.Message
+		if len(msg) > 256 {
+			msg = msg[:256]
+		}
+		event.ErrorMessage = msg
 	}
 	if approvalID, ok := result.Meta["approval_request_id"].(string); ok {
 		event.ApprovalRequest = approvalID
