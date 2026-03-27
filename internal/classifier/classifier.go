@@ -169,8 +169,35 @@ func (c *Classifier) sortRules() {
 		if leftSpecificity.segmentCount != rightSpecificity.segmentCount {
 			return leftSpecificity.segmentCount > rightSpecificity.segmentCount
 		}
+		lh := hostSpecificity(left.HostPattern)
+		rh := hostSpecificity(right.HostPattern)
+		if lh != rh {
+			return lh > rh
+		}
+		lm := methodSpecificity(left.Method)
+		rm := methodSpecificity(right.Method)
+		if lm != rm {
+			return lm > rm
+		}
 		return left.ID < right.ID
 	})
+}
+
+func hostSpecificity(pattern string) int {
+	if pattern == "" || pattern == "*" {
+		return 0
+	}
+	if hasGlob(pattern) {
+		return 1
+	}
+	return 2
+}
+
+func methodSpecificity(method string) int {
+	if method == "" || method == "*" {
+		return 0
+	}
+	return 1
 }
 
 type specificity struct {

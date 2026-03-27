@@ -563,7 +563,7 @@ func connectorComputedStatus(state connectorStateRow) string {
 			if t.Before(time.Now()) {
 				return "expired"
 			}
-			if t.Before(time.Now().Add(15 * time.Minute)) {
+			if t.Before(time.Now().Add(5 * time.Minute)) {
 				return "degraded"
 			}
 		}

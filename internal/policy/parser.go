@@ -3,6 +3,7 @@ package policy
 import (
 	"fmt"
 	"os"
+	"path"
 	"regexp"
 	"strings"
 	"time"
@@ -105,6 +106,25 @@ func ValidateDocument(doc *PolicyDocument) []ValidationError {
 
 		if rule.TimeWindow != nil {
 			errs = append(errs, validateTimeWindow(prefix+".time_window", rule.TimeWindow)...)
+		}
+
+		for _, mf := range []struct {
+			fieldName string
+			patterns  []string
+		}{
+			{"match.agents", rule.Match.Agents},
+			{"match.services", rule.Match.Services},
+			{"match.actions", rule.Match.Actions},
+			{"match.tenants", rule.Match.Tenants},
+		} {
+			for pidx, pattern := range mf.patterns {
+				if _, err := path.Match(pattern, ""); err != nil {
+					errs = append(errs, ValidationError{
+						Field:   fmt.Sprintf("%s.%s[%d]", prefix, mf.fieldName, pidx),
+						Message: fmt.Sprintf("invalid glob pattern %q: %v", pattern, err),
+					})
+				}
+			}
 		}
 	}
 
