@@ -94,6 +94,7 @@ func newActionsCommand() *cobra.Command {
 				credReady = true
 			} else if strings.TrimSpace(def.Auth.CredentialRef) != "" {
 				if vs, vErr := initVaultStore(cfg); vErr == nil {
+					defer closeVaultStoreIfPossible(vs)
 					if raw, gErr := vs.GetValue(contextBackground(), defaultTenantID(), def.Auth.CredentialRef); gErr == nil && len(raw) > 0 {
 						credReady = true
 					}

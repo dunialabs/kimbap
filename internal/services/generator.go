@@ -681,7 +681,7 @@ func firstReferencedSecurityScheme(root map[string]any) string {
 	security := anySliceAt(root, "security")
 	for _, item := range security {
 		req, ok := item.(map[string]any)
-		if !ok || len(req) == 0 || len(req) > 1 {
+		if !ok || len(req) == 0 {
 			continue
 		}
 		keys := sortedMapKeys(req)
@@ -870,7 +870,7 @@ func extractOperationAuth(op map[string]any, root map[string]any, resolver *open
 func firstReferencedSecuritySchemeFromList(security []any) string {
 	for _, item := range security {
 		req, ok := item.(map[string]any)
-		if !ok || len(req) == 0 || len(req) > 1 {
+		if !ok || len(req) == 0 {
 			continue
 		}
 		keys := sortedMapKeys(req)

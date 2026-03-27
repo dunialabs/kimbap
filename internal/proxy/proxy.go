@@ -336,6 +336,14 @@ func (p *ProxyServer) handleConnect(w http.ResponseWriter, req *http.Request) {
 	}
 	_ = tlsConn.SetDeadline(time.Time{})
 
+	drainBody := func(body io.ReadCloser) {
+		if body == nil {
+			return
+		}
+		_, _ = io.Copy(io.Discard, io.LimitReader(body, maxProxyRequestBodyBytes))
+		_ = body.Close()
+	}
+
 	reader := bufio.NewReaderSize(tlsConn, int(maxProxyConnRequestHeaderBytes))
 	for {
 		if err := tlsConn.SetReadDeadline(time.Now().Add(defaultProxyConnReadTimeout)); err != nil {
@@ -363,7 +371,7 @@ func (p *ProxyServer) handleConnect(w http.ResponseWriter, req *http.Request) {
 			_ = tlsConn.SetWriteDeadline(time.Now().Add(defaultProxyConnWriteTimeout))
 			_ = writePlainErrorResponse(tlsConn, http.StatusNotImplemented, "websocket is not supported in proxy mode v1")
 			_ = tlsConn.SetWriteDeadline(time.Time{})
-			_ = mitmReq.Body.Close()
+			drainBody(mitmReq.Body)
 			continue
 		}
 
@@ -381,17 +389,17 @@ func (p *ProxyServer) handleConnect(w http.ResponseWriter, req *http.Request) {
 				_ = tlsConn.SetWriteDeadline(time.Now().Add(defaultProxyConnWriteTimeout))
 				_ = writePlainErrorResponse(tlsConn, status, msg)
 				_ = tlsConn.SetWriteDeadline(time.Time{})
-				_ = mitmReq.Body.Close()
+				drainBody(mitmReq.Body)
 				continue
 			}
 			_ = tlsConn.SetWriteDeadline(time.Now().Add(defaultProxyConnWriteTimeout))
 			if err := writeRuntimeConnResponse(tlsConn, result); err != nil {
 				_ = tlsConn.SetWriteDeadline(time.Time{})
-				_ = mitmReq.Body.Close()
+				drainBody(mitmReq.Body)
 				return
 			}
 			_ = tlsConn.SetWriteDeadline(time.Time{})
-			_ = mitmReq.Body.Close()
+			drainBody(mitmReq.Body)
 			if mitmReq.Close {
 				return
 			}
@@ -400,7 +408,7 @@ func (p *ProxyServer) handleConnect(w http.ResponseWriter, req *http.Request) {
 			_ = tlsConn.SetWriteDeadline(time.Now().Add(defaultProxyConnWriteTimeout))
 			_ = writePlainErrorResponse(tlsConn, http.StatusForbidden, "proxy request denied")
 			_ = tlsConn.SetWriteDeadline(time.Time{})
-			_ = mitmReq.Body.Close()
+			drainBody(mitmReq.Body)
 			continue
 		} else {
 			mitmReq.Header.Set("X-Kimbap-Request-ID", reqID)
@@ -411,11 +419,11 @@ func (p *ProxyServer) handleConnect(w http.ResponseWriter, req *http.Request) {
 			_ = tlsConn.SetWriteDeadline(time.Now().Add(defaultProxyConnWriteTimeout))
 			_ = writePlainErrorResponse(tlsConn, http.StatusBadGateway, "proxy request failed")
 			_ = tlsConn.SetWriteDeadline(time.Time{})
-			_ = mitmReq.Body.Close()
+			drainBody(mitmReq.Body)
 			continue
 		}
 
-		_ = mitmReq.Body.Close()
+		drainBody(mitmReq.Body)
 		_ = tlsConn.SetWriteDeadline(time.Now().Add(defaultProxyConnWriteTimeout))
 		writeErr := resp.Write(tlsConn)
 		_ = tlsConn.SetWriteDeadline(time.Time{})

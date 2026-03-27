@@ -241,6 +241,7 @@ func isCredentialReady(cfg *config.KimbapConfig, req actions.ExecutionRequest) b
 	if err != nil {
 		return false
 	}
+	defer closeVaultStoreIfPossible(vs)
 	raw, getErr := vs.GetValue(contextBackground(), defaultTenantID(), credentialRef)
 	return getErr == nil && len(raw) > 0
 }

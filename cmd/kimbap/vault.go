@@ -45,6 +45,7 @@ func newVaultSetCommand() *cobra.Command {
 			if err != nil {
 				return err
 			}
+			defer closeVaultStoreIfPossible(store)
 			payload, err := readSecretInput(filePath, readStdin)
 			if err != nil {
 				return err
@@ -91,6 +92,7 @@ func newVaultGetCommand() *cobra.Command {
 			if err != nil {
 				return err
 			}
+			defer closeVaultStoreIfPossible(store)
 
 			if !reveal {
 				rec, err := store.GetMeta(contextBackground(), defaultTenantID(), args[0])
@@ -139,6 +141,7 @@ func newVaultListCommand() *cobra.Command {
 			if err != nil {
 				return err
 			}
+			defer closeVaultStoreIfPossible(store)
 			records, err := store.List(contextBackground(), defaultTenantID(), vault.ListOptions{})
 			if err != nil {
 				return err
@@ -167,6 +170,7 @@ func newVaultRotateCommand() *cobra.Command {
 			if err != nil {
 				return err
 			}
+			defer closeVaultStoreIfPossible(store)
 			payload, err := readSecretInput(filePath, readStdin)
 			if err != nil {
 				return err
@@ -209,6 +213,7 @@ func newVaultDeleteCommand() *cobra.Command {
 			if err != nil {
 				return err
 			}
+			defer closeVaultStoreIfPossible(store)
 
 			if err := store.Delete(contextBackground(), defaultTenantID(), name); err != nil {
 				return err
