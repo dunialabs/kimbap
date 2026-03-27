@@ -1,6 +1,7 @@
 package providers_test
 
 import (
+	"reflect"
 	"testing"
 	"testing/fstest"
 
@@ -43,6 +44,20 @@ func TestLoadProvider_UnknownProviderReturnsError(t *testing.T) {
 	}
 }
 
+func TestLoadProvider_GoogleRemoved(t *testing.T) {
+	_, err := providers.LoadProvider("google", providers.EmbeddedProviders)
+	if err == nil {
+		t.Fatal("expected google provider to be absent")
+	}
+}
+
+func TestLoadProvider_GitHubRemoved(t *testing.T) {
+	_, err := providers.LoadProvider("github", providers.EmbeddedProviders)
+	if err == nil {
+		t.Fatal("expected github provider to be absent")
+	}
+}
+
 func TestLoadAllProviders_YAMLWins(t *testing.T) {
 	testFS := fstest.MapFS{
 		"official/github.yaml": {Data: githubYAML},
@@ -66,22 +81,6 @@ func TestLoadAllProviders_YAMLWins(t *testing.T) {
 
 	if !found {
 		t.Error("expected github from YAML (display name 'GitHub (test)') to win over hardcoded")
-	}
-}
-
-func TestLoadProvider_GitHub_Parity(t *testing.T) {
-	def, err := providers.LoadProvider("github", providers.EmbeddedProviders)
-	if err != nil {
-		t.Fatalf("YAML load failed: %v", err)
-	}
-	if def.AuthEndpoint != "https://github.com/login/oauth/authorize" {
-		t.Errorf("unexpected auth_endpoint: %q", def.AuthEndpoint)
-	}
-	if def.TokenEndpoint != "https://github.com/login/oauth/access_token" {
-		t.Errorf("unexpected token_endpoint: %q", def.TokenEndpoint)
-	}
-	if len(def.SupportedFlows) != 2 {
-		t.Errorf("expected 2 supported flows, got %d", len(def.SupportedFlows))
 	}
 }
 
@@ -124,10 +123,6 @@ func assertProviderLoadsFromYAML(t *testing.T, providerID string) {
 	}
 }
 
-func TestLoadProvider_Google_Parity(t *testing.T) {
-	assertProviderLoadsFromYAML(t, "google")
-}
-
 func TestLoadProvider_Notion_Parity(t *testing.T) {
 	assertProviderLoadsFromYAML(t, "notion")
 }
@@ -152,16 +147,17 @@ func TestLoadProvider_Canva_Parity(t *testing.T) {
 	assertProviderLoadsFromYAML(t, "canva")
 }
 
-func TestLoadAllProviders_AllTen(t *testing.T) {
+func TestLoadAllProviders_AllEight(t *testing.T) {
 	all, err := providers.LoadAllProviders(providers.EmbeddedProviders)
 	if err != nil {
 		t.Fatalf("LoadAllProviders failed: %v", err)
 	}
-	if len(all) != 10 {
-		ids := make([]string, len(all))
-		for i, p := range all {
-			ids[i] = p.ID
-		}
-		t.Errorf("expected 10 providers, got %d: %v", len(all), ids)
+	ids := make([]string, len(all))
+	for i, p := range all {
+		ids[i] = p.ID
+	}
+	want := []string{"canva", "canvas", "figma", "notion", "slack", "stripe", "zendesk", "zoom"}
+	if !reflect.DeepEqual(ids, want) {
+		t.Errorf("unexpected provider IDs: got %v, want %v", ids, want)
 	}
 }

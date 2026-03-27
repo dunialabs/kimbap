@@ -17,18 +17,26 @@ set -a
 source .env
 set +a
 
-# Adjust DATABASE_URL for Docker
-# Replace localhost with host.docker.internal for Mac/Windows
-# For Linux, use host network or actual IP
+# Adjust host-local URLs for Docker
+# Use host.docker.internal on all platforms (Docker 20.10+ supports it on Linux via host-gateway)
+rewrite_localhost() {
+    local value="$1"
+    value="${value//localhost/host.docker.internal}"
+    value="${value//127.0.0.1/host.docker.internal}"
+    value="${value//\[::1\]/host.docker.internal}"
+    echo "$value"
+}
+
+DOCKER_EXTRA_ARGS=""
 if [[ "$OSTYPE" == "darwin"* ]] || [[ "$OSTYPE" == "msys" ]]; then
-    # macOS or Windows
-    DOCKER_DATABASE_URL="${DATABASE_URL//localhost/host.docker.internal}"
-    DOCKER_DATABASE_URL="${DOCKER_DATABASE_URL//127.0.0.1/host.docker.internal}"
+    DOCKER_DATABASE_URL="$(rewrite_localhost "$DATABASE_URL")"
 else
-    # Linux - use host network mode
-    DOCKER_NETWORK="--network host"
-    DOCKER_DATABASE_URL="$DATABASE_URL"
+    DOCKER_EXTRA_ARGS="--add-host=host.docker.internal:host-gateway"
+    DOCKER_DATABASE_URL="$(rewrite_localhost "$DATABASE_URL")"
 fi
+
+DOCKER_KIMBAP_CORE_URL="$(rewrite_localhost "${KIMBAP_CORE_URL:-}")"
+DOCKER_PROXY_ADMIN_URL="$(rewrite_localhost "${PROXY_ADMIN_URL:-}")"
 
 # Set default values if not in .env
 NODE_ENV="${NODE_ENV:-production}"
@@ -56,11 +64,14 @@ docker run -d \
     --name "$CONTAINER_NAME" \
     -p "$PORT:3000" \
     -p "$BACKEND_PORT:3002" \
-    ${DOCKER_NETWORK} \
+    ${DOCKER_EXTRA_ARGS} \
     -e DATABASE_URL="$DOCKER_DATABASE_URL" \
     -e NODE_ENV="$NODE_ENV" \
-    -e PROXY_ADMIN_URL="$PROXY_ADMIN_URL" \
-    -e PROXY_ADMIN_TOKEN="$PROXY_ADMIN_TOKEN" \
+    -e KIMBAP_CORE_URL="$DOCKER_KIMBAP_CORE_URL" \
+    -e PROXY_ADMIN_URL="$DOCKER_PROXY_ADMIN_URL" \
+    -e PROXY_ADMIN_TOKEN="${PROXY_ADMIN_TOKEN:-}" \
+    -e JWT_SECRET="${JWT_SECRET:-}" \
+    -e LOG_SYNC_ENABLED="${LOG_SYNC_ENABLED:-true}" \
     dunialabs/kimbap-console:latest
 
 # Check if container started successfully

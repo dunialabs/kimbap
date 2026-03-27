@@ -177,7 +177,7 @@ func loadAppConfig() (*config.KimbapConfig, error) {
 	if err != nil {
 		return nil, err
 	}
-	if err := os.MkdirAll(cfg.DataDir, 0o755); err != nil {
+	if err := os.MkdirAll(cfg.DataDir, 0o700); err != nil {
 		return nil, fmt.Errorf("create data dir: %w", err)
 	}
 	return cfg, nil
@@ -298,7 +298,7 @@ func splitActionName(actionName string) (service string, action string) {
 }
 
 func initVaultStore(cfg *config.KimbapConfig) (vault.Store, error) {
-	if err := os.MkdirAll(filepath.Dir(cfg.Vault.Path), 0o755); err != nil {
+	if err := os.MkdirAll(filepath.Dir(cfg.Vault.Path), 0o700); err != nil {
 		return nil, fmt.Errorf("create vault db dir: %w", err)
 	}
 
@@ -356,7 +356,7 @@ func resolveVaultMasterKey(cfg *config.KimbapConfig) ([]byte, error) {
 	if err != nil {
 		return nil, fmt.Errorf("generate dev master key: %w", err)
 	}
-	if err := os.MkdirAll(cfg.DataDir, 0o755); err != nil {
+	if err := os.MkdirAll(cfg.DataDir, 0o700); err != nil {
 		return nil, fmt.Errorf("create data dir: %w", err)
 	}
 	if err := os.WriteFile(devKeyPath, key, 0o600); err != nil {

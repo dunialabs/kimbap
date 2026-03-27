@@ -55,7 +55,7 @@ func newDaemonCommand() *cobra.Command {
 			}
 
 			socketPath := daemonSocketPath(cfg.DataDir)
-			if err := os.MkdirAll(filepath.Dir(socketPath), 0o755); err != nil {
+			if err := os.MkdirAll(filepath.Dir(socketPath), 0o700); err != nil {
 				return fmt.Errorf("create socket dir: %w", err)
 			}
 

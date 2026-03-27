@@ -1,0 +1,60 @@
+version: 2
+
+project_name: kimbap
+
+before:
+  hooks:
+    - go mod tidy
+
+builds:
+  - id: kimbap
+    main: ./cmd/kimbap
+    binary: kimbap
+    env:
+      - CGO_ENABLED=0
+    goos:
+      - linux
+      - darwin
+    goarch:
+      - amd64
+      - arm64
+    ldflags:
+      - -s -w -X github.com/dunialabs/kimbap-core/internal/config.version={{.Version}}
+
+archives:
+  - id: default
+    formats:
+      - tar.gz
+    name_template: "{{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
+
+nfpms:
+  - id: packages
+    package_name: kimbap
+    vendor: Dunia Labs
+    homepage: https://kimbap.sh
+    maintainer: Dunia Labs <hello@dunialabs.io>
+    description: Secure action runtime for AI agents
+    license: MIT
+    formats:
+      - deb
+      - rpm
+    bindir: /usr/bin
+    contents:
+      - src: ./README.md
+        dst: /usr/share/doc/kimbap/README.md
+
+checksum:
+  name_template: "checksums.txt"
+
+changelog:
+  sort: asc
+  filters:
+    exclude:
+      - "^docs:"
+      - "^test:"
+      - "^chore:"
+
+release:
+  github:
+    owner: dunialabs
+    name: kimbap-core

@@ -9,6 +9,7 @@ import (
 	"net"
 	"net/http"
 	"net/url"
+	"os"
 	"os/exec"
 	"runtime"
 	"strconv"
@@ -284,18 +285,171 @@ func exchangeAuthorizationCode(ctx context.Context, cfg BrowserFlowConfig, redir
 }
 
 func openBrowser(authURL string) error {
-	var cmd *exec.Cmd
-	switch runtime.GOOS {
-	case "darwin":
-		cmd = exec.Command("open", authURL)
-	case "linux":
-		cmd = exec.Command("xdg-open", authURL)
-	case "windows":
-		cmd = exec.Command("rundll32", "url.dll,FileProtocolHandler", authURL)
-	default:
-		return fmt.Errorf("unsupported platform %q", runtime.GOOS)
+	name, args, err := browserOpenCommandForOS(runtime.GOOS, authURL, exec.LookPath, os.Getenv("BROWSER"))
+	if err != nil {
+		return err
 	}
+	cmd := exec.Command(name, args...)
 	return cmd.Start()
+}
+
+func browserOpenCommandForOS(goos, authURL string, lookPath func(file string) (string, error), browserEnv string) (string, []string, error) {
+	switch goos {
+	case "darwin":
+		return "open", []string{authURL}, nil
+	case "linux":
+		if name, args, ok := parseBrowserEnv(browserEnv, authURL); ok {
+			return name, args, nil
+		}
+		if lookPath != nil {
+			if _, err := lookPath("xdg-open"); err == nil {
+				return "xdg-open", []string{authURL}, nil
+			}
+		}
+		return "", nil, errors.New("xdg-open is not installed (install xdg-utils) and BROWSER is not set")
+	case "windows":
+		return "rundll32", []string{"url.dll,FileProtocolHandler", authURL}, nil
+	default:
+		return "", nil, fmt.Errorf("unsupported platform %q", goos)
+	}
+}
+
+func parseBrowserEnv(browserEnv, authURL string) (string, []string, bool) {
+	browserEnv = strings.TrimSpace(browserEnv)
+	if browserEnv == "" {
+		return "", nil, false
+	}
+	choices := splitBrowserChoices(browserEnv)
+	for _, choice := range choices {
+		parts, err := shellLikeFields(choice)
+		if err != nil || len(parts) == 0 {
+			continue
+		}
+		args := make([]string, 0, len(parts))
+		replaced := false
+		for _, arg := range parts[1:] {
+			if strings.Contains(arg, "%s") {
+				replaced = true
+				args = append(args, strings.ReplaceAll(arg, "%s", authURL))
+				continue
+			}
+			args = append(args, arg)
+		}
+		if !replaced {
+			args = append(args, authURL)
+		}
+		return parts[0], args, true
+	}
+	return "", nil, false
+}
+
+func splitBrowserChoices(raw string) []string {
+	var (
+		choices    []string
+		buf        strings.Builder
+		inSingle   bool
+		inDouble   bool
+		escapeNext bool
+	)
+	for _, r := range raw {
+		if escapeNext {
+			buf.WriteRune(r)
+			escapeNext = false
+			continue
+		}
+		switch r {
+		case '\\':
+			escapeNext = true
+			buf.WriteRune(r)
+		case '\'':
+			if !inDouble {
+				inSingle = !inSingle
+			}
+			buf.WriteRune(r)
+		case '"':
+			if !inSingle {
+				inDouble = !inDouble
+			}
+			buf.WriteRune(r)
+		case ':':
+			if !inSingle && !inDouble {
+				choice := strings.TrimSpace(buf.String())
+				if choice != "" {
+					choices = append(choices, choice)
+				}
+				buf.Reset()
+				continue
+			}
+			buf.WriteRune(r)
+		default:
+			buf.WriteRune(r)
+		}
+	}
+	if tail := strings.TrimSpace(buf.String()); tail != "" {
+		choices = append(choices, tail)
+	}
+	return choices
+}
+
+func shellLikeFields(raw string) ([]string, error) {
+	var (
+		out        []string
+		buf        strings.Builder
+		inSingle   bool
+		inDouble   bool
+		escapeNext bool
+	)
+	flush := func() {
+		if buf.Len() == 0 {
+			return
+		}
+		out = append(out, buf.String())
+		buf.Reset()
+	}
+
+	for _, r := range raw {
+		if escapeNext {
+			buf.WriteRune(r)
+			escapeNext = false
+			continue
+		}
+		switch r {
+		case '\\':
+			if inSingle {
+				buf.WriteRune(r)
+				continue
+			}
+			escapeNext = true
+		case '\'':
+			if inDouble {
+				buf.WriteRune(r)
+				continue
+			}
+			inSingle = !inSingle
+		case '"':
+			if inSingle {
+				buf.WriteRune(r)
+				continue
+			}
+			inDouble = !inDouble
+		case ' ', '\t', '\n':
+			if inSingle || inDouble {
+				buf.WriteRune(r)
+				continue
+			}
+			flush()
+		default:
+			buf.WriteRune(r)
+		}
+	}
+	if escapeNext {
+		buf.WriteRune('\\')
+	}
+	if inSingle || inDouble {
+		return nil, errors.New("unclosed quote in BROWSER")
+	}
+	flush()
+	return out, nil
 }
 
 func stringFromAny(v any) string {

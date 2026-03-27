@@ -97,6 +97,76 @@ func TestRunnerForwardsExitCode(t *testing.T) {
 	}
 }
 
+func TestRunnerInjectsCACertEnvVarsForAllRuntimes(t *testing.T) {
+	certDir := t.TempDir()
+	certPath := filepath.Join(certDir, "ca.crt")
+	if err := os.WriteFile(certPath, []byte("fake-cert"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	original := buildMergedCABundle
+	buildMergedCABundle = func(string) (string, func(), error) {
+		return certPath, func() {}, nil
+	}
+	defer func() { buildMergedCABundle = original }()
+
+	outFile := filepath.Join(t.TempDir(), "caenv.txt")
+	r := NewRunner(RunConfig{
+		Command:    []string{"sh", "-c", `printf '%s\n%s\n%s\n%s\n%s\n%s' "$SSL_CERT_FILE" "$NODE_EXTRA_CA_CERTS" "$REQUESTS_CA_BUNDLE" "$CURL_CA_BUNDLE" "$GIT_SSL_CAINFO" "$GRPC_DEFAULT_SSL_ROOTS_FILE_PATH" > "$OUT"`},
+		ProxyAddr:  "127.0.0.1:19090",
+		CACertPath: certPath,
+		Env:        map[string]string{"OUT": outFile},
+	})
+
+	if err := r.Start(context.Background()); err != nil {
+		t.Fatalf("runner start failed: %v", err)
+	}
+
+	data, err := os.ReadFile(outFile)
+	if err != nil {
+		t.Fatalf("read output: %v", err)
+	}
+
+	lines := strings.Split(strings.TrimSpace(string(data)), "\n")
+	wantKeys := []string{
+		"SSL_CERT_FILE",
+		"NODE_EXTRA_CA_CERTS",
+		"REQUESTS_CA_BUNDLE",
+		"CURL_CA_BUNDLE",
+		"GIT_SSL_CAINFO",
+		"GRPC_DEFAULT_SSL_ROOTS_FILE_PATH",
+	}
+	if len(lines) != len(wantKeys) {
+		t.Fatalf("expected %d lines, got %d: %q", len(wantKeys), len(lines), string(data))
+	}
+	for i, key := range wantKeys {
+		if strings.TrimSpace(lines[i]) != certPath {
+			t.Errorf("%s = %q, want %q", key, strings.TrimSpace(lines[i]), certPath)
+		}
+	}
+}
+
+func TestStripEnvKeysRemovesAllDuplicateCAOverrides(t *testing.T) {
+	env := []string{
+		"A=1",
+		"REQUESTS_CA_BUNDLE=/old/a.pem",
+		"B=2",
+		"REQUESTS_CA_BUNDLE=/old/b.pem",
+		"CURL_CA_BUNDLE=/old/c.pem",
+		"C=3",
+	}
+
+	got := stripEnvKeys(env, "REQUESTS_CA_BUNDLE", "CURL_CA_BUNDLE")
+	for _, item := range got {
+		if strings.HasPrefix(item, "REQUESTS_CA_BUNDLE=") || strings.HasPrefix(item, "CURL_CA_BUNDLE=") {
+			t.Fatalf("unexpected CA override remains in env: %q", item)
+		}
+	}
+	if len(got) != 3 {
+		t.Fatalf("expected 3 non-CA entries, got %d: %v", len(got), got)
+	}
+}
+
 func TestRunnerCancellationKillsSubprocess(t *testing.T) {
 	if runtime.GOOS == "windows" {
 		t.Skip("process group signaling differs on windows")

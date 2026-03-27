@@ -41,15 +41,15 @@ func TestManagerLoginDeviceFlowAndList(t *testing.T) {
 	defer server.Close()
 
 	manager.RegisterConfig(ConnectorConfig{
-		Name:      "gmail",
-		Provider:  "google",
+		Name:      "mailbox",
+		Provider:  "mailbox",
 		ClientID:  "client-id",
 		TokenURL:  server.URL + "/token",
 		DeviceURL: server.URL + "/device",
 		Scopes:    []string{"mail.read"},
 	})
 
-	flow, err := manager.Login(ctx, "tenant-1", "gmail")
+	flow, err := manager.Login(ctx, "tenant-1", "mailbox")
 	if err != nil {
 		t.Fatalf("login: %v", err)
 	}
@@ -60,7 +60,7 @@ func TestManagerLoginDeviceFlowAndList(t *testing.T) {
 		t.Fatalf("unexpected user code: %s", flow.UserCode)
 	}
 
-	if err := manager.CompleteLogin(ctx, "tenant-1", "gmail", ""); err != nil {
+	if err := manager.CompleteLogin(ctx, "tenant-1", "mailbox", ""); err != nil {
 		t.Fatalf("complete login: %v", err)
 	}
 
@@ -71,14 +71,14 @@ func TestManagerLoginDeviceFlowAndList(t *testing.T) {
 	if len(states) != 1 {
 		t.Fatalf("expected 1 connector, got %d", len(states))
 	}
-	if states[0].Name != "gmail" {
+	if states[0].Name != "mailbox" {
 		t.Fatalf("unexpected connector name: %s", states[0].Name)
 	}
 	if states[0].Status != StatusHealthy {
 		t.Fatalf("unexpected connector status: %s", states[0].Status)
 	}
 
-	stored, err := store.Get(ctx, "tenant-1", "gmail")
+	stored, err := store.Get(ctx, "tenant-1", "mailbox")
 	if err != nil {
 		t.Fatalf("store get: %v", err)
 	}
@@ -246,10 +246,10 @@ func TestListConnectorStatusAndTenantIsolation(t *testing.T) {
 	healthy := now.Add(20 * time.Minute)
 
 	seed := []ConnectorState{
-		{Name: "github", TenantID: "tenant-a", Provider: "github", AccessToken: mustEncryptToken(t, "tok-a", "connector-test-key"), ExpiresAt: &healthy, CreatedAt: now, UpdatedAt: now},
-		{Name: "gmail", TenantID: "tenant-a", Provider: "google", AccessToken: mustEncryptToken(t, "tok-b", "connector-test-key"), ExpiresAt: &expiring, CreatedAt: now, UpdatedAt: now},
+		{Name: "service-a", TenantID: "tenant-a", Provider: "service-a", AccessToken: mustEncryptToken(t, "tok-a", "connector-test-key"), ExpiresAt: &healthy, CreatedAt: now, UpdatedAt: now},
+		{Name: "service-b", TenantID: "tenant-a", Provider: "service-b", AccessToken: mustEncryptToken(t, "tok-b", "connector-test-key"), ExpiresAt: &expiring, CreatedAt: now, UpdatedAt: now},
 		{Name: "slack", TenantID: "tenant-a", Provider: "slack", AccessToken: mustEncryptToken(t, "tok-c", "connector-test-key"), ExpiresAt: &expired, CreatedAt: now, UpdatedAt: now},
-		{Name: "github", TenantID: "tenant-b", Provider: "github", AccessToken: mustEncryptToken(t, "tok-d", "connector-test-key"), ExpiresAt: &healthy, CreatedAt: now, UpdatedAt: now},
+		{Name: "service-a", TenantID: "tenant-b", Provider: "service-a", AccessToken: mustEncryptToken(t, "tok-d", "connector-test-key"), ExpiresAt: &healthy, CreatedAt: now, UpdatedAt: now},
 	}
 
 	for i := range seed {
@@ -270,11 +270,11 @@ func TestListConnectorStatusAndTenantIsolation(t *testing.T) {
 	for _, item := range listA {
 		statusByName[item.Name] = item.Status
 	}
-	if statusByName["github"] != StatusHealthy {
-		t.Fatalf("expected github healthy, got %s", statusByName["github"])
+	if statusByName["service-a"] != StatusHealthy {
+		t.Fatalf("expected service-a healthy, got %s", statusByName["service-a"])
 	}
-	if statusByName["gmail"] != StatusExpiring {
-		t.Fatalf("expected gmail expiring, got %s", statusByName["gmail"])
+	if statusByName["service-b"] != StatusExpiring {
+		t.Fatalf("expected service-b expiring, got %s", statusByName["service-b"])
 	}
 	if statusByName["slack"] != StatusOldExpired {
 		t.Fatalf("expected slack expired, got %s", statusByName["slack"])
@@ -284,7 +284,7 @@ func TestListConnectorStatusAndTenantIsolation(t *testing.T) {
 	if err != nil {
 		t.Fatalf("list tenant-b: %v", err)
 	}
-	if len(listB) != 1 || listB[0].Name != "github" {
+	if len(listB) != 1 || listB[0].Name != "service-a" {
 		t.Fatalf("tenant isolation failed: %+v", listB)
 	}
 }
@@ -360,17 +360,17 @@ func TestRefreshNoTokenRotation_NoDoubleEncryption(t *testing.T) {
 	defer server.Close()
 
 	manager.RegisterConfig(ConnectorConfig{
-		Name:     "github",
-		Provider: "github",
+		Name:     "source-control",
+		Provider: "source-control",
 		ClientID: "client-id",
 		TokenURL: server.URL,
 	})
 
 	expired := time.Now().Add(-10 * time.Minute)
 	if err := store.Save(ctx, &ConnectorState{
-		Name:         "github",
+		Name:         "source-control",
 		TenantID:     "tenant-1",
-		Provider:     "github",
+		Provider:     "source-control",
 		Status:       StatusOldExpired,
 		AccessToken:  mustEncryptToken(t, "old-access", encKey),
 		RefreshToken: mustEncryptToken(t, "original-refresh", encKey),
@@ -381,11 +381,11 @@ func TestRefreshNoTokenRotation_NoDoubleEncryption(t *testing.T) {
 		t.Fatalf("seed store: %v", err)
 	}
 
-	if err := manager.Refresh(ctx, "tenant-1", "github"); err != nil {
+	if err := manager.Refresh(ctx, "tenant-1", "source-control"); err != nil {
 		t.Fatalf("first refresh: %v", err)
 	}
 
-	stored, err := store.Get(ctx, "tenant-1", "github")
+	stored, err := store.Get(ctx, "tenant-1", "source-control")
 	if err != nil || stored == nil {
 		t.Fatalf("store get after first refresh: %v", err)
 	}
@@ -406,11 +406,11 @@ func TestRefreshNoTokenRotation_NoDoubleEncryption(t *testing.T) {
 		t.Fatalf("access token wrong after first refresh: got %q, want %q", decryptedAccess, "new-access")
 	}
 
-	if err := manager.Refresh(ctx, "tenant-1", "github"); err != nil {
+	if err := manager.Refresh(ctx, "tenant-1", "source-control"); err != nil {
 		t.Fatalf("second refresh (proves no double-encryption): %v", err)
 	}
 
-	stored2, _ := store.Get(ctx, "tenant-1", "github")
+	stored2, _ := store.Get(ctx, "tenant-1", "source-control")
 	decryptedRefresh2, err := security.DecryptDataFromString(stored2.RefreshToken, encKey)
 	if err != nil {
 		t.Fatalf("decrypt refresh token after second refresh: %v", err)
@@ -433,17 +433,17 @@ func TestLoginWithExistingState_NoDoubleEncryption(t *testing.T) {
 	defer server.Close()
 
 	manager.RegisterConfig(ConnectorConfig{
-		Name:      "github",
-		Provider:  "github",
+		Name:      "source-control",
+		Provider:  "source-control",
 		ClientID:  "client-id",
 		DeviceURL: server.URL,
 		TokenURL:  server.URL + "/token",
 	})
 
 	if err := store.Save(ctx, &ConnectorState{
-		Name:         "github",
+		Name:         "source-control",
 		TenantID:     "tenant-1",
-		Provider:     "github",
+		Provider:     "source-control",
 		Status:       StatusHealthy,
 		AccessToken:  mustEncryptToken(t, "existing-access", encKey),
 		RefreshToken: mustEncryptToken(t, "existing-refresh", encKey),
@@ -453,11 +453,11 @@ func TestLoginWithExistingState_NoDoubleEncryption(t *testing.T) {
 		t.Fatalf("seed store: %v", err)
 	}
 
-	if _, err := manager.Login(ctx, "tenant-1", "github"); err != nil {
+	if _, err := manager.Login(ctx, "tenant-1", "source-control"); err != nil {
 		t.Fatalf("login: %v", err)
 	}
 
-	stored, _ := store.Get(ctx, "tenant-1", "github")
+	stored, _ := store.Get(ctx, "tenant-1", "source-control")
 	if stored == nil {
 		t.Fatal("stored state is nil")
 	}

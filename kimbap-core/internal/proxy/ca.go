@@ -11,6 +11,7 @@ import (
 	"fmt"
 	"math/big"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"runtime"
 	"time"
@@ -99,14 +100,40 @@ func LoadCA(dataDir string) (*CAConfig, error) {
 func TrustInstructions(certPath string) string {
 	switch runtime.GOOS {
 	case "darwin":
-		return fmt.Sprintf("sudo security add-trusted-cert -d -r trustRoot -k /Library/Keychains/System.keychain %s", certPath)
+		return fmt.Sprintf("sudo security add-trusted-cert -d -r trustRoot -k /Library/Keychains/System.keychain %q", certPath)
 	case "linux":
-		return fmt.Sprintf("sudo cp %s /usr/local/share/ca-certificates/kimbap-ca.crt && sudo update-ca-certificates", certPath)
+		return linuxTrustInstructions(certPath)
 	case "windows":
-		return fmt.Sprintf("certutil -addstore -f Root %s", certPath)
+		return fmt.Sprintf("certutil -addstore -f Root %q", certPath)
 	default:
-		return fmt.Sprintf("Trust CA certificate manually: %s", certPath)
+		return fmt.Sprintf("Trust CA certificate manually: %q", certPath)
 	}
+}
+
+func linuxTrustInstructions(certPath string) string {
+	type trustMethod struct {
+		probe   string
+		command string
+	}
+	methods := []trustMethod{
+		{"update-ca-certificates", fmt.Sprintf("sudo cp %q /usr/local/share/ca-certificates/kimbap-ca.crt && sudo update-ca-certificates", certPath)},
+		{"update-ca-trust", fmt.Sprintf("sudo cp %q /etc/pki/ca-trust/source/anchors/kimbap-ca.crt && sudo update-ca-trust extract", certPath)},
+		{"trust", fmt.Sprintf("sudo trust anchor %q", certPath)},
+	}
+	for _, m := range methods {
+		if hasCommand(m.probe) {
+			return m.command
+		}
+	}
+	return fmt.Sprintf("Copy CA certificate to your system trust store and update trust:\n  %q\n"+
+		"  Debian/Ubuntu: sudo cp <cert> /usr/local/share/ca-certificates/ && sudo update-ca-certificates\n"+
+		"  RHEL/Fedora:   sudo cp <cert> /etc/pki/ca-trust/source/anchors/ && sudo update-ca-trust extract\n"+
+		"  Arch:          sudo trust anchor <cert>", certPath)
+}
+
+func hasCommand(name string) bool {
+	_, err := exec.LookPath(name)
+	return err == nil
 }
 
 func fileExists(path string) bool {

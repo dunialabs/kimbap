@@ -8,6 +8,7 @@ import (
 	"net/url"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"strings"
 	"sync"
 	"syscall"
@@ -41,6 +42,8 @@ type ExitError struct {
 }
 
 const processWaitTimeout = 5 * time.Second
+
+var buildMergedCABundle = buildMergedCABundleFile
 
 func (e *ExitError) Error() string {
 	return fmt.Sprintf("process exited with code %d", e.Code)
@@ -85,7 +88,33 @@ func (r *Runner) Start(ctx context.Context) error {
 	cmd.Dir = strings.TrimSpace(r.config.WorkDir)
 	env := buildEnv(os.Environ(), r.config.Env, proxyAddr, r.config.AgentToken)
 	if proxyAddr != "" && strings.TrimSpace(r.config.CACertPath) != "" {
-		env = append(env, "SSL_CERT_FILE="+strings.TrimSpace(r.config.CACertPath))
+		env = stripEnvKeys(env,
+			"SSL_CERT_FILE",
+			"NODE_EXTRA_CA_CERTS",
+			"REQUESTS_CA_BUNDLE",
+			"CURL_CA_BUNDLE",
+			"GIT_SSL_CAINFO",
+			"GRPC_DEFAULT_SSL_ROOTS_FILE_PATH",
+		)
+
+		certPath := strings.TrimSpace(r.config.CACertPath)
+		env = append(env, "NODE_EXTRA_CA_CERTS="+certPath)
+
+		mergedBundlePath, cleanupMergedBundle, _ := buildMergedCABundle(certPath)
+		if cleanupMergedBundle != nil {
+			defer cleanupMergedBundle()
+		}
+		if mergedBundlePath != "" {
+			for _, key := range []string{
+				"SSL_CERT_FILE",
+				"REQUESTS_CA_BUNDLE",
+				"CURL_CA_BUNDLE",
+				"GIT_SSL_CAINFO",
+				"GRPC_DEFAULT_SSL_ROOTS_FILE_PATH",
+			} {
+				env = append(env, key+"="+mergedBundlePath)
+			}
+		}
 	}
 	cmd.Env = env
 	cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
@@ -296,6 +325,28 @@ func ensureNoProxyLoopback(existing string) string {
 	return strings.Join(out, ",")
 }
 
+func stripEnvKeys(env []string, keys ...string) []string {
+	if len(env) == 0 || len(keys) == 0 {
+		return env
+	}
+	deny := make(map[string]struct{}, len(keys))
+	for _, k := range keys {
+		deny[k] = struct{}{}
+	}
+	out := make([]string, 0, len(env))
+	for _, item := range env {
+		name := item
+		if idx := strings.IndexByte(item, '='); idx >= 0 {
+			name = item[:idx]
+		}
+		if _, found := deny[name]; found {
+			continue
+		}
+		out = append(out, item)
+	}
+	return out
+}
+
 func embedProxyAuth(addr, token string) string {
 	if !strings.Contains(addr, "://") {
 		addr = "http://" + addr
@@ -351,4 +402,56 @@ func killProcessTree(p *os.Process) error {
 		return err
 	}
 	return nil
+}
+
+func buildMergedCABundleFile(proxyCertPath string) (string, func(), error) {
+	proxyCertPath = strings.TrimSpace(proxyCertPath)
+	if proxyCertPath == "" {
+		return "", nil, nil
+	}
+	proxyCert, err := os.ReadFile(proxyCertPath)
+	if err != nil {
+		return "", nil, nil
+	}
+
+	for _, rootBundlePath := range candidateSystemCABundlePaths() {
+		rootBundle, readErr := os.ReadFile(rootBundlePath)
+		if readErr != nil {
+			continue
+		}
+		merged := make([]byte, 0, len(proxyCert)+len(rootBundle)+2)
+		merged = append(merged, proxyCert...)
+		if len(merged) > 0 && merged[len(merged)-1] != '\n' {
+			merged = append(merged, '\n')
+		}
+		merged = append(merged, rootBundle...)
+
+		tmp, createErr := os.CreateTemp("", "kimbap-ca-bundle-*.pem")
+		if createErr != nil {
+			return "", nil, nil
+		}
+		path := tmp.Name()
+		if _, writeErr := tmp.Write(merged); writeErr != nil {
+			_ = tmp.Close()
+			_ = os.Remove(path)
+			return "", nil, nil
+		}
+		if closeErr := tmp.Close(); closeErr != nil {
+			_ = os.Remove(path)
+			return "", nil, nil
+		}
+		_ = os.Chmod(path, 0o600)
+		return path, func() { _ = os.Remove(path) }, nil
+	}
+
+	return "", nil, nil
+}
+
+func candidateSystemCABundlePaths() []string {
+	return []string{
+		"/etc/ssl/certs/ca-certificates.crt",
+		"/etc/pki/tls/certs/ca-bundle.crt",
+		"/etc/ssl/cert.pem",
+		filepath.Join("/private", "etc", "ssl", "cert.pem"),
+	}
 }
