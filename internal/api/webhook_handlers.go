@@ -138,7 +138,7 @@ func isPrivateHost(host string) bool {
 	}
 	resolved, err := net.LookupIP(host)
 	if err != nil || len(resolved) == 0 {
-		return true
+		return false
 	}
 	for _, addr := range resolved {
 		if isPrivateIP(addr) {

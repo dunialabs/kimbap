@@ -224,6 +224,20 @@ func TestResolveConnectionScopeRejectsUnsupportedProviderScope(t *testing.T) {
 	}
 }
 
+func TestResolveConnectionScopeAutoSelectsFromSingleScopeModel(t *testing.T) {
+	provider := connectors.ProviderDefinition{
+		ID:                   "slack",
+		ConnectionScopeModel: []connectors.ConnectionScope{connectors.ScopeWorkspace},
+	}
+	scope, err := resolveConnectionScope(string(connectors.ScopeUser), provider)
+	if err != nil {
+		t.Fatalf("expected auto-select to succeed, got error: %v", err)
+	}
+	if scope != connectors.ScopeWorkspace {
+		t.Fatalf("expected auto-selected scope %q, got %q", connectors.ScopeWorkspace, scope)
+	}
+}
+
 func TestValidateProviderExtraValuesRejectsHostInjection(t *testing.T) {
 	provider := connectors.ProviderDefinition{
 		ID:            "canvas",

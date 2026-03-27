@@ -485,7 +485,7 @@ func effectivePort(u *url.URL) string {
 
 func buildBody(method string, payload map[string]any, requestBodyTemplate string) ([]byte, error) {
 	switch method {
-	case http.MethodGet, http.MethodDelete, http.MethodHead:
+	case http.MethodGet, http.MethodHead:
 		return nil, nil
 	default:
 		if strings.TrimSpace(requestBodyTemplate) != "" {

@@ -113,6 +113,8 @@ func (s *Server) Start(ctx context.Context) error {
 		shutdownErr := s.httpServer.Shutdown(shutdownCtx)
 		if shutdownErr != nil && !errors.Is(shutdownErr, http.ErrServerClosed) {
 			_ = s.httpServer.Close()
+			s.httpServer = nil
+			return shutdownErr
 		}
 		s.httpServer = nil
 		return nil

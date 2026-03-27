@@ -1,7 +1,6 @@
 package api
 
 import (
-	"bytes"
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
@@ -779,15 +778,32 @@ func (s *Server) handleExportAudit(w http.ResponseWriter, r *http.Request) {
 		))
 		return
 	}
-	var buf bytes.Buffer
-	if err := s.store.ExportAuditEvents(r.Context(), store.AuditFilter{TenantID: tenantID}, format, &buf); err != nil {
-		writeEnvelopeError(w, r, actions.NewExecutionError(actions.ErrDownstreamUnavailable, "export failed", http.StatusInternalServerError, false, nil))
+	lw := &lazyStreamWriter{w: w, contentType: contentType}
+	if err := s.store.ExportAuditEvents(r.Context(), store.AuditFilter{TenantID: tenantID}, format, lw); err != nil {
+		if !lw.committed {
+			writeEnvelopeError(w, r, actions.NewExecutionError(actions.ErrDownstreamUnavailable, "export failed", http.StatusInternalServerError, false, nil))
+		}
 		return
 	}
-	w.Header().Set("Content-Type", contentType)
-	w.Header().Set("Content-Length", strconv.Itoa(buf.Len()))
-	w.WriteHeader(http.StatusOK)
-	_, _ = buf.WriteTo(w)
+	if !lw.committed {
+		w.Header().Set("Content-Type", contentType)
+		w.WriteHeader(http.StatusOK)
+	}
+}
+
+type lazyStreamWriter struct {
+	w           http.ResponseWriter
+	contentType string
+	committed   bool
+}
+
+func (l *lazyStreamWriter) Write(p []byte) (int, error) {
+	if !l.committed {
+		l.w.Header().Set("Content-Type", l.contentType)
+		l.w.WriteHeader(http.StatusOK)
+		l.committed = true
+	}
+	return l.w.Write(p)
 }
 
 const maxAPIRequestBodyBytes int64 = 4 << 20
