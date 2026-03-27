@@ -268,11 +268,7 @@ func extractAuth(root map[string]any, resolver *openAPIRefResolver, skillName st
 
 	schemeName := firstReferencedSecurityScheme(root)
 	if schemeName == "" {
-		if hasRootSecurity {
-			return ServiceAuth{Type: "none"}, nil
-		}
-		keys := sortedMapKeys(schemes)
-		schemeName = keys[0]
+		return ServiceAuth{Type: "none"}, nil
 	}
 
 	rawScheme := mapAt(schemes, schemeName)
@@ -551,6 +547,10 @@ func addRequestBodyArgs(action *ServiceAction, op map[string]any, resolver *open
 		Required: boolAt(requestBody, "required"),
 	}
 	addOrUpdateArg(&action.Args, argIndex, arg)
+	if action.Request.Body == nil {
+		action.Request.Body = map[string]any{}
+	}
+	action.Request.Body["{body}"] = "{body}"
 
 	return nil
 }
