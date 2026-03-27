@@ -977,3 +977,60 @@ paths:
 		})
 	}
 }
+
+func TestGenerateFromOpenAPIPreservesParentRequiredWithSimpleOneOf(t *testing.T) {
+	spec := `openapi: 3.0.3
+info:
+  title: OneOf Required API
+  version: 1.0.0
+servers:
+  - url: https://api.example.com
+paths:
+  /items:
+    post:
+      operationId: createItem
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name, kind]
+              properties:
+                name:
+                  type: string
+              oneOf:
+                - properties:
+                    kind:
+                      type: string
+      responses:
+        '200':
+          description: ok
+          content:
+            application/json:
+              schema:
+                type: object
+`
+
+	manifest, err := GenerateFromOpenAPI([]byte(spec))
+	if err != nil {
+		t.Fatalf("GenerateFromOpenAPI failed: %v", err)
+	}
+
+	action, ok := manifest.Actions["createitem"]
+	if !ok {
+		t.Fatalf("expected createitem action")
+	}
+
+	argMap := map[string]ActionArg{}
+	for _, arg := range action.Args {
+		argMap[arg.Name] = arg
+	}
+
+	if !argMap["name"].Required {
+		t.Fatalf("expected parent-level required field 'name' to stay required after oneOf flattening")
+	}
+	if !argMap["kind"].Required {
+		t.Fatalf("expected parent-level required field 'kind' to stay required after oneOf flattening")
+	}
+}

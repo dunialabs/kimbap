@@ -1031,11 +1031,38 @@ func resolveCompositeSchemaDepth(schema map[string]any, resolver *openAPIRefReso
 			break
 		}
 		primary := resolveCompositeSchemaDepth(first, resolver, depth+1)
+		parentRequired := anySliceAt(resolved, "required")
+		parentProps := mapAt(resolved, "properties")
 		merged := cloneAnyMap(resolved)
-		delete(merged, "required")
+		primaryProps := mapAt(primary, "properties")
+		if len(parentProps) > 0 && len(primaryProps) > 0 {
+			mergedProps := cloneAnyMap(parentProps)
+			maps.Copy(mergedProps, primaryProps)
+			primary = cloneAnyMap(primary)
+			primary["properties"] = mergedProps
+		}
 		maps.Copy(merged, primary)
 		delete(merged, "oneOf")
 		delete(merged, "anyOf")
+		if len(parentRequired) > 0 {
+			variantRequired := anySliceAt(primary, "required")
+			requiredSet := map[string]struct{}{}
+			for _, r := range parentRequired {
+				if s, ok := r.(string); ok && strings.TrimSpace(s) != "" {
+					requiredSet[s] = struct{}{}
+				}
+			}
+			for _, r := range variantRequired {
+				if s, ok := r.(string); ok && strings.TrimSpace(s) != "" {
+					requiredSet[s] = struct{}{}
+				}
+			}
+			mergedRequired := make([]any, 0, len(requiredSet))
+			for _, key := range sortedStringKeys(requiredSet) {
+				mergedRequired = append(mergedRequired, key)
+			}
+			merged["required"] = mergedRequired
+		}
 		return merged
 	}
 

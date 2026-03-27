@@ -62,7 +62,7 @@ services:
     networks:
       - kimbap-network
     healthcheck:
-      test: ['CMD', 'curl', '-f', 'http://localhost:8080/v1/health']
+      test: ['CMD-SHELL', 'wget -qO- http://localhost:8080/v1/health || exit 1']
       interval: 30s
       timeout: 10s
       retries: 3
