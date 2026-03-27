@@ -83,11 +83,15 @@ func RunDeviceFlow(ctx context.Context, cfg DeviceFlowConfig, output io.Writer) 
 		if result.err != nil {
 			return nil, result.err
 		}
+		scope := result.token.Scope
+		if scope == "" {
+			scope = strings.Join(cfg.Scopes, " ")
+		}
 		return &DeviceFlowResult{
 			AccessToken:  result.token.AccessToken,
 			RefreshToken: result.token.RefreshToken,
 			ExpiresIn:    result.token.ExpiresIn,
-			Scope:        result.token.Scope,
+			Scope:        scope,
 		}, nil
 	}
 }

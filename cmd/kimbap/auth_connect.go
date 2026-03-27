@@ -510,6 +510,9 @@ func runAuthConnect(
 		return fmt.Errorf("unsupported flow: %s", selectedFlow)
 	}
 
+	if grantedScope == "" && len(scopes) > 0 {
+		grantedScope = strings.Join(scopes, " ")
+	}
 	if err := mgr.StoreConnection(ctx, tenantID, storeName, provider.ID, accessToken, refreshToken, expiresIn, grantedScope, selectedFlow, connScope, workspace); err != nil {
 		if auditEmitter != nil {
 			auditEmitter.ConnectFailed(ctx, providerID, tenantID, selectedFlow, err.Error())

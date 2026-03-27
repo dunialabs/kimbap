@@ -41,9 +41,13 @@ func RunClientCredentialsFlow(ctx context.Context, cfg ClientCredentialsConfig) 
 		return nil, err
 	}
 
+	scope := token.Scope
+	if scope == "" {
+		scope = strings.Join(cfg.Scopes, " ")
+	}
 	return &ClientCredentialsResult{
 		AccessToken: token.AccessToken,
 		ExpiresIn:   token.ExpiresIn,
-		Scope:       token.Scope,
+		Scope:       scope,
 	}, nil
 }

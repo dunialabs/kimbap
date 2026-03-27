@@ -501,8 +501,10 @@ func initializeVault(cfg *config.KimbapConfig) (doctorCheck, doctorCheck) {
 	devKeyPath := filepath.Join(cfg.DataDir, ".dev-master-key")
 	devKeyExisted := fileExists(devKeyPath)
 
-	if _, err := initVaultStore(cfg); err != nil {
+	if vs, err := initVaultStore(cfg); err != nil {
 		return doctorCheck{Name: "vault accessible", Status: "fail", Detail: err.Error()}, doctorCheck{Name: "dev master key", Status: ternary(strings.EqualFold(strings.TrimSpace(cfg.Mode), "dev"), "fail", "skip"), Detail: err.Error()}
+	} else {
+		closeVaultStoreIfPossible(vs)
 	}
 
 	vaultDetail := ternary(vaultExisted, "exists", "created")
