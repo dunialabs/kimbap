@@ -1123,7 +1123,7 @@ function LogsPageContent() {
               <CardContent className="flex flex-col gap-1 justify-center">
                 <div className={statsLoading || !statistics ? (statsError ? "text-sm text-red-600 dark:text-red-400" : "text-sm text-muted-foreground") : "text-2xl font-bold"}>
                   {statsLoading
-                    ? 'Syncing total log count...'
+                    ? '—'
                     : !statistics
                     ? (statsError ? 'Unavailable' : '—')
                     : statistics.totalLogs.toLocaleString()}
@@ -1139,7 +1139,7 @@ function LogsPageContent() {
               <CardContent className="flex flex-col gap-1 justify-center">
                 <div className={statsLoading || !statistics ? (statsError ? "text-sm text-red-600 dark:text-red-400" : "text-sm text-muted-foreground") : "text-2xl font-bold"}>
                   {statsLoading
-                    ? 'Syncing error count...'
+                    ? '—'
                     : !statistics
                     ? (statsError ? 'Unavailable' : '—')
                     : statistics.errorLogs.toLocaleString()}
@@ -1158,7 +1158,7 @@ function LogsPageContent() {
               <CardContent className="flex flex-col gap-1 justify-center">
                 <div className={statsLoading || !statistics ? (statsError ? "text-sm text-red-600 dark:text-red-400" : "text-sm text-muted-foreground") : "text-2xl font-bold"}>
                   {statsLoading
-                    ? 'Syncing warning count...'
+                    ? '—'
                     : !statistics
                     ? (statsError ? 'Unavailable' : '—')
                     : statistics.warnLogs.toLocaleString()}
@@ -1175,7 +1175,7 @@ function LogsPageContent() {
               <CardContent className="flex flex-col gap-1 justify-center">
                 <div className={statsLoading || !statistics ? (statsError ? "text-sm text-red-600 dark:text-red-400" : "text-sm text-muted-foreground") : "text-2xl font-bold"}>
                   {statsLoading
-                    ? 'Syncing info count...'
+                    ? '—'
                     : !statistics
                     ? (statsError ? 'Unavailable' : '—')
                     : statistics.infoLogs.toLocaleString()}

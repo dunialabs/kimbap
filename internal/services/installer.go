@@ -230,13 +230,18 @@ func (i *LocalInstaller) List() ([]InstalledService, error) {
 		return nil, fmt.Errorf("read services dir: %w", err)
 	}
 
+	lf, err := i.readLockfile()
+	if err != nil {
+		return nil, fmt.Errorf("read lockfile: %w", err)
+	}
+
 	out := make([]InstalledService, 0)
 	for _, entry := range entries {
 		if entry.IsDir() || filepath.Ext(entry.Name()) != ".yaml" {
 			continue
 		}
 		name := strings.TrimSuffix(entry.Name(), ".yaml")
-		installed, err := i.getNoLock(name)
+		installed, err := i.buildService(name, lf)
 		if err != nil {
 			return nil, err
 		}
@@ -293,6 +298,14 @@ func (i *LocalInstaller) Get(name string) (*InstalledService, error) {
 }
 
 func (i *LocalInstaller) getNoLock(name string) (*InstalledService, error) {
+	lf, err := i.readLockfile()
+	if err != nil {
+		return nil, fmt.Errorf("read lockfile: %w", err)
+	}
+	return i.buildService(name, lf)
+}
+
+func (i *LocalInstaller) buildService(name string, lf *Lockfile) (*InstalledService, error) {
 	if err := ValidateServiceName(name); err != nil {
 		return nil, err
 	}
@@ -314,10 +327,6 @@ func (i *LocalInstaller) getNoLock(name string) (*InstalledService, error) {
 
 	source := "local"
 	enabled := true
-	lf, err := i.readLockfile()
-	if err != nil {
-		return nil, fmt.Errorf("read lockfile: %w", err)
-	}
 	if entry, ok := lf.Services[name]; ok {
 		if strings.TrimSpace(entry.Source) != "" {
 			source = entry.Source

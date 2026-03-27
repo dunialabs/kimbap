@@ -58,12 +58,15 @@ type Subscription struct {
 	Active   bool        `json:"active"`
 }
 
+const maxConcurrentDeliveries = 32
+
 type Dispatcher struct {
 	mu            sync.RWMutex
 	subscriptions []Subscription
 	client        *http.Client
 	events        []Event
 	maxEvents     int
+	deliverySem   chan struct{}
 }
 
 func NewDispatcher() *Dispatcher {
@@ -114,8 +117,9 @@ func NewDispatcher() *Dispatcher {
 
 func newDispatcher(client *http.Client) *Dispatcher {
 	return &Dispatcher{
-		client:    client,
-		maxEvents: 1000,
+		client:      client,
+		maxEvents:   1000,
+		deliverySem: make(chan struct{}, maxConcurrentDeliveries),
 	}
 }
 
@@ -246,7 +250,15 @@ func (d *Dispatcher) EmitForTenant(tenantID string, eventType EventType, data an
 		if sub.TenantID != "" && sub.TenantID != event.TenantID {
 			continue
 		}
-		go d.deliver(sub, event)
+		select {
+		case d.deliverySem <- struct{}{}:
+			go func(s Subscription) {
+				defer func() { <-d.deliverySem }()
+				d.deliver(s, event)
+			}(sub)
+		default:
+			log.Warn().Str("subscriptionId", sub.ID).Str("eventId", event.ID).Msg("webhook delivery dropped: concurrency limit reached")
+		}
 	}
 }
 
