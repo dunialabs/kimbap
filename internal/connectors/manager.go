@@ -80,20 +80,6 @@ func (m *Manager) Login(ctx context.Context, tenantID, name string) (*DeviceFlow
 	}
 
 	now := time.Now().UTC()
-	state, loadErr := m.loadDecryptedState(ctx, tenantID, name)
-	if loadErr != nil {
-		return nil, fmt.Errorf("load existing state: %w", loadErr)
-	}
-	if state == nil {
-		state = &ConnectorState{Name: name, TenantID: tenantID, Provider: cfg.Provider, CreatedAt: now}
-	}
-	state.Provider = cfg.Provider
-	state.Status = StatusPending
-	state.UpdatedAt = now
-	if err := m.saveState(ctx, state); err != nil {
-		return nil, err
-	}
-
 	m.mu.Lock()
 	m.pending[m.pendingKey(tenantID, name)] = pendingLogin{
 		deviceCode: result.DeviceCode,
@@ -123,6 +109,9 @@ func (m *Manager) CompleteLogin(ctx context.Context, tenantID, name string, code
 			return errors.New("no pending login found")
 		}
 		if !pending.expiresAt.IsZero() && time.Now().After(pending.expiresAt) {
+			m.mu.Lock()
+			delete(m.pending, m.pendingKey(tenantID, name))
+			m.mu.Unlock()
 			return errors.New("pending login has expired")
 		}
 		deviceCode = pending.deviceCode
@@ -137,6 +126,9 @@ func (m *Manager) CompleteLogin(ctx context.Context, tenantID, name string, code
 			return errors.New("device code does not match pending login")
 		}
 		if !pending.expiresAt.IsZero() && time.Now().After(pending.expiresAt) {
+			m.mu.Lock()
+			delete(m.pending, m.pendingKey(tenantID, name))
+			m.mu.Unlock()
 			return errors.New("pending login has expired")
 		}
 		if pending.interval > 0 {

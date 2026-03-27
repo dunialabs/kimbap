@@ -71,7 +71,7 @@ func checkConfigFile() doctorCheck {
 	}
 	if _, err := os.Stat(path); err != nil {
 		if os.IsNotExist(err) {
-			return doctorCheck{Name: "config file", Status: "fail", Detail: fmt.Sprintf("missing: %s", path)}
+			return doctorCheck{Name: "config file", Status: "warn", Detail: "not found; defaults will be used"}
 		}
 		return doctorCheck{Name: "config file", Status: "fail", Detail: err.Error()}
 	}
