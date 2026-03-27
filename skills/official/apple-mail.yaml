@@ -1,0 +1,80 @@
+name: apple-mail
+version: 1.0.0
+description: Apple Mail via AppleScript
+adapter: applescript
+target_app: Mail
+auth:
+  type: none
+actions:
+  list-mailboxes:
+    command: list-mailboxes
+    description: List all mailboxes
+    idempotent: true
+    args: []
+    response:
+      type: array
+    risk:
+      level: low
+  list-messages:
+    command: list-messages
+    description: List messages in a mailbox
+    idempotent: true
+    args:
+      - name: mailbox
+        type: string
+        required: false
+      - name: limit
+        type: integer
+        required: false
+    response:
+      type: array
+    risk:
+      level: low
+  get-message:
+    command: get-message
+    description: Get full message details
+    idempotent: true
+    args:
+      - name: subject
+        type: string
+        required: true
+    response:
+      type: object
+    risk:
+      level: low
+  send-message:
+    command: send-message
+    description: Send an email message
+    idempotent: false
+    args:
+      - name: to
+        type: string
+        required: true
+      - name: subject
+        type: string
+        required: true
+      - name: body
+        type: string
+        required: true
+      - name: cc
+        type: string
+        required: false
+      - name: bcc
+        type: string
+        required: false
+    response:
+      type: object
+    risk:
+      level: high
+  search-messages:
+    command: search-messages
+    description: Search messages by keyword
+    idempotent: true
+    args:
+      - name: query
+        type: string
+        required: true
+    response:
+      type: array
+    risk:
+      level: low

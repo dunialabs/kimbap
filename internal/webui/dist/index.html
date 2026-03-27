@@ -1,0 +1,105 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Kimbap Console</title>
+    <style>
+      :root {
+        color-scheme: light dark;
+        --bg: #0b0d12;
+        --panel: #121722;
+        --text: #e8edf7;
+        --muted: #9aa6bd;
+        --ok: #19c37d;
+        --warn: #f59e0b;
+        --link: #7cc4ff;
+      }
+      * { box-sizing: border-box; }
+      body {
+        margin: 0;
+        min-height: 100vh;
+        background: radial-gradient(circle at top right, #1d2433, var(--bg) 45%);
+        color: var(--text);
+        font-family: ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      }
+      main {
+        max-width: 780px;
+        margin: 0 auto;
+        padding: 48px 20px 60px;
+      }
+      h1 {
+        margin: 0 0 8px;
+        font-size: 32px;
+        line-height: 1.2;
+      }
+      p { color: var(--muted); line-height: 1.5; }
+      .panel {
+        background: color-mix(in srgb, var(--panel) 88%, transparent);
+        border: 1px solid #283245;
+        border-radius: 14px;
+        padding: 18px;
+        margin-top: 16px;
+      }
+      .status { font-weight: 600; }
+      .status.ok { color: var(--ok); }
+      .status.warn { color: var(--warn); }
+      ul {
+        margin: 12px 0 0;
+        padding-left: 18px;
+      }
+      li { margin: 6px 0; }
+      a { color: var(--link); text-decoration: none; }
+      a:hover { text-decoration: underline; }
+      code {
+        font-size: 0.92em;
+        background: #1a2231;
+        border: 1px solid #33415c;
+        border-radius: 6px;
+        padding: 2px 6px;
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <h1>Kimbap Embedded Console</h1>
+      <p>
+        This embedded console route is enabled and served by the same Kimbap binary.
+        It provides quick runtime visibility and links into operational workflows.
+      </p>
+
+      <section class="panel">
+        <div id="health" class="status warn">Checking runtime health…</div>
+        <ul>
+          <li><a href="/health" target="_blank" rel="noreferrer">Open health endpoint</a></li>
+          <li><a href="/v1/actions" target="_blank" rel="noreferrer">Open actions API sample</a></li>
+        </ul>
+      </section>
+
+      <section class="panel">
+        <strong>Next steps</strong>
+        <ul>
+          <li>Use <code>kimbap doctor</code> to verify local runtime status.</li>
+          <li>Use <code>kimbap actions list</code> and <code>kimbap call</code> for core operations.</li>
+          <li>If you need the full Next.js console app, run it from <code>./console</code>.</li>
+        </ul>
+      </section>
+    </main>
+
+    <script>
+      const healthEl = document.getElementById('health');
+      fetch('/health', { headers: { Accept: 'application/json' } })
+        .then(async (res) => {
+          if (!res.ok) throw new Error('health check failed');
+          const payload = await res.json();
+          const status = payload?.status || payload?.data?.status || 'unknown';
+          healthEl.textContent = `Runtime health: ${status}`;
+          healthEl.className = 'status ' + (status === 'ok' || status === 'healthy' ? 'ok' : 'warn');
+        })
+        .catch(() => {
+          healthEl.textContent = 'Runtime health: unavailable';
+          healthEl.className = 'status warn';
+        });
+    </script>
+  </body>
+</html>

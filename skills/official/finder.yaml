@@ -1,0 +1,101 @@
+name: finder
+version: 1.0.0
+description: Finder automation via AppleScript — file system operations on macOS
+adapter: applescript
+target_app: Finder
+auth:
+  type: none
+actions:
+  list-items:
+    command: finder-list-items
+    description: List files and folders in a directory
+    idempotent: true
+    args:
+      - name: path
+        type: string
+        required: true
+    response:
+      type: array
+    risk:
+      level: low
+  get-info:
+    command: finder-get-info
+    description: Get metadata for a file or folder
+    idempotent: true
+    args:
+      - name: path
+        type: string
+        required: true
+    response:
+      type: object
+    risk:
+      level: low
+  create-folder:
+    command: finder-create-folder
+    description: Create a new folder in a target directory
+    idempotent: false
+    args:
+      - name: path
+        type: string
+        required: true
+      - name: name
+        type: string
+        required: true
+    response:
+      type: object
+    risk:
+      level: medium
+  move-item:
+    command: finder-move-item
+    description: Move a file or folder to another directory
+    idempotent: false
+    args:
+      - name: source_path
+        type: string
+        required: true
+      - name: destination_path
+        type: string
+        required: true
+    response:
+      type: object
+    risk:
+      level: high
+  copy-item:
+    command: finder-copy-item
+    description: Copy a file or folder to another directory
+    idempotent: false
+    args:
+      - name: source_path
+        type: string
+        required: true
+      - name: destination_path
+        type: string
+        required: true
+    response:
+      type: object
+    risk:
+      level: medium
+  delete-item:
+    command: finder-delete-item
+    description: Move a file or folder to Trash
+    idempotent: false
+    args:
+      - name: path
+        type: string
+        required: true
+    response:
+      type: object
+    risk:
+      level: high
+  open-item:
+    command: finder-open-item
+    description: Open a file or folder in its default app
+    idempotent: false
+    args:
+      - name: path
+        type: string
+        required: true
+    response:
+      type: object
+    risk:
+      level: medium

@@ -1,0 +1,114 @@
+services:
+  # PostgreSQL for kimbap-console
+  postgres-console:
+    image: postgres:16-alpine
+    container_name: kimbap-console-postgres
+    restart: unless-stopped
+    profiles:
+      - console
+    environment:
+      POSTGRES_USER: kimbap
+      POSTGRES_PASSWORD: kimbap123
+      POSTGRES_DB: kimbap_console
+    volumes:
+      - postgres-console-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U kimbap -d kimbap_console']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - kimbap-network
+
+  # PostgreSQL for kimbap
+  postgres-core:
+    image: postgres:16-alpine
+    container_name: kimbap-postgres
+    restart: unless-stopped
+    profiles:
+      - core
+    environment:
+      POSTGRES_USER: kimbap
+      POSTGRES_PASSWORD: kimbap123
+      POSTGRES_DB: kimbap_mcp_gateway
+    volumes:
+      - postgres-core-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U kimbap -d kimbap_mcp_gateway']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - kimbap-network
+
+  # Kimbap Core Service (MCP Gateway)
+  kimbap:
+    image: dunialabs/kimbap:latest
+    container_name: kimbap
+    restart: unless-stopped
+    profiles:
+      - core
+    depends_on:
+      postgres-core:
+        condition: service_healthy
+    environment:
+      NODE_ENV: production
+      KIMBAP_DATABASE_DRIVER: postgres
+      KIMBAP_DATABASE_DSN: postgresql://kimbap:kimbap123@postgres-core:5432/kimbap_mcp_gateway?sslmode=disable
+      JWT_SECRET: ${CORE_JWT_SECRET:-your-secret-key-change-in-production}
+      SKIP_CLOUDFLARED: true
+    ports:
+      - '${CORE_PORT:-3002}:8080'
+    networks:
+      - kimbap-network
+    healthcheck:
+      test: ['CMD', 'curl', '-f', 'http://localhost:8080/v1/health']
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 15s
+
+  # Kimbap Console Service
+  kimbap-console:
+    image: dunialabs/kimbap-console:latest
+    container_name: kimbap-console
+    restart: unless-stopped
+    profiles:
+      - console
+    depends_on:
+      postgres-console:
+        condition: service_healthy
+    environment:
+      NODE_ENV: production
+      DATABASE_URL: postgresql://kimbap:kimbap123@postgres-console:5432/kimbap_console?schema=public
+      PORT: ${CONSOLE_PORT:-3000}
+      JWT_SECRET: ${CONSOLE_JWT_SECRET:-your-secret-key-change-in-production}
+      # Kimbap Core connection
+      KIMBAP_CORE_URL: ${KIMBAP_CORE_URL:-http://kimbap:8080}
+      # Log sync configuration
+      LOG_SYNC_ENABLED: ${LOG_SYNC_ENABLED:-true}
+      LOG_SYNC_INTERVAL_MINUTES: ${LOG_SYNC_INTERVAL_MINUTES:-2}
+      MAX_LOGS_PER_REQUEST: ${MAX_LOGS_PER_REQUEST:-5000}
+      LOG_BATCH_SIZE: ${LOG_BATCH_SIZE:-500}
+      LOG_SYNC_TIMEOUT: ${LOG_SYNC_TIMEOUT:-180000}
+      LOG_SYNC_RETRY_ATTEMPTS: ${LOG_SYNC_RETRY_ATTEMPTS:-2}
+    ports:
+      - '${CONSOLE_PORT:-3000}:3000'
+    networks:
+      - kimbap-network
+    healthcheck:
+      test: ['CMD', 'curl', '-f', 'http://localhost:3000']
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 15s
+
+volumes:
+  postgres-console-data:
+    driver: local
+  postgres-core-data:
+    driver: local
+
+networks:
+  kimbap-network:
+    driver: bridge

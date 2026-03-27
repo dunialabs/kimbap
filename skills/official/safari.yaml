@@ -1,0 +1,62 @@
+name: safari
+version: 1.0.0
+description: Safari browser automation via AppleScript
+adapter: applescript
+target_app: Safari
+auth:
+  type: none
+actions:
+  get-url:
+    command: safari-get-url
+    description: Get URL and title of the current tab
+    idempotent: true
+    args: []
+    response:
+      type: object
+    risk:
+      level: low
+  open-url:
+    command: safari-open-url
+    description: Open a URL in Safari
+    idempotent: false
+    args:
+      - name: url
+        type: string
+        required: true
+    response:
+      type: object
+    risk:
+      level: medium
+  list-tabs:
+    command: safari-list-tabs
+    description: List open tabs across all Safari windows
+    idempotent: true
+    args: []
+    response:
+      type: array
+    risk:
+      level: low
+  close-tab:
+    command: safari-close-tab
+    description: Close a tab by window and tab index
+    idempotent: false
+    args:
+      - name: window_index
+        type: integer
+        required: true
+      - name: tab_index
+        type: integer
+        required: true
+    response:
+      type: object
+    risk:
+      level: medium
+  get-source:
+    command: safari-get-source
+    description: Get current tab page source HTML
+    idempotent: true
+    args: []
+    response:
+      type: object
+    risk:
+      level: low

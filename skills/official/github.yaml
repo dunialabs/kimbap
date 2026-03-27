@@ -1,0 +1,143 @@
+name: github
+version: 1.0.0
+description: GitHub REST API integration for repository listing and issue management
+base_url: https://api.github.com
+auth:
+  type: bearer
+  credential_ref: github.token
+triggers:
+  task_verbs: [list, inspect, create, fetch]
+  objects: [repositories, issues]
+  instead_of:
+    - calling GitHub APIs directly with raw tokens
+  exclusions:
+    - unrelated local file operations
+gotchas:
+  - symptom: 401/403 on endpoints that should be accessible
+    likely_cause: Token lacks required scopes or is tied to the wrong account/installation
+    recovery: Confirm token type and scopes (repo, workflow, read:org, etc.) and re-auth with correct principal
+    severity: high
+  - symptom: Missing items when listing repositories or issues
+    likely_cause: Pagination defaults (per_page/page) returned only first page
+    recovery: Iterate through pages (or Link headers) until exhausted and increase per_page when appropriate
+    severity: medium
+  - symptom: 422 Validation Failed on issue creation
+    likely_cause: Payload shape does not match API schema (wrong field names/types)
+    recovery: Validate request body keys and types against endpoint docs before retrying
+    severity: medium
+  - symptom: 403 with secondary limit or abuse/rate limit message
+    likely_cause: Core/secondary rate limiting triggered by request burst
+    recovery: Honor reset headers, back off with jitter, and reduce request concurrency
+    severity: high
+  - symptom: Immediate read-after-write misses new issue/comment/status
+    likely_cause: Eventual consistency in replicated/indexed views
+    recovery: Retry reads with short bounded backoff before concluding the write failed
+    severity: low
+  - symptom: Issue retrieval returns 404/422 despite valid-looking issue number
+    likely_cause: Wrong owner/repo namespace or issue number belongs to a different repository
+    recovery: Verify canonical owner/repo slug and confirm issue_number against that repository before retrying
+    severity: medium
+  - symptom: Resource not found under org/repo path
+    likely_cause: Owner namespace mismatch (org vs user) or repository rename/transfer
+    recovery: Resolve canonical owner/repo slug first and use that namespace consistently
+    severity: medium
+recipes:
+  - name: Create issue from investigation notes
+    description: Convert findings into a tracked GitHub issue with consistent metadata
+    steps:
+      - List repositories to confirm the target owner/repo
+      - Create an issue with title/body and optional labels
+      - Fetch the created issue by issue_number to verify persisted content
+  - name: Safe issue lookup by namespace
+    description: Resolve owner/repo and retrieve a single issue without namespace drift
+    steps:
+      - Confirm canonical owner/repo slug for the target repository
+      - Fetch issue by owner, repo, and issue_number
+      - If not found, validate owner namespace and repository transfer/rename history
+actions:
+  list-repos:
+    method: GET
+    path: /user/repos
+    description: List repositories for the authenticated user
+    args:
+      - name: sort
+        type: string
+        required: false
+        default: updated
+        enum: [created, updated, pushed, full_name]
+      - name: per_page
+        type: integer
+        required: false
+        default: 30
+    request:
+      query:
+        sort: "{sort}"
+        per_page: "{per_page}"
+      headers:
+        Accept: application/vnd.github+json
+    response:
+      type: array
+    risk:
+      level: low
+    idempotent: true
+  create-issue:
+    method: POST
+    path: /repos/{owner}/{repo}/issues
+    description: Create a new issue in a GitHub repository
+    args:
+      - name: owner
+        type: string
+        required: true
+      - name: repo
+        type: string
+        required: true
+      - name: title
+        type: string
+        required: true
+      - name: body
+        type: string
+        required: false
+      - name: labels
+        type: array
+        required: false
+    request:
+      path_params:
+        owner: "{owner}"
+        repo: "{repo}"
+      headers:
+        Accept: application/vnd.github+json
+      body:
+        title: "{title}"
+        body: "{body}"
+        labels: "{labels}"
+    response:
+      type: object
+    risk:
+      level: medium
+    idempotent: false
+  get-issue:
+    method: GET
+    path: /repos/{owner}/{repo}/issues/{issue_number}
+    description: Get a specific issue from a repository
+    args:
+      - name: owner
+        type: string
+        required: true
+      - name: repo
+        type: string
+        required: true
+      - name: issue_number
+        type: integer
+        required: true
+    request:
+      path_params:
+        owner: "{owner}"
+        repo: "{repo}"
+        issue_number: "{issue_number}"
+      headers:
+        Accept: application/vnd.github+json
+    response:
+      type: object
+    risk:
+      level: low
+    idempotent: true

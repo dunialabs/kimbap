@@ -1,0 +1,60 @@
+name: open-meteo-geocoding
+version: 1.0.0
+description: Open-Meteo geocoding API for converting city names and addresses to coordinates
+base_url: https://geocoding-api.open-meteo.com
+auth:
+  type: none
+triggers:
+  task_verbs: [search, geocode, find, locate]
+  objects: [city, location, coordinates, address]
+  instead_of:
+    - manually looking up latitude and longitude for place names
+  exclusions:
+    - weather queries (use open-meteo service after resolving coordinates)
+gotchas:
+  - symptom: Search returns unexpected or no results
+    likely_cause: City name is ambiguous or spelled differently from expected
+    recovery: Try alternate spellings or include country name for disambiguation
+    severity: medium
+  - symptom: count parameter returns too many unrelated results
+    likely_cause: Short or common name matches many places globally
+    recovery: Use count 1-3 for typical single-location lookups and pick the best match
+    severity: low
+recipes:
+  - name: Coordinate resolution for weather
+    description: Convert a place name to lat/lon before calling weather or air quality APIs
+    steps:
+      - Call search with the city or place name
+      - Take latitude and longitude from the first result
+      - Pass coordinates to open-meteo get-forecast or open-meteo-air-quality get-air-quality
+actions:
+  search:
+    method: GET
+    path: /v1/search
+    description: Search for a location by name and return coordinates
+    args:
+      - name: name
+        type: string
+        required: true
+      - name: count
+        type: integer
+        required: false
+        default: 5
+      - name: language
+        type: string
+        required: false
+        default: "en"
+    request:
+      query:
+        name: "{name}"
+        count: "{count}"
+        language: "{language}"
+    response:
+      extract: results
+      type: array
+    risk:
+      level: low
+    retry:
+      max_attempts: 3
+      backoff_ms: 200
+      retry_on: [429, 500, 502, 503]

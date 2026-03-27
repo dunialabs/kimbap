@@ -1,0 +1,99 @@
+generator client {
+  provider      = "prisma-client-js"
+  binaryTargets = ["native", "darwin", "darwin-arm64", "linux-musl", "linux-musl-openssl-3.0.x", "linux-musl-arm64-openssl-3.0.x", "debian-openssl-3.0.x", "windows"]
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model Log {
+  id                     Int     @id @default(autoincrement())
+  addtime                BigInt  @default(0)
+  action                 Int     @default(0)
+  userid                 String  @default("")
+  serverId               String? @map("server_id")
+  sessionId              String  @default("") @map("session_id")
+  upstreamRequestId      String  @default("") @map("upstream_request_id")
+  uniformRequestId       String? @map("uniform_request_id")
+  parentUniformRequestId String? @map("parent_uniform_request_id")
+  proxyRequestId         String? @map("proxy_request_id")
+  ip                     String  @default("")
+  ua                     String  @default("")
+  tokenMask              String  @default("") @map("token_mask")
+  requestParams          String  @default("") @map("request_params")
+  responseResult         String  @default("") @map("response_result")
+  error                  String  @default("")
+  duration               Int?    @map("duration")
+  statusCode             Int?    @map("status_code")
+  idInCore               BigInt? @map("id_in_core")
+  proxyKey               String  @default("") @map("proxy_key")
+
+  @@index([userid])
+  @@index([sessionId])
+  @@index([uniformRequestId])
+  @@index([serverId])
+  @@index([addtime])
+  @@index([proxyKey, addtime(sort: Desc)], map: "idx_log_proxy_key_addtime")
+  @@index([proxyKey, idInCore(sort: Desc)], map: "idx_log_proxy_key_id_in_core")
+  @@index([idInCore], map: "idx_log_id_in_core")
+  @@index([proxyKey, statusCode], map: "idx_log_proxy_key_status_code")
+  @@index([proxyKey, userid], map: "idx_log_proxy_key_userid")
+  @@map("log")
+}
+
+model User {
+  userid          String @id @map("userid")
+  accessTokenHash String @unique @map("access_token_hash")
+  proxyKey        String @default("single") @map("proxy_key")
+  role            Int    @map("role")
+
+  @@map("user")
+}
+
+model Config {
+  id               Int    @id @default(autoincrement())
+  kimbap_core_host String @default("")
+  kimbap_core_port Int    @default(80)
+
+  @@map("config")
+}
+
+model TokenMetadata {
+  userid    String   @id @map("userid")
+  namespace String   @default("default") @map("namespace")
+  tags      String   @default("[]") @map("tags")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("token_metadata")
+}
+
+model RateLimitBucket {
+  key       String   @id
+  count     Int      @default(0)
+  resetAtMs BigInt   @map("reset_at_ms")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@index([resetAtMs], map: "idx_rate_limit_reset_at_ms")
+  @@map("rate_limit_bucket")
+}
+
+model RuntimeLock {
+  key         String   @id
+  expiresAtMs BigInt   @map("expires_at_ms")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  @@index([expiresAtMs], map: "idx_runtime_lock_expires_at_ms")
+  @@map("runtime_lock")
+}
+
+model License {
+  id         Int    @id @default(autoincrement())
+  licenseStr String @map("license_str")
+  addtime    Int
+  status     Int
+
+  @@map("license")
+}

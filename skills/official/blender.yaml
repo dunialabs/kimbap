@@ -1,0 +1,142 @@
+name: blender
+version: 1.0.0
+description: 3D scene creation, modeling, and rendering via CLI-Anything Blender harness
+adapter: command
+command_spec:
+  executable: cli-anything-blender
+  json_flag: "--json"
+  timeout: "300s"
+auth:
+  type: none
+triggers:
+  task_verbs: [create, model, render, inspect]
+  objects: [blender scenes, meshes, materials, renders]
+  instead_of:
+    - writing ad-hoc Blender scripts for routine scene operations
+  exclusions:
+    - CAD-only workflows requiring non-Blender tools
+gotchas:
+  - symptom: add-mesh reports object placement issues
+    likely_cause: location string format is invalid or outside expected coordinate format
+    recovery: Provide location as a valid vector string accepted by the harness
+    severity: medium
+  - symptom: render takes too long or times out
+    likely_cause: high resolution or heavy scene complexity exceeds runtime budget
+    recovery: Lower resolution, simplify scene, or switch render engine before retry
+    severity: high
+recipes:
+  - name: Scene bootstrap to final render
+    description: Create a new project, add geometry, set material, and render output
+    steps:
+      - Call create-scene with an output project path
+      - Add one or more meshes with add-mesh
+      - Apply set-material to key scene objects
+      - Run render with output and tuned resolution settings
+actions:
+  create-scene:
+    command: "scene new"
+    description: Initialize a new Blender scene project
+    idempotent: false
+    args:
+      - name: output
+        type: string
+        required: true
+    response:
+      type: object
+    risk:
+      level: medium
+
+  scene-info:
+    command: "scene info"
+    description: Inspect metadata and status for a scene project
+    idempotent: true
+    args:
+      - name: project
+        type: string
+        required: true
+    response:
+      type: object
+    risk:
+      level: low
+
+  add-mesh:
+    command: "mesh add"
+    description: Add a mesh primitive into a Blender project
+    idempotent: false
+    args:
+      - name: project
+        type: string
+        required: true
+      - name: type
+        type: string
+        required: true
+      - name: name
+        type: string
+        required: false
+      - name: location
+        type: string
+        required: false
+    response:
+      type: object
+    risk:
+      level: medium
+
+  set-material:
+    command: "material set"
+    description: Set material color properties for an object
+    idempotent: false
+    args:
+      - name: project
+        type: string
+        required: true
+      - name: object
+        type: string
+        required: true
+      - name: color
+        type: string
+        required: true
+    response:
+      type: object
+    risk:
+      level: medium
+
+  render:
+    command: "render execute"
+    description: Render a scene project to an output image
+    idempotent: false
+    args:
+      - name: project
+        type: string
+        required: true
+      - name: output
+        type: string
+        required: true
+      - name: resolution_x
+        type: integer
+        required: false
+        default: 1920
+      - name: resolution_y
+        type: integer
+        required: false
+        default: 1080
+      - name: engine
+        type: string
+        required: false
+        default: EEVEE
+    response:
+      type: object
+    risk:
+      level: high
+
+  list-objects:
+    command: "object list"
+    description: List objects currently present in a Blender scene project
+    idempotent: true
+    args:
+      - name: project
+        type: string
+        required: true
+    response:
+      type: array
+    risk:
+      level: low

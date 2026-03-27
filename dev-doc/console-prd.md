@@ -5,7 +5,7 @@
 **Language:** English  
 **Scope:** Console only  
 **Target Product:** Kimbap Console  
-**Related Components:** `kimbap-core`, existing TypeScript `kimbap-console` (legacy baseline)
+**Related Components:** `kimbap`, existing TypeScript `kimbap-console` (legacy baseline)
 
 ---
 

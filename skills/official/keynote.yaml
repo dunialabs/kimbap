@@ -1,0 +1,94 @@
+name: keynote
+version: 1.0.0
+description: Apple Keynote automation via AppleScript — presentation creation, slide editing, and export on macOS
+adapter: applescript
+target_app: Keynote
+auth:
+  type: none
+actions:
+  create-presentation:
+    command: keynote-create-presentation
+    description: Create a new Keynote presentation
+    idempotent: false
+    args: []
+    response:
+      type: object
+    risk:
+      level: medium
+  open-presentation:
+    command: keynote-open-presentation
+    description: Open a Keynote presentation from a POSIX file path
+    idempotent: false
+    args:
+      - name: path
+        type: string
+        required: true
+    response:
+      type: object
+    risk:
+      level: low
+  add-slide:
+    command: keynote-add-slide
+    description: Add a new slide to the active presentation
+    idempotent: false
+    args:
+      - name: layout
+        type: string
+        required: false
+    response:
+      type: object
+    risk:
+      level: medium
+  set-slide-text:
+    command: keynote-set-slide-text
+    description: Set text on a text item in a specific slide
+    idempotent: false
+    args:
+      - name: slide_number
+        type: integer
+        required: true
+      - name: text
+        type: string
+        required: true
+      - name: item_index
+        type: integer
+        required: false
+        default: 1
+    response:
+      type: object
+    risk:
+      level: medium
+  export-pdf:
+    command: keynote-export-pdf
+    description: Export the active presentation as a PDF file
+    idempotent: false
+    args:
+      - name: output_path
+        type: string
+        required: true
+    response:
+      type: object
+    risk:
+      level: medium
+  start-slideshow:
+    command: keynote-start-slideshow
+    description: Start a slideshow from the first slide
+    idempotent: false
+    args: []
+    response:
+      type: object
+    risk:
+      level: low
+  close-presentation:
+    command: keynote-close-presentation
+    description: Close the active presentation
+    idempotent: false
+    args:
+      - name: save
+        type: boolean
+        required: false
+        default: false
+    response:
+      type: object
+    risk:
+      level: medium

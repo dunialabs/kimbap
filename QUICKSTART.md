@@ -8,7 +8,7 @@
 ## Install & Run
 
 ```bash
-cd kimbap-core
+cd kimbap
 make deps
 make build
 ./bin/kimbap --help
@@ -31,6 +31,8 @@ make build
 
 ```bash
 ./bin/kimbap serve
+# enable embedded operations shell at /console for this run
+./bin/kimbap serve --console
 ```
 
 API runs on http://localhost:8080.
@@ -50,4 +52,4 @@ Use the returned token as `Authorization: Bearer <token>` for API calls.
 
 ## API Reference
 
-See [docs/api/API.md](kimbap-core/docs/api/API.md) for the full endpoint list.
+See [docs/api/API.md](docs/api/API.md) for the full endpoint list.

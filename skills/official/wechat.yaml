@@ -1,0 +1,96 @@
+name: wechat
+version: 0.1.0
+description: "WeChat messaging via wechaty CLI harness (experimental: QR-code session, may be unstable)"
+adapter: command
+command_spec:
+  executable: cli-anything-wechat
+  json_flag: "--json"
+  timeout: "60s"
+auth:
+  type: none
+triggers:
+  task_verbs: [send, list, fetch, check]
+  objects: [wechat contacts, rooms, messages, sessions]
+  instead_of:
+    - building direct unofficial WeChat automation scripts
+  exclusions:
+    - official enterprise WeChat API integrations
+gotchas:
+  - symptom: commands intermittently fail or session is revoked
+    likely_cause: WeChat frequently blocks unofficial API access patterns
+    recovery: Re-authenticate via QR, reduce automation rate, and retry after cooldown
+    severity: critical
+  - symptom: send-room-message fails for a known room
+    likely_cause: room_id changed, stale cache, or bot is no longer in that room
+    recovery: Refresh rooms with get-rooms and verify current membership before sending
+    severity: high
+recipes:
+  - name: Contact-to-room messaging workflow
+    description: Validate session, refresh entities, and send direct + room messages safely
+    steps:
+      - Call session-status to confirm active login
+      - Call get-contacts or get-rooms to refresh current identifiers
+      - Call send-message for direct contact delivery
+      - Call send-room-message for group broadcast
+actions:
+  send-message:
+    command: "message send"
+    description: Send a direct message to a WeChat contact
+    idempotent: false
+    args:
+      - name: to
+        type: string
+        required: true
+      - name: text
+        type: string
+        required: true
+    response:
+      type: object
+    risk:
+      level: medium
+
+  get-contacts:
+    command: "contact list"
+    description: List available contacts in the active WeChat session
+    idempotent: true
+    args: []
+    response:
+      type: array
+    risk:
+      level: low
+
+  get-rooms:
+    command: "room list"
+    description: List available rooms/chats for the active WeChat session
+    idempotent: true
+    args: []
+    response:
+      type: array
+    risk:
+      level: low
+
+  send-room-message:
+    command: "room message"
+    description: Send a message into a target WeChat room
+    idempotent: false
+    args:
+      - name: room_id
+        type: string
+        required: true
+      - name: text
+        type: string
+        required: true
+    response:
+      type: object
+    risk:
+      level: medium
+
+  session-status:
+    command: "session status"
+    description: Check current session and login state for WeChat harness
+    idempotent: true
+    args: []
+    response:
+      type: object
+    risk:
+      level: low

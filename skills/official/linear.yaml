@@ -1,0 +1,162 @@
+name: linear
+version: 1.0.0
+description: Linear API for issue tracking, project management, and team workflows via GraphQL
+base_url: https://api.linear.app
+auth:
+  type: bearer
+  credential_ref: linear.api_key
+triggers:
+  task_verbs: [list, create, update, manage]
+  objects: [issues, projects, teams, tasks]
+  instead_of:
+    - calling Linear GraphQL APIs directly with ad-hoc payload/error handling
+  exclusions:
+    - unrelated actions outside Linear issue and team workflows
+gotchas:
+  - symptom: Request returns HTTP 200 but operation still failed
+    likely_cause: GraphQL errors are returned in response body errors field
+    recovery: Inspect response.errors on every call even when status is 200
+    severity: common
+  - symptom: Authorization fails with OAuth-style credential
+    likely_cause: Linear requires personal API key for these actions
+    recovery: Use personal API key from Linear Settings > API
+    severity: high
+  - symptom: list-issues filter appears ignored or invalid
+    likely_cause: filter argument must follow Linear GraphQL filter object schema
+    recovery: Build filter object to match Linear IssueFilter structure
+    severity: medium
+  - symptom: create-issue fails for missing team context
+    likely_cause: team_id is required and not resolved beforehand
+    recovery: List teams first and pass a valid team_id into create-issue
+    severity: high
+recipes:
+  - name: Team-scoped issue triage
+    description: Resolve team context, inspect team issues, then create follow-up work items
+    steps:
+      - List teams to identify the target team_id
+      - List issues with filter scoped to that team
+      - Create issue with team_id and triage details
+actions:
+  list-issues:
+    method: POST
+    path: /graphql
+    description: List issues with optional filtering
+    args:
+      - name: first
+        type: integer
+        required: false
+        default: 50
+      - name: filter
+        type: object
+        required: false
+    request:
+      body:
+        query: "query($first: Int, $filter: IssueFilter) { issues(first: $first, filter: $filter) { nodes { id title description state { name } assignee { name email } priority createdAt updatedAt } } }"
+        variables:
+          first: "{first}"
+          filter: "{filter}"
+    response:
+      extract: data.issues.nodes
+      type: array
+    risk:
+      level: low
+    retry:
+      max_attempts: 3
+      backoff_ms: 200
+      retry_on: [429, 500, 502, 503]
+  create-issue:
+    method: POST
+    path: /graphql
+    description: Create a new issue
+    args:
+      - name: title
+        type: string
+        required: true
+      - name: team_id
+        type: string
+        required: true
+      - name: description
+        type: string
+        required: false
+      - name: priority
+        type: integer
+        required: false
+      - name: assignee_id
+        type: string
+        required: false
+    request:
+      body:
+        query: "mutation($title: String!, $teamId: String!, $description: String, $priority: Int, $assigneeId: String) { issueCreate(input: { title: $title, teamId: $teamId, description: $description, priority: $priority, assigneeId: $assigneeId }) { success issue { id title state { name } assignee { name } } } }"
+        variables:
+          title: "{title}"
+          teamId: "{team_id}"
+          description: "{description}"
+          priority: "{priority}"
+          assigneeId: "{assignee_id}"
+    response:
+      extract: data.issueCreate
+      type: object
+    risk:
+      level: medium
+  update-issue:
+    method: POST
+    path: /graphql
+    description: Update an existing issue
+    args:
+      - name: issue_id
+        type: string
+        required: true
+      - name: title
+        type: string
+        required: false
+      - name: description
+        type: string
+        required: false
+      - name: state_id
+        type: string
+        required: false
+      - name: priority
+        type: integer
+        required: false
+      - name: assignee_id
+        type: string
+        required: false
+    request:
+      body:
+        query: "mutation($id: String!, $title: String, $description: String, $stateId: String, $priority: Int, $assigneeId: String) { issueUpdate(id: $id, input: { title: $title, description: $description, stateId: $stateId, priority: $priority, assigneeId: $assigneeId }) { success issue { id title state { name } assignee { name } } } }"
+        variables:
+          id: "{issue_id}"
+          title: "{title}"
+          description: "{description}"
+          stateId: "{state_id}"
+          priority: "{priority}"
+          assigneeId: "{assignee_id}"
+    response:
+      extract: data.issueUpdate
+      type: object
+    risk:
+      level: medium
+  list-teams:
+    method: POST
+    path: /graphql
+    description: List all teams in the workspace
+    request:
+      body:
+        query: "query { teams { nodes { id name key description } } }"
+    response:
+      extract: data.teams.nodes
+      type: array
+    risk:
+      level: low
+  list-projects:
+    method: POST
+    path: /graphql
+    description: List all projects in the workspace
+    request:
+      body:
+        query: "query { projects { nodes { id name description state startDate targetDate } } }"
+    response:
+      extract: data.projects.nodes
+      type: array
+    risk:
+      level: low

@@ -396,7 +396,7 @@ Kimbap is not:
 - `kimbap approve`
 - `kimbap audit`
 - `kimbap skill`
-- `kimbap agent-profile`
+- `kimbap profile`
 - `kimbap config`
 
 ---
@@ -656,7 +656,7 @@ Kimbap must expose a coherent CLI taxonomy.
 - `approve`
 - `audit`
 - `skill`
-- `agent-profile`
+- `profile`
 - `config`
 - `doctor`
 
@@ -676,7 +676,7 @@ Kimbap must expose a coherent CLI taxonomy.
 | `kimbap policy eval --agent billing-bot --action stripe.refund` | Simulate policy decision |
 | `kimbap approve <request-id>` | Approve a held action |
 | `kimbap skill install github:user/repo/skill` | Install a skill |
-| `kimbap agent-profile install claude-code` | Install agent operating instructions/profile |
+| `kimbap profile install claude-code` | Install agent operating instructions/profile |
 | `kimbap doctor proxy` | Diagnose CA/proxy/env issues |
 
 ### FR-4. Structured result envelope
@@ -1649,9 +1649,9 @@ This artifact teaches the agent:
 Kimbap should ship commands such as:
 
 ```bash
-kimbap agent-profile install claude-code
-kimbap agent-profile install generic
-kimbap agent-profile print cursor
+kimbap profile install claude-code
+kimbap profile install generic
+kimbap profile print cursor
 ```
 
 Expected outputs may include:
@@ -2136,9 +2136,9 @@ kimbap skill list
 kimbap skill remove linear
 
 # Agent profiles
-kimbap agent-profile install claude-code
-kimbap agent-profile install generic
-kimbap agent-profile print generic
+kimbap profile install claude-code
+kimbap profile install generic
+kimbap profile print generic
 
 # Diagnostics
 kimbap doctor

@@ -1,0 +1,207 @@
+name: stripe
+version: 1.0.0
+description: Stripe API for payment processing, customer management, and billing
+base_url: https://api.stripe.com/v1
+auth:
+  type: bearer
+  credential_ref: stripe.api_key
+triggers:
+  task_verbs: [list, get, charge, create, invoice]
+  objects: [customers, charges, payments, invoices]
+  instead_of:
+    - calling Stripe APIs directly with raw keys in agent context
+  exclusions:
+    - unrelated actions outside payments, customers, and billing operations
+gotchas:
+  - symptom: Test execution causes unexpected real charges
+    likely_cause: Live secret key used instead of test key
+    recovery: Use sk_test_ keys for non-production runs and isolate environments
+    severity: high
+  - symptom: Resource lookup fails with seemingly valid IDs
+    likely_cause: Wrong object prefix/type used (cus_, ch_, pi_, etc.)
+    recovery: Validate ID prefixes against endpoint resource type before request
+    severity: medium
+  - symptom: list endpoints miss older records
+    likely_cause: Stripe pagination uses cursor starting_after rather than page offsets
+    recovery: Iterate using starting_after cursors until has_more is false
+    severity: common
+  - symptom: Payment link created unexpectedly during test workflows
+    likely_cause: create-payment-link always produces a real URL artifact (mode depends on key)
+    recovery: Confirm key mode and cleanup test links when running in test environments
+    severity: medium
+recipes:
+  - name: Customer billing status check
+    description: Gather customer, invoice, and charge context to assess billing health
+    steps:
+      - List customers and filter by target email
+      - List invoices for the selected customer ID
+      - List recent charges to correlate payment outcomes
+actions:
+  list-charges:
+    method: GET
+    path: /charges
+    description: List recent charges
+    args:
+      - name: limit
+        type: integer
+        required: false
+        default: 10
+      - name: customer
+        type: string
+        required: false
+    request:
+      query:
+        limit: "{limit}"
+        customer: "{customer}"
+    response:
+      extract: data
+      type: array
+    risk:
+      level: low
+    retry:
+      max_attempts: 3
+      backoff_ms: 200
+      retry_on: [429, 500, 502, 503]
+  get-charge:
+    method: GET
+    path: /charges/{id}
+    description: Get details of a specific charge
+    args:
+      - name: id
+        type: string
+        required: true
+    request:
+      path_params:
+        id: "{id}"
+    response:
+      type: object
+    risk:
+      level: low
+  list-customers:
+    method: GET
+    path: /customers
+    description: List customers
+    args:
+      - name: limit
+        type: integer
+        required: false
+        default: 10
+      - name: email
+        type: string
+        required: false
+    request:
+      query:
+        limit: "{limit}"
+        email: "{email}"
+    response:
+      extract: data
+      type: array
+    risk:
+      level: low
+  get-customer:
+    method: GET
+    path: /customers/{id}
+    description: Get details of a specific customer
+    args:
+      - name: id
+        type: string
+        required: true
+    request:
+      path_params:
+        id: "{id}"
+    response:
+      type: object
+    risk:
+      level: low
+  create-customer:
+    method: POST
+    path: /customers
+    description: Create a new customer
+    warnings:
+      - Creates a real customer record in your Stripe account
+      - "Uses JSON body (Content-Type: application/json)"
+    args:
+      - name: email
+        type: string
+        required: false
+      - name: name
+        type: string
+        required: false
+      - name: description
+        type: string
+        required: false
+    request:
+      body:
+        email: "{email}"
+        name: "{name}"
+        description: "{description}"
+    response:
+      type: object
+    risk:
+      level: medium
+  list-invoices:
+    method: GET
+    path: /invoices
+    description: List invoices
+    args:
+      - name: limit
+        type: integer
+        required: false
+        default: 10
+      - name: customer
+        type: string
+        required: false
+      - name: status
+        type: string
+        required: false
+        enum: [draft, open, paid, uncollectible, void]
+    request:
+      query:
+        limit: "{limit}"
+        customer: "{customer}"
+        status: "{status}"
+    response:
+      extract: data
+      type: array
+    risk:
+      level: low
+  list-payment-intents:
+    method: GET
+    path: /payment_intents
+    description: List payment intents
+    args:
+      - name: limit
+        type: integer
+        required: false
+        default: 10
+      - name: customer
+        type: string
+        required: false
+    request:
+      query:
+        limit: "{limit}"
+        customer: "{customer}"
+    response:
+      extract: data
+      type: array
+    risk:
+      level: low
+  create-payment-link:
+    method: POST
+    path: /payment_links
+    description: Create a payment link for collecting payments
+    warnings:
+      - Creates a live payment link that can be used to collect real payments
+      - "Uses JSON body (Content-Type: application/json)"
+      - line_items must be an array of objects with price and quantity keys
+    args:
+      - name: line_items
+        type: array
+        required: true
+    request:
+      body:
+        line_items: "{line_items}"
+    response:
+      type: object
+    risk:
+      level: high

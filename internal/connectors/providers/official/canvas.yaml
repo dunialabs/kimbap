@@ -1,0 +1,13 @@
+id: canvas
+display_name: Canvas LMS
+supported_flows: [browser]
+auth_endpoint: "https://{domain}/login/oauth2/auth"
+token_endpoint: "https://{domain}/login/oauth2/token"
+default_scopes: []
+connection_scope_model: [user]
+pkce_required: false
+notes: "Canvas LMS requires your institution domain. Use --extra domain=<your-canvas-domain> when connecting."
+auth_lanes: [byo]
+endpoint_placeholders: [domain]
+token_exchange:
+  auth_method: body

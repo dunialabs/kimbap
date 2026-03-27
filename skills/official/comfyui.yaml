@@ -1,0 +1,113 @@
+name: comfyui
+version: 1.0.0
+description: ComfyUI local API for prompt queueing, history, and runtime control
+base_url: http://localhost:8188
+auth:
+  type: none
+triggers:
+  task_verbs: [queue, inspect, list, monitor, interrupt]
+  objects: [prompts, queue, history, checkpoints, system]
+  instead_of:
+    - calling ComfyUI HTTP endpoints manually
+  exclusions:
+    - non-ComfyUI image generation platforms
+gotchas:
+  - symptom: queue-prompt returns validation errors
+    likely_cause: prompt object graph is malformed or references missing nodes
+    recovery: Validate node IDs, class_type values, and input links before queueing
+    severity: high
+  - symptom: get-history returns empty payload for known runs
+    likely_cause: Used wrong prompt_id or queried before execution completion
+    recovery: Read prompt_id from queue response and poll after generation finishes
+    severity: medium
+  - symptom: interrupt appears to do nothing
+    likely_cause: No active generation was running when interrupt was called
+    recovery: Check queue/system status first, then retry interrupt during active work
+    severity: low
+recipes:
+  - name: Queue prompt and collect outputs
+    description: Submit a workflow, then retrieve its completed history safely
+    steps:
+      - Queue the prompt object and store returned prompt_id
+      - Poll queue state until processing completes
+      - Fetch history by prompt_id and extract output artifact metadata
+  - name: Runtime health and control loop
+    description: Inspect system capacity, queue depth, and stop runaway jobs when needed
+    steps:
+      - Check system stats for memory and runtime signals
+      - Inspect current queue and pending/running entries
+      - Interrupt only when an active run must be stopped
+actions:
+  queue-prompt:
+    method: POST
+    path: /prompt
+    description: Queue a ComfyUI workflow prompt for execution
+    args:
+      - name: prompt
+        type: object
+        required: true
+      - name: client_id
+        type: string
+        required: false
+    request:
+      body:
+        prompt: "{prompt}"
+        client_id: "{client_id}"
+    response:
+      type: object
+    risk:
+      level: medium
+
+  get-history:
+    method: GET
+    path: /history/{prompt_id}
+    description: Retrieve history and outputs for a specific prompt execution
+    args:
+      - name: prompt_id
+        type: string
+        required: true
+    request:
+      path_params:
+        prompt_id: "{prompt_id}"
+    response:
+      type: object
+    risk:
+      level: low
+
+  get-queue:
+    method: GET
+    path: /queue
+    description: Get current pending and running queue entries
+    response:
+      type: object
+    risk:
+      level: low
+
+  interrupt:
+    method: POST
+    path: /interrupt
+    description: Interrupt currently running prompt execution
+    warnings:
+      - Interrupt stops active generation and may leave partial outputs
+    response:
+      type: object
+    risk:
+      level: medium
+
+  list-checkpoints:
+    method: GET
+    path: /object_info/CheckpointLoaderSimple
+    description: List available model checkpoints known to ComfyUI
+    response:
+      type: object
+    risk:
+      level: low
+
+  system-stats:
+    method: GET
+    path: /system_stats
+    description: Retrieve ComfyUI system runtime statistics
+    response:
+      type: object
+    risk:
+      level: low
