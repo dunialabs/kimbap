@@ -662,6 +662,9 @@ func resolveServiceAction(req runtimepkg.PolicyRequest) (string, string) {
 	if req.Classification != nil {
 		service := strings.TrimSpace(req.Classification.Service)
 		action := strings.TrimSpace(req.Classification.ActionName)
+		if service != "" && strings.HasPrefix(action, service+".") {
+			action = strings.TrimPrefix(action, service+".")
+		}
 		if service != "" || action != "" {
 			return service, action
 		}
