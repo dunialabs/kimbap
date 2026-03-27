@@ -258,8 +258,19 @@ func extractAuth(root map[string]any, resolver *openAPIRefResolver, skillName st
 		return ServiceAuth{Type: "none"}, nil
 	}
 
+	securityAny, hasRootSecurity := root["security"]
+	if hasRootSecurity {
+		security, ok := securityAny.([]any)
+		if !ok || len(security) == 0 {
+			return ServiceAuth{Type: "none"}, nil
+		}
+	}
+
 	schemeName := firstReferencedSecurityScheme(root)
 	if schemeName == "" {
+		if hasRootSecurity {
+			return ServiceAuth{Type: "none"}, nil
+		}
 		keys := sortedMapKeys(schemes)
 		schemeName = keys[0]
 	}
