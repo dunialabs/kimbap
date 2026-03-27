@@ -576,7 +576,14 @@ export default function ApprovalsPage() {
                       <TableCell className="text-sm text-muted-foreground">
                         {formatTime(r.createdAt)}
                       </TableCell>
-                      <TableCell className="text-sm text-muted-foreground">
+                      <TableCell className={`text-sm ${
+                        (() => {
+                          const remainingMs = new Date(r.expiresAt).getTime() - Date.now()
+                          return r.status === 'PENDING' && remainingMs > 0 && remainingMs < 30 * 60 * 1000
+                            ? 'text-amber-600 dark:text-amber-400 font-medium'
+                            : 'text-muted-foreground'
+                        })()
+                      }`}>
                         {formatTime(r.expiresAt)}
                       </TableCell>
                       <TableCell className="text-sm text-muted-foreground max-w-[180px]" title={r.reason || undefined}>
@@ -743,12 +750,14 @@ export default function ApprovalsPage() {
                 </div>
               )}
 
-              <div>
-                <Label className="text-xs text-muted-foreground">Tool Arguments (Redacted)</Label>
-                <pre className="mt-1 text-xs bg-muted/50 p-3 rounded-md overflow-x-auto font-mono max-h-48 whitespace-pre-wrap break-all">
-                  {JSON.stringify(redactArgs(detailDialog.redactedArgs || {}), null, 2)}
-                </pre>
-              </div>
+              {Object.keys(redactArgs(detailDialog.redactedArgs || {})).length > 0 && (
+                <div>
+                  <Label className="text-xs text-muted-foreground">Tool Arguments (Redacted)</Label>
+                  <pre className="mt-1 text-xs bg-muted/50 p-3 rounded-md overflow-x-auto font-mono max-h-48 whitespace-pre-wrap break-all">
+                    {JSON.stringify(redactArgs(detailDialog.redactedArgs || {}), null, 2)}
+                  </pre>
+                </div>
+              )}
 
               <div className="text-sm">
                 <div>

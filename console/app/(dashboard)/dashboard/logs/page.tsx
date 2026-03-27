@@ -766,7 +766,9 @@ function LogsPageContent() {
                   </span>
                 )}
                 <span className="block text-xs mt-1">
-                  {isRealtimePaused
+                  {loading
+                    ? 'Fetching logs…'
+                    : isRealtimePaused
                     ? activeTab === 'statistics'
                       ? 'Live updates paused in Statistics view.'
                       : 'Live updates pause while searching or browsing older pages.'
@@ -1076,7 +1078,10 @@ function LogsPageContent() {
             <CardContent>
               {loading ? (
                 <div className="flex items-center justify-center py-16 text-muted-foreground">
-                  <p className="text-sm">Preparing raw log output...</p>
+                  <div className="text-center">
+                    <Loader2 className="h-6 w-6 animate-spin mx-auto mb-2 text-muted-foreground" aria-hidden="true" />
+                    <p className="text-sm">Preparing raw log output...</p>
+                  </div>
                 </div>
               ) : logs.length === 0 ? (
                 <div className="flex flex-col items-center justify-center py-16 text-muted-foreground">
