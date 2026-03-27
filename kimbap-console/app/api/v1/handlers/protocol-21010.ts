@@ -215,7 +215,6 @@ export async function handleProtocol21010(body: Request21010): Promise<Response2
     const uniqueUserIds = Array.from(new Set(logs.map((log) => log.userid).filter(Boolean)));
     const userRoles = await prisma.user.findMany({
       where: {
-        proxyKey: proxy.proxyKey,
         userid: {
           in: uniqueUserIds
         }

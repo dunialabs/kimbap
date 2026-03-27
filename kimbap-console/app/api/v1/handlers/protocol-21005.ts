@@ -48,7 +48,7 @@ export async function handleProtocol21005(body: Request21005): Promise<Response2
     try {
       const proxy = await getProxy();
       proxyKey = proxy.proxyKey;
-      console.log('[Protocol-21005] Got proxyKey:', proxyKey);
+      console.log('[Protocol-21005] Got proxyKey:');
     } catch (error) {
       console.error('[Protocol-21005] Failed to get proxy info:', error);
       throw new ApiError(ErrorCode.INTERNAL_SERVER_ERROR, 500, { 
@@ -188,8 +188,7 @@ export async function handleProtocol21005(body: Request21005): Promise<Response2
       tokenName,
       patternType,
       pointsCount: patterns.length,
-      totalRequests: patterns.reduce((sum, p) => sum + p.requests, 0),
-      proxyKey
+      totalRequests: patterns.reduce((sum, p) => sum + p.requests, 0)
     });
     
     return response;

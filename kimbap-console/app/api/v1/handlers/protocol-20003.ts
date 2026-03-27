@@ -39,7 +39,7 @@ export async function handleProtocol20003(body: Request20003): Promise<Response2
     try {
       const proxy = await getProxy();
       proxyKey = proxy.proxyKey;
-      console.log('[Protocol-20003] Got proxyKey:', proxyKey);
+      console.log('[Protocol-20003] Got proxyKey:');
     } catch (error) {
       console.error('[Protocol-20003] Failed to get proxy info:', error);
       throw new ApiError(ErrorCode.INTERNAL_SERVER_ERROR, 500, { 
@@ -118,8 +118,7 @@ export async function handleProtocol20003(body: Request20003): Promise<Response2
       trendsCount: trends.length,
       timePointsCount: timePoints.length,
       sampleTrendData: trends.length > 0 ? trends[0] : null,
-      validServerIdsCount: validServerIds.size,
-      proxyKey: proxyKey.substring(0, 8) + '...'
+      validServerIdsCount: validServerIds.size
     });
     return response;
     

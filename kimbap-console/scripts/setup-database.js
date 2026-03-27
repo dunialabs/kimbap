@@ -31,7 +31,7 @@ async function setupDatabase() {
     }
 
     console.log('📦 Syncing schema...');
-    run('npx prisma db push --schema=./prisma/schema.prisma --accept-data-loss');
+    run('npx prisma db push --schema=./prisma/schema.prisma');
 
     console.log('✅ SQLite database is ready');
   } catch (error) {

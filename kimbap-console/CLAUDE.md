@@ -5,7 +5,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ## Commands
 
 ### Development
-- `npm run dev` - Start development environment (PostgreSQL + Next.js with API routes)
+- `npm run dev` - Start development environment (SQLite + Next.js with API routes)
 - `npm run dev:frontend-only` - Start only Next.js without database (for external DB)
 - `npm run dev:custom` - Start with custom server configuration
 - `npm run build` - Build for production
@@ -13,14 +13,11 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - `npm run start:custom` - Start production server with custom configuration
 
 ### Database Management
-- `npm run db:start` - Start PostgreSQL database using Docker
-- `npm run db:stop` - Stop all database services
-- `npm run db:push` - Push Prisma schema changes to PostgreSQL
-- `npm run db:migrate:create` - Create new database migration
-- `npm run db:migrate:deploy` - Deploy database migrations
+- `npm run db:push` - Sync Prisma schema to SQLite database
 - `npm run db:studio` - Open Prisma Studio for database management
 - `npm run db:generate` - Generate Prisma client
 - `npm run db:reset` - Reset database (warning: data loss)
+- `npm run db:reset:complete` - Full database reset (delete file + re-push)
 
 ### Code Quality
 - `npm run type-check` - Run TypeScript type checking for frontend
@@ -35,7 +32,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - `npm run docker:deploy:auto` - Deploy with automatic port allocation
 
 ### Standalone Deployment
-- `npm run build:complete` - Build standalone package for current platform (with embedded PostgreSQL)
+- `npm run build:complete` - Build standalone package for current platform
 - `npm run build:complete:x64` - Build for x64 architecture
 - `npm run build:linux:x64` - Build for Linux x64
 - `npm run build:windows:x64` - Build for Windows x64

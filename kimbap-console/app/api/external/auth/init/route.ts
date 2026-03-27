@@ -129,7 +129,7 @@ export async function POST(request: NextRequest) {
         data: {
           userid: userId,
           accessTokenHash: hashToken(accessToken),
-          proxyKey: proxy.proxyKey,
+          proxyKey: 'single',
           role: 1, // 1-owner
         },
       });

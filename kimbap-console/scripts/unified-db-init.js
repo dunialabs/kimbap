@@ -32,7 +32,7 @@ function initialize() {
   try {
     ensureSqliteDirectory();
 
-    run('npx prisma db push --schema=./prisma/schema.prisma --accept-data-loss', 'pipe');
+    run('npx prisma db push --schema=./prisma/schema.prisma', 'pipe');
 
     if (process.env.SKIP_PRISMA_GENERATE !== 'true') {
       run('npx prisma generate --schema=./prisma/schema.prisma', process.env.DB_INIT_VERBOSE === 'true' ? 'inherit' : 'pipe');

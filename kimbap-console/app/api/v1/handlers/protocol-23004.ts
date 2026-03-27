@@ -72,7 +72,7 @@ export async function handleProtocol23004(body: Request23004): Promise<Response2
     try {
       const proxy = await getProxy();
       proxyKey = proxy.proxyKey;
-      console.log('[Protocol-23004] Got proxyKey:', proxyKey);
+      console.log('[Protocol-23004] Got proxyKey:');
     } catch (error) {
       console.error('[Protocol-23004] Failed to get proxy info:', error);
       throw new ApiError(ErrorCode.INTERNAL_SERVER_ERROR, 500, {
@@ -281,7 +281,6 @@ export async function handleProtocol23004(body: Request23004): Promise<Response2
       fileSize: response.fileSize,
       timeRange,
       filters: { level, source, hasSearch: !!search },
-      proxyKey,
     });
 
     return response;

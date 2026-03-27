@@ -35,8 +35,8 @@ interface Response21001Data {
 export async function handleProtocol21001(body: Request21001): Promise<Response21001Data> {
   try {
     const rawToken = body.common?.rawToken;
-    const normalizedTimeRange = Number.isFinite(Math.floor(Number(body.params.timeRange))) && Math.floor(Number(body.params.timeRange)) >= 1
-      ? Math.floor(Number(body.params.timeRange))
+    const normalizedTimeRange = Number.isFinite(Math.floor(Number(body.params?.timeRange))) && Math.floor(Number(body.params?.timeRange)) >= 1
+      ? Math.floor(Number(body.params?.timeRange))
       : 1;
     
     // 1. Get the proxyKey of the current proxy (no token is needed)
@@ -44,7 +44,7 @@ export async function handleProtocol21001(body: Request21001): Promise<Response2
     try {
       const proxy = await getProxy();
       proxyKey = proxy.proxyKey;
-      console.log('[Protocol-21001] Got proxyKey:', proxyKey);
+      console.log('[Protocol-21001] Got proxyKey:');
     } catch (error) {
       console.error('[Protocol-21001] Failed to get proxy info:', error);
       throw new ApiError(ErrorCode.INTERNAL_SERVER_ERROR, 500, { 
@@ -162,7 +162,7 @@ export async function handleProtocol21001(body: Request21001): Promise<Response2
       limitedTokens: 0
     };
     
-    console.log('[Protocol-21001] Response:', response, 'proxyKey:', proxyKey);
+    console.log('[Protocol-21001] Response:', response);
     
     return response;
     

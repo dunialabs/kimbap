@@ -1,6 +1,6 @@
 import { ApiError, ErrorCode } from '@/lib/error-codes';
 import { CryptoUtils } from '@/lib/crypto';
-import { getUserByAccessToken, getOwner, connectAllServers, getProxy } from '@/lib/proxy-api';
+import { getUserByAccessToken, getOwner, connectAllServers } from '@/lib/proxy-api';
 import { prisma } from '@/lib/prisma';
 import { hashToken } from '@/lib/auth';
 
@@ -142,11 +142,10 @@ export async function handleProtocol10015(body: Request10015): Promise<Response1
     
     try {
       const tokenToHash = accessToken ?? masterPwdAccessToken!;
-      const proxy = await getProxy();
       await prisma.user.upsert({
         where: { userid: user.userId },
-        update: { accessTokenHash: hashToken(tokenToHash), proxyKey: proxy.proxyKey, role: user.role },
-        create: { userid: user.userId, accessTokenHash: hashToken(tokenToHash), proxyKey: proxy.proxyKey, role: user.role },
+        update: { accessTokenHash: hashToken(tokenToHash), proxyKey: 'single', role: user.role },
+        create: { userid: user.userId, accessTokenHash: hashToken(tokenToHash), proxyKey: 'single', role: user.role },
       });
     } catch (saveError) {
       console.error('Failed to save user to local database:', saveError);

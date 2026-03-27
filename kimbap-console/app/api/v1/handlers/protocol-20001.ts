@@ -32,8 +32,8 @@ interface Response20001Data {
 export async function handleProtocol20001(body: Request20001): Promise<Response20001Data> {
   try {
     const rawToken = body.common?.rawToken;
-    const normalizedTimeRange = Number.isFinite(Math.floor(Number(body.params.timeRange))) && Math.floor(Number(body.params.timeRange)) >= 1
-      ? Math.floor(Number(body.params.timeRange))
+    const normalizedTimeRange = Number.isFinite(Math.floor(Number(body.params?.timeRange))) && Math.floor(Number(body.params?.timeRange)) >= 1
+      ? Math.floor(Number(body.params?.timeRange))
       : 1;
     
     // 1. proxyproxyKey（token）
@@ -41,7 +41,7 @@ export async function handleProtocol20001(body: Request20001): Promise<Response2
     try {
       const proxy = await getProxy();
       proxyKey = proxy.proxyKey;
-      console.log('[Protocol-20001] Got proxyKey:', proxyKey);
+      console.log('[Protocol-20001] Got proxyKey:');
     } catch (error) {
       console.error('[Protocol-20001] Failed to get proxy info:', error);
       throw new ApiError(ErrorCode.INTERNAL_SERVER_ERROR, 500, { 
@@ -208,8 +208,7 @@ export async function handleProtocol20001(body: Request20001): Promise<Response2
       activeTools: response.activeTools,
       totalRequests: response.totalRequests,
       avgSuccessRate: response.avgSuccessRate,
-      avgResponseTime: response.avgResponseTime,
-      proxyKey: proxyKey
+      avgResponseTime: response.avgResponseTime
     });
     
     return response;

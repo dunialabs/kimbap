@@ -57,7 +57,7 @@ export async function handleProtocol20002(body: Request20002): Promise<Response2
     try {
       const proxy = await getProxy();
       proxyKey = proxy.proxyKey;
-      console.log('[Protocol-20002] Got proxyKey:', proxyKey);
+      console.log('[Protocol-20002] Got proxyKey:');
     } catch (error) {
       console.error('[Protocol-20002] Failed to get proxy info:', error);
       throw new ApiError(ErrorCode.INTERNAL_SERVER_ERROR, 500, { 
@@ -231,7 +231,7 @@ export async function handleProtocol20002(body: Request20002): Promise<Response2
       totalCount
     };
     
-    console.log(`[Protocol-20002] Returning ${toolMetrics.length} tools based on log statistics (action 1000-1099, proxyKey: ${proxyKey.substring(0, 8)}...)`);
+    console.log(`[Protocol-20002] Returning ${toolMetrics.length} tools based on log statistics (action 1000-1099)`);
     return response;
     
   } catch (error) {

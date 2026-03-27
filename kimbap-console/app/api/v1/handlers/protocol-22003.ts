@@ -48,7 +48,7 @@ export async function handleProtocol22003(body: Request22003): Promise<Response2
     try {
       const proxy = await getProxy();
       proxyKey = proxy.proxyKey;
-      console.log('[Protocol-22003] Got proxyKey:', proxyKey);
+      console.log('[Protocol-22003] Got proxyKey:');
     } catch (error) {
       console.error('[Protocol-22003] Failed to get proxy info:', error);
       throw new ApiError(ErrorCode.INTERNAL_SERVER_ERROR, 500, { 

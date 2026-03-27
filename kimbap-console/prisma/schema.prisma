@@ -46,7 +46,7 @@ model Log {
 model User {
   userid          String @id @map("userid")
   accessTokenHash String @unique @map("access_token_hash")
-  proxyKey        String @map("proxy_key")
+  proxyKey        String @default("single") @map("proxy_key")
   role            Int    @map("role")
 
   @@map("user")

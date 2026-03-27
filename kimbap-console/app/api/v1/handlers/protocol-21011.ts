@@ -76,7 +76,7 @@ export async function handleProtocol21011(body: Request21011): Promise<Response2
     try {
       const proxy = await getProxy();
       proxyKey = proxy.proxyKey;
-      console.log('[Protocol-21011] Got proxyKey:', proxyKey);
+      console.log('[Protocol-21011] Got proxyKey:');
     } catch (error) {
       console.error('[Protocol-21011] Failed to get proxy info:', error);
       throw new ApiError(ErrorCode.INTERNAL_SERVER_ERROR, 500, { 
@@ -199,14 +199,10 @@ export async function handleProtocol21011(body: Request21011): Promise<Response2
       maxId
     };
     
-    console.log('[Protocol-21011] Response:', {
-      logsCount: logs.length,
-      totalCount,
-      maxId,
-      isIncremental: !!lastId,
-      proxyKey: proxyKey.substring(0, 8) + '...',
-      latestLogTime: logs.length > 0 ? logs[0].timestamp : 'No logs'
-    });
+    console.log('[Protocol-21011] Response:', { logsCount: logs.length,
+    totalCount,
+    maxId,
+    isIncremental: !!lastId, latestLogTime: logs.length > 0 ? logs[0].timestamp : 'No logs' });
     
     return response;
     

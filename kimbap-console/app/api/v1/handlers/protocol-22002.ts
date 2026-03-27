@@ -64,7 +64,7 @@ export async function handleProtocol22002(body: Request22002): Promise<Response2
     try {
       const proxy = await getProxy();
       proxyKey = proxy.proxyKey;
-      console.log('[Protocol-22002] Got proxyKey:', proxyKey);
+      console.log('[Protocol-22002] Got proxyKey:');
     } catch (error) {
       console.error('[Protocol-22002] Failed to get proxy info:', error);
       throw new ApiError(ErrorCode.INTERNAL_SERVER_ERROR, 500, { 
@@ -136,7 +136,7 @@ export async function handleProtocol22002(body: Request22002): Promise<Response2
           };
         });
       } else {
-        console.log('[Protocol-22002] No tool usage found in logs for action 1000-1099 and proxyKey:', proxyKey);
+        console.log('[Protocol-22002] No tool usage found in logs for action 1000-1099 and proxyKey:');
       }
 
       console.log('[Protocol-22002] Top tools with new grouping rules:', topTools.map(t => `${t.toolName}: ${t.requestCount}`));
@@ -154,8 +154,7 @@ export async function handleProtocol22002(body: Request22002): Promise<Response2
       totalRequests: totalRequestsCount,
       topTool: topTools.length > 0 ? topTools[0].toolName : 'None',
       timeRange,
-      toolNames: topTools.map(t => t.toolName),
-      proxyKey: proxyKey
+      toolNames: topTools.map(t => t.toolName)
     });
     
     return response;
