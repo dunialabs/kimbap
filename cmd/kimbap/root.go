@@ -401,11 +401,15 @@ func resolveVaultMasterKey(cfg *config.KimbapConfig) ([]byte, error) {
 		return nil, fmt.Errorf("vault master key is required: set KIMBAP_MASTER_KEY_HEX or enable dev mode (--mode dev or KIMBAP_DEV=true)")
 	}
 	devKeyPath := filepath.Join(cfg.DataDir, ".dev-master-key")
-	if existing, err := os.ReadFile(devKeyPath); err == nil {
+	existing, readErr := os.ReadFile(devKeyPath)
+	if readErr == nil {
 		if len(existing) != 32 {
 			return nil, fmt.Errorf("invalid dev master key at %s: expected 32 bytes, got %d", devKeyPath, len(existing))
 		}
 		return existing, nil
+	}
+	if !os.IsNotExist(readErr) {
+		return nil, fmt.Errorf("read dev master key %s: %w", devKeyPath, readErr)
 	}
 	key, err := corecrypto.GenerateRandomKey(32)
 	if err != nil {

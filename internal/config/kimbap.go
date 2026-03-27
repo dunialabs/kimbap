@@ -179,8 +179,17 @@ func loadKimbapConfig(includeDefault bool, paths ...string) (*KimbapConfig, erro
 		rebaseDerivedPathsForDataDir(&prev, cfg)
 	}
 
-	cfg.Services.Verify = normalizeServiceVerifyMode(cfg.Services.Verify)
-	cfg.Services.SignaturePolicy = normalizeServiceSignaturePolicy(cfg.Services.SignaturePolicy)
+	verifyMode, normErr := normalizeServiceVerifyMode(cfg.Services.Verify)
+	if normErr != nil {
+		return nil, normErr
+	}
+	cfg.Services.Verify = verifyMode
+
+	sigPolicy, normErr := normalizeServiceSignaturePolicy(cfg.Services.SignaturePolicy)
+	if normErr != nil {
+		return nil, normErr
+	}
+	cfg.Services.SignaturePolicy = sigPolicy
 
 	return cfg, nil
 }
@@ -507,22 +516,26 @@ func setIfNotEmpty(dst *string, value string) {
 	}
 }
 
-func normalizeServiceVerifyMode(mode string) string {
+func normalizeServiceVerifyMode(mode string) (string, error) {
 	normalized := strings.ToLower(strings.TrimSpace(mode))
 	switch normalized {
-	case "off", "strict", "warn":
-		return normalized
+	case "", "warn":
+		return "warn", nil
+	case "off", "strict":
+		return normalized, nil
 	default:
-		return "warn"
+		return "", fmt.Errorf("invalid services.verify value %q: must be one of: off, warn, strict", mode)
 	}
 }
 
-func normalizeServiceSignaturePolicy(policy string) string {
+func normalizeServiceSignaturePolicy(policy string) (string, error) {
 	normalized := strings.ToLower(strings.TrimSpace(policy))
 	switch normalized {
-	case "off", "optional", "required":
-		return normalized
+	case "", "optional":
+		return "optional", nil
+	case "off", "required":
+		return normalized, nil
 	default:
-		return "optional"
+		return "", fmt.Errorf("invalid services.signature_policy value %q: must be one of: off, optional, required", policy)
 	}
 }

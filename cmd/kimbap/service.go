@@ -710,6 +710,9 @@ func resolveServiceInstallSource(arg string) (*services.ServiceManifest, string,
 		if resolveErr != nil {
 			return nil, "", fmt.Errorf("fetch from GitHub %q: %w", trimmed, resolveErr)
 		}
+		if manifest.Name != serviceName {
+			return nil, "", fmt.Errorf("manifest name %q does not match requested service %q", manifest.Name, serviceName)
+		}
 		return manifest, source, nil
 	}
 
