@@ -64,6 +64,7 @@ func newProxyCommand() *cobra.Command {
 			proxyOpts := []proxy.ProxyOption{
 				proxy.WithClassifier(c),
 				proxy.WithAgentToken(strings.TrimSpace(agentToken)),
+				proxy.WithTenantID(defaultTenantID()),
 			}
 			rt, buildErr := buildRuntimeFromConfig(cfg)
 			if buildErr != nil {
