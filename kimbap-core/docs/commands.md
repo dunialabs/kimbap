@@ -208,36 +208,7 @@ Export audit records (JSON).
 
 ---
 
-## Token management
-
-### `kimbap token create`
-
-Issue a new access token for an agent.
-
-```bash
-kimbap token create --agent billing-bot --scopes actions:execute
-```
-
-### `kimbap token list`
-
-List active tokens with metadata.
-
-### `kimbap token revoke <id>`
-
-Revoke a token.
-
----
-
 ## Server and runtime modes
-
-### `kimbap serve [--port 8080]`
-
-Start the connected-mode REST API server.
-
-```bash
-kimbap serve
-kimbap serve --port 9090
-```
 
 ### `kimbap run -- <cmd>`
 
@@ -245,7 +216,6 @@ Run an agent subprocess inside a Kimbap-controlled environment. Credentials are 
 
 ```bash
 kimbap run -- python agent.py
-kimbap run --token <service-token> -- node bot.js
 ```
 
 ### `kimbap proxy [--port 10255]`

@@ -75,7 +75,7 @@ interface HourlyRow {
  */
 export async function handleProtocol23002(body: Request23002): Promise<Response23002Data> {
   try {
-    const { timeRange = '24h' } = body.params;
+    const { timeRange = '24h' } = body.params ?? {};
 
     // 1. Get proxyKey
     let proxyKey = '';
@@ -257,7 +257,6 @@ export async function handleProtocol23002(body: Request23002): Promise<Response2
       domainsCount: domainStats.length,
       hourlyBuckets: hourlyStats.length,
       timeRange,
-      proxyKey,
     });
 
     return { statistics };

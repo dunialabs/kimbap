@@ -6,8 +6,8 @@ This file provides guidance to Claude Code when working with kimbap-core.
 
 ### Core Commands
 - `make build` - Build the kimbap binary (output: bin/kimbap)
-- `make dev` - Run in development mode (kimbap serve)
-- `make run` - Build and run (kimbap serve)
+- `make dev` - Run in development mode (kimbap daemon)
+- `make run` - Build and run (kimbap daemon)
 - `make test` - Run tests
 - `make vet` - Run go vet
 - `make clean` - Clean build artifacts
@@ -20,25 +20,7 @@ This file provides guidance to Claude Code when working with kimbap-core.
 
 ## Architecture
 
-kimbap is a CLI-first secure action runtime for AI agents.
-
-Two modes:
-- **Embedded mode** (`kimbap call <service.action>`): runs actions locally using installed services and local vault
-- **Connected mode** (`kimbap serve`): starts a REST API server that agents call remotely
-
-REST API server (`kimbap serve`) serves:
-- `/v1/health` - health check
-- `/v1/actions` - list/describe installed actions
-- `/v1/actions/{service}/{action}:execute` - execute an action
-- `/v1/actions/validate` - validate action input payload
-- `/v1/tokens` - token management (CRUD)
-- `/v1/policies` - policy get/set/evaluate
-- `/v1/approvals` - list/approve/deny pending approvals
-- `/v1/audit` - query audit logs
-- `/v1/vault` - list vault keys
-- `/v1/webhooks` - webhook subscription management (when dispatcher is configured)
-- `/v1/webhooks/events` - recent webhook events (when dispatcher is configured)
-- `/console` - embedded lightweight console (optional SPA)
+kimbap is a CLI-first secure action runtime for AI agents. It runs actions locally using installed services and the local encrypted vault.
 
 ## Key CLI Commands
 
@@ -76,16 +58,10 @@ REST API server (`kimbap serve`) serves:
 - `kimbap audit tail` — stream recent audit entries
 - `kimbap audit export` — export audit records
 
-### Server and runtime modes
-- `kimbap serve [--port 8080]` — start connected-mode REST API server
+### Runtime modes
 - `kimbap run -- <cmd>` — wrap an agent subprocess with credential injection
 - `kimbap proxy [--port 10255]` — start HTTP proxy interceptor
-- `kimbap daemon` — start background job runner (token refresh, scheduling)
-
-### Token management
-- `kimbap token create` — issue a new access token
-- `kimbap token list` — list active tokens
-- `kimbap token revoke <id>` — revoke a token
+- `kimbap daemon` — start a persistent background daemon (unix socket)
 
 ### Agents and setup
 - `kimbap agents setup` — set up SKILL.md for agent discovery
@@ -98,7 +74,6 @@ REST API server (`kimbap serve`) serves:
 
 ## Project Structure
 - `cmd/kimbap/` - CLI entry point (main.go + subcommands)
-- `internal/api/` - REST v1 API server (chi router)
 - `internal/runtime/` - Action execution pipeline
 - `internal/actions/` - Action types and interfaces
 - `internal/approvals/` - Approval manager (email/slack/telegram/webhook notifiers)
@@ -107,26 +82,20 @@ REST API server (`kimbap serve`) serves:
 - `internal/vault/` - Secret storage (encrypted SQLite)
 - `internal/services/` - Service manifest loading and action discovery
 - `internal/connectors/` - OAuth2 connector flows
-- `internal/auth/` - Token service and principal types
 - `internal/audit/` - Audit log writers (JSONL, multi-writer)
-- `internal/console/` - Embedded SPA (static files via go:embed)
 - `internal/config/` - Config loading (config.yaml)
 - `internal/app/` - Runtime bootstrap and adapters
 - `internal/crypto/` - Encryption utilities
-- `internal/webhooks/` - Webhook dispatcher
 
 ## Key Patterns
-- RESTful resource routes on `/v1` (canonical)
-- Bearer token auth with scope-based authorization
 - Actions addressed as `service.action` (e.g., `github.create-issue`)
 - Policy YAML files control which agents can call which actions
 
 ## Database
 - SQLite via `internal/store/` (default, embedded, zero setup)
-- Postgres via `internal/store/` (optional, for connected/multi-instance mode)
+- Postgres via `internal/store/` (optional, for multi-instance)
 - Configure via `~/.kimbap/config.yaml` or `KIMBAP_DATA_DIR`
 
 ## Port & Environment
-- Default API port: `8080` (configurable via config.yaml or `--port` flag)
 - Vault master key: `KIMBAP_MASTER_KEY_HEX` (or auto-generated in dev mode)
 - Dev mode: `KIMBAP_DEV=true` (relaxes security, auto-generates vault key)

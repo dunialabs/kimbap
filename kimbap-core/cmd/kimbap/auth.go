@@ -6,6 +6,7 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"io"
 	"net"
 	"net/http"
 	"net/url"
@@ -569,12 +570,8 @@ func providerIsConfigured(p connectors.ProviderDefinition) bool {
 	return auth != "" && token != "" && !strings.Contains(auth, "{") && !strings.Contains(token, "{")
 }
 
-func callRevocationEndpoint(endpoint, clientID, clientSecret, token string) error {
+func callRevocationEndpoint(endpoint, clientID, clientSecret, token, authMethod string) error {
 	form := url.Values{}
-	form.Set("client_id", clientID)
-	if clientSecret != "" {
-		form.Set("client_secret", clientSecret)
-	}
 	if token != "" {
 		form.Set("token", token)
 	}
@@ -585,6 +582,18 @@ func callRevocationEndpoint(endpoint, clientID, clientSecret, token string) erro
 		return err
 	}
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	if strings.EqualFold(strings.TrimSpace(authMethod), "basic") {
+		req.SetBasicAuth(clientID, clientSecret)
+	} else {
+		if clientID != "" {
+			form.Set("client_id", clientID)
+		}
+		if clientSecret != "" {
+			form.Set("client_secret", clientSecret)
+		}
+		req.Body = io.NopCloser(strings.NewReader(form.Encode()))
+		req.ContentLength = -1
+	}
 	res, err := (&http.Client{Timeout: 10 * time.Second}).Do(req)
 	if err != nil {
 		return err

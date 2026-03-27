@@ -51,7 +51,7 @@ services:
     pull_policy: always
     environment:
       NODE_ENV: production
-      DATABASE_URL: ${KIMBAP_CORE_DATABASE_URL:-postgresql://kimbap:kimbap123@postgres:5432/kimbap_db?schema=public}
+      DATABASE_URL: ${KIMBAP_CORE_DATABASE_URL:-postgresql://kimbap:${KIMBAP_DB_PASSWORD:-kimbap123}@postgres:5432/kimbap_db?schema=public}
       PORT: 3002
       BACKEND_PORT: 3002
       JWT_SECRET: ${KIMBAP_CORE_JWT_SECRET:-${JWT_SECRET:-kimbap-default-jwt-secret-change-in-production}}
@@ -89,6 +89,7 @@ services:
       - kimbap-network
     volumes:
       - ./cloudflared:/app/cloudflared
+      - kimbap_console_data:/app/data
 
   # Optional: Adminer for database management
   adminer:
@@ -107,6 +108,8 @@ services:
 
 volumes:
   postgres_data:
+    driver: local
+  kimbap_console_data:
     driver: local
 
 networks:

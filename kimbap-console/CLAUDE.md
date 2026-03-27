@@ -45,9 +45,9 @@ This is the Kimbap Console — operations and observability console for the Kimb
 ### Technology Stack
 - **Frontend/Backend**: Next.js 15 with App Router, TypeScript, Tailwind CSS
 - **API Routes**: Next.js API routes (`/app/api/*`) for all backend operations
-- **Database**: PostgreSQL via Prisma ORM
+- **Database**: SQLite (default, embedded) via Prisma ORM
 - **Authentication**: JWT with bcrypt password hashing
-- **Development**: Dockerized PostgreSQL for local setup
+- **Development**: SQLite by default (zero config)
 
 ### Project Structure
 - **Next.js Application**:
@@ -60,19 +60,19 @@ This is the Kimbap Console — operations and observability console for the Kimb
 
 ### Key Patterns
 - **Unified Application**: Single Next.js application with API routes
-- **Database Management**: PostgreSQL via Docker and Prisma migrations
+- **Database Management**: SQLite via `prisma db push` (schema sync)
 - **Protocol Handlers**: API routes handle MCP protocols (10001-10020)
 - **Authentication**: JWT-based authentication with role-based access control
 - **Role-Based Access**: Owner, Admin, and Member roles with different permissions
 
 ### Database Models (Prisma)
 - `User` - User accounts with roles and permissions
-- `Server` - MCP server instances with configurations
-- `Proxy` - Proxy configurations
-- `Event` - MCP event storage
 - `Log` - Activity logging with server_id reference
+- `Config` - Kimbap Core host/port configuration
+- `TokenMetadata` - Token namespace and tags
+- `RateLimitBucket` - API rate limiting state
+- `RuntimeLock` - Distributed lock for background jobs
 - `License` - License management
-- `IpWhitelist` - IP access control
 
 ### API Routes Structure (`/app/api/`)
 - `/app/api/external/*` - **Canonical** RESTful API endpoints (use for all new features)
@@ -82,15 +82,15 @@ This is the Kimbap Console — operations and observability console for the Kimb
 
 ### Port Configuration
 - Application default: 3000 (can be configured via PORT environment variable)
-- PostgreSQL: 5432
-- Adminer: 8080 (optional, for database management)
 
 ### Database
-- PostgreSQL is required for the local runtime; start it with `docker compose up -d postgres`
+- SQLite is the default — `npm run dev` works with zero config (`file:./data/kimbap-console.db`)
+- Schema sync via `prisma db push`; no migration history for SQLite
+- All raw SQL in handlers is portable (standard SQL only)
 - Configure via `DATABASE_URL` in `.env.local` or environment
 
 ### Important Notes
 - All backend logic is implemented in Next.js API routes (`/app/api/*`)
-- Database migrations managed through Prisma CLI (`npm run db:migrate:create`)
+- Schema changes: edit `prisma/schema.prisma`, then `npm run db:push`
 - Use `npm run db:studio` to inspect and manage database via Prisma Studio
 - Legacy protocol handlers are in `/app/api/v1/handlers/` (frozen — new features go to `/app/api/external/*`)

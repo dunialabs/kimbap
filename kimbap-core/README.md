@@ -70,7 +70,6 @@ kimbap actions describe stripe.list-charges
 | Call | `kimbap call <service>.<action>` | Direct use, scripts, agent integration |
 | Run | `kimbap run -- <cmd>` | Wrap any existing agent process |
 | Proxy | `kimbap proxy --port 10255` | Existing HTTP agents, zero code changes |
-| Serve | `kimbap serve --port 8080` | Team deployments, multi-tenant, REST API |
 
 All modes go through the same pipeline. Same credentials, same policy, same audit.
 
@@ -174,7 +173,7 @@ make deps && make build    # binary → bin/kimbap
 
 ```bash
 cp .env.example .env
-make dev     # starts dev server
+make dev     # starts daemon
 make test
 make lint
 ```

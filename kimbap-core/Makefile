@@ -8,10 +8,10 @@ build:
 	go build -ldflags "$(LDFLAGS)" -o bin/kimbap ./cmd/kimbap
 
 run: build
-	./bin/kimbap serve
+	./bin/kimbap daemon
 
 dev:
-	go run -ldflags "$(LDFLAGS)" ./cmd/kimbap serve
+	go run -ldflags "$(LDFLAGS)" ./cmd/kimbap daemon
 
 test:
 	go test ./...

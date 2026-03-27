@@ -66,6 +66,9 @@ func newInitCommand() *cobra.Command {
 			checks = append(checks, serviceCheck)
 			hasFailure = hasFailure || serviceCheck.Status == "fail"
 
+			kbCheck := ensureKBSymlink()
+			checks = append(checks, kbCheck)
+
 			if outputAsJSON() {
 				if err := printOutput(checks); err != nil {
 					return err
@@ -498,4 +501,29 @@ func renderInitSummary(configPath string, checks []doctorCheck) string {
 		_, _ = fmt.Fprintf(&b, "  %s %-25s %s\n", icon, c.Name, c.Detail)
 	}
 	return strings.TrimRight(b.String(), "\n")
+}
+
+func ensureKBSymlink() doctorCheck {
+	execPath, err := os.Executable()
+	if err != nil {
+		return doctorCheck{Name: "kb alias", Status: "skip", Detail: "cannot determine executable path"}
+	}
+	execPath, err = filepath.EvalSymlinks(execPath)
+	if err != nil {
+		return doctorCheck{Name: "kb alias", Status: "skip", Detail: "cannot resolve executable path"}
+	}
+	if filepath.Base(execPath) != "kimbap" {
+		return doctorCheck{Name: "kb alias", Status: "skip", Detail: "binary is not named kimbap"}
+	}
+	kbPath := filepath.Join(filepath.Dir(execPath), "kb")
+	if existing, statErr := os.Lstat(kbPath); statErr == nil {
+		if existing.Mode()&os.ModeSymlink != 0 {
+			return doctorCheck{Name: "kb alias", Status: "skip", Detail: fmt.Sprintf("exists: %s", kbPath)}
+		}
+		return doctorCheck{Name: "kb alias", Status: "skip", Detail: fmt.Sprintf("exists (not symlink): %s", kbPath)}
+	}
+	if symlinkErr := os.Symlink(execPath, kbPath); symlinkErr != nil {
+		return doctorCheck{Name: "kb alias", Status: "fail", Detail: fmt.Sprintf("create symlink: %v (try: sudo ln -s %s %s)", symlinkErr, execPath, kbPath)}
+	}
+	return doctorCheck{Name: "kb alias", Status: "ok", Detail: fmt.Sprintf("created: %s -> %s", kbPath, execPath)}
 }

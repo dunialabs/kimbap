@@ -32,9 +32,8 @@ The input secret and the derived AES keys never leave process memory and are not
 
 ## OAuth & Token Brokerage
 
-Kimbap Core handles two distinct OAuth-related concerns:
+Kimbap Core handles OAuth credentials for downstream services:
 
-- **Kimbap access tokens (bearer).** Used by agents and operators to authenticate to the REST v1 API. Issued by Kimbap Core and revocable server-side.
 - **Downstream connector OAuth credentials (third-party providers).** Used to call external APIs on behalf of the agent. Kimbap Core stores these encrypted at rest (including refresh tokens where applicable), refreshes access tokens server-side, and injects only the access token into the execution context for the duration of the call.
 
 **Security properties**:

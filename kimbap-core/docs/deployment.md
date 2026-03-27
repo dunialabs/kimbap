@@ -45,7 +45,7 @@ cp .env.example .env
 make build
 
 # 5. Start the service
-./bin/kimbap serve
+./bin/kimbap daemon
 ```
 
 For process management in production you can use systemd:
@@ -60,7 +60,7 @@ Type=simple
 User=kimbap
 WorkingDirectory=/opt/kimbap
 EnvironmentFile=/opt/kimbap/.env
-ExecStart=/opt/kimbap/bin/kimbap serve
+ExecStart=/opt/kimbap/bin/kimbap daemon
 Restart=on-failure
 RestartSec=5s
 
@@ -87,7 +87,6 @@ All configuration is set via environment variables or `~/.kimbap/config.yaml`.
 
 | Name            | Required | Default | Description                                               |
 | --------------- | -------- | ------- | --------------------------------------------------------- |
-| `KIMBAP_LISTEN_ADDR` |     | `:8080` | Address (host:port) the server listens on.                |
 | `KIMBAP_DATA_DIR` |        | `~/.kimbap` | Directory for SQLite database, vault, and audit logs. |
 
 #### Security
@@ -126,12 +125,9 @@ services:
     container_name: kimbap
     restart: unless-stopped
     environment:
-      KIMBAP_LISTEN_ADDR: ":8080"
       KIMBAP_DATA_DIR: /data/kimbap
       KIMBAP_MASTER_KEY_HEX: ${KIMBAP_MASTER_KEY_HEX}
       LOG_LEVEL: info
-    ports:
-      - '8080:8080'
     volumes:
       - kimbap_data:/data/kimbap
     healthcheck:
@@ -176,13 +172,10 @@ services:
       postgres:
         condition: service_healthy
     environment:
-      KIMBAP_LISTEN_ADDR: ":8080"
       KIMBAP_DATA_DIR: /data/kimbap
       KIMBAP_MASTER_KEY_HEX: ${KIMBAP_MASTER_KEY_HEX}
       KIMBAP_DATABASE_DRIVER: postgres
       KIMBAP_DATABASE_DSN: postgres://kimbap:${DB_PASSWORD}@postgres:5432/kimbap?sslmode=disable
-    ports:
-      - '8080:8080'
     volumes:
       - kimbap_data:/data/kimbap
 

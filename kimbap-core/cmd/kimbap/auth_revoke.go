@@ -81,7 +81,7 @@ func newAuthRevokeCommand() *cobra.Command {
 				} else {
 					revocationAttempted = true
 					revokeCreds := resolveOAuthCreds(cfg, providerID)
-					revokeErr := callRevocationEndpoint(provider.RevocationEndpoint, revokeCreds.ClientID, revokeCreds.ClientSecret, revokeToken)
+					revokeErr := callRevocationEndpoint(provider.RevocationEndpoint, revokeCreds.ClientID, revokeCreds.ClientSecret, revokeToken, revokeCreds.AuthMethod)
 					if revokeErr != nil {
 						revocationResult = fmt.Sprintf("failed: %v", revokeErr)
 					} else {

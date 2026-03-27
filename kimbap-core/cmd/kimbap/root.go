@@ -92,6 +92,7 @@ func init() {
 	rootCmd.AddCommand(newAgentProfileCommand())
 	rootCmd.AddCommand(newAgentsCommand())
 	rootCmd.AddCommand(newAliasCommand())
+	rootCmd.AddCommand(newCompletionCommand())
 }
 
 func showSplashOnce() {
