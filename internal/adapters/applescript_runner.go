@@ -25,8 +25,8 @@ func (r *OSAScriptRunner) Run(ctx context.Context, name string, args []string, s
 		cmd.Stdin = stdin
 	}
 	var stdoutBuf, stderrBuf bytes.Buffer
-	cmd.Stdout = &stdoutBuf
-	cmd.Stderr = &stderrBuf
+	cmd.Stdout = &limitedWriter{w: &stdoutBuf, limit: maxCommandOutputBytes}
+	cmd.Stderr = &limitedWriter{w: &stderrBuf, limit: maxCommandStderrBytes}
 	err := cmd.Run()
 	return stdoutBuf.Bytes(), stderrBuf.Bytes(), err
 }

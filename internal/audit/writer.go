@@ -47,7 +47,7 @@ func NewJSONLWriter(path string) (*JSONLWriter, error) {
 }
 
 func (w *JSONLWriter) Write(ctx context.Context, event AuditEvent) error {
-	if w == nil || w.enc == nil {
+	if w == nil {
 		return errors.New("jsonl writer is not initialized")
 	}
 
@@ -59,6 +59,10 @@ func (w *JSONLWriter) Write(ctx context.Context, event AuditEvent) error {
 
 	w.mu.Lock()
 	defer w.mu.Unlock()
+
+	if w.enc == nil {
+		return errors.New("jsonl writer is closed")
+	}
 
 	if err := w.enc.Encode(event); err != nil {
 		return fmt.Errorf("write audit event: %w", err)

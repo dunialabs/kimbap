@@ -16,6 +16,8 @@ import (
 )
 
 const defaultCommandAdapterTimeout = 60 * time.Second
+const maxCommandOutputBytes int64 = 4 << 20
+const maxCommandStderrBytes int64 = 4 << 10
 
 type CommandAdapter struct {
 	allowlist map[string]bool
@@ -121,8 +123,8 @@ func (a *CommandAdapter) Execute(ctx context.Context, req AdapterRequest) (*Adap
 
 	var stdoutBuf bytes.Buffer
 	var stderrBuf bytes.Buffer
-	cmd.Stdout = &stdoutBuf
-	cmd.Stderr = &stderrBuf
+	cmd.Stdout = &limitedWriter{w: &stdoutBuf, limit: maxCommandOutputBytes}
+	cmd.Stderr = &limitedWriter{w: &stderrBuf, limit: maxCommandStderrBytes}
 
 	err := cmd.Run()
 	durationMS := time.Since(start).Milliseconds()
@@ -248,6 +250,25 @@ func safeProcessEnv() []string {
 		}
 	}
 	return out
+}
+
+type limitedWriter struct {
+	w     *bytes.Buffer
+	limit int64
+	n     int64
+}
+
+func (lw *limitedWriter) Write(p []byte) (int, error) {
+	remaining := lw.limit - lw.n
+	if remaining <= 0 {
+		return len(p), nil
+	}
+	if int64(len(p)) > remaining {
+		p = p[:remaining]
+	}
+	n, err := lw.w.Write(p)
+	lw.n += int64(n)
+	return len(p), err
 }
 
 func sanitizeEnvSegment(ref string) string {

@@ -239,9 +239,9 @@ function UsagePageContent() {
           <CardContent className="flex flex-col gap-1 justify-center">
             <div className={loading || overviewSummary?.totalRequests24h == null ? (loadError ? "text-sm text-red-600 dark:text-red-400" : "text-sm text-muted-foreground") : "text-2xl font-bold"}>
               {loading
-                ? 'Loading request totals...'
+                ? '—'
                 : overviewSummary?.totalRequests24h == null
-                ? (loadError ? 'Load failed' : '—')
+                ? (loadError ? 'Unavailable' : '—')
                 : overviewSummary.totalRequests24h.toLocaleString()}
             </div>
             <p className="text-xs text-muted-foreground">
@@ -264,9 +264,9 @@ function UsagePageContent() {
           <CardContent className="flex flex-col gap-1 justify-center">
             <div className={loading || overviewSummary?.activeTokens == null ? (loadError ? "text-sm text-red-600 dark:text-red-400" : "text-sm text-muted-foreground") : "text-2xl font-bold"}>
               {loading
-                ? 'Loading active token count...'
+                ? '—'
                 : overviewSummary?.activeTokens == null
-                ? (loadError ? 'Load failed' : '—')
+                ? (loadError ? 'Unavailable' : '—')
                 : overviewSummary.activeTokens}
             </div>
             <p className="text-xs text-muted-foreground">
@@ -283,17 +283,17 @@ function UsagePageContent() {
           <CardContent className="flex flex-col gap-1 justify-center">
             <div className={loading || overviewSummary?.toolsInUse == null ? (loadError ? "text-sm text-red-600 dark:text-red-400" : "text-sm text-muted-foreground") : "text-2xl font-bold"}>
               {loading
-                ? 'Loading tools in use...'
+                ? '—'
                 : overviewSummary?.toolsInUse == null
-                ? (loadError ? 'Load failed' : '—')
+                ? (loadError ? 'Unavailable' : '—')
                     : overviewSummary.toolsInUse.toLocaleString()}
             </div>
             <p className="text-xs text-muted-foreground">
               {loading
-                ? 'Loading most-active tool...'
+                ? ''
                 : overviewSummary?.mostActiveToolName
                 ? `Most active: ${overviewSummary.mostActiveToolName}`
-                : (loadError ? 'Load failed' : '—')}
+                : (loadError ? 'Unavailable' : '—')}
             </p>
           </CardContent>
         </Card>
@@ -306,9 +306,9 @@ function UsagePageContent() {
           <CardContent className="flex flex-col gap-1 justify-center">
             <div className={loading || overviewSummary?.avgResponseTime == null ? (loadError ? "text-sm text-red-600 dark:text-red-400" : "text-sm text-muted-foreground") : "text-2xl font-bold"}>
               {loading
-                ? 'Loading average response time...'
+                ? '—'
                 : overviewSummary?.avgResponseTime == null
-                ? (loadError ? 'Load failed' : '—')
+                ? (loadError ? 'Unavailable' : '—')
                 : `${overviewSummary.avgResponseTime}ms`}
             </div>
             <p className="text-xs text-muted-foreground">

@@ -858,7 +858,7 @@ export default function PoliciesPage() {
             <div className="flex flex-col items-center justify-center py-12 text-center">
               <Shield className="mb-3 h-10 w-10 text-muted-foreground/40" />
               <p className="text-sm text-muted-foreground">
-                {loadError ? 'Policies could not be loaded right now.' : 'No access policies yet for this server.'}
+                  {loadError ? 'Policies could not be loaded right now.' : 'No policies yet. Create one to define allow, block, and approval rules.'}
               </p>
               {loadError ? (
                 <Button variant="outline" className="mt-4" onClick={fetchPolicies}>

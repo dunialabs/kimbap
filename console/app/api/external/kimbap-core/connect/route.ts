@@ -1,8 +1,9 @@
 import { NextRequest } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { invalidateProxyAdminUrlCache } from '@/lib/proxy-api';
+import { validateAndCacheMcpGatewayUrl } from '@/lib/mcp-gateway-cache';
 import { ApiResponse } from '../../lib/response';
 import { authenticate } from '../../lib/auth';
-import { validateAndCacheMcpGatewayUrl } from '@/lib/mcp-gateway-cache';
 import { ExternalApiError, E1001, E1003, E1005, E4014 } from '../../lib/error-codes';
 
 export const dynamic = 'force-dynamic';
@@ -123,6 +124,8 @@ async function connectKimbapCore(request: NextRequest) {
       },
     });
   }
+
+  invalidateProxyAdminUrlCache();
 
   return ApiResponse.success({
     host: target.host,

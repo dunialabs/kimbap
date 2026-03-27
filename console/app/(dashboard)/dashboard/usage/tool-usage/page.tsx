@@ -424,16 +424,16 @@ function ToolUsagePageContent() {
               <CardContent className="flex flex-col gap-1 justify-center">
                 <div className={loading || summary?.totalTools == null ? (loadError ? "text-sm text-red-600 dark:text-red-400" : "text-sm text-muted-foreground") : "text-2xl font-bold"}>
                   {loading
-                    ? 'Loading tool count...'
+                    ? '—'
                     : summary?.totalTools == null
-                    ? (loadError ? 'Load failed' : '—')
+                    ? (loadError ? 'Unavailable' : '—')
                     : summary.totalTools}
                 </div>
                 <p className="text-xs text-muted-foreground">
                   {loading
                     ? '-'
                     : (summary?.activeTools == null && loadError)
-                    ? 'Load failed'
+                    ? 'Unavailable'
                     : summary?.activeTools == null
                     ? '—'
                     : `${summary.activeTools} active`}
@@ -448,9 +448,9 @@ function ToolUsagePageContent() {
               <CardContent className="flex flex-col gap-1 justify-center">
                 <div className={loading || summary?.totalRequests == null ? (loadError ? "text-sm text-red-600 dark:text-red-400" : "text-sm text-muted-foreground") : "text-2xl font-bold"}>
                   {loading
-                    ? 'Loading request count...'
+                    ? '—'
                     : summary?.totalRequests == null
-                    ? (loadError ? 'Load failed' : '—')
+                    ? (loadError ? 'Unavailable' : '—')
                     : summary.totalRequests.toLocaleString()}
                 </div>
                 <p className="text-xs text-muted-foreground">Last {timeRangeLabel}</p>
@@ -472,9 +472,9 @@ function ToolUsagePageContent() {
                     : "text-2xl font-bold text-amber-600 dark:text-amber-400"
                 }>
                   {loading
-                    ? 'Loading success rate...'
+                    ? '—'
                     : summary?.avgSuccessRate == null
-                    ? (loadError ? 'Load failed' : '—')
+                    ? (loadError ? 'Unavailable' : '—')
                     : `${summary.avgSuccessRate.toFixed(1)}%`}
                 </div>
                 <p className="text-xs text-muted-foreground">Average across all tools</p>
@@ -488,9 +488,9 @@ function ToolUsagePageContent() {
               <CardContent className="flex flex-col gap-1 justify-center">
                 <div className={loading || summary?.avgResponseTime == null ? (loadError ? "text-sm text-red-600 dark:text-red-400" : "text-sm text-muted-foreground") : "text-2xl font-bold"}>
                   {loading
-                    ? 'Loading response time...'
+                    ? '—'
                     : summary?.avgResponseTime == null
-                    ? (loadError ? 'Load failed' : '—')
+                    ? (loadError ? 'Unavailable' : '—')
                     : `${Math.round(summary.avgResponseTime)}ms`}
                 </div>
                 <p className="text-xs text-muted-foreground">Across all tools</p>

@@ -4,11 +4,14 @@ import (
 	"fmt"
 	"net/url"
 	"path"
+	"regexp"
 	"sort"
 	"strings"
 
 	"github.com/dunialabs/kimbap/internal/services"
 )
+
+var pathParamRe = regexp.MustCompile(`\{[^/}]+\}`)
 
 type Rule struct {
 	ID          string
@@ -239,6 +242,7 @@ func normalizePathPattern(reqPath string) string {
 			p = u.Path
 		}
 	}
+	p = pathParamRe.ReplaceAllString(p, "*")
 	return p
 }
 

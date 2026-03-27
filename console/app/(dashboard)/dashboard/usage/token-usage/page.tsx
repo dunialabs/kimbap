@@ -447,7 +447,7 @@ function TokenUsagePageContent() {
                    }
                  >
                   {loading
-                    ? 'Loading token count...'
+                    ? '—'
                     : summary?.totalTokens == null
                     ? (loadError ? 'Unavailable' : '—')
                     : summary.totalTokens.toLocaleString()}
@@ -480,7 +480,7 @@ function TokenUsagePageContent() {
                    }
                  >
                   {loading
-                    ? 'Loading request count...'
+                    ? '—'
                     : summary?.totalRequests == null
                     ? (loadError ? 'Unavailable' : '—')
                     : summary.totalRequests.toLocaleString()}
@@ -542,7 +542,7 @@ function TokenUsagePageContent() {
                    }
                  >
                   {loading
-                    ? 'Loading client count...'
+                    ? '—'
                     : summary?.totalClients == null
                     ? (loadError ? 'Unavailable' : '—')
                     : summary.totalClients.toLocaleString()}
