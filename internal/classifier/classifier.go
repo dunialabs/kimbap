@@ -158,6 +158,11 @@ func (c *Classifier) sortRules() {
 			return left.Priority > right.Priority
 		}
 
+		lh := hostSpecificity(left.HostPattern)
+		rh := hostSpecificity(right.HostPattern)
+		if lh != rh {
+			return lh > rh
+		}
 		leftSpecificity := pathSpecificity(left.PathPattern)
 		rightSpecificity := pathSpecificity(right.PathPattern)
 		if leftSpecificity.kind != rightSpecificity.kind {
@@ -168,11 +173,6 @@ func (c *Classifier) sortRules() {
 		}
 		if leftSpecificity.segmentCount != rightSpecificity.segmentCount {
 			return leftSpecificity.segmentCount > rightSpecificity.segmentCount
-		}
-		lh := hostSpecificity(left.HostPattern)
-		rh := hostSpecificity(right.HostPattern)
-		if lh != rh {
-			return lh > rh
 		}
 		lm := methodSpecificity(left.Method)
 		rm := methodSpecificity(right.Method)
