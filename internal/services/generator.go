@@ -925,10 +925,12 @@ func resolveCompositeSchema(schema map[string]any, resolver *openAPIRefResolver)
 }
 
 func resolveCompositeSchemaDepth(schema map[string]any, resolver *openAPIRefResolver, depth int) map[string]any {
-	if len(schema) == 0 || depth > 8 {
-		if depth > 8 {
+	if len(schema) == 0 || depth > 16 {
+		if depth > 16 {
 			merged := cloneAnyMap(schema)
-			merged["type"] = "object"
+			if _, hasType := merged["type"]; !hasType {
+				merged["type"] = "object"
+			}
 			merged[schemaOpaqueKey] = true
 			return merged
 		}

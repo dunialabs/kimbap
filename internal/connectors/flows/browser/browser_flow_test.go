@@ -335,6 +335,9 @@ func TestRunBrowserFlow_StateMismatchRejected(t *testing.T) {
 	if runErr == nil {
 		t.Fatal("expected error after wrong state callback")
 	}
+	if !strings.Contains(runErr.Error(), "oauth state mismatch") {
+		t.Fatalf("expected oauth state mismatch error, got: %v", runErr)
+	}
 }
 
 func TestRunBrowserFlow_TimesOutWithoutCallback(t *testing.T) {
