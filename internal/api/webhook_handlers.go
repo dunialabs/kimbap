@@ -105,12 +105,10 @@ func (s *Server) handleListRecentEvents(w http.ResponseWriter, r *http.Request) 
 }
 
 // validateWebhookURL validates the URL format and rejects known private/loopback
-// addresses. DNS resolution is performed at registration time; a determined
-// attacker with control over DNS (DNS rebinding) could bypass this check by
-// returning a public IP here and a private IP at delivery time. The delivery
-// transport does not currently pin the resolved address, so this is best-effort
-// SSRF mitigation. A full fix requires enforcing the pre-resolved IP inside a
-// custom DialContext on the HTTP client used for delivery.
+// addresses at registration time as an early safety check. Delivery-time SSRF
+// mitigation is enforced separately by the webhook dispatcher, which resolves
+// the hostname and dials the resolved IP via a custom DialContext, rejecting
+// private or loopback addresses before connecting.
 func validateWebhookURL(rawURL string) error {
 	u, err := url.Parse(rawURL)
 	if err != nil {
