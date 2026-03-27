@@ -266,6 +266,16 @@ func validateHostExtraValue(value string) error {
 		if ip.IsLoopback() || ip.IsPrivate() || ip.IsLinkLocalUnicast() || ip.IsUnspecified() {
 			return errors.New("loopback and private IP addresses are not allowed")
 		}
+	} else {
+		if addrs, lookupErr := net.LookupHost(hostname); lookupErr == nil {
+			for _, addr := range addrs {
+				if resolved := net.ParseIP(addr); resolved != nil {
+					if resolved.IsLoopback() || resolved.IsPrivate() || resolved.IsLinkLocalUnicast() || resolved.IsUnspecified() {
+						return errors.New("loopback and private IP addresses are not allowed")
+					}
+				}
+			}
+		}
 	}
 	if port := u.Port(); port != "" {
 		parsed, pErr := strconv.Atoi(port)

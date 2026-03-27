@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"net/http"
+	"sync"
 	"time"
 
 	"github.com/dunialabs/kimbap/internal/auth"
@@ -16,6 +17,7 @@ import (
 )
 
 type Server struct {
+	mu                sync.Mutex
 	router            chi.Router
 	store             store.Store
 	addr              string
@@ -96,11 +98,14 @@ func (s *Server) Router() chi.Router {
 }
 
 func (s *Server) Start(ctx context.Context) error {
+	s.mu.Lock()
 	if s.httpServer != nil {
+		s.mu.Unlock()
 		return errors.New("server already started")
 	}
 	srv := newHTTPServer(s.addr, s.router)
 	s.httpServer = srv
+	s.mu.Unlock()
 
 	errCh := make(chan error, 1)
 	go func() {
@@ -112,19 +117,20 @@ func (s *Server) Start(ctx context.Context) error {
 		shutdownCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancel()
 		shutdownErr := srv.Shutdown(shutdownCtx)
+		s.mu.Lock()
+		s.httpServer = nil
+		s.mu.Unlock()
 		if shutdownErr != nil && !errors.Is(shutdownErr, http.ErrServerClosed) {
-			_ = srv.Close()
-			s.httpServer = nil
 			return shutdownErr
 		}
-		s.httpServer = nil
 		return nil
 	case err := <-errCh:
+		s.mu.Lock()
+		s.httpServer = nil
+		s.mu.Unlock()
 		if errors.Is(err, http.ErrServerClosed) {
-			s.httpServer = nil
 			return nil
 		}
-		s.httpServer = nil
 		return err
 	}
 }
@@ -140,14 +146,19 @@ func newHTTPServer(addr string, handler http.Handler) *http.Server {
 }
 
 func (s *Server) Stop(ctx context.Context) error {
-	if s.httpServer == nil {
+	s.mu.Lock()
+	srv := s.httpServer
+	s.mu.Unlock()
+	if srv == nil {
 		return nil
 	}
-	err := s.httpServer.Shutdown(ctx)
+	err := srv.Shutdown(ctx)
 	if err != nil && !errors.Is(err, http.ErrServerClosed) {
-		_ = s.httpServer.Close()
+		_ = srv.Close()
 	}
+	s.mu.Lock()
 	s.httpServer = nil
+	s.mu.Unlock()
 	if errors.Is(err, http.ErrServerClosed) {
 		return nil
 	}
