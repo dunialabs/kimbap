@@ -355,7 +355,7 @@ func mapPagination(page *PageSpec) *actions.PaginationConfig {
 
 func isIdempotent(method string) bool {
 	switch strings.ToUpper(strings.TrimSpace(method)) {
-	case "GET", "HEAD", "OPTIONS":
+	case "GET", "HEAD", "OPTIONS", "PUT", "DELETE":
 		return true
 	default:
 		return false
