@@ -114,12 +114,12 @@ func newAuthRevokeCommand() *cobra.Command {
 			}
 
 			if !outputAsJSON() {
-				fmt.Fprintf(os.Stdout, "Disconnected %s.\n", providerID)
-				fmt.Fprintf(os.Stdout, "Remote revocation: %s\n", revocationResult)
+				_, _ = fmt.Fprintf(os.Stdout, "Disconnected %s.\n", providerID)
+				_, _ = fmt.Fprintf(os.Stdout, "Remote revocation: %s\n", revocationResult)
 				if deleted {
-					fmt.Fprintln(os.Stdout, "Local token material removed.")
+					_, _ = fmt.Fprintln(os.Stdout, "Local token material removed.")
 				} else if deleteErr != nil {
-					fmt.Fprintf(os.Stdout, "Local cleanup failed: %v\n", deleteErr)
+					_, _ = fmt.Fprintf(os.Stdout, "Local cleanup failed: %v\n", deleteErr)
 				}
 				return nil
 			}
