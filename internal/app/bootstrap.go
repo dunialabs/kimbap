@@ -617,8 +617,10 @@ func (a *auditWriterAdapter) Write(ctx context.Context, event runtimepkg.AuditEv
 		return nil
 	}
 	service := ""
-	if left, _, ok := strings.Cut(event.ActionName, "."); ok {
+	action := event.ActionName
+	if left, right, ok := strings.Cut(event.ActionName, "."); ok {
 		service = left
+		action = right
 	}
 
 	out := audit.AuditEvent{
@@ -629,7 +631,7 @@ func (a *auditWriterAdapter) Write(ctx context.Context, event runtimepkg.AuditEv
 		PrincipalID:    event.PrincipalID,
 		AgentName:      event.AgentName,
 		Service:        service,
-		Action:         event.ActionName,
+		Action:         action,
 		Mode:           string(event.Mode),
 		Status:         mapAuditStatus(event),
 		PolicyDecision: event.PolicyDecision,
