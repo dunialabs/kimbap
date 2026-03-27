@@ -130,6 +130,24 @@ func TestValidateInputEnumInvalid(t *testing.T) {
 	}
 }
 
+func TestValidateInputEnumNumericCrossTypeMatch(t *testing.T) {
+	schema := &Schema{
+		Type: "object",
+		Properties: map[string]*Schema{
+			"tier": {Type: "integer", Enum: []any{1, 2, 3}},
+		},
+		AdditionalProperties: true,
+	}
+
+	if err := ValidateInput(schema, map[string]any{"tier": float64(2)}); err != nil {
+		t.Fatalf("expected numeric enum to match across int/float decode types, got %v", err)
+	}
+
+	if err := ValidateInput(schema, map[string]any{"tier": uint8(3)}); err != nil {
+		t.Fatalf("expected numeric enum to match uint/int variants, got %v", err)
+	}
+}
+
 func TestValidateInputExtraFieldIgnored(t *testing.T) {
 	schema := &Schema{
 		Type:                 "object",
@@ -173,5 +191,35 @@ func TestValidateInputTypeNumberAcceptsFloatAndInteger(t *testing.T) {
 	}
 	if !strings.Contains(err.Message, "must be number") {
 		t.Fatalf("expected number type error message, got %q", err.Message)
+	}
+}
+
+func TestValidateInputRejectsUnknownNestedFieldWhenStrictSchema(t *testing.T) {
+	schema := &Schema{
+		Type: "object",
+		Properties: map[string]*Schema{
+			"config": {
+				Type: "object",
+				Properties: map[string]*Schema{
+					"name": {Type: "string"},
+				},
+				AdditionalProperties: false,
+			},
+		},
+		AdditionalProperties: true,
+	}
+
+	valid := map[string]any{"config": map[string]any{"name": "test"}}
+	if err := ValidateInput(schema, valid); err != nil {
+		t.Fatalf("expected valid nested input to pass, got %v", err)
+	}
+
+	invalid := map[string]any{"config": map[string]any{"name": "test", "extra": "bad"}}
+	err := ValidateInput(schema, invalid)
+	if err == nil {
+		t.Fatal("expected unknown nested field to be rejected when AdditionalProperties is false")
+	}
+	if !strings.Contains(err.Message, "unknown nested field") {
+		t.Fatalf("expected unknown nested field error, got %q", err.Message)
 	}
 }

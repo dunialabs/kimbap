@@ -22,6 +22,10 @@ func newCallCommand() *cobra.Command {
 		Short:              "Execute an installed action",
 		DisableFlagParsing: true,
 		Args:               cobra.ArbitraryArgs,
+		PersistentPreRun: func(cmd *cobra.Command, args []string) {
+			prescanCallSplashFlags(args)
+			showSplashOnce()
+		},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			actionName, inputTokens, showHelp, err := splitCallInvocationArgs(args)
 			if err != nil {
@@ -239,6 +243,21 @@ func isCredentialReady(cfg *config.KimbapConfig, req actions.ExecutionRequest) b
 	}
 	raw, getErr := vs.GetValue(contextBackground(), defaultTenantID(), credentialRef)
 	return getErr == nil && len(raw) > 0
+}
+
+func prescanCallSplashFlags(tokens []string) {
+	for i := 0; i < len(tokens); i++ {
+		tok := strings.TrimSpace(tokens[i])
+		switch {
+		case tok == "--no-splash":
+			opts.noSplash = true
+		case tok == "--format" && i+1 < len(tokens):
+			opts.format = strings.TrimSpace(tokens[i+1])
+			i++
+		case strings.HasPrefix(tok, "--format="):
+			opts.format = strings.TrimSpace(strings.TrimPrefix(tok, "--format="))
+		}
+	}
 }
 
 func splitGlobalCallFlags(tokens []string) ([]string, error) {

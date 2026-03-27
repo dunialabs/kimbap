@@ -363,6 +363,19 @@ func validateValue(field string, schema *Schema, value any) *ExecutionError {
 					)
 				}
 			}
+			if len(schema.Properties) > 0 && !schema.AdditionalProperties {
+				for key := range obj {
+					if _, declared := schema.Properties[key]; !declared {
+						return NewExecutionError(
+							ErrValidationFailed,
+							fmt.Sprintf("field %q has unknown nested field %q", field, key),
+							400,
+							false,
+							map[string]any{"field": field, "nested_field": key},
+						)
+					}
+				}
+			}
 			for key, prop := range schema.Properties {
 				nested, ok := obj[key]
 				if !ok {

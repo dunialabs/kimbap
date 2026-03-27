@@ -403,10 +403,18 @@ func resolveVaultMasterKey(cfg *config.KimbapConfig) ([]byte, error) {
 	devKeyPath := filepath.Join(cfg.DataDir, ".dev-master-key")
 	existing, readErr := os.ReadFile(devKeyPath)
 	if readErr == nil {
-		if len(existing) != 32 {
-			return nil, fmt.Errorf("invalid dev master key at %s: expected 32 bytes, got %d", devKeyPath, len(existing))
+		if len(existing) == 32 {
+			return existing, nil
 		}
-		return existing, nil
+		// Short read — another process may still be writing. Retry briefly.
+		for range 10 {
+			time.Sleep(50 * time.Millisecond)
+			existing, readErr = os.ReadFile(devKeyPath)
+			if readErr == nil && len(existing) == 32 {
+				return existing, nil
+			}
+		}
+		return nil, fmt.Errorf("invalid dev master key at %s: expected 32 bytes, got %d", devKeyPath, len(existing))
 	}
 	if !os.IsNotExist(readErr) {
 		return nil, fmt.Errorf("read dev master key %s: %w", devKeyPath, readErr)
@@ -419,6 +427,13 @@ func resolveVaultMasterKey(cfg *config.KimbapConfig) ([]byte, error) {
 		return nil, fmt.Errorf("create data dir: %w", err)
 	}
 	if err := os.WriteFile(devKeyPath, key, 0o600); err != nil {
+		if os.IsExist(err) {
+			// Another process won the race — read their key.
+			existing, readErr := os.ReadFile(devKeyPath)
+			if readErr == nil && len(existing) == 32 {
+				return existing, nil
+			}
+		}
 		return nil, fmt.Errorf("persist dev master key: %w", err)
 	}
 	return key, nil
