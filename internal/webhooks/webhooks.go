@@ -8,6 +8,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"io"
 	"net"
 	"net/http"
 	"slices"
@@ -301,6 +302,7 @@ func (d *Dispatcher) deliver(sub Subscription, event Event) {
 		log.Warn().Err(err).Str("subscriptionId", sub.ID).Str("url", sub.URL).Msg("webhook deliver post failed")
 		return
 	}
+	_, _ = io.Copy(io.Discard, resp.Body)
 	_ = resp.Body.Close()
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
 		log.Warn().Str("subscriptionId", sub.ID).Str("url", sub.URL).Int("statusCode", resp.StatusCode).Msg("webhook deliver non-2xx response")
