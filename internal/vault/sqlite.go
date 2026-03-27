@@ -63,13 +63,16 @@ func (s *SQLiteStore) Close() error {
 }
 
 func (s *SQLiteStore) Create(ctx context.Context, tenantID string, name string, secretType SecretType, plaintext []byte, labels map[string]string, createdBy string) (*SecretRecord, error) {
-	if strings.TrimSpace(tenantID) == "" {
+	tenantID = strings.TrimSpace(tenantID)
+	name = strings.TrimSpace(name)
+	createdBy = strings.TrimSpace(createdBy)
+	if tenantID == "" {
 		return nil, errors.New("tenant ID is required")
 	}
-	if strings.TrimSpace(name) == "" {
+	if name == "" {
 		return nil, errors.New("name is required")
 	}
-	if strings.TrimSpace(createdBy) == "" {
+	if createdBy == "" {
 		return nil, errors.New("createdBy is required")
 	}
 
@@ -126,6 +129,8 @@ func (s *SQLiteStore) Create(ctx context.Context, tenantID string, name string, 
 }
 
 func (s *SQLiteStore) Upsert(ctx context.Context, tenantID string, name string, secretType SecretType, plaintext []byte, labels map[string]string, createdBy string) (*SecretRecord, error) {
+	tenantID = strings.TrimSpace(tenantID)
+	name = strings.TrimSpace(name)
 	rec, err := s.Create(ctx, tenantID, name, secretType, plaintext, labels, createdBy)
 	if err != ErrSecretAlreadyExists {
 		return rec, err
@@ -191,6 +196,8 @@ func (s *SQLiteStore) Upsert(ctx context.Context, tenantID string, name string, 
 }
 
 func (s *SQLiteStore) GetMeta(ctx context.Context, tenantID string, name string) (*SecretRecord, error) {
+	tenantID = strings.TrimSpace(tenantID)
+	name = strings.TrimSpace(name)
 	row := s.db.QueryRowContext(ctx, `
 		SELECT
 			id, tenant_id, name, type, labels, created_at, updated_at,
@@ -288,6 +295,8 @@ func (s *SQLiteStore) List(ctx context.Context, tenantID string, opts ListOption
 }
 
 func (s *SQLiteStore) Delete(ctx context.Context, tenantID string, name string) error {
+	tenantID = strings.TrimSpace(tenantID)
+	name = strings.TrimSpace(name)
 	tx, err := s.db.BeginTx(ctx, nil)
 	if err != nil {
 		return err
@@ -319,6 +328,8 @@ func (s *SQLiteStore) Delete(ctx context.Context, tenantID string, name string) 
 }
 
 func (s *SQLiteStore) Rotate(ctx context.Context, tenantID string, name string, newPlaintext []byte, rotatedBy string) (*SecretRecord, error) {
+	tenantID = strings.TrimSpace(tenantID)
+	name = strings.TrimSpace(name)
 	if strings.TrimSpace(rotatedBy) == "" {
 		return nil, errors.New("rotatedBy is required")
 	}
@@ -379,6 +390,8 @@ func (s *SQLiteStore) Rotate(ctx context.Context, tenantID string, name string, 
 }
 
 func (s *SQLiteStore) GetVersion(ctx context.Context, tenantID string, name string, version int) ([]byte, error) {
+	tenantID = strings.TrimSpace(tenantID)
+	name = strings.TrimSpace(name)
 	if version <= 0 {
 		return nil, errors.New("version must be greater than zero")
 	}
@@ -402,6 +415,8 @@ func (s *SQLiteStore) GetVersion(ctx context.Context, tenantID string, name stri
 }
 
 func (s *SQLiteStore) MarkUsed(ctx context.Context, tenantID string, name string) error {
+	tenantID = strings.TrimSpace(tenantID)
+	name = strings.TrimSpace(name)
 	now := time.Now().UTC()
 	res, err := s.db.ExecContext(ctx, `UPDATE secrets SET last_used_at = ?, updated_at = ? WHERE tenant_id = ? AND name = ?`, now, now, tenantID, name)
 	if err != nil {
@@ -418,6 +433,8 @@ func (s *SQLiteStore) MarkUsed(ctx context.Context, tenantID string, name string
 }
 
 func (s *SQLiteStore) Exists(ctx context.Context, tenantID string, name string) (bool, error) {
+	tenantID = strings.TrimSpace(tenantID)
+	name = strings.TrimSpace(name)
 	var exists bool
 	err := s.db.QueryRowContext(ctx, `
 		SELECT EXISTS(

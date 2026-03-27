@@ -154,13 +154,13 @@ const EXTRACT_TYPES = [
 ] as const
 
 const DECISIONS = [
-  { value: 'ALLOW', label: 'Allow', color: 'bg-emerald-500/10 text-emerald-600 border-emerald-500/20' },
+  { value: 'ALLOW', label: 'Allow', color: 'bg-emerald-500/10 text-emerald-600 border-emerald-500/20 dark:bg-emerald-500/20 dark:text-emerald-400 dark:border-emerald-500/40' },
   {
     value: 'REQUIRE_APPROVAL',
     label: 'Needs approval',
-    color: 'bg-amber-500/10 text-amber-600 border-amber-500/20',
+    color: 'bg-amber-500/10 text-amber-600 border-amber-500/20 dark:bg-amber-500/20 dark:text-amber-400 dark:border-amber-500/40',
   },
-  { value: 'DENY', label: 'Block', color: 'bg-red-500/10 text-red-600 border-red-500/20' },
+  { value: 'DENY', label: 'Block', color: 'bg-red-500/10 text-red-600 border-red-500/20 dark:bg-red-500/20 dark:text-red-400 dark:border-red-500/40' },
 ] as const
 
 function generateId(): string {
@@ -812,15 +812,11 @@ export default function PoliciesPage() {
             See which tool calls run automatically, require approval, or stay blocked.
           </p>
           <div className="flex flex-wrap items-center gap-2">
-            <Badge variant="outline" className="bg-emerald-500/10 text-emerald-600 border-emerald-500/20">
-              Allow
-            </Badge>
-            <Badge variant="outline" className="bg-amber-500/10 text-amber-600 border-amber-500/20">
-              Needs approval
-            </Badge>
-            <Badge variant="outline" className="bg-red-500/10 text-red-600 border-red-500/20">
-              Block
-            </Badge>
+            {DECISIONS.map((d) => (
+              <Badge key={d.value} variant="outline" className={d.color}>
+                {d.label}
+              </Badge>
+            ))}
           </div>
         </div>
         {canManagePolicies ? (

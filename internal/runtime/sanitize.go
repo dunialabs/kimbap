@@ -193,9 +193,16 @@ func checkPathTraversal(value string) error {
 		return nil
 	}
 
-	decoded, decodeErr := url.PathUnescape(trimmed)
-	if decodeErr != nil {
-		decoded = trimmed
+	decoded := trimmed
+	for range 4 {
+		next, decodeErr := url.PathUnescape(decoded)
+		if decodeErr != nil {
+			break
+		}
+		if next == decoded {
+			break
+		}
+		decoded = next
 	}
 
 	normalized := strings.ToLower(strings.ReplaceAll(decoded, "\\", "/"))

@@ -40,7 +40,7 @@ func ResolveOAuthClientMaterial(providerID string, manifest *ProviderManifest) (
 		return nil, fmt.Errorf("no auth credentials available for provider %q: configure BYO env vars or managed app", providerID)
 	}
 
-	providerKey := strings.ToUpper(providerID)
+	providerKey := envKey(providerID)
 	byoID := strings.TrimSpace(os.Getenv("KIMBAP_" + providerKey + "_CLIENT_ID"))
 	byoSecret := strings.TrimSpace(os.Getenv("KIMBAP_" + providerKey + "_CLIENT_SECRET"))
 	if byoID != "" && byoSecret != "" {
@@ -89,13 +89,13 @@ func ResolveActionToken(ctx context.Context, providerID, credRef, tenantID strin
 	_ = ctx
 	_ = tenantID
 
-	providerKey := strings.ToUpper(providerID)
+	providerKey := envKey(providerID)
 
 	if connectorToken := strings.TrimSpace(os.Getenv("KIMBAP_CONNECTOR_" + providerKey + "_TOKEN")); connectorToken != "" {
 		return connectorToken, "connector", nil
 	}
 
-	vaultRefKey := strings.ToUpper(strings.ReplaceAll(strings.TrimSpace(credRef), ".", "_"))
+	vaultRefKey := envKey(credRef)
 	if vaultRefKey != "" {
 		if vaultToken := strings.TrimSpace(os.Getenv("KIMBAP_" + vaultRefKey)); vaultToken != "" {
 			return vaultToken, "vault", nil
@@ -106,7 +106,11 @@ func ResolveActionToken(ctx context.Context, providerID, credRef, tenantID strin
 		return envToken, "env", nil
 	}
 
-	return "", "", fmt.Errorf("credential not configured for %s: set KIMBAP_%s_TOKEN or use kimbap vault set %s", providerID, providerKey, credRef)
+	return "", "", fmt.Errorf("credential not configured for %s: set KIMBAP_%s_TOKEN or use kimbap vault set %s", providerID, envKey(providerID), credRef)
+}
+
+func envKey(id string) string {
+	return strings.ToUpper(strings.NewReplacer("-", "_", ".", "_").Replace(strings.TrimSpace(id)))
 }
 
 func resolveAuthMethod(authMethod string) string {

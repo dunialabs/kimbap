@@ -41,8 +41,19 @@ if [ -w /usr/local/bin ]; then
   make -C "$ROOT_DIR" install
   BIN_PATH="/usr/local/bin/kimbap"
 elif command -v sudo >/dev/null 2>&1; then
-  sudo make -C "$ROOT_DIR" install
-  BIN_PATH="/usr/local/bin/kimbap"
+  if [ -t 0 ]; then
+    sudo make -C "$ROOT_DIR" install
+    BIN_PATH="/usr/local/bin/kimbap"
+  elif sudo -n true >/dev/null 2>&1; then
+    sudo -n make -C "$ROOT_DIR" install
+    BIN_PATH="/usr/local/bin/kimbap"
+  else
+    mkdir -p "$HOME/.local/bin"
+    install -m 755 "$BIN_PATH" "$HOME/.local/bin/kimbap"
+    ln -sf "$HOME/.local/bin/kimbap" "$HOME/.local/bin/kb"
+    BIN_PATH="$HOME/.local/bin/kimbap"
+    printf 'Installed to %s (add to PATH if needed).\n' "$HOME/.local/bin"
+  fi
 else
   mkdir -p "$HOME/.local/bin"
   install -m 755 "$BIN_PATH" "$HOME/.local/bin/kimbap"

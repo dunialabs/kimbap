@@ -569,7 +569,7 @@ func ensureWritableDirWithStatus(name, dir string) doctorCheck {
 		if !os.IsNotExist(err) {
 			return doctorCheck{Name: name, Status: "fail", Detail: err.Error()}
 		}
-		if mkErr := os.MkdirAll(dir, 0o755); mkErr != nil {
+		if mkErr := os.MkdirAll(dir, 0o700); mkErr != nil {
 			return doctorCheck{Name: name, Status: "fail", Detail: mkErr.Error()}
 		}
 	}

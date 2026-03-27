@@ -487,7 +487,7 @@ func addRequestBodyArgs(action *ServiceAction, op map[string]any, resolver *open
 	}
 
 	mediaType := pickMediaType(content)
-	if !strings.Contains(mediaType, "json") {
+	if !strings.Contains(strings.ToLower(mediaType), "json") {
 		appendActionWarnings(action, []string{fmt.Sprintf("skipping request body: unsupported media type %q (only JSON is supported)", mediaType)})
 		return nil
 	}
@@ -734,6 +734,11 @@ func pickMediaType(content map[string]any) string {
 		return "application/json"
 	}
 	keys := sortedMapKeys(content)
+	for _, key := range keys {
+		if strings.Contains(strings.ToLower(key), "json") {
+			return key
+		}
+	}
 	if len(keys) == 0 {
 		return ""
 	}

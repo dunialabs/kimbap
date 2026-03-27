@@ -28,6 +28,18 @@ func TestCheckPathTraversalAllowsNormalValues(t *testing.T) {
 	}
 }
 
+func TestCheckPathTraversalRejectsDoubleEncodedTraversal(t *testing.T) {
+	tests := []string{
+		"%252e%252e%252fetc/passwd",
+		"%252e%252e%255cwindows%255csystem32",
+	}
+
+	for _, value := range tests {
+		err := checkPathTraversal(value)
+		assertValidationError(t, err)
+	}
+}
+
 func TestCheckControlCharsRejectsNullAndEscapeSequences(t *testing.T) {
 	tests := []string{
 		"safe\x00unsafe",

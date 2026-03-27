@@ -201,7 +201,7 @@ func newLinkListCommand() *cobra.Command {
 				default:
 					row.CredentialRef = info.CredentialRef
 					if vs != nil && strings.TrimSpace(info.CredentialRef) != "" {
-						if raw, getErr := vs.GetValue(contextBackground(), tenantID, info.CredentialRef); getErr == nil && len(raw) > 0 {
+						if exists, getErr := vs.Exists(contextBackground(), tenantID, info.CredentialRef); getErr == nil && exists {
 							row.Status = "connected"
 						} else if getErr == nil || errors.Is(getErr, vault.ErrSecretNotFound) {
 							row.Status = "not_connected"
@@ -374,8 +374,8 @@ func linkHandleKeyBasedService(cfg *config.KimbapConfig, info linkServiceInfo, s
 		return err
 	}
 
-	secret, err := vs.GetValue(contextBackground(), tenantID, credentialRef)
-	if err == nil && len(secret) > 0 {
+	exists, err := vs.Exists(contextBackground(), tenantID, credentialRef)
+	if err == nil && exists {
 		if outputAsJSON() {
 			return printOutput(map[string]any{
 				"service":        info.Service,

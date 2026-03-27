@@ -154,3 +154,20 @@ func TestEnsureWritableDirWithStatusFailsWhenPathIsFile(t *testing.T) {
 		t.Fatalf("expected fail when path is a file, got %q", check.Status)
 	}
 }
+
+func TestEnsureWritableDirWithStatusCreatesPrivateDirectory(t *testing.T) {
+	dataDir := filepath.Join(t.TempDir(), "data")
+
+	check := ensureWritableDirWithStatus("data directory writable", dataDir)
+	if check.Status != "ok" {
+		t.Fatalf("expected ok for newly created writable directory, got %q", check.Status)
+	}
+
+	st, err := os.Stat(dataDir)
+	if err != nil {
+		t.Fatalf("stat data dir: %v", err)
+	}
+	if st.Mode().Perm()&0o077 != 0 {
+		t.Fatalf("expected private permissions for data dir, got %o", st.Mode().Perm())
+	}
+}

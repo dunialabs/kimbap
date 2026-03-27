@@ -264,6 +264,58 @@ paths:
 	}
 }
 
+func TestGenerateFromOpenAPIAcceptsCaseInsensitiveJSONMediaType(t *testing.T) {
+	spec := `openapi: 3.0.3
+info:
+  title: Media Type Case API
+  version: 1.0.0
+servers:
+  - url: https://api.example.com
+paths:
+  /items:
+    post:
+      operationId: createItem
+      requestBody:
+        required: true
+        content:
+          Application/JSON:
+            schema:
+              type: object
+              required: [name]
+              properties:
+                name:
+                  type: string
+      responses:
+        '200':
+          description: ok
+          content:
+            application/json:
+              schema:
+                type: object
+`
+
+	manifest, err := GenerateFromOpenAPI([]byte(spec))
+	if err != nil {
+		t.Fatalf("GenerateFromOpenAPI failed: %v", err)
+	}
+
+	action, ok := manifest.Actions["createitem"]
+	if !ok {
+		t.Fatalf("expected createitem action")
+	}
+
+	foundName := false
+	for _, arg := range action.Args {
+		if arg.Name == "name" {
+			foundName = true
+			break
+		}
+	}
+	if !foundName {
+		t.Fatalf("expected request body arg 'name' for case-insensitive JSON media type, got %+v", action.Args)
+	}
+}
+
 func TestGenerateFromOpenAPIOperationSecurityOverride(t *testing.T) {
 	spec := `openapi: 3.0.3
 info:
