@@ -476,6 +476,11 @@ func buildBody(method string, payload map[string]any, requestBodyTemplate string
 		if payload == nil {
 			payload = map[string]any{}
 		}
+		if len(payload) == 1 {
+			if raw, ok := payload["body"]; ok {
+				return json.Marshal(raw)
+			}
+		}
 		return json.Marshal(payload)
 	}
 }
