@@ -93,7 +93,10 @@ func TestRunDeviceFlow_Success_PrintsInstructionsAndReturnsToken(t *testing.T) {
 			w.WriteHeader(http.StatusNotFound)
 		}
 	}))
-	defer srv.Close()
+	defer func() {
+		srv.CloseClientConnections()
+		srv.Close()
+	}()
 
 	var out bytes.Buffer
 	result, err := RunDeviceFlow(context.Background(), DeviceFlowConfig{
@@ -162,8 +165,11 @@ func TestRunDeviceFlow_ContextCancellation(t *testing.T) {
 	defer cancel()
 
 	go func() {
-		<-tokenCalled
-		cancel()
+		select {
+		case <-tokenCalled:
+			cancel()
+		case <-ctx.Done():
+		}
 	}()
 
 	_, err := RunDeviceFlow(ctx, DeviceFlowConfig{
