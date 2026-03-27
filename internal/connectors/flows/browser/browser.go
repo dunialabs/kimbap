@@ -161,6 +161,9 @@ func RunBrowserFlow(ctx context.Context, cfg BrowserFlowConfig, output io.Writer
 			w.Header().Set("Content-Type", "text/html; charset=utf-8")
 			w.WriteHeader(http.StatusBadRequest)
 			_, _ = w.Write([]byte("<html><body><h1>Authentication failed</h1><p>Invalid state parameter. You can close this window.</p></body></html>"))
+			once.Do(func() {
+				resultCh <- callbackPayload{err: errors.New("oauth state mismatch")}
+			})
 			return
 		}
 

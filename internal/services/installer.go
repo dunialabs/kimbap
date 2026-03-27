@@ -543,14 +543,6 @@ func (i *LocalInstaller) writeLockfile(lf *Lockfile) error {
 		return fmt.Errorf("marshal lockfile: %w", err)
 	}
 	lockPath := i.lockfilePath()
-	if info, err := os.Stat(lockPath); err == nil {
-		if info.Mode().Perm()&0o222 == 0 {
-			return fmt.Errorf("lockfile is not writable: %w", os.ErrPermission)
-		}
-	} else if !os.IsNotExist(err) {
-		return fmt.Errorf("stat lockfile: %w", err)
-	}
-
 	tmp, err := os.CreateTemp(filepath.Dir(lockPath), ".kimbap-services-lock-*.tmp")
 	if err != nil {
 		return fmt.Errorf("create temp lockfile: %w", err)

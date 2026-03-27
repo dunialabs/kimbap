@@ -220,14 +220,18 @@ func (s *Server) handleCreateToken(w http.ResponseWriter, r *http.Request) {
 		writeEnvelopeError(w, r, actions.NewExecutionError(actions.ErrUnauthorized, "tenant_id does not match authenticated tenant context", http.StatusForbidden, false, nil))
 		return
 	}
-	if len(req.Scopes) > 0 {
-		for _, requested := range req.Scopes {
-			if !principalHasScope(principal, requested) {
-				writeEnvelopeError(w, r, actions.NewExecutionError(actions.ErrUnauthorized,
-					"cannot mint token with scope not held by caller: "+requested,
-					http.StatusForbidden, false, nil))
-				return
-			}
+	// Prevent scope escalation: if the caller has restricted scopes and requests
+	// none, inherit the caller's scopes rather than issuing an unrestricted token.
+	issuedScopes := req.Scopes
+	if len(issuedScopes) == 0 && len(principal.Scopes) > 0 {
+		issuedScopes = append([]string(nil), principal.Scopes...)
+	}
+	for _, requested := range issuedScopes {
+		if !principalHasScope(principal, requested) {
+			writeEnvelopeError(w, r, actions.NewExecutionError(actions.ErrUnauthorized,
+				"cannot mint token with scope not held by caller: "+requested,
+				http.StatusForbidden, false, nil))
+			return
 		}
 	}
 	ttl := 30 * 24 * time.Hour
@@ -238,7 +242,7 @@ func (s *Server) handleCreateToken(w http.ResponseWriter, r *http.Request) {
 		}
 		ttl = time.Duration(req.TTLSeconds) * time.Second
 	}
-	raw, issued, err := s.tokenService.Issue(r.Context(), tenantID, req.AgentName, req.Scopes, ttl)
+	raw, issued, err := s.tokenService.Issue(r.Context(), tenantID, req.AgentName, issuedScopes, ttl)
 	if err != nil {
 		if errors.Is(err, auth.ErrInvalidTTL) {
 			writeEnvelopeError(w, r, actions.NewExecutionError(actions.ErrValidationFailed, err.Error(), http.StatusBadRequest, false, nil))
@@ -812,7 +816,11 @@ func decodeJSON(r *http.Request, out any) error {
 		}
 	}
 	var extra json.RawMessage
-	if dec.Decode(&extra) != io.EOF {
+	if err := dec.Decode(&extra); err != io.EOF {
+		var maxErr2 *http.MaxBytesError
+		if errors.As(err, &maxErr2) {
+			return errRequestBodyTooLarge
+		}
 		return errors.New("unexpected trailing content after JSON body")
 	}
 	return nil
