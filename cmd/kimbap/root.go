@@ -61,6 +61,12 @@ var (
 	buildRuntimeForConfig       = app.BuildRuntime
 )
 
+func closeVaultStoreIfPossible(st vault.Store) {
+	if closer, ok := st.(interface{ Close() error }); ok {
+		_ = closer.Close()
+	}
+}
+
 func binaryName() string {
 	if len(os.Args) > 0 {
 		if name := filepath.Base(os.Args[0]); name != "" {

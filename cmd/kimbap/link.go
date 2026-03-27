@@ -170,6 +170,9 @@ func newLinkListCommand() *cobra.Command {
 			if vsErr != nil {
 				_, _ = fmt.Fprintf(os.Stderr, "warning: %s\n", unavailableMessage(componentVault, vsErr))
 			}
+			if vs != nil {
+				defer closeVaultStoreIfPossible(vs)
+			}
 
 			keys := make([]string, 0, len(services))
 			for key := range services {
@@ -383,6 +386,7 @@ func linkHandleKeyBasedService(cfg *config.KimbapConfig, info linkServiceInfo, s
 	if err != nil {
 		return err
 	}
+	defer closeVaultStoreIfPossible(vs)
 
 	exists, err := vs.Exists(contextBackground(), tenantID, credentialRef)
 	if err == nil && exists {
