@@ -24,6 +24,7 @@ type HTTPAdapter struct {
 
 const defaultMaxResponseBodyBytes int64 = 4 << 20
 const maxRetryAfterSeconds = 120
+const defaultAdapterAttemptTimeout = 30 * time.Second
 
 func NewHTTPAdapter(client *http.Client) *HTTPAdapter {
 	if client == nil {
@@ -268,9 +269,11 @@ func (a *HTTPAdapter) executeSingle(ctx context.Context, req AdapterRequest) (*A
 	for attempt := 1; attempt <= maxAttempts; attempt++ {
 		attemptCtx := ctx
 		cancel := func() {}
-		if req.Action.Adapter.Timeout > 0 {
-			attemptCtx, cancel = context.WithTimeout(ctx, req.Action.Adapter.Timeout)
+		perAttemptTimeout := req.Action.Adapter.Timeout
+		if perAttemptTimeout <= 0 {
+			perAttemptTimeout = defaultAdapterAttemptTimeout
 		}
+		attemptCtx, cancel = context.WithTimeout(ctx, perAttemptTimeout)
 
 		httpReq, reqErr := http.NewRequestWithContext(attemptCtx, method, u.String(), bytes.NewReader(bodyBytes))
 		if reqErr != nil {

@@ -120,7 +120,7 @@ func newPolicyEvalCommand() *cobra.Command {
 			risk := "low"
 			mutating := false
 			if def, err := resolveActionByName(cfg, action); err == nil {
-				risk = riskToDocVocab(def.Risk)
+				risk = def.Risk.DocVocab()
 				mutating = !def.Idempotent
 			}
 

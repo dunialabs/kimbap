@@ -106,13 +106,10 @@ func cloneProxyTransportWithTargetRootCAs(t *testing.T, target *httptest.Server)
 	return cloned
 }
 
-func TestProxyClassificationMatch(t *testing.T) {
+func TestProxyClassificationMatchWithoutRuntime(t *testing.T) {
 	targetHit := atomic.Int32{}
 	target := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		targetHit.Add(1)
-		if r.Header.Get("X-Kimbap-Request-ID") == "" {
-			t.Fatal("expected X-Kimbap-Request-ID header")
-		}
 		w.WriteHeader(http.StatusOK)
 	}))
 	defer target.Close()
@@ -143,11 +140,11 @@ func TestProxyClassificationMatch(t *testing.T) {
 	}
 	defer resp.Body.Close()
 
-	if resp.StatusCode != http.StatusOK {
-		t.Fatalf("expected 200, got %d", resp.StatusCode)
+	if resp.StatusCode != http.StatusNotImplemented {
+		t.Fatalf("expected 501 (runtime unavailable) for matched request without runtime, got %d", resp.StatusCode)
 	}
-	if targetHit.Load() != 1 {
-		t.Fatalf("expected target hit once, got %d", targetHit.Load())
+	if targetHit.Load() != 0 {
+		t.Fatalf("expected upstream not hit for classified request, got %d", targetHit.Load())
 	}
 }
 

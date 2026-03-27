@@ -248,20 +248,18 @@ func (p *ProxyServer) handleHTTP(w http.ResponseWriter, req *http.Request) {
 	classification := p.classify(req.Method, targetHost, targetPath)
 	if classification != nil && classification.Matched {
 		req.Header.Set("X-Kimbap-Request-ID", reqID)
-		if p.runtime != nil {
-			result := p.executeClassifiedRequest(req.Context(), req, reqID, classification, targetHost, targetPath)
-			if result.Error != nil {
-				status := runtimeResultStatus(result)
-				msg := result.Error.Message
-				if status >= 500 {
-					msg = "proxy request failed"
-				}
-				http.Error(w, msg, status)
-				return
+		result := p.executeClassifiedRequest(req.Context(), req, reqID, classification, targetHost, targetPath)
+		if result.Error != nil {
+			status := runtimeResultStatus(result)
+			msg := result.Error.Message
+			if status >= 500 {
+				msg = "proxy request failed"
 			}
-			writeRuntimeHTTPResponse(w, result)
+			http.Error(w, msg, status)
 			return
 		}
+		writeRuntimeHTTPResponse(w, result)
+		return
 	} else if p.unmatchedPolicy == UnmatchedPolicyDeny {
 		http.Error(w, "proxy request denied", http.StatusForbidden)
 		return
@@ -373,33 +371,31 @@ func (p *ProxyServer) handleConnect(w http.ResponseWriter, req *http.Request) {
 		classification := p.classify(mitmReq.Method, connectHost, mitmReq.URL.Path)
 		if classification != nil && classification.Matched {
 			mitmReq.Header.Set("X-Kimbap-Request-ID", reqID)
-			if p.runtime != nil {
-				result := p.executeClassifiedRequest(req.Context(), mitmReq, reqID, classification, connectHost, mitmReq.URL.Path)
-				if result.Error != nil {
-					status := runtimeResultStatus(result)
-					msg := result.Error.Message
-					if status >= 500 {
-						msg = "proxy request failed"
-					}
-					_ = tlsConn.SetWriteDeadline(time.Now().Add(defaultProxyConnWriteTimeout))
-					_ = writePlainErrorResponse(tlsConn, status, msg)
-					_ = tlsConn.SetWriteDeadline(time.Time{})
-					_ = mitmReq.Body.Close()
-					continue
+			result := p.executeClassifiedRequest(req.Context(), mitmReq, reqID, classification, connectHost, mitmReq.URL.Path)
+			if result.Error != nil {
+				status := runtimeResultStatus(result)
+				msg := result.Error.Message
+				if status >= 500 {
+					msg = "proxy request failed"
 				}
 				_ = tlsConn.SetWriteDeadline(time.Now().Add(defaultProxyConnWriteTimeout))
-				if err := writeRuntimeConnResponse(tlsConn, result); err != nil {
-					_ = tlsConn.SetWriteDeadline(time.Time{})
-					_ = mitmReq.Body.Close()
-					return
-				}
+				_ = writePlainErrorResponse(tlsConn, status, msg)
 				_ = tlsConn.SetWriteDeadline(time.Time{})
 				_ = mitmReq.Body.Close()
-				if mitmReq.Close {
-					return
-				}
 				continue
 			}
+			_ = tlsConn.SetWriteDeadline(time.Now().Add(defaultProxyConnWriteTimeout))
+			if err := writeRuntimeConnResponse(tlsConn, result); err != nil {
+				_ = tlsConn.SetWriteDeadline(time.Time{})
+				_ = mitmReq.Body.Close()
+				return
+			}
+			_ = tlsConn.SetWriteDeadline(time.Time{})
+			_ = mitmReq.Body.Close()
+			if mitmReq.Close {
+				return
+			}
+			continue
 		} else if p.unmatchedPolicy == UnmatchedPolicyDeny {
 			_ = tlsConn.SetWriteDeadline(time.Now().Add(defaultProxyConnWriteTimeout))
 			_ = writePlainErrorResponse(tlsConn, http.StatusForbidden, "proxy request denied")

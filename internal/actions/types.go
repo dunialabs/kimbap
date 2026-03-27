@@ -17,6 +17,21 @@ const (
 	RiskDestructive RiskLevel = "destructive"
 )
 
+func (r RiskLevel) DocVocab() string {
+	switch r {
+	case RiskRead:
+		return "low"
+	case RiskWrite:
+		return "medium"
+	case RiskAdmin:
+		return "high"
+	case RiskDestructive:
+		return "critical"
+	default:
+		return string(r)
+	}
+}
+
 type ApprovalHint string
 
 const (

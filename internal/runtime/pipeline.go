@@ -356,7 +356,6 @@ func (r *Runtime) execute(ctx context.Context, req actions.ExecutionRequest, tra
 
 	approvalNeeded := policyDecision == "require_approval" || req.Action.ApprovalHint == actions.ApprovalRequired
 	if approvalNeeded {
-		trace.Record("request_approval", "ok", "requested")
 		approvalRes, approvalErr := r.requestApproval(ctx, req)
 		if approvalErr != nil {
 			trace.Record("request_approval", "error", approvalErr.Error())

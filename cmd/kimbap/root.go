@@ -352,21 +352,6 @@ func splitActionName(actionName string) (service string, action string) {
 	return service, action
 }
 
-func riskToDocVocab(risk actions.RiskLevel) string {
-	switch risk {
-	case actions.RiskRead:
-		return "low"
-	case actions.RiskWrite:
-		return "medium"
-	case actions.RiskAdmin:
-		return "high"
-	case actions.RiskDestructive:
-		return "critical"
-	default:
-		return string(risk)
-	}
-}
-
 func initVaultStore(cfg *config.KimbapConfig) (vault.Store, error) {
 	if err := os.MkdirAll(filepath.Dir(cfg.Vault.Path), 0o700); err != nil {
 		return nil, fmt.Errorf("create vault db dir: %w", err)
