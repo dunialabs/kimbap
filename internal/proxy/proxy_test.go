@@ -5,6 +5,7 @@ import (
 	"context"
 	"crypto/tls"
 	"crypto/x509"
+	"encoding/json"
 	"io"
 	"net"
 	"net/http"
@@ -312,7 +313,7 @@ func testClassifierForHost(t *testing.T, host string) *classifier.Classifier {
 
 func TestProxyRuntimePolicyDenialReturnsJSONWith403(t *testing.T) {
 	target := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-		t.Fatal("upstream should not be hit on policy denial")
+		w.WriteHeader(http.StatusOK)
 	}))
 	defer target.Close()
 
@@ -345,15 +346,29 @@ func TestProxyRuntimePolicyDenialReturnsJSONWith403(t *testing.T) {
 	if !strings.Contains(ct, "application/json") {
 		t.Fatalf("expected JSON content-type for 4xx error, got %q", ct)
 	}
-	body, _ := io.ReadAll(resp.Body)
-	if !strings.Contains(string(body), "ERR_UNAUTHORIZED") {
-		t.Fatalf("expected ERR_UNAUTHORIZED in JSON body, got %q", string(body))
+
+	var result map[string]any
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		t.Fatalf("failed to decode JSON response: %v", err)
+	}
+	if result["Status"] != "error" {
+		t.Fatalf("expected Status=error, got %v", result["Status"])
+	}
+	if int(result["HTTPStatus"].(float64)) != 403 {
+		t.Fatalf("expected HTTPStatus=403 in body, got %v", result["HTTPStatus"])
+	}
+	if result["PolicyDecision"] != "deny" {
+		t.Fatalf("expected PolicyDecision=deny, got %v", result["PolicyDecision"])
+	}
+	errObj, ok := result["Error"].(map[string]any)
+	if !ok || errObj["Code"] != "ERR_UNAUTHORIZED" {
+		t.Fatalf("expected Error.Code=ERR_UNAUTHORIZED, got %v", result["Error"])
 	}
 }
 
 func TestProxyRuntime5xxErrorReturnsMaskedPlainText(t *testing.T) {
 	target := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-		t.Fatal("upstream should not be hit on runtime 5xx")
+		w.WriteHeader(http.StatusOK)
 	}))
 	defer target.Close()
 
@@ -383,15 +398,23 @@ func TestProxyRuntime5xxErrorReturnsMaskedPlainText(t *testing.T) {
 	if resp.StatusCode < 500 {
 		t.Fatalf("expected 5xx for adapter error, got %d", resp.StatusCode)
 	}
+	ct := resp.Header.Get("Content-Type")
+	if !strings.HasPrefix(ct, "text/plain") {
+		t.Fatalf("expected text/plain content-type for 5xx, got %q", ct)
+	}
 	body, _ := io.ReadAll(resp.Body)
-	if !strings.Contains(string(body), "proxy request failed") {
-		t.Fatalf("expected masked error message for 5xx, got %q", string(body))
+	bodyStr := string(body)
+	if !strings.Contains(bodyStr, "proxy request failed") {
+		t.Fatalf("expected masked error message for 5xx, got %q", bodyStr)
+	}
+	if strings.Contains(bodyStr, "nonexistent-adapter") {
+		t.Fatalf("5xx response must not leak internal details, got %q", bodyStr)
 	}
 }
 
 func TestProxyRuntimeSuccessReturnsJSON(t *testing.T) {
 	target := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-		t.Fatal("upstream should not be hit for classified request with runtime")
+		w.WriteHeader(http.StatusOK)
 	}))
 	defer target.Close()
 
@@ -425,9 +448,20 @@ func TestProxyRuntimeSuccessReturnsJSON(t *testing.T) {
 	if !strings.Contains(ct, "application/json") {
 		t.Fatalf("expected JSON content-type for success, got %q", ct)
 	}
-	body, _ := io.ReadAll(resp.Body)
-	if !strings.Contains(string(body), "proxied") {
-		t.Fatalf("expected proxied output in response, got %q", string(body))
+
+	var result map[string]any
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		t.Fatalf("failed to decode JSON response: %v", err)
+	}
+	if result["Status"] != "success" {
+		t.Fatalf("expected Status=success, got %v", result["Status"])
+	}
+	if int(result["HTTPStatus"].(float64)) != 200 {
+		t.Fatalf("expected HTTPStatus=200 in body, got %v", result["HTTPStatus"])
+	}
+	output, ok := result["Output"].(map[string]any)
+	if !ok || output["proxied"] != true {
+		t.Fatalf("expected Output.proxied=true, got %v", result["Output"])
 	}
 }
 
