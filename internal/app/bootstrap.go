@@ -599,6 +599,7 @@ func (a *auditWriterAdapter) Write(ctx context.Context, event runtimepkg.AuditEv
 		TraceID:        event.TraceID,
 		TenantID:       event.TenantID,
 		PrincipalID:    event.PrincipalID,
+		AgentName:      event.AgentName,
 		Service:        service,
 		Action:         event.ActionName,
 		Mode:           string(event.Mode),
