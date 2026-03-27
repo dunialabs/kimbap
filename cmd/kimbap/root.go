@@ -47,12 +47,8 @@ var (
 	initVaultStoreForBuild     = initVaultStore
 	openRuntimeStoreForBuild   = openRuntimeStore
 	openConnectorStoreForBuild = openConnectorStore
-	closeVaultStoreForBuild    = func(st vault.Store) {
-		if closer, ok := st.(interface{ Close() error }); ok {
-			_ = closer.Close()
-		}
-	}
-	closeRuntimeStoreForBuild = func(st *store.SQLStore) {
+	closeVaultStoreForBuild    = closeVaultStoreIfPossible
+	closeRuntimeStoreForBuild  = func(st *store.SQLStore) {
 		if st != nil {
 			_ = st.Close()
 		}
