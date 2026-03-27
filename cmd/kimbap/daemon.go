@@ -195,6 +195,9 @@ func daemonCallHandler(rt *runtime.Runtime) http.HandlerFunc {
 				status = http.StatusInternalServerError
 			}
 		}
+		if status == http.StatusNoContent || status == http.StatusResetContent || status == http.StatusNotModified {
+			status = http.StatusOK
+		}
 		w.WriteHeader(status)
 		_ = json.NewEncoder(w).Encode(result)
 	}
