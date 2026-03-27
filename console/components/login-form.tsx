@@ -305,19 +305,15 @@ export function LoginForm({
 
         {/* Note and Error Messages */}
         {loginMode === 'password' && !loginError && (
-          <Alert className="border-blue-200 bg-blue-50 dark:bg-blue-950/20 dark:border-blue-900">
-            <AlertDescription className="text-sm text-blue-700 dark:text-blue-200">
-              <span className="font-[700]">Note:</span> Use the master password when you manage this console from the browser.
-            </AlertDescription>
-          </Alert>
+          <p className="text-xs text-muted-foreground">
+            Use the master password when managing this console from the browser.
+          </p>
         )}
 
         {loginMode === 'token' && !tokenError && (
-          <Alert className="border-blue-200 bg-blue-50 dark:bg-blue-950/20 dark:border-blue-900">
-            <AlertDescription className="text-sm text-blue-700 dark:text-blue-200">
-              <span className="font-[700]">Note:</span> Use an access token issued by the server owner or admin for this server.
-            </AlertDescription>
-          </Alert>
+          <p className="text-xs text-muted-foreground">
+            Use an access token from the server owner or admin.
+          </p>
         )}
 
         {loginError && loginMode === 'password' && (

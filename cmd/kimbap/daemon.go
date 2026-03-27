@@ -152,8 +152,9 @@ func daemonCallHandler(rt *runtime.Runtime) http.HandlerFunc {
 			return
 		}
 
+		const maxDaemonCallBody = 4 << 20
 		var req daemonCallRequest
-		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		if err := json.NewDecoder(http.MaxBytesReader(w, r.Body, maxDaemonCallBody)).Decode(&req); err != nil {
 			w.Header().Set("Content-Type", "application/json")
 			w.WriteHeader(http.StatusBadRequest)
 			_ = json.NewEncoder(w).Encode(map[string]any{"error": err.Error()})

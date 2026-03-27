@@ -21,10 +21,10 @@ make build
 ./bin/kimbap service install github
 
 # Store credentials
-./bin/kimbap vault set github.token ghp_xxx
+printf 'ghp_xxx' | ./bin/kimbap vault set github.token --stdin
 
 # Execute an action
-./bin/kimbap call github.list-repos --input '{"owner": "octocat"}'
+./bin/kimbap call github.list-repos --json '{"owner": "octocat"}'
 ```
 
 ## Connected Mode (REST API server)

@@ -39,15 +39,9 @@ func OpenSQLiteStore(dsn string) (*SQLStore, error) {
 	if strings.TrimSpace(dsn) == "" {
 		return nil, errors.New("dsn is required")
 	}
-	db, err := sql.Open("sqlite", dsn)
+	db, err := openDBWithPing("sqlite", dsn, "sqlite")
 	if err != nil {
 		return nil, err
-	}
-	pingCtx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
-	defer cancel()
-	if err := db.PingContext(pingCtx); err != nil {
-		_ = db.Close()
-		return nil, fmt.Errorf("ping sqlite database: %w", err)
 	}
 	st, err := NewSQLiteStore(db)
 	if err != nil {
@@ -68,15 +62,9 @@ func OpenPostgresStore(dsn string) (*SQLStore, error) {
 	if strings.TrimSpace(dsn) == "" {
 		return nil, errors.New("dsn is required")
 	}
-	db, err := sql.Open("pgx", dsn)
+	db, err := openDBWithPing("pgx", dsn, "postgres")
 	if err != nil {
 		return nil, err
-	}
-	pingCtx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
-	defer cancel()
-	if err := db.PingContext(pingCtx); err != nil {
-		_ = db.Close()
-		return nil, fmt.Errorf("ping postgres database: %w", err)
 	}
 	st, err := NewPostgresStore(db)
 	if err != nil {
@@ -84,6 +72,20 @@ func OpenPostgresStore(dsn string) (*SQLStore, error) {
 		return nil, err
 	}
 	return st, nil
+}
+
+func openDBWithPing(driverName, dsn, label string) (*sql.DB, error) {
+	db, err := sql.Open(driverName, dsn)
+	if err != nil {
+		return nil, err
+	}
+	pingCtx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	defer cancel()
+	if err := db.PingContext(pingCtx); err != nil {
+		_ = db.Close()
+		return nil, fmt.Errorf("ping %s database: %w", label, err)
+	}
+	return db, nil
 }
 
 func (s *SQLStore) Close() error {

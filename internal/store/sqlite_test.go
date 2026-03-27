@@ -3,9 +3,13 @@ package store
 import (
 	"bytes"
 	"context"
+	"database/sql"
+	"database/sql/driver"
 	"errors"
+	"fmt"
 	"path/filepath"
 	"strings"
+	"sync/atomic"
 	"testing"
 	"time"
 )
@@ -348,4 +352,97 @@ func newTestSQLiteStore(t *testing.T) *SQLStore {
 		_ = st.Close()
 	})
 	return st
+}
+
+var testPingDriverSeq uint64
+
+type testPingDriver struct {
+	spy *testPingSpy
+}
+
+func (d *testPingDriver) Open(_ string) (driver.Conn, error) {
+	return &testPingConn{spy: d.spy}, nil
+}
+
+type testPingConn struct {
+	spy *testPingSpy
+}
+
+func (c *testPingConn) Prepare(string) (driver.Stmt, error) {
+	return nil, errors.New("not implemented")
+}
+
+func (c *testPingConn) Close() error {
+	atomic.AddInt32(&c.spy.closeCalls, 1)
+	return nil
+}
+
+func (c *testPingConn) Begin() (driver.Tx, error) {
+	return nil, errors.New("not implemented")
+}
+
+func (c *testPingConn) Ping(context.Context) error {
+	atomic.AddInt32(&c.spy.pingCalls, 1)
+	if c.spy.pingErr != nil {
+		return c.spy.pingErr
+	}
+	return nil
+}
+
+type testPingSpy struct {
+	pingErr    error
+	pingCalls  int32
+	closeCalls int32
+}
+
+func registerTestPingDriver(t *testing.T, spy *testPingSpy) string {
+	t.Helper()
+	name := fmt.Sprintf("kimbap-test-ping-%d", atomic.AddUint64(&testPingDriverSeq, 1))
+	sql.Register(name, &testPingDriver{spy: spy})
+	return name
+}
+
+func TestOpenDBWithPingClosesOnPingFailure(t *testing.T) {
+	sentinel := errors.New("ping failed")
+	spy := &testPingSpy{pingErr: sentinel}
+	driverName := registerTestPingDriver(t, spy)
+
+	db, err := openDBWithPing(driverName, "test-dsn", "test")
+	if err == nil {
+		t.Fatal("expected ping failure")
+	}
+	if db != nil {
+		t.Fatal("expected db to be nil on ping failure")
+	}
+	if !errors.Is(err, sentinel) {
+		t.Fatalf("expected wrapped sentinel error, got %v", err)
+	}
+	if atomic.LoadInt32(&spy.pingCalls) == 0 {
+		t.Fatal("expected ping to be called")
+	}
+	if atomic.LoadInt32(&spy.closeCalls) == 0 {
+		t.Fatal("expected close to be called on ping failure")
+	}
+}
+
+func TestOpenDBWithPingSuccess(t *testing.T) {
+	spy := &testPingSpy{}
+	driverName := registerTestPingDriver(t, spy)
+
+	db, err := openDBWithPing(driverName, "test-dsn", "test")
+	if err != nil {
+		t.Fatalf("openDBWithPing should succeed: %v", err)
+	}
+	if db == nil {
+		t.Fatal("expected db")
+	}
+	if atomic.LoadInt32(&spy.pingCalls) == 0 {
+		t.Fatal("expected ping to be called")
+	}
+	if err := db.Close(); err != nil {
+		t.Fatalf("close db: %v", err)
+	}
+	if atomic.LoadInt32(&spy.closeCalls) == 0 {
+		t.Fatal("expected close to be called")
+	}
 }

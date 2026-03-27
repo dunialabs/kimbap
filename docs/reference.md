@@ -28,22 +28,24 @@ All configuration via environment variables or `~/.kimbap/config.yaml`.
 ## Policy DSL
 
 ```yaml
-version: 1
-defaults:
-  mode: deny
+version: "1.0.0"
 rules:
   - id: allow-github-read
+    priority: 10
     match:
-      agent: repo-bot
+      agents:
+        - repo-bot
       actions:
         - github.list-repos
-    effect: allow
+    decision: allow
   - id: approve-stripe-refunds
+    priority: 20
     match:
-      agent: billing-bot
+      agents:
+        - billing-bot
       actions:
         - stripe.create-refund
-    effect: require_approval
+    decision: require_approval
 ```
 
 ## Risk Levels

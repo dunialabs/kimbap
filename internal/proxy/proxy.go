@@ -343,7 +343,7 @@ func (p *ProxyServer) handleConnect(w http.ResponseWriter, req *http.Request) {
 			}
 			return
 		}
-		_ = tlsConn.SetReadDeadline(time.Time{})
+		_ = tlsConn.SetReadDeadline(time.Now().Add(defaultProxyReadTimeout))
 
 		if mitmReq.URL == nil {
 			mitmReq.URL = &url.URL{}

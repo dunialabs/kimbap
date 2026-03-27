@@ -23,6 +23,10 @@ interface ValidationResult {
 // In-memory cache (cleared on service restart)
 let cache: CacheEntry | null = null;
 
+export function invalidateMcpGatewayValidationCache(): void {
+  cache = null;
+}
+
 // Cache TTL constants
 const CACHE_TTL = {
   PERMANENT: -1, // Never expires (until service restart)
@@ -253,5 +257,4 @@ export async function validateAndCacheMcpGatewayUrl(url: string): Promise<Valida
 
   return availabilityCheck;
 }
-
 

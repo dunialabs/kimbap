@@ -309,15 +309,20 @@ function UsagePageContent() {
                 ? '—'
                 : overviewSummary?.avgResponseTime == null
                 ? (loadError ? 'Unavailable' : '—')
-                : `${overviewSummary.avgResponseTime}ms`}
+                : `${Math.round(overviewSummary.avgResponseTime)}ms`}
             </div>
             <p className="text-xs text-muted-foreground">
               {!loading && overviewSummary && overviewSummary.responseTimeChange !== undefined ? (
-                <>
-                  <span className={overviewSummary.responseTimeChange <= 0 ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400"}>
-                    {overviewSummary.responseTimeChange <= 0 ? '' : '+'}{overviewSummary.responseTimeChange}ms
-                  </span> from previous period
-                </>
+                (() => {
+                  const roundedChange = Math.round(overviewSummary.responseTimeChange)
+                  return (
+                    <>
+                      <span className={roundedChange <= 0 ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400"}>
+                        {roundedChange <= 0 ? '' : '+'}{roundedChange}ms
+                      </span> from previous period
+                    </>
+                  )
+                })()
               ) : null}
             </p>
           </CardContent>

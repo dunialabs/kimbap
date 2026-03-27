@@ -129,3 +129,28 @@ func TestRenderInitSummaryIncludesWarnings(t *testing.T) {
 		t.Fatalf("expected warn icon in summary, got:\n%s", summary)
 	}
 }
+
+func TestEnsurePolicyFileFailsForInvalidExistingPolicy(t *testing.T) {
+	policyPath := filepath.Join(t.TempDir(), "policy.yaml")
+	invalid := "version: 1\nrules:\n- id: bad\n  effect: allow\n"
+	if err := os.WriteFile(policyPath, []byte(invalid), 0o600); err != nil {
+		t.Fatalf("write invalid policy: %v", err)
+	}
+
+	check := ensurePolicyFile(policyPath, "embedded")
+	if check.Status != "fail" {
+		t.Fatalf("expected fail for invalid policy file, got %q", check.Status)
+	}
+}
+
+func TestEnsureWritableDirWithStatusFailsWhenPathIsFile(t *testing.T) {
+	filePath := filepath.Join(t.TempDir(), "not-a-dir")
+	if err := os.WriteFile(filePath, []byte("x"), 0o600); err != nil {
+		t.Fatalf("write file path: %v", err)
+	}
+
+	check := ensureWritableDirWithStatus("data directory writable", filePath)
+	if check.Status != "fail" {
+		t.Fatalf("expected fail when path is a file, got %q", check.Status)
+	}
+}

@@ -12,6 +12,7 @@ import (
 
 	"github.com/dunialabs/kimbap/internal/agents"
 	"github.com/dunialabs/kimbap/internal/config"
+	"github.com/dunialabs/kimbap/internal/policy"
 	"github.com/dunialabs/kimbap/internal/services"
 	"github.com/dunialabs/kimbap/skills"
 	"github.com/spf13/cobra"
@@ -40,7 +41,7 @@ func newInitCommand() *cobra.Command {
 			checks := make([]doctorCheck, 0, 8)
 			hasFailure := false
 
-			dataDirCheck := ensureDirWithStatus("data directory writable", cfg.DataDir)
+			dataDirCheck := ensureWritableDirWithStatus("data directory writable", cfg.DataDir)
 			checks, hasFailure = appendInitChecks(checks, hasFailure, dataDirCheck)
 
 			configPath, configCheck := writeInitConfig(cfg, force)
@@ -541,6 +542,9 @@ func ensurePolicyFile(path, mode string) doctorCheck {
 		if st.Size() == 0 {
 			return doctorCheck{Name: "policy file valid", Status: "fail", Detail: fmt.Sprintf("policy file is empty: %s", path)}
 		}
+		if _, parseErr := policy.ParseDocumentFile(path); parseErr != nil {
+			return doctorCheck{Name: "policy file valid", Status: "fail", Detail: parseErr.Error()}
+		}
 		return doctorCheck{Name: "policy file valid", Status: "skip", Detail: fmt.Sprintf("exists: %s", path)}
 	}
 	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
@@ -549,7 +553,39 @@ func ensurePolicyFile(path, mode string) doctorCheck {
 	if err := os.WriteFile(path, []byte(policyForMode(mode)), 0o600); err != nil {
 		return doctorCheck{Name: "policy file valid", Status: "fail", Detail: err.Error()}
 	}
+	if _, parseErr := policy.ParseDocumentFile(path); parseErr != nil {
+		return doctorCheck{Name: "policy file valid", Status: "fail", Detail: parseErr.Error()}
+	}
 	return doctorCheck{Name: "policy file valid", Status: "ok", Detail: fmt.Sprintf("created: %s", path)}
+}
+
+func ensureWritableDirWithStatus(name, dir string) doctorCheck {
+	st, err := os.Stat(dir)
+	if err == nil {
+		if !st.IsDir() {
+			return doctorCheck{Name: name, Status: "fail", Detail: "path exists but is not a directory"}
+		}
+	} else {
+		if !os.IsNotExist(err) {
+			return doctorCheck{Name: name, Status: "fail", Detail: err.Error()}
+		}
+		if mkErr := os.MkdirAll(dir, 0o755); mkErr != nil {
+			return doctorCheck{Name: name, Status: "fail", Detail: mkErr.Error()}
+		}
+	}
+
+	tmp, tmpErr := os.CreateTemp(dir, "kimbap-init-*.tmp")
+	if tmpErr != nil {
+		return doctorCheck{Name: name, Status: "fail", Detail: tmpErr.Error()}
+	}
+	tmpPath := tmp.Name()
+	_ = tmp.Close()
+	_ = os.Remove(tmpPath)
+
+	if err == nil {
+		return doctorCheck{Name: name, Status: "skip", Detail: fmt.Sprintf("exists: %s", dir)}
+	}
+	return doctorCheck{Name: name, Status: "ok", Detail: fmt.Sprintf("created: %s", dir)}
 }
 
 func ensureEmptyFile(name, path string) doctorCheck {

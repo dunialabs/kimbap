@@ -157,7 +157,7 @@ Policy, approval, and audit apply to every action automatically, regardless of w
 | **Policy** | YAML rules evaluated on every action. `allow`, `deny`, or `require_approval`. |
 | **Approval** | Human-in-the-loop for risky actions. `kimbap approve list`, `kimbap approve accept`. |
 | **Audit** | Structured log of every action and decision. `kimbap audit tail`, `kimbap audit export`. |
-| **Connectors** | OAuth lifecycle. `kimbap connector login`, `kimbap connector status`. |
+| **Connectors** | OAuth lifecycle. `kimbap connector login`, `kimbap connector list`, `kimbap connector status <provider>`. |
 | **Link** | Credential linking. `kimbap link <service>` to bind services to vault entries or OAuth connectors. |
 | **Search** | Action discovery. `kimbap search <query>` to find installed actions by keyword or description. |
 | **Generate** | Code generation. `kimbap generate ts` and `kimbap generate py` produce typed client interfaces. |

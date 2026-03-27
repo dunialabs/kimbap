@@ -1204,47 +1204,49 @@ Policies must be able to match on:
 ### 15.4 Example policy
 
 ```yaml
-version: 1
-defaults:
-  mode: deny
+version: "1.0.0"
 
 rules:
   - id: allow-github-read
+    priority: 10
     match:
-      tenant: acme
-      agent: repo-bot
+      tenants: [acme]
+      agents: [repo-bot]
       actions:
         - github.pull_requests.list
         - github.issues.list
         - github.repos.get
-    effect: allow
+    decision: allow
 
   - id: approve-stripe-refunds
+    priority: 20
     match:
-      tenant: acme
-      agent: billing-bot
+      tenants: [acme]
+      agents: [billing-bot]
       actions:
         - stripe.refunds.create
-      params:
-        amount:
-          lte: 10000
-    effect: require_approval
+    conditions:
+      - field: input.amount
+        operator: lte
+        value: 10000
+    decision: require_approval
 
   - id: block-raw-unclassified-posts
+    priority: 30
     match:
-      mode: proxy
-      method: POST
-      action: "*.raw_request"
-    effect: deny
+      actions: ["*.raw_request"]
+    decision: deny
 
   - id: github-rate-limit
+    priority: 40
     match:
-      tenant: acme
-      service: github
+      tenants: [acme]
+      services: [github]
     rate_limit:
-      requests: 300
-      window: hour
-    effect: allow
+      max_requests: 300
+      window_sec: 3600
+      scope: tenant
+    decision: allow
 ```
 
 ### 15.5 Policy requirements

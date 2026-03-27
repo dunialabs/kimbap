@@ -1238,7 +1238,10 @@ function LogsPageContent() {
             <CardContent>
               {statsLoading ? (
                 <div className="flex items-center justify-center py-8">
-                  <p className="text-sm text-muted-foreground">Loading log source breakdown...</p>
+                  <div className="text-center">
+                    <Loader2 className="h-6 w-6 animate-spin mx-auto mb-2 text-muted-foreground" aria-hidden="true" />
+                    <p className="text-sm text-muted-foreground">Loading log source breakdown...</p>
+                  </div>
                 </div>
               ) : statsError ? (
                 <div className="flex items-center justify-center py-8">

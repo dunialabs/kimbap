@@ -71,7 +71,7 @@
       <section class="panel">
         <div id="health" class="status warn">Checking runtime health…</div>
         <ul>
-          <li><a href="/health" target="_blank" rel="noreferrer">Open health endpoint</a></li>
+          <li><a href="/v1/health" target="_blank" rel="noreferrer">Open health endpoint</a></li>
           <li><a href="/v1/actions" target="_blank" rel="noreferrer">Open actions API sample</a></li>
         </ul>
       </section>
@@ -81,14 +81,14 @@
         <ul>
           <li>Use <code>kimbap doctor</code> to verify local runtime status.</li>
           <li>Use <code>kimbap actions list</code> and <code>kimbap call</code> for core operations.</li>
-          <li>If you need the full Next.js console app, run it from <code>./console</code>.</li>
+          <li>Use <code>kimbap serve --console</code> when you want this embedded shell route.</li>
         </ul>
       </section>
     </main>
 
     <script>
       const healthEl = document.getElementById('health');
-      fetch('/health', { headers: { Accept: 'application/json' } })
+      fetch('/v1/health', { headers: { Accept: 'application/json' } })
         .then(async (res) => {
           if (!res.ok) throw new Error('health check failed');
           const payload = await res.json();

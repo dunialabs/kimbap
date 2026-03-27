@@ -1,7 +1,7 @@
 import { NextRequest } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { invalidateProxyAdminUrlCache } from '@/lib/proxy-api';
-import { validateAndCacheMcpGatewayUrl } from '@/lib/mcp-gateway-cache';
+import { invalidateMcpGatewayValidationCache, validateAndCacheMcpGatewayUrl } from '@/lib/mcp-gateway-cache';
 import { ApiResponse } from '../../lib/response';
 import { authenticate } from '../../lib/auth';
 import { ExternalApiError, E1001, E1003, E1005, E4014 } from '../../lib/error-codes';
@@ -102,6 +102,7 @@ async function connectKimbapCore(request: NextRequest) {
   }
 
   const target = normalizeConnectTarget(body);
+  invalidateMcpGatewayValidationCache();
   const validation = await validateAndCacheMcpGatewayUrl(target.baseUrl);
   if (!validation.isValid) {
     throw new ExternalApiError(E4014, validation.errorMessage || 'Kimbap Core not available');

@@ -123,9 +123,13 @@ kimbap connector login gmail
 kimbap connector login slack
 ```
 
-### `kimbap connector status`
+### `kimbap connector list`
 
 Show connector health and token state for all linked providers.
+
+### `kimbap connector status <provider>`
+
+Show connector health and token state for a single provider.
 
 ### `kimbap auth providers list`
 
@@ -154,23 +158,25 @@ kimbap policy set --file policy.yaml
 Example policy:
 
 ```yaml
-version: 1
-defaults:
-  mode: deny
+version: "1.0.0"
 rules:
   - id: allow-github-read
+    priority: 10
     match:
-      agent: repo-bot
+      agents:
+        - repo-bot
       actions:
         - github.list-repos
         - github.list-pull-requests
-    effect: allow
+    decision: allow
   - id: approve-stripe-refunds
+    priority: 20
     match:
-      agent: billing-bot
+      agents:
+        - billing-bot
       actions:
         - stripe.create-refund
-    effect: require_approval
+    decision: require_approval
 ```
 
 ### `kimbap policy get`
