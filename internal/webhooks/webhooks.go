@@ -147,6 +147,7 @@ func isPrivateIPAddr(ip net.IP) bool {
 }
 
 func (d *Dispatcher) Subscribe(sub Subscription) {
+	sub.Events = append([]EventType(nil), sub.Events...)
 	d.mu.Lock()
 	defer d.mu.Unlock()
 	for i := range d.subscriptions {
@@ -184,6 +185,7 @@ func (d *Dispatcher) ListSubscriptions() []Subscription {
 		if sub.Active {
 			safe := sub
 			safe.Secret = ""
+			safe.Events = append([]EventType(nil), sub.Events...)
 			out = append(out, safe)
 		}
 	}
@@ -198,6 +200,7 @@ func (d *Dispatcher) ListSubscriptionsByTenant(tenantID string) []Subscription {
 		if sub.Active && sub.TenantID == tenantID {
 			safe := sub
 			safe.Secret = ""
+			safe.Events = append([]EventType(nil), sub.Events...)
 			out = append(out, safe)
 		}
 	}

@@ -45,6 +45,11 @@ func (w *Worker) Start(ctx context.Context) {
 		w.wg.Add(1)
 		go func() {
 			defer w.wg.Done()
+			defer func() {
+				if r := recover(); r != nil {
+					w.logger.Error("approval expiry job panicked", "panic", r)
+				}
+			}()
 			ticker := time.NewTicker(w.interval)
 			defer ticker.Stop()
 
