@@ -29,7 +29,7 @@ func ParseGitHubRef(ref string) (owner, repo, serviceName, subdir string, err er
 	repo = strings.TrimSpace(parts[1])
 	serviceName = strings.TrimSpace(parts[len(parts)-1])
 	if strings.HasSuffix(strings.ToLower(serviceName), ".yaml") {
-		serviceName = strings.TrimSuffix(serviceName, ".yaml")
+		serviceName = serviceName[:len(serviceName)-len(".yaml")]
 	}
 
 	if len(parts) > 3 {
