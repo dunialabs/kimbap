@@ -302,6 +302,42 @@ func ValidateInput(schema *Schema, input map[string]any) *ExecutionError {
 	return nil
 }
 
+func toFloat64(v any) (float64, bool) {
+	switch n := v.(type) {
+	case int:
+		return float64(n), true
+	case int8:
+		return float64(n), true
+	case int16:
+		return float64(n), true
+	case int32:
+		return float64(n), true
+	case int64:
+		return float64(n), true
+	case uint:
+		return float64(n), true
+	case uint8:
+		return float64(n), true
+	case uint16:
+		return float64(n), true
+	case uint32:
+		return float64(n), true
+	case uint64:
+		return float64(n), true
+	case float32:
+		return float64(n), true
+	case float64:
+		return n, true
+	}
+	return 0, false
+}
+
+func numericEqual(a, b any) bool {
+	fa, aOK := toFloat64(a)
+	fb, bOK := toFloat64(b)
+	return aOK && bOK && fa == fb
+}
+
 func validateValue(field string, schema *Schema, value any) *ExecutionError {
 	if schema == nil {
 		return nil
@@ -310,6 +346,10 @@ func validateValue(field string, schema *Schema, value any) *ExecutionError {
 		matched := false
 		for _, candidate := range schema.Enum {
 			if reflect.DeepEqual(candidate, value) {
+				matched = true
+				break
+			}
+			if numericEqual(candidate, value) {
 				matched = true
 				break
 			}

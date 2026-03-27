@@ -37,6 +37,19 @@ func (m staticDecisionPolicyEvaluator) Evaluate(ctx context.Context, req PolicyR
 	return &PolicyDecision{Decision: m.decision}, nil
 }
 
+type capturePolicyEvaluator struct {
+	lastReq PolicyRequest
+	err     error
+}
+
+func (m *capturePolicyEvaluator) Evaluate(ctx context.Context, req PolicyRequest) (*PolicyDecision, error) {
+	m.lastReq = req
+	if m.err != nil {
+		return nil, m.err
+	}
+	return &PolicyDecision{Decision: "allow"}, nil
+}
+
 type mockCredentialResolver struct {
 	creds *actions.ResolvedCredentialSet
 	err   error
@@ -502,6 +515,83 @@ func TestRuntimeResumeApprovedDeniedAfterPolicyChange(t *testing.T) {
 	}
 	if resumed.HTTPStatus != http.StatusForbidden {
 		t.Fatalf("expected status 403, got %d", resumed.HTTPStatus)
+	}
+}
+
+func TestRuntimeResumeApprovedPassesSessionAndClassificationToPolicy(t *testing.T) {
+	store := &mockHeldExecutionStore{held: map[string]actions.ExecutionRequest{}}
+	session := &actions.SessionContext{SessionID: "sess-123", Mode: actions.ModeCall, Channel: "cli"}
+	classInfo := &actions.ClassificationInfo{Service: "github", ActionName: "issues.create", Confidence: 0.91}
+
+	store.held["apr-ctx"] = actions.ExecutionRequest{
+		RequestID:      "req-ctx",
+		TraceID:        "trace-ctx",
+		TenantID:       "tenant-ctx",
+		Principal:      actions.Principal{ID: "principal-ctx", TenantID: "tenant-ctx"},
+		Action:         actions.ActionDefinition{Name: "github.issues.create", Adapter: actions.AdapterConfig{Type: "http", URLTemplate: "https://example.com"}},
+		Input:          map[string]any{"title": "hello"},
+		Mode:           actions.ModeCall,
+		Session:        session,
+		Classification: classInfo,
+	}
+
+	evaluator := &capturePolicyEvaluator{}
+	rt := Runtime{
+		PolicyEvaluator:    evaluator,
+		HeldExecutionStore: store,
+		Adapters: map[string]adapters.Adapter{
+			"http": mockAdapter{kind: "http", result: &adapters.AdapterResult{Output: map[string]any{"ok": true}, HTTPStatus: 200}},
+		},
+	}
+
+	res := rt.ResumeApproved(context.Background(), "apr-ctx")
+	if res.Status != actions.StatusSuccess {
+		t.Fatalf("expected success resume, got %s error=%+v", res.Status, res.Error)
+	}
+	if evaluator.lastReq.Session == nil || evaluator.lastReq.Session.SessionID != "sess-123" {
+		t.Fatalf("policy request missing session context: %+v", evaluator.lastReq.Session)
+	}
+	if evaluator.lastReq.Classification == nil || evaluator.lastReq.Classification.Service != "github" {
+		t.Fatalf("policy request missing classification context: %+v", evaluator.lastReq.Classification)
+	}
+}
+
+func TestNewTraceCollectorUsesInjectedClock(t *testing.T) {
+	t0 := time.Date(2026, 3, 28, 10, 0, 0, 0, time.UTC)
+	times := []time.Time{t0, t0.Add(10 * time.Millisecond), t0.Add(25 * time.Millisecond)}
+	idx := 0
+
+	tc := NewTraceCollector(func() time.Time {
+		if idx >= len(times) {
+			return times[len(times)-1]
+		}
+		cur := times[idx]
+		idx++
+		return cur
+	})
+
+	tc.Record("step-1", "ok", "first")
+	tc.Record("step-2", "ok", "second")
+
+	if len(tc.Steps) != 2 {
+		t.Fatalf("expected 2 trace steps, got %d", len(tc.Steps))
+	}
+	if tc.Steps[0].DurationMS != 10 {
+		t.Fatalf("step-1 duration = %dms, want 10ms", tc.Steps[0].DurationMS)
+	}
+	if tc.Steps[1].DurationMS != 15 {
+		t.Fatalf("step-2 duration = %dms, want 15ms", tc.Steps[1].DurationMS)
+	}
+}
+
+func TestNewTraceCollectorNilClockFallsBackToTimeNow(t *testing.T) {
+	tc := NewTraceCollector(nil)
+	tc.Record("step", "ok", "fallback")
+	if len(tc.Steps) != 1 {
+		t.Fatalf("expected 1 trace step, got %d", len(tc.Steps))
+	}
+	if tc.Steps[0].DurationMS < 0 {
+		t.Fatalf("duration should be non-negative, got %d", tc.Steps[0].DurationMS)
 	}
 }
 

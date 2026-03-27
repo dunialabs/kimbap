@@ -123,9 +123,20 @@ func (s *SQLiteStore) Create(ctx context.Context, tenantID string, name string, 
 		return nil, err
 	}
 
-	metaCtx, cancel := readbackContext(ctx)
-	defer cancel()
-	return s.GetMeta(metaCtx, tenantID, name)
+	if labels == nil {
+		labels = map[string]string{}
+	}
+	return &SecretRecord{
+		ID:             secretID,
+		TenantID:       tenantID,
+		Name:           name,
+		Type:           secretType,
+		Labels:         cloneLabels(labels),
+		CreatedAt:      now,
+		UpdatedAt:      now,
+		VersionCount:   1,
+		CurrentVersion: 1,
+	}, nil
 }
 
 func (s *SQLiteStore) Upsert(ctx context.Context, tenantID string, name string, secretType SecretType, plaintext []byte, labels map[string]string, createdBy string) (*SecretRecord, error) {
@@ -156,7 +167,9 @@ func (s *SQLiteStore) Upsert(ctx context.Context, tenantID string, name string, 
 
 	var secretID string
 	var currentVersion int
-	if err := tx.QueryRowContext(ctx, `SELECT id, current_version FROM secrets WHERE tenant_id = ? AND name = ?`, tenantID, name).Scan(&secretID, &currentVersion); err != nil {
+	var createdAt time.Time
+	var lastUsedAt sql.NullTime
+	if err := tx.QueryRowContext(ctx, `SELECT id, current_version, created_at, last_used_at FROM secrets WHERE tenant_id = ? AND name = ?`, tenantID, name).Scan(&secretID, &currentVersion, &createdAt, &lastUsedAt); err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return nil, ErrSecretNotFound
 		}
@@ -165,10 +178,6 @@ func (s *SQLiteStore) Upsert(ctx context.Context, tenantID string, name string, 
 
 	newVersion := currentVersion + 1
 	versionID := uuid.NewString()
-
-	if _, err := tx.ExecContext(ctx, `UPDATE secret_versions SET active = 0 WHERE secret_id = ?`, secretID); err != nil {
-		return nil, err
-	}
 
 	if _, err := tx.ExecContext(ctx, `
 		INSERT INTO secret_versions (
@@ -190,9 +199,25 @@ func (s *SQLiteStore) Upsert(ctx context.Context, tenantID string, name string, 
 		return nil, err
 	}
 
-	metaCtx, cancel := readbackContext(ctx)
-	defer cancel()
-	return s.GetMeta(metaCtx, tenantID, name)
+	if labels == nil {
+		labels = map[string]string{}
+	}
+	result := &SecretRecord{
+		ID:             secretID,
+		TenantID:       tenantID,
+		Name:           name,
+		Type:           secretType,
+		Labels:         cloneLabels(labels),
+		CreatedAt:      createdAt,
+		UpdatedAt:      now,
+		RotatedAt:      &now,
+		VersionCount:   newVersion,
+		CurrentVersion: newVersion,
+	}
+	if lastUsedAt.Valid {
+		result.LastUsedAt = &lastUsedAt.Time
+	}
+	return result, nil
 }
 
 func (s *SQLiteStore) GetMeta(ctx context.Context, tenantID string, name string) (*SecretRecord, error) {
@@ -350,7 +375,11 @@ func (s *SQLiteStore) Rotate(ctx context.Context, tenantID string, name string, 
 
 	var secretID string
 	var currentVersion int
-	if err := tx.QueryRowContext(ctx, `SELECT id, current_version FROM secrets WHERE tenant_id = ? AND name = ?`, tenantID, name).Scan(&secretID, &currentVersion); err != nil {
+	var secretType string
+	var labelsRaw sql.NullString
+	var createdAt time.Time
+	var lastUsedAt sql.NullTime
+	if err := tx.QueryRowContext(ctx, `SELECT id, current_version, type, labels, created_at, last_used_at FROM secrets WHERE tenant_id = ? AND name = ?`, tenantID, name).Scan(&secretID, &currentVersion, &secretType, &labelsRaw, &createdAt, &lastUsedAt); err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return nil, ErrSecretNotFound
 		}
@@ -359,10 +388,6 @@ func (s *SQLiteStore) Rotate(ctx context.Context, tenantID string, name string, 
 
 	newVersion := currentVersion + 1
 	versionID := uuid.NewString()
-
-	if _, err := tx.ExecContext(ctx, `UPDATE secret_versions SET active = 0 WHERE secret_id = ?`, secretID); err != nil {
-		return nil, err
-	}
 
 	if _, err := tx.ExecContext(ctx, `
 		INSERT INTO secret_versions (
@@ -384,9 +409,29 @@ func (s *SQLiteStore) Rotate(ctx context.Context, tenantID string, name string, 
 		return nil, err
 	}
 
-	metaCtx, cancel := readbackContext(ctx)
-	defer cancel()
-	return s.GetMeta(metaCtx, tenantID, name)
+	var existingLabels map[string]string
+	if labelsRaw.Valid {
+		_ = json.Unmarshal([]byte(labelsRaw.String), &existingLabels)
+	}
+	if existingLabels == nil {
+		existingLabels = map[string]string{}
+	}
+	rotateResult := &SecretRecord{
+		ID:             secretID,
+		TenantID:       tenantID,
+		Name:           name,
+		Type:           SecretType(secretType),
+		Labels:         existingLabels,
+		CreatedAt:      createdAt,
+		UpdatedAt:      now,
+		RotatedAt:      &now,
+		VersionCount:   newVersion,
+		CurrentVersion: newVersion,
+	}
+	if lastUsedAt.Valid {
+		rotateResult.LastUsedAt = &lastUsedAt.Time
+	}
+	return rotateResult, nil
 }
 
 func (s *SQLiteStore) GetVersion(ctx context.Context, tenantID string, name string, version int) ([]byte, error) {
@@ -479,14 +524,6 @@ func tenantKeyID(tenantID string) string {
 		return "default"
 	}
 	return "tenant:" + tid
-}
-
-func readbackContext(ctx context.Context) (context.Context, context.CancelFunc) {
-	base := context.Background()
-	if ctx != nil {
-		base = context.WithoutCancel(ctx)
-	}
-	return context.WithTimeout(base, 3*time.Second)
 }
 
 func (s *SQLiteStore) initSchema(ctx context.Context) error {
@@ -596,6 +633,17 @@ func marshalLabels(labels map[string]string) (string, error) {
 		return "", err
 	}
 	return string(b), nil
+}
+
+func cloneLabels(in map[string]string) map[string]string {
+	if len(in) == 0 {
+		return map[string]string{}
+	}
+	out := make(map[string]string, len(in))
+	for key, value := range in {
+		out[key] = value
+	}
+	return out
 }
 
 func matchesLabels(candidate map[string]string, wanted map[string]string) bool {

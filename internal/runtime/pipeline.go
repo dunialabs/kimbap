@@ -135,18 +135,22 @@ type TraceCollector struct {
 	Steps    []TraceStep
 	start    time.Time
 	lastStep time.Time
+	now      func() time.Time
 }
 
-func NewTraceCollector() *TraceCollector {
-	now := time.Now()
-	return &TraceCollector{start: now, lastStep: now}
+func NewTraceCollector(now func() time.Time) *TraceCollector {
+	if now == nil {
+		now = time.Now
+	}
+	t := now()
+	return &TraceCollector{start: t, lastStep: t, now: now}
 }
 
 func (tc *TraceCollector) Record(step, status, detail string) {
 	if tc == nil {
 		return
 	}
-	now := time.Now()
+	now := tc.now()
 	tc.Steps = append(tc.Steps, TraceStep{
 		Step:       step,
 		Status:     status,
@@ -161,7 +165,7 @@ func (r *Runtime) Execute(ctx context.Context, req actions.ExecutionRequest) act
 }
 
 func (r *Runtime) ExecuteWithTrace(ctx context.Context, req actions.ExecutionRequest) (actions.ExecutionResult, []TraceStep) {
-	tc := NewTraceCollector()
+	tc := NewTraceCollector(r.now)
 	result := r.execute(ctx, req, tc)
 	return result, tc.Steps
 }
@@ -222,11 +226,13 @@ func (r *Runtime) ResumeApproved(ctx context.Context, approvalRequestID string) 
 
 	if r.PolicyEvaluator != nil {
 		decision, evalErr := r.PolicyEvaluator.Evaluate(ctx, PolicyRequest{
-			TenantID:  held.TenantID,
-			Principal: held.Principal,
-			Action:    held.Action,
-			Input:     held.Input,
-			Mode:      held.Mode,
+			TenantID:       held.TenantID,
+			Principal:      held.Principal,
+			Action:         held.Action,
+			Input:          held.Input,
+			Mode:           held.Mode,
+			Session:        held.Session,
+			Classification: held.Classification,
 		})
 		if evalErr != nil {
 			return r.finalizeWithError(ctx, &result, *held, actions.NewExecutionError(actions.ErrDownstreamUnavailable, evalErr.Error(), 500, true, nil), startedAt, "deny", approvalRequestID)

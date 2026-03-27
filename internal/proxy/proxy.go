@@ -5,6 +5,7 @@ import (
 	"bytes"
 	"context"
 	"crypto/rand"
+	"crypto/sha256"
 	"crypto/subtle"
 	"crypto/tls"
 	"encoding/base64"
@@ -731,7 +732,8 @@ func (p *ProxyServer) proxyTenantID() string {
 
 func (p *ProxyServer) proxyPrincipalID() string {
 	if p.agentToken != "" {
-		return "agent:" + p.agentToken[:min(8, len(p.agentToken))]
+		sum := sha256.Sum256([]byte(p.agentToken))
+		return "agent:" + hex.EncodeToString(sum[:4])
 	}
 	return "proxy-agent"
 }

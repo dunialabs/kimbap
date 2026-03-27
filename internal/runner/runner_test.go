@@ -14,7 +14,7 @@ import (
 func TestRunnerSetsProxyEnvVars(t *testing.T) {
 	outFile := filepath.Join(t.TempDir(), "env.txt")
 	r := NewRunner(RunConfig{
-		Command:    []string{"sh", "-c", "printf '%s|%s|%s' \"$HTTP_PROXY\" \"$HTTPS_PROXY\" \"$KIMBAP_AGENT_TOKEN\" > \"$OUT\""},
+		Command:    []string{"sh", "-c", "printf '%s|%s|%s|%s' \"$HTTP_PROXY\" \"$HTTPS_PROXY\" \"$ALL_PROXY\" \"$KIMBAP_AGENT_TOKEN\" > \"$OUT\""},
 		ProxyAddr:  "127.0.0.1:18080",
 		AgentToken: "agent-token-1",
 		Env: map[string]string{
@@ -34,7 +34,7 @@ func TestRunnerSetsProxyEnvVars(t *testing.T) {
 	got := string(data)
 	wantProxy := "http://kimbap:agent-token-1@127.0.0.1:18080"
 	wantToken := "agent-token-1"
-	want := wantProxy + "|" + wantProxy + "|" + wantToken
+	want := wantProxy + "|" + wantProxy + "|" + wantProxy + "|" + wantToken
 	if got != want {
 		t.Fatalf("unexpected env output:\n  got:  %q\n  want: %q", got, want)
 	}
@@ -55,6 +55,24 @@ func TestBuildEnvEnsuresLoopbackNoProxyEntries(t *testing.T) {
 	for _, required := range []string{"localhost", "127.0.0.1", "::1"} {
 		if !strings.Contains(value, required) {
 			t.Fatalf("expected NO_PROXY to include %q, got %q", required, value)
+		}
+	}
+}
+
+func TestBuildEnvClearsProxyVarsWhenProxyDisabled(t *testing.T) {
+	env := buildEnv([]string{
+		"HTTP_PROXY=http://old-proxy:8080",
+		"HTTPS_PROXY=http://old-proxy:8080",
+		"ALL_PROXY=http://old-proxy:8080",
+		"http_proxy=http://old-proxy:8080",
+		"https_proxy=http://old-proxy:8080",
+		"all_proxy=http://old-proxy:8080",
+	}, nil, "", "")
+
+	for _, item := range env {
+		if strings.HasPrefix(item, "HTTP_PROXY=") || strings.HasPrefix(item, "HTTPS_PROXY=") || strings.HasPrefix(item, "ALL_PROXY=") ||
+			strings.HasPrefix(item, "http_proxy=") || strings.HasPrefix(item, "https_proxy=") || strings.HasPrefix(item, "all_proxy=") {
+			t.Fatalf("expected proxy vars to be cleared when proxy disabled, got %q", item)
 		}
 	}
 }

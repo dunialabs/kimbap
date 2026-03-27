@@ -446,3 +446,31 @@ func TestOpenDBWithPingSuccess(t *testing.T) {
 		t.Fatal("expected close to be called")
 	}
 }
+
+func TestMigrateBackfillsLegacyTokensIntoServiceTokensIdempotently(t *testing.T) {
+	st := newTestSQLiteStore(t)
+	ctx := context.Background()
+	now := time.Now().UTC()
+
+	if _, err := st.db.ExecContext(ctx, `
+		INSERT INTO tokens (id, tenant_id, agent_name, token_hash, display_hint, scopes, created_at, expires_at, last_used_at, revoked_at, created_by)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+	`, "legacy_token_1", "tenant-a", "legacy-agent", "legacy-hash-1", "xxxx", "[]", now, now.Add(time.Hour), nil, nil, "tester"); err != nil {
+		t.Fatalf("seed legacy token row: %v", err)
+	}
+
+	if err := st.Migrate(ctx); err != nil {
+		t.Fatalf("first migrate for backfill: %v", err)
+	}
+	if err := st.Migrate(ctx); err != nil {
+		t.Fatalf("second migrate for idempotency: %v", err)
+	}
+
+	var count int
+	if err := st.db.QueryRowContext(ctx, `SELECT COUNT(1) FROM service_tokens WHERE id = ?`, "legacy_token_1").Scan(&count); err != nil {
+		t.Fatalf("count service_tokens rows: %v", err)
+	}
+	if count != 1 {
+		t.Fatalf("expected exactly one backfilled service_token row, got %d", count)
+	}
+}

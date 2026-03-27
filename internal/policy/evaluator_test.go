@@ -282,3 +282,20 @@ func TestRateLimiterSweepsExpiredKeys(t *testing.T) {
 		t.Fatalf("expected stale expiry metadata to be swept from rate limiter")
 	}
 }
+
+func TestTimeWindowActiveOvernightUsesPreviousWeekdayForEarlyMorningSegment(t *testing.T) {
+	tw := &TimeWindow{
+		After:    "22:00",
+		Before:   "06:00",
+		Weekdays: []string{"fri"},
+		Timezone: "UTC",
+	}
+
+	if active := timeWindowActive(tw, time.Date(2026, 3, 28, 1, 0, 0, 0, time.UTC)); !active {
+		t.Fatal("expected overnight early-morning segment to match previous weekday")
+	}
+
+	if active := timeWindowActive(tw, time.Date(2026, 3, 28, 23, 0, 0, 0, time.UTC)); active {
+		t.Fatal("expected late-night segment to use current weekday and not match friday-only window")
+	}
+}

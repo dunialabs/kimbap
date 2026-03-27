@@ -110,7 +110,10 @@ func (s *Server) Start(ctx context.Context) error {
 	case <-ctx.Done():
 		shutdownCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancel()
-		_ = s.httpServer.Shutdown(shutdownCtx)
+		shutdownErr := s.httpServer.Shutdown(shutdownCtx)
+		if shutdownErr != nil && !errors.Is(shutdownErr, http.ErrServerClosed) {
+			_ = s.httpServer.Close()
+		}
 		s.httpServer = nil
 		return nil
 	case err := <-errCh:
@@ -138,6 +141,9 @@ func (s *Server) Stop(ctx context.Context) error {
 		return nil
 	}
 	err := s.httpServer.Shutdown(ctx)
+	if err != nil && !errors.Is(err, http.ErrServerClosed) {
+		_ = s.httpServer.Close()
+	}
 	s.httpServer = nil
 	if errors.Is(err, http.ErrServerClosed) {
 		return nil

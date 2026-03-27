@@ -45,7 +45,13 @@ func newApproveListCommand() *cobra.Command {
 				return err
 			}
 			err = withRuntimeStore(cfg, func(st *store.SQLStore) error {
-				items, err := st.ListApprovals(contextBackground(), approvalTenant(tenant), approvalStatus(status))
+				s := approvalStatus(status)
+				if s == "" || s == "pending" {
+					if _, expErr := st.ExpirePendingApprovals(contextBackground()); expErr != nil {
+						_, _ = fmt.Fprintf(os.Stderr, "warning: approval expiry sweep failed: %v\n", expErr)
+					}
+				}
+				items, err := st.ListApprovals(contextBackground(), approvalTenant(tenant), s)
 				if err != nil {
 					return err
 				}

@@ -179,11 +179,11 @@ func (s *SQLStore) Migrate(ctx context.Context) error {
 	backfillServiceTokens := `INSERT INTO service_tokens (id, tenant_id, agent_name, token_hash, display_hint, scopes, created_at, expires_at, last_used_at, revoked_at, created_by)
 		SELECT id, tenant_id, agent_name, token_hash, display_hint, scopes, created_at, expires_at, last_used_at, revoked_at, created_by
 		FROM tokens
-		ON CONFLICT (id) DO NOTHING`
+		ON CONFLICT DO NOTHING`
 	if s.dialect == "sqlite" {
 		backfillServiceTokens = `INSERT OR IGNORE INTO service_tokens (id, tenant_id, agent_name, token_hash, display_hint, scopes, created_at, expires_at, last_used_at, revoked_at, created_by)
 			SELECT id, tenant_id, agent_name, token_hash, display_hint, scopes, created_at, expires_at, last_used_at, revoked_at, created_by
-			FROM tokens WHERE NOT EXISTS (SELECT 1 FROM service_tokens WHERE service_tokens.id = tokens.id)`
+			FROM tokens`
 	}
 	queries = append(queries, backfillServiceTokens)
 

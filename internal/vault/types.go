@@ -2,8 +2,6 @@ package vault
 
 import (
 	"time"
-
-	corecrypto "github.com/dunialabs/kimbap/internal/crypto"
 )
 
 type SecretRecord struct {
@@ -18,16 +16,6 @@ type SecretRecord struct {
 	RotatedAt      *time.Time
 	VersionCount   int
 	CurrentVersion int
-}
-
-type SecretVersion struct {
-	ID        string
-	SecretID  string
-	Version   int
-	Envelope  corecrypto.EncryptedEnvelope
-	CreatedAt time.Time
-	CreatedBy string
-	Active    bool
 }
 
 type SecretType string

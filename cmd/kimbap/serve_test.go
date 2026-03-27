@@ -1,11 +1,15 @@
 package main
 
 import (
+	"context"
 	"net/http"
 	"net/http/httptest"
+	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/dunialabs/kimbap/internal/api"
+	"github.com/dunialabs/kimbap/internal/store"
 )
 
 func TestBuildServeServerOptionsEnablesWebhookRoutes(t *testing.T) {
@@ -22,7 +26,18 @@ func TestBuildServeServerOptionsEnablesWebhookRoutes(t *testing.T) {
 		t.Fatalf("expected 404 without webhook dispatcher, got %d", resp.StatusCode)
 	}
 
-	withDispatcher := api.NewServer(":0", nil, buildServeServerOptions(nil, nil, false)...)
+	st, err := store.OpenSQLiteStore(filepath.Join(t.TempDir(), "serve-test.sqlite"))
+	if err != nil {
+		t.Fatalf("open sqlite store: %v", err)
+	}
+	t.Cleanup(func() {
+		_ = st.Close()
+	})
+	if err := st.Migrate(context.Background()); err != nil {
+		t.Fatalf("migrate sqlite store: %v", err)
+	}
+
+	withDispatcher := api.NewServer(":0", st, buildServeServerOptions(nil, nil, false)...)
 	withTS := httptest.NewServer(withDispatcher.Router())
 	defer withTS.Close()
 
@@ -31,8 +46,8 @@ func TestBuildServeServerOptionsEnablesWebhookRoutes(t *testing.T) {
 		t.Fatalf("request with dispatcher: %v", err)
 	}
 	defer resp2.Body.Close()
-	if resp2.StatusCode == http.StatusNotFound {
-		t.Fatalf("expected webhook route to be registered when dispatcher is configured")
+	if resp2.StatusCode != http.StatusUnauthorized {
+		t.Fatalf("expected 401 for protected webhook route when dispatcher is configured, got %d", resp2.StatusCode)
 	}
 }
 
@@ -61,7 +76,10 @@ func TestBuildServeServerOptionsEnablesConsoleWhenRequested(t *testing.T) {
 		t.Fatalf("request console route: %v", err)
 	}
 	defer resp.Body.Close()
-	if resp.StatusCode == http.StatusNotFound {
-		t.Fatalf("expected console route to be served when enabled")
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("expected 200 when console is enabled, got %d", resp.StatusCode)
+	}
+	if contentType := resp.Header.Get("Content-Type"); !strings.Contains(contentType, "text/html") {
+		t.Fatalf("expected text/html content type for console route, got %q", contentType)
 	}
 }

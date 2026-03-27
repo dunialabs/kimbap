@@ -263,9 +263,18 @@ func buildEnv(base []string, extra map[string]string, proxyAddr, agentToken stri
 	if proxyAddr != "" {
 		delete(envMap, "HTTP_PROXY")
 		delete(envMap, "HTTPS_PROXY")
+		delete(envMap, "ALL_PROXY")
 		delete(envMap, "http_proxy")
 		delete(envMap, "https_proxy")
+		delete(envMap, "all_proxy")
 		delete(envMap, "SSL_CERT_FILE")
+	} else {
+		delete(envMap, "HTTP_PROXY")
+		delete(envMap, "HTTPS_PROXY")
+		delete(envMap, "ALL_PROXY")
+		delete(envMap, "http_proxy")
+		delete(envMap, "https_proxy")
+		delete(envMap, "all_proxy")
 	}
 
 	if proxyAddr != "" {
@@ -275,8 +284,10 @@ func buildEnv(base []string, extra map[string]string, proxyAddr, agentToken stri
 		}
 		envMap["HTTP_PROXY"] = proxyURL
 		envMap["HTTPS_PROXY"] = proxyURL
+		envMap["ALL_PROXY"] = proxyURL
 		envMap["http_proxy"] = proxyURL
 		envMap["https_proxy"] = proxyURL
+		envMap["all_proxy"] = proxyURL
 		existing := envMap["NO_PROXY"]
 		if existing == "" {
 			existing = envMap["no_proxy"]

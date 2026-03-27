@@ -71,12 +71,15 @@ func (w *JSONLWriter) Write(ctx context.Context, event AuditEvent) error {
 }
 
 func (w *JSONLWriter) Close() error {
-	if w == nil || w.file == nil {
+	if w == nil {
 		return nil
 	}
 
 	w.mu.Lock()
 	defer w.mu.Unlock()
+	if w.file == nil {
+		return nil
+	}
 	err := w.file.Close()
 	w.file = nil
 	w.enc = nil

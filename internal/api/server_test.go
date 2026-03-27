@@ -1600,8 +1600,11 @@ func TestNewServerServesConsoleWhenEnabled(t *testing.T) {
 		t.Fatalf("request console route: %v", err)
 	}
 	defer resp.Body.Close()
-	if resp.StatusCode == http.StatusNotFound {
-		t.Fatalf("expected console route when explicitly enabled")
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("expected 200 when console route is enabled, got %d", resp.StatusCode)
+	}
+	if got := resp.Header.Get("Content-Type"); !strings.Contains(got, "text/html") {
+		t.Fatalf("expected text/html content type for console route, got %q", got)
 	}
 }
 

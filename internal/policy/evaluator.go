@@ -195,13 +195,26 @@ func timeWindowActive(tw *TimeWindow, now time.Time) bool {
 	}
 	now = now.In(loc)
 
+	nowMinutes := now.Hour()*60 + now.Minute()
+
+	afterStr := strings.TrimSpace(tw.After)
+	beforeStr := strings.TrimSpace(tw.Before)
+	afterMin, afterOK := parseHHMM(afterStr)
+	beforeMin, beforeOK := parseHHMM(beforeStr)
+
 	if len(tw.Weekdays) > 0 {
-		todayName := strings.ToLower(now.Weekday().String())
-		todayShort := todayName[:3]
+		// For overnight windows (after > before), if we are in the early morning
+		// portion (nowMinutes < beforeMin), this period belongs to yesterday's window.
+		refDay := now
+		if afterOK && beforeOK && afterMin > beforeMin && nowMinutes < beforeMin {
+			refDay = now.AddDate(0, 0, -1)
+		}
+		dayName := strings.ToLower(refDay.Weekday().String())
+		dayShort := dayName[:3]
 		found := false
 		for _, wd := range tw.Weekdays {
 			wd = strings.ToLower(strings.TrimSpace(wd))
-			if wd == todayName || wd == todayShort {
+			if wd == dayName || wd == dayShort {
 				found = true
 				break
 			}
@@ -210,13 +223,6 @@ func timeWindowActive(tw *TimeWindow, now time.Time) bool {
 			return false
 		}
 	}
-
-	nowMinutes := now.Hour()*60 + now.Minute()
-
-	afterStr := strings.TrimSpace(tw.After)
-	beforeStr := strings.TrimSpace(tw.Before)
-	afterMin, afterOK := parseHHMM(afterStr)
-	beforeMin, beforeOK := parseHHMM(beforeStr)
 
 	if afterOK && beforeOK {
 		if afterMin > beforeMin {

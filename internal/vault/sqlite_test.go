@@ -360,6 +360,41 @@ func TestSQLiteStoreCreateSucceedsForAnyTenant(t *testing.T) {
 	}
 }
 
+func TestSQLiteStoreCreateReturnsDetachedLabelsMap(t *testing.T) {
+	store := newTestStore(t)
+	ctx := context.Background()
+	labels := map[string]string{"env": "dev"}
+
+	rec, err := store.Create(ctx, "tenant-a", "DETACHED_LABELS", SecretTypeAPIKey, []byte("v1"), labels, "tester")
+	if err != nil {
+		t.Fatalf("create: %v", err)
+	}
+	labels["env"] = "prod"
+	if rec.Labels["env"] != "dev" {
+		t.Fatalf("expected returned labels to be detached from caller map, got %+v", rec.Labels)
+	}
+}
+
+func TestSQLiteStoreUpsertReturnsDetachedLabelsMap(t *testing.T) {
+	store := newTestStore(t)
+	ctx := context.Background()
+
+	_, err := store.Create(ctx, "tenant-a", "UPSERT_DETACHED", SecretTypeAPIKey, []byte("v1"), map[string]string{"env": "dev"}, "tester")
+	if err != nil {
+		t.Fatalf("create seed: %v", err)
+	}
+
+	labels := map[string]string{"env": "prod"}
+	rec, err := store.Upsert(ctx, "tenant-a", "UPSERT_DETACHED", SecretTypeAPIKey, []byte("v2"), labels, "tester")
+	if err != nil {
+		t.Fatalf("upsert: %v", err)
+	}
+	labels["env"] = "staging"
+	if rec.Labels["env"] != "prod" {
+		t.Fatalf("expected upsert result labels detached from caller map, got %+v", rec.Labels)
+	}
+}
+
 func newTestStore(t *testing.T) *SQLiteStore {
 	t.Helper()
 
