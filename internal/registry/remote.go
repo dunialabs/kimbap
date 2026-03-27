@@ -41,6 +41,9 @@ func (r *RemoteRegistry) Resolve(ctx context.Context, name string) (*services.Se
 	if err != nil {
 		return nil, "", err
 	}
+	if strings.TrimSpace(manifest.Name) != strings.TrimSpace(name) {
+		return nil, "", fmt.Errorf("manifest name %q does not match requested service %q", manifest.Name, name)
+	}
 	return manifest, "remote:" + url, nil
 }
 

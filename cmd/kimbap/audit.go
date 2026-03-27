@@ -98,7 +98,7 @@ func newAuditExportCommand() *cobra.Command {
 			if err != nil {
 				return fmt.Errorf("parse --from: %w", err)
 			}
-			toTime, err := parseAuditTime(to)
+			toTime, err := parseAuditTimeTo(to)
 			if err != nil {
 				return fmt.Errorf("parse --to: %w", err)
 			}
@@ -231,16 +231,30 @@ func auditEventMatches(event audit.AuditEvent, agent string, service string) boo
 }
 
 func parseAuditTime(raw string) (time.Time, error) {
+	return parseAuditTimeWithEndOfDay(raw, false)
+}
+
+func parseAuditTimeTo(raw string) (time.Time, error) {
+	return parseAuditTimeWithEndOfDay(raw, true)
+}
+
+func parseAuditTimeWithEndOfDay(raw string, endOfDay bool) (time.Time, error) {
 	raw = strings.TrimSpace(raw)
 	if raw == "" {
 		return time.Time{}, fmt.Errorf("time value is required")
 	}
 
-	layouts := []string{time.RFC3339Nano, time.RFC3339, "2006-01-02"}
-	for _, layout := range layouts {
+	for _, layout := range []string{time.RFC3339Nano, time.RFC3339} {
 		if t, err := time.Parse(layout, raw); err == nil {
 			return t.UTC(), nil
 		}
+	}
+
+	if t, err := time.Parse("2006-01-02", raw); err == nil {
+		if endOfDay {
+			return t.UTC().Add(24*time.Hour - time.Nanosecond), nil
+		}
+		return t.UTC(), nil
 	}
 
 	return time.Time{}, fmt.Errorf("unsupported time format %q", raw)
