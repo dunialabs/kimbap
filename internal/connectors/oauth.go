@@ -96,15 +96,16 @@ func PollForTokenWithContext(ctx context.Context, cfg ConnectorConfig, deviceCod
 		timeout = 5 * time.Minute
 	}
 
-	deadline := time.Now().Add(timeout)
+	ctx, cancel := context.WithTimeout(ctx, timeout)
+	defer cancel()
 	for {
 		select {
 		case <-ctx.Done():
+			if errors.Is(ctx.Err(), context.DeadlineExceeded) {
+				return nil, errors.New("device flow polling timed out")
+			}
 			return nil, fmt.Errorf("device flow polling canceled: %w", ctx.Err())
 		default:
-		}
-		if time.Now().After(deadline) {
-			return nil, errors.New("device flow polling timed out")
 		}
 
 		form := url.Values{}

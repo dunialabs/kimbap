@@ -15,7 +15,10 @@ import (
 	"testing"
 	"time"
 
+	"github.com/dunialabs/kimbap/internal/actions"
+	"github.com/dunialabs/kimbap/internal/adapters"
 	"github.com/dunialabs/kimbap/internal/classifier"
+	"github.com/dunialabs/kimbap/internal/runtime"
 )
 
 func TestProxyHTTPForwardsGETRequest(t *testing.T) {
@@ -250,6 +253,210 @@ func TestExtractProxyInputRejectsOversizedBody(t *testing.T) {
 	if !strings.Contains(err.Error(), "exceeded") {
 		t.Fatalf("expected exceeded size error, got %v", err)
 	}
+}
+
+type denyPolicyEvaluator struct{}
+
+func (denyPolicyEvaluator) Evaluate(_ context.Context, _ runtime.PolicyRequest) (*runtime.PolicyDecision, error) {
+	return &runtime.PolicyDecision{Decision: "deny", Reason: "test denial"}, nil
+}
+
+type allowPolicyEvaluator struct{}
+
+func (allowPolicyEvaluator) Evaluate(_ context.Context, _ runtime.PolicyRequest) (*runtime.PolicyDecision, error) {
+	return &runtime.PolicyDecision{Decision: "allow"}, nil
+}
+
+type staticActionRegistry struct {
+	def actions.ActionDefinition
+}
+
+func (s staticActionRegistry) Lookup(_ context.Context, _ string) (*actions.ActionDefinition, error) {
+	return &s.def, nil
+}
+
+func (s staticActionRegistry) List(_ context.Context, _ runtime.ListOptions) ([]actions.ActionDefinition, error) {
+	return []actions.ActionDefinition{s.def}, nil
+}
+
+type echoAdapter struct{}
+
+func (echoAdapter) Type() string { return "http" }
+
+func (echoAdapter) Validate(_ actions.ActionDefinition) error { return nil }
+
+func (echoAdapter) Execute(_ context.Context, req adapters.AdapterRequest) (*adapters.AdapterResult, error) {
+	return &adapters.AdapterResult{
+		Output:     map[string]any{"proxied": true},
+		HTTPStatus: 200,
+		DurationMS: 1,
+	}, nil
+}
+
+func testClassifierForHost(t *testing.T, host string) *classifier.Classifier {
+	t.Helper()
+	c := classifier.NewClassifier()
+	if err := c.AddRule(classifier.Rule{
+		ID:          "test-rule",
+		Service:     "test-svc",
+		Action:      "test-action",
+		HostPattern: host,
+		PathPattern: "/api",
+		Method:      "GET",
+		Priority:    100,
+	}); err != nil {
+		t.Fatalf("AddRule failed: %v", err)
+	}
+	return c
+}
+
+func TestProxyRuntimePolicyDenialReturnsJSONWith403(t *testing.T) {
+	target := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		t.Fatal("upstream should not be hit on policy denial")
+	}))
+	defer target.Close()
+
+	targetURL, _ := url.Parse(target.URL)
+	rt := runtime.NewRuntime(runtime.Runtime{
+		PolicyEvaluator: denyPolicyEvaluator{},
+		ActionRegistry: staticActionRegistry{def: actions.ActionDefinition{
+			Name: "test-svc.test-action",
+			Auth: actions.AuthRequirement{Type: actions.AuthTypeNone},
+		}},
+		Adapters: map[string]adapters.Adapter{"http": echoAdapter{}},
+	})
+
+	proxyAddr, stop := startTestProxyWithRuntime(t, testClassifierForHost(t, targetURL.Hostname()), UnmatchedPolicyAllow, rt)
+	defer stop()
+
+	proxyURL, _ := url.Parse("http://" + proxyAddr)
+	client := &http.Client{Transport: &http.Transport{Proxy: http.ProxyURL(proxyURL)}}
+
+	resp, err := client.Get(target.URL + "/api")
+	if err != nil {
+		t.Fatalf("request via proxy failed: %v", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusForbidden {
+		t.Fatalf("expected 403 for policy denial, got %d", resp.StatusCode)
+	}
+	ct := resp.Header.Get("Content-Type")
+	if !strings.Contains(ct, "application/json") {
+		t.Fatalf("expected JSON content-type for 4xx error, got %q", ct)
+	}
+	body, _ := io.ReadAll(resp.Body)
+	if !strings.Contains(string(body), "ERR_UNAUTHORIZED") {
+		t.Fatalf("expected ERR_UNAUTHORIZED in JSON body, got %q", string(body))
+	}
+}
+
+func TestProxyRuntime5xxErrorReturnsMaskedPlainText(t *testing.T) {
+	target := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		t.Fatal("upstream should not be hit on runtime 5xx")
+	}))
+	defer target.Close()
+
+	targetURL, _ := url.Parse(target.URL)
+	rt := runtime.NewRuntime(runtime.Runtime{
+		PolicyEvaluator: allowPolicyEvaluator{},
+		ActionRegistry: staticActionRegistry{def: actions.ActionDefinition{
+			Name:    "test-svc.test-action",
+			Auth:    actions.AuthRequirement{Type: actions.AuthTypeNone},
+			Adapter: actions.AdapterConfig{Type: "nonexistent-adapter"},
+		}},
+		Adapters: map[string]adapters.Adapter{},
+	})
+
+	proxyAddr, stop := startTestProxyWithRuntime(t, testClassifierForHost(t, targetURL.Hostname()), UnmatchedPolicyAllow, rt)
+	defer stop()
+
+	proxyURL, _ := url.Parse("http://" + proxyAddr)
+	client := &http.Client{Transport: &http.Transport{Proxy: http.ProxyURL(proxyURL)}}
+
+	resp, err := client.Get(target.URL + "/api")
+	if err != nil {
+		t.Fatalf("request via proxy failed: %v", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode < 500 {
+		t.Fatalf("expected 5xx for adapter error, got %d", resp.StatusCode)
+	}
+	body, _ := io.ReadAll(resp.Body)
+	if !strings.Contains(string(body), "proxy request failed") {
+		t.Fatalf("expected masked error message for 5xx, got %q", string(body))
+	}
+}
+
+func TestProxyRuntimeSuccessReturnsJSON(t *testing.T) {
+	target := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		t.Fatal("upstream should not be hit for classified request with runtime")
+	}))
+	defer target.Close()
+
+	targetURL, _ := url.Parse(target.URL)
+	rt := runtime.NewRuntime(runtime.Runtime{
+		PolicyEvaluator: allowPolicyEvaluator{},
+		ActionRegistry: staticActionRegistry{def: actions.ActionDefinition{
+			Name:    "test-svc.test-action",
+			Auth:    actions.AuthRequirement{Type: actions.AuthTypeNone},
+			Adapter: actions.AdapterConfig{Type: "http"},
+		}},
+		Adapters: map[string]adapters.Adapter{"http": echoAdapter{}},
+	})
+
+	proxyAddr, stop := startTestProxyWithRuntime(t, testClassifierForHost(t, targetURL.Hostname()), UnmatchedPolicyAllow, rt)
+	defer stop()
+
+	proxyURL, _ := url.Parse("http://" + proxyAddr)
+	client := &http.Client{Transport: &http.Transport{Proxy: http.ProxyURL(proxyURL)}}
+
+	resp, err := client.Get(target.URL + "/api")
+	if err != nil {
+		t.Fatalf("request via proxy failed: %v", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("expected 200 for successful execution, got %d", resp.StatusCode)
+	}
+	ct := resp.Header.Get("Content-Type")
+	if !strings.Contains(ct, "application/json") {
+		t.Fatalf("expected JSON content-type for success, got %q", ct)
+	}
+	body, _ := io.ReadAll(resp.Body)
+	if !strings.Contains(string(body), "proxied") {
+		t.Fatalf("expected proxied output in response, got %q", string(body))
+	}
+}
+
+func startTestProxyWithRuntime(t *testing.T, c *classifier.Classifier, policy UnmatchedPolicy, rt *runtime.Runtime) (string, func()) {
+	t.Helper()
+	ca, err := GenerateCA(t.TempDir())
+	if err != nil {
+		t.Fatalf("generate ca: %v", err)
+	}
+	proxy := NewProxyServer("127.0.0.1:0", ca, WithClassifier(c), WithUnmatchedPolicy(policy), WithRuntime(rt))
+	ctx, cancel := context.WithCancel(context.Background())
+	errCh := make(chan error, 1)
+	go func() { errCh <- proxy.Start(ctx) }()
+	addr := waitForProxyAddr(t, proxy)
+	stop := func() {
+		cancel()
+		shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), 2*time.Second)
+		defer shutdownCancel()
+		_ = proxy.Stop(shutdownCtx)
+		select {
+		case <-time.After(2 * time.Second):
+			t.Fatalf("timeout waiting for proxy stop")
+		case err := <-errCh:
+			if err != nil {
+				t.Fatalf("proxy stopped with error: %v", err)
+			}
+		}
+	}
+	return addr, stop
 }
 
 func startTestProxy(t *testing.T, c *classifier.Classifier, policy UnmatchedPolicy) (string, func()) {

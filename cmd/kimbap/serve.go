@@ -55,6 +55,9 @@ func newServeCommand() *cobra.Command {
 				listenAddr = withPort(listenAddr, port)
 			}
 
+			// vaultStore and connStore (below) are intentionally not deferred-closed here.
+			// They are passed into the runtime and API server, remaining open for the
+			// process lifetime; the OS reclaims resources on exit.
 			vaultStore, err := initVaultStore(cfg)
 			if err != nil {
 				return err
