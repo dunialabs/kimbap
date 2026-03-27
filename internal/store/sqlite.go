@@ -564,11 +564,14 @@ func (s *SQLStore) UpdateApprovalStatus(ctx context.Context, id string, status s
 		if lookupErr != nil {
 			return lookupErr
 		}
-		if existing.Status == "expired" || !existing.ExpiresAt.After(now) {
-			return ErrApprovalExpired
-		}
 		if existing.Status != "pending" {
+			if existing.Status == "expired" {
+				return ErrApprovalExpired
+			}
 			return ErrApprovalAlreadyResolved
+		}
+		if !existing.ExpiresAt.After(now) {
+			return ErrApprovalExpired
 		}
 		return ErrNotFound
 	}

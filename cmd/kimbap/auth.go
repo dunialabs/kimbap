@@ -69,6 +69,9 @@ func resolveConnectionScope(raw string, provider connectors.ProviderDefinition) 
 			return requested, nil
 		}
 	}
+	if requested == connectors.ScopeUser && len(provider.ConnectionScopeModel) == 1 {
+		return connectors.ConnectionScope(provider.ConnectionScopeModel[0]), nil
+	}
 	allowed := make([]string, 0, len(provider.ConnectionScopeModel))
 	for _, s := range provider.ConnectionScopeModel {
 		allowed = append(allowed, string(s))

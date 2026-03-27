@@ -122,14 +122,15 @@ func newConnectorListCommand() *cobra.Command {
 			connectorsOut := make([]map[string]any, 0, len(states))
 			for _, state := range states {
 				connectorsOut = append(connectorsOut, map[string]any{
-					"name":         state.Name,
-					"provider":     state.Provider,
-					"status":       connectorComputedStatus(state),
-					"account":      state.Account,
-					"expires_at":   state.ExpiresAt,
-					"updated_at":   state.UpdatedAt,
-					"last_refresh": state.LastRefresh,
-					"scopes":       state.Scopes,
+					"name":                state.Name,
+					"provider":            state.Provider,
+					"status":              connectorComputedStatus(state),
+					"account":             state.Account,
+					"connected_principal": state.ConnectedPrincipal,
+					"expires_at":          state.ExpiresAt,
+					"updated_at":          state.UpdatedAt,
+					"last_refresh":        state.LastRefresh,
+					"scopes":              state.Scopes,
 				})
 			}
 
@@ -156,6 +157,9 @@ func newConnectorStatusCommand() *cobra.Command {
 			name := strings.TrimSpace(args[0])
 			if name == "" {
 				return fmt.Errorf("connector name is required")
+			}
+			if p, pErr := providers.GetProvider(name); pErr == nil {
+				name = p.ID
 			}
 			activeTenant := connectorTenant(tenant)
 			cfg, err := loadAppConfig()
@@ -193,14 +197,15 @@ func newConnectorStatusCommand() *cobra.Command {
 				"operation": "connector.status",
 				"tenant_id": activeTenant,
 				"connector": map[string]any{
-					"name":         state.Name,
-					"provider":     state.Provider,
-					"status":       connectorComputedStatus(*state),
-					"account":      state.Account,
-					"expires_at":   state.ExpiresAt,
-					"updated_at":   state.UpdatedAt,
-					"last_refresh": state.LastRefresh,
-					"scopes":       state.Scopes,
+					"name":                state.Name,
+					"provider":            state.Provider,
+					"status":              connectorComputedStatus(*state),
+					"account":             state.Account,
+					"connected_principal": state.ConnectedPrincipal,
+					"expires_at":          state.ExpiresAt,
+					"updated_at":          state.UpdatedAt,
+					"last_refresh":        state.LastRefresh,
+					"scopes":              state.Scopes,
 				},
 			})
 		},
@@ -331,17 +336,18 @@ func connectorTenant(raw string) string {
 }
 
 type connectorStateRow struct {
-	Name             string
-	Provider         string
-	Status           string
-	Account          string
-	ExpiresAt        *string
-	RevokedAt        *string
-	UpdatedAt        *string
-	LastRefresh      *string
-	LastRefreshError string
-	AccessToken      string
-	Scopes           []string
+	Name               string
+	Provider           string
+	Status             string
+	Account            string
+	ConnectedPrincipal string
+	ExpiresAt          *string
+	RevokedAt          *string
+	UpdatedAt          *string
+	LastRefresh        *string
+	LastRefreshError   string
+	AccessToken        string
+	Scopes             []string
 }
 
 func listConnectorStates(ctx context.Context, cfg *config.KimbapConfig, tenantID string) ([]connectorStateRow, error) {
@@ -355,7 +361,7 @@ func listConnectorStates(ctx context.Context, cfg *config.KimbapConfig, tenantID
 		return nil, err
 	}
 
-	q := `SELECT name, provider, status, account, expires_at, updated_at, last_refresh, scopes_json, revoked_at, last_refresh_error, access_token FROM connector_states WHERE tenant_id = ? ORDER BY name ASC`
+	q := `SELECT name, provider, status, account, connected_principal, expires_at, updated_at, last_refresh, scopes_json, revoked_at, last_refresh_error, access_token FROM connector_states WHERE tenant_id = ? ORDER BY name ASC`
 	rows, err := db.QueryContext(ctx, bindQuery(q, dialect), tenantID)
 	if err != nil {
 		return nil, err
@@ -384,7 +390,7 @@ func getConnectorState(ctx context.Context, cfg *config.KimbapConfig, tenantID, 
 		return nil, err
 	}
 
-	q := `SELECT name, provider, status, account, expires_at, updated_at, last_refresh, scopes_json, revoked_at, last_refresh_error, access_token FROM connector_states WHERE tenant_id = ? AND name = ?`
+	q := `SELECT name, provider, status, account, connected_principal, expires_at, updated_at, last_refresh, scopes_json, revoked_at, last_refresh_error, access_token FROM connector_states WHERE tenant_id = ? AND name = ?`
 	row := db.QueryRowContext(ctx, bindQuery(q, dialect), tenantID, name)
 	item, err := scanConnectorState(row)
 	if err != nil {
@@ -504,7 +510,7 @@ func scanConnectorState(scanner interface{ Scan(dest ...any) error }) (connector
 		revokedAt   sql.NullTime
 		scopesJSON  string
 	)
-	if err := scanner.Scan(&item.Name, &item.Provider, &item.Status, &item.Account, &expiresAt, &updatedAt, &lastRefresh, &scopesJSON, &revokedAt, &item.LastRefreshError, &item.AccessToken); err != nil {
+	if err := scanner.Scan(&item.Name, &item.Provider, &item.Status, &item.Account, &item.ConnectedPrincipal, &expiresAt, &updatedAt, &lastRefresh, &scopesJSON, &revokedAt, &item.LastRefreshError, &item.AccessToken); err != nil {
 		return connectorStateRow{}, err
 	}
 	if expiresAt.Valid {
