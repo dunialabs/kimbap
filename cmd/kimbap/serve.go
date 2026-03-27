@@ -175,6 +175,7 @@ func buildServeRuntime(cfg *config.KimbapConfig, st *store.SQLStore, vaultStore 
 		ServicesDir:      cfg.Services.Dir,
 		AuditWriter:      auditWriter,
 		ApprovalManager:  app.NewApprovalManagerAdapter(approvalMgr),
+		HeldStore:        st,
 	})
 }
 

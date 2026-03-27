@@ -539,6 +539,7 @@ func buildRuntimeFromConfig(cfg *config.KimbapConfig) (*runtime.Runtime, error) 
 		ServicesDir:      cfg.Services.Dir,
 		AuditWriter:      auditWriter,
 		ApprovalManager:  approvalManager,
+		HeldStore:        runtimeStoreForCleanup,
 	})
 	if buildErr != nil {
 		closeVaultStoreForBuild(vaultStore)

@@ -166,6 +166,11 @@ func (s *SQLStore) Migrate(ctx context.Context) error {
 			document BYTEA NOT NULL,
 			updated_at TIMESTAMP NOT NULL
 		)`,
+		`CREATE TABLE IF NOT EXISTS held_executions (
+			approval_request_id TEXT PRIMARY KEY,
+			request_json TEXT NOT NULL,
+			created_at TIMESTAMP NOT NULL
+		)`,
 	}
 
 	if s.dialect == "sqlite" {
@@ -781,4 +786,33 @@ func affectedRows(res sql.Result) int64 {
 		return 0
 	}
 	return rows
+}
+
+func (s *SQLStore) HoldExecution(ctx context.Context, approvalRequestID string, requestJSON []byte) error {
+	_, err := s.db.ExecContext(ctx, s.bind(`
+		INSERT INTO held_executions (approval_request_id, request_json, created_at)
+		VALUES (?, ?, ?)
+		ON CONFLICT(approval_request_id) DO UPDATE SET request_json = excluded.request_json
+	`), approvalRequestID, string(requestJSON), time.Now().UTC())
+	return err
+}
+
+func (s *SQLStore) ResumeExecution(ctx context.Context, approvalRequestID string) ([]byte, error) {
+	var requestJSON string
+	err := s.db.QueryRowContext(ctx, s.bind(`
+		SELECT request_json FROM held_executions WHERE approval_request_id = ?
+	`), approvalRequestID).Scan(&requestJSON)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, nil
+		}
+		return nil, err
+	}
+	_, _ = s.db.ExecContext(ctx, s.bind(`DELETE FROM held_executions WHERE approval_request_id = ?`), approvalRequestID)
+	return []byte(requestJSON), nil
+}
+
+func (s *SQLStore) RemoveExecution(ctx context.Context, approvalRequestID string) error {
+	_, err := s.db.ExecContext(ctx, s.bind(`DELETE FROM held_executions WHERE approval_request_id = ?`), approvalRequestID)
+	return err
 }

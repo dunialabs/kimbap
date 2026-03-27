@@ -37,6 +37,7 @@ type RuntimeDeps struct {
 	ServicesDir      string
 	AuditWriter      runtimepkg.AuditWriter
 	ApprovalManager  runtimepkg.ApprovalManager
+	HeldStore        store.HeldExecutionStore
 }
 
 func BuildRuntime(deps RuntimeDeps) (*runtimepkg.Runtime, error) {
@@ -103,7 +104,11 @@ func BuildRuntime(deps RuntimeDeps) (*runtimepkg.Runtime, error) {
 
 	var heldStore runtimepkg.HeldExecutionStore
 	if deps.ApprovalManager != nil {
-		heldStore = NewMemoryHeldExecutionStore()
+		if deps.HeldStore != nil {
+			heldStore = NewSQLHeldExecutionStore(deps.HeldStore)
+		} else {
+			heldStore = NewMemoryHeldExecutionStore()
+		}
 	}
 
 	adaptersMap := map[string]adapters.Adapter{
