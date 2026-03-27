@@ -152,11 +152,73 @@ func (c *Classifier) Explain(method, host, reqPath string) string {
 
 func (c *Classifier) sortRules() {
 	sort.SliceStable(c.rules, func(i, j int) bool {
-		if c.rules[i].Priority == c.rules[j].Priority {
-			return c.rules[i].ID < c.rules[j].ID
+		left := c.rules[i]
+		right := c.rules[j]
+		if left.Priority != right.Priority {
+			return left.Priority > right.Priority
 		}
-		return c.rules[i].Priority > c.rules[j].Priority
+
+		leftSpecificity := pathSpecificity(left.PathPattern)
+		rightSpecificity := pathSpecificity(right.PathPattern)
+		if leftSpecificity.kind != rightSpecificity.kind {
+			return leftSpecificity.kind > rightSpecificity.kind
+		}
+		if leftSpecificity.literalSegments != rightSpecificity.literalSegments {
+			return leftSpecificity.literalSegments > rightSpecificity.literalSegments
+		}
+		if leftSpecificity.segmentCount != rightSpecificity.segmentCount {
+			return leftSpecificity.segmentCount > rightSpecificity.segmentCount
+		}
+		return left.ID < right.ID
 	})
+}
+
+type specificity struct {
+	kind            int
+	literalSegments int
+	segmentCount    int
+}
+
+func pathSpecificity(pattern string) specificity {
+	normalized := normalizePathPattern(pattern)
+	segments := strings.Split(strings.Trim(normalized, "/"), "/")
+	literalSegments := 0
+	segmentCount := 0
+	for _, segment := range segments {
+		if segment == "" {
+			continue
+		}
+		segmentCount++
+		if !hasGlob(segment) {
+			literalSegments++
+		}
+	}
+	return specificity{
+		kind:            pathMatchKind(normalized),
+		literalSegments: literalSegments,
+		segmentCount:    segmentCount,
+	}
+}
+
+func pathMatchKind(pattern string) int {
+	if !hasGlob(pattern) {
+		return 2
+	}
+	if isPrefixPathPattern(pattern) {
+		return 1
+	}
+	return 0
+}
+
+func isPrefixPathPattern(pattern string) bool {
+	if !strings.HasSuffix(pattern, "/*") {
+		return false
+	}
+	trimmed := strings.TrimSuffix(pattern, "/*")
+	if trimmed == "" {
+		return false
+	}
+	return !hasGlob(trimmed)
 }
 
 func matchMethod(ruleMethod, method string) bool {

@@ -377,7 +377,7 @@ func (i *LocalInstaller) Verify(name string) (*VerifyResult, error) {
 			result.SignatureValid = false
 			return &result, fmt.Errorf("verify signature: %w", sigErr)
 		}
-		result.SignatureValid = sigValid
+		result.SignatureValid = result.Verified && sigValid
 	}
 
 	return &result, nil
@@ -405,7 +405,7 @@ func (i *LocalInstaller) VerifyWithKey(name string, pinnedPubKey ed25519.PublicK
 			result.SignatureValid = false
 			return &result, fmt.Errorf("verify signature: %w", sigErr)
 		}
-		result.SignatureValid = sigValid
+		result.SignatureValid = result.Verified && sigValid
 	}
 
 	return &result, nil

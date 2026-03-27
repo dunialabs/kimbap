@@ -110,6 +110,66 @@ func TestClassifierPriorityOrdering(t *testing.T) {
 	}
 }
 
+func TestClassifierEqualPriorityPrefersExactPathOverParamPath(t *testing.T) {
+	c := NewClassifier()
+	mustAddRule(t, c, Rule{
+		ID:          "a-param",
+		Service:     "svc",
+		Action:      "show",
+		HostPattern: "api.service.local",
+		PathPattern: "/items/{id}",
+		Method:      "GET",
+		Priority:    100,
+	})
+	mustAddRule(t, c, Rule{
+		ID:          "z-exact",
+		Service:     "svc",
+		Action:      "search",
+		HostPattern: "api.service.local",
+		PathPattern: "/items/search",
+		Method:      "GET",
+		Priority:    100,
+	})
+
+	result := c.Classify("GET", "api.service.local", "/items/search")
+	if result == nil || !result.Matched {
+		t.Fatal("expected exact path to match")
+	}
+	if result.RuleID != "z-exact" {
+		t.Fatalf("expected exact path rule to win tie-break, got %q", result.RuleID)
+	}
+}
+
+func TestClassifierEqualPriorityPrefersPrefixPathOverGenericGlob(t *testing.T) {
+	c := NewClassifier()
+	mustAddRule(t, c, Rule{
+		ID:          "a-glob",
+		Service:     "svc",
+		Action:      "generic",
+		HostPattern: "api.service.local",
+		PathPattern: "/*/search",
+		Method:      "GET",
+		Priority:    100,
+	})
+	mustAddRule(t, c, Rule{
+		ID:          "z-prefix",
+		Service:     "svc",
+		Action:      "items",
+		HostPattern: "api.service.local",
+		PathPattern: "/items/*",
+		Method:      "GET",
+		Priority:    100,
+	})
+
+	result := c.Classify("GET", "api.service.local", "/items/search")
+	if result == nil || !result.Matched {
+		t.Fatal("expected matching rules")
+	}
+	if result.RuleID != "z-prefix" {
+		t.Fatalf("expected prefix path rule to win tie-break, got %q", result.RuleID)
+	}
+}
+
 func TestClassifierAddRulesFromServiceManifest(t *testing.T) {
 	c := NewClassifier()
 	if err := c.AddRulesFromService(&services.ServiceManifest{

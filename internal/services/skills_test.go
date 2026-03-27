@@ -1205,6 +1205,46 @@ func TestVerifyWithWrongPinnedKeyFails(t *testing.T) {
 	}
 }
 
+func TestVerifyWithKeyMarksSignatureInvalidWhenManifestDigestMismatches(t *testing.T) {
+	manifest, err := ParseManifest([]byte(braveSearchFixture))
+	if err != nil {
+		t.Fatalf("parse: %v", err)
+	}
+
+	dir := t.TempDir()
+	installer := NewLocalInstaller(dir)
+	if _, err := installer.Install(manifest, "local"); err != nil {
+		t.Fatalf("install: %v", err)
+	}
+
+	pub, priv, err := ed25519.GenerateKey(nil)
+	if err != nil {
+		t.Fatalf("keygen: %v", err)
+	}
+	if err := installer.Sign(priv); err != nil {
+		t.Fatalf("sign: %v", err)
+	}
+
+	skillPath := filepath.Join(dir, "brave-search.yaml")
+	if err := os.WriteFile(skillPath, []byte(braveSearchFixture+"\n# tampered\n"), 0o644); err != nil {
+		t.Fatalf("tamper service file failed: %v", err)
+	}
+
+	result, err := installer.VerifyWithKey("brave-search", pub)
+	if err != nil {
+		t.Fatalf("verify: %v", err)
+	}
+	if result.Verified {
+		t.Fatal("tampered manifest should fail digest verification")
+	}
+	if !result.Signed {
+		t.Fatal("entry should still be marked signed")
+	}
+	if result.SignatureValid {
+		t.Fatal("signature should be invalid when manifest digest mismatches")
+	}
+}
+
 func TestGenerateAgentSkillMDContainsExpectedSections(t *testing.T) {
 	manifest, err := ParseManifest([]byte(braveSearchFixture))
 	if err != nil {
