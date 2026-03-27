@@ -560,16 +560,15 @@ func (s *SQLStore) UpdateApprovalStatus(ctx context.Context, id string, status s
 		return err
 	}
 	if affectedRows(res) == 0 {
-		// Distinguish not-found vs already-resolved vs expired
 		existing, lookupErr := s.GetApproval(ctx, id)
 		if lookupErr != nil {
 			return lookupErr
 		}
+		if existing.Status == "expired" || !existing.ExpiresAt.After(now) {
+			return ErrApprovalExpired
+		}
 		if existing.Status != "pending" {
 			return ErrApprovalAlreadyResolved
-		}
-		if !existing.ExpiresAt.After(now) {
-			return ErrApprovalExpired
 		}
 		return ErrNotFound
 	}
