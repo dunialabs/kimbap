@@ -14,7 +14,7 @@
     "start": "node scripts/unified-db-init.js && next start",
     "start:custom": "node scripts/unified-db-init.js && NODE_ENV=production node server.js",
     "start:production": "node scripts/unified-db-init.js && next start -p ${PORT:-3000}",
-    "type-check": "tsc --noEmit",
+    "type-check": "next typegen && tsc --noEmit",
     "lint": "next lint",
     "migrate:backend": "prisma db push",
     "db:stop": "docker compose down",
