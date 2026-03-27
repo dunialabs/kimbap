@@ -127,7 +127,9 @@ func Render(opts Options) string {
 		vaultStatus = "ready"
 	}
 
-	out := "\n"
+	var sb strings.Builder
+	sb.Grow(rows*cols*16 + 256)
+	sb.WriteByte('\n')
 
 	for r := 0; r < rows; r++ {
 		for c := 0; c < cols; c++ {
@@ -135,12 +137,14 @@ func Render(opts Options) string {
 			ny := (float64(r) - cy) / ry
 			v := getCell(nx, ny)
 			if v != nil {
-				out += v.color + v.glyph + reset
+				sb.WriteString(v.color)
+				sb.WriteString(v.glyph)
+				sb.WriteString(reset)
 			} else {
-				out += "  "
+				sb.WriteString("  ")
 			}
 		}
-		out += "\n"
+		sb.WriteByte('\n')
 	}
 
 	bar := colDim + "────────────────────" + reset
@@ -149,14 +153,14 @@ func Render(opts Options) string {
 		modeStr = colMuted + "connected · " + colDim + strings.TrimSpace(opts.Server) + reset
 	}
 
-	out += "\n"
-	out += " " + bar + "\n"
-	out += " " + colWhite + "k i m b a p" + reset + "\n"
-	out += " " + colMuted + "action runtime" + reset + colDim + " · " + reset + colPurple + version + reset + "\n"
-	out += " " + bar + "\n"
-	out += " " + colGreen + "vault" + reset + colMuted + " " + vaultStatus + " · " + reset + modeStr + colMuted + " · " + colDim + "kimbap.sh" + reset + "\n"
+	sb.WriteByte('\n')
+	sb.WriteString(" " + bar + "\n")
+	sb.WriteString(" " + colWhite + "k i m b a p" + reset + "\n")
+	sb.WriteString(" " + colMuted + "action runtime" + reset + colDim + " · " + reset + colPurple + version + reset + "\n")
+	sb.WriteString(" " + bar + "\n")
+	sb.WriteString(" " + colGreen + "vault" + reset + colMuted + " " + vaultStatus + " · " + reset + modeStr + colMuted + " · " + colDim + "kimbap.sh" + reset + "\n")
 
-	return out
+	return sb.String()
 }
 
 func Print(opts Options) {

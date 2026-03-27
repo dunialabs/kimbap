@@ -20,8 +20,6 @@ import (
 	"github.com/dunialabs/kimbap/internal/connectors"
 )
 
-const maxTokenBodyBytes int64 = 4 << 20
-
 var ErrLoopbackListener = errors.New("loopback listener unavailable")
 
 type BrowserFlowConfig struct {

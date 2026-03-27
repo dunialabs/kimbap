@@ -200,6 +200,14 @@ func resolveInitServiceSelection(rawServices string, noServices bool) (initServi
 		return initServiceSelection{Skipped: true, Reason: "skipped by --no-services"}, nil
 	}
 
+	if strings.EqualFold(strings.TrimSpace(rawServices), "all") {
+		all, listErr := skills.List()
+		if listErr != nil {
+			return initServiceSelection{}, fmt.Errorf("list official services: %w", listErr)
+		}
+		return initServiceSelection{Names: all}, nil
+	}
+
 	if selected := parseCSV(rawServices); len(selected) > 0 {
 		normalized, err := normalizeSelectedOfficialServices(selected)
 		if err != nil {

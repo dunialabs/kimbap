@@ -49,6 +49,7 @@ type AuditEvent struct {
 	Status          actions.ExecutionStatus
 	HTTPStatus      int
 	ErrorCode       string
+	ErrorMessage    string
 	PolicyDecision  string
 	ApprovalRequest string
 	DurationMS      int64
@@ -710,6 +711,7 @@ func (r *Runtime) writeAudit(ctx context.Context, req actions.ExecutionRequest, 
 	}
 	if result.Error != nil {
 		event.ErrorCode = result.Error.Code
+		event.ErrorMessage = result.Error.Message
 	}
 	if approvalID, ok := result.Meta["approval_request_id"].(string); ok {
 		event.ApprovalRequest = approvalID

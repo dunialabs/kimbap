@@ -636,8 +636,8 @@ func (a *auditWriterAdapter) Write(ctx context.Context, event runtimepkg.AuditEv
 		DurationMS:     event.DurationMS,
 		Meta:           event.Meta,
 	}
-	if event.ErrorCode != "" {
-		out.Error = &audit.AuditError{Code: event.ErrorCode}
+	if event.ErrorCode != "" || event.ErrorMessage != "" {
+		out.Error = &audit.AuditError{Code: event.ErrorCode, Message: event.ErrorMessage}
 	}
 	return a.writer.Write(ctx, out)
 }

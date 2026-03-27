@@ -38,8 +38,14 @@ func (a *HTTPAdapter) Type() string {
 }
 
 func (a *HTTPAdapter) Validate(def actions.ActionDefinition) error {
-	if strings.TrimSpace(def.Adapter.URLTemplate) == "" {
+	tmpl := strings.TrimSpace(def.Adapter.URLTemplate)
+	if tmpl == "" {
 		return fmt.Errorf("adapter url template is required")
+	}
+	if !strings.HasPrefix(tmpl, "http://") && !strings.HasPrefix(tmpl, "https://") {
+		if strings.TrimSpace(def.Adapter.BaseURL) == "" {
+			return fmt.Errorf("adapter base_url is required for relative url template %q", tmpl)
+		}
 	}
 	return nil
 }
