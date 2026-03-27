@@ -547,10 +547,6 @@ func addRequestBodyArgs(action *ServiceAction, op map[string]any, resolver *open
 		Required: boolAt(requestBody, "required"),
 	}
 	addOrUpdateArg(&action.Args, argIndex, arg)
-	if action.Request.Body == nil {
-		action.Request.Body = map[string]any{}
-	}
-	action.Request.Body["{body}"] = "{body}"
 
 	return nil
 }

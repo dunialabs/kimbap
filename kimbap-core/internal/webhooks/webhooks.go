@@ -68,7 +68,6 @@ type Dispatcher struct {
 
 func NewDispatcher() *Dispatcher {
 	transport := &http.Transport{
-		Proxy: http.ProxyFromEnvironment,
 		DialContext: func(ctx context.Context, network, addr string) (net.Conn, error) {
 			host, port, err := net.SplitHostPort(addr)
 			if err != nil {

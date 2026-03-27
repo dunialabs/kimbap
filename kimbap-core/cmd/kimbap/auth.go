@@ -582,7 +582,7 @@ func callRevocationEndpoint(endpoint, clientID, clientSecret, token, authMethod 
 		return err
 	}
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
-	if strings.EqualFold(strings.TrimSpace(authMethod), "basic") {
+	if strings.EqualFold(strings.TrimSpace(authMethod), "basic") && clientSecret != "" {
 		req.SetBasicAuth(clientID, clientSecret)
 	} else {
 		if clientID != "" {
