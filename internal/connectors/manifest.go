@@ -81,8 +81,15 @@ func (m *ProviderManifest) Validate() error {
 			return fmt.Errorf("provider manifest %q: invalid connection_scope_model entry %q (allowed: user, workspace, service)", m.ID, scope)
 		}
 	}
-	if m.AuthEndpoint == "" {
-		return fmt.Errorf("provider manifest %q: auth_endpoint is required", m.ID)
+	flowSet := map[string]bool{}
+	for _, f := range m.SupportedFlows {
+		flowSet[f] = true
+	}
+	if flowSet["browser"] && m.AuthEndpoint == "" {
+		return fmt.Errorf("provider manifest %q: auth_endpoint is required for browser flow", m.ID)
+	}
+	if flowSet["device"] && m.DeviceEndpoint == "" {
+		return fmt.Errorf("provider manifest %q: device_endpoint is required for device flow", m.ID)
 	}
 	if m.TokenEndpoint == "" {
 		return fmt.Errorf("provider manifest %q: token_endpoint is required", m.ID)

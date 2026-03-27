@@ -249,7 +249,7 @@ func normalizePathPattern(reqPath string) string {
 func joinURLPath(basePath, actionPath string) string {
 	b := strings.TrimSuffix(strings.TrimSpace(basePath), "/")
 	a := strings.TrimSpace(actionPath)
-	if a == "" {
+	if a == "" || a == "/" {
 		if b == "" {
 			return "/"
 		}

@@ -55,7 +55,12 @@ func WrapWithHint(cause error, hint string) *KimbapError {
 	if cause == nil {
 		return nil
 	}
-	return &KimbapError{Hint: hint, ExitCode: ExitInternal, Cause: cause}
+	exitCode := ExitInternal
+	var kErr *KimbapError
+	if errors.As(cause, &kErr) && kErr.ExitCode != 0 {
+		exitCode = kErr.ExitCode
+	}
+	return &KimbapError{Hint: hint, ExitCode: exitCode, Cause: cause}
 }
 
 func (e *KimbapError) WithDocs(url string) *KimbapError {

@@ -90,12 +90,17 @@ JSON.stringify(result);`,
 			Script: stdinReader + `
 var app = Application("Notes");
 app.includeStandardAdditions = false;
-var folderName = input.folder || "Notes";
-var folders = app.folders.whose({name: folderName})();
-var targetFolder = folders.length > 0 ? folders[0] : app.defaultAccount().defaultFolder();
+var targetFolder;
+if (input.folder) {
+  var folders = app.folders.whose({name: input.folder})();
+  if (folders.length === 0) throw new Error("[NOT_FOUND] folder not found: " + input.folder);
+  targetFolder = folders[0];
+} else {
+  targetFolder = app.defaultAccount().defaultFolder();
+}
 var note = app.Note({name: input.title, body: input.body});
 targetFolder.notes.push(note);
-JSON.stringify({name: input.title, folder: folderName});`,
+JSON.stringify({name: input.title, folder: targetFolder.name()});`,
 		},
 	}
 }

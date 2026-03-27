@@ -63,9 +63,9 @@ app.includeStandardAdditions = false;
 var targetList = null;
 if (input.list) {
 	var matches = app.lists.whose({name: input.list})();
-	if (matches.length > 0) targetList = matches[0];
-}
-if (!targetList) {
+	if (matches.length === 0) throw new Error("[NOT_FOUND] list not found: " + input.list);
+	targetList = matches[0];
+} else {
 	var allLists = app.lists();
 	if (allLists.length === 0) throw new Error("no reminders list available");
 	targetList = allLists[0];

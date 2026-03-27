@@ -102,7 +102,7 @@ func newVaultGetCommand() *cobra.Command {
 
 			if reveal && !confirmReveal {
 				_, _ = fmt.Fprintln(os.Stderr, "⚠  vault get --reveal outputs the secret plaintext to stdout.")
-				_, _ = fmt.Fprintln(os.Stderr, "   This operation is audited. Add --confirm-reveal to proceed.")
+				_, _ = fmt.Fprintln(os.Stderr, "   Add --confirm-reveal to proceed.")
 				return fmt.Errorf("--confirm-reveal is required when using --reveal")
 			}
 
@@ -110,8 +110,9 @@ func newVaultGetCommand() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			_ = store.MarkUsed(contextBackground(), defaultTenantID(), args[0])
-			_, _ = fmt.Fprintln(os.Stderr, "audit: secret revealed for", args[0])
+			if err := store.MarkUsed(contextBackground(), defaultTenantID(), args[0]); err != nil {
+				_, _ = fmt.Fprintf(os.Stderr, "warning: failed to record secret usage for %q: %v\n", args[0], err)
+			}
 			return printOutput(map[string]any{
 				"name":       args[0],
 				"revealed":   true,
