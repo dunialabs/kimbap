@@ -446,6 +446,10 @@ func (s *Server) handleSetPolicy(w http.ResponseWriter, r *http.Request) {
 	} else if len(currentPolicy) == 0 {
 		policyEvent = webhooks.EventPolicyCreated
 	}
+	if _, parseErr := policy.ParseDocument([]byte(body.Document)); parseErr != nil {
+		writeEnvelopeError(w, r, actions.NewExecutionError(actions.ErrValidationFailed, fmt.Sprintf("invalid policy document: %v", parseErr), http.StatusBadRequest, false, nil))
+		return
+	}
 	if err := s.store.SetPolicy(r.Context(), tenantID, []byte(body.Document)); err != nil {
 		writeEnvelopeError(w, r, actions.NewExecutionError(actions.ErrDownstreamUnavailable, "internal server error", http.StatusInternalServerError, false, nil))
 		return

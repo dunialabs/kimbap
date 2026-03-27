@@ -375,7 +375,7 @@ export default function DashboardPage() {
                     Copy
                   </Button>
                 </div>
-                <p className="font-mono text-sm font-normal break-words">
+                <p className={localAddress ? "font-mono text-sm font-normal break-words" : "text-sm text-muted-foreground"}>
                   {localAddress || 'Not configured'}
                 </p>
               </div>
@@ -402,7 +402,7 @@ export default function DashboardPage() {
                     Copy
                   </Button>
                 </div>
-                <p className="font-mono text-sm font-normal break-words">
+                <p className={remoteAddress ? "font-mono text-sm font-normal break-words" : "text-sm text-muted-foreground"}>
                   {remoteAddress || 'Not configured'}
                 </p>
               </div>
