@@ -55,6 +55,13 @@ func OpenSQLiteStore(dsn string, envelope *corecrypto.EnvelopeService) (*SQLiteS
 	return store, nil
 }
 
+func (s *SQLiteStore) Close() error {
+	if s == nil || s.db == nil {
+		return nil
+	}
+	return s.db.Close()
+}
+
 func (s *SQLiteStore) Create(ctx context.Context, tenantID string, name string, secretType SecretType, plaintext []byte, labels map[string]string, createdBy string) (*SecretRecord, error) {
 	if strings.TrimSpace(tenantID) == "" {
 		return nil, errors.New("tenant ID is required")

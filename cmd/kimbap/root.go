@@ -43,6 +43,24 @@ const defaultApprovalTTL = 30 * time.Minute
 
 var opts = cliOptions{}
 
+var (
+	initVaultStoreForBuild     = initVaultStore
+	openRuntimeStoreForBuild   = openRuntimeStore
+	openConnectorStoreForBuild = openConnectorStore
+	closeVaultStoreForBuild    = func(st vault.Store) {
+		if closer, ok := st.(interface{ Close() error }); ok {
+			_ = closer.Close()
+		}
+	}
+	closeRuntimeStoreForBuild = func(st *store.SQLStore) {
+		if st != nil {
+			_ = st.Close()
+		}
+	}
+	closeConnectorStoreForBuild = closeConnectorStoreIfPossible
+	buildRuntimeForConfig       = app.BuildRuntime
+)
+
 func binaryName() string {
 	if len(os.Args) > 0 {
 		if name := filepath.Base(os.Args[0]); name != "" {
@@ -421,7 +439,7 @@ func buildRuntimeFromConfig(cfg *config.KimbapConfig) (*runtime.Runtime, error) 
 	if cfg == nil {
 		return nil, fmt.Errorf("config is required to build runtime")
 	}
-	vaultStore, err := initVaultStore(cfg)
+	vaultStore, err := initVaultStoreForBuild(cfg)
 	if err != nil {
 		return nil, err
 	}
@@ -439,7 +457,7 @@ func buildRuntimeFromConfig(cfg *config.KimbapConfig) (*runtime.Runtime, error) 
 
 	var approvalManager runtime.ApprovalManager
 	var runtimeStoreForCleanup *store.SQLStore
-	if runtimeStore, rsErr := openRuntimeStore(cfg); rsErr == nil {
+	if runtimeStore, rsErr := openRuntimeStoreForBuild(cfg); rsErr == nil {
 		runtimeStoreForCleanup = runtimeStore
 		approvalMgr := approvals.NewApprovalManager(
 			&storeApprovalStoreAdapter{st: runtimeStore},
@@ -453,7 +471,7 @@ func buildRuntimeFromConfig(cfg *config.KimbapConfig) (*runtime.Runtime, error) 
 
 	var connStore connectors.ConnectorStore
 	var connConfigs []connectors.ConnectorConfig
-	if cs, csErr := openConnectorStore(cfg); csErr == nil {
+	if cs, csErr := openConnectorStoreForBuild(cfg); csErr == nil {
 		connStore = cs
 		for _, prov := range providers.ListProviders() {
 			creds := resolveOAuthCreds(cfg, prov.ID)
@@ -472,7 +490,7 @@ func buildRuntimeFromConfig(cfg *config.KimbapConfig) (*runtime.Runtime, error) 
 		_, _ = fmt.Fprintf(os.Stderr, "warning: %s; oauth-backed credential resolution may fail\n", unavailableMessage(componentConnectorStore, csErr))
 	}
 
-	rt, buildErr := app.BuildRuntime(app.RuntimeDeps{
+	rt, buildErr := buildRuntimeForConfig(app.RuntimeDeps{
 		Config:           cfg,
 		VaultStore:       vaultStore,
 		ConnectorStore:   connStore,
@@ -483,10 +501,11 @@ func buildRuntimeFromConfig(cfg *config.KimbapConfig) (*runtime.Runtime, error) 
 		ApprovalManager:  approvalManager,
 	})
 	if buildErr != nil {
+		closeVaultStoreForBuild(vaultStore)
 		if runtimeStoreForCleanup != nil {
-			_ = runtimeStoreForCleanup.Close()
+			closeRuntimeStoreForBuild(runtimeStoreForCleanup)
 		}
-		closeConnectorStoreIfPossible(connStore)
+		closeConnectorStoreForBuild(connStore)
 		return nil, buildErr
 	}
 	return rt, nil

@@ -1,10 +1,12 @@
 # API
 
-The kimbap REST API (`kimbap serve`) has been removed. All functionality is available through the CLI.
+Kimbap exposes a REST surface when running `kimbap serve`.
+
+CLI remains the primary interface, and each core API capability has a direct CLI equivalent.
 
 ## CLI Equivalents
 
-| Was (`POST /v1/...`) | Now (`kimbap ...`) |
+| API (`/v1/...`) | CLI (`kimbap ...`) |
 |---|---|
 | `/v1/actions/{svc}/{action}:execute` | `kimbap call <svc>.<action>` |
 | `/v1/approvals` | `kimbap approve list` |

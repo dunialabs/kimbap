@@ -2,6 +2,7 @@ package approvals
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"sync"
 	"time"
@@ -52,12 +53,7 @@ func (s *MemoryApprovalStore) Update(_ context.Context, req *ApprovalRequest) er
 
 func deepCopyApprovalRequest(src ApprovalRequest) ApprovalRequest {
 	cp := src
-	if src.Input != nil {
-		cp.Input = make(map[string]any, len(src.Input))
-		for k, v := range src.Input {
-			cp.Input[k] = v
-		}
-	}
+	cp.Input = deepCopyMap(src.Input)
 	if src.Votes != nil {
 		cp.Votes = make([]ApprovalVote, len(src.Votes))
 		copy(cp.Votes, src.Votes)
@@ -67,6 +63,29 @@ func deepCopyApprovalRequest(src ApprovalRequest) ApprovalRequest {
 		cp.ResolvedAt = &t
 	}
 	return cp
+}
+
+func deepCopyMap(src map[string]any) map[string]any {
+	if src == nil {
+		return nil
+	}
+	data, err := json.Marshal(src)
+	if err != nil {
+		cp := make(map[string]any, len(src))
+		for k, v := range src {
+			cp[k] = v
+		}
+		return cp
+	}
+	var dst map[string]any
+	if err := json.Unmarshal(data, &dst); err != nil {
+		cp := make(map[string]any, len(src))
+		for k, v := range src {
+			cp[k] = v
+		}
+		return cp
+	}
+	return dst
 }
 
 func (s *MemoryApprovalStore) ListPending(_ context.Context, tenantID string) ([]ApprovalRequest, error) {

@@ -11,7 +11,7 @@ const safeStorageGet = (key: string): string | null => {
 }
 
 export function useUserRole() {
-  const [userRole, setUserRole] = useState<string>('Member')
+  const [userRole, setUserRole] = useState<string | null>(null)
 
   useEffect(() => {
     const getUserRole = (): string => {
@@ -20,12 +20,12 @@ export function useUserRole() {
         if (storedServer) {
           try {
             const parsedServer = JSON.parse(storedServer)
-            return parsedServer.role || 'Member'
+            if (parsedServer.role) return parsedServer.role
           } catch {
           }
         }
       }
-      return 'Member' // Default to Member if not found
+      return 'Member'
     }
 
     setUserRole(getUserRole())
@@ -33,7 +33,7 @@ export function useUserRole() {
 
   const isOwner = userRole === 'Owner'
   const isAdmin = userRole === 'Admin'
-  const isMember = userRole === 'Member'
+  const isMember = userRole === 'Member' || userRole === null
 
   return {
     userRole,

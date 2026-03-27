@@ -9,6 +9,7 @@ import { Sheet, SheetContent, SheetTrigger, SheetTitle } from '@/components/ui/s
 import { Button } from '@/components/ui/button'
 import { SidebarNav } from './dashboard/sidebar-nav'
 import { api } from '@/lib/api-client'
+import { useUserRole } from '@/hooks/use-user-role'
 
 
 export function DashboardSidebar() {
@@ -16,6 +17,7 @@ export function DashboardSidebar() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   const [pendingApprovalCount, setPendingApprovalCount] = useState(0)
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null)
+  const { userRole } = useUserRole()
 
   const fetchPendingCount = useCallback(async () => {
     try {
@@ -67,7 +69,10 @@ export function DashboardSidebar() {
             <div className="flex-1 overflow-y-auto py-2">
               <SidebarNav onNavigate={() => setMobileMenuOpen(false)} pendingApprovalCount={pendingApprovalCount} />
             </div>
-            <div className="mt-auto p-4">
+            <div className="mt-auto p-4 space-y-2">
+              {userRole && (
+                <p className="text-xs text-muted-foreground px-1">Role: {userRole}</p>
+              )}
               <Button
                 variant="outline"
                 className="w-full justify-start py-2 px-3 rounded-lg"
@@ -105,7 +110,10 @@ export function DashboardSidebar() {
           <div className="flex-1">
             <SidebarNav pendingApprovalCount={pendingApprovalCount} />
           </div>
-          <div className="mt-auto p-4">
+          <div className="mt-auto p-4 space-y-2">
+            {userRole && (
+              <p className="text-xs text-muted-foreground px-1">Role: {userRole}</p>
+            )}
             <Button
               variant="outline"
               className="w-full justify-start py-2 px-3 rounded-lg"

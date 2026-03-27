@@ -3,6 +3,7 @@ package runtime
 import (
 	"encoding/json"
 	"fmt"
+	"net/url"
 	"reflect"
 	"regexp"
 	"strings"
@@ -192,7 +193,12 @@ func checkPathTraversal(value string) error {
 		return nil
 	}
 
-	normalized := strings.ToLower(strings.ReplaceAll(trimmed, "\\", "/"))
+	decoded, decodeErr := url.PathUnescape(trimmed)
+	if decodeErr != nil {
+		decoded = trimmed
+	}
+
+	normalized := strings.ToLower(strings.ReplaceAll(decoded, "\\", "/"))
 	if pathTraversalPattern.MatchString(normalized) || strings.Contains(normalized, "../") || strings.HasPrefix(normalized, "../") || strings.Contains(normalized, "..%2f") || strings.Contains(normalized, "%2e%2e/") {
 		return validationFailure("potential path traversal sequence detected", map[string]any{"check": "path_traversal"})
 	}

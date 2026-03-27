@@ -431,7 +431,7 @@ function ToolUsagePageContent() {
                 </div>
                 <p className="text-xs text-muted-foreground">
                   {loading
-                    ? '-'
+                    ? ''
                     : (summary?.activeTools == null && loadError)
                     ? 'Unavailable'
                     : summary?.activeTools == null
@@ -507,7 +507,10 @@ function ToolUsagePageContent() {
               {loading || !pieData || pieData.length === 0 ? (
                 <div className="flex items-center justify-center h-[300px]">
                   {loading ? (
-                    <p className="text-sm text-muted-foreground">Loading tool distribution chart...</p>
+                    <div className="text-center">
+                      <RefreshCw className="h-5 w-5 animate-spin mx-auto mb-2 text-muted-foreground" aria-hidden="true" />
+                      <p className="text-sm text-muted-foreground">Loading tool distribution chart...</p>
+                    </div>
                   ) : toolDataError ? (
                     <div className="text-center">
                       <p className="text-sm text-red-600 dark:text-red-400">{toolDataError}</p>
@@ -555,7 +558,10 @@ function ToolUsagePageContent() {
               {loading || !toolUsageData || toolUsageData.length === 0 ? (
                 <div className="flex items-center justify-center py-8">
                   {loading ? (
-                    <p className="text-sm text-muted-foreground">Loading per-tool request details...</p>
+                    <div className="text-center">
+                      <RefreshCw className="h-5 w-5 animate-spin mx-auto mb-2 text-muted-foreground" aria-hidden="true" />
+                      <p className="text-sm text-muted-foreground">Loading per-tool request details...</p>
+                    </div>
                   ) : toolDataError ? (
                     <div className="text-center">
                       <p className="text-sm text-red-600 dark:text-red-400">{toolDataError}</p>
@@ -626,7 +632,10 @@ function ToolUsagePageContent() {
               {loading || toolUsageData.length === 0 ? (
                 <div className="flex items-center justify-center h-[300px]">
                   {loading ? (
-                    <p className="text-sm text-muted-foreground">Loading tool response time chart...</p>
+                    <div className="text-center">
+                      <RefreshCw className="h-5 w-5 animate-spin mx-auto mb-2 text-muted-foreground" aria-hidden="true" />
+                      <p className="text-sm text-muted-foreground">Loading tool response time chart...</p>
+                    </div>
                   ) : toolDataError ? (
                     <div className="text-center">
                       <p className="text-sm text-red-600 dark:text-red-400">{toolDataError}</p>
@@ -663,7 +672,10 @@ function ToolUsagePageContent() {
               {loading || toolUsageData.length === 0 ? (
                 <div className="flex items-center justify-center h-[300px]">
                   {loading ? (
-                    <p className="text-sm text-muted-foreground">Loading request outcome chart...</p>
+                    <div className="text-center">
+                      <RefreshCw className="h-5 w-5 animate-spin mx-auto mb-2 text-muted-foreground" aria-hidden="true" />
+                      <p className="text-sm text-muted-foreground">Loading request outcome chart...</p>
+                    </div>
                   ) : toolDataError ? (
                     <div className="text-center">
                       <p className="text-sm text-red-600 dark:text-red-400">{toolDataError}</p>
@@ -699,7 +711,10 @@ function ToolUsagePageContent() {
             <Card>
               <CardContent className="flex items-center justify-center py-8">
                 {loading ? (
-                  <p className="text-sm text-muted-foreground">Loading tool error breakdown...</p>
+                  <div className="text-center">
+                    <RefreshCw className="h-5 w-5 animate-spin mx-auto mb-2 text-muted-foreground" aria-hidden="true" />
+                    <p className="text-sm text-muted-foreground">Loading tool error breakdown...</p>
+                  </div>
                 ) : errorDataError ? (
                   <div className="text-center">
                     <p className="text-sm text-red-600 dark:text-red-400">{errorDataError}</p>
@@ -742,7 +757,10 @@ function ToolUsagePageContent() {
               {loading || trendData.length === 0 ? (
                 <div className="flex items-center justify-center h-[400px]">
                   {loading ? (
-                    <p className="text-sm text-muted-foreground">Loading tool usage trend chart...</p>
+                    <div className="text-center">
+                      <RefreshCw className="h-5 w-5 animate-spin mx-auto mb-2 text-muted-foreground" aria-hidden="true" />
+                      <p className="text-sm text-muted-foreground">Loading tool usage trend chart...</p>
+                    </div>
                   ) : trendDataError ? (
                     <div className="text-center">
                       <p className="text-sm text-red-600 dark:text-red-400">{trendDataError}</p>
@@ -855,7 +873,10 @@ function ToolUsagePageContent() {
               {actionLoading || actionLogs.length === 0 ? (
                 <div className="flex items-center justify-center py-8">
                   {actionLoading ? (
-                    <p className="text-sm text-muted-foreground">Loading recent tool action logs...</p>
+                    <div className="text-center">
+                      <RefreshCw className="h-5 w-5 animate-spin mx-auto mb-2 text-muted-foreground" aria-hidden="true" />
+                      <p className="text-sm text-muted-foreground">Loading recent tool action logs...</p>
+                    </div>
                   ) : actionLogsError ? (
                     <div className="text-center">
                       <p className="text-sm text-red-600 dark:text-red-400">{actionLogsError}</p>

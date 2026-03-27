@@ -754,7 +754,7 @@ function LogsPageContent() {
                 <span>
                   {loading ? 'Server Logs' : `Server Logs (${totalCount.toLocaleString()} total, showing ${logs.length.toLocaleString()})`}
                 </span>
-                <Badge variant="outline" className={currentPage !== 1 || activeTab !== 'table' || debouncedSearchTerm ? 'border-yellow-500 text-yellow-600 dark:text-yellow-400' : realtimeHealthy ? 'border-green-500 text-green-600 dark:text-green-400' : 'border-red-500 text-red-600 dark:text-red-400'}>
+                <Badge variant="outline" className={loading || currentPage !== 1 || activeTab !== 'table' || debouncedSearchTerm ? 'border-yellow-500 text-yellow-600 dark:text-yellow-400' : realtimeHealthy ? 'border-green-500 text-green-600 dark:text-green-400' : 'border-red-500 text-red-600 dark:text-red-400'}>
                   <Clock className="mr-1 h-3 w-3" />
                   {liveStatusText}
                 </Badge>

@@ -107,7 +107,7 @@ function validateFormat(url: string): { isValid: boolean; errorMessage?: string 
  */
 async function validateAvailability(url: string): Promise<ValidationResult> {
   const baseUrl = url.trim().replace(/\/+$/, '');
-  const healthUrl = `${baseUrl}/health`;
+  const healthUrl = `${baseUrl}/v1/health`;
 
   // Create fetch with 3 second timeout
   const controller = new AbortController();
@@ -257,4 +257,3 @@ export async function validateAndCacheMcpGatewayUrl(url: string): Promise<Valida
 
   return availabilityCheck;
 }
-

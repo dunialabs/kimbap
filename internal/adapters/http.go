@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"maps"
+	"net"
 	"net/http"
 	"net/url"
 	"regexp"
@@ -224,6 +225,11 @@ func (a *HTTPAdapter) executeSingle(ctx context.Context, req AdapterRequest) (*A
 	u, err := url.Parse(resolvedURL)
 	if err != nil {
 		return nil, actions.NewExecutionError(actions.ErrValidationFailed, err.Error(), http.StatusBadRequest, false, nil)
+	}
+	if u.Scheme != "https" && !req.Action.Adapter.AllowInsecure {
+		if !isLoopbackHost(u.Hostname()) {
+			return nil, actions.NewExecutionError(actions.ErrValidationFailed, fmt.Sprintf("insecure URL scheme %q: only https is allowed for remote hosts (set allow_insecure: true to override)", u.Scheme), http.StatusBadRequest, false, nil)
+		}
 	}
 	if len(queryValues) > 0 {
 		existing := u.Query()
@@ -901,4 +907,12 @@ func isTimeoutError(err error) bool {
 		return netErr.Timeout()
 	}
 	return false
+}
+
+func isLoopbackHost(host string) bool {
+	if host == "localhost" {
+		return true
+	}
+	ip := net.ParseIP(host)
+	return ip != nil && ip.IsLoopback()
 }
