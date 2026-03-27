@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+	"sync"
 
 	"github.com/dunialabs/kimbap/internal/config"
 	"github.com/dunialabs/kimbap/internal/connectors"
@@ -22,16 +23,20 @@ func openConnectorStore(cfg *config.KimbapConfig) (connectors.ConnectorStore, er
 type sqlConnectorStore struct {
 	db      *sql.DB
 	dialect string
+	once    sync.Once
+	initErr error
 }
 
 func (s *sqlConnectorStore) ensureConnectorSchema(ctx context.Context) error {
 	if s == nil || s.db == nil {
 		return errors.New("connector store database is required")
 	}
-	if err := migrateConnectorTable(ctx, s.db, s.dialect); err != nil {
-		return fmt.Errorf("migrate connector table: %w", err)
-	}
-	return nil
+	s.once.Do(func() {
+		if err := migrateConnectorTable(ctx, s.db, s.dialect); err != nil {
+			s.initErr = fmt.Errorf("migrate connector table: %w", err)
+		}
+	})
+	return s.initErr
 }
 
 func (s *sqlConnectorStore) Save(ctx context.Context, state *connectors.ConnectorState) error {

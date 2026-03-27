@@ -301,7 +301,7 @@ func (s *SQLStore) ListTokens(ctx context.Context, tenantID string) ([]TokenReco
 }
 
 func (s *SQLStore) UpdateTokenLastUsed(ctx context.Context, id string) error {
-	res, err := s.db.ExecContext(ctx, s.bind(`UPDATE service_tokens SET last_used_at = ? WHERE id = ?`), time.Now().UTC(), id)
+	res, err := s.db.ExecContext(ctx, s.bind(`UPDATE service_tokens SET last_used_at = ? WHERE id = ? AND revoked_at IS NULL`), time.Now().UTC(), id)
 	if err != nil {
 		return err
 	}
@@ -312,7 +312,7 @@ func (s *SQLStore) UpdateTokenLastUsed(ctx context.Context, id string) error {
 }
 
 func (s *SQLStore) RevokeToken(ctx context.Context, id string) error {
-	res, err := s.db.ExecContext(ctx, s.bind(`UPDATE service_tokens SET revoked_at = ? WHERE id = ?`), time.Now().UTC(), id)
+	res, err := s.db.ExecContext(ctx, s.bind(`UPDATE service_tokens SET revoked_at = COALESCE(revoked_at, ?) WHERE id = ?`), time.Now().UTC(), id)
 	if err != nil {
 		return err
 	}
