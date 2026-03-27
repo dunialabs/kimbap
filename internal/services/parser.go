@@ -339,14 +339,29 @@ func validateHTTPManifest(m *ServiceManifest) []ValidationError {
 			pathTemplateRefSet[ref] = struct{}{}
 		}
 
+		requiredArgs := make(map[string]struct{}, len(action.Args))
 		declaredArgs := make(map[string]struct{}, len(action.Args)+len(action.Request.PathParams))
 		for _, arg := range action.Args {
 			declaredArgs[arg.Name] = struct{}{}
+			if arg.Required {
+				requiredArgs[arg.Name] = struct{}{}
+			}
 		}
 		for paramName := range action.Request.PathParams {
 			declaredArgs[paramName] = struct{}{}
 			if _, ok := pathTemplateRefSet[paramName]; !ok {
 				errs = append(errs, ValidationError{Field: prefix + ".request.path_params", Message: fmt.Sprintf("declares unused path param %q", paramName)})
+			}
+		}
+		for _, ref := range pathTemplateRefs {
+			if _, isPathParam := action.Request.PathParams[ref]; isPathParam {
+				continue
+			}
+			if _, isRequired := requiredArgs[ref]; !isRequired {
+				errs = append(errs, ValidationError{
+					Field:   prefix + ".path",
+					Message: fmt.Sprintf("path template {%s} must reference a required arg", ref),
+				})
 			}
 		}
 		templateRefs := append([]string(nil), pathTemplateRefs...)

@@ -681,7 +681,7 @@ func firstReferencedSecurityScheme(root map[string]any) string {
 	security := anySliceAt(root, "security")
 	for _, item := range security {
 		req, ok := item.(map[string]any)
-		if !ok || len(req) == 0 {
+		if !ok || len(req) == 0 || len(req) > 1 {
 			continue
 		}
 		keys := sortedMapKeys(req)
@@ -870,7 +870,7 @@ func extractOperationAuth(op map[string]any, root map[string]any, resolver *open
 func firstReferencedSecuritySchemeFromList(security []any) string {
 	for _, item := range security {
 		req, ok := item.(map[string]any)
-		if !ok || len(req) == 0 {
+		if !ok || len(req) == 0 || len(req) > 1 {
 			continue
 		}
 		keys := sortedMapKeys(req)
@@ -903,10 +903,12 @@ func authFromScheme(scheme map[string]any, skillName string) (ServiceAuth, error
 			auth.Type = "query"
 			auth.QueryParam = nonEmptyString(name, "api_key")
 			auth.CredentialRef = credentialRef(skillName, "api_key")
-		default:
+		case "header", "":
 			auth.Type = "header"
 			auth.HeaderName = nonEmptyString(name, "X-API-Key")
 			auth.CredentialRef = credentialRef(skillName, "api_key")
+		default:
+			return ServiceAuth{}, fmt.Errorf("unsupported apiKey location %q: only header and query are supported", in)
 		}
 	case "oauth2":
 		auth.Type = "bearer"
