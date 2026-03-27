@@ -97,6 +97,9 @@ export async function POST(request: NextRequest) {
     // Validate each token input
     for (let i = 0; i < tokens.length; i++) {
       const t = tokens[i];
+      if (!t || typeof t !== 'object') {
+        throw new ExternalApiError(E1001, `Invalid value: tokens[${i}] must be an object`);
+      }
       if (!t.name || typeof t.name !== 'string' || !t.name.trim()) {
         throw new ExternalApiError(E1001, `Missing required field: tokens[${i}].name`);
       }

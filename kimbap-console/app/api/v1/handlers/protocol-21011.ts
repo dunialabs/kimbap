@@ -182,8 +182,8 @@ export async function handleProtocol21011(body: Request21011): Promise<Response2
         ua: log.ua,
         tokenMask: log.tokenMask,
         error: log.error,
-        duration: log.duration || undefined,
-        statusCode: log.statusCode || undefined,
+        duration: log.duration ?? undefined,
+        statusCode: log.statusCode ?? undefined,
         timestamp: timestamp.toLocaleString(),
         requestParams: shouldIncludeSensitivePayloads ? log.requestParams : null,
         responseResult: shouldIncludeSensitivePayloads ? log.responseResult : null

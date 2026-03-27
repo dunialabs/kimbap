@@ -206,7 +206,10 @@ func newServiceUpdateCommand() *cobra.Command {
 			installer := installerFromConfig(cfg)
 			installed, err := installer.Get(name)
 			if err != nil {
-				return fmt.Errorf("service %q not found: run 'kimbap service list' to see installed services", name)
+				if errors.Is(err, fs.ErrNotExist) {
+					return fmt.Errorf("service %q not found: run 'kimbap service list' to see installed services", name)
+				}
+				return fmt.Errorf("get service %q: %w", name, err)
 			}
 
 			source := strings.TrimSpace(installed.Source)

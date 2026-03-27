@@ -126,7 +126,8 @@ function parseTokenFiltersFromBody(body: Record<string, unknown>): TokenFilters 
     }
   }
 
-  const { page, pageSize } = resolvePagination(body.page, body.pageSize);
+  const safeBody = (body && typeof body === 'object') ? body : {};
+  const { page, pageSize } = resolvePagination(safeBody.page, safeBody.pageSize);
 
   return { namespace: filterNamespace, tags: filterTags, page, pageSize };
 }
