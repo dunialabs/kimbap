@@ -30,6 +30,10 @@ function ensureSqliteDirectory() {
 
 function initialize() {
   try {
+    if (!process.env.DATABASE_URL) {
+      process.env.DATABASE_URL = 'file:' + resolveSqlitePath();
+    }
+
     ensureSqliteDirectory();
 
     run('npx prisma db push --schema=./prisma/schema.prisma', 'pipe');

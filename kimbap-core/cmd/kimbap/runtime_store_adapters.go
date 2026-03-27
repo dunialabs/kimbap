@@ -11,6 +11,7 @@ import (
 	"github.com/dunialabs/kimbap-core/internal/store"
 )
 
+// storeApprovalExpirer wraps SQLStore to satisfy the jobs.ApprovalExpirer interface.
 type storeApprovalExpirer struct{ st *store.SQLStore }
 
 func (e *storeApprovalExpirer) ExpireStale(ctx context.Context) (int, error) {
@@ -20,6 +21,7 @@ func (e *storeApprovalExpirer) ExpireStale(ctx context.Context) (int, error) {
 	return e.st.ExpirePendingApprovals(ctx)
 }
 
+// storeAuditWriter wraps SQLStore to satisfy the runtime.AuditWriter interface.
 type storeAuditWriter struct{ st *store.SQLStore }
 
 func (w *storeAuditWriter) Write(ctx context.Context, event audit.AuditEvent) error {
@@ -65,6 +67,7 @@ func (w *storeAuditWriter) Write(ctx context.Context, event audit.AuditEvent) er
 
 func (w *storeAuditWriter) Close() error { return nil }
 
+// storeApprovalStoreAdapter wraps SQLStore to satisfy the approvals.ApprovalStore interface.
 type storeApprovalStoreAdapter struct{ st *store.SQLStore }
 
 func (a *storeApprovalStoreAdapter) Create(ctx context.Context, req *approvals.ApprovalRequest) error {
@@ -126,7 +129,11 @@ func (a *storeApprovalStoreAdapter) ListPending(ctx context.Context, tenantID st
 	}
 	out := make([]approvals.ApprovalRequest, len(recs))
 	for i, r := range recs {
-		out[i] = approvals.ApprovalRequest{ID: r.ID, TenantID: r.TenantID, RequestID: r.RequestID, AgentName: r.AgentName, Service: r.Service, Action: r.Action, Status: approvals.ApprovalStatus(r.Status)}
+		out[i] = approvals.ApprovalRequest{
+			ID: r.ID, TenantID: r.TenantID, RequestID: r.RequestID,
+			AgentName: r.AgentName, Service: r.Service, Action: r.Action,
+			Status: approvals.ApprovalStatus(r.Status),
+		}
 	}
 	return out, nil
 }
@@ -142,7 +149,11 @@ func (a *storeApprovalStoreAdapter) ListAll(ctx context.Context, tenantID string
 	}
 	out := make([]approvals.ApprovalRequest, len(recs))
 	for i, r := range recs {
-		out[i] = approvals.ApprovalRequest{ID: r.ID, TenantID: r.TenantID, RequestID: r.RequestID, AgentName: r.AgentName, Service: r.Service, Action: r.Action, Status: approvals.ApprovalStatus(r.Status)}
+		out[i] = approvals.ApprovalRequest{
+			ID: r.ID, TenantID: r.TenantID, RequestID: r.RequestID,
+			AgentName: r.AgentName, Service: r.Service, Action: r.Action,
+			Status: approvals.ApprovalStatus(r.Status),
+		}
 	}
 	return out, nil
 }
@@ -151,6 +162,7 @@ func (a *storeApprovalStoreAdapter) ExpireOld(ctx context.Context) (int, error) 
 	return a.st.ExpirePendingApprovals(ctx)
 }
 
+// parseCSV splits a comma-separated string, trimming whitespace, ignoring empty parts.
 func parseCSV(raw string) []string {
 	if strings.TrimSpace(raw) == "" {
 		return nil

@@ -1,5 +1,3 @@
-//go:build ignore
-
 package api
 
 import (
@@ -17,6 +15,7 @@ func (s *Server) registerRoutes() {
 	}
 
 	r.Route("/v1", func(r chi.Router) {
+		r.Use(JSONContentType())
 		r.Get("/health", s.handleHealth)
 		r.Get("/actions", s.handleListActions)
 		r.Get("/actions/{service}/{action}", s.handleDescribeAction)

@@ -34,28 +34,22 @@ func newInitCommand() *cobra.Command {
 			hasFailure := false
 
 			dataDirCheck := ensureDirWithStatus("data directory writable", cfg.DataDir)
-			checks = append(checks, dataDirCheck)
-			hasFailure = hasFailure || dataDirCheck.Status == "fail"
+			checks, hasFailure = appendInitChecks(checks, hasFailure, dataDirCheck)
 
 			configPath, configCheck := writeInitConfig(cfg, force)
-			checks = append(checks, configCheck)
-			hasFailure = hasFailure || configCheck.Status == "fail"
+			checks, hasFailure = appendInitChecks(checks, hasFailure, configCheck)
 
 			skillsCheck := ensureDirWithStatus("services directory exists", cfg.Services.Dir)
-			checks = append(checks, skillsCheck)
-			hasFailure = hasFailure || skillsCheck.Status == "fail"
+			checks, hasFailure = appendInitChecks(checks, hasFailure, skillsCheck)
 
 			vaultCheck, devKeyCheck := initializeVault(cfg)
-			checks = append(checks, vaultCheck, devKeyCheck)
-			hasFailure = hasFailure || vaultCheck.Status == "fail" || devKeyCheck.Status == "fail"
+			checks, hasFailure = appendInitChecks(checks, hasFailure, vaultCheck, devKeyCheck)
 
 			policyCheck := ensurePolicyFile(cfg.Policy.Path, cfg.Mode)
-			checks = append(checks, policyCheck)
-			hasFailure = hasFailure || policyCheck.Status == "fail"
+			checks, hasFailure = appendInitChecks(checks, hasFailure, policyCheck)
 
 			auditCheck := ensureEmptyFile("audit file initialized", cfg.Audit.Path)
-			checks = append(checks, auditCheck)
-			hasFailure = hasFailure || auditCheck.Status == "fail"
+			checks, hasFailure = appendInitChecks(checks, hasFailure, auditCheck)
 
 			serviceSelection, selectionErr := resolveInitServiceSelection(servicesRaw, noServices)
 			if selectionErr != nil {
@@ -63,8 +57,7 @@ func newInitCommand() *cobra.Command {
 			}
 
 			serviceCheck := installInitServices(cfg, serviceSelection, hasFailure)
-			checks = append(checks, serviceCheck)
-			hasFailure = hasFailure || serviceCheck.Status == "fail"
+			checks, hasFailure = appendInitChecks(checks, hasFailure, serviceCheck)
 
 			kbCheck := ensureKBSymlink()
 			checks = append(checks, kbCheck)
@@ -469,6 +462,14 @@ func ensureEmptyFile(name, path string) doctorCheck {
 func fileExists(path string) bool {
 	_, err := os.Stat(path)
 	return err == nil
+}
+
+func appendInitChecks(checks []doctorCheck, hasFailure bool, newChecks ...doctorCheck) ([]doctorCheck, bool) {
+	checks = append(checks, newChecks...)
+	for _, check := range newChecks {
+		hasFailure = hasFailure || check.Status == "fail"
+	}
+	return checks, hasFailure
 }
 
 func renderInitSummary(configPath string, checks []doctorCheck) string {

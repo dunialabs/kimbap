@@ -42,6 +42,15 @@ const defaultApprovalTTL = 30 * time.Minute
 
 var opts = cliOptions{}
 
+func binaryName() string {
+	if len(os.Args) > 0 {
+		if name := filepath.Base(os.Args[0]); name != "" {
+			return name
+		}
+	}
+	return "kimbap"
+}
+
 var rootCmd = &cobra.Command{
 	Use:          "kimbap",
 	Short:        "Secure action runtime for AI agents",
@@ -64,8 +73,10 @@ func init() {
 	flags.BoolVar(&opts.dryRun, "dry-run", false, "validate and preview without executing (returns JSON)")
 	flags.BoolVar(&opts.trace, "trace", false, "print execution pipeline trace to stderr")
 	flags.BoolVar(&opts.noSplash, "no-splash", false, "disable startup splash output")
+	name := binaryName()
+	rootCmd.Use = name
 	rootCmd.Version = strings.TrimSpace(config.AppInfo.Version)
-	rootCmd.SetVersionTemplate("kimbap {{.Version}}\n")
+	rootCmd.SetVersionTemplate(name + " {{.Version}}\n")
 	defaultHelp := rootCmd.HelpFunc()
 	rootCmd.SetHelpFunc(func(cmd *cobra.Command, args []string) {
 		showSplashOnce()
@@ -77,6 +88,7 @@ func init() {
 	rootCmd.AddCommand(newGenerateCommand())
 	rootCmd.AddCommand(newSearchCommand())
 	rootCmd.AddCommand(newVaultCommand())
+	rootCmd.AddCommand(newTokenCommand())
 	rootCmd.AddCommand(newPolicyCommand())
 	rootCmd.AddCommand(newDoctorCommand())
 	rootCmd.AddCommand(newInitCommand())
@@ -88,6 +100,7 @@ func init() {
 	rootCmd.AddCommand(newAuditCommand())
 	rootCmd.AddCommand(newRunCommand())
 	rootCmd.AddCommand(newProxyCommand())
+	rootCmd.AddCommand(newServeCommand())
 	rootCmd.AddCommand(newDaemonCommand())
 	rootCmd.AddCommand(newAgentProfileCommand())
 	rootCmd.AddCommand(newAgentsCommand())

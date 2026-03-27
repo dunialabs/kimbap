@@ -714,11 +714,15 @@ func resolveServiceInstallSource(arg string) (*services.ServiceManifest, string,
 		if stat.IsDir() {
 			return nil, "", fmt.Errorf("service source %q is a directory. Pass a YAML file path, URL, or official service name", trimmed)
 		}
-		manifest, parseErr := services.ParseManifestFile(trimmed)
+		absPath, absErr := filepath.Abs(trimmed)
+		if absErr != nil {
+			absPath = trimmed
+		}
+		manifest, parseErr := services.ParseManifestFile(absPath)
 		if parseErr != nil {
 			return nil, "", parseErr
 		}
-		return manifest, "local:" + trimmed, nil
+		return manifest, "local:" + absPath, nil
 	} else if !os.IsNotExist(err) {
 		return nil, "", fmt.Errorf("stat service source %q: %w", trimmed, err)
 	}

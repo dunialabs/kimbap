@@ -63,8 +63,10 @@ func newRunCommand() *cobra.Command {
 
 			runCfg := runner.RunConfig{
 				Command:    command,
-				ProxyAddr:  resolvedProxyAddr,
 				CACertPath: caCertPath,
+			}
+			if proxyEnabled {
+				runCfg.ProxyAddr = resolvedProxyAddr
 			}
 			if proxyEnabled && strings.TrimSpace(agentToken) == "" {
 				// Generate ephemeral session token scoped to this run

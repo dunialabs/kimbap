@@ -1,5 +1,3 @@
-//go:build ignore
-
 package api
 
 import (
@@ -60,6 +58,26 @@ func TestServerHealthAndRequestID(t *testing.T) {
 	expectedVersion := strings.TrimSpace(config.AppInfo.Version)
 	if data["version"] != expectedVersion {
 		t.Fatalf("expected data.version=%q, got %v", expectedVersion, data["version"])
+	}
+}
+
+func TestServerConsoleServesHTMLContentType(t *testing.T) {
+	server := NewServer(":0", nil)
+	ts := httptest.NewServer(server.Router())
+	defer ts.Close()
+
+	resp, err := http.Get(ts.URL + "/console")
+	if err != nil {
+		t.Fatalf("console request: %v", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		b, _ := io.ReadAll(resp.Body)
+		t.Fatalf("expected 200, got %d body=%s", resp.StatusCode, string(b))
+	}
+	if got := resp.Header.Get("Content-Type"); !strings.Contains(got, "text/html") {
+		t.Fatalf("expected text/html content type, got %q", got)
 	}
 }
 

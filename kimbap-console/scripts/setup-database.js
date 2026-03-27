@@ -22,6 +22,10 @@ function resolveSqlitePath(databaseUrl = process.env.DATABASE_URL || '') {
 
 async function setupDatabase() {
   try {
+    if (!process.env.DATABASE_URL) {
+      process.env.DATABASE_URL = 'file:' + resolveSqlitePath();
+    }
+
     console.log('🔧 Setting up SQLite database...');
 
     const dbPath = resolveSqlitePath();

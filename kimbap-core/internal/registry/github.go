@@ -52,7 +52,15 @@ func NewGitHubRegistry(owner, repo, branch, subdir string) *GitHubRegistry {
 		repo:   strings.TrimSpace(repo),
 		branch: branch,
 		subdir: strings.Trim(strings.TrimSpace(subdir), "/"),
-		client: &http.Client{Timeout: 30 * time.Second},
+		client: &http.Client{
+			Timeout: 30 * time.Second,
+			CheckRedirect: func(req *http.Request, via []*http.Request) error {
+				if req.URL.Scheme != "https" {
+					return fmt.Errorf("redirect to non-https URL %q rejected", req.URL)
+				}
+				return nil
+			},
+		},
 	}
 }
 

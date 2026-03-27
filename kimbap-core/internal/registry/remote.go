@@ -21,7 +21,15 @@ func NewRemoteRegistry(name, baseURL string) *RemoteRegistry {
 	return &RemoteRegistry{
 		name:    name,
 		baseURL: strings.TrimSuffix(strings.TrimSpace(baseURL), "/"),
-		client:  &http.Client{Timeout: 30 * time.Second},
+		client: &http.Client{
+			Timeout: 30 * time.Second,
+			CheckRedirect: func(req *http.Request, via []*http.Request) error {
+				if req.URL.Scheme != "https" {
+					return fmt.Errorf("redirect to non-https URL %q rejected", req.URL)
+				}
+				return nil
+			},
+		},
 	}
 }
 

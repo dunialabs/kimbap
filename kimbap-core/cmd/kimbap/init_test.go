@@ -30,6 +30,39 @@ func TestBuildInitConfigKeepsDefaultModeEmbedded(t *testing.T) {
 	}
 }
 
+func TestAppendInitChecksFlagsFailures(t *testing.T) {
+	checks, hasFailure := appendInitChecks(nil, false,
+		doctorCheck{Name: "ok", Status: "ok"},
+		doctorCheck{Name: "warn", Status: "warn"},
+	)
+	if hasFailure {
+		t.Fatal("expected non-failing checks to keep hasFailure=false")
+	}
+
+	checks, hasFailure = appendInitChecks(checks, hasFailure, doctorCheck{Name: "fail", Status: "fail"})
+	if !hasFailure {
+		t.Fatal("expected failing check to set hasFailure=true")
+	}
+	if len(checks) != 3 {
+		t.Fatalf("expected 3 checks, got %d", len(checks))
+	}
+}
+
+func TestOptionalKBCheckDoesNotFailInit(t *testing.T) {
+	checks := []doctorCheck{}
+	hasFailure := false
+
+	kbCheck := doctorCheck{Name: "kb alias", Status: "fail"}
+	checks = append(checks, kbCheck)
+
+	if hasFailure {
+		t.Fatal("optional kbCheck failure must not set hasFailure")
+	}
+	if len(checks) != 1 {
+		t.Fatalf("expected 1 check recorded, got %d", len(checks))
+	}
+}
+
 func TestValidateInitMode(t *testing.T) {
 	tests := []struct {
 		name    string

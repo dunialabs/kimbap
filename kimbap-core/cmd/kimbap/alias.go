@@ -50,6 +50,9 @@ func newAliasSetCommand() *cobra.Command {
 			if err := services.ValidateServiceName(alias); err != nil {
 				return fmt.Errorf("invalid alias name: %w", err)
 			}
+			if strings.Contains(alias, ".") {
+				return fmt.Errorf("alias %q must not contain dots — aliases resolve the service part only (before the first dot)", alias)
+			}
 
 			cfg, err := loadAppConfig()
 			if err != nil {

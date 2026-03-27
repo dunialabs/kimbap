@@ -10,7 +10,7 @@ The central concept is the **Action Runtime**: a canonical execution pipeline th
 ┌─────────────────────────────────────────────────────────────────┐
 │                        Product Surfaces                         │
 │                                                                 │
-│  kimbap call   kimbap proxy   kimbap run   kimbap serve   /v1  │
+│      kimbap call   kimbap proxy   kimbap run   kimbap daemon      │
 └────────────────────────────┬────────────────────────────────────┘
                              │
                              ▼
@@ -38,9 +38,8 @@ Every action request, regardless of how it arrived, passes through these six sta
 
 Resolve the caller's identity from the incoming token or session context.
 
-- Validate the bearer token against `internal/auth/`
-- Resolve the associated agent and tenant
-- Reject unauthenticated or expired requests before any further processing
+- Resolve the caller's identity from the local session context
+- For CLI and proxy modes, a local operator principal is constructed automatically
 
 ### 2. Resolve
 
@@ -88,7 +87,7 @@ Record the full decision path and outcome.
 
 - Write a structured audit record via `internal/audit/`
 - Include: caller identity, action, parameters (sanitized), policy outcome, approval state, execution result, timestamp
-- Deliver notification signals via webhook channels and API-visible state changes
+- Deliver approval notifications via configured notifiers (Slack, Telegram, email, webhook)
 
 ---
 
@@ -125,7 +124,7 @@ Action Runtime pipeline (identify → ... → audit)
 Print result to stdout
 ```
 
-In embedded mode, the runtime runs in-process. In connected mode, the CLI talks to a running `kimbap serve` instance over the REST API.
+The runtime runs in-process. No server required.
 
 ### Proxy Mode (`kimbap proxy`)
 
@@ -193,39 +192,6 @@ Result returned to agent process
 
 The subprocess never receives long-lived credentials. It receives only what the runtime decides to inject per-call.
 
-### Connected Server (`kimbap serve`)
-
-A long-running server deployment for shared use, multi-tenant environments, and centralized audit.
-
-```bash
-kimbap serve --port 8080
-```
-
-**Entry point:** `cmd/kimbap/`
-
-Exposes:
-
-- `/v1` — canonical REST API (tokens, policies, approvals, audit, actions, vault)
-- `/v1/health` — health probe
-- `/console` — embedded console SPA (optional)
-
-**Flow:**
-
-```
-HTTP request arrives
-  │
-  ▼
-chi router (auth → tenant context → scope)
-  │
-  ▼
-Route handler (internal/api/)
-  │
-  ▼
-Action Runtime pipeline
-  │
-  ▼
-Response + audit record
-```
 
 ### Daemon Mode
 
@@ -242,25 +208,6 @@ Responsibilities:
 
 The daemon does not handle inbound action requests directly. It keeps the runtime's state consistent so that execution-time credential injection is fast and reliable.
 
-### REST API (`/v1`)
-
-The canonical management interface for operators, consoles, and automation.
-
-**Entry point:** `internal/api/`
-
-Resource groups:
-
-| Prefix | Purpose |
-|---|---|
-| `/v1/tokens` | Issue, list, and revoke access tokens |
-| `/v1/policies` | Create and manage policy rules |
-| `/v1/approvals` | List pending approvals, approve or reject |
-| `/v1/audit` | Query audit records |
-| `/v1/actions` | List and describe available actions |
-| `/v1/vault` | List vault entries (metadata only) |
-| `/v1/webhooks` | Manage tenant webhook subscriptions and recent delivery events (when webhook dispatcher is configured) |
-
-Public discovery routes are `GET /v1/health`, `GET /v1/actions`, and `GET /v1/actions/{service}/{action}`. Authenticated action execution routes (`POST /v1/actions/{service}/{action}:execute`, `POST /v1/actions/validate`) require bearer token + tenant context. Scope-gated management routes also require bearer token + tenant context, then apply route-specific scopes (for example `tokens:*`, `policies:*`, `approvals:*`, `audit:*`, `webhooks:*`).
 
 ---
 
@@ -378,7 +325,7 @@ The decrypted credential is never written to disk, never logged, and never retur
 
 ### Token Brokerage
 
-**Module:** `internal/auth/`
+**Module:** `internal/connectors/`
 
 Kimbap issues its own short-lived access tokens to agents. These tokens:
 
@@ -539,20 +486,16 @@ kimbap-core/
     │
     ├── vault/            # Encrypted credential storage
     ├── crypto/           # Encryption utilities
-    ├── auth/             # Token service and principal types
     │
     ├── policy/           # Policy evaluator (YAML DSL)
     ├── approvals/        # Approval manager (email/slack/telegram/webhook notifiers)
     ├── audit/            # Audit log writers (JSONL, multi-writer)
     │
-    ├── api/              # REST /v1 handlers (chi router)
-    ├── console/          # Embedded SPA (static files via go:embed)
     │
     ├── store/            # SQL store (SQLite default, Postgres supported)
     │
     ├── config/           # Config loading (config.yaml)
     ├── app/              # Runtime bootstrap and adapters
-    └── webhooks/         # Webhook dispatcher
 ```
 
 ---
@@ -586,41 +529,3 @@ Most integrations should be YAML service files, not Go code. The service loader 
 ### Audit is Mandatory
 
 Every pipeline execution writes an audit record, including denied requests and approval-gated requests that were never executed. The audit trail is complete by construction, not by convention.
-
-## HTTP Endpoints (Connected Server)
-
-```
-GET  /v1/health                             Liveness probe
-
-GET  /v1/actions                            List available actions
-GET  /v1/actions/{service}/{action}         Describe a specific action
-POST /v1/actions/{service}/{action}:execute Execute an action
-POST /v1/actions/validate                   Validate action input
-
-GET    /v1/vault                            List vault entries (metadata only)
-
-POST   /v1/tokens                           Issue a new token
-GET    /v1/tokens                           List issued tokens
-GET    /v1/tokens/{id}                      Inspect a token
-DELETE /v1/tokens/{id}                      Revoke a token
-
-GET  /v1/policies                           Get effective policy
-PUT  /v1/policies                           Set policy document
-POST /v1/policies:evaluate                  Evaluate policy for a request
-
-GET  /v1/approvals                          List pending approvals
-POST /v1/approvals/{id}:approve             Approve a pending action
-POST /v1/approvals/{id}:deny                Deny a pending action
-
-GET  /v1/audit                              Query audit records
-GET  /v1/audit/export                       Export audit records
-
-GET    /v1/webhooks                         List tenant webhook subscriptions (when webhook dispatcher is configured)
-POST   /v1/webhooks                         Create tenant webhook subscription (when webhook dispatcher is configured)
-DELETE /v1/webhooks/{id}                    Delete tenant webhook subscription (when webhook dispatcher is configured)
-GET    /v1/webhooks/events                  List recent webhook events (when webhook dispatcher is configured)
-
-Service installation and management currently flows through the CLI (`kimbap service ...`).
-```
-
-Approval and session updates are exposed through API state plus webhook notifications; clients should poll relevant endpoints when interactive updates are required.
