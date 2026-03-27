@@ -482,6 +482,8 @@ func runAuthConnect(
 		grantedScope = browserResult.Scope
 
 	case connectors.FlowClientCredentials:
+		connScope = connectors.ScopeService
+		workspace = ""
 		_, _ = fmt.Fprintf(os.Stderr, "Starting client credentials flow for %s (service-level connection)...\n", provider.DisplayName)
 		_, _ = fmt.Fprintf(os.Stderr, "Client: %s\n", creds.ClientID)
 		ccResult, ccErr := clientcred.RunClientCredentialsFlow(ctx, clientcred.ClientCredentialsConfig{

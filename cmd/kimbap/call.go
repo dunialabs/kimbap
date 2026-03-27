@@ -337,9 +337,18 @@ func parseJSONInput(jsonArg string) (map[string]any, error) {
 		}
 		raw = string(data)
 	case strings.HasPrefix(jsonArg, "@"):
-		data, err := os.ReadFile(strings.TrimPrefix(jsonArg, "@"))
-		if err != nil {
-			return nil, fmt.Errorf("read json file: %w", err)
+		const maxFileBytes int64 = 4 << 20
+		f, openErr := os.Open(strings.TrimPrefix(jsonArg, "@"))
+		if openErr != nil {
+			return nil, fmt.Errorf("read json file: %w", openErr)
+		}
+		data, readErr := io.ReadAll(io.LimitReader(f, maxFileBytes+1))
+		_ = f.Close()
+		if readErr != nil {
+			return nil, fmt.Errorf("read json file: %w", readErr)
+		}
+		if int64(len(data)) > maxFileBytes {
+			return nil, fmt.Errorf("json file input exceeds %d bytes", maxFileBytes)
 		}
 		raw = string(data)
 	default:

@@ -23,20 +23,24 @@ func openConnectorStore(cfg *config.KimbapConfig) (connectors.ConnectorStore, er
 type sqlConnectorStore struct {
 	db      *sql.DB
 	dialect string
-	once    sync.Once
-	initErr error
+	mu      sync.Mutex
+	ready   bool
 }
 
 func (s *sqlConnectorStore) ensureConnectorSchema(ctx context.Context) error {
 	if s == nil || s.db == nil {
 		return errors.New("connector store database is required")
 	}
-	s.once.Do(func() {
-		if err := migrateConnectorTable(ctx, s.db, s.dialect); err != nil {
-			s.initErr = fmt.Errorf("migrate connector table: %w", err)
-		}
-	})
-	return s.initErr
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if s.ready {
+		return nil
+	}
+	if err := migrateConnectorTable(ctx, s.db, s.dialect); err != nil {
+		return fmt.Errorf("migrate connector table: %w", err)
+	}
+	s.ready = true
+	return nil
 }
 
 func (s *sqlConnectorStore) Save(ctx context.Context, state *connectors.ConnectorState) error {

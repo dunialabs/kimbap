@@ -209,6 +209,9 @@ func checkPathTraversal(value string) error {
 	if pathTraversalPattern.MatchString(normalized) ||
 		strings.Contains(normalized, "../") ||
 		strings.HasPrefix(normalized, "../") ||
+		strings.HasSuffix(normalized, "/..") ||
+		strings.Contains(normalized, "/../") ||
+		normalized == ".." ||
 		strings.Contains(normalized, "..%2f") ||
 		strings.Contains(normalized, "%2e%2e/") ||
 		strings.Contains(normalized, "%2e%2e%2f") ||
