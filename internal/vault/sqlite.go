@@ -179,6 +179,10 @@ func (s *SQLiteStore) Upsert(ctx context.Context, tenantID string, name string, 
 	newVersion := currentVersion + 1
 	versionID := uuid.NewString()
 
+	if _, err := tx.ExecContext(ctx, `UPDATE secret_versions SET active = 0 WHERE secret_id = ?`, secretID); err != nil {
+		return nil, err
+	}
+
 	if _, err := tx.ExecContext(ctx, `
 		INSERT INTO secret_versions (
 			id, secret_id, version, ciphertext, nonce, salt, key_id, algorithm, created_at, created_by, active, wrapped_dek, dek_nonce
@@ -388,6 +392,15 @@ func (s *SQLiteStore) Rotate(ctx context.Context, tenantID string, name string, 
 
 	newVersion := currentVersion + 1
 	versionID := uuid.NewString()
+	var existingLabels map[string]string
+	if labelsRaw.Valid {
+		if err := json.Unmarshal([]byte(labelsRaw.String), &existingLabels); err != nil {
+			return nil, err
+		}
+	}
+	if existingLabels == nil {
+		existingLabels = map[string]string{}
+	}
 
 	if _, err := tx.ExecContext(ctx, `
 		INSERT INTO secret_versions (
@@ -407,16 +420,6 @@ func (s *SQLiteStore) Rotate(ctx context.Context, tenantID string, name string, 
 
 	if err := tx.Commit(); err != nil {
 		return nil, err
-	}
-
-	var existingLabels map[string]string
-	if labelsRaw.Valid {
-		if err := json.Unmarshal([]byte(labelsRaw.String), &existingLabels); err != nil {
-			return nil, err
-		}
-	}
-	if existingLabels == nil {
-		existingLabels = map[string]string{}
 	}
 	rotateResult := &SecretRecord{
 		ID:             secretID,

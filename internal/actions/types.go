@@ -333,9 +333,34 @@ func toFloat64(v any) (float64, bool) {
 }
 
 func numericEqual(a, b any) bool {
+	ai, aInt := toInt64(a)
+	bi, bInt := toInt64(b)
+	if aInt && bInt {
+		return ai == bi
+	}
 	fa, aOK := toFloat64(a)
 	fb, bOK := toFloat64(b)
 	return aOK && bOK && fa == fb
+}
+
+func toInt64(v any) (int64, bool) {
+	switch n := v.(type) {
+	case int:
+		return int64(n), true
+	case int8:
+		return int64(n), true
+	case int16:
+		return int64(n), true
+	case int32:
+		return int64(n), true
+	case int64:
+		return n, true
+	case float64:
+		if n == math.Trunc(n) && n >= math.MinInt64 && n <= math.MaxInt64 {
+			return int64(n), true
+		}
+	}
+	return 0, false
 }
 
 func validateValue(field string, schema *Schema, value any) *ExecutionError {

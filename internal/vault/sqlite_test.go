@@ -409,6 +409,22 @@ func TestSQLiteStoreRotateFailsOnCorruptedLabelsJSON(t *testing.T) {
 	if _, err := store.Rotate(ctx, "tenant-a", "ROTATE_BAD_LABELS", []byte("v2"), "tester"); err == nil {
 		t.Fatal("expected rotate to fail when labels JSON is corrupted")
 	}
+
+	var currentVersion, versionCount int
+	if err := store.db.QueryRowContext(ctx, `SELECT current_version, version_count FROM secrets WHERE tenant_id = ? AND name = ?`, "tenant-a", "ROTATE_BAD_LABELS").Scan(&currentVersion, &versionCount); err != nil {
+		t.Fatalf("query version metadata after failed rotate: %v", err)
+	}
+	if currentVersion != 1 || versionCount != 1 {
+		t.Fatalf("expected failed rotate to keep version metadata unchanged, current=%d count=%d", currentVersion, versionCount)
+	}
+
+	value, err := store.GetValue(ctx, "tenant-a", "ROTATE_BAD_LABELS")
+	if err != nil {
+		t.Fatalf("get value after failed rotate: %v", err)
+	}
+	if !bytes.Equal(value, []byte("v1")) {
+		t.Fatalf("expected failed rotate to preserve previous value, got %q", string(value))
+	}
 }
 
 func newTestStore(t *testing.T) *SQLiteStore {
