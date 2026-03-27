@@ -337,6 +337,10 @@ func checkGrantedScopes(cfg *config.KimbapConfig, tenantID, providerID, profile 
 		return doctorCheck{Name: "scope coverage", Status: "ok", Detail: "provider has no default scopes to check"}
 	}
 
+	if len(state.Scopes) == 0 {
+		return doctorCheck{Name: "scope coverage", Status: "skip", Detail: "no stored scopes; provider may not return scope in token response"}
+	}
+
 	grantedSet := map[string]struct{}{}
 	for _, s := range state.Scopes {
 		grantedSet[s] = struct{}{}

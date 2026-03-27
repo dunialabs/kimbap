@@ -283,11 +283,15 @@ func exchangeAuthorizationCode(ctx context.Context, cfg BrowserFlowConfig, redir
 		return nil, errors.New("token response missing access_token")
 	}
 
+	scope := stringFromAny(raw["scope"])
+	if scope == "" {
+		scope = strings.Join(cfg.Scopes, " ")
+	}
 	return &BrowserFlowResult{
 		AccessToken:  accessToken,
 		RefreshToken: stringFromAny(raw["refresh_token"]),
 		ExpiresIn:    intFromAny(raw["expires_in"]),
-		Scope:        stringFromAny(raw["scope"]),
+		Scope:        scope,
 		Raw:          raw,
 	}, nil
 }
