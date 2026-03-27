@@ -259,6 +259,34 @@ func (s *Server) handleCreateToken(w http.ResponseWriter, r *http.Request) {
 	writeSuccess(w, r, http.StatusCreated, map[string]any{"token": raw, "metadata": issued})
 }
 
+type tokenView struct {
+	ID          string     `json:"id"`
+	TenantID    string     `json:"tenant_id"`
+	AgentName   string     `json:"agent_name"`
+	DisplayHint string     `json:"display_hint"`
+	Scopes      []string   `json:"scopes"`
+	CreatedAt   time.Time  `json:"created_at"`
+	ExpiresAt   time.Time  `json:"expires_at"`
+	LastUsedAt  *time.Time `json:"last_used_at,omitempty"`
+	RevokedAt   *time.Time `json:"revoked_at,omitempty"`
+	CreatedBy   string     `json:"created_by"`
+}
+
+func toTokenView(t store.TokenRecord) tokenView {
+	return tokenView{
+		ID:          t.ID,
+		TenantID:    t.TenantID,
+		AgentName:   t.AgentName,
+		DisplayHint: t.DisplayHint,
+		Scopes:      parseScopes(t.Scopes),
+		CreatedAt:   t.CreatedAt,
+		ExpiresAt:   t.ExpiresAt,
+		LastUsedAt:  t.LastUsedAt,
+		RevokedAt:   t.RevokedAt,
+		CreatedBy:   t.CreatedBy,
+	}
+}
+
 func (s *Server) handleListTokens(w http.ResponseWriter, r *http.Request) {
 	tenantID, ok := requireTenantContext(w, r)
 	if !ok {
@@ -269,7 +297,11 @@ func (s *Server) handleListTokens(w http.ResponseWriter, r *http.Request) {
 		writeEnvelopeError(w, r, actions.NewExecutionError(actions.ErrDownstreamUnavailable, "internal server error", http.StatusInternalServerError, false, nil))
 		return
 	}
-	writeSuccess(w, r, http.StatusOK, items)
+	views := make([]tokenView, len(items))
+	for i, it := range items {
+		views[i] = toTokenView(it)
+	}
+	writeSuccess(w, r, http.StatusOK, views)
 }
 
 func (s *Server) handleInspectToken(w http.ResponseWriter, r *http.Request) {
@@ -282,7 +314,7 @@ func (s *Server) handleInspectToken(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	writeSuccess(w, r, http.StatusOK, tok)
+	writeSuccess(w, r, http.StatusOK, toTokenView(*tok))
 }
 
 func (s *Server) handleRevokeToken(w http.ResponseWriter, r *http.Request) {
@@ -477,13 +509,9 @@ func (s *Server) handleListApprovals(w http.ResponseWriter, r *http.Request) {
 	}
 	status := strings.TrimSpace(r.URL.Query().Get("status"))
 	if status == "" || status == "pending" {
-		if expirer, ok := s.store.(interface {
-			ExpirePendingApprovals(ctx context.Context) (int, error)
-		}); ok {
-			if _, err := expirer.ExpirePendingApprovals(r.Context()); err != nil {
-				writeEnvelopeError(w, r, actions.NewExecutionError(actions.ErrDownstreamUnavailable, "internal server error", http.StatusInternalServerError, false, nil))
-				return
-			}
+		if _, err := s.store.ExpirePendingApprovals(r.Context()); err != nil {
+			writeEnvelopeError(w, r, actions.NewExecutionError(actions.ErrDownstreamUnavailable, "internal server error", http.StatusInternalServerError, false, nil))
+			return
 		}
 	}
 	items, err := s.store.ListApprovals(r.Context(), tenantID, status)
@@ -515,14 +543,7 @@ func (s *Server) requirePendingApproval(w http.ResponseWriter, r *http.Request, 
 		return nil, false
 	}
 	if !existing.ExpiresAt.After(now) {
-		expirer, ok := s.store.(interface {
-			ExpireApproval(ctx context.Context, id string) (bool, error)
-		})
-		if !ok {
-			writeEnvelopeError(w, r, actions.NewExecutionError(actions.ErrDownstreamUnavailable, "internal server error", http.StatusInternalServerError, false, nil))
-			return nil, false
-		}
-		expired, expireErr := expirer.ExpireApproval(r.Context(), id)
+		expired, expireErr := s.store.ExpireApproval(r.Context(), id)
 		if expireErr != nil {
 			writeEnvelopeError(w, r, actions.NewExecutionError(actions.ErrDownstreamUnavailable, "internal server error", http.StatusInternalServerError, false, nil))
 			return nil, false

@@ -379,14 +379,17 @@ func (s *SQLStore) QueryAuditEvents(ctx context.Context, filter AuditFilter) ([]
 		args = append(args, *filter.To)
 	}
 
-	effectiveLimit := filter.Limit
-	if effectiveLimit <= 0 || effectiveLimit > maxAuditQueryLimit {
-		effectiveLimit = maxAuditQueryLimit
-	}
-
 	query += " ORDER BY timestamp DESC"
-	query += " LIMIT ?"
-	args = append(args, effectiveLimit)
+	if filter.Limit == -1 {
+		query += " LIMIT -1"
+	} else {
+		effectiveLimit := filter.Limit
+		if effectiveLimit <= 0 || effectiveLimit > maxAuditQueryLimit {
+			effectiveLimit = maxAuditQueryLimit
+		}
+		query += " LIMIT ?"
+		args = append(args, effectiveLimit)
+	}
 	if filter.Offset > 0 {
 		query += " OFFSET ?"
 		args = append(args, filter.Offset)
@@ -413,6 +416,7 @@ func (s *SQLStore) ExportAuditEvents(ctx context.Context, filter AuditFilter, fo
 	if w == nil {
 		return errors.New("writer is required")
 	}
+	filter.Limit = -1
 	records, err := s.QueryAuditEvents(ctx, filter)
 	if err != nil {
 		return err
@@ -523,7 +527,7 @@ func (s *SQLStore) UpdateApprovalStatus(ctx context.Context, id string, status s
 		// Distinguish not-found vs already-resolved vs expired
 		existing, lookupErr := s.GetApproval(ctx, id)
 		if lookupErr != nil {
-			return ErrNotFound
+			return lookupErr
 		}
 		if existing.Status != "pending" {
 			return ErrApprovalAlreadyResolved

@@ -62,7 +62,6 @@ func NewServer(addr string, st store.Store, opts ...ServerOption) *Server {
 	r := chi.NewRouter()
 	r.Use(middleware.Recoverer)
 	r.Use(RequestID())
-	r.Use(JSONContentType())
 
 	s := &Server{
 		router: r,

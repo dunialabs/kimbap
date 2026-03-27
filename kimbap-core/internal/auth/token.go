@@ -20,17 +20,17 @@ var (
 )
 
 type ServiceToken struct {
-	ID          string
-	TenantID    string
-	AgentName   string
-	TokenHash   string
-	DisplayHint string
-	Scopes      []string
-	CreatedAt   time.Time
-	ExpiresAt   time.Time
-	LastUsedAt  *time.Time
-	RevokedAt   *time.Time
-	CreatedBy   string
+	ID          string     `json:"id"`
+	TenantID    string     `json:"tenant_id"`
+	AgentName   string     `json:"agent_name"`
+	TokenHash   string     `json:"-"`
+	DisplayHint string     `json:"display_hint"`
+	Scopes      []string   `json:"scopes"`
+	CreatedAt   time.Time  `json:"created_at"`
+	ExpiresAt   time.Time  `json:"expires_at"`
+	LastUsedAt  *time.Time `json:"last_used_at,omitempty"`
+	RevokedAt   *time.Time `json:"revoked_at,omitempty"`
+	CreatedBy   string     `json:"created_by"`
 }
 
 type TokenStore interface {
@@ -132,13 +132,13 @@ func (s *TokenService) Rotate(ctx context.Context, oldTokenID, tenantID, agentNa
 		return "", nil, errors.New("old token id is required")
 	}
 
+	if revokeErr := s.store.Revoke(ctx, oldTokenID); revokeErr != nil {
+		return "", nil, fmt.Errorf("revoke old token: %w", revokeErr)
+	}
+
 	rawToken, token, err = s.Issue(ctx, tenantID, agentName, scopes, ttl)
 	if err != nil {
 		return "", nil, fmt.Errorf("issue replacement token: %w", err)
-	}
-
-	if revokeErr := s.store.Revoke(ctx, oldTokenID); revokeErr != nil {
-		return rawToken, token, fmt.Errorf("new token issued but old token revocation failed: %w", revokeErr)
 	}
 
 	return rawToken, token, nil

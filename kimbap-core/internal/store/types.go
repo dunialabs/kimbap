@@ -17,39 +17,39 @@ type TokenRecord struct {
 }
 
 type AuditRecord struct {
-	ID             string
-	Timestamp      time.Time
-	RequestID      string
-	TraceID        string
-	TenantID       string
-	PrincipalID    string
-	AgentName      string
-	Service        string
-	Action         string
-	Mode           string
-	Status         string
-	PolicyDecision string
-	DurationMS     int64
-	ErrorCode      string
-	ErrorMessage   string
-	InputJSON      string
-	MetaJSON       string
+	ID             string    `json:"id"`
+	Timestamp      time.Time `json:"timestamp"`
+	RequestID      string    `json:"request_id"`
+	TraceID        string    `json:"trace_id"`
+	TenantID       string    `json:"tenant_id"`
+	PrincipalID    string    `json:"principal_id"`
+	AgentName      string    `json:"agent_name"`
+	Service        string    `json:"service"`
+	Action         string    `json:"action"`
+	Mode           string    `json:"mode"`
+	Status         string    `json:"status"`
+	PolicyDecision string    `json:"policy_decision"`
+	DurationMS     int64     `json:"duration_ms"`
+	ErrorCode      string    `json:"error_code,omitempty"`
+	ErrorMessage   string    `json:"error_message,omitempty"`
+	InputJSON      string    `json:"input_json,omitempty"`
+	MetaJSON       string    `json:"meta_json,omitempty"`
 }
 
 type ApprovalRecord struct {
-	ID         string
-	TenantID   string
-	RequestID  string
-	AgentName  string
-	Service    string
-	Action     string
-	Status     string
-	InputJSON  string
-	CreatedAt  time.Time
-	ExpiresAt  time.Time
-	ResolvedAt *time.Time
-	ResolvedBy string
-	Reason     string
+	ID         string     `json:"id"`
+	TenantID   string     `json:"tenant_id"`
+	RequestID  string     `json:"request_id"`
+	AgentName  string     `json:"agent_name"`
+	Service    string     `json:"service"`
+	Action     string     `json:"action"`
+	Status     string     `json:"status"`
+	InputJSON  string     `json:"input_json,omitempty"`
+	CreatedAt  time.Time  `json:"created_at"`
+	ExpiresAt  time.Time  `json:"expires_at"`
+	ResolvedAt *time.Time `json:"resolved_at,omitempty"`
+	ResolvedBy string     `json:"resolved_by,omitempty"`
+	Reason     string     `json:"reason,omitempty"`
 }
 
 type AuditFilter struct {

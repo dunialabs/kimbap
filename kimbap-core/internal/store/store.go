@@ -25,6 +25,8 @@ type ApprovalStore interface {
 	GetApproval(ctx context.Context, id string) (*ApprovalRecord, error)
 	UpdateApprovalStatus(ctx context.Context, id string, status string, resolvedBy string, reason string) error
 	ListApprovals(ctx context.Context, tenantID string, status string) ([]ApprovalRecord, error)
+	ExpirePendingApprovals(ctx context.Context) (int, error)
+	ExpireApproval(ctx context.Context, id string) (bool, error)
 }
 
 type PolicyStore interface {
