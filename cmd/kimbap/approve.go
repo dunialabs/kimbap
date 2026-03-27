@@ -109,6 +109,9 @@ func newApproveDenyCommand() *cobra.Command {
 				return err
 			}
 			err = withRuntimeStore(cfg, func(st *store.SQLStore) error {
+				if _, err := st.ExpireApproval(contextBackground(), args[0]); err != nil {
+					return fmt.Errorf("deny failed: %w", err)
+				}
 				if err := st.UpdateApprovalStatus(contextBackground(), args[0], "denied", "cli", reason); err != nil {
 					return fmt.Errorf("deny failed: %w", err)
 				}
@@ -154,6 +157,9 @@ func runApproveAccept(requestID string) error {
 		return err
 	}
 	err = withRuntimeStore(cfg, func(st *store.SQLStore) error {
+		if _, err := st.ExpireApproval(contextBackground(), requestID); err != nil {
+			return fmt.Errorf("approve failed: %w", err)
+		}
 		if err := st.UpdateApprovalStatus(contextBackground(), requestID, "approved", "cli", ""); err != nil {
 			return fmt.Errorf("approve failed: %w", err)
 		}
