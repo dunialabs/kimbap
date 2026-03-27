@@ -198,7 +198,7 @@ func openRuntimeStore(cfg *config.KimbapConfig) (*store.SQLStore, error) {
 		if dsn == "" {
 			dsn = filepath.Join(cfg.DataDir, "kimbap.db")
 		}
-		if err := os.MkdirAll(filepath.Dir(dsn), 0o755); err != nil {
+		if err := os.MkdirAll(filepath.Dir(dsn), 0o700); err != nil {
 			return nil, fmt.Errorf("create database directory: %w", err)
 		}
 		st, err = store.OpenSQLiteStore(dsn)

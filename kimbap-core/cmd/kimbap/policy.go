@@ -47,10 +47,10 @@ func newPolicySetCommand() *cobra.Command {
 				return err
 			}
 
-			if err := os.MkdirAll(filepath.Dir(cfg.Policy.Path), 0o755); err != nil {
+			if err := os.MkdirAll(filepath.Dir(cfg.Policy.Path), 0o700); err != nil {
 				return err
 			}
-			if err := os.WriteFile(cfg.Policy.Path, raw, 0o644); err != nil {
+			if err := os.WriteFile(cfg.Policy.Path, raw, 0o600); err != nil {
 				return err
 			}
 

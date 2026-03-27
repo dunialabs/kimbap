@@ -41,7 +41,6 @@ DOCKER_PROXY_ADMIN_URL="$(rewrite_localhost "${PROXY_ADMIN_URL:-}")"
 # Set default values if not in .env
 NODE_ENV="${NODE_ENV:-production}"
 PORT="${PORT:-3000}"
-BACKEND_PORT="${BACKEND_PORT:-3002}"
 
 # Container name
 CONTAINER_NAME="${CONTAINER_NAME:-kimbap-console}"
@@ -58,12 +57,10 @@ fi
 echo "🐳 Starting Docker container..."
 echo "   DATABASE_URL: ${DOCKER_DATABASE_URL%@*}@***" # Hide password in output
 echo "   Frontend: http://localhost:$PORT"
-echo "   Backend: http://localhost:$BACKEND_PORT"
 
 docker run -d \
     --name "$CONTAINER_NAME" \
     -p "$PORT:3000" \
-    -p "$BACKEND_PORT:3002" \
     ${DOCKER_EXTRA_ARGS} \
     -e DATABASE_URL="$DOCKER_DATABASE_URL" \
     -e NODE_ENV="$NODE_ENV" \
@@ -92,7 +89,6 @@ if [ $? -eq 0 ]; then
         echo ""
         echo "🌐 Access the application:"
         echo "   Frontend: http://localhost:$PORT"
-        echo "   Backend API: http://localhost:$BACKEND_PORT"
         echo ""
         
         # Show initial logs
