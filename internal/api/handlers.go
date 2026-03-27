@@ -1,6 +1,7 @@
 package api
 
 import (
+	"bytes"
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
@@ -23,7 +24,6 @@ import (
 	"github.com/dunialabs/kimbap/internal/vault"
 	"github.com/dunialabs/kimbap/internal/webhooks"
 	"github.com/go-chi/chi/v5"
-	"github.com/rs/zerolog/log"
 )
 
 type createTokenRequest struct {
@@ -516,10 +516,7 @@ func (s *Server) handleListApprovals(w http.ResponseWriter, r *http.Request) {
 	}
 	status := strings.TrimSpace(r.URL.Query().Get("status"))
 	if status == "" || status == "pending" {
-		if _, err := s.store.ExpirePendingApprovals(r.Context()); err != nil {
-			writeEnvelopeError(w, r, actions.NewExecutionError(actions.ErrDownstreamUnavailable, "internal server error", http.StatusInternalServerError, false, nil))
-			return
-		}
+		_, _ = s.store.ExpirePendingApprovals(r.Context())
 	}
 	items, err := s.store.ListApprovals(r.Context(), tenantID, status)
 	if err != nil {
@@ -779,11 +776,15 @@ func (s *Server) handleExportAudit(w http.ResponseWriter, r *http.Request) {
 		))
 		return
 	}
-	w.Header().Set("Content-Type", contentType)
-	w.WriteHeader(http.StatusOK)
-	if err := s.store.ExportAuditEvents(r.Context(), store.AuditFilter{TenantID: tenantID}, format, w); err != nil {
-		log.Warn().Err(err).Str("requestId", requestIDFromContext(r.Context())).Str("tenantId", tenantID).Str("format", format).Msg("audit export failed mid-stream")
+	var buf bytes.Buffer
+	if err := s.store.ExportAuditEvents(r.Context(), store.AuditFilter{TenantID: tenantID}, format, &buf); err != nil {
+		writeEnvelopeError(w, r, actions.NewExecutionError(actions.ErrDownstreamUnavailable, "export failed", http.StatusInternalServerError, false, nil))
+		return
 	}
+	w.Header().Set("Content-Type", contentType)
+	w.Header().Set("Content-Length", strconv.Itoa(buf.Len()))
+	w.WriteHeader(http.StatusOK)
+	_, _ = buf.WriteTo(w)
 }
 
 const maxAPIRequestBodyBytes int64 = 4 << 20

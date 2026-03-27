@@ -194,13 +194,19 @@ func (p *ProxyServer) Start(ctx context.Context) error {
 }
 
 func (p *ProxyServer) Stop(ctx context.Context) error {
-	p.mu.RLock()
+	p.mu.Lock()
 	srv := p.server
-	p.mu.RUnlock()
+	p.server = nil
+	p.listener = nil
+	p.mu.Unlock()
 	if srv == nil {
 		return nil
 	}
-	return srv.Shutdown(ctx)
+	if err := srv.Shutdown(ctx); err != nil && !errors.Is(err, http.ErrServerClosed) {
+		_ = srv.Close()
+		return err
+	}
+	return nil
 }
 
 func newProxyHTTPServer(handler http.Handler) *http.Server {

@@ -101,6 +101,7 @@ func (a *HTTPAdapter) executeWithPagination(ctx context.Context, req AdapterRequ
 		if pageInput == nil {
 			pageInput = map[string]any{}
 		}
+		delete(pageInput, "_max_pages")
 
 		limitParam := pageCfg.LimitParam
 		if limitParam == "" {
@@ -162,7 +163,7 @@ func (a *HTTPAdapter) executeWithPagination(ctx context.Context, req AdapterRequ
 				return paginatedResult(allItems, page+1, result, start), nil
 			}
 		case "offset":
-			offset += limit
+			offset += len(pageItems)
 			if len(pageItems) < limit {
 				return paginatedResult(allItems, page+1, result, start), nil
 			}
