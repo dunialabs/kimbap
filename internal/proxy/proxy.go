@@ -370,11 +370,11 @@ func (p *ProxyServer) handleConnect(w http.ResponseWriter, req *http.Request) {
 		}
 
 		reqID := newRequestID()
-		classification := p.classify(mitmReq.Method, host, mitmReq.URL.Path)
+		classification := p.classify(mitmReq.Method, connectHost, mitmReq.URL.Path)
 		if classification != nil && classification.Matched {
 			mitmReq.Header.Set("X-Kimbap-Request-ID", reqID)
 			if p.runtime != nil {
-				result := p.executeClassifiedRequest(req.Context(), mitmReq, reqID, classification, host, mitmReq.URL.Path)
+				result := p.executeClassifiedRequest(req.Context(), mitmReq, reqID, classification, connectHost, mitmReq.URL.Path)
 				if result.Error != nil {
 					status := runtimeResultStatus(result)
 					msg := result.Error.Message
@@ -628,17 +628,12 @@ func (p *ProxyServer) forwardRequest(in *http.Request) (*http.Response, error) {
 }
 
 func targetFromRequest(req *http.Request) (string, string) {
-	host := req.URL.Hostname()
-	if host == "" {
-		h, _, err := net.SplitHostPort(req.Host)
-		if err == nil {
-			host = h
-		} else {
-			host = req.Host
-		}
-	}
+	host := req.URL.Host
 	if host == "" {
 		host = req.Host
+	}
+	if host == "" {
+		host = req.URL.Hostname()
 	}
 	reqPath := req.URL.Path
 	if reqPath == "" {

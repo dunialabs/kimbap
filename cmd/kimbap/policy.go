@@ -116,11 +116,11 @@ func newPolicyEvalCommand() *cobra.Command {
 				return fmt.Errorf("parse --params: %w", err)
 			}
 
-			service, _ := splitActionName(action)
+			service, localAction := splitActionName(action)
 			risk := "low"
 			mutating := false
 			if def, err := resolveActionByName(cfg, action); err == nil {
-				risk = string(def.Risk)
+				risk = riskToDocVocab(def.Risk)
 				mutating = !def.Idempotent
 			}
 
@@ -128,7 +128,7 @@ func newPolicyEvalCommand() *cobra.Command {
 				TenantID:  defaultTenantID(),
 				AgentName: agent,
 				Service:   service,
-				Action:    action,
+				Action:    localAction,
 				Risk:      risk,
 				Mutating:  mutating,
 				Args:      argMap,

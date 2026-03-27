@@ -27,7 +27,7 @@ const maxRetryAfterSeconds = 120
 
 func NewHTTPAdapter(client *http.Client) *HTTPAdapter {
 	if client == nil {
-		client = &http.Client{Timeout: 30 * time.Second}
+		client = &http.Client{}
 	}
 	return &HTTPAdapter{client: client}
 }

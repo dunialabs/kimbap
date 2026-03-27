@@ -246,7 +246,9 @@ func newConnectorRefreshCommand() *cobra.Command {
 			mgr := connectors.NewManager(store)
 
 			providerID := name
-			if storedState, getErr := store.Get(contextBackground(), activeTenant, name); getErr == nil && storedState != nil && strings.TrimSpace(storedState.Provider) != "" {
+			if storedState, getErr := store.Get(contextBackground(), activeTenant, name); getErr != nil {
+				return fmt.Errorf("lookup connector state for %q: %w", name, getErr)
+			} else if storedState != nil && strings.TrimSpace(storedState.Provider) != "" {
 				providerID = strings.TrimSpace(storedState.Provider)
 			}
 

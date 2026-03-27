@@ -42,3 +42,9 @@ type TokenStore interface {
 	UpdateTokenLastUsed(ctx context.Context, id string) error
 	RevokeToken(ctx context.Context, id string) error
 }
+
+type HeldExecutionStore interface {
+	HoldExecution(ctx context.Context, approvalRequestID string, requestJSON []byte) error
+	ResumeExecution(ctx context.Context, approvalRequestID string) ([]byte, error)
+	RemoveExecution(ctx context.Context, approvalRequestID string) error
+}

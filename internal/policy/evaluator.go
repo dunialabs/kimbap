@@ -255,7 +255,8 @@ func matchesRule(match PolicyMatch, req EvalRequest) bool {
 	if !matchesAny(match.Services, req.Service) {
 		return false
 	}
-	if !matchesAny(match.Actions, req.Action) {
+	fullAction := req.Service + "." + req.Action
+	if !matchesAny(match.Actions, req.Action) && !matchesAny(match.Actions, fullAction) {
 		return false
 	}
 	if !matchesAny(match.Risk, req.Risk) {

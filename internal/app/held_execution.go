@@ -8,6 +8,21 @@ import (
 	"github.com/dunialabs/kimbap/internal/runtime"
 )
 
+func riskToDocVocab(risk actions.RiskLevel) string {
+	switch risk {
+	case actions.RiskRead:
+		return "low"
+	case actions.RiskWrite:
+		return "medium"
+	case actions.RiskAdmin:
+		return "high"
+	case actions.RiskDestructive:
+		return "critical"
+	default:
+		return string(risk)
+	}
+}
+
 type memoryHeldExecutionStore struct {
 	mu   sync.Mutex
 	held map[string]actions.ExecutionRequest

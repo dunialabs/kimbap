@@ -337,7 +337,7 @@ func (a *policyEvaluatorAdapter) Evaluate(ctx context.Context, req runtimepkg.Po
 		AgentName: req.Principal.AgentName,
 		Service:   service,
 		Action:    actionName,
-		Risk:      string(req.Action.Risk),
+		Risk:      riskToDocVocab(req.Action.Risk),
 		Mutating:  !req.Action.Idempotent,
 		Args:      req.Input,
 	})
@@ -658,7 +658,7 @@ func (a *ApprovalManagerAdapter) CreateRequest(ctx context.Context, req runtimep
 		TenantID:  req.TenantID,
 		RequestID: req.RequestID,
 		AgentName: req.Principal.AgentName,
-		Risk:      string(req.Action.Risk),
+		Risk:      riskToDocVocab(req.Action.Risk),
 		Input:     req.Input,
 	}
 	actionName := strings.TrimSpace(req.Action.Name)

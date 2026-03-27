@@ -18,8 +18,8 @@ func TestNewHTTPAdapterDefaultTimeout(t *testing.T) {
 	if adapter.client == nil {
 		t.Fatal("expected default http client")
 	}
-	if adapter.client.Timeout != 30*time.Second {
-		t.Fatalf("expected default timeout 30s, got %s", adapter.client.Timeout)
+	if adapter.client.Timeout != 0 {
+		t.Fatalf("expected no client-level timeout (context controls deadline), got %s", adapter.client.Timeout)
 	}
 }
 
