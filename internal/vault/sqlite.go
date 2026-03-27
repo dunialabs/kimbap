@@ -411,7 +411,9 @@ func (s *SQLiteStore) Rotate(ctx context.Context, tenantID string, name string, 
 
 	var existingLabels map[string]string
 	if labelsRaw.Valid {
-		_ = json.Unmarshal([]byte(labelsRaw.String), &existingLabels)
+		if err := json.Unmarshal([]byte(labelsRaw.String), &existingLabels); err != nil {
+			return nil, err
+		}
 	}
 	if existingLabels == nil {
 		existingLabels = map[string]string{}

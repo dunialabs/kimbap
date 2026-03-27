@@ -395,6 +395,22 @@ func TestSQLiteStoreUpsertReturnsDetachedLabelsMap(t *testing.T) {
 	}
 }
 
+func TestSQLiteStoreRotateFailsOnCorruptedLabelsJSON(t *testing.T) {
+	store := newTestStore(t)
+	ctx := context.Background()
+
+	if _, err := store.Create(ctx, "tenant-a", "ROTATE_BAD_LABELS", SecretTypeAPIKey, []byte("v1"), map[string]string{"env": "dev"}, "tester"); err != nil {
+		t.Fatalf("create seed: %v", err)
+	}
+	if _, err := store.db.ExecContext(ctx, `UPDATE secrets SET labels = ? WHERE tenant_id = ? AND name = ?`, "{", "tenant-a", "ROTATE_BAD_LABELS"); err != nil {
+		t.Fatalf("corrupt labels JSON: %v", err)
+	}
+
+	if _, err := store.Rotate(ctx, "tenant-a", "ROTATE_BAD_LABELS", []byte("v2"), "tester"); err == nil {
+		t.Fatal("expected rotate to fail when labels JSON is corrupted")
+	}
+}
+
 func newTestStore(t *testing.T) *SQLiteStore {
 	t.Helper()
 
