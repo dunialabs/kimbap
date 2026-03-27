@@ -201,6 +201,7 @@ func readAuditEvents(path string) ([]audit.AuditEvent, error) {
 
 	out := make([]audit.AuditEvent, 0)
 	scanner := bufio.NewScanner(file)
+	scanner.Buffer(make([]byte, 4<<20), 4<<20)
 	for scanner.Scan() {
 		line := strings.TrimSpace(scanner.Text())
 		if line == "" {

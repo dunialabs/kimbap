@@ -259,16 +259,17 @@ type limitedWriter struct {
 }
 
 func (lw *limitedWriter) Write(p []byte) (int, error) {
+	orig := len(p)
 	remaining := lw.limit - lw.n
 	if remaining <= 0 {
-		return len(p), nil
+		return orig, nil
 	}
 	if int64(len(p)) > remaining {
 		p = p[:remaining]
 	}
 	n, err := lw.w.Write(p)
 	lw.n += int64(n)
-	return len(p), err
+	return orig, err
 }
 
 func sanitizeEnvSegment(ref string) string {

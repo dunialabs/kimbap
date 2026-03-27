@@ -128,6 +128,9 @@ func (r *Runner) Start(ctx context.Context) error {
 		r.mu.Unlock()
 	}()
 
+	if runCtx.Err() != nil {
+		return runCtx.Err()
+	}
 	if err := cmd.Start(); err != nil {
 		return fmt.Errorf("start command: %w", err)
 	}

@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"maps"
 	"net/http"
@@ -156,6 +157,13 @@ func (a *AppleScriptAdapter) Execute(ctx context.Context, req AdapterRequest) (*
 }
 
 func mapAppleScriptError(stderr []byte, err error) *actions.ExecutionError {
+	if errors.Is(err, context.DeadlineExceeded) {
+		return actions.NewExecutionError(actions.ErrDownstreamUnavailable, "applescript execution timed out", http.StatusGatewayTimeout, true, nil)
+	}
+	if errors.Is(err, context.Canceled) {
+		return actions.NewExecutionError(actions.ErrDownstreamUnavailable, "applescript execution canceled", 499, false, nil)
+	}
+
 	stderrStr := strings.TrimSpace(string(stderr))
 	status := http.StatusInternalServerError
 	retryable := false
