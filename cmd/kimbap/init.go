@@ -561,9 +561,13 @@ func ensurePolicyFile(path, mode string) doctorCheck {
 
 func ensureWritableDirWithStatus(name, dir string) doctorCheck {
 	st, err := os.Stat(dir)
+	permissiveMode := false
 	if err == nil {
 		if !st.IsDir() {
 			return doctorCheck{Name: name, Status: "fail", Detail: "path exists but is not a directory"}
+		}
+		if st.Mode().Perm()&0o077 != 0 {
+			permissiveMode = true
 		}
 	} else {
 		if !os.IsNotExist(err) {
@@ -583,6 +587,9 @@ func ensureWritableDirWithStatus(name, dir string) doctorCheck {
 	_ = os.Remove(tmpPath)
 
 	if err == nil {
+		if permissiveMode {
+			return doctorCheck{Name: name, Status: "warn", Detail: fmt.Sprintf("permissions are %o; recommended 700: %s", st.Mode().Perm(), dir)}
+		}
 		return doctorCheck{Name: name, Status: "skip", Detail: fmt.Sprintf("exists: %s", dir)}
 	}
 	return doctorCheck{Name: name, Status: "ok", Detail: fmt.Sprintf("created: %s", dir)}

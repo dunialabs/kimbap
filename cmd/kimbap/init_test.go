@@ -171,3 +171,33 @@ func TestEnsureWritableDirWithStatusCreatesPrivateDirectory(t *testing.T) {
 		t.Fatalf("expected private permissions for data dir, got %o", st.Mode().Perm())
 	}
 }
+
+func TestEnsureWritableDirWithStatusWarnsOnPermissiveExistingDirectory(t *testing.T) {
+	dataDir := filepath.Join(t.TempDir(), "existing-data")
+	if err := os.MkdirAll(dataDir, 0o700); err != nil {
+		t.Fatalf("mkdir data dir: %v", err)
+	}
+	if err := os.Chmod(dataDir, 0o755); err != nil {
+		t.Fatalf("chmod data dir: %v", err)
+	}
+
+	check := ensureWritableDirWithStatus("data directory writable", dataDir)
+	if check.Status != "warn" {
+		t.Fatalf("expected warn for permissive existing directory, got %q", check.Status)
+	}
+}
+
+func TestEnsureWritableDirWithStatusFailsWhenExistingDirectoryIsNotWritable(t *testing.T) {
+	dataDir := filepath.Join(t.TempDir(), "read-only-data")
+	if err := os.MkdirAll(dataDir, 0o700); err != nil {
+		t.Fatalf("mkdir data dir: %v", err)
+	}
+	if err := os.Chmod(dataDir, 0o555); err != nil {
+		t.Fatalf("chmod data dir: %v", err)
+	}
+
+	check := ensureWritableDirWithStatus("data directory writable", dataDir)
+	if check.Status != "fail" {
+		t.Fatalf("expected fail for non-writable existing directory, got %q", check.Status)
+	}
+}
