@@ -115,6 +115,7 @@ func ValidateDocument(doc *PolicyDocument) []ValidationError {
 			{"match.agents", rule.Match.Agents},
 			{"match.services", rule.Match.Services},
 			{"match.actions", rule.Match.Actions},
+			{"match.risk", rule.Match.Risk},
 			{"match.tenants", rule.Match.Tenants},
 		} {
 			for pidx, pattern := range mf.patterns {
