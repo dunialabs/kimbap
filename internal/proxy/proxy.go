@@ -162,6 +162,13 @@ func (p *ProxyServer) Ready() bool {
 }
 
 func (p *ProxyServer) Start(ctx context.Context) error {
+	p.mu.RLock()
+	alreadyStarted := p.listener != nil || p.server != nil
+	p.mu.RUnlock()
+	if alreadyStarted {
+		return errors.New("proxy server already started")
+	}
+
 	ln, err := net.Listen("tcp", p.listenAddr)
 	if err != nil {
 		return fmt.Errorf("listen: %w", err)
@@ -170,6 +177,11 @@ func (p *ProxyServer) Start(ctx context.Context) error {
 	srv := newProxyHTTPServer(p)
 
 	p.mu.Lock()
+	if p.listener != nil || p.server != nil {
+		p.mu.Unlock()
+		_ = ln.Close()
+		return errors.New("proxy server already started")
+	}
 	p.listener = ln
 	p.server = srv
 	p.mu.Unlock()
