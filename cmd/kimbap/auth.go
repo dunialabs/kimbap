@@ -259,6 +259,14 @@ func validateHostExtraValue(value string) error {
 	if !isValidHostNameOrIP(hostname) {
 		return errors.New("host must be a valid DNS name or IP address")
 	}
+	if strings.EqualFold(hostname, "localhost") {
+		return errors.New("loopback and private IP addresses are not allowed")
+	}
+	if ip := net.ParseIP(hostname); ip != nil {
+		if ip.IsLoopback() || ip.IsPrivate() || ip.IsLinkLocalUnicast() || ip.IsUnspecified() {
+			return errors.New("loopback and private IP addresses are not allowed")
+		}
+	}
 	if port := u.Port(); port != "" {
 		parsed, pErr := strconv.Atoi(port)
 		if pErr != nil || parsed < 1 || parsed > 65535 {

@@ -99,20 +99,21 @@ func (s *Server) Start(ctx context.Context) error {
 	if s.httpServer != nil {
 		return errors.New("server already started")
 	}
-	s.httpServer = newHTTPServer(s.addr, s.router)
+	srv := newHTTPServer(s.addr, s.router)
+	s.httpServer = srv
 
 	errCh := make(chan error, 1)
 	go func() {
-		errCh <- s.httpServer.ListenAndServe()
+		errCh <- srv.ListenAndServe()
 	}()
 
 	select {
 	case <-ctx.Done():
 		shutdownCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancel()
-		shutdownErr := s.httpServer.Shutdown(shutdownCtx)
+		shutdownErr := srv.Shutdown(shutdownCtx)
 		if shutdownErr != nil && !errors.Is(shutdownErr, http.ErrServerClosed) {
-			_ = s.httpServer.Close()
+			_ = srv.Close()
 			s.httpServer = nil
 			return shutdownErr
 		}
