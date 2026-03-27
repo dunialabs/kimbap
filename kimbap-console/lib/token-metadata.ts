@@ -38,6 +38,9 @@ export function parseExternalTokenPermissions(
     const tools: Record<string, { enabled: boolean }> = {};
     if (perm.functions) {
       for (const func of perm.functions) {
+        if (typeof func.enabled !== 'boolean') {
+          throw new Error(`invalid enabled value for function "${func.funcName}": expected boolean`);
+        }
         tools[func.funcName] = { enabled: func.enabled };
       }
     }
@@ -45,6 +48,9 @@ export function parseExternalTokenPermissions(
     const resources: Record<string, { enabled: boolean }> = {};
     if (perm.resources) {
       for (const res of perm.resources) {
+        if (typeof res.enabled !== 'boolean') {
+          throw new Error(`invalid enabled value for resource "${res.uri}": expected boolean`);
+        }
         resources[res.uri] = { enabled: res.enabled };
       }
     }

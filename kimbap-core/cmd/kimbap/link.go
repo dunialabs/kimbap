@@ -192,10 +192,7 @@ func newLinkListCommand() *cobra.Command {
 						providerID = info.Service
 					}
 					row.AuthType = string(actions.AuthTypeOAuth2)
-					row.Connector = linkOAuthConnectorName(providerID, oauthStates)
-					if row.Connector == "" {
-						row.Connector = providerID
-					}
+					row.Connector = connectorStoreName(providerID, "")
 					row.Status = linkOAuthConnectionStatus(providerID, "", oauthStates)
 
 				case info.AuthType == actions.AuthTypeNone:
@@ -342,11 +339,9 @@ func linkIsOAuthService(info linkServiceInfo, oauthStates []connectorStateRow) b
 
 func linkOAuthConnectionStatus(providerID, profile string, states []connectorStateRow) string {
 	storeName := connectorStoreName(providerID, profile)
-	// Prefer exact store-name match (profile-aware).
 	for _, state := range states {
 		if strings.EqualFold(state.Name, storeName) {
-			mapped := connectors.MapLegacyStatus(connectors.ConnectorStatus(state.Status))
-			return string(mapped)
+			return connectorComputedStatus(state)
 		}
 	}
 	if p := strings.TrimSpace(profile); p != "" && !strings.EqualFold(p, "default") {
@@ -354,25 +349,10 @@ func linkOAuthConnectionStatus(providerID, profile string, states []connectorSta
 	}
 	for _, state := range states {
 		if strings.EqualFold(state.Provider, providerID) && strings.EqualFold(state.Name, providerID) {
-			mapped := connectors.MapLegacyStatus(connectors.ConnectorStatus(state.Status))
-			return string(mapped)
+			return connectorComputedStatus(state)
 		}
 	}
 	return "not_connected"
-}
-
-func linkOAuthConnectorName(providerID string, states []connectorStateRow) string {
-	for _, state := range states {
-		if strings.EqualFold(state.Provider, providerID) && strings.EqualFold(state.Name, providerID) {
-			return state.Name
-		}
-	}
-	for _, state := range states {
-		if strings.EqualFold(state.Provider, providerID) {
-			return state.Name
-		}
-	}
-	return ""
 }
 
 func linkHandleKeyBasedService(cfg *config.KimbapConfig, info linkServiceInfo, statusOnly bool, tenantID string) error {

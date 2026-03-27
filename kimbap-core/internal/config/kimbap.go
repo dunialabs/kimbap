@@ -243,6 +243,10 @@ func mergeConfigFromFile(cfg *KimbapConfig, path string, required bool) error {
 			return fmt.Errorf("config contains unsupported 'skills:' key — use 'services:'")
 		}
 		warnUnknownConfigKeys(raw, path)
+
+		if _, hasAliases := raw["aliases"]; hasAliases && len(loaded.Aliases) == 0 {
+			cfg.Aliases = nil
+		}
 	}
 
 	mergeConfig(cfg, &loaded)

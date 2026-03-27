@@ -11,7 +11,7 @@ interface UpdatePolicyInput {
   id: string;
   dsl?: {
     schemaVersion?: 1;
-    rules: any[];
+    rules: Record<string, unknown>[];
   };
   status?: 'active' | 'archived';
 }

@@ -11,7 +11,7 @@ interface CreatePolicyInput {
   serverId?: string;
   dsl: {
     schemaVersion: 1;
-    rules: any[];
+    rules: Record<string, unknown>[];
   };
 }
 

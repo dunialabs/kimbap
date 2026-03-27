@@ -147,7 +147,7 @@ export async function POST(request: NextRequest) {
     const resolvedPermissionsMode = permissionsMode || 'replace';
     const normalizedTokenIds = tokenIds.map((tokenId) => tokenId.trim());
     const parsedPermissions = shouldUpdatePermissions
-      ? parseExternalTokenPermissions(permissions)
+      ? (() => { try { return parseExternalTokenPermissions(permissions); } catch(e) { throw new ExternalApiError(E1003, (e as Error).message); } })()
       : undefined;
 
     if (namespace !== undefined || tags !== undefined) {
@@ -228,7 +228,7 @@ export async function POST(request: NextRequest) {
         failedCount++;
         failures.push({
           tokenId,
-          error: error instanceof Error ? error.message : 'Unknown error',
+          error: error instanceof ExternalApiError ? error.message : 'Internal processing error',
         });
       }
     }

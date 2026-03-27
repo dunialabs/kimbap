@@ -333,6 +333,26 @@ func TestLoadKimbapConfigRejectsLegacySkillsKey(t *testing.T) {
 	}
 }
 
+func TestLoadKimbapConfigWithoutDefault_AllowsClearingAliasesWithExplicitEmptyMap(t *testing.T) {
+	base := filepath.Join(t.TempDir(), "base.yaml")
+	override := filepath.Join(t.TempDir(), "override.yaml")
+
+	if err := os.WriteFile(base, []byte("aliases:\n  gh: github\n  ls: list\n"), 0o644); err != nil {
+		t.Fatalf("write base config: %v", err)
+	}
+	if err := os.WriteFile(override, []byte("aliases: {}\n"), 0o644); err != nil {
+		t.Fatalf("write override config: %v", err)
+	}
+
+	cfg, err := LoadKimbapConfigWithoutDefault(base, override)
+	if err != nil {
+		t.Fatalf("LoadKimbapConfigWithoutDefault: %v", err)
+	}
+	if len(cfg.Aliases) != 0 {
+		t.Fatalf("expected aliases to be cleared by explicit empty map, got %+v", cfg.Aliases)
+	}
+}
+
 func TestNotificationConfigYAMLParsing(t *testing.T) {
 	yamlContent := `
 notifications:

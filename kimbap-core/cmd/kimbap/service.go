@@ -735,23 +735,37 @@ func resolveServiceInstallSource(arg string) (*services.ServiceManifest, string,
 	}
 
 	data, err := skills.Get(trimmed)
-	if err != nil {
-		if errors.Is(err, fs.ErrNotExist) {
-			officialNames, _ := skills.List()
-			hint := "Run 'kimbap service list --available' to see all official services."
-			if suggestion := didYouMean(trimmed, officialNames); suggestion != "" {
-				hint = fmt.Sprintf("Did you mean %q? Run 'kimbap service list --available' to see all official services.", suggestion)
-			}
-			return nil, "", fmt.Errorf("service %q not found in official catalog. %s", trimmed, hint)
+	if err == nil {
+		manifest, parseErr := services.ParseManifest(data)
+		if parseErr != nil {
+			return nil, "", fmt.Errorf("parse official service %q: %w", trimmed, parseErr)
 		}
+		return manifest, "official:" + trimmed, nil
+	}
+	if !errors.Is(err, fs.ErrNotExist) {
 		return nil, "", fmt.Errorf("load official service %q: %w", trimmed, err)
 	}
 
-	manifest, err := services.ParseManifest(data)
-	if err != nil {
-		return nil, "", fmt.Errorf("parse official service %q: %w", trimmed, err)
+	cfg, cfgErr := loadAppConfig()
+	if cfgErr == nil {
+		officialURL := strings.TrimSpace(cfg.Services.Official)
+		if officialURL != "" && officialURL != "https://services.kimbap.ai" {
+			remoteReg := registry.NewRemoteRegistry("official", officialURL)
+			ctx, cancel := context.WithTimeout(contextBackground(), 30*time.Second)
+			defer cancel()
+			manifest, source, resolveErr := remoteReg.Resolve(ctx, trimmed)
+			if resolveErr == nil {
+				return manifest, source, nil
+			}
+		}
 	}
-	return manifest, "official:" + trimmed, nil
+
+	officialNames, _ := skills.List()
+	hint := "Run 'kimbap service list --available' to see all official services."
+	if suggestion := didYouMean(trimmed, officialNames); suggestion != "" {
+		hint = fmt.Sprintf("Did you mean %q? Run 'kimbap service list --available' to see all official services.", suggestion)
+	}
+	return nil, "", fmt.Errorf("service %q not found in official catalog. %s", trimmed, hint)
 }
 
 func sourceToInstallArg(source string) string {
@@ -785,7 +799,16 @@ func parseServiceManifestURL(serviceURL string) (*services.ServiceManifest, erro
 		return nil, fmt.Errorf("build request for %q: %w", serviceURL, err)
 	}
 
-	resp, err := http.DefaultClient.Do(req)
+	client := &http.Client{
+		Timeout: 30 * time.Second,
+		CheckRedirect: func(r *http.Request, via []*http.Request) error {
+			if r.URL.Scheme != "https" {
+				return fmt.Errorf("redirect to non-https URL %q rejected", r.URL)
+			}
+			return nil
+		},
+	}
+	resp, err := client.Do(req)
 	if err != nil {
 		return nil, fmt.Errorf("fetch service manifest from %q: %w", serviceURL, err)
 	}

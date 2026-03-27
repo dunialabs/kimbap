@@ -95,7 +95,8 @@ async function startDevelopmentEnvironment() {
     PORT: frontendPort,
     FRONTEND_PORT: frontendPort,
     BACKEND_PORT: backendPort,
-    NEXT_PUBLIC_BACKEND_PORT: backendPort
+    NEXT_PUBLIC_BACKEND_PORT: backendPort,
+    KIMBAP_CORE_URL: process.env.KIMBAP_CORE_URL || `http://localhost:${backendPort}`
   };
   
   log('\n🚀 Starting services...', colors.bright);

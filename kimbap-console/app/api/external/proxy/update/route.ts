@@ -49,6 +49,9 @@ export async function POST(request: NextRequest) {
     if (!proxyName || typeof proxyName !== 'string' || !proxyName.trim()) {
       throw new ExternalApiError(E1001, 'Missing required field: proxyName');
     }
+    if (proxyName.trim().length > 256) {
+      throw new ExternalApiError(E1003, 'Invalid field value: proxyName must be 256 characters or fewer');
+    }
 
     // Get current proxy
     const proxy = await getProxy();

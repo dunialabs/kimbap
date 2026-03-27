@@ -57,6 +57,7 @@ async function startWithPortAllocation() {
       ...process.env,
       FRONTEND_PORT: frontendPort,
       BACKEND_PORT: backendPort,
+      KIMBAP_CORE_URL: process.env.KIMBAP_CORE_URL || 'http://localhost:3002',
       PORT: frontendPort  // Next.js 
     };
 

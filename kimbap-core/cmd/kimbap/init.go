@@ -338,8 +338,13 @@ func writeInitConfig(cfg *config.KimbapConfig, force bool) (string, doctorCheck)
 		return path, doctorCheck{Name: "config file", Status: "fail", Detail: err.Error()}
 	}
 
-	if _, statErr := os.Stat(path); statErr == nil && !force {
-		return path, doctorCheck{Name: "config file", Status: "skip", Detail: fmt.Sprintf("exists: %s (use --force to overwrite)", path)}
+	if st, statErr := os.Stat(path); statErr == nil {
+		if st.IsDir() {
+			return path, doctorCheck{Name: "config file", Status: "fail", Detail: fmt.Sprintf("path is a directory: %s", path)}
+		}
+		if !force {
+			return path, doctorCheck{Name: "config file", Status: "skip", Detail: fmt.Sprintf("exists: %s (use --force to overwrite)", path)}
+		}
 	}
 
 	payload, err := yaml.Marshal(cfg)
@@ -460,8 +465,8 @@ func ensureEmptyFile(name, path string) doctorCheck {
 }
 
 func fileExists(path string) bool {
-	_, err := os.Stat(path)
-	return err == nil
+	st, err := os.Stat(path)
+	return err == nil && !st.IsDir()
 }
 
 func appendInitChecks(checks []doctorCheck, hasFailure bool, newChecks ...doctorCheck) ([]doctorCheck, bool) {
@@ -519,6 +524,14 @@ func ensureKBSymlink() doctorCheck {
 	kbPath := filepath.Join(filepath.Dir(execPath), "kb")
 	if existing, statErr := os.Lstat(kbPath); statErr == nil {
 		if existing.Mode()&os.ModeSymlink != 0 {
+			target, readErr := os.Readlink(kbPath)
+			if readErr != nil || target != execPath {
+				_ = os.Remove(kbPath)
+				if symlinkErr := os.Symlink(execPath, kbPath); symlinkErr != nil {
+					return doctorCheck{Name: "kb alias", Status: "fail", Detail: fmt.Sprintf("recreate symlink: %v", symlinkErr)}
+				}
+				return doctorCheck{Name: "kb alias", Status: "ok", Detail: fmt.Sprintf("updated: %s -> %s", kbPath, execPath)}
+			}
 			return doctorCheck{Name: "kb alias", Status: "skip", Detail: fmt.Sprintf("exists: %s", kbPath)}
 		}
 		return doctorCheck{Name: "kb alias", Status: "skip", Detail: fmt.Sprintf("exists (not symlink): %s", kbPath)}

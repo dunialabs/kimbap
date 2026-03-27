@@ -46,13 +46,15 @@ func newApproveListCommand() *cobra.Command {
 			}
 			st, err := openRuntimeStore(cfg)
 			if err != nil {
-				_ = printOutput(map[string]any{
-					"would_execute": true,
-					"operation":     "approve.list",
-					"tenant_id":     approvalTenant(tenant),
-					"status":        approvalStatus(status),
-					"note":          fmt.Sprintf("store unavailable: %v", err),
-				})
+				if outputAsJSON() {
+					_ = printOutput(map[string]any{
+						"would_execute": true,
+						"operation":     "approve.list",
+						"tenant_id":     approvalTenant(tenant),
+						"status":        approvalStatus(status),
+						"note":          fmt.Sprintf("store unavailable: %v", err),
+					})
+				}
 				return fmt.Errorf("approval store unavailable: %w", err)
 			}
 			defer st.Close()
@@ -99,15 +101,17 @@ func newApproveDenyCommand() *cobra.Command {
 			}
 			st, err := openRuntimeStore(cfg)
 			if err != nil {
-				_ = printOutput(map[string]any{
-					"would_execute": true,
-					"operation":     "approve.deny",
-					"request_id":    args[0],
-					"denied":        true,
-					"resolved_by":   "cli",
-					"reason":        reason,
-					"note":          fmt.Sprintf("store unavailable: %v", err),
-				})
+				if outputAsJSON() {
+					_ = printOutput(map[string]any{
+						"would_execute": true,
+						"operation":     "approve.deny",
+						"request_id":    args[0],
+						"denied":        true,
+						"resolved_by":   "cli",
+						"reason":        reason,
+						"note":          fmt.Sprintf("store unavailable: %v", err),
+					})
+				}
 				return fmt.Errorf("approval store unavailable: %w", err)
 			}
 			defer st.Close()
@@ -139,14 +143,16 @@ func runApproveAccept(requestID string) error {
 	}
 	st, err := openRuntimeStore(cfg)
 	if err != nil {
-		_ = printOutput(map[string]any{
-			"would_execute": true,
-			"operation":     "approve.accept",
-			"request_id":    requestID,
-			"approved":      true,
-			"resolved_by":   "cli",
-			"note":          fmt.Sprintf("store unavailable: %v", err),
-		})
+		if outputAsJSON() {
+			_ = printOutput(map[string]any{
+				"would_execute": true,
+				"operation":     "approve.accept",
+				"request_id":    requestID,
+				"approved":      true,
+				"resolved_by":   "cli",
+				"note":          fmt.Sprintf("store unavailable: %v", err),
+			})
+		}
 		return fmt.Errorf("approval store unavailable: %w", err)
 	}
 	defer st.Close()

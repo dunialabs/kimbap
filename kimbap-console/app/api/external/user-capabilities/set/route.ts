@@ -73,7 +73,12 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    const parsedPermissions = parseExternalTokenPermissions(body.permissions);
+    let parsedPermissions;
+    try {
+      parsedPermissions = parseExternalTokenPermissions(body.permissions);
+    } catch (e) {
+      throw new ExternalApiError(E1003, (e as Error).message);
+    }
 
     await updateUser(
       body.userId,

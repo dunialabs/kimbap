@@ -306,8 +306,12 @@ func IsKnownEventType(event EventType) bool {
 	switch event {
 	case EventTokenCreated,
 		EventTokenDeleted,
+		EventTokenUpdated,
 		EventPolicyCreated,
 		EventPolicyUpdated,
+		EventPolicyDeleted,
+		EventServiceInstalled,
+		EventServiceRemoved,
 		EventApprovalRequested,
 		EventApprovalApproved,
 		EventApprovalDenied,

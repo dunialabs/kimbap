@@ -18,6 +18,9 @@ function resolveSqlitePath(databaseUrl = process.env.DATABASE_URL || '') {
 
 function resetDatabase() {
   try {
+    if (!process.env.DATABASE_URL) {
+      process.env.DATABASE_URL = 'file:' + resolveSqlitePath();
+    }
     const dbPath = path.resolve(resolveSqlitePath());
     const dbDir = path.dirname(dbPath);
 

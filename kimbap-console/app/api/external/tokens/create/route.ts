@@ -103,6 +103,9 @@ export async function POST(request: NextRequest) {
       if (!t.name || typeof t.name !== 'string' || !t.name.trim()) {
         throw new ExternalApiError(E1001, `Missing required field: tokens[${i}].name`);
       }
+      if (t.name.trim().length > 256) {
+        throw new ExternalApiError(E1003, `Invalid field value: tokens[${i}].name must be 256 characters or fewer`);
+      }
       if (t.role === undefined || t.role === null) {
         throw new ExternalApiError(E1001, `Missing required field: tokens[${i}].role`);
       }
@@ -185,7 +188,12 @@ export async function POST(request: NextRequest) {
         const accessToken = CryptoUtils.generateToken();
         const userId = await CryptoUtils.calculateUserId(accessToken);
         const encryptedToken = await CryptoUtils.encryptData(accessToken, ownerToken);
-        const parsedPermissions = parseExternalTokenPermissions(tokenInput.permissions);
+        let parsedPermissions;
+        try {
+          parsedPermissions = parseExternalTokenPermissions(tokenInput.permissions);
+        } catch (e) {
+          throw new ExternalApiError(E1003, (e as Error).message);
+        }
         const createdAt = Math.floor(Date.now() / 1000);
 
         await createUser({

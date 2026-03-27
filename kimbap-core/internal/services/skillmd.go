@@ -24,11 +24,11 @@ func buildInstallInstruction(name string, cfg skillMDConfig) string {
 	case strings.HasPrefix(source, "official:"):
 		return fmt.Sprintf("kimbap service install %s", name)
 	case strings.HasPrefix(source, "remote:"):
-		trimmed := strings.TrimPrefix(source, "remote:")
-		return fmt.Sprintf("kimbap service install %s", strings.TrimSpace(trimmed))
+		trimmed := strings.TrimSpace(strings.TrimPrefix(source, "remote:"))
+		return fmt.Sprintf("kimbap service install %s", shellQuoteArg(trimmed))
 	case strings.HasPrefix(source, "local:"):
-		trimmed := strings.TrimPrefix(source, "local:")
-		return fmt.Sprintf("kimbap service install %s", strings.TrimSpace(trimmed))
+		trimmed := strings.TrimSpace(strings.TrimPrefix(source, "local:"))
+		return fmt.Sprintf("kimbap service install %s", shellQuoteArg(trimmed))
 	case source == "":
 		return fmt.Sprintf("kimbap service install %s.yaml", name)
 	default:
@@ -477,4 +477,12 @@ func packHasActionWarnings(manifest *ServiceManifest) bool {
 
 func GenerateMetaAgentSkillPack() map[string]string {
 	return map[string]string{"SKILL.md": GenerateMetaAgentSkillMD()}
+}
+
+func shellQuoteArg(s string) string {
+	const metaChars = " \t\n\"'\\`$&|;<>(){}!?*~#%"
+	if !strings.ContainsAny(s, metaChars) {
+		return s
+	}
+	return "'" + strings.ReplaceAll(s, "'", "'\\''") + "'"
 }

@@ -65,7 +65,7 @@ export async function getUserPermissions(
         for (const [funcName, config] of Object.entries(serverCapabilities.tools)) {
           functions.push({
             funcName,
-            enabled: (config as { enabled?: boolean }).enabled || false,
+            enabled: (config as { enabled?: boolean }).enabled === true,
           });
         }
       }
@@ -76,7 +76,7 @@ export async function getUserPermissions(
         for (const [uri, config] of Object.entries(serverCapabilities.resources)) {
           resources.push({
             uri,
-            enabled: (config as { enabled?: boolean }).enabled || false,
+            enabled: (config as { enabled?: boolean }).enabled === true,
           });
         }
       }

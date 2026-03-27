@@ -280,7 +280,10 @@ func splitGlobalCallFlags(tokens []string) ([]string, error) {
 			continue
 		default:
 			handled := false
-			if target, ok := globalStringFlags[tok]; ok && i+1 < len(tokens) && !strings.HasPrefix(strings.TrimSpace(tokens[i+1]), "--") {
+			if target, ok := globalStringFlags[tok]; ok {
+				if i+1 >= len(tokens) || strings.HasPrefix(strings.TrimSpace(tokens[i+1]), "--") {
+					return nil, fmt.Errorf("flag %s requires a value", tok)
+				}
 				i++
 				*target = strings.TrimSpace(tokens[i])
 				handled = true

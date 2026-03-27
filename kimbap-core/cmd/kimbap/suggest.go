@@ -27,9 +27,6 @@ func editDistance(a, b string) int {
 	if len(b) == 0 {
 		return len(a)
 	}
-	if len(a) > 32 || len(b) > 32 {
-		return len(a) + len(b)
-	}
 	prev := make([]int, len(b)+1)
 	curr := make([]int, len(b)+1)
 	for j := range prev {

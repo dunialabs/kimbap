@@ -106,14 +106,16 @@ func newConnectorListCommand() *cobra.Command {
 			}
 			states, err := listConnectorStates(contextBackground(), cfg, activeTenant)
 			if err != nil {
-				_ = printOutput(map[string]any{
-					"status":     "not_configured",
-					"operation":  "connector.list",
-					"tenant_id":  activeTenant,
-					"connectors": []map[string]any{},
-					"message":    fmt.Sprintf("Connector state store unavailable: %v", err),
-					"next":       "Configure database in ~/.kimbap/config.yaml and start runtime migrations.",
-				})
+				if outputAsJSON() {
+					_ = printOutput(map[string]any{
+						"status":     "not_configured",
+						"operation":  "connector.list",
+						"tenant_id":  activeTenant,
+						"connectors": []map[string]any{},
+						"message":    fmt.Sprintf("Connector state store unavailable: %v", err),
+						"next":       "Configure database in ~/.kimbap/config.yaml and start runtime migrations.",
+					})
+				}
 				return fmt.Errorf("connector state store unavailable: %w", err)
 			}
 
@@ -163,22 +165,26 @@ func newConnectorStatusCommand() *cobra.Command {
 			state, err := getConnectorState(contextBackground(), cfg, activeTenant, name)
 			if err != nil {
 				if errors.Is(err, sql.ErrNoRows) {
+					if outputAsJSON() {
+						_ = printOutput(map[string]any{
+							"status":    "not_found",
+							"operation": "connector.status",
+							"tenant_id": activeTenant,
+							"connector": name,
+							"message":   fmt.Sprintf("No connector state found for %q.", name),
+						})
+					}
+					return fmt.Errorf("connector %q not found", name)
+				}
+				if outputAsJSON() {
 					_ = printOutput(map[string]any{
-						"status":    "not_found",
+						"status":    "not_configured",
 						"operation": "connector.status",
 						"tenant_id": activeTenant,
 						"connector": name,
-						"message":   fmt.Sprintf("No connector state found for %q.", name),
+						"message":   fmt.Sprintf("Connector state store unavailable: %v", err),
 					})
-					return fmt.Errorf("connector %q not found", name)
 				}
-				_ = printOutput(map[string]any{
-					"status":    "not_configured",
-					"operation": "connector.status",
-					"tenant_id": activeTenant,
-					"connector": name,
-					"message":   fmt.Sprintf("Connector state store unavailable: %v", err),
-				})
 				return fmt.Errorf("connector state store unavailable: %w", err)
 			}
 
@@ -224,13 +230,15 @@ func newConnectorRefreshCommand() *cobra.Command {
 
 			store, storeErr := openConnectorStore(cfg)
 			if storeErr != nil {
-				_ = printOutput(map[string]any{
-					"status":    "not_configured",
-					"operation": "connector.refresh",
-					"tenant_id": activeTenant,
-					"connector": name,
-					"message":   fmt.Sprintf("Connector state store unavailable: %v", storeErr),
-				})
+				if outputAsJSON() {
+					_ = printOutput(map[string]any{
+						"status":    "not_configured",
+						"operation": "connector.refresh",
+						"tenant_id": activeTenant,
+						"connector": name,
+						"message":   fmt.Sprintf("Connector state store unavailable: %v", storeErr),
+					})
+				}
 				return fmt.Errorf("connector state store unavailable: %w", storeErr)
 			}
 
@@ -238,14 +246,16 @@ func newConnectorRefreshCommand() *cobra.Command {
 
 			provider, provErr := providers.GetProvider(name)
 			if provErr != nil {
-				_ = printOutput(map[string]any{
-					"status":    "not_found",
-					"operation": "connector.refresh",
-					"tenant_id": activeTenant,
-					"connector": name,
-					"message":   fmt.Sprintf("Provider %q not found in registry: %v", name, provErr),
-					"next":      "Check available providers with: kimbap auth providers list",
-				})
+				if outputAsJSON() {
+					_ = printOutput(map[string]any{
+						"status":    "not_found",
+						"operation": "connector.refresh",
+						"tenant_id": activeTenant,
+						"connector": name,
+						"message":   fmt.Sprintf("Provider %q not found in registry: %v", name, provErr),
+						"next":      "Check available providers with: kimbap auth providers list",
+					})
+				}
 				return fmt.Errorf("provider %q not found: %w", name, provErr)
 			}
 			name = provider.ID
@@ -278,14 +288,16 @@ func newConnectorRefreshCommand() *cobra.Command {
 			})
 
 			if refreshErr := mgr.Refresh(contextBackground(), activeTenant, name); refreshErr != nil {
-				_ = printOutput(map[string]any{
-					"status":    "error",
-					"operation": "connector.refresh",
-					"tenant_id": activeTenant,
-					"connector": name,
-					"message":   refreshErr.Error(),
-					"next":      fmt.Sprintf("If refresh token is missing or expired, run: kimbap connector login %s", name),
-				})
+				if outputAsJSON() {
+					_ = printOutput(map[string]any{
+						"status":    "error",
+						"operation": "connector.refresh",
+						"tenant_id": activeTenant,
+						"connector": name,
+						"message":   refreshErr.Error(),
+						"next":      fmt.Sprintf("If refresh token is missing or expired, run: kimbap connector login %s", name),
+					})
+				}
 				return fmt.Errorf("connector refresh failed: %w", refreshErr)
 			}
 
@@ -312,14 +324,17 @@ func connectorTenant(raw string) string {
 }
 
 type connectorStateRow struct {
-	Name        string
-	Provider    string
-	Status      string
-	Account     string
-	ExpiresAt   *string
-	UpdatedAt   *string
-	LastRefresh *string
-	Scopes      []string
+	Name             string
+	Provider         string
+	Status           string
+	Account          string
+	ExpiresAt        *string
+	RevokedAt        *string
+	UpdatedAt        *string
+	LastRefresh      *string
+	LastRefreshError string
+	AccessToken      string
+	Scopes           []string
 }
 
 func listConnectorStates(ctx context.Context, cfg *config.KimbapConfig, tenantID string) ([]connectorStateRow, error) {
@@ -508,4 +523,28 @@ func bindQuery(query, dialect string) string {
 		out.WriteByte(query[i])
 	}
 	return out.String()
+}
+
+func connectorComputedStatus(state connectorStateRow) string {
+	if state.RevokedAt != nil {
+		return "revoked"
+	}
+	if strings.TrimSpace(state.LastRefreshError) != "" {
+		return "refresh_failed"
+	}
+	if state.ExpiresAt != nil {
+		if t, err := time.Parse(time.RFC3339, *state.ExpiresAt); err == nil {
+			if t.Before(time.Now()) {
+				return "expired"
+			}
+			if t.Before(time.Now().Add(15 * time.Minute)) {
+				return "degraded"
+			}
+		}
+	}
+	if strings.TrimSpace(state.AccessToken) == "" {
+		return "connecting"
+	}
+	mapped := connectors.MapLegacyStatus(connectors.ConnectorStatus(state.Status))
+	return string(mapped)
 }

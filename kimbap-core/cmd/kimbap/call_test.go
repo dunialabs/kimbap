@@ -160,3 +160,22 @@ func TestParseScalarNumericOneIsInteger(t *testing.T) {
 		t.Fatalf("expected int64 for scalar '1', got %T (%v)", v, v)
 	}
 }
+
+func TestSplitCallInvocationArgs_StringFlagMissingValue(t *testing.T) {
+	tests := []struct {
+		name   string
+		args   []string
+	}{
+		{"format at end of args", []string{"slack.list-channels", "--format"}},
+		{"format followed by another flag", []string{"slack.list-channels", "--format", "--dry-run"}},
+		{"json at end of args", []string{"slack.list-channels", "--json"}},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			_, _, _, err := splitCallInvocationArgs(tt.args)
+			if err == nil {
+				t.Fatalf("expected error for %v, got nil", tt.args)
+			}
+		})
+	}
+}

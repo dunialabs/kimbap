@@ -28,6 +28,12 @@ interface UpdateTokenInput {
   tags?: string[];
 }
 
+interface TokenUpdatePayload {
+  name?: string;
+  notes?: string;
+  permissions?: string;
+}
+
 /**
  * POST /api/external/tokens/update
  *
@@ -126,7 +132,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Build update data - only include provided fields
-    const updateData: any = {};
+    const updateData: TokenUpdatePayload = {};
 
     if (body.name !== undefined) {
       updateData.name = body.name;
@@ -137,7 +143,12 @@ export async function POST(request: NextRequest) {
     }
 
     if (body.permissions !== undefined && body.permissions !== null) {
-      const parsedPermissions = parseExternalTokenPermissions(body.permissions);
+      let parsedPermissions;
+      try {
+        parsedPermissions = parseExternalTokenPermissions(body.permissions);
+      } catch (e) {
+        throw new ExternalApiError(E1003, (e as Error).message);
+      }
       updateData.permissions = JSON.stringify(parsedPermissions);
     }
 

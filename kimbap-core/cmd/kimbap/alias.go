@@ -50,6 +50,9 @@ func newAliasSetCommand() *cobra.Command {
 			if err := services.ValidateServiceName(alias); err != nil {
 				return fmt.Errorf("invalid alias name: %w", err)
 			}
+			if err := services.ValidateServiceName(target); err != nil {
+				return fmt.Errorf("invalid alias target: %w", err)
+			}
 			if strings.Contains(alias, ".") {
 				return fmt.Errorf("alias %q must not contain dots — aliases resolve the service part only (before the first dot)", alias)
 			}
@@ -67,6 +70,10 @@ func newAliasSetCommand() *cobra.Command {
 						return fmt.Errorf("alias %q conflicts with installed service %q — choose a different alias name", alias, svc.Manifest.Name)
 					}
 				}
+			}
+
+			if existing, isAlias := cfg.Aliases[target]; isAlias {
+				return fmt.Errorf("target %q is itself an alias (-> %q) — aliases must point to real service names, not other aliases", target, existing)
 			}
 
 			configPath, resolveErr := resolveConfigPath()
