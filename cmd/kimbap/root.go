@@ -426,15 +426,21 @@ func resolveVaultMasterKey(cfg *config.KimbapConfig) ([]byte, error) {
 	if err := os.MkdirAll(cfg.DataDir, 0o700); err != nil {
 		return nil, fmt.Errorf("create data dir: %w", err)
 	}
-	if err := os.WriteFile(devKeyPath, key, 0o600); err != nil {
+	f, err := os.OpenFile(devKeyPath, os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0o600)
+	if err != nil {
 		if os.IsExist(err) {
-			// Another process won the race — read their key.
 			existing, readErr := os.ReadFile(devKeyPath)
 			if readErr == nil && len(existing) == 32 {
 				return existing, nil
 			}
 		}
 		return nil, fmt.Errorf("persist dev master key: %w", err)
+	}
+	_, writeErr := f.Write(key)
+	_ = f.Close()
+	if writeErr != nil {
+		_ = os.Remove(devKeyPath)
+		return nil, fmt.Errorf("write dev master key: %w", writeErr)
 	}
 	return key, nil
 }

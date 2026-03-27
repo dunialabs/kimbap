@@ -227,6 +227,7 @@ func newAuthReconnectCommand() *cobra.Command {
 
 			existingWorkspace := ""
 			existingScope := string(connectors.ScopeUser)
+			reconnectScopes := scopeInput
 			prevMgr := connectors.NewManager(store)
 			if prev, _ := prevMgr.Status(contextBackground(), activeTenant, connectorStoreName(providerID, profile)); prev != nil {
 				if prev.WorkspaceID != "" {
@@ -235,6 +236,9 @@ func newAuthReconnectCommand() *cobra.Command {
 				if prev.ConnectionScope != "" {
 					existingScope = string(prev.ConnectionScope)
 				}
+				if strings.TrimSpace(reconnectScopes) == "" && len(prev.Scopes) > 0 {
+					reconnectScopes = strings.Join(prev.Scopes, " ")
+				}
 			}
 
 			return runAuthConnect(
@@ -242,7 +246,7 @@ func newAuthReconnectCommand() *cobra.Command {
 				providerID,
 				activeTenant,
 				flow,
-				scopeInput,
+				reconnectScopes,
 				"auto",
 				false,
 				0,

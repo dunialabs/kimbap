@@ -760,6 +760,10 @@ func resolveServiceInstallSource(arg string) (*services.ServiceManifest, string,
 			if resolveErr == nil {
 				return manifest, source, nil
 			}
+			var notFound *registry.ErrNotFound
+			if !errors.As(resolveErr, &notFound) {
+				return nil, "", fmt.Errorf("load official service %q from %s: %w", trimmed, officialURL, resolveErr)
+			}
 		}
 	}
 
