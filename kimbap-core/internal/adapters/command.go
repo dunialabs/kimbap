@@ -95,7 +95,7 @@ func (a *CommandAdapter) Execute(ctx context.Context, req AdapterRequest) (*Adap
 	defer cancel()
 
 	cmd := exec.CommandContext(execCtx, executable, args...)
-	env := filterSensitiveEnv(os.Environ())
+	env := safeProcessEnv()
 	for k, v := range req.Action.Adapter.EnvInject {
 		if strings.TrimSpace(k) == "" {
 			continue
@@ -227,21 +227,15 @@ func stringifyArgValue(v any) string {
 	}
 }
 
-var sensitiveEnvKeys = map[string]struct{}{
-	"KIMBAP_MASTER_KEY_HEX": {},
-	"KIMBAP_AGENT_TOKEN":    {},
-	"KIMBAP_DEV":            {},
-}
-
-func filterSensitiveEnv(env []string) []string {
-	out := make([]string, 0, len(env))
-	for _, entry := range env {
-		key := entry
-		if idx := strings.Index(entry, "="); idx >= 0 {
-			key = entry[:idx]
-		}
-		if _, blocked := sensitiveEnvKeys[key]; !blocked {
-			out = append(out, entry)
+func safeProcessEnv() []string {
+	allowedPrefixes := []string{"PATH=", "HOME=", "USER=", "LOGNAME=", "SHELL=", "TMPDIR=", "TMP=", "TEMP=", "LANG=", "LC_"}
+	out := make([]string, 0, len(allowedPrefixes))
+	for _, entry := range os.Environ() {
+		for _, prefix := range allowedPrefixes {
+			if strings.HasPrefix(entry, prefix) {
+				out = append(out, entry)
+				break
+			}
 		}
 	}
 	return out

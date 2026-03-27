@@ -187,3 +187,26 @@ func TestCommandAdapterHelperProcess(t *testing.T) {
 	_, _ = os.Stdout.Write(encoded)
 	os.Exit(0)
 }
+
+func TestSafeProcessEnv_AllowlistOnly(t *testing.T) {
+	t.Setenv("PATH", "/usr/bin")
+	t.Setenv("LANG", "en_US.UTF-8")
+	t.Setenv("LC_ALL", "en_US.UTF-8")
+	t.Setenv("HTTP_PROXY", "http://proxy.local:8080")
+	t.Setenv("KIMBAP_MASTER_KEY_HEX", "secret")
+
+	out := safeProcessEnv()
+	joined := strings.Join(out, "\n")
+
+	for _, want := range []string{"PATH=/usr/bin", "LANG=en_US.UTF-8", "LC_ALL=en_US.UTF-8"} {
+		if !strings.Contains(joined, want) {
+			t.Fatalf("expected %q to be preserved, got %v", want, out)
+		}
+	}
+
+	for _, blocked := range []string{"HTTP_PROXY=http://proxy.local:8080", "KIMBAP_MASTER_KEY_HEX=secret"} {
+		if strings.Contains(joined, blocked) {
+			t.Fatalf("expected %q to be excluded by allowlist, got %v", blocked, out)
+		}
+	}
+}
