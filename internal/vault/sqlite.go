@@ -142,6 +142,10 @@ func (s *SQLiteStore) Create(ctx context.Context, tenantID string, name string, 
 func (s *SQLiteStore) Upsert(ctx context.Context, tenantID string, name string, secretType SecretType, plaintext []byte, labels map[string]string, createdBy string) (*SecretRecord, error) {
 	tenantID = strings.TrimSpace(tenantID)
 	name = strings.TrimSpace(name)
+	createdBy = strings.TrimSpace(createdBy)
+	if createdBy == "" {
+		return nil, errors.New("createdBy is required")
+	}
 	rec, err := s.Create(ctx, tenantID, name, secretType, plaintext, labels, createdBy)
 	if err != ErrSecretAlreadyExists {
 		return rec, err

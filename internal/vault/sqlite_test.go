@@ -318,6 +318,35 @@ func TestSQLiteStoreUpsertRotatesWhenExists(t *testing.T) {
 	}
 }
 
+func TestSQLiteStoreUpsertRequiresCreatedByWhenUpdatingExistingSecret(t *testing.T) {
+	store := newTestStore(t)
+	ctx := context.Background()
+
+	if _, err := store.Create(ctx, "tenant-a", "UPSERT_CREATED_BY", SecretTypeAPIKey, []byte("v1"), nil, "tester"); err != nil {
+		t.Fatalf("create seed: %v", err)
+	}
+
+	if _, err := store.Upsert(ctx, "tenant-a", "UPSERT_CREATED_BY", SecretTypeAPIKey, []byte("v2"), nil, "   "); err == nil || err.Error() != "createdBy is required" {
+		t.Fatalf("expected createdBy validation error, got %v", err)
+	}
+
+	meta, err := store.GetMeta(ctx, "tenant-a", "UPSERT_CREATED_BY")
+	if err != nil {
+		t.Fatalf("get meta after failed upsert: %v", err)
+	}
+	if meta.CurrentVersion != 1 || meta.VersionCount != 1 {
+		t.Fatalf("expected failed upsert to preserve version metadata, current=%d count=%d", meta.CurrentVersion, meta.VersionCount)
+	}
+
+	value, err := store.GetValue(ctx, "tenant-a", "UPSERT_CREATED_BY")
+	if err != nil {
+		t.Fatalf("get value after failed upsert: %v", err)
+	}
+	if !bytes.Equal(value, []byte("v1")) {
+		t.Fatalf("expected failed upsert to preserve original value, got %q", string(value))
+	}
+}
+
 func TestSQLiteStoreUpsertUpdatesMetadataWhenExists(t *testing.T) {
 	store := newTestStore(t)
 	ctx := context.Background()
