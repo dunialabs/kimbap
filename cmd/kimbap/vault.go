@@ -221,18 +221,19 @@ func newVaultDeleteCommand() *cobra.Command {
 }
 
 func readSecretInput(filePath string, readStdin bool) ([]byte, error) {
+	const maxSecretInputBytes int64 = 1 << 20
+
 	if fp := strings.TrimSpace(filePath); (fp == "" && !readStdin) || (fp != "" && readStdin) {
 		return nil, fmt.Errorf("exactly one input method is required: --file path or --stdin")
 	}
 
 	if readStdin {
-		const maxStdinSecretBytes int64 = 1 << 20
-		payload, err := io.ReadAll(io.LimitReader(os.Stdin, maxStdinSecretBytes+1))
+		payload, err := io.ReadAll(io.LimitReader(os.Stdin, maxSecretInputBytes+1))
 		if err != nil {
 			return nil, err
 		}
-		if int64(len(payload)) > maxStdinSecretBytes {
-			return nil, fmt.Errorf("stdin payload exceeds %d bytes", maxStdinSecretBytes)
+		if int64(len(payload)) > maxSecretInputBytes {
+			return nil, fmt.Errorf("stdin payload exceeds %d bytes", maxSecretInputBytes)
 		}
 		if len(payload) == 0 {
 			return nil, fmt.Errorf("empty stdin payload")
@@ -240,9 +241,18 @@ func readSecretInput(filePath string, readStdin bool) ([]byte, error) {
 		return payload, nil
 	}
 
-	payload, err := os.ReadFile(filePath)
+	f, err := os.Open(filePath)
 	if err != nil {
 		return nil, err
+	}
+	defer f.Close()
+
+	payload, err := io.ReadAll(io.LimitReader(f, maxSecretInputBytes+1))
+	if err != nil {
+		return nil, err
+	}
+	if int64(len(payload)) > maxSecretInputBytes {
+		return nil, fmt.Errorf("file payload exceeds %d bytes", maxSecretInputBytes)
 	}
 	if len(payload) == 0 {
 		return nil, fmt.Errorf("empty file payload")

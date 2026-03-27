@@ -1,0 +1,636 @@
+name: peta-console
+version: 1.0.0
+description: Kimbap Console API for token management, policy control, approval workflows, proxy configuration, and kimbap-core connectivity
+base_url: http://localhost:3000/api/external
+auth:
+  type: bearer
+  credential_ref: peta-console.token
+triggers:
+  task_verbs: [list, create, update, delete, approve, reject, manage, check, connect, initialize]
+  objects: [tokens, policies, approvals, capabilities, proxy, kimbap-core]
+  instead_of:
+    - manually logging into the Kimbap Console web UI to manage tokens, policies, and approvals
+    - calling peta-console APIs directly without credentials properly stored in the vault
+    - using raw curl commands to manage console state
+  exclusions:
+    - actions unrelated to Kimbap Console operations
+    - direct database manipulation or filesystem access inside the console container
+gotchas:
+  - symptom: All API calls return 401 Unauthorized
+    likely_cause: Bearer token was not set or has expired; peta-console.token vault entry is missing or wrong
+    recovery: Run init to get a fresh owner token if first setup then store it with kimbap vault set peta-console.token
+    severity: high
+  - symptom: init returns error code E3007 Proxy has already been initialized
+    likely_cause: The console was already bootstrapped; calling init again is not allowed
+    recovery: Use the existing owner token; never call init again on an already-initialized instance unless doing a full reset
+    severity: high
+  - symptom: create-token fails with E4007 Cannot create owner role
+    likely_cause: role value 1 (owner) was passed; only admin (2) and member (3) are creatable via API
+    recovery: Use role=2 for admin tokens or role=3 for member tokens
+    severity: medium
+  - symptom: batch-update-tokens partially fails with Token not found for some IDs
+    likely_cause: One or more tokenIds do not exist or belong to a different proxy
+    recovery: Validate each tokenId with list-tokens first; batch-update returns per-token failure details in the failures array
+    severity: common
+  - symptom: decide-approval fails with validation error on decision field
+    likely_cause: decision value is lowercase or misspelled; it is case-sensitive
+    recovery: Use exactly APPROVED or REJECTED in uppercase
+    severity: medium
+  - symptom: connect-kimbap-core fails with Kimbap Core not available
+    likely_cause: The kimbap-core service is not running or the host URL or port is incorrect
+    recovery: Verify kimbap-core is reachable then retry with the correct base URL
+    severity: high
+  - symptom: list-tokens returns an empty tokens array despite tokens existing
+    likely_cause: namespace or tags filter is excluding all results
+    recovery: Omit namespace and tags parameters to list all tokens without filtering
+    severity: common
+  - symptom: create-token raw accessToken is lost after the API call
+    likely_cause: The accessToken is only returned once at creation time and cannot be retrieved again
+    recovery: Store the accessToken immediately from the response before proceeding
+    severity: high
+  - symptom: batch-update-tokens with tagsMode fails with missing field error
+    likely_cause: tagsMode other than clear was specified but tags array was omitted
+    recovery: Always provide the tags array when using tagsMode replace, add, or remove; tagsMode clear requires no tags
+    severity: medium
+  - symptom: update-policy fails with missing required field dsl or status
+    likely_cause: The body contained only id with no dsl or status field
+    recovery: Always include at least one of dsl (policy rules object) or status (active/archived) in the update body
+    severity: medium
+recipes:
+  - name: Bootstrap a fresh console instance
+    description: Initialize the proxy, capture the owner token, and connect to kimbap-core in one flow
+    steps:
+      - Call init with a strong masterPwd to create the proxy and obtain the owner accessToken
+      - Store the returned accessToken with kimbap vault set peta-console.token
+      - Call connect-kimbap-core with the correct host (e.g. http://localhost:3002)
+      - Call get-proxy to confirm the proxy was created and is responding
+  - name: Create and manage agent tokens
+    description: Provision new agent tokens with scoped permissions then review and revoke as needed
+    steps:
+      - Call list-tokens to audit existing tokens their roles namespaces and last-used timestamps
+      - Call create-token with tokens array containing name, role (2=admin/3=member), and optional permissions
+      - Save the accessToken from the response immediately as it cannot be retrieved later
+      - Use delete-token to permanently revoke tokens that are no longer needed
+  - name: Process pending approval requests
+    description: Check for pending approvals and make decisions on each one
+    steps:
+      - Call count-pending-approvals to determine how many decisions are waiting
+      - Call list-approvals with status=pending to retrieve all pending requests
+      - Call get-approval for each approval ID to inspect the full request context
+      - Call decide-approval with decision=APPROVED or REJECTED and an optional reason string
+  - name: Configure and audit policies
+    description: Create access control policies and verify they are active
+    steps:
+      - Call list-policies to see all existing policy sets and their current status
+      - Call create-policy with a dsl object containing schemaVersion=1 and a rules array
+      - Call get-effective-policies to confirm the new policy is being applied
+      - Use update-policy with status=archived to deactivate a policy without deleting it
+  - name: Namespace and tag-based token organization
+    description: Organize tokens by namespace and tag for multi-environment or multi-team setups
+    steps:
+      - Call create-token with namespace and tags fields to assign new tokens to a logical group
+      - Call list-tokens with namespace or tags filter to retrieve tokens for a specific group
+      - Call batch-update-tokens with tagsMode=add or tagsMode=remove to adjust tags across many tokens at once
+actions:
+  init:
+    method: POST
+    path: /auth/init
+    description: >
+      Initialize the Kimbap Console for the first time. Creates the proxy record and returns the owner
+      access token. Call only once on a fresh install — subsequent calls fail with E3007 if already initialized.
+    auth:
+      type: none
+    warnings:
+      - This endpoint requires NO authentication; it bootstraps the very first owner token
+      - Fails with E3007 if the proxy has already been initialized; do not call again on an existing instance
+      - masterPwd is used to encrypt the owner token server-side; choose a strong value and store it securely
+      - The returned accessToken must be saved immediately and stored in the vault for all subsequent API calls
+    args:
+      - name: masterPwd
+        type: string
+        required: true
+    request:
+      body:
+        masterPwd: "{masterPwd}"
+    response:
+      type: object
+    risk:
+      level: high
+  get-proxy:
+    method: GET
+    path: /proxy
+    description: Get current proxy information including proxyId, proxyName, and createdAt timestamp
+    args: []
+    response:
+      type: object
+    risk:
+      level: low
+    retry:
+      max_attempts: 3
+      backoff_ms: 200
+      retry_on: [429, 500, 502, 503]
+  update-proxy:
+    method: POST
+    path: /proxy/update
+    description: Update the display name of the proxy instance
+    args:
+      - name: proxyId
+        type: integer
+        required: true
+      - name: proxyName
+        type: string
+        required: true
+    request:
+      body:
+        proxyId: "{proxyId}"
+        proxyName: "{proxyName}"
+    response:
+      type: object
+    risk:
+      level: medium
+  list-tokens:
+    method: GET
+    path: /tokens
+    description: >
+      List all access tokens with their roles, permissions, namespace, tags, last-used timestamps,
+      and creation dates. Supports pagination and optional filtering by namespace or tags.
+      The tags query parameter accepts a comma-separated string (e.g. prod,agent).
+      Maximum pageSize is 100.
+    args:
+      - name: namespace
+        type: string
+        required: false
+      - name: tags
+        type: string
+        required: false
+      - name: page
+        type: integer
+        required: false
+        default: 1
+      - name: pageSize
+        type: integer
+        required: false
+        default: 20
+    request:
+      query:
+        namespace: "{namespace}"
+        tags: "{tags}"
+        page: "{page}"
+        pageSize: "{pageSize}"
+    response:
+      extract: tokens
+      type: array
+    risk:
+      level: low
+    retry:
+      max_attempts: 3
+      backoff_ms: 200
+      retry_on: [429, 500, 502, 503]
+  get-token:
+    method: GET
+    path: /tokens/get
+    description: Get full details of a specific token by its ID including permissions, namespace, and tags
+    args:
+      - name: tokenId
+        type: string
+        required: true
+    request:
+      query:
+        tokenId: "{tokenId}"
+    response:
+      type: object
+    risk:
+      level: low
+  create-token:
+    method: POST
+    path: /tokens/create
+    description: >
+      Batch create one or more access tokens. Returns the plaintext accessToken for each created
+      token — this is the only time it is returned and cannot be retrieved again. Store it immediately.
+      Each token object in the tokens array requires name (string) and role (2=admin or 3=member).
+      Optional per-token fields: notes (string), expiresAt (unix timestamp integer), rateLimit (integer req/s),
+      permissions (array of permission objects with toolId), namespace (string), tags (array of strings).
+    warnings:
+      - The accessToken in the response is returned exactly once; store it before making any other calls
+      - role must be 2 (admin) or 3 (member); role 1 (owner) cannot be created via API
+      - Up to 50 tokens can be created per request; check the errors array in the response for partial failures
+      - permissions items must each have a non-empty toolId string; functions and resources are optional arrays within each permission
+    args:
+      - name: tokens
+        type: array
+        required: true
+    request:
+      body:
+        tokens: "{tokens}"
+    response:
+      type: object
+    risk:
+      level: high
+  update-token:
+    method: POST
+    path: /tokens/update
+    description: >
+      Update an existing token's name, notes, permissions, namespace, or tags.
+      Only the fields provided will be changed; omitted fields are left unchanged.
+      Cannot modify the owner token (role=1).
+    args:
+      - name: tokenId
+        type: string
+        required: true
+      - name: name
+        type: string
+        required: false
+      - name: notes
+        type: string
+        required: false
+      - name: permissions
+        type: array
+        required: false
+      - name: namespace
+        type: string
+        required: false
+      - name: tags
+        type: array
+        required: false
+    request:
+      body:
+        tokenId: "{tokenId}"
+        name: "{name}"
+        notes: "{notes}"
+        permissions: "{permissions}"
+        namespace: "{namespace}"
+        tags: "{tags}"
+    response:
+      type: object
+    risk:
+      level: medium
+  delete-token:
+    method: POST
+    path: /tokens/delete
+    description: Permanently delete an access token and revoke its ability to authenticate
+    warnings:
+      - This action is irreversible; the token is permanently revoked and cannot be recovered
+      - The owner token (role=1) cannot be deleted via this endpoint
+    args:
+      - name: tokenId
+        type: string
+        required: true
+    request:
+      body:
+        tokenId: "{tokenId}"
+    response:
+      type: object
+    risk:
+      level: high
+  batch-update-tokens:
+    method: POST
+    path: /tokens/batch-update
+    description: >
+      Update namespace, tags, and/or permissions for up to 50 tokens in one request.
+      Partial success is supported; failed tokens are listed in the failures array with per-token error details.
+      Owner tokens (role=1) are silently skipped and reported in failures.
+    warnings:
+      - tagsMode replace, add, or remove all require the tags array to be provided; clear does not
+      - Owner tokens are skipped silently and appear in the failures array with a descriptive error
+      - Up to 50 tokenIds per request; exceeding this limit returns E1003
+      - At least one of permissions, namespace, or tags must be provided; an empty body returns E1001
+      - When permissionsMode is omitted it defaults to replace
+      - When tagsMode is omitted it defaults to replace
+    args:
+      - name: tokenIds
+        type: array
+        required: true
+      - name: namespace
+        type: string
+        required: false
+      - name: tags
+        type: array
+        required: false
+      - name: tagsMode
+        type: string
+        required: false
+        enum: [replace, add, remove, clear]
+      - name: permissions
+        type: array
+        required: false
+      - name: permissionsMode
+        type: string
+        required: false
+        enum: [replace, merge]
+    request:
+      body:
+        tokenIds: "{tokenIds}"
+        namespace: "{namespace}"
+        tags: "{tags}"
+        tagsMode: "{tagsMode}"
+        permissions: "{permissions}"
+        permissionsMode: "{permissionsMode}"
+    response:
+      type: object
+    risk:
+      level: high
+  list-policies:
+    method: GET
+    path: /policies
+    description: List all policy sets, optionally filtered by a specific MCP server ID
+    args:
+      - name: serverId
+        type: string
+        required: false
+    request:
+      query:
+        serverId: "{serverId}"
+    response:
+      extract: policySets
+      type: array
+    risk:
+      level: low
+    retry:
+      max_attempts: 3
+      backoff_ms: 200
+      retry_on: [429, 500, 502, 503]
+  get-policy:
+    method: GET
+    path: /policies/get
+    description: Get full details of a specific policy set by its ID
+    args:
+      - name: id
+        type: string
+        required: true
+    request:
+      query:
+        id: "{id}"
+    response:
+      type: object
+    risk:
+      level: low
+  create-policy:
+    method: POST
+    path: /policies/create
+    description: >
+      Create a new policy set with DSL-based access control rules.
+      Optionally scope the policy to a single MCP server via serverId.
+      The dsl object must contain schemaVersion (integer 1) and a rules array.
+    warnings:
+      - dsl must be an object containing schemaVersion (integer 1) and a rules array
+      - Policies are active immediately after creation; verify with get-effective-policies
+    args:
+      - name: dsl
+        type: object
+        required: true
+      - name: serverId
+        type: string
+        required: false
+    request:
+      body:
+        dsl: "{dsl}"
+        serverId: "{serverId}"
+    response:
+      type: object
+    risk:
+      level: high
+  update-policy:
+    method: POST
+    path: /policies/update
+    description: >
+      Update an existing policy's DSL rules or lifecycle status.
+      At least one of dsl or status must be provided.
+      Use status=archived to soft-deactivate a policy without deleting it.
+    args:
+      - name: id
+        type: string
+        required: true
+      - name: dsl
+        type: object
+        required: false
+      - name: status
+        type: string
+        required: false
+        enum: [active, archived]
+    request:
+      body:
+        id: "{id}"
+        dsl: "{dsl}"
+        status: "{status}"
+    response:
+      type: object
+    risk:
+      level: high
+  delete-policy:
+    method: POST
+    path: /policies/delete
+    description: >
+      Permanently delete a policy set. This is irreversible.
+      Prefer update-policy with status=archived for recoverable deactivation.
+    warnings:
+      - Deleted policies cannot be recovered; use update-policy with status=archived instead for soft removal
+    args:
+      - name: id
+        type: string
+        required: true
+    request:
+      body:
+        id: "{id}"
+    response:
+      type: object
+    risk:
+      level: high
+  get-effective-policies:
+    method: GET
+    path: /policies/effective
+    description: >
+      Get the set of currently active (effective) policies being applied.
+      Optionally filter by MCP server ID to see policies for a specific server.
+    args:
+      - name: serverId
+        type: string
+        required: false
+    request:
+      query:
+        serverId: "{serverId}"
+    response:
+      type: object
+    risk:
+      level: low
+  list-approvals:
+    method: GET
+    path: /approvals
+    description: >
+      List approval requests with optional filters by user, server, tool name, and status.
+      Results are paginated; use page and pageSize to navigate large result sets.
+    args:
+      - name: userId
+        type: string
+        required: false
+      - name: serverId
+        type: string
+        required: false
+      - name: toolName
+        type: string
+        required: false
+      - name: status
+        type: string
+        required: false
+      - name: page
+        type: integer
+        required: false
+        default: 1
+      - name: pageSize
+        type: integer
+        required: false
+        default: 20
+    request:
+      query:
+        userId: "{userId}"
+        serverId: "{serverId}"
+        toolName: "{toolName}"
+        status: "{status}"
+        page: "{page}"
+        pageSize: "{pageSize}"
+    response:
+      extract: requests
+      type: array
+    risk:
+      level: low
+    retry:
+      max_attempts: 3
+      backoff_ms: 200
+      retry_on: [429, 500, 502, 503]
+  get-approval:
+    method: GET
+    path: /approvals/get
+    description: Get full details of a specific approval request including tool call context and requestor info
+    args:
+      - name: id
+        type: string
+        required: true
+    request:
+      query:
+        id: "{id}"
+    response:
+      type: object
+    risk:
+      level: low
+  count-pending-approvals:
+    method: GET
+    path: /approvals/count-pending
+    description: >
+      Return the count of pending approval requests. Use this as a lightweight check before
+      listing full approval details. Optionally scope to a specific user's pending requests.
+    args:
+      - name: userId
+        type: string
+        required: false
+    request:
+      query:
+        userId: "{userId}"
+    response:
+      type: object
+    risk:
+      level: low
+  decide-approval:
+    method: POST
+    path: /approvals/decide
+    description: >
+      Approve or reject a pending approval request. The decision is final and cannot be reversed.
+      An optional reason string can be provided for audit purposes.
+    warnings:
+      - decision must be exactly APPROVED or REJECTED in uppercase; other values are rejected with E1003
+      - Once decided the approval status cannot be changed back to pending
+    args:
+      - name: id
+        type: string
+        required: true
+      - name: decision
+        type: string
+        required: true
+        enum: [APPROVED, REJECTED]
+      - name: reason
+        type: string
+        required: false
+    request:
+      body:
+        id: "{id}"
+        decision: "{decision}"
+        reason: "{reason}"
+    response:
+      type: object
+    risk:
+      level: high
+  get-user-capabilities:
+    method: GET
+    path: /user-capabilities
+    description: Get the list of server capabilities (tools and resources) available to a specific token/user
+    args:
+      - name: userId
+        type: string
+        required: true
+    request:
+      query:
+        userId: "{userId}"
+    response:
+      type: object
+    risk:
+      level: low
+  set-user-capabilities:
+    method: POST
+    path: /user-capabilities/set
+    description: >
+      Overwrite the full permissions set for a specific user token.
+      Each permission entry requires a toolId and optional functions and resources arrays.
+      This replaces all existing permissions for the specified user — not a partial update.
+    warnings:
+      - This fully replaces the user's existing permissions; use update-token for partial permission changes
+      - Each permission item requires a non-empty toolId string
+      - functions items must each have a funcName string and an enabled boolean
+      - resources items must each have a uri string and an enabled boolean
+    args:
+      - name: userId
+        type: string
+        required: true
+      - name: permissions
+        type: array
+        required: true
+    request:
+      body:
+        userId: "{userId}"
+        permissions: "{permissions}"
+    response:
+      type: object
+    risk:
+      level: high
+  get-kimbap-core-connection:
+    method: GET
+    path: /kimbap/connect
+    description: Get the currently configured kimbap-core connection details including host and port
+    args: []
+    response:
+      type: object
+    risk:
+      level: low
+  connect-kimbap-core:
+    method: POST
+    path: /kimbap/connect
+    description: >
+      Configure the connection to the kimbap-core service. The target must be reachable before
+      the connection is saved — the endpoint validates connectivity first then persists the config.
+      Use this after init to link the console to its kimbap-core backend.
+    warnings:
+      - kimbap-core must be running and reachable at the given host before this call will succeed
+      - host must not include a path, query string, or hash; only scheme and hostname are accepted (e.g. http://localhost)
+      - port must be an integer between 1 and 65535; defaults to 80 for http and 443 for https if omitted
+    args:
+      - name: host
+        type: string
+        required: true
+      - name: port
+        type: integer
+        required: false
+    request:
+      body:
+        host: "{host}"
+        port: "{port}"
+    response:
+      type: object
+    risk:
+      level: high

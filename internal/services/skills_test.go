@@ -443,15 +443,17 @@ func TestInstallWithForcePreservesExistingManifestOnLockfileWriteFailure(t *test
 	updated.Description = "Updated description"
 
 	lockPath := installer.lockfilePath()
-	if err := os.Chmod(lockPath, 0o444); err != nil {
-		t.Fatalf("chmod lockfile read-only: %v", err)
+	lockDir := filepath.Dir(lockPath)
+	if err := os.Chmod(lockDir, 0o555); err != nil {
+		t.Fatalf("chmod lock dir read-only: %v", err)
 	}
-	defer os.Chmod(lockPath, 0o644)
+	defer os.Chmod(lockDir, 0o755)
 
 	if _, err := installer.InstallWithForce(&updated, "local", true); err == nil {
-		t.Fatal("expected force install to fail when lockfile cannot be written")
+		t.Fatal("expected force install to fail when lock directory is not writable")
 	}
 
+	os.Chmod(lockDir, 0o755)
 	restoredData, err := os.ReadFile(manifestPath)
 	if err != nil {
 		t.Fatalf("read restored manifest: %v", err)
@@ -629,15 +631,17 @@ func TestRemovePreservesManifestOnLockfileWriteFailure(t *testing.T) {
 	}
 
 	lockPath := installer.lockfilePath()
-	if err := os.Chmod(lockPath, 0o444); err != nil {
-		t.Fatalf("chmod lockfile read-only: %v", err)
+	lockDir := filepath.Dir(lockPath)
+	if err := os.Chmod(lockDir, 0o555); err != nil {
+		t.Fatalf("chmod lock dir read-only: %v", err)
 	}
-	defer os.Chmod(lockPath, 0o644)
+	defer os.Chmod(lockDir, 0o755)
 
 	if err := installer.Remove("brave-search"); err == nil {
-		t.Fatal("expected remove to fail when lockfile cannot be written")
+		t.Fatal("expected remove to fail when lock directory is not writable")
 	}
 
+	os.Chmod(lockDir, 0o755)
 	restoredData, err := os.ReadFile(manifestPath)
 	if err != nil {
 		t.Fatalf("read restored manifest: %v", err)

@@ -70,23 +70,33 @@ func newAuthRevokeCommand() *cobra.Command {
 				if stErr == nil {
 					defer closeConnectorStoreIfPossible(store)
 					if stored, _ := store.Get(contextBackground(), activeTenant, storeName); stored != nil {
-						decrypted := decryptStoredToken(stored.RefreshToken)
-						if decrypted == "" {
-							decrypted = decryptStoredToken(stored.AccessToken)
+						decrypted, decryptErr := decryptStoredToken(stored.RefreshToken)
+						if decryptErr != nil {
+							revocationResult = fmt.Sprintf("failed: %v", decryptErr)
+						} else if decrypted == "" {
+							decrypted, decryptErr = decryptStoredToken(stored.AccessToken)
+							if decryptErr != nil {
+								revocationResult = fmt.Sprintf("failed: %v", decryptErr)
+							} else {
+								revokeToken = decrypted
+							}
+						} else {
+							revokeToken = decrypted
 						}
-						revokeToken = decrypted
 					}
 				}
-				if strings.TrimSpace(revokeToken) == "" {
-					revocationResult = "skipped: token unavailable for remote revocation"
-				} else {
-					revocationAttempted = true
-					revokeCreds := resolveOAuthCreds(cfg, providerID)
-					revokeErr := callRevocationEndpoint(provider.RevocationEndpoint, revokeCreds.ClientID, revokeCreds.ClientSecret, revokeToken, revokeCreds.AuthMethod)
-					if revokeErr != nil {
-						revocationResult = fmt.Sprintf("failed: %v", revokeErr)
+				if !strings.HasPrefix(revocationResult, "failed:") {
+					if strings.TrimSpace(revokeToken) == "" {
+						revocationResult = "skipped: token unavailable for remote revocation"
 					} else {
-						revocationResult = "success"
+						revocationAttempted = true
+						revokeCreds := resolveOAuthCreds(cfg, providerID)
+						revokeErr := callRevocationEndpoint(provider.RevocationEndpoint, revokeCreds.ClientID, revokeCreds.ClientSecret, revokeToken, revokeCreds.AuthMethod)
+						if revokeErr != nil {
+							revocationResult = fmt.Sprintf("failed: %v", revokeErr)
+						} else {
+							revocationResult = "success"
+						}
 					}
 				}
 			}

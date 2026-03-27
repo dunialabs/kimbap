@@ -355,6 +355,20 @@ func toInt64(v any) (int64, bool) {
 		return int64(n), true
 	case int64:
 		return n, true
+	case uint:
+		if n <= math.MaxInt64 {
+			return int64(n), true
+		}
+	case uint8:
+		return int64(n), true
+	case uint16:
+		return int64(n), true
+	case uint32:
+		return int64(n), true
+	case uint64:
+		if n <= math.MaxInt64 {
+			return int64(n), true
+		}
 	case float64:
 		if n == math.Trunc(n) && n >= math.MinInt64 && n <= math.MaxInt64 {
 			return int64(n), true

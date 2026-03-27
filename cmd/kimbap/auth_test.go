@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"fmt"
+	"strings"
 	"testing"
 	"time"
 
@@ -10,6 +11,7 @@ import (
 	"github.com/dunialabs/kimbap/internal/connectors"
 	realFlows "github.com/dunialabs/kimbap/internal/connectors/flows"
 	"github.com/dunialabs/kimbap/internal/connectors/flows/browser"
+	"github.com/dunialabs/kimbap/internal/security"
 )
 
 type testAuditWriter struct {
@@ -393,5 +395,33 @@ func TestEmitRevokePrepareErrorAuditWritesEvent(t *testing.T) {
 	}
 	if writer.events[0].Action != "auth.revoke.completed" {
 		t.Fatalf("expected revoke completed action, got %s", writer.events[0].Action)
+	}
+}
+
+func TestDecryptStoredTokenReturnsErrorWhenKeyMissing(t *testing.T) {
+	t.Setenv("KIMBAP_CONNECTOR_ENCRYPTION_KEY", "")
+
+	_, err := decryptStoredToken(`{"data":"x"}`)
+	if err == nil {
+		t.Fatal("expected missing encryption key to return error")
+	}
+	if !strings.Contains(err.Error(), "connector encryption key is not configured") {
+		t.Fatalf("unexpected error: %v", err)
+	}
+}
+
+func TestDecryptStoredTokenReturnsErrorOnDecryptFailure(t *testing.T) {
+	t.Setenv("KIMBAP_CONNECTOR_ENCRYPTION_KEY", "correct-key")
+	encrypted, err := security.EncryptData("refresh-token", "different-key")
+	if err != nil {
+		t.Fatalf("encrypt token: %v", err)
+	}
+
+	_, err = decryptStoredToken(encrypted)
+	if err == nil {
+		t.Fatal("expected decrypt failure to return error")
+	}
+	if !strings.Contains(err.Error(), "decrypt stored token") {
+		t.Fatalf("unexpected error: %v", err)
 	}
 }

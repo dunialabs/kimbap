@@ -510,19 +510,19 @@ func resolveClientSecret(cfg *config.KimbapConfig, providerID string) string {
 	return os.Getenv("KIMBAP_OAUTH_CLIENT_SECRET")
 }
 
-func decryptStoredToken(encrypted string) string {
+func decryptStoredToken(encrypted string) (string, error) {
 	if strings.TrimSpace(encrypted) == "" {
-		return ""
+		return "", nil
 	}
 	key := strings.TrimSpace(os.Getenv("KIMBAP_CONNECTOR_ENCRYPTION_KEY"))
 	if key == "" {
-		return ""
+		return "", errors.New("connector encryption key is not configured")
 	}
 	plaintext, err := security.DecryptDataFromString(encrypted, key)
 	if err != nil {
-		return ""
+		return "", fmt.Errorf("decrypt stored token: %w", err)
 	}
-	return plaintext
+	return plaintext, nil
 }
 
 func confirmRevocation(providerID string) (bool, error) {
