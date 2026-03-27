@@ -8,6 +8,7 @@ import (
 	"os"
 	"strings"
 	"time"
+	"unicode/utf8"
 
 	"github.com/dunialabs/kimbap/internal/actions"
 	"github.com/dunialabs/kimbap/internal/adapters"
@@ -713,7 +714,10 @@ func (r *Runtime) writeAudit(ctx context.Context, req actions.ExecutionRequest, 
 		event.ErrorCode = result.Error.Code
 		msg := result.Error.Message
 		if len(msg) > 256 {
-			msg = msg[:256]
+			for len(msg) > 256 {
+				_, size := utf8.DecodeLastRuneInString(msg)
+				msg = msg[:len(msg)-size]
+			}
 		}
 		event.ErrorMessage = msg
 	}
