@@ -427,6 +427,60 @@ func TestSQLiteStoreRotateFailsOnCorruptedLabelsJSON(t *testing.T) {
 	}
 }
 
+func TestSQLiteStoreRotateDeactivatesOldVersions(t *testing.T) {
+	store := newTestStore(t)
+	ctx := context.Background()
+
+	if _, err := store.Create(ctx, "tenant-a", "ROTATE_ACTIVE", SecretTypeAPIKey, []byte("v1"), map[string]string{"env": "dev"}, "tester"); err != nil {
+		t.Fatalf("create seed: %v", err)
+	}
+
+	rec, err := store.Rotate(ctx, "tenant-a", "ROTATE_ACTIVE", []byte("v2"), "tester")
+	if err != nil {
+		t.Fatalf("rotate to v2: %v", err)
+	}
+	if rec.CurrentVersion != 2 {
+		t.Fatalf("expected current_version=2, got %d", rec.CurrentVersion)
+	}
+
+	// After rotate, exactly one version should be active and it should match current_version.
+	var activeCount int
+	if err := store.db.QueryRowContext(ctx, `SELECT COUNT(*) FROM secret_versions WHERE secret_id = ? AND active = 1`, rec.ID).Scan(&activeCount); err != nil {
+		t.Fatalf("count active versions: %v", err)
+	}
+	if activeCount != 1 {
+		t.Fatalf("expected exactly 1 active version after rotate, got %d", activeCount)
+	}
+
+	var activeVersion int
+	if err := store.db.QueryRowContext(ctx, `SELECT version FROM secret_versions WHERE secret_id = ? AND active = 1`, rec.ID).Scan(&activeVersion); err != nil {
+		t.Fatalf("query active version: %v", err)
+	}
+	if activeVersion != rec.CurrentVersion {
+		t.Fatalf("active version (%d) does not match current_version (%d)", activeVersion, rec.CurrentVersion)
+	}
+
+	// Rotate again to v3 and re-verify.
+	rec2, err := store.Rotate(ctx, "tenant-a", "ROTATE_ACTIVE", []byte("v3"), "tester")
+	if err != nil {
+		t.Fatalf("rotate to v3: %v", err)
+	}
+	if err := store.db.QueryRowContext(ctx, `SELECT COUNT(*) FROM secret_versions WHERE secret_id = ? AND active = 1`, rec2.ID).Scan(&activeCount); err != nil {
+		t.Fatalf("count active versions after v3: %v", err)
+	}
+	if activeCount != 1 {
+		t.Fatalf("expected exactly 1 active version after second rotate, got %d", activeCount)
+	}
+
+	value, err := store.GetValue(ctx, "tenant-a", "ROTATE_ACTIVE")
+	if err != nil {
+		t.Fatalf("get value after rotations: %v", err)
+	}
+	if !bytes.Equal(value, []byte("v3")) {
+		t.Fatalf("expected v3, got %s", string(value))
+	}
+}
+
 func newTestStore(t *testing.T) *SQLiteStore {
 	t.Helper()
 

@@ -325,12 +325,22 @@ func linkIsOAuthService(info linkServiceInfo, oauthStates []connectorStateRow) b
 	if info.AuthType == actions.AuthTypeOAuth2 {
 		return true
 	}
-	if info.OAuthProvider != "" {
+	if info.OAuthProvider != "" && isConnectorResolvableRef(info.CredentialRef) {
 		return true
 	}
 	serviceKey := strings.ToLower(strings.TrimSpace(info.Service))
 	for _, state := range oauthStates {
 		if strings.EqualFold(strings.TrimSpace(state.Provider), serviceKey) {
+			return true
+		}
+	}
+	return false
+}
+
+func isConnectorResolvableRef(ref string) bool {
+	lower := strings.ToLower(strings.TrimSpace(ref))
+	for _, suffix := range []string{".oauth_token", ".oidc_token", ".token", ".oauth"} {
+		if strings.HasSuffix(lower, suffix) {
 			return true
 		}
 	}
