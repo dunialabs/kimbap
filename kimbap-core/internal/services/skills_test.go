@@ -1215,8 +1215,6 @@ func TestGenerateAgentSkillMDContainsExpectedSections(t *testing.T) {
 	checks := []string{
 		"name: brave-search",
 		"allowed-tools: Bash",
-		"## Prerequisites",
-		"kimbap service install brave-search.yaml",
 		"## Available Actions",
 		"### brave-search.web_search",
 		"kimbap call brave-search.web_search",
@@ -1272,7 +1270,6 @@ func TestGenerateAgentSkillMDHTTPUnchanged(t *testing.T) {
 		"description: |\n" +
 		"  Notes service\n" +
 		"  Use when you need to interact with the notes-service API.\n" +
-		"  Trigger phrases:\n" +
 		"allowed-tools: Bash\n" +
 		"---\n\n" +
 		"# notes-service\n\n" +
@@ -1290,11 +1287,8 @@ func TestGenerateAgentSkillMDHTTPUnchanged(t *testing.T) {
 		"```\n\n" +
 		"## Discovery\n\n" +
 		"```bash\n" +
-		"# List all actions from this service\n" +
-		"kimbap actions list --service notes-service --format json\n\n" +
-		"# Describe a specific action with full schema\n" +
-		"kimbap actions describe notes-service.<action> --format json\n\n" +
-		"# Dry-run to preview without executing\n" +
+		"kimbap actions list --service notes-service --format json\n" +
+		"kimbap actions describe notes-service.<action> --format json\n" +
 		"kimbap call notes-service.<action> --dry-run --format json\n" +
 		"```\n"
 
@@ -1562,6 +1556,155 @@ func TestGenerateMetaAgentSkillPack(t *testing.T) {
 	}
 }
 
+func TestGenerateAgentSkillMDCommand(t *testing.T) {
+	manifest := &ServiceManifest{
+		Name:    "ffmpeg",
+		Adapter: "command",
+		Actions: map[string]ServiceAction{
+			"convert": {
+				Command:     "ffmpeg -i {{input}} {{output}}",
+				Description: "Convert media file",
+				Risk:        RiskSpec{Level: "low"},
+			},
+		},
+	}
+	content, err := GenerateAgentSkillMD(manifest)
+	if err != nil {
+		t.Fatalf("GenerateAgentSkillMD: %v", err)
+	}
+	if !strings.Contains(content, "**Command**:") {
+		t.Errorf("command adapter must emit **Command** label, got:\n%s", content)
+	}
+	if strings.Contains(content, "**HTTP**:") {
+		t.Errorf("command adapter must not emit **HTTP** label, got:\n%s", content)
+	}
+	if !strings.Contains(content, "Use when you need to run ffmpeg commands.") {
+		t.Errorf("command adapter description missing, got:\n%s", content)
+	}
+}
+
+func TestBuildAgentSkillDescriptionConditionalTriggerPhrases(t *testing.T) {
+	noDesc := &ServiceManifest{
+		Name: "svc",
+		Actions: map[string]ServiceAction{
+			"do": {Method: "GET", Path: "/do", Risk: RiskSpec{Level: "low"}},
+		},
+	}
+	got := buildAgentSkillDescription(noDesc)
+	if strings.Contains(got, "Trigger phrases:") {
+		t.Errorf("expected no 'Trigger phrases:' when no action has a description, got:\n%s", got)
+	}
+
+	withDesc := &ServiceManifest{
+		Name: "svc",
+		Actions: map[string]ServiceAction{
+			"search": {Method: "GET", Path: "/search", Description: "Search for items", Risk: RiskSpec{Level: "low"}},
+		},
+	}
+	got = buildAgentSkillDescription(withDesc)
+	if !strings.Contains(got, "Trigger phrases:") {
+		t.Errorf("expected 'Trigger phrases:' when action has description, got:\n%s", got)
+	}
+	if !strings.Contains(got, `"search": Search for items`) {
+		t.Errorf("expected humanized trigger line, got:\n%s", got)
+	}
+}
+
+func TestGenerateAgentSkillPackBeforeExecuteVariants(t *testing.T) {
+	base := ServiceManifest{
+		Name:    "svc",
+		Version: "1.0.0",
+		Auth:    ServiceAuth{Type: "none"},
+		Actions: map[string]ServiceAction{
+			"do": {Method: "GET", Path: "/do", Risk: RiskSpec{Level: "low"}},
+		},
+	}
+	tests := []struct {
+		name        string
+		gotchas     []ServiceGotcha
+		recipes     []ServiceRecipe
+		wantGotchas bool
+		wantRecipes bool
+	}{
+		{name: "neither", wantGotchas: false, wantRecipes: false},
+		{
+			name:        "gotchas only",
+			gotchas:     []ServiceGotcha{{Symptom: "err", LikelyCause: "x", Recovery: "y"}},
+			wantGotchas: true, wantRecipes: false,
+		},
+		{
+			name:        "recipes only",
+			recipes:     []ServiceRecipe{{Name: "r", Steps: []string{"step 1"}}},
+			wantGotchas: false, wantRecipes: true,
+		},
+		{
+			name:        "both",
+			gotchas:     []ServiceGotcha{{Symptom: "err", LikelyCause: "x", Recovery: "y"}},
+			recipes:     []ServiceRecipe{{Name: "r", Steps: []string{"step 1"}}},
+			wantGotchas: true, wantRecipes: true,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			m := base
+			m.Gotchas = tt.gotchas
+			m.Recipes = tt.recipes
+			pack, err := GenerateAgentSkillPack(&m)
+			if err != nil {
+				t.Fatalf("GenerateAgentSkillPack: %v", err)
+			}
+			skill := pack["SKILL.md"]
+			if tt.wantGotchas {
+				if !strings.Contains(skill, "Read GOTCHAS.md") {
+					t.Errorf("expected GOTCHAS.md line in Before Execute:\n%s", skill)
+				}
+			} else {
+				if strings.Contains(skill, "Read GOTCHAS.md") {
+					t.Errorf("unexpected GOTCHAS.md line when no gotchas:\n%s", skill)
+				}
+			}
+			if tt.wantRecipes {
+				if !strings.Contains(skill, "Read RECIPES.md") {
+					t.Errorf("expected RECIPES.md line in Before Execute:\n%s", skill)
+				}
+			} else {
+				if strings.Contains(skill, "Read RECIPES.md") {
+					t.Errorf("unexpected RECIPES.md line when no recipes:\n%s", skill)
+				}
+			}
+		})
+	}
+}
+
+func TestBuildPackDescriptionTriggerlessFallback(t *testing.T) {
+	tests := []struct {
+		name     string
+		triggers *TriggerConfig
+		wantSub  string
+	}{
+		{name: "nil triggers", triggers: nil, wantSub: "Use for approved svc actions through Kimbap."},
+		{name: "empty triggers", triggers: &TriggerConfig{}, wantSub: "Use for approved svc actions through Kimbap."},
+		{name: "verbs without objects", triggers: &TriggerConfig{TaskVerbs: []string{"list"}}, wantSub: "Use for approved svc actions through Kimbap."},
+		{name: "full triggers", triggers: &TriggerConfig{TaskVerbs: []string{"list"}, Objects: []string{"items"}}, wantSub: "Use when you need to list items through approved Kimbap actions."},
+		{name: "instead_of only", triggers: &TriggerConfig{InsteadOf: []string{"direct API calls"}}, wantSub: "Use instead of: direct API calls."},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			m := &ServiceManifest{
+				Name:     "svc",
+				Triggers: tt.triggers,
+				Actions: map[string]ServiceAction{
+					"do": {Method: "GET", Path: "/do", Risk: RiskSpec{Level: "low"}},
+				},
+			}
+			got := buildPackDescription(m)
+			if !strings.Contains(got, tt.wantSub) {
+				t.Errorf("buildPackDescription() = %q, want substring %q", got, tt.wantSub)
+			}
+		})
+	}
+}
+
 func TestGenerateAgentSkillMDRiskLevelHints(t *testing.T) {
 	cases := []struct {
 		riskLevel        string
@@ -1749,13 +1892,14 @@ func TestGenerateMetaAgentSkillMDContainsServiceActionSyntax(t *testing.T) {
 	checks := []string{
 		"name: kimbap",
 		"allowed-tools: Bash",
+		"<when_to_use>",
+		"<protocol>",
+		"kimbap search",
 		"kimbap actions list --format json",
 		"kimbap actions describe <service.action> --format json",
-		"kimbap call <service>.<action>",
-		"kimbap service list",
-		"## Decision Protocol",
-		"## Troubleshooting",
-		"kimbap agents setup",
+		"kimbap call <service.action>",
+		"<troubleshooting>",
+		"<rules>",
 	}
 	for _, want := range checks {
 		if !strings.Contains(content, want) {

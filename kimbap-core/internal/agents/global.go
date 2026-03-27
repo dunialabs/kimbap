@@ -25,14 +25,10 @@ const (
 // Intentionally short, invariant, and does NOT claim the project uses kimbap.
 const globalInstructionBlock = `## Kimbap
 
-Kimbap may be available as the approved path for external service access.
-Before using direct third-party credentials or APIs, check whether Kimbap
-is configured by running ` + "`kimbap actions list --format json`" + `.
-If Kimbap is unavailable or no relevant actions exist, follow the project's
-normal conventions.
-
-Never ask for, print, or store raw API keys, passwords, or tokens when
-Kimbap is available.
+If a task needs an external service, check Kimbap first:
+` + "`kimbap search \"<intent>\" --format json`" + ` or ` + "`kimbap actions list --format json`" + `.
+Use Kimbap instead of direct third-party credentials when relevant actions exist.
+Never ask for or print raw API keys, passwords, tokens, cookies, or session files.
 `
 
 // GlobalSetupResult holds the outcome of a global setup operation.

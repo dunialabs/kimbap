@@ -89,9 +89,10 @@ func GenerateAgentSkillMD(manifest *ServiceManifest, opts ...SkillMDOption) (str
 		if action.Description != "" {
 			fmt.Fprintf(&sb, "%s\n\n", action.Description)
 		}
-		if normalizedAdapterType(manifest.Adapter) == "applescript" {
+		switch normalizedAdapterType(manifest.Adapter) {
+		case "applescript", "command":
 			fmt.Fprintf(&sb, "**Command**: `%s`\n", action.Command)
-		} else {
+		default:
 			fmt.Fprintf(&sb, "**HTTP**: `%s %s`\n", strings.ToUpper(action.Method), action.Path)
 		}
 		fmt.Fprintf(&sb, "**Risk**: %s\n\n", riskDisplay)
@@ -132,11 +133,8 @@ func GenerateAgentSkillMD(manifest *ServiceManifest, opts ...SkillMDOption) (str
 
 	sb.WriteString("## Discovery\n\n")
 	sb.WriteString("```bash\n")
-	sb.WriteString("# List all actions from this service\n")
-	fmt.Fprintf(&sb, "kimbap actions list --service %s --format json\n\n", manifest.Name)
-	sb.WriteString("# Describe a specific action with full schema\n")
-	fmt.Fprintf(&sb, "kimbap actions describe %s.<action> --format json\n\n", manifest.Name)
-	sb.WriteString("# Dry-run to preview without executing\n")
+	fmt.Fprintf(&sb, "kimbap actions list --service %s --format json\n", manifest.Name)
+	fmt.Fprintf(&sb, "kimbap actions describe %s.<action> --format json\n", manifest.Name)
 	fmt.Fprintf(&sb, "kimbap call %s.<action> --dry-run --format json\n", manifest.Name)
 	sb.WriteString("```\n")
 
@@ -148,20 +146,27 @@ func buildAgentSkillDescription(m *ServiceManifest) string {
 	if m.Description != "" {
 		parts = append(parts, m.Description)
 	}
-	if normalizedAdapterType(m.Adapter) == "applescript" {
+	switch normalizedAdapterType(m.Adapter) {
+	case "applescript":
 		parts = append(parts, fmt.Sprintf("Use when you need to control %s via AppleScript.", m.TargetApp))
-	} else {
+	case "command":
+		parts = append(parts, fmt.Sprintf("Use when you need to run %s commands.", m.Name))
+	default:
 		parts = append(parts, fmt.Sprintf("Use when you need to interact with the %s API.", m.Name))
 	}
-	parts = append(parts, "Trigger phrases:")
 
 	keys := sortedActionKeys(m.Actions)
+	triggerLines := []string{}
 	for _, key := range keys {
 		action := m.Actions[key]
 		if action.Description != "" {
 			humanKey := strings.NewReplacer("_", " ", "-", " ").Replace(key)
-			parts = append(parts, fmt.Sprintf("  - \"%s\": %s", humanKey, action.Description))
+			triggerLines = append(triggerLines, fmt.Sprintf("  - \"%s\": %s", humanKey, action.Description))
 		}
+	}
+	if len(triggerLines) > 0 {
+		parts = append(parts, "Trigger phrases:")
+		parts = append(parts, triggerLines...)
 	}
 
 	return strings.Join(parts, "\n")
@@ -200,89 +205,34 @@ func collectCredentialRefs(m *ServiceManifest) []string {
 const metaSkillTemplate = `---
 name: kimbap
 description: |
-  Use Kimbap when the user needs to interact with external services
-  (GitHub, Slack, Gmail, Stripe, Notion, internal APIs, etc.) through
-  a secure, governed runtime. Kimbap provides credential injection,
-  policy enforcement, approval workflows, and audit logging.
-  Trigger phrases: 'List repositories', 'create issue', 'merge pull request',
-  'send message', 'post to channel', 'send email', 'read inbox',
-  'charge customer', 'list invoices', 'use external API',
-  'call service', 'manage workspace', 'interact with third-party', 'use kimbap'.
+  Use Kimbap for approved external-service access through a secure local runtime.
+  Prefer it over direct third-party credentials, raw API calls, or ad hoc scripts.
 allowed-tools: Bash
 ---
 
 # Kimbap
 
-> Secure action runtime for AI agents.
-> Kimbap lets you use external services without handling raw credentials.
+<when_to_use>
+Use when the task involves external services, SaaS APIs, or native app automation.
+Never ask for, print, or store raw API keys, passwords, tokens, cookies, or session files.
+</when_to_use>
 
-## Quick Start
+<protocol>
+If the task is specific: ` + "`kimbap search \"<intent>\" --format json`" + `
+Otherwise discover:     ` + "`kimbap actions list --format json`" + `
+Inspect before calling: ` + "`kimbap actions describe <service.action> --format json`" + `
+Preview risky actions:  ` + "`kimbap call <service.action> --dry-run --format json`" + `
+Execute:                ` + "`kimbap call <service.action> [--param value ...]`" + `
+</protocol>
 
-` + "```bash" + `
-# 1. Discover what services are available
-kimbap actions list --format json
+<troubleshooting>
+Action not found → ` + "`kimbap service list`" + ` | Auth failure → ` + "`kimbap connector list`" + ` | Missing credential → ` + "`kimbap vault list`" + ` | Approval required → ` + "`kimbap approve list`" + `
+</troubleshooting>
 
-# 2. See all actions for a specific service
-kimbap actions list --service <service-name> --format json
-
-# 3. Inspect an action before using it
-kimbap actions describe <service.action> --format json
-
-# 4. Execute an action
-kimbap call <service>.<action> [--param value ...]
-` + "```" + `
-
-## Rules
-
-1. Always use ` + "`kimbap actions list --format json`" + ` first to discover what is available.
-2. Use ` + "`kimbap actions describe <service.action> --format json`" + ` to inspect parameters before calling.
-3. Never ask for, print, or store raw API keys, passwords, or tokens.
-4. If a capability is missing, request a new Kimbap service instead of using direct credentials.
-5. Treat Kimbap as the only approved pathway for third-party API access.
-
-## Decision Protocol
-
-Before calling any action:
-1. ` + "`kimbap actions list --format json`" + `         # discover
-2. ` + "`kimbap actions describe <service.action> --format json`" + `  # inspect schema
-3. ` + "`kimbap call <service.action> --dry-run --format json`" + `    # preview
-4. ` + "`kimbap call <service.action> [--params]`" + `       # execute
-Never skip steps 1-3 for unfamiliar actions.
-
-## Common Examples
-
-` + "```bash" + `
-# List all available actions
-kimbap actions list --format json
-
-# List installed services
-kimbap service list
-
-# Dry-run to preview without executing
-kimbap call <service>.<action> --dry-run --format json
-
-# Check what services are configured
-kimbap actions list --format json
-` + "```" + `
-
-## Troubleshooting
-
-` + "```bash" + `
-Action not found:     kimbap service list
-Auth failure:         kimbap connector list
-Missing credential:   kimbap vault list
-Approval required:    kimbap approve list
-` + "```" + `
-
-## Installation
-
-` + "```bash" + `
-# Install Kimbap CLI
-# See https://kimbap.sh/quick-start
-
-# Sync services to your AI agent
-kimbap agents setup
-` + "```" + `
+<rules>
+- If a needed capability is missing, request a new Kimbap service instead of using direct credentials.
+- If a service pack contains GOTCHAS.md or RECIPES.md, read them before unfamiliar or risky actions.
+</rules>
 `
 
 // GenerateMetaAgentSkillMD returns the Tier-1 meta-skill content.
@@ -315,7 +265,7 @@ func GenerateAgentSkillPack(manifest *ServiceManifest, opts ...SkillMDOption) (m
 	return files, nil
 }
 
-func generatePackSkillMD(manifest *ServiceManifest, cfg skillMDConfig) (string, error) {
+func generatePackSkillMD(manifest *ServiceManifest, _ skillMDConfig) (string, error) {
 	var sb strings.Builder
 	sb.WriteString("---\n")
 	sb.WriteString(fmt.Sprintf("name: %s\n", manifest.Name))
@@ -327,13 +277,6 @@ func generatePackSkillMD(manifest *ServiceManifest, cfg skillMDConfig) (string, 
 	if manifest.Description != "" {
 		sb.WriteString(fmt.Sprintf("%s\n\n", manifest.Description))
 	}
-	sb.WriteString("## Prerequisites\n\n")
-	sb.WriteString("- Kimbap CLI installed and in PATH\n")
-	sb.WriteString(fmt.Sprintf("- Service installed: `%s`\n", buildInstallInstruction(manifest.Name, cfg)))
-	for _, ref := range collectCredentialRefs(manifest) {
-		sb.WriteString(fmt.Sprintf("- Credential configured: `kimbap vault set %s`\n", ref))
-	}
-	sb.WriteString("\n")
 	sb.WriteString("## Available Actions\n\n")
 	sb.WriteString("| Action | Description | Risk |\n")
 	sb.WriteString("|--------|-------------|------|\n")
@@ -377,11 +320,15 @@ func generatePackSkillMD(manifest *ServiceManifest, cfg skillMDConfig) (string, 
 		}
 		sb.WriteString("\n")
 	}
-	sb.WriteString("## Discovery\n\n")
-	sb.WriteString("```bash\n")
-	sb.WriteString(fmt.Sprintf("kimbap actions list --service %s --format json\n", manifest.Name))
-	sb.WriteString(fmt.Sprintf("kimbap actions describe %s.<action> --format json\n", manifest.Name))
-	sb.WriteString("```\n")
+	sb.WriteString("## Before Execute\n\n")
+	fmt.Fprintf(&sb, "- Inspect: `kimbap actions describe %s.<action> --format json`\n", manifest.Name)
+	fmt.Fprintf(&sb, "- Preview non-low-risk actions: `kimbap call %s.<action> --dry-run --format json`\n", manifest.Name)
+	if hasGotchas {
+		sb.WriteString("- Read GOTCHAS.md in this pack before unfamiliar or risky actions\n")
+	}
+	if hasRecipes {
+		sb.WriteString("- Read RECIPES.md in this pack for workflow examples\n")
+	}
 	return sb.String(), nil
 }
 
@@ -404,7 +351,7 @@ func buildPackDescription(manifest *ServiceManifest) string {
 			return strings.Join(parts, "\n")
 		}
 	}
-	return buildAgentSkillDescription(manifest)
+	return fmt.Sprintf("Use for approved %s actions through Kimbap.\nInspect the action table below for exact capabilities.", manifest.Name)
 }
 
 func generatePackGotchasMD(manifest *ServiceManifest) string {

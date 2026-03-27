@@ -523,7 +523,7 @@ func newServiceGenerateCommand() *cobra.Command {
 func newServiceExportAgentSkillCommand() *cobra.Command {
 	var outputPath string
 	var outputDir string
-	var exportPack bool
+	var exportLegacy bool
 
 	cmd := &cobra.Command{
 		Use:   "export-agent-skill <name> [--output file] [--dir directory]",
@@ -534,8 +534,8 @@ func newServiceExportAgentSkillCommand() *cobra.Command {
 			if cmd.Flags().Changed("dir") && cmd.Flags().Changed("output") {
 				return fmt.Errorf("--dir and --output are mutually exclusive")
 			}
-			if exportPack && strings.TrimSpace(outputDir) == "" {
-				return fmt.Errorf("--pack requires --dir")
+			if exportLegacy && strings.TrimSpace(outputDir) == "" {
+				return fmt.Errorf("--legacy requires --dir")
 			}
 
 			cfg, err := loadAppConfig()
@@ -558,7 +558,7 @@ func newServiceExportAgentSkillCommand() *cobra.Command {
 
 			if strings.TrimSpace(outputDir) != "" {
 				serviceDir := filepath.Join(outputDir, installed.Manifest.Name)
-				if exportPack {
+				if !exportLegacy {
 					pack, packErr := services.GenerateAgentSkillPack(&installed.Manifest, services.WithSource(installed.Source))
 					if packErr != nil {
 						return packErr
@@ -590,8 +590,8 @@ func newServiceExportAgentSkillCommand() *cobra.Command {
 	}
 
 	cmd.Flags().StringVar(&outputPath, "output", "", "output file path")
-	cmd.Flags().StringVar(&outputDir, "dir", "", "output directory (creates name/SKILL.md structure)")
-	cmd.Flags().BoolVar(&exportPack, "pack", false, "export as folder-based skill pack")
+	cmd.Flags().StringVar(&outputDir, "dir", "", "output directory (creates name/ folder pack with SKILL.md, GOTCHAS.md, RECIPES.md)")
+	cmd.Flags().BoolVar(&exportLegacy, "legacy", false, "export as single SKILL.md file (legacy mode) instead of folder pack")
 
 	return cmd
 }

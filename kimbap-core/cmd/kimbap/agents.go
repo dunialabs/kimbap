@@ -8,7 +8,6 @@ import (
 
 	"github.com/dunialabs/kimbap-core/internal/agents"
 	"github.com/dunialabs/kimbap-core/internal/config"
-	"github.com/dunialabs/kimbap-core/internal/profiles"
 	"github.com/dunialabs/kimbap-core/internal/services"
 	"github.com/spf13/cobra"
 )
@@ -203,16 +202,16 @@ func runAgentsSync(projectDir string, rawAgentKinds string, rawServices string, 
 		installedPacks = nil
 	}
 
-	rulesContent := buildRulesContent(cfg, serviceFilter)
 	syncResults, err := agents.SyncServices(
 		staticServiceInstaller{services: installedServices, packs: installedPacks},
-		rulesContent,
+		"",
 		agents.SyncOptions{
 			ProjectDir: projectDir,
 			Agents:     parseAgentKinds(rawAgentKinds),
 			Force:      force,
 			DryRun:     dryRun,
 			SkipPrune:  isPartialSync,
+			SkipRules:  true,
 		},
 	)
 	if err != nil {
@@ -367,36 +366,6 @@ func buildInstalledPacksForSync(cfg *config.KimbapConfig, serviceFilter []string
 		out = append(out, agents.InstalledServicePack{Name: s.Manifest.Name, AgentSkillMD: skillMD, PackFiles: packFiles})
 	}
 	return out, nil
-}
-
-func buildRulesContent(cfg *config.KimbapConfig, serviceFilter []string) string {
-	allServices, svcErr := collectInstalledServicesFromConfig(cfg.Services.Dir)
-	if svcErr != nil {
-		_, _ = fmt.Fprintf(os.Stderr, "warning: %v\n", svcErr)
-	}
-	allowed := make(map[string]struct{}, len(serviceFilter))
-	for _, name := range serviceFilter {
-		allowed[name] = struct{}{}
-	}
-	services := make([]profiles.InstalledService, 0, len(allServices))
-	for _, svc := range allServices {
-		if _, ok := allowed[svc.Name]; ok {
-			services = append(services, svc)
-		}
-	}
-
-	profile, err := profiles.GenerateDynamicProfile(profiles.ProfileGeneric, services)
-	if err == nil {
-		return profile.Template
-	}
-
-	_, _ = fmt.Fprintf(os.Stderr, "warning: failed to generate dynamic profile: %v\n", err)
-	fallback, fallbackErr := profiles.PrintProfile(profiles.ProfileGeneric)
-	if fallbackErr != nil {
-		_, _ = fmt.Fprintf(os.Stderr, "warning: failed to load fallback profile: %v\n", fallbackErr)
-		return ""
-	}
-	return fallback
 }
 
 func resolveSyncServiceFilter(cfg *config.KimbapConfig, rawServices string) ([]string, error) {
