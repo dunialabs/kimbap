@@ -42,6 +42,14 @@ func captureStderrOutput(t *testing.T, fn func()) string {
 }
 
 func TestNewLoggerLevelAndFormatSelection(t *testing.T) {
+	traceLogger := NewLogger("trace", "json")
+	if !traceLogger.Enabled(context.Background(), traceLevel) {
+		t.Fatal("trace logger should enable trace level")
+	}
+	if !traceLogger.Enabled(context.Background(), slog.LevelDebug) {
+		t.Fatal("trace logger should enable debug level")
+	}
+
 	jsonLogger := NewLogger("debug", "json")
 	if !jsonLogger.Enabled(context.Background(), slog.LevelDebug) {
 		t.Fatal("debug json logger should enable debug level")
@@ -145,5 +153,26 @@ func TestNewLoggerUnknownFormatFallsBackToText(t *testing.T) {
 	}
 	if !strings.Contains(line, "msg=fallback-text-log") {
 		t.Fatalf("fallback text output missing message: %s", line)
+	}
+}
+
+func TestNewLoggerNormalizesLevelAndFormatInput(t *testing.T) {
+	logger := NewLogger(" WARN ", " JSON ")
+	if logger.Enabled(context.Background(), slog.LevelInfo) {
+		t.Fatal("normalized warn logger should suppress info level")
+	}
+
+	out := captureStderrOutput(t, func() {
+		logger := NewLogger(" WARN ", " JSON ")
+		logger.Info("suppressed")
+		logger.Warn("normalized-json-log")
+	})
+
+	line := strings.TrimSpace(out)
+	if line == "" {
+		t.Fatal("expected normalized logger output")
+	}
+	if !strings.HasPrefix(line, "{") {
+		t.Fatalf("expected JSON output after format normalization, got: %s", line)
 	}
 }
