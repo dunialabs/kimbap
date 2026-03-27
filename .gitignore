@@ -73,3 +73,4 @@ internal/mcp/core/sessionstore_testhooks.go
 internal/mcp/core/servermanager_testhooks.go
 cmd/server/testserver.go
 /kimbap
+/skills/official/peta*.yaml
