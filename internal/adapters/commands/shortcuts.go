@@ -36,6 +36,7 @@ if (!name) throw new Error("name is required");
 
 var matches = app.shortcuts.whose({name: name})();
 if (matches.length === 0) throw new Error("[NOT_FOUND] shortcut not found");
+if (matches.length > 1) throw new Error("[AMBIGUOUS] multiple shortcuts found with name " + JSON.stringify(name) + "; use a unique name");
 
 var shortcut = matches[0];
 if (input.input !== undefined && input.input !== null) {
@@ -65,6 +66,7 @@ if (!name) throw new Error("name is required");
 
 var matches = app.shortcuts.whose({name: name})();
 if (matches.length === 0) throw new Error("[NOT_FOUND] shortcut not found");
+if (matches.length > 1) throw new Error("[AMBIGUOUS] multiple shortcuts found with name " + JSON.stringify(name) + "; use a unique name");
 
 var inputStr = String(input.input);
 matches[0].run({withInput: inputStr});

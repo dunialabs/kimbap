@@ -280,7 +280,7 @@ func runAgentsSync(projectDir string, rawAgentKinds string, rawServices string, 
 		return agentSetupResult{}, fmt.Errorf("sync errors: %s", strings.Join(syncErrs, "; "))
 	}
 
-	if !dryRun && len(syncResults) > 0 {
+	if !dryRun && !isPartialSync && len(syncResults) > 0 {
 		recordProjectSyncState(projectSyncScope(projectDir), installedServices, installedPacks)
 	}
 

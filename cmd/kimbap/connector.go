@@ -245,7 +245,12 @@ func newConnectorRefreshCommand() *cobra.Command {
 
 			mgr := connectors.NewManager(store)
 
-			provider, provErr := providers.GetProvider(name)
+			providerID := name
+			if storedState, getErr := store.Get(contextBackground(), activeTenant, name); getErr == nil && storedState != nil && strings.TrimSpace(storedState.Provider) != "" {
+				providerID = strings.TrimSpace(storedState.Provider)
+			}
+
+			provider, provErr := providers.GetProvider(providerID)
 			if provErr != nil {
 				if outputAsJSON() {
 					_ = printOutput(map[string]any{
@@ -253,13 +258,12 @@ func newConnectorRefreshCommand() *cobra.Command {
 						"operation": "connector.refresh",
 						"tenant_id": activeTenant,
 						"connector": name,
-						"message":   fmt.Sprintf("Provider %q not found in registry: %v", name, provErr),
+						"message":   fmt.Sprintf("Provider %q not found in registry: %v", providerID, provErr),
 						"next":      "Check available providers with: kimbap auth providers list",
 					})
 				}
-				return fmt.Errorf("provider %q not found: %w", name, provErr)
+				return fmt.Errorf("provider %q not found: %w", providerID, provErr)
 			}
-			name = provider.ID
 			extraValues, parseErr := parseExtrasStrict(extras)
 			if parseErr != nil {
 				return parseErr

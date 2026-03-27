@@ -402,6 +402,10 @@ func (s *SQLiteStore) Rotate(ctx context.Context, tenantID string, name string, 
 		existingLabels = map[string]string{}
 	}
 
+	if _, err := tx.ExecContext(ctx, `UPDATE secret_versions SET active = 0 WHERE secret_id = ?`, secretID); err != nil {
+		return nil, err
+	}
+
 	if _, err := tx.ExecContext(ctx, `
 		INSERT INTO secret_versions (
 			id, secret_id, version, ciphertext, nonce, salt, key_id, algorithm, created_at, created_by, active, wrapped_dek, dek_nonce
