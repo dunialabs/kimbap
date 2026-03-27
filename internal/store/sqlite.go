@@ -174,7 +174,7 @@ func (s *SQLStore) Migrate(ctx context.Context) error {
 	}
 
 	if s.dialect == "sqlite" {
-		queries[len(queries)-1] = `CREATE TABLE IF NOT EXISTS policies (
+		queries[len(queries)-2] = `CREATE TABLE IF NOT EXISTS policies (
 			tenant_id TEXT PRIMARY KEY,
 			document BLOB NOT NULL,
 			updated_at TIMESTAMP NOT NULL
@@ -798,8 +798,14 @@ func (s *SQLStore) HoldExecution(ctx context.Context, approvalRequestID string, 
 }
 
 func (s *SQLStore) ResumeExecution(ctx context.Context, approvalRequestID string) ([]byte, error) {
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return nil, err
+	}
+	defer func() { _ = tx.Rollback() }()
+
 	var requestJSON string
-	err := s.db.QueryRowContext(ctx, s.bind(`
+	err = tx.QueryRowContext(ctx, s.bind(`
 		SELECT request_json FROM held_executions WHERE approval_request_id = ?
 	`), approvalRequestID).Scan(&requestJSON)
 	if err != nil {
@@ -808,7 +814,20 @@ func (s *SQLStore) ResumeExecution(ctx context.Context, approvalRequestID string
 		}
 		return nil, err
 	}
-	_, _ = s.db.ExecContext(ctx, s.bind(`DELETE FROM held_executions WHERE approval_request_id = ?`), approvalRequestID)
+	res, err := tx.ExecContext(ctx, s.bind(`DELETE FROM held_executions WHERE approval_request_id = ?`), approvalRequestID)
+	if err != nil {
+		return nil, err
+	}
+	n, err := res.RowsAffected()
+	if err != nil {
+		return nil, err
+	}
+	if n == 0 {
+		return nil, nil
+	}
+	if err = tx.Commit(); err != nil {
+		return nil, err
+	}
 	return []byte(requestJSON), nil
 }
 
