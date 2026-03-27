@@ -2,6 +2,7 @@ package browser
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"net"
@@ -273,6 +274,9 @@ func TestRunBrowserFlow_SuccessViaLoopbackCallback(t *testing.T) {
 	if err != nil {
 		t.Fatalf("call loopback callback URL: %v", err)
 	}
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("callback response status = %d, want 200", resp.StatusCode)
+	}
 	_ = resp.Body.Close()
 
 	result := <-resultCh
@@ -322,14 +326,14 @@ func TestRunBrowserFlow_StateMismatchRejected(t *testing.T) {
 	if err != nil {
 		t.Fatalf("call loopback callback URL: %v", err)
 	}
+	if resp.StatusCode != http.StatusBadRequest {
+		t.Fatalf("callback response status = %d, want 400 for wrong state", resp.StatusCode)
+	}
 	_ = resp.Body.Close()
 
 	runErr := <-resultCh
 	if runErr == nil {
-		t.Fatal("expected oauth state mismatch error")
-	}
-	if !strings.Contains(runErr.Error(), "oauth state mismatch") {
-		t.Fatalf("unexpected error: %v", runErr)
+		t.Fatal("expected error after wrong state callback")
 	}
 }
 
@@ -389,6 +393,9 @@ func TestRunBrowserFlow_CallbackOAuthErrorReturned(t *testing.T) {
 	if err != nil {
 		t.Fatalf("call loopback callback URL: %v", err)
 	}
+	if resp.StatusCode != http.StatusBadRequest {
+		t.Fatalf("callback response status = %d, want 400", resp.StatusCode)
+	}
 	_ = resp.Body.Close()
 
 	runErr := <-resultCh
@@ -404,66 +411,102 @@ func TestRunBrowserFlow_CallbackOAuthErrorReturned(t *testing.T) {
 }
 
 func TestRunBrowserFlow_CallbackMissingCodeOrState(t *testing.T) {
-	var tokenCalls int32
-	tokenSrv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-		atomic.AddInt32(&tokenCalls, 1)
-		w.Header().Set("Content-Type", "application/json")
-		_, _ = w.Write([]byte(`{"access_token":"should-not-be-used"}`))
-	}))
-	defer tokenSrv.Close()
-
-	writer := newSyncWriter()
-	resultCh := make(chan error, 1)
-
-	go func() {
-		_, err := RunBrowserFlow(context.Background(), BrowserFlowConfig{
-			AuthEndpoint:  "https://auth.example.com/authorize",
-			TokenEndpoint: tokenSrv.URL,
-			ClientID:      "client-id",
-			NoOpen:        true,
-			Timeout:       3 * time.Second,
-		}, writer)
-		resultCh <- err
-	}()
-
-	authURL, err := writer.waitForAuthURL(2 * time.Second)
-	if err != nil {
-		t.Fatalf("wait for auth URL failed: %v", err)
-	}
-	parsedAuth, err := url.Parse(authURL)
-	if err != nil {
-		t.Fatalf("parse auth URL: %v", err)
-	}
-	redirectURI := parsedAuth.Query().Get("redirect_uri")
-	if redirectURI == "" {
-		t.Fatalf("missing redirect_uri in auth URL: %s", authURL)
+	tests := []struct {
+		name  string
+		query string
+	}{
+		{name: "missing state", query: "code=callback-code"},
+		{name: "missing code", query: "state=callback-state"},
 	}
 
-	resp, err := http.Get(redirectURI + "?code=callback-code")
-	if err != nil {
-		t.Fatalf("call loopback callback URL: %v", err)
-	}
-	_ = resp.Body.Close()
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			var tokenCalls int32
+			tokenSrv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+				atomic.AddInt32(&tokenCalls, 1)
+				w.Header().Set("Content-Type", "application/json")
+				_, _ = w.Write([]byte(`{"access_token":"should-not-be-used"}`))
+			}))
+			defer tokenSrv.Close()
 
-	runErr := <-resultCh
-	if runErr == nil {
-		t.Fatal("expected callback missing code/state error")
-	}
-	if !strings.Contains(runErr.Error(), "callback missing code or state") {
-		t.Fatalf("unexpected callback error: %v", runErr)
-	}
-	if got := atomic.LoadInt32(&tokenCalls); got != 0 {
-		t.Fatalf("token endpoint should not be called on malformed callback, got %d call(s)", got)
+			writer := newSyncWriter()
+			resultCh := make(chan error, 1)
+
+			go func() {
+				_, err := RunBrowserFlow(context.Background(), BrowserFlowConfig{
+					AuthEndpoint:  "https://auth.example.com/authorize",
+					TokenEndpoint: tokenSrv.URL,
+					ClientID:      "client-id",
+					NoOpen:        true,
+					Timeout:       3 * time.Second,
+				}, writer)
+				resultCh <- err
+			}()
+
+			authURL, err := writer.waitForAuthURL(2 * time.Second)
+			if err != nil {
+				t.Fatalf("wait for auth URL failed: %v", err)
+			}
+			parsedAuth, err := url.Parse(authURL)
+			if err != nil {
+				t.Fatalf("parse auth URL: %v", err)
+			}
+			redirectURI := parsedAuth.Query().Get("redirect_uri")
+			if redirectURI == "" {
+				t.Fatalf("missing redirect_uri in auth URL: %s", authURL)
+			}
+
+			resp, err := http.Get(redirectURI + "?" + tc.query)
+			if err != nil {
+				t.Fatalf("call loopback callback URL: %v", err)
+			}
+			if resp.StatusCode != http.StatusBadRequest {
+				t.Fatalf("callback response status = %d, want 400", resp.StatusCode)
+			}
+			_ = resp.Body.Close()
+
+			runErr := <-resultCh
+			if runErr == nil {
+				t.Fatal("expected callback missing code/state error")
+			}
+			if !strings.Contains(runErr.Error(), "callback missing code or state") {
+				t.Fatalf("unexpected callback error: %v", runErr)
+			}
+			if got := atomic.LoadInt32(&tokenCalls); got != 0 {
+				t.Fatalf("token endpoint should not be called on malformed callback, got %d call(s)", got)
+			}
+		})
 	}
 }
 
 func TestRunBrowserFlow_CustomRedirectURIPathAndPort(t *testing.T) {
-	listener, err := net.Listen("tcp", "127.0.0.1:0")
-	if err != nil {
-		t.Fatalf("allocate free port: %v", err)
+	const maxAttempts = 8
+	var lastBindErr error
+
+	for attempt := 1; attempt <= maxAttempts; attempt++ {
+		listener, err := net.Listen("tcp", "127.0.0.1:0")
+		if err != nil {
+			t.Fatalf("allocate free port: %v", err)
+		}
+		port := listener.Addr().(*net.TCPAddr).Port
+		_ = listener.Close()
+
+		err = runCustomRedirectURIFlowAttempt(t, port)
+		if err == nil {
+			return
+		}
+		if errors.Is(err, ErrLoopbackListener) {
+			lastBindErr = err
+			continue
+		}
+		t.Fatalf("custom redirect flow attempt %d failed: %v", attempt, err)
 	}
-	port := listener.Addr().(*net.TCPAddr).Port
-	_ = listener.Close()
+
+	t.Fatalf("custom redirect flow failed after %d attempts due loopback bind race: %v", maxAttempts, lastBindErr)
+}
+
+func runCustomRedirectURIFlowAttempt(t *testing.T, port int) error {
+	t.Helper()
 
 	customRedirectURI := fmt.Sprintf("http://127.0.0.1:%d/oauth/callback", port)
 
@@ -502,32 +545,60 @@ func TestRunBrowserFlow_CustomRedirectURIPathAndPort(t *testing.T) {
 
 	authURL, err := writer.waitForAuthURL(2 * time.Second)
 	if err != nil {
-		t.Fatalf("wait for auth URL failed: %v", err)
+		select {
+		case result := <-resultCh:
+			if errors.Is(result.err, ErrLoopbackListener) {
+				return result.err
+			}
+			if result.err != nil {
+				return fmt.Errorf("wait for auth URL failed: %w (flow error: %v)", err, result.err)
+			}
+		default:
+		}
+		return fmt.Errorf("wait for auth URL failed: %w", err)
 	}
+
 	parsedAuth, err := url.Parse(authURL)
 	if err != nil {
-		t.Fatalf("parse auth URL: %v", err)
+		return fmt.Errorf("parse auth URL: %w", err)
 	}
 	q := parsedAuth.Query()
 	if got := q.Get("redirect_uri"); got != customRedirectURI {
-		t.Fatalf("auth URL redirect_uri = %q, want %q", got, customRedirectURI)
+		return fmt.Errorf("auth URL redirect_uri = %q, want %q", got, customRedirectURI)
 	}
 	state := q.Get("state")
 	if state == "" {
-		t.Fatalf("auth URL state should be present: %s", authURL)
+		return fmt.Errorf("auth URL state should be present: %s", authURL)
 	}
+
+	wrongPathURL := fmt.Sprintf("http://127.0.0.1:%d/callback?code=wrong&state=%s", port, url.QueryEscape(state))
+	wrongResp, err := http.Get(wrongPathURL)
+	if err != nil {
+		return fmt.Errorf("call wrong callback path: %w", err)
+	}
+	if wrongResp.StatusCode != http.StatusNotFound {
+		_ = wrongResp.Body.Close()
+		return fmt.Errorf("wrong callback path status = %d, want 404", wrongResp.StatusCode)
+	}
+	_ = wrongResp.Body.Close()
 
 	resp, err := http.Get(customRedirectURI + "?code=custom-code&state=" + url.QueryEscape(state))
 	if err != nil {
-		t.Fatalf("call custom callback URL: %v", err)
+		return fmt.Errorf("call custom callback URL: %w", err)
+	}
+	if resp.StatusCode != http.StatusOK {
+		_ = resp.Body.Close()
+		return fmt.Errorf("custom callback response status = %d, want 200", resp.StatusCode)
 	}
 	_ = resp.Body.Close()
 
 	result := <-resultCh
 	if result.err != nil {
-		t.Fatalf("RunBrowserFlow(custom redirect) error = %v\noutput=%s", result.err, writer.String())
+		return result.err
 	}
 	if result.res == nil || result.res.AccessToken != "custom-redirect-token" {
-		t.Fatalf("unexpected custom redirect result: %+v", result.res)
+		return fmt.Errorf("unexpected custom redirect result: %+v", result.res)
 	}
+
+	return nil
 }

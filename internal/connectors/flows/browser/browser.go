@@ -157,6 +157,13 @@ func RunBrowserFlow(ctx context.Context, cfg BrowserFlowConfig, output io.Writer
 			return
 		}
 
+		if !ValidateState(state, cbState) {
+			w.Header().Set("Content-Type", "text/html; charset=utf-8")
+			w.WriteHeader(http.StatusBadRequest)
+			_, _ = w.Write([]byte("<html><body><h1>Authentication failed</h1><p>Invalid state parameter. You can close this window.</p></body></html>"))
+			return
+		}
+
 		w.Header().Set("Content-Type", "text/html; charset=utf-8")
 		w.WriteHeader(http.StatusOK)
 		_, _ = w.Write([]byte("<html><body><h1>Authentication complete</h1><p>You can return to the terminal.</p></body></html>"))

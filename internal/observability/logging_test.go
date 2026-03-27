@@ -129,3 +129,21 @@ func TestNewLoggerWarnLevelSuppressesInfoLogs(t *testing.T) {
 		t.Fatal("expected warn log to be emitted at warn level")
 	}
 }
+
+func TestNewLoggerUnknownFormatFallsBackToText(t *testing.T) {
+	out := captureStderrOutput(t, func() {
+		logger := NewLogger("info", "unknown")
+		logger.Info("fallback-text-log")
+	})
+
+	line := strings.TrimSpace(out)
+	if line == "" {
+		t.Fatal("expected fallback logger output")
+	}
+	if strings.HasPrefix(line, "{") {
+		t.Fatalf("unknown format should fall back to text handler, got JSON output: %s", line)
+	}
+	if !strings.Contains(line, "msg=fallback-text-log") {
+		t.Fatalf("fallback text output missing message: %s", line)
+	}
+}

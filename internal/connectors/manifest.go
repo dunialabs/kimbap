@@ -69,6 +69,18 @@ func (m *ProviderManifest) Validate() error {
 	if len(m.SupportedFlows) == 0 {
 		return fmt.Errorf("provider manifest %q: supported_flows must not be empty", m.ID)
 	}
+	validFlows := map[string]bool{"browser": true, "device": true, "client_credentials": true}
+	for _, flow := range m.SupportedFlows {
+		if !validFlows[flow] {
+			return fmt.Errorf("provider manifest %q: invalid supported_flows entry %q (allowed: browser, device, client_credentials)", m.ID, flow)
+		}
+	}
+	validScopeModels := map[string]bool{"user": true, "workspace": true, "service": true}
+	for _, scope := range m.ConnectionScopeModel {
+		if !validScopeModels[scope] {
+			return fmt.Errorf("provider manifest %q: invalid connection_scope_model entry %q (allowed: user, workspace, service)", m.ID, scope)
+		}
+	}
 	if m.AuthEndpoint == "" {
 		return fmt.Errorf("provider manifest %q: auth_endpoint is required", m.ID)
 	}

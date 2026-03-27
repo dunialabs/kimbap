@@ -1296,6 +1296,39 @@ func TestServerInsufficientScopeIncludesBearerScopeHint(t *testing.T) {
 	}
 }
 
+func TestServerExecuteActionRequiresExecuteScope(t *testing.T) {
+	ts, _, st := newTestAPIServerWithStore(t)
+
+	rawLimited := "ktk_execute_scope_limited_token"
+	limited := newBootstrapTokenRecord("tenant-a", "limited-execute-agent", rawLimited)
+	limited.Scopes = `["tools:read"]`
+	if err := st.CreateToken(context.Background(), limited); err != nil {
+		t.Fatalf("seed limited token: %v", err)
+	}
+
+	req, _ := http.NewRequest(http.MethodPost, ts.URL+"/v1/actions/github/issues.create:execute", strings.NewReader(`{"input":{}}`))
+	req.Header.Set("Authorization", "Bearer "+rawLimited)
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatalf("execute request: %v", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusForbidden {
+		b, _ := io.ReadAll(resp.Body)
+		t.Fatalf("expected 403, got %d body=%s", resp.StatusCode, string(b))
+	}
+	challenge := resp.Header.Get("WWW-Authenticate")
+	if !strings.Contains(challenge, `error="insufficient_scope"`) {
+		t.Fatalf("expected insufficient_scope challenge, got %q", challenge)
+	}
+	if !strings.Contains(challenge, `scope="actions:execute"`) {
+		t.Fatalf("expected actions:execute scope hint, got %q", challenge)
+	}
+}
+
 func TestProtectedRoutesRequireBearerAuth(t *testing.T) {
 	ts, _ := newTestAPIServer(t)
 

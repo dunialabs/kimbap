@@ -299,6 +299,8 @@ func validateHTTPManifest(m *ServiceManifest) []ValidationError {
 		errs = append(errs, ValidationError{Field: "base_url", Message: "must be set"})
 	} else if u, err := url.Parse(m.BaseURL); err != nil || u.Scheme == "" || u.Host == "" {
 		errs = append(errs, ValidationError{Field: "base_url", Message: "must be a valid absolute URL"})
+	} else if u.Scheme != "http" && u.Scheme != "https" {
+		errs = append(errs, ValidationError{Field: "base_url", Message: "scheme must be http or https"})
 	}
 
 	for actionKey, action := range m.Actions {

@@ -23,7 +23,7 @@ kimbap is a CLI-first secure action runtime for AI agents. It runs actions local
 ### Service management
 - `kimbap service install <file|name>` — install a service manifest
 - `kimbap service list` — list installed services
-- `kimbap service export-agent-skill` — export SKILL.md for agent discovery
+- `kimbap service export-agent-skill <name>` — export SKILL.md for agent discovery
 
 ### Action execution
 - `kimbap call <service>.<action> [--arg value]` — call an action directly

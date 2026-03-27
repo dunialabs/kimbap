@@ -82,7 +82,7 @@ services:
       KIMBAP_LISTEN_ADDR: ":8080"
       KIMBAP_DATA_DIR: /data/kimbap
       KIMBAP_MASTER_KEY_HEX: ${KIMBAP_MASTER_KEY_HEX}
-      LOG_LEVEL: ${LOG_LEVEL:-info}
+      KIMBAP_LOG_LEVEL: ${KIMBAP_LOG_LEVEL:-info}
     ports:
       - '${KIMBAP_PORT:-8080}:8080'
     volumes:
@@ -104,7 +104,7 @@ KIMBAP_PORT=8080
 # Vault master key (generate with: openssl rand -hex 32)
 KIMBAP_MASTER_KEY_HEX=your-hex-master-key-change-in-production
 
-LOG_LEVEL=info
+KIMBAP_LOG_LEVEL=info
 ```
 
 #### 4. Start Services

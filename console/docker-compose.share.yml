@@ -26,17 +26,14 @@ services:
     restart: unless-stopped
     pull_policy: always
     environment:
-      NODE_ENV: production
-      DATABASE_URL: ${KIMBAP_CORE_DATABASE_URL:-postgresql://kimbap:${KIMBAP_DB_PASSWORD:-kimbap123}@postgres:5432/${KIMBAP_DB_NAME:-kimbap_db}?schema=public}
-      PORT: 3002
-      BACKEND_PORT: 3002
-      JWT_SECRET: ${KIMBAP_CORE_JWT_SECRET:-kimbap-secret-key-change-this}
+      KIMBAP_DATABASE_DRIVER: postgres
+      KIMBAP_DATABASE_DSN: ${KIMBAP_CORE_DATABASE_URL:-postgresql://kimbap:${KIMBAP_DB_PASSWORD:-kimbap123}@postgres:5432/${KIMBAP_DB_NAME:-kimbap_db}?sslmode=disable}
     ports:
-      - '${KIMBAP_CORE_PORT:-3002}:3002'
+      - '${KIMBAP_CORE_PORT:-3002}:8080'
     networks:
       - kimbap-network
     healthcheck:
-      test: ['CMD-SHELL', 'curl -f http://localhost:3002 || exit 0']
+      test: ['CMD-SHELL', 'wget -q --spider http://localhost:8080/v1/health || exit 1']
       interval: 30s
       timeout: 10s
       retries: 3
@@ -57,7 +54,7 @@ services:
       DB_NAME: ${KIMBAP_DB_NAME:-kimbap_db}
       DATABASE_URL: postgresql://kimbap:${KIMBAP_DB_PASSWORD:-kimbap123}@postgres:5432/${KIMBAP_DB_NAME:-kimbap_db}
       NODE_ENV: production
-      KIMBAP_CORE_URL: ${KIMBAP_CORE_URL:-http://kimbap:3002}
+      KIMBAP_CORE_URL: ${KIMBAP_CORE_URL:-http://kimbap:8080}
     entrypoint: ['/app/docker/docker-entrypoint.sh']
     depends_on:
       postgres:

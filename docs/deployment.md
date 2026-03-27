@@ -107,8 +107,8 @@ All configuration is set via environment variables or `~/.kimbap/config.yaml`.
 
 | Name         | Required | Default                        | Description                                           |
 | ------------ | -------- | ------------------------------ | ----------------------------------------------------- |
-| `LOG_LEVEL`  |          | `info`                         | Log level: `trace`, `debug`, `info`, `warn`, `error`. |
-| `LOG_PRETTY` |          | `true` (dev) / `false` (prod)  | Pretty-printed logs for development.                  |
+| `KIMBAP_LOG_LEVEL`  |          | `info`                         | Log level: `trace`, `debug`, `info`, `warn`, `error`. |
+| `KIMBAP_LOG_FORMAT` |          | `text` (default) / `json`      | Log output format.                                    |
 
 ---
 
@@ -127,7 +127,7 @@ services:
     environment:
       KIMBAP_DATA_DIR: /data/kimbap
       KIMBAP_MASTER_KEY_HEX: ${KIMBAP_MASTER_KEY_HEX}
-      LOG_LEVEL: info
+      KIMBAP_LOG_LEVEL: info
     volumes:
       - kimbap_data:/data/kimbap
     healthcheck:

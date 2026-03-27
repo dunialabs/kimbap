@@ -324,6 +324,9 @@ func (e *storePolicyEvaluator) Evaluate(ctx context.Context, req runtimepkg.Poli
 		}
 		return (&policyEvaluatorAdapter{evaluator: policy.NewEvaluator(doc)}).Evaluate(ctx, req)
 	}
+	if err != nil && !errors.Is(err, store.ErrNotFound) {
+		return nil, fmt.Errorf("load tenant policy: %w", err)
+	}
 	if e.fallback != nil {
 		return e.fallback.Evaluate(ctx, req)
 	}

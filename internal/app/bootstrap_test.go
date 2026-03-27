@@ -15,6 +15,7 @@ import (
 	"github.com/dunialabs/kimbap/internal/connectors"
 	runtimepkg "github.com/dunialabs/kimbap/internal/runtime"
 	"github.com/dunialabs/kimbap/internal/services"
+	"github.com/dunialabs/kimbap/internal/store"
 	"github.com/dunialabs/kimbap/internal/vault"
 )
 
@@ -381,8 +382,70 @@ func TestEnvCredentialResolverHandlesProfiledRef(t *testing.T) {
 	}
 }
 
+func TestStorePolicyEvaluatorFallsBackOnTenantPolicyNotFound(t *testing.T) {
+	fallback := &stubPolicyEvaluator{decision: &runtimepkg.PolicyDecision{Decision: "allow"}}
+	evaluator := &storePolicyEvaluator{
+		policyStore: &stubPolicyStore{getErr: store.ErrNotFound},
+		fallback:    fallback,
+	}
+
+	decision, err := evaluator.Evaluate(context.Background(), runtimepkg.PolicyRequest{TenantID: "tenant-a"})
+	if err != nil {
+		t.Fatalf("evaluate policy: %v", err)
+	}
+	if decision == nil || decision.Decision != "allow" {
+		t.Fatalf("expected fallback decision allow, got %+v", decision)
+	}
+	if fallback.calls != 1 {
+		t.Fatalf("expected fallback evaluator called once, got %d", fallback.calls)
+	}
+}
+
+func TestStorePolicyEvaluatorFailsClosedOnPolicyStoreError(t *testing.T) {
+	fallback := &stubPolicyEvaluator{decision: &runtimepkg.PolicyDecision{Decision: "allow"}}
+	evaluator := &storePolicyEvaluator{
+		policyStore: &stubPolicyStore{getErr: errors.New("db unavailable")},
+		fallback:    fallback,
+	}
+
+	decision, err := evaluator.Evaluate(context.Background(), runtimepkg.PolicyRequest{TenantID: "tenant-a"})
+	if err == nil {
+		t.Fatalf("expected error, got decision=%+v", decision)
+	}
+	if fallback.calls != 0 {
+		t.Fatalf("expected fallback evaluator not called, got %d", fallback.calls)
+	}
+}
+
 type bootstrapMemConnectorStore struct {
 	items map[string]connectors.ConnectorState
+}
+
+type stubPolicyStore struct {
+	data   []byte
+	getErr error
+}
+
+func (s *stubPolicyStore) SetPolicy(context.Context, string, []byte) error {
+	return nil
+}
+
+func (s *stubPolicyStore) GetPolicy(context.Context, string) ([]byte, error) {
+	if s.getErr != nil {
+		return nil, s.getErr
+	}
+	return s.data, nil
+}
+
+type stubPolicyEvaluator struct {
+	decision *runtimepkg.PolicyDecision
+	err      error
+	calls    int
+}
+
+func (s *stubPolicyEvaluator) Evaluate(context.Context, runtimepkg.PolicyRequest) (*runtimepkg.PolicyDecision, error) {
+	s.calls++
+	return s.decision, s.err
 }
 
 func newBootstrapMemConnectorStore() *bootstrapMemConnectorStore {

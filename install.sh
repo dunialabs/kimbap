@@ -33,6 +33,14 @@ if ! command -v go >/dev/null 2>&1; then
   exit 1
 fi
 
+go_version="$(go version | grep -oE 'go[0-9]+\.[0-9]+' | head -1 | sed 's/go//')"
+go_major="${go_version%%.*}"
+go_minor="${go_version#*.}"
+if [ "${go_major:-0}" -lt 1 ] || { [ "${go_major:-0}" -eq 1 ] && [ "${go_minor:-0}" -lt 24 ]; }; then
+  printf 'Error: Go >= 1.24 is required (found %s).\n' "$go_version" >&2
+  exit 1
+fi
+
 printf 'Building kimbap from source...\n'
 make -C "$ROOT_DIR" deps
 make -C "$ROOT_DIR" build

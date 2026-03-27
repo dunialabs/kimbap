@@ -74,7 +74,7 @@ kimbap service validate my-service.yaml
 
 List all installed services and their action counts.
 
-### `kimbap service export-agent-skill`
+### `kimbap service export-agent-skill <name>`
 
 Export a SKILL.md file for agent discovery.
 

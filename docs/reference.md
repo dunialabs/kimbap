@@ -23,7 +23,7 @@ All configuration via environment variables or `~/.kimbap/config.yaml`.
 | `KIMBAP_DEV` | `false` | Dev mode: relaxed security, verbose logging |
 | `KIMBAP_DATABASE_DRIVER` | `sqlite` | `sqlite` or `postgres` |
 | `KIMBAP_DATABASE_DSN` | `$DATA_DIR/kimbap.db` | Database connection string |
-| `LOG_LEVEL` | `info` | `trace`, `debug`, `info`, `warn`, `error` |
+| `KIMBAP_LOG_LEVEL` | `info` | `trace`, `debug`, `info`, `warn`, `error` |
 
 ## Policy DSL
 

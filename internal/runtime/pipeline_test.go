@@ -3,6 +3,7 @@ package runtime
 import (
 	"context"
 	"errors"
+	"net/http"
 	"testing"
 	"time"
 
@@ -26,6 +27,14 @@ type countingPolicyEvaluator struct {
 func (m *countingPolicyEvaluator) Evaluate(ctx context.Context, req PolicyRequest) (*PolicyDecision, error) {
 	m.called++
 	return &PolicyDecision{Decision: "allow"}, nil
+}
+
+type staticDecisionPolicyEvaluator struct {
+	decision string
+}
+
+func (m staticDecisionPolicyEvaluator) Evaluate(ctx context.Context, req PolicyRequest) (*PolicyDecision, error) {
+	return &PolicyDecision{Decision: m.decision}, nil
 }
 
 type mockCredentialResolver struct {
@@ -466,6 +475,33 @@ func TestRuntimeApprovalHoldAndResume(t *testing.T) {
 	}
 	if store.removeCalls != 0 {
 		t.Fatalf("expected Remove not called (Resume is now consume-once), got %d", store.removeCalls)
+	}
+}
+
+func TestRuntimeResumeApprovedDeniedAfterPolicyChange(t *testing.T) {
+	store := &mockHeldExecutionStore{held: map[string]actions.ExecutionRequest{}}
+	store.held["apr-99"] = baseRequest(actions.ActionDefinition{
+		Name:    "github.issues.create",
+		Adapter: actions.AdapterConfig{Type: "http", URLTemplate: "https://example.com"},
+	})
+
+	rt := Runtime{
+		PolicyEvaluator:    staticDecisionPolicyEvaluator{decision: "deny"},
+		HeldExecutionStore: store,
+		Adapters: map[string]adapters.Adapter{
+			"http": mockAdapter{kind: "http", result: &adapters.AdapterResult{Output: map[string]any{"resumed": true}, HTTPStatus: 200}},
+		},
+	}
+
+	resumed := rt.ResumeApproved(context.Background(), "apr-99")
+	if resumed.Status != actions.StatusError {
+		t.Fatalf("expected resume to fail when policy changes to deny, got %s", resumed.Status)
+	}
+	if resumed.Error == nil || resumed.Error.Code != actions.ErrUnauthorized {
+		t.Fatalf("expected unauthorized error, got %+v", resumed.Error)
+	}
+	if resumed.HTTPStatus != http.StatusForbidden {
+		t.Fatalf("expected status 403, got %d", resumed.HTTPStatus)
 	}
 }
 
