@@ -84,8 +84,8 @@ export function DashboardSidebar() {
                 onClick={() => setMobileMenuOpen(false)}
                 aria-label="Go to the dashboard home"
               >
-                <Image src="/new_logo.svg" width={237} height={34} alt="Kimbap Logo" className="block h-auto max-w-full dark:hidden" priority />
-                <Image src="/darklogo.svg" width={237} height={34} alt="Kimbap Logo" className="hidden h-auto max-w-full dark:block" priority />
+                <Image src="/new_logo.svg" width={237} height={34} alt="Kimbap Console" className="block h-auto max-w-full dark:hidden" priority />
+                <Image src="/darklogo.svg" width={237} height={34} alt="Kimbap Console" className="hidden h-auto max-w-full dark:block" priority />
               </Link>
             </div>
             <div className="flex-1 overflow-y-auto py-2">
@@ -111,8 +111,8 @@ export function DashboardSidebar() {
           className="ml-3 flex min-h-11 items-center rounded-md transition-opacity duration-200 hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2"
           aria-label="Go to the dashboard home"
         >
-          <Image src="/new_logo.svg" width={160} height={23} alt="Kimbap Logo" className="block h-auto max-w-full dark:hidden" priority />
-          <Image src="/darklogo.svg" width={160} height={23} alt="Kimbap Logo" className="hidden h-auto max-w-full dark:block" priority />
+          <Image src="/new_logo.svg" width={160} height={23} alt="Kimbap Console" className="block h-auto max-w-full dark:hidden" priority />
+          <Image src="/darklogo.svg" width={160} height={23} alt="Kimbap Console" className="hidden h-auto max-w-full dark:block" priority />
         </Link>
       </header>
 
@@ -124,8 +124,8 @@ export function DashboardSidebar() {
               className="flex min-w-0 flex-1 items-center gap-2 rounded-md font-semibold transition-opacity duration-200 hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2"
               aria-label="Go to the dashboard home"
             >
-              <Image src="/new_logo.svg" width={237} height={34} alt="Kimbap Logo" className="block h-auto max-w-full dark:hidden" priority />
-              <Image src="/darklogo.svg" width={237} height={34} alt="Kimbap Logo" className="hidden h-auto max-w-full dark:block" priority />
+              <Image src="/new_logo.svg" width={237} height={34} alt="Kimbap Console" className="block h-auto max-w-full dark:hidden" priority />
+              <Image src="/darklogo.svg" width={237} height={34} alt="Kimbap Console" className="hidden h-auto max-w-full dark:block" priority />
             </Link>
           </div>
           <div className="flex-1">
