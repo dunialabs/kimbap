@@ -193,7 +193,15 @@ Result returned to agent process
 The subprocess never receives long-lived credentials. It receives only what the runtime decides to inject per-call.
 
 
-### Daemon Mode
+### Serve Mode (`kimbap serve`)
+
+Starts a connected-mode REST API server that exposes the action runtime over HTTP. Default listen address is `:8080`.
+
+**Entry point:** `cmd/kimbap/serve.go`, `internal/api/`
+
+Agents or external systems call the REST API directly. Every request passes through the same action runtime pipeline as all other modes.
+
+### Daemon Mode (`kimbap daemon`)
 
 A persistent runtime daemon that keeps the execution pipeline warm to avoid cold-start overhead on every `kimbap call`. Listens on a Unix domain socket and exposes `/call`, `/health`, and `/shutdown` endpoints.
 
