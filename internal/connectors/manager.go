@@ -136,7 +136,13 @@ func (m *Manager) CompleteLogin(ctx context.Context, tenantID, name string, code
 		}
 	}
 
-	token, err := PollForTokenWithContext(ctx, cfg, deviceCode, interval, 10*time.Minute)
+	pollTimeout := 10 * time.Minute
+	if hasPending && !pending.expiresAt.IsZero() {
+		if remaining := time.Until(pending.expiresAt); remaining > 0 {
+			pollTimeout = remaining
+		}
+	}
+	token, err := PollForTokenWithContext(ctx, cfg, deviceCode, interval, pollTimeout)
 	if err != nil {
 		return err
 	}
