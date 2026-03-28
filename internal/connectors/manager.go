@@ -496,11 +496,11 @@ func DeriveConnectionStatus(state *ConnectorState) ConnectionStatus {
 	if state.RevokedAt != nil {
 		return StatusRevoked
 	}
-	if strings.TrimSpace(state.LastRefreshError) != "" && state.LastRefresh != nil {
-		return StatusRefreshFailed
-	}
 	if state.Status == StatusReauthNeeded {
 		return StatusReconnectRequired
+	}
+	if strings.TrimSpace(state.LastRefreshError) != "" && state.LastRefresh != nil {
+		return StatusRefreshFailed
 	}
 	if strings.TrimSpace(state.AccessToken) == "" {
 		return StatusConnecting
