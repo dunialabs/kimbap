@@ -1407,6 +1407,14 @@ function LogsPageContent() {
               These totals count log entries in {getTimeRangeLabel(statisticsTimeFilter)}. Error rate is the share of all logs marked <span className="font-medium text-foreground">ERROR</span>, and debug logs are tracked separately from <span className="font-medium text-foreground">Info Logs</span>.
             </p>
           </div>
+          {!statsLoading && !statsError && !statistics ? (
+            <div className="flex items-start gap-2 rounded-md border border-dashed border-border/70 bg-background px-3 py-3 text-sm text-muted-foreground">
+              <Activity className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
+              <p>
+                Statistics aren&apos;t available for this period yet. Try switching to the last 24 hours or check back after new log traffic is recorded.
+              </p>
+            </div>
+          ) : null}
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
             <Card className="h-full">
               <CardHeader className="pb-2">
