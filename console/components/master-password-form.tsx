@@ -8,9 +8,33 @@ import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Input } from '@/components/ui/input'
 import { Eye, EyeOff, Loader2, Lock } from 'lucide-react'
 import { renderErrorMessageWithLinks } from '@/lib/error-utils'
+import { api } from '@/lib/api-client'
 
 interface MasterPasswordFormProps {
   onSuccess: () => void
+}
+
+const safeStorageSet = (key: string, value: string): boolean => {
+  try {
+    localStorage.setItem(key, value)
+    return true
+  } catch {
+    return false
+  }
+}
+
+const safeStorageRemove = (key: string): void => {
+  try {
+    localStorage.removeItem(key)
+  } catch {
+    return
+  }
+}
+
+const generateSessionCookieValue = () => {
+  const bytes = new Uint8Array(16)
+  window.crypto.getRandomValues(bytes)
+  return Array.from(bytes, (byte) => byte.toString(16).padStart(2, '0')).join('')
 }
 
 export function MasterPasswordForm({ onSuccess }: MasterPasswordFormProps) {
@@ -86,12 +110,68 @@ export function MasterPasswordForm({ onSuccess }: MasterPasswordFormProps) {
     setError('')
 
     try {
-      const { MasterPasswordManager } = await import('@/lib/crypto')
-      await MasterPasswordManager.setMasterPassword(masterPassword)
+      const response = await api.auth.init({ masterPwd: masterPassword })
+      const initData = response.data?.data
+
+      if (!initData?.accessToken || !initData?.userid) {
+        throw new Error('Could not initialize server owner session. Try again.')
+      }
+
+      const role =
+        initData.role === 1
+          ? 'Owner'
+          : initData.role === 2
+          ? 'Admin'
+          : 'Member'
+
+      if (!safeStorageSet('userid', initData.userid)) {
+        throw new Error('Unable to persist user session state in browser storage')
+      }
+
+      const serverInfo = {
+        id: initData.proxyId || 'default',
+        proxyId: initData.proxyId || 'default',
+        name: initData.proxyName || 'Kimbap Server',
+        proxyName: initData.proxyName || 'Kimbap Server',
+        proxyKey: '',
+        address: `https://server-${initData.proxyId}.mcp.local`,
+        status: 'running',
+        role,
+        userRole: role === 'Owner' ? 'Admin' : role
+      }
+
+      if (!safeStorageSet('selectedServer', JSON.stringify(serverInfo))) {
+        throw new Error('Unable to persist selected server in browser storage')
+      }
+
+      if (!safeStorageSet('auth_token', initData.accessToken)) {
+        throw new Error('Unable to persist auth token in browser storage')
+      }
+
+      safeStorageRemove('accessToken')
+      document.cookie = `kimbap_session=${generateSessionCookieValue()}; path=/; max-age=${60 * 60 * 24 * 7}; SameSite=Lax`
+
       onSuccess()
-    } catch (error: any) {
+    } catch (error: unknown) {
+      const requestError = error as {
+        response?: { data?: { error?: { code?: string; message?: string } } }
+        userMessage?: string
+        message?: string
+      }
+      const errorCode = requestError.response?.data?.error?.code
+
+      if (errorCode === 'E3007') {
+        window.location.href = '/'
+        return
+      }
+
       setIsLoading(false)
-      setError(error.message || 'Could not create the master password. Try again.')
+      setError(
+        requestError.userMessage ||
+          requestError.response?.data?.error?.message ||
+          requestError.message ||
+          'Could not create the master password. Try again.'
+      )
     }
   }
 
