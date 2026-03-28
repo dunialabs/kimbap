@@ -107,9 +107,6 @@ func (s *Server) handleExecuteAction(w http.ResponseWriter, r *http.Request) {
 	}
 	requestID := requestIDFromContext(r.Context())
 	idempotencyKey := strings.TrimSpace(r.Header.Get("Idempotency-Key"))
-	if idempotencyKey == "" {
-		idempotencyKey = requestID
-	}
 	req := actions.ExecutionRequest{
 		RequestID:      requestID,
 		IdempotencyKey: idempotencyKey,

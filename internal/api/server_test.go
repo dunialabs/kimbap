@@ -419,6 +419,7 @@ func TestHandleExecuteActionEmitsApprovalRequestedWebhook(t *testing.T) {
 
 	body := strings.NewReader(`{"input": {}}`)
 	req := httptest.NewRequest(http.MethodPost, "/v1/actions/github/issues.create:execute", body)
+	req.Header.Set("Idempotency-Key", "idem-api-approval-test")
 	req = req.WithContext(context.WithValue(req.Context(), contextKeyPrincipal, &auth.Principal{
 		ID:        "approver-a",
 		TenantID:  "tenant-a",
@@ -919,6 +920,44 @@ func TestHandleExecuteActionRejectsPrincipalTenantMismatch(t *testing.T) {
 
 	if rr.Code != http.StatusForbidden {
 		t.Fatalf("expected 403, got %d", rr.Code)
+	}
+}
+
+func TestHandleExecuteActionRequiresExplicitIdempotencyKey(t *testing.T) {
+	server := &Server{runtime: &runtimepkg.Runtime{}}
+	body := strings.NewReader(`{"input": {"name":"item"}}`)
+	req := httptest.NewRequest(http.MethodPost, "/v1/actions/github/issues.create:execute", body)
+	req = req.WithContext(context.WithValue(req.Context(), contextKeyPrincipal, &auth.Principal{
+		ID:        "agent-1",
+		TenantID:  "tenant-a",
+		AgentName: "agent-a",
+		Scopes:    []string{"*"},
+	}))
+	req = req.WithContext(context.WithValue(req.Context(), contextKeyTenant, "tenant-a"))
+	req = req.WithContext(context.WithValue(req.Context(), contextKeyRequestID, "req-idempotency-required"))
+
+	rctx := chi.NewRouteContext()
+	rctx.URLParams.Add("service", "github")
+	rctx.URLParams.Add("action", "issues.create")
+	req = req.WithContext(context.WithValue(req.Context(), chi.RouteCtxKey, rctx))
+
+	rr := httptest.NewRecorder()
+	server.handleExecuteAction(rr, req)
+
+	if rr.Code != http.StatusBadRequest {
+		t.Fatalf("expected 400, got %d", rr.Code)
+	}
+
+	var payload map[string]any
+	if err := json.NewDecoder(rr.Body).Decode(&payload); err != nil {
+		t.Fatalf("decode response: %v", err)
+	}
+	errBody, ok := payload["error"].(map[string]any)
+	if !ok {
+		t.Fatalf("expected error object, got %T", payload["error"])
+	}
+	if errBody["code"] != "ERR_IDEMPOTENCY_REQUIRED" {
+		t.Fatalf("expected ERR_IDEMPOTENCY_REQUIRED, got %v", errBody["code"])
 	}
 }
 
