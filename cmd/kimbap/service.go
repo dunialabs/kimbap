@@ -380,9 +380,15 @@ func newServiceVerifyCommand() *cobra.Command {
 				}
 				if includeSignatures && !outputAsJSON() {
 					printServiceVerifyResultText(*result, true)
-					return nil
+				} else {
+					if printErr := printOutput(result); printErr != nil {
+						return printErr
+					}
 				}
-				return printOutput(result)
+				if !result.Verified {
+					return fmt.Errorf("service %q integrity check failed", args[0])
+				}
+				return nil
 			}
 
 			installed, listErr := installer.List()
@@ -401,9 +407,17 @@ func newServiceVerifyCommand() *cobra.Command {
 				for _, result := range results {
 					printServiceVerifyResultText(result, true)
 				}
-				return nil
+			} else {
+				if printErr := printOutput(results); printErr != nil {
+					return printErr
+				}
 			}
-			return printOutput(results)
+			for _, result := range results {
+				if !result.Verified {
+					return fmt.Errorf("one or more services failed integrity check")
+				}
+			}
+			return nil
 		},
 	}
 	cmd.Flags().BoolVar(&includeSignatures, "signatures", false, "include lockfile signature status in text output")

@@ -8,7 +8,6 @@ import (
 const (
 	componentApprovalStore   = "approval store"
 	componentConnectorStore  = "connector store"
-	componentConnectorState  = "connector state store"
 	componentOAuthStateStore = "oauth state store"
 	componentRuntime         = "runtime"
 	componentVault           = "vault"

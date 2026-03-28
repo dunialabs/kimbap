@@ -211,6 +211,10 @@ func (p *ProxyServer) Start(ctx context.Context) error {
 
 	err = srv.Serve(ln)
 	close(shutdownDone)
+	p.mu.Lock()
+	p.server = nil
+	p.listener = nil
+	p.mu.Unlock()
 	if err != nil && !errors.Is(err, http.ErrServerClosed) {
 		return fmt.Errorf("serve proxy: %w", err)
 	}

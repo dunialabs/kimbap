@@ -32,6 +32,7 @@ type Server struct {
 const (
 	defaultReadHeaderTimeout = 5 * time.Second
 	defaultReadTimeout       = 60 * time.Second
+	defaultWriteTimeout      = 120 * time.Second
 	defaultIdleTimeout       = 60 * time.Second
 )
 
@@ -141,6 +142,7 @@ func newHTTPServer(addr string, handler http.Handler) *http.Server {
 		Handler:           handler,
 		ReadHeaderTimeout: defaultReadHeaderTimeout,
 		ReadTimeout:       defaultReadTimeout,
+		WriteTimeout:      defaultWriteTimeout,
 		IdleTimeout:       defaultIdleTimeout,
 	}
 }

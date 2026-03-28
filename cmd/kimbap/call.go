@@ -28,7 +28,16 @@ func newCallCommand() *cobra.Command {
 			showSplashOnce()
 		},
 		RunE: func(cmd *cobra.Command, args []string) error {
+			opts.dryRun = false
+			opts.trace = false
+			opts.format = "text"
+			opts.jsonInput = ""
 			opts.idempotencyKey = ""
+			opts.configPath = ""
+			opts.dataDir = ""
+			opts.logLevel = ""
+			opts.mode = ""
+			opts.noSplash = false
 			actionName, inputTokens, showHelp, err := splitCallInvocationArgs(args)
 			if err != nil {
 				return err

@@ -1,6 +1,7 @@
 package api
 
 import (
+	"bytes"
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
@@ -773,11 +774,14 @@ func (s *Server) handleExportAudit(w http.ResponseWriter, r *http.Request) {
 		))
 		return
 	}
-	w.Header().Set("Content-Type", contentType)
-	w.WriteHeader(http.StatusOK)
-	if err := s.store.ExportAuditEvents(r.Context(), store.AuditFilter{TenantID: tenantID}, format, w); err != nil {
+	var buf bytes.Buffer
+	if err := s.store.ExportAuditEvents(r.Context(), store.AuditFilter{TenantID: tenantID}, format, &buf); err != nil {
+		writeEnvelopeError(w, r, actions.NewExecutionError(actions.ErrDownstreamUnavailable, "export failed", http.StatusInternalServerError, false, nil))
 		return
 	}
+	w.Header().Set("Content-Type", contentType)
+	w.WriteHeader(http.StatusOK)
+	_, _ = io.Copy(w, &buf)
 }
 
 const maxAPIRequestBodyBytes int64 = 4 << 20
