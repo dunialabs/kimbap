@@ -935,53 +935,97 @@ export default function DashboardPage() {
                 <p className="text-sm text-muted-foreground">No clients have connected in the last 24 hours. Connect a client and run a request to populate this list.</p>
               </div>
             ) : (
-              <div className="overflow-x-auto">
-                <Table className="min-w-[760px]">
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead scope="col">Client Name</TableHead>
-                      <TableHead scope="col">IP Address</TableHead>
-                      <TableHead scope="col">Location</TableHead>
-                      <TableHead scope="col">Last Active</TableHead>
-                      <TableHead scope="col" className="text-right">Requests</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {connectedClients.map((client) => (
-                      <TableRow key={client.id}>
-                        <TableCell className="max-w-[220px] break-words">{formatNullableText(client.name)}</TableCell>
-                        <TableCell className="min-w-[220px] font-mono text-sm">
-                          <div className="flex flex-wrap items-center gap-2">
-                            <span>{client.ip}</span>
-                            <Button
-                              type="button"
-                              variant="ghost"
-                              size="sm"
-                              className="min-h-11 shrink-0 px-3 text-xs"
-                              onClick={() => handleCopyClientIp(client.ip)}
-                            >
-                              <Copy className="mr-1 h-3.5 w-3.5" aria-hidden="true" />
-                              Copy
-                            </Button>
+              <>
+                <div className="space-y-3 md:hidden">
+                  {connectedClients.map((client) => (
+                    <Card key={client.id} className="border border-border/60 shadow-sm">
+                      <CardContent className="space-y-4 p-4">
+                        <div className="space-y-1">
+                          <p className="text-sm font-medium">{formatNullableText(client.name)}</p>
+                          <div className="flex items-center gap-1 text-sm text-muted-foreground">
+                            <MapPin className="h-3 w-3" aria-hidden="true" />
+                            <span>{formatNullableText(client.location)}</span>
                           </div>
-                        </TableCell>
-                        <TableCell>
-                          <div className="flex items-center gap-1">
-                            <MapPin className="h-3 w-3 text-muted-foreground" />
-                            <span className="text-sm">{formatNullableText(client.location)}</span>
+                        </div>
+
+                        <div className="grid grid-cols-1 gap-3 text-sm sm:grid-cols-2">
+                          <div>
+                            <p className="text-xs text-muted-foreground">IP address</p>
+                            <p className="mt-1 break-all font-mono text-xs">{client.ip}</p>
                           </div>
-                        </TableCell>
-                        <TableCell className="text-sm text-muted-foreground">
-                          {formatNullableText(client.lastActive)}
-                        </TableCell>
-                        <TableCell className="text-right">
-                          {formatDisplayNumber(client.requests, { compact: true })}
-                        </TableCell>
+                          <div>
+                            <p className="text-xs text-muted-foreground">Last active</p>
+                            <p className="mt-1 text-muted-foreground">{formatNullableText(client.lastActive)}</p>
+                          </div>
+                          <div>
+                            <p className="text-xs text-muted-foreground">Requests</p>
+                            <p className="mt-1">{formatDisplayNumber(client.requests, { compact: true })}</p>
+                          </div>
+                        </div>
+
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          className="min-h-11 w-full"
+                          onClick={() => handleCopyClientIp(client.ip)}
+                        >
+                          <Copy className="mr-1.5 h-3.5 w-3.5" aria-hidden="true" />
+                          Copy IP address
+                        </Button>
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
+
+                <div className="hidden overflow-x-auto md:block">
+                  <Table className="min-w-[760px]">
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead scope="col">Client Name</TableHead>
+                        <TableHead scope="col">IP Address</TableHead>
+                        <TableHead scope="col">Location</TableHead>
+                        <TableHead scope="col">Last Active</TableHead>
+                        <TableHead scope="col" className="text-right">Requests</TableHead>
                       </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </div>
+                    </TableHeader>
+                    <TableBody>
+                      {connectedClients.map((client) => (
+                        <TableRow key={client.id}>
+                          <TableCell className="max-w-[220px] break-words">{formatNullableText(client.name)}</TableCell>
+                          <TableCell className="min-w-[220px] font-mono text-sm">
+                            <div className="flex flex-wrap items-center gap-2">
+                              <span>{client.ip}</span>
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="sm"
+                                className="min-h-11 shrink-0 px-3 text-xs"
+                                onClick={() => handleCopyClientIp(client.ip)}
+                              >
+                                <Copy className="mr-1 h-3.5 w-3.5" aria-hidden="true" />
+                                Copy
+                              </Button>
+                            </div>
+                          </TableCell>
+                          <TableCell>
+                            <div className="flex items-center gap-1">
+                              <MapPin className="h-3 w-3 text-muted-foreground" />
+                              <span className="text-sm">{formatNullableText(client.location)}</span>
+                            </div>
+                          </TableCell>
+                          <TableCell className="text-sm text-muted-foreground">
+                            {formatNullableText(client.lastActive)}
+                          </TableCell>
+                          <TableCell className="text-right">
+                            {formatDisplayNumber(client.requests, { compact: true })}
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+              </>
             )}
           </div>
         </DialogContent>
