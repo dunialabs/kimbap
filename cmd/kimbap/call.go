@@ -299,10 +299,10 @@ func splitGlobalCallFlags(tokens []string) ([]string, error) {
 		"--idempotency-key": &opts.idempotencyKey,
 	}
 	// actionFlagConflicts: these global flags must NOT be consumed after the action name
-	// because services may have identically-named input parameters.
+	// because services may have identically-named input parameters (e.g. --format in mermaid).
+	// Note: --json is intentionally excluded — it reads JSON input and cannot conflict with service args.
 	actionFlagConflicts := map[string]bool{
 		"--format": true,
-		"--json":   true,
 	}
 	actionSeen := false
 	for i := 0; i < len(tokens); i++ {
