@@ -343,6 +343,7 @@ export function LoginForm({
               onClick={() => setShowLoginPassword(!showLoginPassword)}
               className="absolute right-1 top-1/2 flex h-11 w-11 -translate-y-1/2 items-center justify-center rounded text-muted-foreground transition-colors duration-200 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
               aria-label={showLoginPassword ? 'Hide password' : 'Show password'}
+              title={showLoginPassword ? 'Hide password' : 'Show password'}
                disabled={isLoggingIn}
             >
 
