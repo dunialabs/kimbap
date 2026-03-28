@@ -831,7 +831,7 @@ function LogsPageContent() {
                         {badge}
                       </Badge>
                     ))
-                  : <span className="text-xs text-muted-foreground">{getTimeRangeLabel(selectedTimeRange)}</span>
+                  : <span className="text-xs text-muted-foreground">{getTimeRangeLabel(selectedTimeRange)} · no extra filters</span>
               )}
             </div>
             <CollapsibleTrigger asChild>
