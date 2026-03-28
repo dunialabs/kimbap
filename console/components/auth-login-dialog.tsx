@@ -100,7 +100,7 @@ export function AuthLoginDialog({
       resetForm()
     } catch (error: any) {
       setIsLoading(false)
-      setError(error.response?.data?.error || "Invalid verification code")
+      setError(error.response?.data?.error || "That code didn't work. Check the latest email and try again.")
     }
   }
 
@@ -135,7 +135,7 @@ export function AuthLoginDialog({
           <DialogDescription>
             {step === "login" 
               ? "Enter your email to receive a sign-in code."
-              : `Check ${email} for your verification code.`
+              : `Check ${email} for the latest verification code.`
             }
           </DialogDescription>
         </DialogHeader>
@@ -164,6 +164,8 @@ export function AuthLoginDialog({
                       setError("")
                     }}
                     disabled={isLoading}
+                    aria-invalid={Boolean(error)}
+                    aria-describedby={error ? 'auth-login-error' : 'auth-login-note'}
                     autoCapitalize="none"
                     autoCorrect="off"
                     spellCheck={false}
@@ -172,8 +174,12 @@ export function AuthLoginDialog({
                   />
                 </div>
 
+                <p id="auth-login-note" className="text-xs text-muted-foreground">
+                  We’ll email a one-time code to this address.
+                </p>
+
                 {error && (
-                  <Alert className="border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-950/20">
+                  <Alert id="auth-login-error" className="border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-950/20">
                     <AlertDescription className="text-sm text-red-800 dark:text-red-200">
                       {error}
                     </AlertDescription>
@@ -211,7 +217,7 @@ export function AuthLoginDialog({
               >
                 <div className="text-center">
                   <div className="w-16 h-16 bg-blue-100 dark:bg-blue-950 rounded-full flex items-center justify-center mx-auto mb-4">
-                    <Mail className="h-8 w-8 text-blue-600 dark:text-blue-400" />
+                    <Mail className="h-8 w-8 text-blue-600 dark:text-blue-400" aria-hidden="true" />
                   </div>
                   <p className="text-sm text-muted-foreground">
                     Enter the 6-digit code from your email.
@@ -231,18 +237,20 @@ export function AuthLoginDialog({
                       setError("")
                     }}
                     disabled={isLoading}
+                    aria-invalid={Boolean(error)}
+                    aria-describedby={error ? 'auth-verify-error' : 'auth-verify-note'}
                     inputMode="numeric"
                     autoComplete="one-time-code"
                     className={`text-center text-lg tracking-widest ${error ? "border-red-500" : ""}`}
                     maxLength={6}
                   />
-                  <p className="text-xs text-muted-foreground text-center">
+                  <p id="auth-verify-note" className="text-xs text-muted-foreground text-center">
                     Check your email for the code.
                   </p>
                 </div>
 
                 {error && (
-                  <Alert className="border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-950/20">
+                  <Alert id="auth-verify-error" className="border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-950/20">
                     <AlertDescription className="text-sm text-red-800 dark:text-red-200">
                       {error}
                     </AlertDescription>
@@ -262,7 +270,7 @@ export function AuthLoginDialog({
                   ) : (
                     <>
                       <LogIn className="w-4 h-4 mr-2" />
-                      Sign In
+                      Sign in
                     </>
                   )}
                 </Button>

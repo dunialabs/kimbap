@@ -16,7 +16,7 @@ import { useEffect, useState, useCallback } from 'react'
 import { toast } from 'sonner'
 
 import { Badge } from '@/components/ui/badge'
-import { Button } from '@/components/ui/button'
+import { Button, buttonVariants } from '@/components/ui/button'
 import {
   Card,
   CardContent,
@@ -219,14 +219,14 @@ export default function DashboardPage() {
 
     try {
       if (!navigator?.clipboard?.writeText) {
-        toast.error('Clipboard not available')
+        toast.error('Clipboard is unavailable in this browser.')
         return
       }
 
       await navigator.clipboard.writeText(value)
       toast.success(`${label} copied`)
     } catch {
-      toast.error(`Could not copy ${label.toLowerCase()}`)
+      toast.error(`Could not copy ${label.toLowerCase()}. Try again.`)
     }
   }
 
@@ -266,8 +266,8 @@ export default function DashboardPage() {
           <p className="text-muted-foreground mb-4">
             Return to sign in and reconnect to start using the dashboard.
           </p>
-          <Link href="/">
-            <Button>Back to sign in</Button>
+          <Link href="/" className={buttonVariants()}>
+            Back to sign in
           </Link>
         </div>
       </div>
@@ -468,7 +468,7 @@ export default function DashboardPage() {
       </div>
 
       {dashboardLoadError ? (
-        <div className="flex items-center gap-2 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700 dark:border-red-900/40 dark:bg-red-950/20 dark:text-red-300">
+        <div role="alert" className="flex items-center gap-2 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700 dark:border-red-900/40 dark:bg-red-950/20 dark:text-red-300">
           <Server className="h-4 w-4 shrink-0" aria-hidden="true" />
           <span>Could not load dashboard metrics. Check your connection and try again.</span>
           <Button variant="outline" size="sm" className="ml-auto" onClick={() => void fetchDashboardData()}>Retry</Button>
@@ -562,7 +562,7 @@ export default function DashboardPage() {
         <CardContent>
           {!toolsUsage || toolsUsage.length === 0 ? (
             <div className="flex items-center justify-center py-8">
-              <p className="text-sm text-muted-foreground">No tool requests in the last 30 days.</p>
+              <p className="text-sm text-muted-foreground">No tool requests in the last 30 days yet.</p>
             </div>
           ) : (
             <div className="space-y-2">
@@ -609,7 +609,7 @@ export default function DashboardPage() {
         <CardContent>
           {!tokenUsage || tokenUsage.length === 0 ? (
             <div className="flex items-center justify-center py-8">
-              <p className="text-sm text-muted-foreground">No token requests in the last 30 days.</p>
+              <p className="text-sm text-muted-foreground">No access token activity in the last 30 days yet.</p>
             </div>
           ) : (
             <div className="space-y-2">
@@ -662,7 +662,7 @@ export default function DashboardPage() {
           <CardContent>
             {!recentActivity || recentActivity.length === 0 ? (
               <div className="flex items-center justify-center py-8">
-                <p className="text-sm text-muted-foreground">No recent activity in the last 30 days.</p>
+                <p className="text-sm text-muted-foreground">No recent activity in the last 30 days yet.</p>
               </div>
             ) : (
               <div className="space-y-3">
@@ -726,11 +726,11 @@ export default function DashboardPage() {
                 <Table className="min-w-[720px]">
                   <TableHeader>
                     <TableRow>
-                      <TableHead>Client Name</TableHead>
-                      <TableHead>IP Address</TableHead>
-                      <TableHead>Location</TableHead>
-                      <TableHead>Last Active</TableHead>
-                      <TableHead className="text-right">Requests</TableHead>
+                      <TableHead scope="col">Client Name</TableHead>
+                      <TableHead scope="col">IP Address</TableHead>
+                      <TableHead scope="col">Location</TableHead>
+                      <TableHead scope="col">Last Active</TableHead>
+                      <TableHead scope="col" className="text-right">Requests</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -748,13 +748,13 @@ export default function DashboardPage() {
                               onClick={async () => {
                                 try {
                                   if (!navigator?.clipboard?.writeText) {
-                                    toast.error('Clipboard not available')
+                                    toast.error('Clipboard is unavailable in this browser.')
                                     return
                                   }
                                   await navigator.clipboard.writeText(client.ip)
                                   toast.success('Client IP copied')
                                 } catch {
-                                  toast.error('Could not copy client IP')
+                                  toast.error('Could not copy the client IP. Try again.')
                                 }
                               }}
                             >

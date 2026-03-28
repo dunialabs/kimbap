@@ -348,7 +348,7 @@ function RuleCard({
           type="button"
           onClick={() => setExpanded((prev) => !prev)}
           aria-expanded={expanded}
-          className="flex min-w-0 flex-1 items-center gap-2 text-left"
+          className="flex min-w-0 flex-1 items-center gap-2 rounded text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
         >
           {expanded ? <ChevronUp className="h-4 w-4 shrink-0" /> : <ChevronDown className="h-4 w-4 shrink-0" />}
           <span className="shrink-0 text-sm font-medium">Rule {index + 1}</span>
@@ -440,7 +440,7 @@ function RuleCard({
                 <div className="flex-1 space-y-1">
                   <Label className="text-xs">Field</Label>
                   <Input
-                    placeholder="$varName or literal"
+                    placeholder="e.g., $domain or example.com"
                     value={cond.left}
                     onChange={(e) => {
                       const next = [...rule.when]
@@ -505,10 +505,11 @@ function RuleCard({
               <CollapsibleTrigger asChild>
                 <button
                   type="button"
-                  className="flex items-center gap-1 text-xs text-muted-foreground transition-colors hover:text-foreground"
+                  aria-expanded={extractOpen}
+                  className="flex items-center gap-1 rounded text-xs text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
                 >
                   {extractOpen ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
-                  Data extraction (advanced)
+                  Extract fields (advanced)
                   {rule.extract.length > 0 && (
                     <Badge variant="secondary" className="ml-1 h-4 px-1.5 text-xs">
                       {rule.extract.length}
@@ -517,15 +518,15 @@ function RuleCard({
                 </button>
               </CollapsibleTrigger>
               <CollapsibleContent className="space-y-2 pt-2">
-                <p className="text-[11px] text-muted-foreground">Extract fields from the tool call payload to use in conditions.</p>
+                <p className="text-[11px] text-muted-foreground">Extract values from the tool call so you can use them in conditions.</p>
                 {rule.extract.map((ext, ei) => (
                   <div key={ext.id} className="flex items-end gap-2">
                     <div className="flex-1 space-y-1">
-                      <Label className="text-xs">Label</Label>
+                      <Label className="text-xs">Variable name</Label>
                       <div className="relative">
                         <span className="absolute left-2.5 top-1/2 -translate-y-1/2 font-mono text-xs text-muted-foreground">$</span>
                         <Input
-                          placeholder="varName"
+                          placeholder="e.g., domain"
                           value={ext.name}
                           onChange={(e) => {
                             const next = [...rule.extract]
@@ -837,7 +838,7 @@ export default function PoliciesPage() {
         )}
         <CardContent>
           {loadError ? (
-            <div className="mb-4 flex items-center gap-2 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700 dark:border-red-900/40 dark:bg-red-950/20 dark:text-red-300">
+            <div role="alert" className="mb-4 flex items-center gap-2 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700 dark:border-red-900/40 dark:bg-red-950/20 dark:text-red-300">
               <AlertTriangle className="h-4 w-4 shrink-0" aria-hidden="true" />
               <span>{loadError}</span>
               <Button variant="outline" size="sm" className="ml-auto" onClick={fetchPolicies}>Retry</Button>
@@ -872,11 +873,11 @@ export default function PoliciesPage() {
               <Table className="min-w-[720px]">
                 <TableHeader>
                 <TableRow>
-                  <TableHead>Policy</TableHead>
-                  <TableHead>What happens</TableHead>
-                  <TableHead>Updated</TableHead>
-                  <TableHead className="text-center">Status</TableHead>
-                  <TableHead className="text-right">Actions</TableHead>
+                  <TableHead scope="col">Policy</TableHead>
+                  <TableHead scope="col">What happens</TableHead>
+                  <TableHead scope="col">Updated</TableHead>
+                  <TableHead scope="col" className="text-center">Status</TableHead>
+                  <TableHead scope="col" className="text-right">Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>

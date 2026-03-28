@@ -785,12 +785,12 @@ function LogsPageContent() {
               <Table className="min-w-[980px]">
                   <TableHeader>
                     <TableRow>
-                      <TableHead className="w-[180px]">Timestamp</TableHead>
-                      <TableHead className="w-[80px]">Level</TableHead>
-                      <TableHead className="w-[200px]">Source</TableHead>
-                      <TableHead className="w-[300px]">Message</TableHead>
-                      <TableHead className="w-[100px]">Request ID</TableHead>
-                      <TableHead className="w-[80px]">Actions</TableHead>
+                      <TableHead scope="col" className="w-[180px]">Timestamp</TableHead>
+                      <TableHead scope="col" className="w-[80px]">Level</TableHead>
+                      <TableHead scope="col" className="w-[200px]">Source</TableHead>
+                      <TableHead scope="col" className="w-[300px]">Message</TableHead>
+                      <TableHead scope="col" className="w-[100px]">Request ID</TableHead>
+                      <TableHead scope="col" className="w-[80px]">Actions</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -1115,7 +1115,7 @@ function LogsPageContent() {
 
         <TabsContent value="statistics" className="space-y-4">
           {statsError ? (
-            <div className="flex items-center gap-2 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700 dark:border-red-900/40 dark:bg-red-950/20 dark:text-red-300">
+            <div role="alert" className="flex items-center gap-2 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700 dark:border-red-900/40 dark:bg-red-950/20 dark:text-red-300">
               <AlertTriangle className="h-4 w-4 shrink-0" aria-hidden="true" />
               <span>{statsError}</span>
               <Button variant="outline" size="sm" className="ml-auto" onClick={() => void loadStatistics()}>Retry</Button>
@@ -1263,10 +1263,10 @@ function LogsPageContent() {
                 <Table className="min-w-[480px]">
                   <TableHeader>
                     <TableRow>
-                      <TableHead>Source</TableHead>
-                      <TableHead>Logs</TableHead>
-                      <TableHead>Errors</TableHead>
-                      <TableHead>Share</TableHead>
+                      <TableHead scope="col">Source</TableHead>
+                      <TableHead scope="col">Logs</TableHead>
+                      <TableHead scope="col">Errors</TableHead>
+                      <TableHead scope="col">Share</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>

@@ -418,7 +418,7 @@ function TokenUsagePageContent() {
       </div>
       <p className="text-xs text-muted-foreground">Minute-level patterns are available only in the 24-hour view.</p>
       {!loading && loadError ? (
-        <div className="flex items-center gap-2 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700 dark:border-red-900/40 dark:bg-red-950/20 dark:text-red-300">
+        <div role="alert" className="flex items-center gap-2 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700 dark:border-red-900/40 dark:bg-red-950/20 dark:text-red-300">
           <AlertTriangle className="h-4 w-4 shrink-0" aria-hidden="true" />
           <span>{loadError}</span>
           <Button variant="outline" size="sm" className="ml-auto" onClick={handleRefresh}>Retry</Button>
@@ -640,13 +640,13 @@ function TokenUsagePageContent() {
                 <Table className="min-w-[820px]">
                   <TableHeader>
                     <TableRow>
-                      <TableHead>Token Name</TableHead>
-                      <TableHead>Status</TableHead>
-                      <TableHead>Token ID</TableHead>
-                      <TableHead>Total Requests</TableHead>
-                      <TableHead>Success Rate</TableHead>
-                      <TableHead>Clients</TableHead>
-                      <TableHead className="text-right">Last Used</TableHead>
+                      <TableHead scope="col">Token Name</TableHead>
+                      <TableHead scope="col">Status</TableHead>
+                      <TableHead scope="col">Token ID</TableHead>
+                      <TableHead scope="col">Total Requests</TableHead>
+                      <TableHead scope="col">Success Rate</TableHead>
+                      <TableHead scope="col">Clients</TableHead>
+                      <TableHead scope="col" className="text-right">Last Used</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>

@@ -212,6 +212,8 @@ export default function ApprovalsPage() {
   } | null>(null);
   const [decideReason, setDecideReason] = useState('');
   const [deciding, setDeciding] = useState(false);
+  const [detailDecideReason, setDetailDecideReason] = useState('');
+  const [detailDeciding, setDetailDeciding] = useState(false);
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
   const decideReasonRef = useRef<HTMLTextAreaElement>(null);
   const [refreshFailed, setRefreshFailed] = useState(false);
@@ -408,6 +410,28 @@ export default function ApprovalsPage() {
     }
   };
 
+  const handleDetailDecide = async (decision: 'APPROVED' | 'REJECTED') => {
+    if (!detailDialog) return;
+    setDetailDeciding(true);
+    try {
+      await api.approvals.decide({
+        id: detailDialog.id,
+        decision,
+        reason: detailDecideReason.trim() || undefined,
+      });
+      const label = decision === 'APPROVED' ? 'approved' : 'rejected';
+      toast.success(`${detailDialog.toolName} request ${label}`);
+      setDetailDialog(null);
+      setDetailDecideReason('');
+      void fetchData({ page: 1, pageSize: loadedPagesRef.current * BASE_PAGE_SIZE });
+    } catch {
+      const actionLabel = decision === 'APPROVED' ? 'approve' : 'reject';
+      toast.error(`Could not ${actionLabel} ${detailDialog.toolName} request`);
+    } finally {
+      setDetailDeciding(false);
+    }
+  };
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -506,7 +530,7 @@ export default function ApprovalsPage() {
         </CardHeader>
         <CardContent>
           {loadError ? (
-            <div className="mb-4 flex items-center gap-2 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700 dark:border-red-900/40 dark:bg-red-950/20 dark:text-red-300">
+            <div role="alert" className="mb-4 flex items-center gap-2 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700 dark:border-red-900/40 dark:bg-red-950/20 dark:text-red-300">
               <AlertTriangle className="h-4 w-4 shrink-0" aria-hidden="true" />
               <span>{loadError}</span>
               <Button variant="outline" size="sm" className="ml-auto" onClick={() => void handleManualRefresh()} disabled={refreshing}>Retry</Button>
@@ -526,10 +550,10 @@ export default function ApprovalsPage() {
                 {loadError
                   ? 'Approval requests could not be loaded right now.'
                   : statusFilter === 'all' && !userFilter.trim()
-                  ? 'No approval requests right now'
+                  ? 'No approval requests yet. New requests that need a decision will appear here.'
                   : statusFilter === DEFAULT_STATUS_FILTER && !userFilter.trim()
-                  ? 'No pending approvals right now.'
-                  : 'No requests match your filters'}
+                  ? 'No pending approvals right now. New requests that need a decision will appear here.'
+                  : 'No requests match your filters. Adjust or reset the filters and try again.'}
               </p>
               {loadError ? (
                 <Button
@@ -639,14 +663,14 @@ export default function ApprovalsPage() {
                 <table className="min-w-[980px] w-full caption-bottom text-sm">
                   <TableHeader>
                     <TableRow>
-                      <TableHead className="sticky top-0 z-10 bg-background shadow-[0_1px_0_0_hsl(var(--border))]">Tool</TableHead>
-                      <TableHead className="sticky top-0 z-10 bg-background shadow-[0_1px_0_0_hsl(var(--border))]">Server</TableHead>
-                      <TableHead className="sticky top-0 z-10 bg-background shadow-[0_1px_0_0_hsl(var(--border))]">User</TableHead>
-                      <TableHead className="sticky top-0 z-10 bg-background shadow-[0_1px_0_0_hsl(var(--border))] text-center">Status</TableHead>
-                      <TableHead className="sticky top-0 z-10 bg-background shadow-[0_1px_0_0_hsl(var(--border))]">Created</TableHead>
-                      <TableHead className="sticky top-0 z-10 bg-background shadow-[0_1px_0_0_hsl(var(--border))]">Expires</TableHead>
-                      <TableHead className="sticky top-0 z-10 bg-background shadow-[0_1px_0_0_hsl(var(--border))]">Policy reason</TableHead>
-                      <TableHead className="sticky top-0 z-10 bg-background shadow-[0_1px_0_0_hsl(var(--border))] text-right">Actions</TableHead>
+                      <TableHead scope="col" className="sticky top-0 z-10 bg-background shadow-[0_1px_0_0_hsl(var(--border))]">Tool</TableHead>
+                      <TableHead scope="col" className="sticky top-0 z-10 bg-background shadow-[0_1px_0_0_hsl(var(--border))]">Server</TableHead>
+                      <TableHead scope="col" className="sticky top-0 z-10 bg-background shadow-[0_1px_0_0_hsl(var(--border))]">User</TableHead>
+                      <TableHead scope="col" className="sticky top-0 z-10 bg-background shadow-[0_1px_0_0_hsl(var(--border))] text-center">Status</TableHead>
+                      <TableHead scope="col" className="sticky top-0 z-10 bg-background shadow-[0_1px_0_0_hsl(var(--border))]">Created</TableHead>
+                      <TableHead scope="col" className="sticky top-0 z-10 bg-background shadow-[0_1px_0_0_hsl(var(--border))]">Expires</TableHead>
+                      <TableHead scope="col" className="sticky top-0 z-10 bg-background shadow-[0_1px_0_0_hsl(var(--border))]">Policy reason</TableHead>
+                      <TableHead scope="col" className="sticky top-0 z-10 bg-background shadow-[0_1px_0_0_hsl(var(--border))] text-right">Actions</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -759,7 +783,7 @@ export default function ApprovalsPage() {
       )}
 
       {/* Detail Dialog */}
-      <Dialog open={!!detailDialog} onOpenChange={(open) => !open && setDetailDialog(null)}>
+      <Dialog open={!!detailDialog} onOpenChange={(open) => { if (!open && !detailDeciding) { setDetailDialog(null); setDetailDecideReason(''); } }}>
         {detailDialog && (
           <DialogContent className="max-w-lg">
             <DialogHeader>
@@ -867,36 +891,44 @@ export default function ApprovalsPage() {
                 </div>
               </div>
             </div>
-            <DialogFooter>
+            <DialogFooter className="flex-col items-stretch gap-3 sm:flex-col">
               {detailDialog.status === 'PENDING' && (
-                <div className="flex gap-2 mr-auto">
-                  <Button
-                    size="sm"
-                    className="bg-emerald-600 hover:bg-emerald-700 text-white"
-                    onClick={() => {
-                      setDetailDialog(null);
-                      openDecideDialog(detailDialog, 'APPROVED');
-                    }}
-                  >
-                    <CheckCircle2 className="h-3.5 w-3.5 mr-1" />
-                    Approve
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant="destructive"
-                    onClick={() => {
-                      setDetailDialog(null);
-                      openDecideDialog(detailDialog, 'REJECTED');
-                    }}
-                  >
-                    <XCircle className="h-3.5 w-3.5 mr-1" />
-                    Reject
-                  </Button>
+                <div className="space-y-3 border-t pt-3">
+                  <Textarea
+                    placeholder="Add a reason for this decision (optional)..."
+                    value={detailDecideReason}
+                    onChange={(e) => setDetailDecideReason(e.target.value)}
+                    rows={2}
+                    disabled={detailDeciding}
+                    className="text-sm resize-none"
+                  />
+                  <div className="flex gap-2">
+                    <Button
+                      size="sm"
+                      className="bg-emerald-600 hover:bg-emerald-700 text-white"
+                      onClick={() => handleDetailDecide('APPROVED')}
+                      disabled={detailDeciding}
+                    >
+                      {detailDeciding ? <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" /> : <CheckCircle2 className="mr-1.5 h-3.5 w-3.5" />}
+                      {detailDeciding ? 'Approving...' : 'Approve'}
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="destructive"
+                      onClick={() => handleDetailDecide('REJECTED')}
+                      disabled={detailDeciding}
+                    >
+                      {detailDeciding ? <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" /> : <XCircle className="mr-1.5 h-3.5 w-3.5" />}
+                      {detailDeciding ? 'Rejecting...' : 'Reject'}
+                    </Button>
+                  </div>
                 </div>
               )}
-              <Button variant="outline" onClick={() => setDetailDialog(null)}>
-                Close
-              </Button>
+              <div className="flex justify-end">
+                <Button variant="outline" onClick={() => { setDetailDialog(null); setDetailDecideReason(''); }} disabled={detailDeciding}>
+                  Close
+                </Button>
+              </div>
             </DialogFooter>
           </DialogContent>
         )}

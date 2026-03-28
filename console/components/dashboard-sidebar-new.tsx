@@ -5,7 +5,7 @@ import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { clearAuthState } from '@/lib/api-client'
 import { useState, useEffect, useRef, useCallback } from 'react'
-import { Sheet, SheetContent, SheetTrigger, SheetTitle } from '@/components/ui/sheet'
+import { Sheet, SheetContent, SheetDescription, SheetTrigger, SheetTitle } from '@/components/ui/sheet'
 import { Button } from '@/components/ui/button'
 import { SidebarNav } from './dashboard/sidebar-nav'
 import { api } from '@/lib/api-client'
@@ -37,7 +37,7 @@ export function DashboardSidebar() {
     }
   }, [fetchPendingCount])
 
-  const handleLogout = () => {
+  const handleSignOut = () => {
     clearAuthState()
     router.push('/')
   }
@@ -53,8 +53,9 @@ export function DashboardSidebar() {
               <span className="sr-only">Toggle navigation menu</span>
             </Button>
           </SheetTrigger>
-          <SheetContent side="left" className="flex flex-col p-0 w-[280px]">
+          <SheetContent side="left" className="flex w-[280px] flex-col p-0">
             <SheetTitle className="sr-only">Navigation Menu</SheetTitle>
+            <SheetDescription className="sr-only">Browse dashboard sections, documentation links, and account actions.</SheetDescription>
             <div className="flex h-14 items-center border-b px-4">
               <Link
                 href="/dashboard"
@@ -76,10 +77,10 @@ export function DashboardSidebar() {
               <Button
                 variant="outline"
                 className="w-full justify-start py-2 px-3 rounded-lg"
-                onClick={handleLogout}
+                onClick={handleSignOut}
               >
                 <LogOut className="h-5 w-5" aria-hidden="true" />
-                <span className="ml-2">Logout</span>
+                <span className="ml-2">Sign out</span>
               </Button>
             </div>
           </SheetContent>
@@ -117,10 +118,10 @@ export function DashboardSidebar() {
             <Button
               variant="outline"
               className="w-full justify-start py-2 px-3 rounded-lg"
-              onClick={handleLogout}
+              onClick={handleSignOut}
             >
               <LogOut className="h-5 w-5" aria-hidden="true" />
-              <span className="ml-2">Logout</span>
+              <span className="ml-2">Sign out</span>
             </Button>
           </div>
         </div>

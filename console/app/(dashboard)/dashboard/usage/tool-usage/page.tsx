@@ -397,7 +397,7 @@ function ToolUsagePageContent() {
       </div>
 
       {!loading && loadError ? (
-        <div className="flex items-center gap-2 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700 dark:border-red-900/40 dark:bg-red-950/20 dark:text-red-300">
+        <div role="alert" className="flex items-center gap-2 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700 dark:border-red-900/40 dark:bg-red-950/20 dark:text-red-300">
           <AlertTriangle className="h-4 w-4 shrink-0" aria-hidden="true" />
           <span>{loadError}</span>
           <Button variant="outline" size="sm" className="ml-auto" onClick={handleRefresh}>Retry</Button>
@@ -896,13 +896,13 @@ function ToolUsagePageContent() {
                 <Table className="min-w-[900px]">
                   <TableHeader>
                     <TableRow>
-                      <TableHead>Time</TableHead>
-                      <TableHead>Tool</TableHead>
-                      <TableHead>Action</TableHead>
-                      <TableHead>User</TableHead>
-                      <TableHead>Status</TableHead>
-                      <TableHead>Error / Details</TableHead>
-                      <TableHead className="text-right">Latency</TableHead>
+                      <TableHead scope="col">Time</TableHead>
+                      <TableHead scope="col">Tool</TableHead>
+                      <TableHead scope="col">Action</TableHead>
+                      <TableHead scope="col">User</TableHead>
+                      <TableHead scope="col">Status</TableHead>
+                      <TableHead scope="col">Error / Details</TableHead>
+                      <TableHead scope="col" className="text-right">Latency</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>

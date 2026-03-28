@@ -56,7 +56,7 @@ function WelcomePageContent() {
   }
 
   return (
-    <div className="flex min-h-screen flex-col bg-gradient-to-br from-orange-50 via-background to-amber-50/70 px-4 pb-0 pt-4 dark:from-background dark:via-background dark:to-background sm:px-6 sm:pt-6">
+    <main className="flex min-h-screen flex-col bg-gradient-to-br from-orange-50 via-background to-amber-50/70 px-4 pb-0 pt-4 dark:from-background dark:via-background dark:to-background sm:px-6 sm:pt-6">
       <div className="flex flex-1">
         <div className="hidden lg:flex lg:w-1/2 lg:flex-col lg:justify-center lg:p-12">
           <div className="max-w-md">
@@ -91,7 +91,7 @@ function WelcomePageContent() {
       </div>
 
       <GlobalFooter />
-    </div>
+    </main>
   )
 }
 

@@ -31,7 +31,7 @@ export function AuthLayout({ children }: AuthLayoutProps) {
         </div>
       </div>
 
-      <div className="flex flex-1 rounded-xl border border-border/60 bg-card shadow-sm">
+      <main className="flex flex-1 rounded-xl border border-border/60 bg-card shadow-sm">
         <div className="flex w-full flex-col">
           <div className="p-4">
             <Link
@@ -48,7 +48,7 @@ export function AuthLayout({ children }: AuthLayoutProps) {
             {children}
           </div>
         </div>
-      </div>
+      </main>
     </div>
   )
 }

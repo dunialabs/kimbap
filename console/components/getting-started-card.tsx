@@ -8,27 +8,48 @@ import { cn } from '@/lib/utils'
 
 const STORAGE_KEY = 'kimbap_getting_started_dismissed'
 
+const shortcuts = [
+  {
+    href: '/dashboard/policies',
+    title: 'Set Up Access Policies',
+    description: 'Define which tool calls are allowed, need approval, or are blocked.',
+    actionLabel: 'Open Policies'
+  },
+  {
+    href: '/dashboard/approvals',
+    title: 'Review Pending Approvals',
+    description: 'Check whether any requests are waiting on an operator decision.',
+    actionLabel: 'Open Approvals'
+  },
+  {
+    href: '/dashboard/logs',
+    title: 'Check Recent Logs',
+    description: 'Open live request and error logs to investigate issues quickly.',
+    actionLabel: 'Open Logs'
+  }
+]
+
 export function GettingStartedCard() {
   const [dismissed, setDismissed] = useState(false)
   const [isReady, setIsReady] = useState(false)
 
   useEffect(() => {
-      try {
-        setDismissed(localStorage.getItem(STORAGE_KEY) === 'true')
-      } catch {
-        setDismissed(false)
-      }
-      setIsReady(true)
-    }, [])
+    try {
+      setDismissed(localStorage.getItem(STORAGE_KEY) === 'true')
+    } catch {
+      setDismissed(false)
+    }
+    setIsReady(true)
+  }, [])
 
   const handleDismiss = () => {
-      setDismissed(true)
-      try {
-        localStorage.setItem(STORAGE_KEY, 'true')
-      } catch {
-        return
-      }
+    setDismissed(true)
+    try {
+      localStorage.setItem(STORAGE_KEY, 'true')
+    } catch {
+      return
     }
+  }
 
   if (!isReady || dismissed) {
     return null
@@ -57,73 +78,31 @@ export function GettingStartedCard() {
           </Button>
         </div>
 
-        <div className="space-y-3">
-          <div className="flex flex-wrap items-center gap-4 rounded-lg border border-blue-200/70 bg-background/90 p-4 dark:border-blue-900/70 dark:bg-background/60 sm:flex-nowrap">
-            <div className="flex-1">
-              <h3 className="mb-1 text-sm font-semibold text-foreground">
-                Set Up Access Policies
-              </h3>
-              <p className="text-sm leading-6 text-muted-foreground">
-                Define which tool calls are allowed, need approval, or are blocked.
-              </p>
-            </div>
-            <div className="w-full sm:w-auto flex justify-end">
-              <Link
-                href="/dashboard/policies"
-                className={cn(
-                  buttonVariants({ size: 'sm' }),
-                  'w-[140px] justify-center'
-                )}
-              >
-                Open Policies
-              </Link>
-            </div>
-          </div>
-
-          <div className="flex flex-wrap items-center gap-4 rounded-lg border border-blue-200/70 bg-background/90 p-4 dark:border-blue-900/70 dark:bg-background/60 sm:flex-nowrap">
-            <div className="flex-1">
-              <h3 className="mb-1 text-sm font-semibold text-foreground">
-                Review Pending Approvals
-              </h3>
-              <p className="text-sm leading-6 text-muted-foreground">
-                Check whether any requests are waiting on an operator decision.
-              </p>
-            </div>
-            <div className="w-full sm:w-auto flex justify-end">
-              <Link
-                href="/dashboard/approvals"
-                className={cn(
-                  buttonVariants({ size: 'sm' }),
-                  'w-[140px] justify-center'
-                )}
-              >
-                Open Approvals
-              </Link>
-            </div>
-          </div>
-
-          <div className="flex flex-wrap items-center gap-4 rounded-lg border border-blue-200/70 bg-background/90 p-4 dark:border-blue-900/70 dark:bg-background/60 sm:flex-nowrap">
-            <div className="flex-1">
-              <h3 className="mb-1 text-sm font-semibold text-foreground">
-                Check Recent Logs
-              </h3>
-              <p className="text-sm leading-6 text-muted-foreground">
-                Open live request and error logs to investigate issues quickly.
-              </p>
-            </div>
-            <div className="w-full sm:w-auto flex justify-end">
-              <Link
-                href="/dashboard/logs"
-                className={cn(
-                  buttonVariants({ size: 'sm' }),
-                  'w-[140px] justify-center'
-                )}
-              >
-                Open Logs
-              </Link>
-            </div>
-          </div>
-        </div>
+        <ul className="space-y-3">
+          {shortcuts.map((shortcut) => (
+            <li
+              key={shortcut.href}
+              className="flex flex-wrap items-center gap-4 rounded-lg border border-blue-200/70 bg-background/90 p-4 dark:border-blue-900/70 dark:bg-background/60 sm:flex-nowrap"
+            >
+              <div className="flex-1">
+                <h3 className="mb-1 text-sm font-semibold text-foreground">
+                  {shortcut.title}
+                </h3>
+                <p className="text-sm leading-6 text-muted-foreground">
+                  {shortcut.description}
+                </p>
+              </div>
+              <div className="flex w-full justify-end sm:w-auto">
+                <Link
+                  href={shortcut.href}
+                  className={cn(buttonVariants({ size: 'sm' }), 'w-[140px] justify-center')}
+                >
+                  {shortcut.actionLabel}
+                </Link>
+              </div>
+            </li>
+          ))}
+        </ul>
       </CardContent>
     </Card>
   )

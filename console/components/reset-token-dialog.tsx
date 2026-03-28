@@ -50,7 +50,7 @@ export function ResetTokenDialog({
 
   const handleReset = async () => {
     if (!newToken.trim()) {
-      setError("Token is required")
+      setError("Enter a new access token.")
       return
     }
 
@@ -80,7 +80,7 @@ export function ResetTokenDialog({
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Key className="h-5 w-5" />
-            Reset token
+            Reconnect access token
           </DialogTitle>
           <DialogDescription>
             Connection to <strong>{serverName}</strong> failed. Enter a new access token to reconnect.
@@ -105,7 +105,7 @@ export function ResetTokenDialog({
                     <strong className="font-semibold text-foreground">Address:</strong> {serverAddress}
                   </p>
                   <p>
-                    <strong>Issue:</strong> Access token is invalid or expired
+                    <strong>Issue:</strong> The current access token is invalid or expired.
                   </p>
                 </div>
               </AlertDescription>
@@ -124,17 +124,19 @@ export function ResetTokenDialog({
                   setError("")
                 }}
                 disabled={isResetting}
+                aria-invalid={Boolean(error)}
+                aria-describedby={error ? 'reset-token-error' : 'reset-token-note'}
                 autoCapitalize="none"
                 autoCorrect="off"
                 spellCheck={false}
               />
-              <p className="text-xs text-muted-foreground">
+              <p id="reset-token-note" className="text-xs text-muted-foreground">
                 Use a token with access to this server.
               </p>
             </div>
 
             {error && (
-              <Alert variant="destructive">
+              <Alert id="reset-token-error" variant="destructive">
                 <AlertTriangle className="h-4 w-4" />
                 <AlertDescription>{error}</AlertDescription>
               </Alert>
@@ -144,7 +146,7 @@ export function ResetTokenDialog({
               <div className="flex items-start gap-2">
                 <CheckCircle className="h-4 w-4 text-blue-600 dark:text-blue-400 mt-0.5 flex-shrink-0" />
                 <div className="text-xs text-blue-800 dark:text-blue-200">
-                  <p className="font-medium mb-1">Get a new access token:</p>
+                  <p className="font-medium mb-1">To get a new access token:</p>
                   <ul className="space-y-1">
                     <li>• Open your server admin panel</li>
                     <li>• Go to Access Tokens</li>

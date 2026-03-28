@@ -104,9 +104,9 @@ export function LoginForm({
 
       if (!response.data?.data?.tokenInfo) {
         if (loginMode === 'password') {
-          setLoginError('Master password not recognized')
+          setLoginError("We couldn't verify that master password. Check it and try again.")
         } else {
-          setTokenError('Access token not recognized')
+          setTokenError("We couldn't verify that access token. Check it and try again.")
         }
         setIsLoggingIn(false)
         return
@@ -171,9 +171,9 @@ export function LoginForm({
     } catch (error: any) {
       // Error handled below via UI state
       if (loginMode === 'password') {
-        setLoginError(error.message || 'Could not log in. Try again.')
+        setLoginError(error.message || 'Could not sign in. Check your details and try again.')
       } else {
-        setTokenError(error.message || 'Could not log in. Try again.')
+        setTokenError(error.message || 'Could not sign in. Check your details and try again.')
       }
       setIsLoggingIn(false)
     }
@@ -377,12 +377,12 @@ export function LoginForm({
         {isLoggingIn ? (
           <>
             <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin mr-2" aria-hidden="true" />
-            Logging in...
+            Signing in...
           </>
         ) : (
           <>
             <LogIn className="w-4 h-4 mr-2" aria-hidden="true" />
-            Log in
+            Sign in
           </>
         )}
       </Button>
