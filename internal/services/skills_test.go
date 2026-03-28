@@ -1419,10 +1419,29 @@ func TestGenerateAgentSkillPack(t *testing.T) {
 	if !strings.Contains(skill, "Use when you need to list, summarize notes through approved Kimbap actions.") {
 		t.Fatalf("SKILL.md missing trigger-based description:\n%s", skill)
 	}
+	if !strings.Contains(skill, "| Action | Description | Inputs | Risk |") {
+		t.Fatalf("SKILL.md missing Inputs column header:\n%s", skill)
+	}
+	if !strings.Contains(skill, "low ⚠️") {
+		t.Fatalf("SKILL.md missing warning marker on action with warnings:\n%s", skill)
+	}
+	if !strings.Contains(skill, "## Example") {
+		t.Fatalf("SKILL.md missing Example section:\n%s", skill)
+	}
+	topGotchasIdx429 := strings.Index(skill, "429 responses")
+	topGotchasIdxAuth := strings.Index(skill, "Auth failures")
+	if topGotchasIdx429 < 0 || topGotchasIdxAuth < 0 || topGotchasIdx429 > topGotchasIdxAuth {
+		t.Fatalf("SKILL.md top gotchas not sorted by severity (medium before unset):\n%s", skill)
+	}
 
 	gotchas := pack["GOTCHAS.md"]
 	if !strings.Contains(gotchas, "## Service-Level Gotchas") || !strings.Contains(gotchas, "## Action-Specific Warnings") {
 		t.Fatalf("GOTCHAS.md missing expected sections:\n%s", gotchas)
+	}
+	gotchasIdx429 := strings.Index(gotchas, "429 responses")
+	gotchasIdxAuth := strings.Index(gotchas, "Auth failures")
+	if gotchasIdx429 < 0 || gotchasIdxAuth < 0 || gotchasIdx429 > gotchasIdxAuth {
+		t.Fatalf("GOTCHAS.md gotchas not sorted by severity:\n%s", gotchas)
 	}
 
 	recipes := pack["RECIPES.md"]
@@ -1433,6 +1452,78 @@ func TestGenerateAgentSkillPack(t *testing.T) {
 	nilResult, nilErr := GenerateAgentSkillPack(nil)
 	if nilErr == nil || nilResult != nil {
 		t.Fatalf("expected nil manifest to return error and nil result, got result=%v err=%v", nilResult, nilErr)
+	}
+}
+
+func TestGotchasMDRendersAppliesToAndSortsBySeverity(t *testing.T) {
+	manifest := &ServiceManifest{
+		Name: "svc",
+		Actions: map[string]ServiceAction{
+			"do": {Method: "GET", Path: "/do", Risk: RiskSpec{Level: "low"}},
+		},
+		Gotchas: []ServiceGotcha{
+			{Symptom: "low issue", LikelyCause: "minor", Recovery: "fix low", Severity: "low"},
+			{Symptom: "critical issue", LikelyCause: "bad", Recovery: "fix critical", Severity: "critical", AppliesTo: "svc.do"},
+			{Symptom: "medium issue", LikelyCause: "moderate", Recovery: "fix medium", Severity: "medium"},
+		},
+	}
+	pack, err := GenerateAgentSkillPack(manifest)
+	if err != nil {
+		t.Fatalf("GenerateAgentSkillPack: %v", err)
+	}
+	gotchas := pack["GOTCHAS.md"]
+	if !strings.Contains(gotchas, "**Applies to**: `svc.do`") {
+		t.Fatalf("GOTCHAS.md missing applies_to rendering:\n%s", gotchas)
+	}
+	idxCritical := strings.Index(gotchas, "critical issue")
+	idxMedium := strings.Index(gotchas, "medium issue")
+	idxLow := strings.Index(gotchas, "low issue")
+	if idxCritical < 0 || idxMedium < 0 || idxLow < 0 {
+		t.Fatalf("GOTCHAS.md missing gotcha entries:\n%s", gotchas)
+	}
+	if !(idxCritical < idxMedium && idxMedium < idxLow) {
+		t.Fatalf("GOTCHAS.md gotchas not sorted by severity (critical < medium < low):\n%s", gotchas)
+	}
+}
+
+func TestGenerateAgentSkillPackSortsRareSeverityBetweenLowAndUnset(t *testing.T) {
+	manifest := &ServiceManifest{
+		Name: "svc",
+		Actions: map[string]ServiceAction{
+			"do": {Method: "GET", Path: "/do", Risk: RiskSpec{Level: "low"}},
+		},
+		Gotchas: []ServiceGotcha{
+			{Symptom: "unset issue", LikelyCause: "unknown", Recovery: "check logs", Severity: ""},
+			{Symptom: "rare issue", LikelyCause: "edge case", Recovery: "retry workflow", Severity: "rare"},
+			{Symptom: "low issue", LikelyCause: "minor", Recovery: "fix low", Severity: "low"},
+		},
+	}
+
+	pack, err := GenerateAgentSkillPack(manifest)
+	if err != nil {
+		t.Fatalf("GenerateAgentSkillPack: %v", err)
+	}
+
+	skill := pack["SKILL.md"]
+	idxLowSkill := strings.Index(skill, "low issue")
+	idxRareSkill := strings.Index(skill, "rare issue")
+	idxUnsetSkill := strings.Index(skill, "unset issue")
+	if idxLowSkill < 0 || idxRareSkill < 0 || idxUnsetSkill < 0 {
+		t.Fatalf("SKILL.md missing expected gotchas:\n%s", skill)
+	}
+	if !(idxLowSkill < idxRareSkill && idxRareSkill < idxUnsetSkill) {
+		t.Fatalf("SKILL.md top gotchas not ordered low < rare < unset:\n%s", skill)
+	}
+
+	gotchas := pack["GOTCHAS.md"]
+	idxLowGotchas := strings.Index(gotchas, "low issue")
+	idxRareGotchas := strings.Index(gotchas, "rare issue")
+	idxUnsetGotchas := strings.Index(gotchas, "unset issue")
+	if idxLowGotchas < 0 || idxRareGotchas < 0 || idxUnsetGotchas < 0 {
+		t.Fatalf("GOTCHAS.md missing expected gotchas:\n%s", gotchas)
+	}
+	if !(idxLowGotchas < idxRareGotchas && idxRareGotchas < idxUnsetGotchas) {
+		t.Fatalf("GOTCHAS.md gotchas not ordered low < rare < unset:\n%s", gotchas)
 	}
 }
 
