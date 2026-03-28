@@ -5,6 +5,33 @@ adapter: applescript
 target_app: Numbers
 auth:
   type: none
+triggers:
+  task_verbs: [create, open, read, write, update, export]
+  objects: [spreadsheets, sheets, cells, tables]
+  instead_of:
+    - manually entering or checking small sets of spreadsheet values in Numbers
+  exclusions:
+    - large-scale ETL/data transformation better handled by code/data tools
+gotchas:
+  - symptom: read-cell or write-cell fails for valid-looking address
+    likely_cause: Target sheet/table context differs from assumptions; A1 reference resolves in another table
+    recovery: Specify sheet_name explicitly and verify table/sheet structure before cell operations
+    severity: high
+  - symptom: write-cell stores numbers/dates as plain text
+    likely_cause: Value is passed as string and table cell formatting coerces unexpectedly
+    recovery: Verify cell format in Numbers and normalize value representations before writing
+    severity: medium
+  - symptom: export-pdf fails or produces stale content
+    likely_cause: Spreadsheet edits not committed yet or destination path invalid
+    recovery: Ensure writes complete, then export to an absolute writable output_path
+    severity: common
+recipes:
+  - name: Update specific cell and verify result
+    description: Perform targeted spreadsheet mutation with immediate validation
+    steps:
+      - Run numbers.open-spreadsheet on the target file
+      - Run numbers.write-cell with explicit cell and sheet_name
+      - Run numbers.read-cell on the same address to confirm persisted value
 actions:
   create-spreadsheet:
     command: numbers-create-spreadsheet

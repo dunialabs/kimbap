@@ -5,6 +5,33 @@ adapter: applescript
 target_app: Microsoft Excel
 auth:
   type: none
+triggers:
+  task_verbs: [create, open, read, write, calculate, export]
+  objects: [workbooks, sheets, cells, ranges]
+  instead_of:
+    - manually updating individual Excel cells/ranges for routine operations
+  exclusions:
+    - complex macro/VBA authoring or pivot model design tasks
+gotchas:
+  - symptom: read-cell/write-cell targets wrong sheet
+    likely_cause: sheet argument omitted while a different worksheet is active
+    recovery: Pass sheet explicitly for all cell/range operations in multi-sheet workbooks
+    severity: high
+  - symptom: write-cell appears successful but displays unexpected value format
+    likely_cause: Excel auto-converts strings to date/number/scientific formats based on cell formatting
+    recovery: Validate cell number format and read back value after write to confirm intended representation
+    severity: medium
+  - symptom: save-as-pdf fails or exports stale workbook state
+    likely_cause: Workbook is in edit/dirty state or output path is invalid/unwritable
+    recovery: Ensure edits are committed, then export using an absolute writable output_path
+    severity: common
+recipes:
+  - name: Reliable cell update loop
+    description: Perform explicit sheet-scoped updates with read-after-write checks
+    steps:
+      - Run ms-excel.open-workbook for the target workbook
+      - Run ms-excel.write-cell with cell, value, and explicit sheet
+      - Run ms-excel.read-cell (or read-range) on the same sheet to verify persisted result
 actions:
   create-workbook:
     command: excel-create-workbook

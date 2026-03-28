@@ -5,6 +5,33 @@ adapter: applescript
 target_app: Pages
 auth:
   type: none
+triggers:
+  task_verbs: [create, open, read, write, export, close]
+  objects: [documents, text, reports, files]
+  instead_of:
+    - manually editing and exporting straightforward Pages documents
+  exclusions:
+    - advanced layout operations involving complex templates and anchored objects
+gotchas:
+  - symptom: set-text overwrites unintended content
+    likely_cause: Action replaces full active document text rather than a selected region
+    recovery: Use pages.get-text first to snapshot current content and only call set-text when full replacement is intended
+    severity: high
+  - symptom: export-pdf or export-word fails with file/path errors
+    likely_cause: output_path is non-absolute, parent folder missing, or write permission denied
+    recovery: Provide absolute POSIX output_path and ensure destination directory exists and is writable
+    severity: medium
+  - symptom: Actions target the wrong document
+    likely_cause: Multiple Pages documents are open and frontmost state changed
+    recovery: Run open-document on the intended file immediately before read/write/export actions
+    severity: common
+recipes:
+  - name: Update document text then export
+    description: Apply deterministic text update and generate deliverable output
+    steps:
+      - Run pages.open-document for the target file
+      - Run pages.get-text, then pages.set-text with the finalized full content
+      - Run pages.export-pdf or pages.export-word with an absolute output_path
 actions:
   create-document:
     command: pages-create-document

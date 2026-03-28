@@ -5,6 +5,33 @@ adapter: applescript
 target_app: Microsoft Word
 auth:
   type: none
+triggers:
+  task_verbs: [create, open, read, write, replace, export]
+  objects: [documents, text, sections, files]
+  instead_of:
+    - manually performing routine Word text edits and PDF export
+  exclusions:
+    - tracked-changes review workflows requiring human legal/editorial judgment
+gotchas:
+  - symptom: set-text replaces the entire document unexpectedly
+    likely_cause: Action is document-wide, not selection-scoped
+    recovery: Read current content with word-get-text and only call set-text for full-document rewrites
+    severity: high
+  - symptom: find-replace changes too many occurrences
+    likely_cause: match_case defaults to false and replacement runs globally
+    recovery: Run targeted find values, enable match_case when needed, and verify results after replacement
+    severity: medium
+  - symptom: open/save/export fails with file access errors
+    likely_cause: Document is locked by sync/client process or output path is invalid
+    recovery: Ensure file is not locked, use absolute writable paths, and retry after sync completes
+    severity: common
+recipes:
+  - name: Controlled find-replace with export
+    description: Apply broad text updates safely and produce a PDF artifact
+    steps:
+      - Run ms-word.open-document and ms-word.get-text to confirm target content
+      - Run ms-word.find-replace with explicit find/replace and match_case as needed
+      - Run ms-word.save-as-pdf with an absolute output_path
 actions:
   create-document:
     command: word-create-document

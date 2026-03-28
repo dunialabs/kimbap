@@ -5,6 +5,33 @@ adapter: applescript
 target_app: Microsoft PowerPoint
 auth:
   type: none
+triggers:
+  task_verbs: [create, open, edit, add, export, close]
+  objects: [presentations, slides, shapes, text]
+  instead_of:
+    - manually building PowerPoint slides or using shell-based conversion tools
+  exclusions:
+    - complex animation or transition authoring beyond text and shape edits
+gotchas:
+  - symptom: set-slide-text targets wrong shape or overwrites unintended content
+    likely_cause: shape_index defaults to 1 but slide layouts vary in shape ordering
+    recovery: Inspect slide shapes first and pass the correct shape_index explicitly
+    severity: high
+  - symptom: PowerPoint commands fail silently or time out
+    likely_cause: Microsoft PowerPoint is not running or a modal dialog blocks AppleScript
+    recovery: Ensure PowerPoint is launched and dismiss any open dialogs before retrying
+    severity: high
+  - symptom: Exported PDF or PNG contains stale or missing slide content
+    likely_cause: Edits have not been committed or the wrong presentation is frontmost
+    recovery: Verify the correct presentation is active with open-presentation before export
+    severity: medium
+recipes:
+  - name: Build and export a presentation
+    description: Create a presentation with slides and export to PDF
+    steps:
+      - Create a new presentation with create-presentation
+      - Add slides with add-slide and set text with set-slide-text
+      - Export the final result with save-as-pdf
 actions:
   create-presentation:
     command: ppt-create-presentation
