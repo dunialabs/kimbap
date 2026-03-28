@@ -3,6 +3,9 @@ package main
 import (
 	"os"
 	"testing"
+
+	"github.com/dunialabs/kimbap/internal/actions"
+	"github.com/dunialabs/kimbap/internal/config"
 )
 
 func resetOptsForTest(t *testing.T) {
@@ -300,5 +303,67 @@ func TestSplitCallInvocationArgs_ParsesIdempotencyKeyFlag(t *testing.T) {
 	}
 	if len(input) != 2 || input[0] != "--limit" || input[1] != "1" {
 		t.Fatalf("unexpected input tokens: %+v", input)
+	}
+}
+
+func TestSplitCallInvocationArgs_JsonStdinDash(t *testing.T) {
+	resetOptsForTest(t)
+
+	action, input, showHelp, err := splitCallInvocationArgs([]string{"svc.action", "--json", "-"})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if showHelp {
+		t.Fatal("expected showHelp=false")
+	}
+	if action != "svc.action" {
+		t.Fatalf("expected action svc.action, got %q", action)
+	}
+	if opts.jsonInput != "-" {
+		t.Fatalf("expected json input '-', got %q", opts.jsonInput)
+	}
+	if len(input) != 0 {
+		t.Fatalf("unexpected remaining input tokens: %+v", input)
+	}
+}
+
+func TestBuildDryRunPreview_IdempotencyCheck(t *testing.T) {
+	cfg := config.DefaultConfig()
+
+	nonIdempotentReq := actions.ExecutionRequest{
+		RequestID:      "req-1",
+		IdempotencyKey: "",
+		Action: actions.ActionDefinition{
+			Name:       "svc.create",
+			Idempotent: false,
+		},
+		Input: map[string]any{},
+	}
+	preview := buildDryRunPreview(cfg, nonIdempotentReq)
+	if idemValid, ok := preview["idempotency_valid"].(bool); !ok || idemValid {
+		t.Fatalf("expected idempotency_valid=false for non-idempotent action without key, got %v", preview["idempotency_valid"])
+	}
+	if preview["idempotency_error"] == nil {
+		t.Fatal("expected idempotency_error to be set")
+	}
+
+	withKeyReq := nonIdempotentReq
+	withKeyReq.IdempotencyKey = "idem-1"
+	previewOK := buildDryRunPreview(cfg, withKeyReq)
+	if idemValid, ok := previewOK["idempotency_valid"].(bool); !ok || !idemValid {
+		t.Fatalf("expected idempotency_valid=true with key, got %v", previewOK["idempotency_valid"])
+	}
+
+	idempotentReq := actions.ExecutionRequest{
+		RequestID: "req-2",
+		Action: actions.ActionDefinition{
+			Name:       "svc.list",
+			Idempotent: true,
+		},
+		Input: map[string]any{},
+	}
+	previewIdem := buildDryRunPreview(cfg, idempotentReq)
+	if idemValid, ok := previewIdem["idempotency_valid"].(bool); !ok || !idemValid {
+		t.Fatalf("expected idempotency_valid=true for idempotent action, got %v", previewIdem["idempotency_valid"])
 	}
 }

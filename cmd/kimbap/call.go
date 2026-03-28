@@ -82,9 +82,11 @@ func newCallCommand() *cobra.Command {
 				if err := printOutput(preview); err != nil {
 					return err
 				}
-				// Exit non-zero if validation failed during dry-run
 				if validErr, ok := preview["input_valid"].(bool); ok && !validErr {
 					return fmt.Errorf("dry-run: input validation failed")
+				}
+				if idemValid, ok := preview["idempotency_valid"].(bool); ok && !idemValid {
+					return fmt.Errorf("dry-run: non-idempotent action requires --idempotency-key")
 				}
 				return nil
 			}
@@ -144,11 +146,20 @@ func buildDryRunPreview(cfg *config.KimbapConfig, req actions.ExecutionRequest) 
 		validationError = validationErr.Error()
 	}
 
+	idempotencyValid := true
+	var idempotencyError any
+	if !req.Action.Idempotent && strings.TrimSpace(req.IdempotencyKey) == "" {
+		idempotencyValid = false
+		idempotencyError = "non-idempotent action requires --idempotency-key"
+	}
+
 	return map[string]any{
 		"dry_run":                true,
 		"action":                 req.Action,
 		"input":                  req.Input,
 		"idempotency_key":        strings.TrimSpace(req.IdempotencyKey),
+		"idempotency_valid":      idempotencyValid,
+		"idempotency_error":      idempotencyError,
 		"input_valid":            validationErr == nil,
 		"validation_error":       validationError,
 		"credential_ref":         credentialRef,
@@ -321,7 +332,11 @@ func splitGlobalCallFlags(tokens []string) ([]string, error) {
 		default:
 			handled := false
 			if target, ok := globalStringFlags[tok]; ok {
-				if i+1 >= len(tokens) || strings.HasPrefix(strings.TrimSpace(tokens[i+1]), "-") {
+				next := ""
+				if i+1 < len(tokens) {
+					next = strings.TrimSpace(tokens[i+1])
+				}
+				if i+1 >= len(tokens) || (strings.HasPrefix(next, "-") && next != "-") {
 					return nil, fmt.Errorf("flag %s requires a value", tok)
 				}
 				i++
