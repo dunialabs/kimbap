@@ -5,9 +5,7 @@ import (
 	"crypto/cipher"
 	"crypto/rand"
 	"crypto/sha256"
-	"crypto/subtle"
 	"encoding/base64"
-	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -29,11 +27,6 @@ type encryptedData struct {
 	IV   string `json:"iv"`
 	Salt string `json:"salt"`
 	Tag  string `json:"tag"`
-}
-
-func CalculateUserID(token string) string {
-	h := sha256.Sum256([]byte(token))
-	return hex.EncodeToString(h[:])
 }
 
 func EncryptData(plaintext string, key string) (string, error) {
@@ -79,41 +72,6 @@ func EncryptData(plaintext string, key string) (string, error) {
 	}
 
 	return string(buf), nil
-}
-
-func EncryptDataToObject(plaintext string, key string) (map[string]any, error) {
-	str, err := EncryptData(plaintext, key)
-	if err != nil {
-		return nil, err
-	}
-	var obj map[string]any
-	if err := json.Unmarshal([]byte(str), &obj); err != nil {
-		return nil, fmt.Errorf("failed to parse encrypted data as object: %w", err)
-	}
-	return obj, nil
-}
-
-func EncryptedAnyToString(value any) (string, error) {
-	switch v := value.(type) {
-	case string:
-		return v, nil
-	case map[string]any:
-		buf, err := json.Marshal(v)
-		if err != nil {
-			return "", fmt.Errorf("failed to marshal encrypted data object: %w", err)
-		}
-		return string(buf), nil
-	default:
-		return "", fmt.Errorf("unsupported encrypted data type: %T", value)
-	}
-}
-
-func VerifyTokenAgainstEncrypted(token string, encryptedToken string) bool {
-	decrypted, err := DecryptDataFromString(encryptedToken, token)
-	if err != nil {
-		return false
-	}
-	return subtle.ConstantTimeCompare([]byte(decrypted), []byte(token)) == 1
 }
 
 func DecryptDataFromString(encryptedStr string, key string) (string, error) {
