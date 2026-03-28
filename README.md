@@ -1,8 +1,6 @@
 # Kimbap
 
-<p align="center">
-  <img src="docs/logo.svg" width="120" alt="Kimbap">
-</p>
+<img src="docs/logo.svg" width="120" alt="Kimbap">
 
 *Do you like kimbap? It's delicious, healthy, and you can make your own.*
 
