@@ -527,11 +527,23 @@ export default function ApprovalsPage() {
       {/* Pending Count Banner */}
       {pendingCount > 0 && (
         <Card className="border-amber-500/30 bg-amber-500/5">
-          <CardContent className="flex items-center gap-3 py-3">
-            <Clock className="h-5 w-5 text-amber-600" />
-            <span className="text-sm font-medium">
-              {formatDisplayNumber(pendingCount)} pending approval{pendingCount !== 1 ? 's' : ''} awaiting review
-            </span>
+          <CardContent className="flex items-center justify-between gap-3 py-3">
+            <div className="flex items-center gap-3">
+              <Clock className="h-5 w-5 text-amber-600 shrink-0" />
+              <span className="text-sm font-medium">
+                {formatDisplayNumber(pendingCount)} pending approval{pendingCount !== 1 ? 's' : ''} awaiting review
+              </span>
+            </div>
+            {statusFilter !== DEFAULT_STATUS_FILTER && (
+              <Button
+                variant="outline"
+                size="sm"
+                className="shrink-0"
+                onClick={() => setStatusFilter(DEFAULT_STATUS_FILTER)}
+              >
+                View pending
+              </Button>
+            )}
           </CardContent>
         </Card>
       )}

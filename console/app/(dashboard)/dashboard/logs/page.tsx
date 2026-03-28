@@ -1054,7 +1054,11 @@ function LogsPageContent() {
                           ) : (
                             <div className="flex flex-col items-center gap-2">
                               <p className="text-sm text-muted-foreground">No logs found for the current filters.</p>
-                              <p className="text-xs text-muted-foreground">Try broadening the time range or resetting filters.</p>
+                              <p className="text-xs text-muted-foreground">
+                                {debouncedSearchTerm.trim()
+                                  ? `No results for "${debouncedSearchTerm.trim()}". Try a different search term or reset filters.`
+                                  : 'Try broadening the time range or resetting filters.'}
+                              </p>
                               {hasActiveFilters ? (
                                 <Button variant="ghost" size="sm" className="min-h-11" onClick={clearFilters}>
                                   Reset filters
