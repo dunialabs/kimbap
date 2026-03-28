@@ -172,9 +172,6 @@ func (r *Runner) Stop() error {
 	if r.proxyCancel != nil {
 		r.proxyCancel()
 	}
-	if r.cmd != nil && r.cmd.Process != nil {
-		return killProcessTree(r.cmd.Process)
-	}
 	return nil
 }
 
@@ -260,21 +257,14 @@ func buildEnv(base []string, extra map[string]string, proxyAddr, agentToken stri
 	for _, key := range sensitiveKeys {
 		delete(envMap, key)
 	}
+	for _, key := range []string{
+		"HTTP_PROXY", "HTTPS_PROXY", "ALL_PROXY",
+		"http_proxy", "https_proxy", "all_proxy",
+	} {
+		delete(envMap, key)
+	}
 	if proxyAddr != "" {
-		delete(envMap, "HTTP_PROXY")
-		delete(envMap, "HTTPS_PROXY")
-		delete(envMap, "ALL_PROXY")
-		delete(envMap, "http_proxy")
-		delete(envMap, "https_proxy")
-		delete(envMap, "all_proxy")
 		delete(envMap, "SSL_CERT_FILE")
-	} else {
-		delete(envMap, "HTTP_PROXY")
-		delete(envMap, "HTTPS_PROXY")
-		delete(envMap, "ALL_PROXY")
-		delete(envMap, "http_proxy")
-		delete(envMap, "https_proxy")
-		delete(envMap, "all_proxy")
 	}
 
 	if proxyAddr != "" {

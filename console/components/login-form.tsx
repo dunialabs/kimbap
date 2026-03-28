@@ -78,7 +78,9 @@ export function LoginForm({
   onSuccess,
   defaultToken = ''
 }: LoginFormProps) {
-  const [loginMode, setLoginMode] = useState<'token' | 'password' | null>(null)
+  const [loginMode, setLoginMode] = useState<'token' | 'password'>(() =>
+    defaultToken.trim() ? 'token' : 'password'
+  )
   const [token, setToken] = useState(defaultToken)
   const [loginMasterPassword, setLoginMasterPassword] = useState('')
   const [showLoginPassword, setShowLoginPassword] = useState(false)
@@ -91,15 +93,8 @@ export function LoginForm({
   const activeNoteId = loginMode === 'password' ? 'login-password-note' : 'login-token-note'
   const credentialDescribedBy = [activeNoteId, activeError ? activeErrorId : ''].filter(Boolean).join(' ') || undefined
 
-  useEffect(() => {
-    setLoginMode(MasterPasswordManager.hasMasterPassword() ? 'password' : 'token')
-  }, [])
 
   useEffect(() => {
-    if (!loginMode) {
-      return
-    }
-
     const frame = window.requestAnimationFrame(() => {
       credentialInputRef.current?.focus()
     })
@@ -108,7 +103,6 @@ export function LoginForm({
   }, [loginMode])
 
   const handleLogin = async () => {
-    if (!loginMode) return
     setIsLoggingIn(true)
     setLoginError('')
     setTokenError('')
@@ -226,24 +220,12 @@ export function LoginForm({
       }}
       className="w-full max-w-[460px] space-y-3 px-6 py-8 sm:min-h-[480px]"
     >
-      {loginMode === null ? (
-        <div className="space-y-3">
-          <div>
-            <h2 className="mb-1 text-2xl font-bold">Sign in to Kimbap Console</h2>
-            <p className="text-sm text-muted-foreground">&nbsp;</p>
-          </div>
-          <div className="h-11 border-b border-border" />
-          <div className="h-12 rounded-lg bg-muted/40 animate-pulse" />
-          <div className="h-12 rounded-lg bg-muted/30 animate-pulse" />
-        </div>
-      ) : (
-      <>
       <div>
         <h2 className="mb-1 text-2xl font-bold">Sign in to Kimbap Console</h2>
         <p className="text-sm text-muted-foreground">
           {loginMode === 'password'
-            ? 'Owners use the master password to manage policies, approvals, logs, and usage.'
-            : 'Use an owner or admin access token to open this console and review operator activity.'}
+              ? 'Start here if you own this server. Use the master password to open the console, including on a new browser.'
+              : 'Use an owner or admin access token only if one was issued to you for this server.'}
         </p>
       </div>
       <fieldset className="m-0 border-0 p-0">
@@ -293,6 +275,10 @@ export function LoginForm({
           </label>
         </div>
       </fieldset>
+
+      <p className="text-xs leading-5 text-muted-foreground">
+        Master Password is the default for owners. Switch to Access Token if you are signing in as an admin.
+      </p>
 
       {/* Input Field */}
       <div className="space-y-1">
@@ -357,7 +343,7 @@ export function LoginForm({
         {/* Note and Error Messages */}
         {loginMode === 'password' && !loginError && (
           <p id="login-password-note" className="text-xs text-muted-foreground">
-            Owners use the master password when managing this console from the browser.
+            Use the same server master password you already use as the owner, even on a new browser.
           </p>
         )}
 
@@ -406,7 +392,6 @@ export function LoginForm({
         type="submit"
         disabled={
           isLoggingIn ||
-          loginMode === null ||
           (loginMode === 'password'
             ? !loginMasterPassword.trim()
             : !token.trim())
@@ -428,8 +413,6 @@ export function LoginForm({
         )}
       </Button>
 
-      </>
-      )}
     </form>
   )
 }

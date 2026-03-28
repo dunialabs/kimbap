@@ -64,6 +64,7 @@ func (m *ApprovalManager) Submit(ctx context.Context, req *ApprovalRequest) erro
 	req.ResolvedAt = nil
 	req.ResolvedBy = ""
 	req.DenyReason = ""
+	req.Votes = nil
 
 	if err := m.store.Create(ctx, req); err != nil {
 		return err

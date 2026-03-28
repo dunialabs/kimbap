@@ -36,11 +36,7 @@ func (s *MemoryHeldExecutionStore) Save(_ context.Context, execution HeldExecuti
 		execution.CreatedAt = time.Now().UTC()
 	}
 	if execution.Payload != nil {
-		cp := make(map[string]any, len(execution.Payload))
-		for k, v := range execution.Payload {
-			cp[k] = v
-		}
-		execution.Payload = cp
+		execution.Payload = deepCopyMap(execution.Payload)
 	}
 	s.items[execution.ApprovalID] = execution
 	return nil
@@ -55,11 +51,7 @@ func (s *MemoryHeldExecutionStore) Get(_ context.Context, approvalID string) (*H
 	}
 	copyValue := execution
 	if execution.Payload != nil {
-		cp := make(map[string]any, len(execution.Payload))
-		for k, v := range execution.Payload {
-			cp[k] = v
-		}
-		copyValue.Payload = cp
+		copyValue.Payload = deepCopyMap(execution.Payload)
 	}
 	return &copyValue, nil
 }

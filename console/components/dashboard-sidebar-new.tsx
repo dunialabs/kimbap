@@ -33,8 +33,16 @@ export function DashboardSidebar() {
     timerRef.current = setInterval(() => {
       void fetchPendingCount()
     }, 30_000)
+    const handleCountUpdate = (event: Event) => {
+      const count = (event as CustomEvent<{ count: number }>).detail?.count
+      if (typeof count === 'number') {
+        setPendingApprovalCount(Math.max(0, count))
+      }
+    }
+    window.addEventListener('kimbap:pending-approvals-updated', handleCountUpdate)
     return () => {
       if (timerRef.current) clearInterval(timerRef.current)
+      window.removeEventListener('kimbap:pending-approvals-updated', handleCountUpdate)
     }
   }, [fetchPendingCount])
 

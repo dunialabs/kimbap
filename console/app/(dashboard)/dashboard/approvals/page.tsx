@@ -374,7 +374,9 @@ export default function ApprovalsPage() {
           return [...prev, ...nextRequests.filter((item) => !seen.has(item.id))];
         });
         if (countData) {
-          setPendingCount(countData?.count || 0);
+          const newCount = countData?.count || 0;
+          setPendingCount(newCount);
+          window.dispatchEvent(new CustomEvent('kimbap:pending-approvals-updated', { detail: { count: newCount } }));
         }
         setHasMore(Boolean(listData?.hasMore));
         setLoadError(null);

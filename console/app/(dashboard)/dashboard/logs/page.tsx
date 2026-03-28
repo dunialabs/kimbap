@@ -1085,9 +1085,16 @@ function LogsPageContent() {
                                 </div>
                               </div>
                               {log.requestId ? (
-                                <Badge variant="secondary" className="shrink-0 text-xs" title={log.requestId}>
+                                <button
+                                  type="button"
+                                  className={`shrink-0 inline-flex items-center justify-center rounded-full border px-1.5 font-mono text-xs transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 ${searchTerm.trim() === log.requestId ? 'border-primary bg-accent text-accent-foreground shadow-sm' : 'border-input bg-secondary text-secondary-foreground hover:bg-secondary/80 hover:underline'}`}
+                                  title={`${log.requestId} — click to filter by this request`}
+                                  aria-label={`Filter logs by request ${log.requestId}`}
+                                  aria-pressed={searchTerm.trim() === log.requestId}
+                                  onClick={() => { setSearchTerm(log.requestId!); setCurrentPage(1) }}
+                                >
                                   {log.requestId.slice(-6)}
-                                </Badge>
+                                </button>
                               ) : null}
                             </div>
 
@@ -1185,9 +1192,16 @@ function LogsPageContent() {
                           </TableCell>
                           <TableCell className="font-mono text-xs">
                             {log.requestId ? (
-                              <Badge variant="secondary" className="text-xs" title={log.requestId}>
+                              <button
+                                type="button"
+                                className={`inline-flex items-center justify-center rounded-full border px-1.5 font-mono text-xs transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 ${searchTerm.trim() === log.requestId ? 'border-primary bg-accent text-accent-foreground shadow-sm' : 'border-input bg-secondary text-secondary-foreground hover:bg-secondary/80 hover:underline'}`}
+                                title={`${log.requestId} — click to filter by this request`}
+                                aria-label={`Filter logs by request ${log.requestId}`}
+                                aria-pressed={searchTerm.trim() === log.requestId}
+                                onClick={() => { setSearchTerm(log.requestId!); setCurrentPage(1) }}
+                              >
                                 {log.requestId.slice(-6)}
-                              </Badge>
+                              </button>
                             ) : (
                               <span className="text-muted-foreground">—</span>
                             )}

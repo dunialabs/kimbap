@@ -2,8 +2,8 @@ package approvals
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
+	"reflect"
 	"sync"
 	"time"
 )
@@ -69,23 +69,69 @@ func deepCopyMap(src map[string]any) map[string]any {
 	if src == nil {
 		return nil
 	}
-	data, err := json.Marshal(src)
-	if err != nil {
-		cp := make(map[string]any, len(src))
-		for k, v := range src {
-			cp[k] = v
-		}
-		return cp
-	}
-	var dst map[string]any
-	if err := json.Unmarshal(data, &dst); err != nil {
-		cp := make(map[string]any, len(src))
-		for k, v := range src {
-			cp[k] = v
-		}
-		return cp
+	dst := make(map[string]any, len(src))
+	for k, v := range src {
+		dst[k] = deepCopyAny(v)
 	}
 	return dst
+}
+
+func deepCopyAny(value any) any {
+	if value == nil {
+		return nil
+	}
+	return deepCopyReflectValue(reflect.ValueOf(value)).Interface()
+}
+
+func deepCopyReflectValue(value reflect.Value) reflect.Value {
+	if !value.IsValid() {
+		return value
+	}
+
+	switch value.Kind() {
+	case reflect.Interface:
+		if value.IsNil() {
+			return reflect.Zero(value.Type())
+		}
+		inner := deepCopyReflectValue(value.Elem())
+		copyValue := reflect.New(value.Type()).Elem()
+		copyValue.Set(inner)
+		return copyValue
+	case reflect.Map:
+		if value.IsNil() {
+			return reflect.Zero(value.Type())
+		}
+		copyValue := reflect.MakeMapWithSize(value.Type(), value.Len())
+		iter := value.MapRange()
+		for iter.Next() {
+			copyValue.SetMapIndex(iter.Key(), deepCopyReflectValue(iter.Value()))
+		}
+		return copyValue
+	case reflect.Slice:
+		if value.IsNil() {
+			return reflect.Zero(value.Type())
+		}
+		copyValue := reflect.MakeSlice(value.Type(), value.Len(), value.Len())
+		for i := 0; i < value.Len(); i++ {
+			copyValue.Index(i).Set(deepCopyReflectValue(value.Index(i)))
+		}
+		return copyValue
+	case reflect.Array:
+		copyValue := reflect.New(value.Type()).Elem()
+		for i := 0; i < value.Len(); i++ {
+			copyValue.Index(i).Set(deepCopyReflectValue(value.Index(i)))
+		}
+		return copyValue
+	case reflect.Pointer:
+		if value.IsNil() {
+			return reflect.Zero(value.Type())
+		}
+		copyValue := reflect.New(value.Type().Elem())
+		copyValue.Elem().Set(deepCopyReflectValue(value.Elem()))
+		return copyValue
+	default:
+		return value
+	}
 }
 
 func (s *MemoryApprovalStore) ListPending(_ context.Context, tenantID string) ([]ApprovalRequest, error) {
