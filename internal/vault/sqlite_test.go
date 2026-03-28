@@ -137,6 +137,24 @@ func TestSQLiteStoreTenantIsolation(t *testing.T) {
 	}
 }
 
+func TestSQLiteStoreGetValueTrimsInputs(t *testing.T) {
+	store := newTestStore(t)
+	ctx := context.Background()
+
+	_, err := store.Create(ctx, "tenant-a", "TRIM_ME", SecretTypeBearerToken, []byte("value"), nil, "tester")
+	if err != nil {
+		t.Fatalf("create: %v", err)
+	}
+
+	value, err := store.GetValue(ctx, " tenant-a ", " TRIM_ME ")
+	if err != nil {
+		t.Fatalf("get value with trimmed inputs: %v", err)
+	}
+	if !bytes.Equal(value, []byte("value")) {
+		t.Fatalf("unexpected value")
+	}
+}
+
 func TestSQLiteStoreListWithFilters(t *testing.T) {
 	store := newTestStore(t)
 	ctx := context.Background()

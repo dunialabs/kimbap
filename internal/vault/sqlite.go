@@ -251,6 +251,8 @@ func (s *SQLiteStore) GetMeta(ctx context.Context, tenantID string, name string)
 }
 
 func (s *SQLiteStore) GetValue(ctx context.Context, tenantID string, name string) ([]byte, error) {
+	tenantID = strings.TrimSpace(tenantID)
+	name = strings.TrimSpace(name)
 	envelope, err := s.currentEnvelope(ctx, tenantID, name)
 	if err != nil {
 		return nil, err
