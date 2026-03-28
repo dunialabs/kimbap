@@ -47,12 +47,24 @@ export function DashboardSidebar() {
     <>
       <header className="sticky top-0 z-40 flex h-14 items-center border-b bg-background px-4 md:hidden">
         <Sheet open={mobileMenuOpen} onOpenChange={setMobileMenuOpen}>
-          <SheetTrigger asChild>
-            <Button variant="outline" size="icon" className="h-11 w-11 shrink-0 bg-transparent">
-              <Menu className="h-5 w-5" />
-              <span className="sr-only">Toggle navigation menu</span>
-            </Button>
-          </SheetTrigger>
+          <div className="relative shrink-0">
+            <SheetTrigger asChild>
+              <Button variant="outline" size="icon" className="h-11 w-11 bg-transparent">
+                <Menu className="h-5 w-5" />
+                <span className="sr-only">
+                  Toggle navigation menu{pendingApprovalCount > 0 ? `, ${pendingApprovalCount} pending approval${pendingApprovalCount === 1 ? '' : 's'}` : ''}
+                </span>
+              </Button>
+            </SheetTrigger>
+            {pendingApprovalCount > 0 && (
+              <span
+                aria-hidden="true"
+                className="pointer-events-none absolute -right-1 -top-1 inline-flex h-5 min-w-[20px] items-center justify-center rounded-full bg-amber-100 px-1.5 text-xs font-medium text-amber-800 dark:bg-amber-900 dark:text-amber-300"
+              >
+                {pendingApprovalCount > 99 ? '99+' : pendingApprovalCount}
+              </span>
+            )}
+          </div>
           <SheetContent side="left" className="flex w-[280px] flex-col p-0">
             <SheetTitle className="sr-only">Navigation menu</SheetTitle>
             <SheetDescription className="sr-only">Browse dashboard sections, documentation links, and account actions.</SheetDescription>
