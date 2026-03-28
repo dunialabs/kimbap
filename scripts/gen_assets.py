@@ -196,7 +196,7 @@ def generate_svg(path):
         "",
         "    <!-- Pickled radish / red (bottom) -->",
         f'    <rect x="{sx(-1.7):.1f}" y="{sy_val(0.7):.1f}" '
-        f'width="{sx(1.7) - sx(-1.7):.1f}" height="{sy_val(2.5) - sy_val(0.7):.1f}" '
+        f'width="{sx(1.7) - sx(-1.7):.1f}" height="{sy_val(2.0) - sy_val(0.7):.1f}" '
         f'fill="{_hex("red2")}" rx="3"/>',
         "",
         "    <!-- Crab stick (right) -->",
