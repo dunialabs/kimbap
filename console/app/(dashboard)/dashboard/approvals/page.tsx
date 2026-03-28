@@ -1194,7 +1194,11 @@ export default function ApprovalsPage() {
               <div className="space-y-1.5">
                 <Label>Decision reason (optional)</Label>
                 <Textarea
-                  placeholder="e.g., Needed for an incident fix"
+                  placeholder={
+                    decideDialog.decision === 'APPROVED'
+                      ? 'e.g., Approved for this incident'
+                      : 'e.g., Not authorized for this request'
+                  }
                   value={decideReason}
                   onChange={(e) => setDecideReason(e.target.value)}
                   ref={decideReasonRef}

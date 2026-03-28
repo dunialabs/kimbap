@@ -1119,7 +1119,7 @@ function ToolUsagePageContent() {
                   </div>
                 </>
               )}
-              {!actionLoading && !actionLogsError ? (
+              {!actionLoading && !actionLogsError && actionLogsTotal > 0 ? (
                 <div className="mt-3 flex flex-col gap-3 text-sm text-muted-foreground sm:flex-row sm:items-center sm:justify-between">
                   <span>Showing {formatDisplayNumber((actionLogsPage - 1) * 20 + 1)} to {formatDisplayNumber(Math.min(actionLogsPage * 20, actionLogsTotal))} of {formatDisplayNumber(actionLogsTotal)} logs</span>
                   <Pagination className="mx-0 w-auto justify-start sm:justify-end">
