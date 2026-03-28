@@ -487,7 +487,7 @@ function TokenUsagePageContent() {
       case 'limited':
         return (
           <Badge className="bg-amber-100 text-amber-800 border-amber-200 dark:bg-amber-950/20 dark:text-amber-300 dark:border-amber-800">
-            Rate Limited
+            Rate-limited
           </Badge>
         )
       default:
@@ -536,7 +536,7 @@ function TokenUsagePageContent() {
         <Button className="min-h-11 w-full sm:w-auto" variant="outline" onClick={handleRefresh} disabled={loading || refreshing}><RefreshCw className={`mr-2 h-4 w-4 ${loading || refreshing ? 'animate-spin' : ''}`} />Refresh</Button>
       </div>
       {activeTab === 'patterns' && timeRange !== 1 ? (
-        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between rounded-md border border-border/60 bg-muted/20 px-3 py-2">
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between rounded-md border border-border/60 bg-muted/20 px-3 py-2" role="status" aria-live="polite">
           <p className="text-sm text-muted-foreground">Minute-level patterns are available only in the last 24 hours view.</p>
           <Button type="button" variant="outline" size="sm" className="min-h-11 w-full sm:w-auto" onClick={() => setTimeRange(1)}>
             Switch to last 24 hours
@@ -964,7 +964,7 @@ function TokenUsagePageContent() {
                                 aria-label={`Share from ${location.city && location.country ? `${location.city}, ${location.country}` : formatNullableText(location.city || location.country)}: ${formatPercentage(location.percentage)}`}
                               />
                             </div>
-                            <span className="text-xs text-muted-foreground w-12">
+                            <span className="w-12 text-right font-mono text-xs tabular-nums text-muted-foreground">
                               {formatPercentage(location.percentage)}
                             </span>
                           </div>
@@ -1041,7 +1041,7 @@ function TokenUsagePageContent() {
 
           {timeRange !== 1 ? (
             <Card>
-              <CardContent className="flex items-center justify-center py-8">
+              <CardContent className="flex items-center justify-center py-8" role="status" aria-live="polite">
                 <div className="text-center">
                   <p className="text-sm text-muted-foreground">Switch to Last 24 hours to review minute-level token patterns.</p>
                 </div>

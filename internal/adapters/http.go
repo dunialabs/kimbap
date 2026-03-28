@@ -504,11 +504,11 @@ func buildBody(method string, payload map[string]any, requestBodyTemplate string
 }
 
 func resolveBodyTemplate(tmpl string, input map[string]any) ([]byte, error) {
-	var parsed map[string]any
+	var parsed any
 	if err := json.Unmarshal([]byte(tmpl), &parsed); err != nil {
 		return nil, fmt.Errorf("invalid request body template: %w", err)
 	}
-	resolved := resolveTemplateValues(parsed, input)
+	resolved := resolveTemplateAny(parsed, input)
 	return json.Marshal(resolved)
 }
 

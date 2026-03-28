@@ -82,6 +82,18 @@ type ProxyServer struct {
 	mu       sync.RWMutex
 }
 
+// bufferedConn wraps a net.Conn and overrides Read to drain a pre-buffered
+// reader before falling back to the connection itself. Used to preserve bytes
+// already consumed from the TCP stream by a bufio.Reader before TLS handshake.
+type bufferedConn struct {
+	net.Conn
+	r io.Reader
+}
+
+func (c *bufferedConn) Read(b []byte) (int, error) {
+	return c.r.Read(b)
+}
+
 func NewProxyServer(addr string, ca *CAConfig, opts ...ProxyOption) *ProxyServer {
 	p := &ProxyServer{
 		listenAddr:      addr,
@@ -333,7 +345,14 @@ func (p *ProxyServer) handleConnect(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	tlsConn := tls.Server(clientConn, &tls.Config{Certificates: []tls.Certificate{*hostCert}})
+	var connForTLS net.Conn = clientConn
+	if rw.Reader.Buffered() > 0 {
+		connForTLS = &bufferedConn{
+			Conn: clientConn,
+			r:    io.MultiReader(rw.Reader, clientConn),
+		}
+	}
+	tlsConn := tls.Server(connForTLS, &tls.Config{Certificates: []tls.Certificate{*hostCert}})
 	defer tlsConn.Close()
 	if err := tlsConn.SetDeadline(time.Now().Add(defaultProxyHandshakeTimeout)); err != nil {
 		return
