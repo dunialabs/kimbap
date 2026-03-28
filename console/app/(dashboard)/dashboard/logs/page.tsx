@@ -526,6 +526,15 @@ function LogsPageContent() {
     }
   }
 
+  const openSourceFromStatistics = (domain: string) => {
+    setTimeFilter(statisticsTimeFilter)
+    setSourceFilter(domain)
+    setLevelFilter('all')
+    setSearchTerm('')
+    setCurrentPage(1)
+    setActiveTab('table')
+  }
+
   const getLevelIcon = (level: string) => {
     switch (level) {
       case 'ERROR':
@@ -1583,7 +1592,14 @@ function LogsPageContent() {
                       <Card key={stat.domain} className="border border-border/60 shadow-sm">
                         <CardContent className="space-y-3 p-4">
                           <div>
-                            <p className="text-sm font-medium">{stat.label}</p>
+                            <button
+                              type="button"
+                              className="text-left text-sm font-medium transition-colors hover:text-primary hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                              aria-label={`View ${stat.label} logs in table`}
+                              onClick={() => openSourceFromStatistics(stat.domain)}
+                            >
+                              {stat.label}
+                            </button>
                             <p className="mt-1 text-xs text-muted-foreground">{formatPercentage(stat.percentage)} of logs</p>
                           </div>
                           <div className="grid grid-cols-3 gap-3 text-sm">
@@ -1620,7 +1636,16 @@ function LogsPageContent() {
                       <TableBody>
                         {statistics.domainStats.map((stat) => (
                           <TableRow key={stat.domain}>
-                            <TableCell>{stat.label}</TableCell>
+                            <TableCell>
+                              <button
+                                type="button"
+                                className="text-left transition-colors hover:text-primary hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                                aria-label={`View ${stat.label} logs in table`}
+                                onClick={() => openSourceFromStatistics(stat.domain)}
+                              >
+                                {stat.label}
+                              </button>
+                            </TableCell>
                             <TableCell>{formatDisplayNumber(stat.logCount, { compact: true })}</TableCell>
                             <TableCell className={stat.errorCount > 0 ? 'text-red-600 dark:text-red-400 font-medium' : 'text-muted-foreground'}>
                               {stat.errorCount > 0 ? formatDisplayNumber(stat.errorCount, { compact: true }) : '—'}

@@ -1013,6 +1013,7 @@ export default function DashboardPage() {
                                 variant="ghost"
                                 size="sm"
                                 className="min-h-11 shrink-0 px-3 text-xs"
+                                aria-label={`Copy IP address ${client.ip}`}
                                 onClick={() => handleCopyClientIp(client.ip)}
                               >
                                 <Copy className="mr-1 h-3.5 w-3.5" aria-hidden="true" />

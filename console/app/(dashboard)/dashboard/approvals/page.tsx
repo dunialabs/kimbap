@@ -587,12 +587,11 @@ export default function ApprovalsPage() {
             </div>
             {statusFilter !== DEFAULT_STATUS_FILTER && (
               <Button
-                variant="outline"
                 size="sm"
-                className="min-h-11 w-full shrink-0 sm:w-auto"
+                className="min-h-11 w-full shrink-0 bg-amber-600 text-white shadow-sm hover:bg-amber-700 focus-visible:ring-amber-500 dark:bg-amber-500 dark:text-amber-950 dark:hover:bg-amber-400 sm:w-auto"
                 onClick={() => setStatusFilter(DEFAULT_STATUS_FILTER)}
               >
-                View pending
+                Show pending queue
               </Button>
             )}
           </CardContent>
