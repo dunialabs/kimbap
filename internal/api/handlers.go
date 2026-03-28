@@ -774,8 +774,27 @@ func (s *Server) handleExportAudit(w http.ResponseWriter, r *http.Request) {
 		))
 		return
 	}
+	from, fromErr := parseRFC3339Ptr(r.URL.Query().Get("from"))
+	if fromErr != nil {
+		writeEnvelopeError(w, r, actions.NewExecutionError(actions.ErrValidationFailed, "invalid 'from' timestamp: expected RFC3339 format", http.StatusBadRequest, false, nil))
+		return
+	}
+	to, toErr := parseRFC3339Ptr(r.URL.Query().Get("to"))
+	if toErr != nil {
+		writeEnvelopeError(w, r, actions.NewExecutionError(actions.ErrValidationFailed, "invalid 'to' timestamp: expected RFC3339 format", http.StatusBadRequest, false, nil))
+		return
+	}
+	exportFilter := store.AuditFilter{
+		TenantID:  tenantID,
+		AgentName: r.URL.Query().Get("agent_name"),
+		Service:   r.URL.Query().Get("service"),
+		Action:    r.URL.Query().Get("action"),
+		Status:    r.URL.Query().Get("status"),
+		From:      from,
+		To:        to,
+	}
 	var buf bytes.Buffer
-	if err := s.store.ExportAuditEvents(r.Context(), store.AuditFilter{TenantID: tenantID}, format, &buf); err != nil {
+	if err := s.store.ExportAuditEvents(r.Context(), exportFilter, format, &buf); err != nil {
 		writeEnvelopeError(w, r, actions.NewExecutionError(actions.ErrDownstreamUnavailable, "export failed", http.StatusInternalServerError, false, nil))
 		return
 	}
