@@ -30,7 +30,6 @@ export const navItems = [
     icon: TrendingUp,
     label: 'Usage',
     subItems: [
-      { href: '/dashboard/usage', label: 'Overview' },
       { href: '/dashboard/usage/tool-usage', label: 'Tool Usage' },
       { href: '/dashboard/usage/token-usage', label: 'Access Token Usage' },
     ]
