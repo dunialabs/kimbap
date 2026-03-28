@@ -1508,30 +1508,61 @@ function LogsPageContent() {
                   <p className="text-sm text-muted-foreground">No log sources are available for this period. Expand the time range or check back after more traffic arrives.</p>
                 </div>
               ) : (
-                <div className="overflow-x-auto">
-                <Table className="min-w-[480px]">
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead scope="col">Source</TableHead>
-                      <TableHead scope="col">Logs</TableHead>
-                      <TableHead scope="col">Errors</TableHead>
-                      <TableHead scope="col">% Share</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
+                <>
+                  <div className="space-y-3 md:hidden">
                     {statistics.domainStats.map((stat) => (
-                      <TableRow key={stat.domain}>
-                        <TableCell>{stat.label}</TableCell>
-                        <TableCell>{formatDisplayNumber(stat.logCount, { compact: true })}</TableCell>
-                        <TableCell className={stat.errorCount > 0 ? 'text-red-600 dark:text-red-400 font-medium' : 'text-muted-foreground'}>
-                          {stat.errorCount > 0 ? formatDisplayNumber(stat.errorCount, { compact: true }) : '—'}
-                        </TableCell>
-                        <TableCell>{formatPercentage(stat.percentage)}</TableCell>
-                      </TableRow>
+                      <Card key={stat.domain} className="border border-border/60 shadow-sm">
+                        <CardContent className="space-y-3 p-4">
+                          <div>
+                            <p className="text-sm font-medium">{stat.label}</p>
+                            <p className="mt-1 text-xs text-muted-foreground">{formatPercentage(stat.percentage)} of logs</p>
+                          </div>
+                          <div className="grid grid-cols-3 gap-3 text-sm">
+                            <div>
+                              <p className="text-xs text-muted-foreground">Logs</p>
+                              <p className="mt-1">{formatDisplayNumber(stat.logCount, { compact: true })}</p>
+                            </div>
+                            <div>
+                              <p className="text-xs text-muted-foreground">Errors</p>
+                              <p className={stat.errorCount > 0 ? 'mt-1 font-medium text-red-600 dark:text-red-400' : 'mt-1 text-muted-foreground'}>
+                                {stat.errorCount > 0 ? formatDisplayNumber(stat.errorCount, { compact: true }) : '—'}
+                              </p>
+                            </div>
+                            <div>
+                              <p className="text-xs text-muted-foreground">Share</p>
+                              <p className="mt-1">{formatPercentage(stat.percentage)}</p>
+                            </div>
+                          </div>
+                        </CardContent>
+                      </Card>
                     ))}
-                  </TableBody>
-                </Table>
-                </div>
+                  </div>
+
+                  <div className="hidden overflow-x-auto md:block">
+                    <Table className="min-w-[480px]">
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead scope="col">Source</TableHead>
+                          <TableHead scope="col">Logs</TableHead>
+                          <TableHead scope="col">Errors</TableHead>
+                          <TableHead scope="col">% Share</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {statistics.domainStats.map((stat) => (
+                          <TableRow key={stat.domain}>
+                            <TableCell>{stat.label}</TableCell>
+                            <TableCell>{formatDisplayNumber(stat.logCount, { compact: true })}</TableCell>
+                            <TableCell className={stat.errorCount > 0 ? 'text-red-600 dark:text-red-400 font-medium' : 'text-muted-foreground'}>
+                              {stat.errorCount > 0 ? formatDisplayNumber(stat.errorCount, { compact: true }) : '—'}
+                            </TableCell>
+                            <TableCell>{formatPercentage(stat.percentage)}</TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </div>
+                </>
               )}
             </CardContent>
           </Card>
