@@ -14,6 +14,7 @@ import (
 	"strconv"
 	"strings"
 	"time"
+	"unicode/utf8"
 
 	"github.com/dunialabs/kimbap/internal/actions"
 )
@@ -275,13 +276,11 @@ func (a *HTTPAdapter) executeSingle(ctx context.Context, req AdapterRequest) (*A
 	var lastHeaders map[string]string
 
 	for attempt := 1; attempt <= maxAttempts; attempt++ {
-		attemptCtx := ctx
-		cancel := func() {}
 		perAttemptTimeout := req.Action.Adapter.Timeout
 		if perAttemptTimeout <= 0 {
 			perAttemptTimeout = defaultAdapterAttemptTimeout
 		}
-		attemptCtx, cancel = context.WithTimeout(ctx, perAttemptTimeout)
+		attemptCtx, cancel := context.WithTimeout(ctx, perAttemptTimeout)
 
 		httpReq, reqErr := http.NewRequestWithContext(attemptCtx, method, u.String(), bytes.NewReader(bodyBytes))
 		if reqErr != nil {
@@ -903,7 +902,10 @@ func readErrorMessage(body []byte) string {
 		}
 	}
 	if len(trimmed) > 300 {
-		return trimmed[:300]
+		for len(trimmed) > 300 {
+			_, size := utf8.DecodeLastRuneInString(trimmed)
+			trimmed = trimmed[:len(trimmed)-size]
+		}
 	}
 	return trimmed
 }

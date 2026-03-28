@@ -81,7 +81,6 @@ func (a *CommandAdapter) Execute(ctx context.Context, req AdapterRequest) (*Adap
 	}
 	args = append(args, jsonFlag)
 
-	execCtx := ctx
 	timeout := req.Timeout
 	if timeout <= 0 {
 		timeout = req.Action.Adapter.Timeout
@@ -92,8 +91,7 @@ func (a *CommandAdapter) Execute(ctx context.Context, req AdapterRequest) (*Adap
 	if timeout <= 0 {
 		timeout = defaultCommandAdapterTimeout
 	}
-	var cancel context.CancelFunc
-	execCtx, cancel = context.WithTimeout(ctx, timeout)
+	execCtx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
 
 	cmd := exec.CommandContext(execCtx, executable, args...)
