@@ -958,10 +958,9 @@ function TokenUsagePageContent() {
                             </span>
                             <div className="w-20">
                               <Progress
-                                value={
-                                  location.percentage
-                                }
+                                value={location.percentage}
                                 className="h-2"
+                                aria-label={`Share from ${location.city && location.country ? `${location.city}, ${location.country}` : formatNullableText(location.city || location.country)}: ${formatPercentage(location.percentage)}`}
                               />
                             </div>
                             <span className="text-xs text-muted-foreground w-12">
