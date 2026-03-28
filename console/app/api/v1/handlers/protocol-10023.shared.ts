@@ -15,10 +15,9 @@ export async function resolveManualConnection(): Promise<string> {
         const defaultPort = isHttps ? 443 : 80;
 
         if (port && port !== defaultPort) {
-          manualConnection = `${host}:${port}`;
-        } else {
-          manualConnection = host;
+          url.port = String(port);
         }
+        manualConnection = url.toString();
       } else if (host) {
         const isIP = /^(\d{1,3}\.){3}\d{1,3}$/.test(host) || host === 'localhost';
         const protocol = isIP ? 'http' : 'https';

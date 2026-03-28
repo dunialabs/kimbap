@@ -561,7 +561,7 @@ func validateAuth(auth ServiceAuth, fieldPrefix string) []ValidationError {
 	return errs
 }
 
-var templateRefPattern = regexp.MustCompile(`\{([a-zA-Z_]\w*)\}`)
+var templateRefPattern = regexp.MustCompile(`\{([^{}\s]+)\}`)
 
 func extractTemplateRefs(s string) []string {
 	matches := templateRefPattern.FindAllStringSubmatch(s, -1)

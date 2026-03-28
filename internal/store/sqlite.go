@@ -642,20 +642,11 @@ func (s *SQLStore) SetPolicy(ctx context.Context, tenantID string, document []by
 		return ErrInvalidTenantID
 	}
 	now := time.Now().UTC()
-	if s.dialect == "postgres" {
-		_, err := s.db.ExecContext(ctx, s.bind(`
-			INSERT INTO policies (tenant_id, document, updated_at)
-			VALUES (?, ?, ?)
-			ON CONFLICT (tenant_id)
-			DO UPDATE SET document = EXCLUDED.document, updated_at = EXCLUDED.updated_at
-		`), tenantID, document, now)
-		return err
-	}
 	_, err := s.db.ExecContext(ctx, s.bind(`
 		INSERT INTO policies (tenant_id, document, updated_at)
 		VALUES (?, ?, ?)
-		ON CONFLICT(tenant_id)
-		DO UPDATE SET document=excluded.document, updated_at=excluded.updated_at
+		ON CONFLICT (tenant_id)
+		DO UPDATE SET document = EXCLUDED.document, updated_at = EXCLUDED.updated_at
 	`), tenantID, document, now)
 	return err
 }

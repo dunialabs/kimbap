@@ -88,7 +88,15 @@ func GenerateFromOpenAPIFile(path string) (*ServiceManifest, error) {
 const maxOpenAPISpecBytes int64 = 10 << 20
 
 func GenerateFromOpenAPIURL(rawURL string) (*ServiceManifest, error) {
-	client := &http.Client{Timeout: 30 * time.Second}
+	client := &http.Client{
+		Timeout: 30 * time.Second,
+		CheckRedirect: func(req *http.Request, via []*http.Request) error {
+			if req.URL.Scheme != "https" {
+				return fmt.Errorf("redirect to non-https URL %q rejected", req.URL)
+			}
+			return nil
+		},
+	}
 
 	req, err := http.NewRequest(http.MethodGet, rawURL, nil)
 	if err != nil {
@@ -517,6 +525,14 @@ func addRequestBodyArgs(action *ServiceAction, op map[string]any, resolver *open
 
 	if strings.EqualFold(schemaType(resolvedSchema), "object") {
 		properties := mapAt(resolvedSchema, "properties")
+		if len(properties) == 0 {
+			addOrUpdateArg(&action.Args, argIndex, ActionArg{
+				Name:     "body",
+				Type:     "object",
+				Required: boolAt(requestBody, "required"),
+			})
+			return nil
+		}
 		propNames := sortedMapKeys(properties)
 		for _, propName := range propNames {
 			propSchema := mapAt(properties, propName)

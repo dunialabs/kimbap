@@ -358,9 +358,6 @@ func (p *ProxyServer) handleConnect(w http.ResponseWriter, req *http.Request) {
 		}
 		mitmReq, err := http.ReadRequest(reader)
 		if err != nil {
-			if errors.Is(err, io.EOF) {
-				return
-			}
 			return
 		}
 		_ = tlsConn.SetReadDeadline(time.Now().Add(defaultProxyReadTimeout))
@@ -538,7 +535,7 @@ func extractProxyInput(req *http.Request) (map[string]any, error) {
 
 	var body any
 	if err := json.Unmarshal(trimmed, &body); err != nil {
-		out["raw_body"] = string(trimmed)
+		out["raw_body"] = string(raw)
 		return out, nil
 	}
 

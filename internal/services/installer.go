@@ -453,6 +453,9 @@ func (i *LocalInstaller) Sign(privateKey ed25519.PrivateKey) error {
 	if i == nil {
 		return fmt.Errorf("installer is nil")
 	}
+	if len(privateKey) != ed25519.PrivateKeySize {
+		return fmt.Errorf("invalid private key length: expected %d, got %d", ed25519.PrivateKeySize, len(privateKey))
+	}
 	i.mu.Lock()
 	defer i.mu.Unlock()
 	lf, err := i.readLockfile()

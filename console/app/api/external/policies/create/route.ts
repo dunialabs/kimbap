@@ -30,7 +30,7 @@ export async function POST(request: NextRequest) {
       throw new ExternalApiError(E1001, 'Invalid request body');
     }
 
-    if (!body.dsl || typeof body.dsl !== 'object') {
+    if (!body.dsl || typeof body.dsl !== 'object' || Array.isArray(body.dsl)) {
       throw new ExternalApiError(E1001, 'Missing required field: dsl');
     }
 

@@ -95,7 +95,7 @@ func newRunCommand() *cobra.Command {
 
 				c := classifier.NewClassifier()
 				installer := installerFromConfig(cfg)
-				installedServices, err := installer.List()
+				installedServices, err := installer.ListEnabled()
 				if err != nil {
 					return fmt.Errorf("load installed services: %w", err)
 				}

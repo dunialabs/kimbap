@@ -713,11 +713,9 @@ func (r *Runtime) writeAudit(ctx context.Context, req actions.ExecutionRequest, 
 	if result.Error != nil {
 		event.ErrorCode = result.Error.Code
 		msg := result.Error.Message
-		if len(msg) > 256 {
-			for len(msg) > 256 {
-				_, size := utf8.DecodeLastRuneInString(msg)
-				msg = msg[:len(msg)-size]
-			}
+		for len(msg) > 256 {
+			_, size := utf8.DecodeLastRuneInString(msg)
+			msg = msg[:len(msg)-size]
 		}
 		event.ErrorMessage = msg
 	}

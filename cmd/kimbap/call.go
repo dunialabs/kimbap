@@ -8,6 +8,7 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"unicode/utf8"
 
 	"github.com/dunialabs/kimbap/internal/actions"
 	"github.com/dunialabs/kimbap/internal/config"
@@ -239,7 +240,11 @@ func truncatePreview(value string, maxLen int) string {
 	if maxLen <= 0 || len(value) <= maxLen {
 		return value
 	}
-	return value[:maxLen] + "..."
+	cut := maxLen
+	for cut > 0 && !utf8.RuneStart(value[cut]) {
+		cut--
+	}
+	return value[:cut] + "..."
 }
 
 func isCredentialReady(cfg *config.KimbapConfig, req actions.ExecutionRequest) bool {
