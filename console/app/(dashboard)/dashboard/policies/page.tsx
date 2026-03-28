@@ -318,7 +318,8 @@ function generatePolicyTitle(rules: PolicyRule[]): string {
   const decision = DECISIONS.find((d) => d.value === first.effect.decision)?.label || first.effect.decision
   const tool = first.match.tool === '*' || !first.match.tool ? 'All tools' : first.match.tool
   const serverPart = first.match.serverId ? ` on ${first.match.serverId}` : ''
-  return `${tool}${serverPart} — ${decision}`
+  const condPart = (first.when?.length ?? 0) > 0 ? ' (conditional)' : ''
+  return `${tool}${serverPart} — ${decision}${condPart}`
 }
 
 function RuleCard({
