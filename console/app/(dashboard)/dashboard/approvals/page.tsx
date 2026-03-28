@@ -91,49 +91,49 @@ function statusBadge(status: string) {
   switch (status) {
     case 'PENDING':
       return (
-        <Badge className="bg-amber-100 text-amber-800 border-amber-200 dark:bg-amber-900 dark:text-amber-300 dark:border-amber-800 hover:bg-amber-200">
+        <Badge className="border-amber-200 bg-amber-100 text-amber-800 transition-colors hover:bg-amber-200 dark:border-amber-800 dark:bg-amber-950/30 dark:text-amber-300 dark:hover:bg-amber-950/50">
           <Clock className="h-3 w-3 mr-1" />
           Pending
         </Badge>
       );
     case 'APPROVED':
       return (
-        <Badge className="bg-green-100 text-green-800 border-green-200 dark:bg-green-900 dark:text-green-300 dark:border-green-800 hover:bg-green-200">
+        <Badge className="border-green-200 bg-green-100 text-green-800 transition-colors hover:bg-green-200 dark:border-green-800 dark:bg-green-950/30 dark:text-green-300 dark:hover:bg-green-950/50">
           <CheckCircle2 className="h-3 w-3 mr-1" />
           Approved
         </Badge>
       );
     case 'REJECTED':
       return (
-        <Badge className="bg-red-100 text-red-800 border-red-200 dark:bg-red-900 dark:text-red-300 dark:border-red-800 hover:bg-red-200">
+        <Badge className="border-red-200 bg-red-100 text-red-800 transition-colors hover:bg-red-200 dark:border-red-800 dark:bg-red-950/30 dark:text-red-300 dark:hover:bg-red-950/50">
           <XCircle className="h-3 w-3 mr-1" />
           Rejected
         </Badge>
       );
     case 'EXPIRED':
       return (
-        <Badge className="bg-amber-100 text-amber-800 border-amber-200 dark:bg-amber-950/30 dark:text-amber-300 dark:border-amber-800 hover:bg-amber-200">
+        <Badge className="border-amber-200 bg-amber-100 text-amber-800 transition-colors hover:bg-amber-200 dark:border-amber-800 dark:bg-amber-950/30 dark:text-amber-300 dark:hover:bg-amber-950/50">
           <AlertTriangle className="h-3 w-3 mr-1" />
           Expired
         </Badge>
       );
     case 'EXECUTING':
       return (
-        <Badge className="bg-blue-100 text-blue-800 border-blue-200 dark:bg-blue-900 dark:text-blue-300 dark:border-blue-800 hover:bg-blue-200">
+        <Badge className="border-blue-200 bg-blue-100 text-blue-800 transition-colors hover:bg-blue-200 dark:border-blue-800 dark:bg-blue-950/30 dark:text-blue-300 dark:hover:bg-blue-950/50">
           <Loader2 className="h-3 w-3 mr-1 animate-spin" />
           Executing
         </Badge>
       );
     case 'EXECUTED':
       return (
-        <Badge className="bg-sky-100 text-sky-800 border-sky-200 dark:bg-sky-900 dark:text-sky-300 dark:border-sky-800 hover:bg-sky-200">
+        <Badge className="border-sky-200 bg-sky-100 text-sky-800 transition-colors hover:bg-sky-200 dark:border-sky-800 dark:bg-sky-950/30 dark:text-sky-300 dark:hover:bg-sky-950/50">
           <CheckCircle2 className="h-3 w-3 mr-1" />
           Executed
         </Badge>
       );
     case 'FAILED':
       return (
-        <Badge className="bg-red-100 text-red-800 border-red-200 dark:bg-red-950/30 dark:text-red-300 dark:border-red-800 hover:bg-red-200">
+        <Badge className="border-red-200 bg-red-100 text-red-800 transition-colors hover:bg-red-200 dark:border-red-800 dark:bg-red-950/30 dark:text-red-300 dark:hover:bg-red-950/50">
           <AlertTriangle className="h-3 w-3 mr-1" />
           Failed
         </Badge>
@@ -557,7 +557,7 @@ export default function ApprovalsPage() {
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-3">
-          {refreshFailed && <span className="text-xs text-amber-600">Last refresh failed</span>}
+          {refreshFailed && <span className="text-xs text-amber-600 dark:text-amber-400">Last refresh failed</span>}
           {!refreshFailed && lastUpdated && (
             <span className="text-xs text-muted-foreground">Updated {timeAgo || 'just now'}</span>
           )}
@@ -576,10 +576,10 @@ export default function ApprovalsPage() {
 
       {/* Pending Count Banner */}
       {pendingCount > 0 && (
-        <Card className="border-amber-500/30 bg-amber-500/5">
+        <Card className="border-amber-500/30 bg-amber-500/5 dark:border-amber-800/70 dark:bg-amber-950/20">
           <CardContent className="flex items-center justify-between gap-3 py-3">
             <div className="flex items-center gap-3">
-              <Clock className="h-5 w-5 text-amber-600 shrink-0" />
+              <Clock className="h-5 w-5 shrink-0 text-amber-600 dark:text-amber-400" />
               <span className="text-sm font-medium">
                 {formatDisplayNumber(pendingCount)} pending approval{pendingCount !== 1 ? 's' : ''} awaiting review
               </span>

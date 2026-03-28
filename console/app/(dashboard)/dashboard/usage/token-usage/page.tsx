@@ -454,7 +454,7 @@ function TokenUsagePageContent() {
         )
       case 'inactive':
         return (
-          <Badge className="bg-gray-100 text-gray-800 border-gray-200 dark:bg-gray-800 dark:text-gray-300 dark:border-gray-700">
+          <Badge className="border-slate-200 bg-slate-100 text-slate-800 dark:border-slate-700 dark:bg-slate-900/60 dark:text-slate-200">
             Inactive
           </Badge>
         )

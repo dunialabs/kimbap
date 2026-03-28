@@ -431,7 +431,7 @@ function ToolUsagePageContent() {
       case "active":
         return <CheckCircle className="h-4 w-4 text-green-500 dark:text-green-400" />
       case "inactive":
-        return <Clock className="h-4 w-4 text-gray-500 dark:text-gray-400" />
+        return <Clock className="h-4 w-4 text-slate-500 dark:text-slate-400" />
       case "error":
         return <XCircle className="h-4 w-4 text-red-500 dark:text-red-400" />
       default:
@@ -444,7 +444,7 @@ function ToolUsagePageContent() {
       case "active":
         return <Badge className="bg-green-100 text-green-800 border-green-200 dark:bg-green-950/20 dark:text-green-300 dark:border-green-800">Active</Badge>
       case "inactive":
-        return <Badge className="bg-gray-100 text-gray-800 border-gray-200 dark:bg-gray-800 dark:text-gray-300 dark:border-gray-700">Inactive</Badge>
+        return <Badge className="border-slate-200 bg-slate-100 text-slate-800 dark:border-slate-700 dark:bg-slate-900/60 dark:text-slate-200">Inactive</Badge>
       case "error":
         return <Badge className="bg-red-100 text-red-800 border-red-200 dark:bg-red-950/20 dark:text-red-300 dark:border-red-800">High failure rate</Badge>
       default:

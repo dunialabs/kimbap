@@ -917,7 +917,7 @@ function LogsPageContent() {
                                 : getLevelColor(log.level) === 'info'
                                 ? 'border-blue-500 bg-blue-50 text-blue-700 dark:bg-blue-950/20 dark:text-blue-400 dark:border-blue-700 text-xs'
                                 : getLevelColor(log.level) === 'debug'
-                                ? 'border-gray-400 bg-gray-50 text-gray-600 dark:bg-gray-800/20 dark:text-gray-400 dark:border-gray-600 text-xs'
+                                ? 'border-slate-300 bg-slate-50 text-slate-700 dark:border-slate-700 dark:bg-slate-900/60 dark:text-slate-200 text-xs'
                                 : 'text-xs'
                             }
                           >

@@ -5,7 +5,7 @@ import { useState, useEffect, useRef } from 'react'
 import { Button } from '@/components/ui/button'
 import { Label } from '@/components/ui/label'
 import { Alert, AlertDescription } from '@/components/ui/alert'
-import { Eye, EyeOff, Lock } from 'lucide-react'
+import { Eye, EyeOff, Loader2, Lock } from 'lucide-react'
 import { renderErrorMessageWithLinks } from '@/lib/error-utils'
 
 interface MasterPasswordFormProps {
@@ -226,12 +226,12 @@ export function MasterPasswordForm({ onSuccess }: MasterPasswordFormProps) {
           disabled={
             isLoading || !cryptoAvailable || !masterPassword.trim() || !confirmPassword.trim()
           }
-          className="w-full h-12 text-base bg-slate-900 hover:bg-slate-800 disabled:bg-slate-900 disabled:opacity-30 text-white dark:bg-slate-100 dark:hover:bg-slate-200 dark:text-slate-900 dark:disabled:bg-slate-100"
+          className="h-12 w-full text-base"
           size="lg"
         >
           {isLoading ? (
             <>
-              <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin mr-2" />
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" aria-hidden="true" />
               Creating...
             </>
           ) : (

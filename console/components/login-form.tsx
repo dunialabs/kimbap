@@ -5,7 +5,7 @@ import { useState, useEffect, useRef } from 'react'
 import { Button } from '@/components/ui/button'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Label } from '@/components/ui/label'
-import { Eye, EyeOff, LogIn } from 'lucide-react'
+import { Eye, EyeOff, Loader2, LogIn } from 'lucide-react'
 import { MasterPasswordManager } from '@/lib/crypto'
 import { renderErrorMessageWithLinks } from '@/lib/error-utils'
 
@@ -409,13 +409,13 @@ export function LoginForm({
             ? !loginMasterPassword.trim()
             : !token.trim())
         }
-        className="w-full h-12 text-base bg-slate-900 hover:bg-slate-800 disabled:bg-slate-900 disabled:opacity-30 text-white rounded-[8px] dark:bg-slate-100 dark:hover:bg-slate-200 dark:text-slate-900 dark:disabled:bg-slate-100"
+        className="w-full h-12 rounded-[8px] text-base"
         size="lg"
         aria-busy={isLoggingIn}
       >
         {isLoggingIn ? (
           <>
-            <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin mr-2" aria-hidden="true" />
+            <Loader2 className="mr-2 h-4 w-4 animate-spin" aria-hidden="true" />
             Signing in...
           </>
         ) : (

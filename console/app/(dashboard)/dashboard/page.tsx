@@ -382,7 +382,7 @@ export default function DashboardPage() {
             <span className="relative inline-flex rounded-full h-3 w-3 bg-green-500"></span>
               </>
             ) : (
-              <span className="relative inline-flex rounded-full h-3 w-3 bg-gray-400 dark:bg-gray-500"></span>
+              <span className="relative inline-flex h-3 w-3 rounded-full bg-slate-400 dark:bg-slate-500"></span>
             )}
           </span>
           <Badge
@@ -390,7 +390,7 @@ export default function DashboardPage() {
             className={
               serverInfo?.status === 1
                 ? 'bg-green-50 text-green-700 border-green-200 dark:bg-green-950 dark:text-green-400 dark:border-green-900'
-                : 'bg-gray-50 text-gray-700 border-gray-200 dark:bg-gray-950 dark:text-gray-300 dark:border-gray-800'
+                : 'border-slate-200 bg-slate-50 text-slate-700 dark:border-slate-700 dark:bg-slate-900/60 dark:text-slate-200'
             }
           >
             {serverInfo?.status === 1 ? 'Running' : 'Stopped'}
@@ -405,7 +405,7 @@ export default function DashboardPage() {
             <Button variant="outline" size="sm" className="min-h-11 w-full sm:ml-auto sm:w-auto" onClick={() => void fetchPendingApprovals()}>Retry</Button>
           </div>
         ) : !isPendingApprovalLoading && hasPendingApprovals ? (
-          <Card className="border-amber-500/30 bg-amber-500/5">
+          <Card className="border-amber-500/30 bg-amber-500/5 dark:border-amber-800/70 dark:bg-amber-950/20">
             <CardContent className="flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between">
               <div className="min-w-0">
                 <p className="text-sm font-semibold text-foreground">
