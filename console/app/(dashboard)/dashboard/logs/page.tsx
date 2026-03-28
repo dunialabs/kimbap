@@ -739,6 +739,11 @@ function LogsPageContent() {
     }
   }
 
+  const formatErrorRate = (value: number | null | undefined) => {
+    if (value == null || !Number.isFinite(value)) return '—'
+    return formatPercentage(value, value > 0 && value < 1 ? 2 : 1)
+  }
+
   const chartAxisColor = 'hsl(var(--muted-foreground))'
   const chartGridColor = 'hsl(var(--border))'
   const chartTextColor = 'hsl(var(--foreground))'
@@ -1501,7 +1506,7 @@ function LogsPageContent() {
                     ? '—'
                     : !statistics
                     ? (statsError ? 'Unavailable' : '—')
-                    : formatPercentage(statistics.errorRate)}
+                    : formatErrorRate(statistics.errorRate)}
                 </div>
                 <p className="text-xs text-muted-foreground">
                   {!statsLoading && statistics
