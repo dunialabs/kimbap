@@ -367,3 +367,38 @@ func TestBuildDryRunPreview_IdempotencyCheck(t *testing.T) {
 		t.Fatalf("expected idempotency_valid=true for idempotent action, got %v", previewIdem["idempotency_valid"])
 	}
 }
+
+func TestSplitGlobalCallFlags_DoubleDashStopsParsing(t *testing.T) {
+	resetOptsForTest(t)
+
+	out, err := splitGlobalCallFlags([]string{"--format", "json", "--", "--format", "csv", "--json", "-"})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if opts.format != "json" {
+		t.Fatalf("expected format=json before --, got %q", opts.format)
+	}
+	expected := []string{"--", "--format", "csv", "--json", "-"}
+	if len(out) != len(expected) {
+		t.Fatalf("expected output %v, got %v", expected, out)
+	}
+	for i, v := range expected {
+		if out[i] != v {
+			t.Fatalf("expected out[%d]=%q, got %q", i, v, out[i])
+		}
+	}
+}
+
+func TestPrescanCallSplashFlags_DoubleDashStopsParsing(t *testing.T) {
+	resetOptsForTest(t)
+
+	opts.format = "text"
+	prescanCallSplashFlags([]string{"svc.act", "--", "--format", "json", "--no-splash"})
+
+	if opts.format != "text" {
+		t.Fatalf("expected format to remain text after --, got %q", opts.format)
+	}
+	if opts.noSplash {
+		t.Fatal("expected noSplash to remain false after --")
+	}
+}

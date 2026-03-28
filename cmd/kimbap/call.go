@@ -262,6 +262,9 @@ func isCredentialReady(cfg *config.KimbapConfig, req actions.ExecutionRequest) b
 func prescanCallSplashFlags(tokens []string) {
 	for i := 0; i < len(tokens); i++ {
 		tok := strings.TrimSpace(tokens[i])
+		if tok == "--" {
+			break
+		}
 		switch {
 		case tok == "--no-splash":
 			value, consumed := parseOptionalBoolFlagValue(tokens, i)
@@ -292,6 +295,10 @@ func splitGlobalCallFlags(tokens []string) ([]string, error) {
 	}
 	for i := 0; i < len(tokens); i++ {
 		tok := strings.TrimSpace(tokens[i])
+		if tok == "--" {
+			out = append(out, tokens[i:]...)
+			return out, nil
+		}
 		switch {
 		case tok == "--dry-run":
 			value, consumed := parseOptionalBoolFlagValue(tokens, i)

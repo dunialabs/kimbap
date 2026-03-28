@@ -143,9 +143,16 @@ func (m *Manager) CompleteLogin(ctx context.Context, tenantID, name string, code
 
 	pollTimeout := 10 * time.Minute
 	if hasPending && !pending.expiresAt.IsZero() {
-		if remaining := time.Until(pending.expiresAt); remaining > 0 {
-			pollTimeout = remaining
+		remaining := time.Until(pending.expiresAt)
+		if remaining <= 0 {
+			m.mu.Lock()
+			if cur, ok := m.pending[pendingKey]; ok && cur.deviceCode == pending.deviceCode {
+				delete(m.pending, pendingKey)
+			}
+			m.mu.Unlock()
+			return errors.New("pending login has expired")
 		}
+		pollTimeout = remaining
 	}
 	token, err := PollForTokenWithContext(ctx, cfg, deviceCode, interval, pollTimeout)
 	if err != nil {
