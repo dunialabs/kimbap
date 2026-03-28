@@ -281,6 +281,11 @@ func mergeConfigFromFile(cfg *KimbapConfig, path string, required bool) error {
 		Console struct {
 			Enabled *bool `yaml:"enabled"`
 		} `yaml:"console"`
+		Notifications struct {
+			Email struct {
+				To *[]string `yaml:"to"`
+			} `yaml:"email"`
+		} `yaml:"notifications"`
 	}
 	if err := yaml.Unmarshal(content, &boolPresence); err != nil {
 		return fmt.Errorf("parse config file %q: %w", path, err)
@@ -300,6 +305,9 @@ func mergeConfigFromFile(cfg *KimbapConfig, path string, required bool) error {
 	mergeConfig(cfg, &loaded)
 	if boolPresence.Console.Enabled != nil {
 		cfg.Console.Enabled = *boolPresence.Console.Enabled
+	}
+	if boolPresence.Notifications.Email.To != nil {
+		cfg.Notifications.Email.To = loaded.Notifications.Email.To
 	}
 	return nil
 }
