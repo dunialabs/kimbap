@@ -386,7 +386,7 @@ function RuleCard({
             type="button"
             variant="ghost"
             size="icon"
-            className="h-7 w-7"
+            className="h-11 w-11"
             onClick={() => onMove('up')}
             disabled={!canMoveUp}
             aria-label="Move rule up"
@@ -397,7 +397,7 @@ function RuleCard({
             type="button"
             variant="ghost"
             size="icon"
-            className="h-7 w-7"
+            className="h-11 w-11"
             onClick={() => onMove('down')}
             disabled={!canMoveDown}
             aria-label="Move rule down"
@@ -408,7 +408,7 @@ function RuleCard({
             type="button"
             variant="ghost"
             size="icon"
-            className="h-7 w-7 text-destructive hover:bg-destructive/10 hover:text-destructive"
+            className="h-11 w-11 text-destructive hover:bg-destructive/10 hover:text-destructive"
             onClick={onRemove}
             aria-label="Remove rule"
           >
@@ -427,7 +427,7 @@ function RuleCard({
                 placeholder="e.g., delete_*, *"
                 value={rule.match.tool}
                 onChange={(v) => onChange({ ...rule, match: { ...rule.match, tool: v } })}
-                className="h-9"
+                className="h-11"
               />
               <p className="text-xs text-muted-foreground">
                 Use <code className="font-mono">*</code> to match all tools, or <code className="font-mono">prefix_*</code> to match tools starting with a prefix.
@@ -444,7 +444,7 @@ function RuleCard({
                 type="button"
                 variant="outline"
                 size="sm"
-                className="h-7 text-xs"
+                className="h-11 text-xs"
                 onClick={() =>
                   onChange({
                     ...rule,
@@ -473,7 +473,7 @@ function RuleCard({
                       next[ci] = { ...cond, left: e.target.value }
                       onChange({ ...rule, when: next })
                     }}
-                    className="h-9 font-mono text-sm"
+                    className="h-11 font-mono text-sm"
                   />
                 </div>
                 <div className="w-full space-y-1 sm:w-28">
@@ -486,7 +486,7 @@ function RuleCard({
                       onChange({ ...rule, when: next })
                     }}
                   >
-                    <SelectTrigger className="h-9 font-mono text-sm">
+                    <SelectTrigger className="h-11 font-mono text-sm">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
@@ -514,14 +514,14 @@ function RuleCard({
                        next[ci] = { ...cond, right: e.target.value }
                        onChange({ ...rule, when: next })
                      }}
-                     className="h-9 font-mono text-sm"
+                     className="h-11 font-mono text-sm"
                    />
                  </div>
                 <Button
                   type="button"
                   variant="ghost"
                   size="icon"
-                  className="h-9 w-9 shrink-0 text-destructive hover:bg-destructive/10 hover:text-destructive"
+                  className="h-11 w-11 shrink-0 text-destructive hover:bg-destructive/10 hover:text-destructive"
                   onClick={() => {
                     const next = rule.when.filter((_, i) => i !== ci)
                     onChange({ ...rule, when: next })
@@ -539,7 +539,7 @@ function RuleCard({
                    type="button"
                    aria-expanded={extractOpen}
                    title="Extract specific fields from tool call arguments to use as variables in conditions"
-                   className="flex items-center gap-1 rounded text-xs text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                   className="flex min-h-11 items-center gap-1 rounded px-2 py-2 text-xs text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
                  >
                    {extractOpen ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
                    Extract fields (advanced)
@@ -566,7 +566,7 @@ function RuleCard({
                             next[ei] = { ...ext, name: e.target.value }
                             onChange({ ...rule, extract: next })
                           }}
-                          className="h-9 pl-6 font-mono text-sm"
+                          className="h-11 pl-6 font-mono text-sm"
                         />
                       </div>
                     </div>
@@ -580,7 +580,7 @@ function RuleCard({
                           next[ei] = { ...ext, path: e.target.value }
                           onChange({ ...rule, extract: next })
                         }}
-                        className="h-9 font-mono text-sm"
+                        className="h-11 font-mono text-sm"
                       />
                     </div>
                     <div className="w-full space-y-1 sm:w-32">
@@ -593,7 +593,7 @@ function RuleCard({
                           onChange({ ...rule, extract: next })
                         }}
                       >
-                        <SelectTrigger className="h-9 text-sm">
+                        <SelectTrigger className="h-11 text-sm">
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
@@ -609,7 +609,7 @@ function RuleCard({
                       type="button"
                       variant="ghost"
                       size="icon"
-                      className="h-9 w-9 shrink-0 text-destructive hover:bg-destructive/10 hover:text-destructive"
+                      className="h-11 w-11 shrink-0 text-destructive hover:bg-destructive/10 hover:text-destructive"
                       onClick={() => {
                         const next = rule.extract.filter((_, i) => i !== ei)
                         onChange({ ...rule, extract: next })
@@ -624,7 +624,7 @@ function RuleCard({
                   type="button"
                   variant="ghost"
                   size="sm"
-                  className="h-7 text-xs"
+                  className="h-11 text-xs"
                   onClick={() =>
                     onChange({
                       ...rule,
@@ -652,7 +652,7 @@ function RuleCard({
                     onChange({ ...rule, effect: { ...rule.effect, decision: v as PolicyRule['effect']['decision'] } })
                   }
                 >
-                  <SelectTrigger className="h-9 text-sm">
+                  <SelectTrigger className="h-11 text-sm">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
@@ -670,7 +670,7 @@ function RuleCard({
                   placeholder="e.g., Requires manager approval"
                   value={rule.effect.reason}
                   onChange={(e) => onChange({ ...rule, effect: { ...rule.effect, reason: e.target.value } })}
-                  className="h-9 text-sm"
+                  className="h-11 text-sm"
                 />
               </div>
             </div>
@@ -894,7 +894,7 @@ export default function PoliciesPage() {
           </div>
         </div>
         {canManagePolicies ? (
-          <Button onClick={openCreate} className="w-full sm:w-auto">
+          <Button onClick={openCreate} className="min-h-11 w-full sm:w-auto">
             <Plus className="mr-2 h-4 w-4" />
             Create Policy
           </Button>
@@ -914,7 +914,7 @@ export default function PoliciesPage() {
             <div role="alert" className="mb-4 flex items-center gap-2 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700 dark:border-red-900/40 dark:bg-red-950/20 dark:text-red-300">
               <AlertTriangle className="h-4 w-4 shrink-0" aria-hidden="true" />
               <span>{loadError}</span>
-              <Button variant="outline" size="sm" className="ml-auto" onClick={fetchPolicies}>Retry</Button>
+              <Button variant="outline" size="sm" className="ml-auto min-h-11" onClick={fetchPolicies}>Retry</Button>
             </div>
           ) : null}
           {loading ? (
@@ -931,11 +931,11 @@ export default function PoliciesPage() {
                   {loadError ? 'Policies could not be loaded right now.' : canManagePolicies ? 'No policies yet. Create one to define allow, block, and approval rules.' : 'No access policies configured. Contact an administrator to set up tool access policies.'}
               </p>
               {loadError ? (
-                <Button variant="outline" className="mt-4" onClick={fetchPolicies}>
+                <Button variant="outline" className="mt-4 min-h-11" onClick={fetchPolicies}>
                   Retry
                 </Button>
               ) : canManagePolicies ? (
-                <Button className="mt-4" onClick={openCreate}>
+                <Button className="mt-4 min-h-11" onClick={openCreate}>
                   <Plus className="mr-2 h-4 w-4" />
                   Create Policy
                 </Button>
@@ -965,7 +965,7 @@ export default function PoliciesPage() {
                         {canManagePolicies ? (
                           <button
                             type="button"
-                            className="text-left space-y-1 w-full rounded cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 group"
+                            className="group w-full rounded py-2 text-left space-y-1 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
                             onClick={() => openEdit(p)}
                             aria-label={`Edit policy: ${title}`}
                           >
@@ -1011,11 +1011,11 @@ export default function PoliciesPage() {
                           </div>
                         )}
                       </TableCell>
-                      <TableCell>
-                        <span className="text-sm text-muted-foreground">
-                          {formatDateTime(p.updatedAt, { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
-                        </span>
-                      </TableCell>
+                       <TableCell>
+                         <span className="text-sm text-muted-foreground" title={`Created: ${formatDateTime(p.createdAt, { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}`}>
+                           {formatDateTime(p.updatedAt, { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                         </span>
+                       </TableCell>
                       <TableCell className="text-center">
                         <div className="flex items-center justify-center gap-2">
                           <Badge
@@ -1030,6 +1030,7 @@ export default function PoliciesPage() {
                             <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" aria-hidden="true" />
                           ) : null}
                           <Switch
+                            className="h-11 w-[72px] [&>span]:h-8 [&>span]:w-8 data-[state=checked]:[&>span]:translate-x-7"
                             checked={p.status === 'active'}
                             onCheckedChange={() => handleToggle(p)}
                             disabled={!canTogglePolicy || togglingPolicyId === p.id}
@@ -1102,6 +1103,7 @@ export default function PoliciesPage() {
                   <Button
                     variant="outline"
                     size="sm"
+                    className="min-h-11"
                     onClick={() => {
                       setFormRules((prev) => [...prev, emptyRule()])
                       setIsDirty(true)
@@ -1119,7 +1121,7 @@ export default function PoliciesPage() {
                     <Button
                       variant="link"
                       size="sm"
-                      className="mt-1"
+                      className="mt-1 min-h-11"
                       onClick={() => {
                         setFormRules((prev) => [...prev, emptyRule()])
                         setIsDirty(true)
@@ -1152,10 +1154,10 @@ export default function PoliciesPage() {
 
           <div className="sticky bottom-0 border-t bg-background/95 px-6 py-4 backdrop-blur supports-[backdrop-filter]:bg-background/80">
             <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
-              <Button variant="outline" className="w-full sm:w-auto" onClick={() => tryCloseDialog(false)}>
+              <Button variant="outline" className="min-h-11 w-full sm:w-auto" onClick={() => tryCloseDialog(false)}>
                 Cancel
               </Button>
-              <Button className="w-full sm:w-auto" onClick={handleSave} disabled={saving || formRules.length === 0}>
+              <Button className="min-h-11 w-full sm:w-auto" onClick={handleSave} disabled={saving || formRules.length === 0}>
                 {saving ? (
                   <><Loader2 className="mr-2 h-4 w-4 animate-spin" aria-hidden="true" />Saving...</>
                 ) : editingId ? 'Save Changes' : 'Create Policy'}
@@ -1174,9 +1176,9 @@ export default function PoliciesPage() {
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel disabled={deleting}>Cancel</AlertDialogCancel>
+            <AlertDialogCancel className="min-h-11" disabled={deleting}>Cancel</AlertDialogCancel>
             <AlertDialogAction
-              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              className="min-h-11 bg-destructive text-destructive-foreground hover:bg-destructive/90"
               onClick={(e) => {
                 e.preventDefault()
                 handleDelete()
@@ -1202,9 +1204,9 @@ export default function PoliciesPage() {
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel disabled={deleting}>Cancel</AlertDialogCancel>
+            <AlertDialogCancel className="min-h-11" disabled={deleting}>Cancel</AlertDialogCancel>
             <AlertDialogAction
-              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              className="min-h-11 bg-destructive text-destructive-foreground hover:bg-destructive/90"
               onClick={() => {
                 setDiscardDialogOpen(false)
                 setDialogOpen(false)

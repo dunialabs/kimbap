@@ -514,6 +514,7 @@ export default function ApprovalsPage() {
           <Button
             variant="outline"
             size="sm"
+            className="min-h-11"
             onClick={() => void handleManualRefresh()}
             disabled={loading || loadingMore || refreshing}
           >
@@ -558,7 +559,7 @@ export default function ApprovalsPage() {
                     value={statusFilter}
                     onValueChange={(v) => setStatusFilter(v as StatusFilter)}
                   >
-                    <SelectTrigger id="approvals-status-filter" className="h-8 text-sm">
+                    <SelectTrigger id="approvals-status-filter" className="h-11 text-sm">
                       <SelectValue placeholder="Status" />
                     </SelectTrigger>
                     <SelectContent>
@@ -580,7 +581,7 @@ export default function ApprovalsPage() {
                     placeholder="Any user"
                     value={userFilter}
                     onChange={(e) => setUserFilter(e.target.value)}
-                    className="h-8 text-sm"
+                    className="h-11 text-sm"
                     autoCapitalize="none"
                     autoCorrect="off"
                     spellCheck={false}
@@ -607,7 +608,7 @@ export default function ApprovalsPage() {
             <div role="alert" className="mb-4 flex items-center gap-2 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700 dark:border-red-900/40 dark:bg-red-950/20 dark:text-red-300">
               <AlertTriangle className="h-4 w-4 shrink-0" aria-hidden="true" />
               <span>{loadError}</span>
-              <Button variant="outline" size="sm" className="ml-auto" onClick={() => void handleManualRefresh()} disabled={refreshing}>Retry</Button>
+              <Button variant="outline" size="sm" className="ml-auto min-h-11" onClick={() => void handleManualRefresh()} disabled={refreshing}>Retry</Button>
             </div>
           ) : null}
           {loading ? (
@@ -633,14 +634,14 @@ export default function ApprovalsPage() {
                 <Button
                   variant="outline"
                   size="sm"
-                  className="mt-2"
+                  className="mt-2 min-h-11"
                   onClick={() => void handleManualRefresh()}
                   disabled={refreshing}
                 >
                   Retry
                 </Button>
               ) : hasActiveFilters && (
-                <Button variant="ghost" size="sm" className="mt-2" onClick={resetFilters}>
+                <Button variant="ghost" size="sm" className="mt-2 min-h-11" onClick={resetFilters}>
                   Reset filters
                 </Button>
               )}
@@ -659,7 +660,7 @@ export default function ApprovalsPage() {
                           <div className="min-w-0 space-y-1">
                             <button
                               type="button"
-                              className="font-mono text-sm text-left rounded focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 hover:underline"
+                              className="inline-flex min-h-11 items-center font-mono text-sm text-left rounded focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 hover:underline"
                               onClick={() => setDetailDialog(r)}
                               aria-label={`View details for ${r.toolName}`}
                             >
@@ -668,7 +669,7 @@ export default function ApprovalsPage() {
                             <div className="flex flex-wrap items-center gap-2">
                               <button
                                 type="button"
-                                className="inline-flex items-center rounded-md border border-input bg-background px-2.5 py-0.5 font-mono text-xs transition-colors hover:bg-muted/50 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                                className="inline-flex min-h-11 items-center rounded-md border border-input bg-background px-3 py-2 font-mono text-xs transition-colors hover:bg-muted/50 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
                                 title="Click to filter by this user"
                                 aria-label={`Filter approvals by user ${r.userId}`}
                                 onClick={() => setUserFilter(r.userId)}
@@ -710,7 +711,7 @@ export default function ApprovalsPage() {
                           <Button
                             variant="outline"
                             size="sm"
-                            className="flex-1 sm:flex-none"
+                            className="min-h-11 flex-1 sm:flex-none"
                             onClick={() => setDetailDialog(r)}
                           >
                             <Eye className="mr-1.5 h-3.5 w-3.5" />
@@ -720,7 +721,7 @@ export default function ApprovalsPage() {
                             <>
                               <Button
                                 size="sm"
-                                className="flex-1 bg-emerald-600 text-white hover:bg-emerald-700"
+                                className="min-h-11 flex-1 bg-emerald-600 text-white hover:bg-emerald-700"
                                 onClick={() => openDecideDialog(r, 'APPROVED')}
                               >
                                 <CheckCircle2 className="mr-1.5 h-3.5 w-3.5" />
@@ -729,7 +730,7 @@ export default function ApprovalsPage() {
                               <Button
                                 size="sm"
                                 variant="destructive"
-                                className="flex-1"
+                                className="min-h-11 flex-1"
                                 onClick={() => openDecideDialog(r, 'REJECTED')}
                               >
                                 <XCircle className="mr-1.5 h-3.5 w-3.5" />
@@ -764,7 +765,7 @@ export default function ApprovalsPage() {
                         <TableCell>
                           <button
                             type="button"
-                            className="font-mono text-sm text-left rounded cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 hover:underline"
+                            className="inline-flex min-h-11 items-center font-mono text-sm text-left rounded cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 hover:underline"
                             onClick={() => setDetailDialog(r)}
                             aria-label={`View details for ${r.toolName}`}
                           >
@@ -779,7 +780,7 @@ export default function ApprovalsPage() {
                         <TableCell>
                           <button
                             type="button"
-                            className="inline-flex items-center rounded-md border border-input bg-background px-2.5 py-0.5 font-mono text-xs transition-colors hover:bg-muted/50 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                            className="inline-flex min-h-11 items-center rounded-md border border-input bg-background px-3 py-2 font-mono text-xs transition-colors hover:bg-muted/50 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
                             title="Click to filter by this user"
                             aria-label={`Filter approvals by user ${r.userId}`}
                             onClick={() => setUserFilter(r.userId)}
@@ -814,7 +815,7 @@ export default function ApprovalsPage() {
                                   <Button
                                     variant="ghost"
                                     size="sm"
-                                    className="h-7 px-2 text-xs"
+                                    className="min-h-11 px-3 text-xs"
                                     aria-label="View details"
                                     onClick={() => setDetailDialog(r)}
                                   >
@@ -829,7 +830,7 @@ export default function ApprovalsPage() {
                               <>
                                 <Button
                                   size="sm"
-                                  className="h-7 bg-emerald-600 px-2 text-xs text-white hover:bg-emerald-700"
+                                  className="min-h-11 bg-emerald-600 px-3 text-xs text-white hover:bg-emerald-700"
                                   aria-label="Approve"
                                   onClick={() => openDecideDialog(r, 'APPROVED')}
                                 >
@@ -839,7 +840,7 @@ export default function ApprovalsPage() {
                                 <Button
                                   variant="destructive"
                                   size="sm"
-                                  className="h-7 px-2 text-xs"
+                                  className="min-h-11 px-3 text-xs"
                                   aria-label="Reject"
                                   onClick={() => openDecideDialog(r, 'REJECTED')}
                                 >
@@ -866,7 +867,7 @@ export default function ApprovalsPage() {
             {formatDisplayNumber(requests.length)} requests
           </p>
           {hasMore && (
-            <Button variant="outline" size="sm" onClick={handleLoadMore} disabled={loadingMore || refreshing}>
+            <Button variant="outline" size="sm" className="min-h-11" onClick={handleLoadMore} disabled={loadingMore || refreshing}>
               {loadingMore ? 'Loading more approvals...' : 'Load more'}
             </Button>
           )}
@@ -1005,7 +1006,7 @@ export default function ApprovalsPage() {
                   <div className="flex flex-col gap-2 sm:flex-row">
                     <Button
                       size="sm"
-                      className="w-full sm:w-auto bg-emerald-600 text-white hover:bg-emerald-700"
+                      className="min-h-11 w-full sm:w-auto bg-emerald-600 text-white hover:bg-emerald-700"
                       onClick={() => handleDetailDecide('APPROVED')}
                       disabled={detailDeciding}
                     >
@@ -1015,7 +1016,7 @@ export default function ApprovalsPage() {
                     <Button
                       size="sm"
                       variant="destructive"
-                      className="w-full sm:w-auto"
+                      className="min-h-11 w-full sm:w-auto"
                       onClick={() => handleDetailDecide('REJECTED')}
                       disabled={detailDeciding}
                     >
@@ -1026,7 +1027,7 @@ export default function ApprovalsPage() {
                 </div>
               )}
               <div className="flex justify-stretch sm:justify-end">
-                <Button variant="outline" className="w-full sm:w-auto" onClick={() => { setDetailDialog(null); setDetailDecideReason(''); }} disabled={detailDeciding}>
+                <Button variant="outline" className="min-h-11 w-full sm:w-auto" onClick={() => { setDetailDialog(null); setDetailDecideReason(''); }} disabled={detailDeciding}>
                   Close
                 </Button>
               </div>
@@ -1062,12 +1063,12 @@ export default function ApprovalsPage() {
               </div>
             </div>
             <DialogFooter>
-              <Button variant="outline" onClick={() => setDecideDialog(null)} disabled={deciding}>
+              <Button variant="outline" className="min-h-11" onClick={() => setDecideDialog(null)} disabled={deciding}>
                 Cancel
               </Button>
               {decideDialog.decision === 'APPROVED' ? (
                 <Button
-                  className="bg-emerald-600 hover:bg-emerald-700 text-white"
+                  className="min-h-11 bg-emerald-600 hover:bg-emerald-700 text-white"
                   onClick={handleDecide}
                   disabled={deciding}
                 >
@@ -1079,7 +1080,7 @@ export default function ApprovalsPage() {
                   ) : 'Approve'}
                 </Button>
               ) : (
-                <Button variant="destructive" onClick={handleDecide} disabled={deciding}>
+                <Button variant="destructive" className="min-h-11" onClick={handleDecide} disabled={deciding}>
                   {deciding ? (
                     <>
                       <Loader2 className="mr-2 h-4 w-4 animate-spin" aria-hidden="true" />

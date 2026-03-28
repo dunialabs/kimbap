@@ -88,7 +88,7 @@ export function SidebarNav({ onNavigate, pendingApprovalCount = 0 }: SidebarNavP
                     onClick={onNavigate}
                     aria-current={isCurrentPage ? 'page' : undefined}
                     className={cn(
-                      'flex min-w-0 flex-1 items-center gap-3 rounded-lg px-3 py-2 text-foreground transition-all',
+                      'flex min-w-0 flex-1 items-center gap-3 rounded-lg px-3 py-2 text-foreground transition-all min-h-11',
                       'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2',
                       isSectionActive
                         ? 'bg-accent text-accent-foreground shadow-sm'
@@ -105,7 +105,7 @@ export function SidebarNav({ onNavigate, pendingApprovalCount = 0 }: SidebarNavP
                     aria-controls={subnavId}
                     aria-label={`${isExpanded ? 'Collapse' : 'Expand'} ${item.label} section`}
                     className={cn(
-                      'rounded-lg p-2 transition-all',
+                      'h-11 w-11 rounded-lg transition-all',
                       'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2',
                       isSectionActive
                         ? 'bg-accent text-accent-foreground shadow-sm'
@@ -127,7 +127,7 @@ export function SidebarNav({ onNavigate, pendingApprovalCount = 0 }: SidebarNavP
                       onClick={onNavigate}
                       aria-current={pathname === subItem.href ? 'page' : undefined}
                       className={cn(
-                        'flex items-center gap-3 rounded-lg px-3 py-2 text-sm text-foreground transition-all',
+                        'flex min-h-11 items-center gap-3 rounded-lg px-3 py-2 text-sm text-foreground transition-all',
                         'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2',
                         pathname === subItem.href
                           ? 'bg-accent text-accent-foreground shadow-sm'
@@ -178,7 +178,7 @@ export function SidebarNav({ onNavigate, pendingApprovalCount = 0 }: SidebarNavP
           target="_blank"
           rel="noopener noreferrer"
           aria-label="Documentation (opens in new tab)"
-          className="mb-1 flex items-center gap-3 rounded-lg px-3 py-2 text-muted-foreground transition-all hover:bg-accent/70 hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2"
+          className="mb-1 flex min-h-11 items-center gap-3 rounded-lg px-3 py-2 text-muted-foreground transition-all hover:bg-accent/70 hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2"
         >
           <BookOpen className="h-4 w-4" aria-hidden="true" focusable="false" />
           <span className="font-medium">Documentation</span>
@@ -193,7 +193,7 @@ export function SidebarNav({ onNavigate, pendingApprovalCount = 0 }: SidebarNavP
                 target="_blank"
                 rel="noopener noreferrer"
                 aria-label="Install Kimbap Desk quick start guide (opens in new tab)"
-                className="mb-1 flex items-center gap-3 rounded-lg px-3 py-2 text-muted-foreground transition-all hover:bg-accent/70 hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2"
+                className="mb-1 flex min-h-11 items-center gap-3 rounded-lg px-3 py-2 text-muted-foreground transition-all hover:bg-accent/70 hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2"
               >
                 <Download className="h-4 w-4" aria-hidden="true" focusable="false" />
                 <span className="font-medium">Install Kimbap Desk</span>

@@ -250,7 +250,7 @@ export function LoginForm({
         <legend className="sr-only">Login method</legend>
         <div className="grid grid-cols-2 gap-2 rounded-xl border border-border bg-muted/30 p-1" role="radiogroup" aria-label="Login method">
           <label
-            className={`flex w-full cursor-pointer items-center justify-center rounded-lg px-4 py-2.5 text-sm transition-colors focus-within:ring-2 focus-within:ring-blue-500 focus-within:ring-offset-2 ${
+            className={`flex min-h-11 w-full cursor-pointer items-center justify-center rounded-lg px-4 py-2.5 text-sm transition-colors focus-within:ring-2 focus-within:ring-blue-500 focus-within:ring-offset-2 ${
               loginMode === 'password'
                 ? 'bg-background font-semibold text-foreground shadow-sm'
                 : 'text-muted-foreground hover:text-foreground'
@@ -271,7 +271,7 @@ export function LoginForm({
             Master Password
           </label>
           <label
-            className={`flex w-full cursor-pointer items-center justify-center rounded-lg px-4 py-2.5 text-sm transition-colors focus-within:ring-2 focus-within:ring-blue-500 focus-within:ring-offset-2 ${
+            className={`flex min-h-11 w-full cursor-pointer items-center justify-center rounded-lg px-4 py-2.5 text-sm transition-colors focus-within:ring-2 focus-within:ring-blue-500 focus-within:ring-offset-2 ${
               loginMode === 'token'
                 ? 'bg-background font-semibold text-foreground shadow-sm'
                 : 'text-muted-foreground hover:text-foreground'
@@ -340,7 +340,7 @@ export function LoginForm({
             <button
               type="button"
               onClick={() => setShowLoginPassword(!showLoginPassword)}
-              className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 rounded"
+              className="absolute right-1 top-1/2 flex h-11 w-11 -translate-y-1/2 items-center justify-center rounded text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
               aria-label={showLoginPassword ? 'Hide password' : 'Show password'}
             >
 

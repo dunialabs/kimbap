@@ -323,8 +323,8 @@ export default function DashboardPage() {
             {serverFetchError}
           </p>
           <div className="flex flex-col gap-2 sm:flex-row sm:justify-center">
-            <Button onClick={() => void fetchServerInfo()}>Retry</Button>
-            <Link href="/" className={buttonVariants({ variant: 'outline' })}>
+            <Button className="min-h-11" onClick={() => void fetchServerInfo()}>Retry</Button>
+            <Link href="/" className={cn(buttonVariants({ variant: 'outline' }), 'min-h-11')}>
               Back to sign in
             </Link>
           </div>
@@ -342,7 +342,7 @@ export default function DashboardPage() {
           <p className="text-muted-foreground mb-4">
             Return to sign in and reconnect to start using the dashboard.
           </p>
-          <Link href="/" className={buttonVariants()}>
+          <Link href="/" className={cn(buttonVariants(), 'min-h-11')}>
             Back to sign in
           </Link>
         </div>
@@ -387,7 +387,7 @@ export default function DashboardPage() {
           <div role="alert" className="flex flex-col items-start gap-2 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700 dark:border-red-900/40 dark:bg-red-950/20 dark:text-red-300 sm:flex-row sm:items-center">
             <CheckCircle className="h-4 w-4 shrink-0" aria-hidden="true" />
             <span>{pendingApprovalError}</span>
-            <Button variant="outline" size="sm" className="w-full sm:ml-auto sm:w-auto" onClick={() => void fetchPendingApprovals()}>Retry</Button>
+            <Button variant="outline" size="sm" className="min-h-11 w-full sm:ml-auto sm:w-auto" onClick={() => void fetchPendingApprovals()}>Retry</Button>
           </div>
         ) : !isPendingApprovalLoading && hasPendingApprovals ? (
           <Card className="border-amber-500/30 bg-amber-500/5">
@@ -400,7 +400,7 @@ export default function DashboardPage() {
                   Requests that need an operator decision are waiting in the approval queue.
                 </p>
               </div>
-              <Link href="/dashboard/approvals" className={buttonVariants({ size: 'sm' })}>
+              <Link href="/dashboard/approvals" className={cn(buttonVariants({ size: 'sm' }), 'min-h-11 px-4')}>
                 Review approvals
               </Link>
             </CardContent>
@@ -411,7 +411,7 @@ export default function DashboardPage() {
         <div role="alert" className="flex flex-col items-start gap-2 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700 dark:border-red-900/40 dark:bg-red-950/20 dark:text-red-300 sm:flex-row sm:items-center">
           <Server className="h-4 w-4 shrink-0" aria-hidden="true" />
           <span>{dashboardLoadError}</span>
-          <Button variant="outline" size="sm" className="w-full sm:ml-auto sm:w-auto" onClick={() => void fetchDashboardData()}>Retry</Button>
+          <Button variant="outline" size="sm" className="min-h-11 w-full sm:ml-auto sm:w-auto" onClick={() => void fetchDashboardData()}>Retry</Button>
         </div>
       ) : null}
 
@@ -581,7 +581,7 @@ export default function DashboardPage() {
                     type="button"
                     variant="ghost"
                     size="sm"
-                    className="h-7 px-2 text-xs"
+                    className="min-h-11 px-3 text-xs"
                     disabled={!localAddress || isDashboardLoading}
                     onClick={() => void copyConnectionAddress('Local address', localAddress)}
                   >
@@ -608,7 +608,7 @@ export default function DashboardPage() {
                     type="button"
                     variant="ghost"
                     size="sm"
-                    className="h-7 px-2 text-xs"
+                    className="min-h-11 px-3 text-xs"
                     disabled={!remoteAddress || isDashboardLoading}
                     onClick={() => void copyConnectionAddress('Remote address', remoteAddress)}
                   >
@@ -654,7 +654,7 @@ export default function DashboardPage() {
       <Card>
         <CardHeader>
           <CardTitle>
-            <Link href="/dashboard/usage/tool-usage?timeRange=30" className="rounded-sm hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2">Tool Usage</Link>
+            <Link href="/dashboard/usage/tool-usage?timeRange=30" className="-ml-2 inline-flex min-h-11 items-center rounded-sm px-2 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2">Tool Usage</Link>
           </CardTitle>
           <CardDescription>
             Requests by tool over the last 30 days
@@ -671,7 +671,7 @@ export default function DashboardPage() {
           ) : dashboardLoadError ? (
             <div role="alert" className="flex flex-col items-center justify-center gap-2 py-8 text-center">
               <p className="text-sm text-red-600 dark:text-red-400">Tool usage could not be loaded for the last 30 days.</p>
-              <Button variant="outline" size="sm" onClick={() => void fetchDashboardData()}>Retry</Button>
+              <Button variant="outline" size="sm" className="min-h-11" onClick={() => void fetchDashboardData()}>Retry</Button>
             </div>
           ) : !toolsUsage || toolsUsage.length === 0 ? (
             <div className="flex items-center justify-center py-8">
@@ -683,7 +683,7 @@ export default function DashboardPage() {
                 <Link
                   key={tool.name}
                   href="/dashboard/usage/tool-usage?timeRange=30"
-                  className="group block rounded-md p-2 -m-2 transition-colors hover:bg-muted/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2"
+                  className="group block rounded-md px-2 py-3 -mx-2 transition-colors hover:bg-muted/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2"
                 >
                   <div className="flex items-center gap-3">
                     <div className="min-w-0 flex-1">
@@ -713,7 +713,7 @@ export default function DashboardPage() {
       <Card>
         <CardHeader>
           <CardTitle>
-            <Link href="/dashboard/usage/token-usage?timeRange=30" className="rounded-sm hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2">Access Token Usage</Link>
+            <Link href="/dashboard/usage/token-usage?timeRange=30" className="-ml-2 inline-flex min-h-11 items-center rounded-sm px-2 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2">Access Token Usage</Link>
           </CardTitle>
           <CardDescription>
             Requests by token over the last 30 days
@@ -730,7 +730,7 @@ export default function DashboardPage() {
           ) : dashboardLoadError ? (
             <div role="alert" className="flex flex-col items-center justify-center gap-2 py-8 text-center">
               <p className="text-sm text-red-600 dark:text-red-400">Access token activity could not be loaded for the last 30 days.</p>
-              <Button variant="outline" size="sm" onClick={() => void fetchDashboardData()}>Retry</Button>
+              <Button variant="outline" size="sm" className="min-h-11" onClick={() => void fetchDashboardData()}>Retry</Button>
             </div>
           ) : !tokenUsage || tokenUsage.length === 0 ? (
             <div className="flex items-center justify-center py-8">
@@ -742,7 +742,7 @@ export default function DashboardPage() {
                 <Link
                   key={`${token.name || 'token'}-${token.token?.trim() || ''}`}
                   href="/dashboard/usage/token-usage?timeRange=30"
-                  className="group block rounded-md p-2 -m-2 transition-colors hover:bg-muted/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2"
+                  className="group block rounded-md px-2 py-3 -mx-2 transition-colors hover:bg-muted/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2"
                 >
                   <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-3">
                     <div className="min-w-0 sm:w-[220px]">
@@ -780,7 +780,7 @@ export default function DashboardPage() {
       <Card>
           <CardHeader>
             <CardTitle>
-              <Link href="/dashboard/logs?timeRange=30d" className="rounded-sm hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2">Recent Activity</Link>
+              <Link href="/dashboard/logs?timeRange=30d" className="-ml-2 inline-flex min-h-11 items-center rounded-sm px-2 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2">Recent Activity</Link>
             </CardTitle>
             <CardDescription>Last 30 days</CardDescription>
           </CardHeader>
@@ -795,7 +795,7 @@ export default function DashboardPage() {
             ) : dashboardLoadError ? (
               <div role="alert" className="flex flex-col items-center justify-center gap-2 py-8 text-center">
                 <p className="text-sm text-red-600 dark:text-red-400">Recent dashboard activity could not be loaded for the last 30 days.</p>
-                <Button variant="outline" size="sm" onClick={() => void fetchDashboardData()}>Retry</Button>
+                <Button variant="outline" size="sm" className="min-h-11" onClick={() => void fetchDashboardData()}>Retry</Button>
               </div>
             ) : !recentActivity || recentActivity.length === 0 ? (
               <div className="flex items-center justify-center py-8">
@@ -807,7 +807,7 @@ export default function DashboardPage() {
                   <Link
                     key={`${activity.action}-${formatNullableText(activity.time)}`}
                     href="/dashboard/logs?timeRange=30d"
-                    className="flex items-center gap-3 rounded-md p-1 -m-1 hover:bg-muted/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2"
+                    className="flex items-center gap-3 rounded-md px-2 py-3 -mx-2 hover:bg-muted/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2"
                   >
                     <div className="flex-shrink-0">
                       {(() => {
@@ -866,7 +866,7 @@ export default function DashboardPage() {
             ) : dashboardLoadError ? (
               <div role="alert" className="flex flex-col items-center justify-center gap-2 py-8 text-center">
                 <p className="text-sm text-red-600 dark:text-red-400">Recent client details could not be loaded.</p>
-                <Button variant="outline" size="sm" onClick={() => void fetchDashboardData()}>Retry</Button>
+                <Button variant="outline" size="sm" className="min-h-11" onClick={() => void fetchDashboardData()}>Retry</Button>
               </div>
             ) : connectedClients.length === 0 ? (
               <div className="flex items-center justify-center py-8">
@@ -895,7 +895,7 @@ export default function DashboardPage() {
                               type="button"
                               variant="ghost"
                               size="sm"
-                              className="h-7 px-2 text-xs"
+                              className="min-h-11 px-3 text-xs"
                               onClick={async () => {
                                 try {
                                   if (!navigator?.clipboard?.writeText) {

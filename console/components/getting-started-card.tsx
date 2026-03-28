@@ -72,7 +72,7 @@ export function GettingStartedCard() {
             variant="ghost"
             size="sm"
             onClick={handleDismiss}
-            className="shrink-0"
+            className="min-h-11 shrink-0"
           >
             Dismiss
           </Button>
@@ -95,7 +95,7 @@ export function GettingStartedCard() {
               <div className="flex w-full justify-end sm:w-auto">
                 <Link
                   href={shortcut.href}
-                  className={cn(buttonVariants({ size: 'sm' }), 'w-[140px] justify-center')}
+                  className={cn(buttonVariants({ size: 'sm' }), 'min-h-11 w-[140px] justify-center px-4')}
                 >
                   {shortcut.actionLabel}
                 </Link>

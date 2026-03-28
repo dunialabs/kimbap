@@ -48,7 +48,7 @@ export function DashboardSidebar() {
       <div className="sticky top-0 z-40 flex h-14 items-center border-b bg-background px-4 md:hidden">
         <Sheet open={mobileMenuOpen} onOpenChange={setMobileMenuOpen}>
           <SheetTrigger asChild>
-            <Button variant="outline" size="icon" className="shrink-0 bg-transparent">
+            <Button variant="outline" size="icon" className="h-11 w-11 shrink-0 bg-transparent">
               <Menu className="h-5 w-5" />
               <span className="sr-only">Toggle navigation menu</span>
             </Button>
@@ -59,7 +59,7 @@ export function DashboardSidebar() {
             <div className="flex h-14 items-center border-b px-4">
               <Link
                 href="/dashboard"
-                className="rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2"
+                className="flex min-h-11 items-center rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2"
                 onClick={() => setMobileMenuOpen(false)}
                 aria-label="Go to dashboard"
               >
@@ -76,7 +76,7 @@ export function DashboardSidebar() {
               )}
               <Button
                 variant="outline"
-                className="w-full justify-start py-2 px-3 rounded-lg"
+                className="h-11 w-full justify-start px-3 rounded-lg"
                 onClick={handleSignOut}
               >
                 <LogOut className="h-5 w-5" aria-hidden="true" />
@@ -87,7 +87,7 @@ export function DashboardSidebar() {
         </Sheet>
         <Link
           href="/dashboard"
-          className="ml-3 rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2"
+          className="ml-3 flex min-h-11 items-center rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2"
           aria-label="Go to dashboard"
         >
           <Image src="/new_logo.svg" width={160} height={23} alt="Kimbap Logo" className="block h-auto max-w-full dark:hidden" priority />
@@ -117,7 +117,7 @@ export function DashboardSidebar() {
             )}
             <Button
               variant="outline"
-              className="w-full justify-start py-2 px-3 rounded-lg"
+              className="h-11 w-full justify-start px-3 rounded-lg"
               onClick={handleSignOut}
             >
               <LogOut className="h-5 w-5" aria-hidden="true" />

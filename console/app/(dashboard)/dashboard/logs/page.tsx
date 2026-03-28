@@ -625,7 +625,7 @@ function LogsPageContent() {
           <Button
             variant="outline"
             size="sm"
-            className="w-full sm:w-auto"
+            className="min-h-11 w-full sm:w-auto"
             onClick={handleRefresh}
             disabled={loading}
           >
@@ -638,7 +638,7 @@ function LogsPageContent() {
           <Button
             variant="outline"
             size="sm"
-            className="w-full sm:w-auto"
+            className="min-h-11 w-full sm:w-auto"
             onClick={handleDownloadLogs}
             disabled={loading || exportLoading || exportLoadFailed || noExportableLogs}
             title={exportLoadFailed ? 'Retry loading logs before exporting' : noExportableLogs ? 'No logs available to download' : 'Download logs'}
@@ -667,7 +667,7 @@ function LogsPageContent() {
               )}
             </div>
             <CollapsibleTrigger asChild>
-              <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
+              <Button variant="ghost" size="sm" className="h-11 w-11 p-0">
                 {filtersOpen ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
                 <span className="sr-only">{filtersOpen ? 'Collapse filters' : 'Expand filters'}</span>
               </Button>
@@ -690,7 +690,7 @@ function LogsPageContent() {
                       placeholder="Search request ID, user ID, error text, or user agent"
                       value={searchTerm}
                       onChange={(e) => { setSearchTerm(e.target.value); setCurrentPage(1) }}
-                      className="pl-10"
+                      className="h-11 pl-10"
                       autoCapitalize="none"
                       autoCorrect="off"
                       spellCheck={false}
@@ -712,7 +712,7 @@ function LogsPageContent() {
                       setCurrentPage(1)
                     }}
                   >
-                    <SelectTrigger id="time-range-filter">
+                    <SelectTrigger id="time-range-filter" className="h-11">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
@@ -730,7 +730,7 @@ function LogsPageContent() {
                 <div className="space-y-2">
                   <Label htmlFor="level-filter">Level</Label>
                   <Select value={levelFilter} onValueChange={(value) => { setLevelFilter(value); setCurrentPage(1) }}>
-                    <SelectTrigger id="level-filter">
+                    <SelectTrigger id="level-filter" className="h-11">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
@@ -748,7 +748,7 @@ function LogsPageContent() {
                 <div className="space-y-2">
                   <Label htmlFor="source-filter">Source</Label>
                   <Select value={sourceFilter} onValueChange={(value) => { setSourceFilter(value); setCurrentPage(1) }}>
-                    <SelectTrigger id="source-filter">
+                    <SelectTrigger id="source-filter" className="h-11">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
@@ -774,7 +774,7 @@ function LogsPageContent() {
                         {badge}
                       </Badge>
                     ))}
-                    <Button variant="ghost" size="sm" className="h-7 px-2 text-xs" onClick={clearFilters}>
+                    <Button variant="ghost" size="sm" className="min-h-11 px-3 text-xs" onClick={clearFilters}>
                       Reset filters
                     </Button>
                   </div>
@@ -796,15 +796,15 @@ function LogsPageContent() {
         <div role="alert" className="flex flex-col items-start gap-2 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700 dark:border-red-900/40 dark:bg-red-950/20 dark:text-red-300 sm:flex-row sm:items-center">
           <AlertTriangle className="h-4 w-4 shrink-0" aria-hidden="true" />
           <span>{loadError}</span>
-          <Button variant="outline" size="sm" className="w-full sm:ml-auto sm:w-auto" onClick={handleRefresh}>Retry</Button>
+          <Button variant="outline" size="sm" className="min-h-11 w-full sm:ml-auto sm:w-auto" onClick={handleRefresh}>Retry</Button>
         </div>
       ) : null}
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
-        <TabsList className="w-full justify-start overflow-x-auto">
-          <TabsTrigger value="table">Table View</TabsTrigger>
-          <TabsTrigger value="raw">Raw View</TabsTrigger>
-          <TabsTrigger value="statistics">Statistics</TabsTrigger>
+        <TabsList className="h-11 w-full justify-start overflow-x-auto">
+          <TabsTrigger value="table" className="min-h-11 px-4">Table View</TabsTrigger>
+          <TabsTrigger value="raw" className="min-h-11 px-4">Raw View</TabsTrigger>
+          <TabsTrigger value="statistics" className="min-h-11 px-4">Statistics</TabsTrigger>
         </TabsList>
 
         <TabsContent value="table">
@@ -881,7 +881,7 @@ function LogsPageContent() {
                             }
                           >
                             {getLevelIcon(log.level)}
-                            <span className="ml-1">{log.level}</span>
+                             <span className="ml-1">{levelDisplayLabel[log.level] ?? log.level}</span>
                           </Badge>
                         </TableCell>
                         <TableCell>
@@ -896,7 +896,7 @@ function LogsPageContent() {
                           <DialogTrigger asChild>
                             <button
                               type="button"
-                              className="truncate text-left w-full rounded focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 hover:underline hover:text-foreground"
+                              className="min-h-11 w-full truncate rounded py-2 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 hover:text-foreground hover:underline"
                               aria-label="Open log details"
                               title={log.message}
                             >
@@ -918,6 +918,7 @@ function LogsPageContent() {
                             <Button
                               variant="ghost"
                               size="sm"
+                              className="h-11 w-11"
                               aria-label="View log details"
                             >
                               <Eye className="h-4 w-4" />
@@ -1017,6 +1018,7 @@ function LogsPageContent() {
                               <DialogFooter className="border-t pt-4">
                                 <Button
                                   variant="outline"
+                                  className="min-h-11"
                                   onClick={async () => {
                                     try {
                                       if (!navigator?.clipboard?.writeText) {
@@ -1045,7 +1047,7 @@ function LogsPageContent() {
                             <div className="flex flex-col items-center gap-2" role="alert">
                               <AlertTriangle className="h-5 w-5 text-red-500 dark:text-red-400" aria-hidden="true" />
                               <p className="text-sm text-red-600 dark:text-red-400">{loadError}</p>
-                              <Button variant="outline" size="sm" onClick={handleRefresh}>
+                              <Button variant="outline" size="sm" className="min-h-11" onClick={handleRefresh}>
                                 Retry
                               </Button>
                             </div>
@@ -1054,11 +1056,11 @@ function LogsPageContent() {
                               <p className="text-sm text-muted-foreground">No logs found for the current filters.</p>
                               <p className="text-xs text-muted-foreground">Try broadening the time range or resetting filters.</p>
                               {hasActiveFilters ? (
-                                <Button variant="ghost" size="sm" onClick={clearFilters}>
+                                <Button variant="ghost" size="sm" className="min-h-11" onClick={clearFilters}>
                                   Reset filters
                                 </Button>
                               ) : timeFilter === DEFAULT_TIME_RANGE ? (
-                                <Button variant="outline" size="sm" onClick={() => { setTimeFilter('7d'); setCurrentPage(1) }}>
+                                <Button variant="outline" size="sm" className="min-h-11" onClick={() => { setTimeFilter('7d'); setCurrentPage(1) }}>
                                   Show last 7 days
                                 </Button>
                               ) : null}
@@ -1083,6 +1085,7 @@ function LogsPageContent() {
                     <Button
                       variant="outline"
                       size="sm"
+                      className="min-h-11"
                       onClick={() =>
                         setCurrentPage((prev) => Math.max(1, prev - 1))
                       }
@@ -1096,6 +1099,7 @@ function LogsPageContent() {
                     <Button
                       variant="outline"
                       size="sm"
+                      className="min-h-11"
                       onClick={() =>
                         setCurrentPage((prev) => Math.min(totalPages, prev + 1))
                       }
@@ -1125,7 +1129,7 @@ function LogsPageContent() {
                 <Button
                   variant="outline"
                   size="sm"
-                  className="w-full sm:w-auto sm:shrink-0"
+                  className="min-h-11 w-full sm:w-auto sm:shrink-0"
                   onClick={async () => {
                     const rawText = logs.map((log) => log.rawData).join('\n\n')
                     try {
@@ -1158,11 +1162,11 @@ function LogsPageContent() {
                   <p className={loadError ? 'text-sm text-red-600 dark:text-red-400' : 'text-sm'}>{loadError || 'No logs available'}</p>
                   <p className="text-xs mt-1">{loadError ? 'Try Refresh to load data again' : 'Try adjusting your filters or check back later'}</p>
                   {loadError ? (
-                    <Button variant="outline" size="sm" className="mt-3" onClick={handleRefresh}>
+                    <Button variant="outline" size="sm" className="mt-3 min-h-11" onClick={handleRefresh}>
                       Retry
                     </Button>
                   ) : hasActiveFilters ? (
-                    <Button variant="ghost" size="sm" className="mt-3" onClick={clearFilters}>
+                    <Button variant="ghost" size="sm" className="mt-3 min-h-11" onClick={clearFilters}>
                       Reset filters
                     </Button>
                   ) : null}
@@ -1185,7 +1189,7 @@ function LogsPageContent() {
             <div role="alert" className="flex flex-col items-start gap-2 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700 dark:border-red-900/40 dark:bg-red-950/20 dark:text-red-300 sm:flex-row sm:items-center">
               <AlertTriangle className="h-4 w-4 shrink-0" aria-hidden="true" />
               <span>{statsError}</span>
-              <Button variant="outline" size="sm" className="w-full sm:ml-auto sm:w-auto" onClick={() => void loadStatistics()}>Retry</Button>
+              <Button variant="outline" size="sm" className="min-h-11 w-full sm:ml-auto sm:w-auto" onClick={() => void loadStatistics()}>Retry</Button>
             </div>
           ) : null}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
@@ -1278,7 +1282,7 @@ function LogsPageContent() {
                 <div className="flex flex-col items-center justify-center h-[300px] gap-2 text-muted-foreground" role="alert">
                   <Activity className="h-12 w-12 mb-1 opacity-40" />
                   <p className="text-sm text-red-600 dark:text-red-400">{statsError}</p>
-                  <Button variant="outline" size="sm" onClick={() => void loadStatistics()}>Retry</Button>
+                  <Button variant="outline" size="sm" className="min-h-11" onClick={() => void loadStatistics()}>Retry</Button>
                 </div>
               ) : !statistics?.hourlyStats || statistics.hourlyStats.length === 0 ? (
                 <div className="flex flex-col items-center justify-center h-[300px] text-muted-foreground">
@@ -1321,7 +1325,7 @@ function LogsPageContent() {
               ) : statsError ? (
                 <div className="flex flex-col items-center justify-center gap-2 py-8" role="alert">
                   <p className="text-sm text-red-600 dark:text-red-400">{statsError}</p>
-                  <Button variant="outline" size="sm" onClick={() => void loadStatistics()}>Retry</Button>
+                  <Button variant="outline" size="sm" className="min-h-11" onClick={() => void loadStatistics()}>Retry</Button>
                 </div>
               ) : !statistics?.domainStats || statistics.domainStats.length === 0 ? (
                 <div className="flex items-center justify-center py-8">
