@@ -660,6 +660,7 @@ export default function DashboardPage() {
                     size="sm"
                     className="min-h-11 shrink-0 px-3 text-xs"
                     disabled={!localAddress || isDashboardLoading}
+                    aria-label={localAddress && !isDashboardLoading ? `Copy local address ${localAddress}` : 'Local address unavailable'}
                     title={!localAddress || isDashboardLoading ? 'Address becomes available after server connection details load.' : undefined}
                     onClick={() => void copyConnectionAddress('Local address', localAddress)}
                   >
@@ -686,6 +687,7 @@ export default function DashboardPage() {
                     size="sm"
                     className="min-h-11 shrink-0 px-3 text-xs"
                     disabled={!remoteAddress || isDashboardLoading}
+                    aria-label={remoteAddress && !isDashboardLoading ? `Copy remote address ${remoteAddress}` : 'Remote address unavailable'}
                     title={!remoteAddress || isDashboardLoading ? 'Address becomes available after server connection details load.' : undefined}
                     onClick={() => void copyConnectionAddress('Remote address', remoteAddress)}
                   >
