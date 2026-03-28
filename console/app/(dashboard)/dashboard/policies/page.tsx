@@ -1407,7 +1407,7 @@ export default function PoliciesPage() {
             </div>
           </div>
 
-          <div className="sticky bottom-0 border-t bg-background/95 px-6 py-4 backdrop-blur supports-[backdrop-filter]:bg-background/80">
+          <div className="sticky bottom-0 border-t bg-background/95 px-6 py-4 pb-[max(1rem,env(safe-area-inset-bottom))] backdrop-blur supports-[backdrop-filter]:bg-background/80">
             <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
               <Button variant="outline" className="min-h-11 w-full sm:w-auto" onClick={() => tryCloseDialog(false)} disabled={saving}>
                 Cancel
