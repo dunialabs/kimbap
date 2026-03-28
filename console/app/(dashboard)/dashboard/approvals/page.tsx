@@ -173,6 +173,16 @@ function getRelativeTimeLabel(iso: string): { display: string; absolute: string 
   }
 }
 
+function isRequestExpiringSoon(request: Pick<ApprovalRequest, 'status' | 'expiresAt'>): boolean {
+  if (request.status !== 'PENDING') return false
+
+  const timestamp = Date.parse(request.expiresAt)
+  if (Number.isNaN(timestamp)) return false
+
+  const remainingMs = timestamp - Date.now()
+  return remainingMs > 0 && remainingMs <= 30 * 60 * 1000
+}
+
 function formatExpiryTime(iso: string, status: string): { text: string; urgent: boolean } {
   if (!iso) return { text: '—', urgent: false };
   const d = new Date(iso);
@@ -329,11 +339,7 @@ export default function ApprovalsPage() {
   );
   const expiringSoonCount = useMemo(
     () =>
-      orderedRequests.filter((request) => {
-        if (request.status !== 'PENDING') return false;
-        const remainingMs = new Date(request.expiresAt).getTime() - Date.now();
-        return remainingMs > 0 && remainingMs <= 30 * 60 * 1000;
-      }).length,
+      orderedRequests.filter((request) => isRequestExpiringSoon(request)).length,
     [orderedRequests],
   );
   const refreshTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -881,8 +887,14 @@ export default function ApprovalsPage() {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {orderedRequests.map((r) => (
-                      <TableRow key={r.id}>
+                    {orderedRequests.map((r) => {
+                      const expiresSoon = isRequestExpiringSoon(r)
+
+                      return (
+                        <TableRow
+                        key={r.id}
+                        className={expiresSoon ? 'bg-amber-50/40 dark:bg-amber-950/10' : undefined}
+                      >
                         <TableCell>
                           <button
                              type="button"
@@ -919,8 +931,7 @@ export default function ApprovalsPage() {
                         <TableCell className="text-center">{statusBadge(r.status)}</TableCell>
                         {(() => {
                           const { text: expiryText, urgent: expiryUrgent } = formatExpiryTime(r.expiresAt, r.status)
-                          const remainingMs = new Date(r.expiresAt).getTime() - Date.now()
-                          const amberStyle = (r.status === 'PENDING' && remainingMs > 0 && remainingMs < 30 * 60 * 1000) || expiryUrgent
+                          const amberStyle = expiresSoon || expiryUrgent
                           return (
                             <TableCell className="text-sm">
                               <div className="space-y-1">
@@ -987,8 +998,9 @@ export default function ApprovalsPage() {
                             )}
                           </div>
                         </TableCell>
-                      </TableRow>
-                    ))}
+                        </TableRow>
+                      )
+                    })}
                   </TableBody>
                 </table>
               </div>
