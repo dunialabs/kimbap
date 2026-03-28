@@ -129,7 +129,12 @@ func RunBrowserFlow(ctx context.Context, cfg BrowserFlowConfig, output io.Writer
 		}
 
 		query := r.URL.Query()
+		cbState := query.Get("state")
 		if oauthErr := query.Get("error"); oauthErr != "" {
+			if cbState != "" && !ValidateState(state, cbState) {
+				w.WriteHeader(http.StatusBadRequest)
+				return
+			}
 			desc := query.Get("error_description")
 			if desc != "" {
 				oauthErr = oauthErr + ": " + desc
@@ -144,7 +149,6 @@ func RunBrowserFlow(ctx context.Context, cfg BrowserFlowConfig, output io.Writer
 		}
 
 		code := query.Get("code")
-		cbState := query.Get("state")
 		if code == "" || cbState == "" {
 			w.Header().Set("Content-Type", "text/html; charset=utf-8")
 			w.WriteHeader(http.StatusBadRequest)

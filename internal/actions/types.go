@@ -291,7 +291,7 @@ func ValidateInput(schema *Schema, input map[string]any) *ExecutionError {
 		}
 	}
 
-	if len(schema.Properties) == 0 {
+	if schema.Properties == nil {
 		return nil
 	}
 
@@ -457,7 +457,7 @@ func validateValue(field string, schema *Schema, value any) *ExecutionError {
 					)
 				}
 			}
-			if len(schema.Properties) > 0 && !schema.AdditionalProperties {
+			if !schema.AdditionalProperties {
 				for key := range obj {
 					if _, declared := schema.Properties[key]; !declared {
 						return NewExecutionError(
