@@ -47,6 +47,9 @@ func (s *MemoryApprovalStore) Update(_ context.Context, req *ApprovalRequest) er
 	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	if _, exists := s.items[req.ID]; !exists {
+		return ErrNotFound
+	}
 	s.items[req.ID] = deepCopyApprovalRequest(*req)
 	return nil
 }

@@ -52,7 +52,7 @@ func (r *RemoteRegistry) List(_ context.Context) ([]string, error) {
 }
 
 func fetchManifestFromURL(ctx context.Context, client *http.Client, url string) (*services.ServiceManifest, error) {
-	if strings.HasPrefix(url, "http://") {
+	if strings.HasPrefix(strings.ToLower(url), "http://") {
 		return nil, fmt.Errorf("insecure URL %q rejected: use https:// to install service manifests", url)
 	}
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
