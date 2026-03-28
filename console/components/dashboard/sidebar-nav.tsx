@@ -162,8 +162,8 @@ export function SidebarNav({ onNavigate, pendingApprovalCount = 0 }: SidebarNavP
                   {item.label}
                   {item.label === 'Approvals' && pendingApprovalCount > 0 && (
                     <>
-                      <span className="ml-auto inline-flex h-5 min-w-[20px] items-center justify-center rounded-full bg-amber-100 px-1.5 text-xs font-medium text-amber-800 dark:bg-amber-900 dark:text-amber-300">
-                        {pendingApprovalCount > 99 ? '99+' : pendingApprovalCount}
+                      <span className="ml-auto inline-flex min-h-5 items-center justify-center rounded-full bg-amber-100 px-2 py-0.5 text-[11px] font-medium text-amber-800 dark:bg-amber-900 dark:text-amber-300">
+                        {pendingApprovalCount > 99 ? '99+ pending' : `${pendingApprovalCount} pending`}
                       </span>
                       <span className="sr-only">{formatDisplayNumber(pendingApprovalCount)} approvals pending</span>
                     </>
