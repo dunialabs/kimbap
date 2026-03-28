@@ -392,7 +392,7 @@ export default function ApprovalsPage() {
         }
         setLoadError(
           getRequestErrorMessage(error, {
-            auth: 'Could not load approval requests because your session expired or your access changed. Sign in again and retry.',
+            auth: 'Session expired or access revoked. Sign in again.',
             network: 'Could not load approval requests. Check your connection and retry.',
             fallback: 'Could not load approval requests right now. Retry to refresh the queue.'
           })
@@ -518,7 +518,7 @@ export default function ApprovalsPage() {
     } catch (error: unknown) {
       toast.error(
         getRequestErrorMessage(error, {
-          auth: `Could not ${actionLabel} ${decideDialog.request.toolName} because your session expired or your access changed. Sign in again and retry.`,
+          auth: 'Session expired or access revoked. Sign in again.',
           network: `Could not ${actionLabel} ${decideDialog.request.toolName}. Check your connection and retry.`,
           fallback: `Could not ${actionLabel} ${decideDialog.request.toolName} request.`
         })
@@ -1173,6 +1173,7 @@ export default function ApprovalsPage() {
                   disabled={deciding}
                   className="text-sm resize-none"
                 />
+                <p className="text-[11px] text-muted-foreground">{decideReason.trim().length} characters</p>
                 <p className="text-xs text-muted-foreground">
                   This note is saved with the request and shown in the detail view.
                 </p>
