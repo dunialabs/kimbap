@@ -77,6 +77,63 @@ func TestDaemonCallHandlerInvalidJSON(t *testing.T) {
 	}
 }
 
+func TestDaemonCallHandlerRequiresIdempotencyKeyForNonIdempotentAction(t *testing.T) {
+	rt := buildTestRuntime()
+	handler := daemonCallHandler(nil, rt)
+
+	body, _ := json.Marshal(daemonCallRequest{Action: "test.create", Input: map[string]any{"name": "item"}})
+	req := httptest.NewRequest(http.MethodPost, "/call", bytes.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	rec := httptest.NewRecorder()
+	handler(rec, req)
+
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("expected 400 without idempotency key, got %d", rec.Code)
+	}
+	var payload map[string]any
+	if err := json.NewDecoder(rec.Body).Decode(&payload); err != nil {
+		t.Fatalf("decode response: %v", err)
+	}
+	errObj, ok := payload["Error"].(map[string]any)
+	if !ok {
+		t.Fatalf("expected error object, got %T", payload["Error"])
+	}
+	if errObj["Code"] != "ERR_IDEMPOTENCY_REQUIRED" {
+		t.Fatalf("expected ERR_IDEMPOTENCY_REQUIRED, got %v", errObj["Code"])
+	}
+}
+
+func TestDaemonCallHandlerAcceptsIdempotencyKeyHeader(t *testing.T) {
+	rt := buildTestRuntime()
+	handler := daemonCallHandler(nil, rt)
+
+	body, _ := json.Marshal(daemonCallRequest{Action: "test.create", Input: map[string]any{"name": "item"}})
+	req := httptest.NewRequest(http.MethodPost, "/call", bytes.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Idempotency-Key", "idem-daemon-1")
+	rec := httptest.NewRecorder()
+	handler(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected 200 with idempotency header, got %d body=%s", rec.Code, rec.Body.String())
+	}
+}
+
+func TestDaemonCallHandlerAcceptsBodyIdempotencyKey(t *testing.T) {
+	rt := buildTestRuntime()
+	handler := daemonCallHandler(nil, rt)
+
+	body, _ := json.Marshal(daemonCallRequest{Action: "test.create", Input: map[string]any{"name": "item"}, IdempotencyKey: "idem-daemon-body"})
+	req := httptest.NewRequest(http.MethodPost, "/call", bytes.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	rec := httptest.NewRecorder()
+	handler(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected 200 with body idempotency key, got %d body=%s", rec.Code, rec.Body.String())
+	}
+}
+
 func TestDaemonAuthMiddlewareNoToken(t *testing.T) {
 	inner := http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusOK)

@@ -142,8 +142,9 @@ func newDaemonCommand() *cobra.Command {
 }
 
 type daemonCallRequest struct {
-	Action string         `json:"action"`
-	Input  map[string]any `json:"input"`
+	Action         string         `json:"action"`
+	Input          map[string]any `json:"input"`
+	IdempotencyKey string         `json:"idempotency_key,omitempty"`
 }
 
 func daemonCallHandler(cfg *config.KimbapConfig, rt *runtime.Runtime) http.HandlerFunc {
@@ -173,9 +174,13 @@ func daemonCallHandler(cfg *config.KimbapConfig, rt *runtime.Runtime) http.Handl
 		actionName := resolveAliasedActionName(cfg, req.Action)
 
 		requestID := "req_" + uuid.NewString()
+		idempotencyKey := strings.TrimSpace(r.Header.Get("Idempotency-Key"))
+		if idempotencyKey == "" {
+			idempotencyKey = strings.TrimSpace(req.IdempotencyKey)
+		}
 		execReq := actions.ExecutionRequest{
 			RequestID:      requestID,
-			IdempotencyKey: requestID,
+			IdempotencyKey: idempotencyKey,
 			TenantID:       defaultTenantID(),
 			Principal: actions.Principal{
 				ID:        "daemon",
