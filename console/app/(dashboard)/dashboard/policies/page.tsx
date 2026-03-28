@@ -69,6 +69,7 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
 import { useUserRole } from '@/hooks/use-user-role'
+import { formatDateTime, formatDisplayNumber } from '@/lib/utils'
 
 function ToolPatternInput({
   value,
@@ -476,18 +477,24 @@ function RuleCard({
                   </Select>
                 </div>
                 <div className="flex-1 space-y-1">
-                  <Label className="text-xs">Value</Label>
-                  <Input
-                    placeholder="Expected value"
-                    value={cond.right}
-                    onChange={(e) => {
-                      const next = [...rule.when]
-                      next[ci] = { ...cond, right: e.target.value }
-                      onChange({ ...rule, when: next })
-                    }}
-                    className="h-9 font-mono text-sm"
-                  />
-                </div>
+                   <Label className="text-xs">Value</Label>
+                   <Input
+                     placeholder={
+                       cond.op === 'in' || cond.op === 'not_in'
+                         ? 'e.g., value1, value2'
+                         : cond.op === 'matches'
+                         ? 'e.g., ^prefix.*'
+                         : 'Expected value'
+                     }
+                     value={cond.right}
+                     onChange={(e) => {
+                       const next = [...rule.when]
+                       next[ci] = { ...cond, right: e.target.value }
+                       onChange({ ...rule, when: next })
+                     }}
+                     className="h-9 font-mono text-sm"
+                   />
+                 </div>
                 <Button
                   type="button"
                   variant="ghost"
@@ -852,7 +859,7 @@ export default function PoliciesPage() {
         {policies.length > 0 && (
           <CardHeader>
             <CardDescription>
-              {policies.length.toLocaleString()} {policies.length === 1 ? 'policy' : 'policies'}
+              {formatDisplayNumber(policies.length)} {policies.length === 1 ? 'policy' : 'policies'}
             </CardDescription>
           </CardHeader>
         )}
@@ -918,14 +925,14 @@ export default function PoliciesPage() {
                           >
                             <p className="text-sm font-medium group-hover:underline group-focus-visible:underline">{title}</p>
                             <p className="text-xs text-muted-foreground">
-                              {rules.length} rules · v{p.version}
+                              {formatDisplayNumber(rules.length)} rules · v{p.version}
                             </p>
                           </button>
                         ) : (
                           <div className="space-y-1">
                             <p className="text-sm font-medium">{title}</p>
                             <p className="text-xs text-muted-foreground">
-                              {rules.length} rules · v{p.version}
+                              {formatDisplayNumber(rules.length)} rules · v{p.version}
                             </p>
                           </div>
                         )}
@@ -960,7 +967,7 @@ export default function PoliciesPage() {
                       </TableCell>
                       <TableCell>
                         <span className="text-sm text-muted-foreground">
-                          {new Date(p.updatedAt).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' })}
+                          {formatDateTime(p.updatedAt, { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
                         </span>
                       </TableCell>
                       <TableCell className="text-center">
@@ -1038,7 +1045,7 @@ export default function PoliciesPage() {
               <div className="space-y-3">
                 <div className="flex items-center justify-between">
                   <div>
-                    <Label className="text-sm font-semibold">Rules{formRules.length > 0 ? ` (${formRules.length})` : ''}</Label>
+                    <Label className="text-sm font-semibold">Rules{formRules.length > 0 ? ` (${formatDisplayNumber(formRules.length)})` : ''}</Label>
                     <p className="mt-0.5 text-xs text-muted-foreground">
                       {formRules.length === 0
                         ? 'Add rules to define how tool calls are handled.'
