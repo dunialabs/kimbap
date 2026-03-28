@@ -244,7 +244,7 @@ function UsagePageContent() {
         setRecentActivity([])
         setRecentActivityError(
           getRequestErrorMessage(error, {
-            auth: 'Could not load recent usage activity because your session expired or your access changed. Sign in again and retry.',
+            auth: 'Session expired or access revoked. Sign in again.',
             network: 'Could not load recent usage activity. Check your connection and retry.',
             fallback: 'Could not load recent usage activity for this time range. Retry to refresh the Recent Activity section.'
           })
@@ -273,7 +273,7 @@ function UsagePageContent() {
       setRecentActivityError('Could not load recent usage activity for this time range. Retry to refresh the Recent Activity section.')
       setLoadError(
         getRequestErrorMessage(error, {
-          auth: 'Could not load the usage overview because your session expired or your access changed. Sign in again and retry.',
+          auth: 'Session expired or access revoked. Sign in again.',
           network: 'Could not load the usage overview. Check your connection and retry.',
           fallback: 'Could not load the usage overview cards. Retry to refresh request volume, token activity, and response time.'
         })
@@ -307,7 +307,7 @@ function UsagePageContent() {
       setRecentActivity([])
       setRecentActivityError(
         getRequestErrorMessage(error, {
-          auth: 'Could not load recent usage activity because your session expired or your access changed. Sign in again and retry.',
+          auth: 'Session expired or access revoked. Sign in again.',
           network: 'Could not load recent usage activity. Check your connection and retry.',
           fallback: 'Could not load recent usage activity for this time range. Retry to refresh the Recent Activity section.'
         })
@@ -378,6 +378,7 @@ function UsagePageContent() {
       </div>
       <div className="flex flex-wrap items-center gap-2">
         <Badge variant="outline" className="text-xs">Last {timeRangeLabel}</Badge>
+        {loading ? <Badge variant="outline" className="text-xs">Refreshing metrics…</Badge> : null}
         {!loading && leadingTool ? <Badge variant="outline" className="text-xs">Top tool: {leadingTool.toolName}</Badge> : null}
         {!loading && mostRecentToken ? (
           <Badge variant="outline" className="text-xs">
