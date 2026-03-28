@@ -807,7 +807,8 @@ export default function PoliciesPage() {
     try {
       await api.policies.update({ id: p.id, status: nextStatus })
       setPolicies((prev) => prev.map((x) => (x.id === p.id ? { ...x, status: nextStatus } : x)))
-      toast.success(`Policy ${nextStatus === 'active' ? 'enabled' : 'disabled'}`)
+      const toggledTitle = generatePolicyTitle(deserializeRules(p.dsl?.rules || []))
+      toast.success(`${toggledTitle}: ${nextStatus === 'active' ? 'enabled' : 'disabled'}`)
     } catch (error: unknown) {
       toast.error(
         getRequestErrorMessage(error, {
@@ -830,8 +831,9 @@ export default function PoliciesPage() {
     if (!deleteTarget) return
     setDeleting(true)
     try {
+      const deletedTitle = generatePolicyTitle(deserializeRules(deleteTarget.dsl?.rules || []))
       await api.policies.delete(deleteTarget.id)
-      toast.success('Policy deleted')
+      toast.success(`Policy deleted: ${deletedTitle}`)
       setDeleteDialogOpen(false)
       setDeleteTarget(null)
       fetchPolicies()

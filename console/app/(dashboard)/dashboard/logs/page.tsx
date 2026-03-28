@@ -1396,8 +1396,8 @@ function LogsPageContent() {
                       <TableRow key={stat.domain}>
                         <TableCell>{stat.label}</TableCell>
                         <TableCell>{formatDisplayNumber(stat.logCount, { compact: true })}</TableCell>
-                        <TableCell className={stat.errorCount > 0 ? 'text-red-600 dark:text-red-400' : ''}>
-                          {formatDisplayNumber(stat.errorCount, { compact: true })}
+                        <TableCell className={stat.errorCount > 0 ? 'text-red-600 dark:text-red-400 font-medium' : 'text-muted-foreground'}>
+                          {stat.errorCount > 0 ? formatDisplayNumber(stat.errorCount, { compact: true }) : '—'}
                         </TableCell>
                         <TableCell>{formatPercentage(stat.percentage)}</TableCell>
                       </TableRow>
