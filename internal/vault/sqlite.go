@@ -219,15 +219,19 @@ func (s *SQLiteStore) Upsert(ctx context.Context, tenantID string, name string, 
 		return nil, err
 	}
 
-	if labels == nil {
-		labels = map[string]string{}
+	effectiveLabels := labels
+	if effectiveLabels == nil {
+		_ = json.Unmarshal([]byte(existingLabelsJSON), &effectiveLabels)
+		if effectiveLabels == nil {
+			effectiveLabels = map[string]string{}
+		}
 	}
 	result := &SecretRecord{
 		ID:             secretID,
 		TenantID:       tenantID,
 		Name:           name,
 		Type:           secretType,
-		Labels:         cloneLabels(labels),
+		Labels:         cloneLabels(effectiveLabels),
 		CreatedAt:      createdAt,
 		UpdatedAt:      now,
 		RotatedAt:      &now,

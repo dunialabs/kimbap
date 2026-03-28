@@ -131,6 +131,10 @@ func (a *HTTPAdapter) executeWithPagination(ctx context.Context, req AdapterRequ
 				if v > 0 {
 					limit = int(v)
 				}
+			case string:
+				if n, err := strconv.Atoi(v); err == nil && n > 0 {
+					limit = n
+				}
 			}
 		}
 

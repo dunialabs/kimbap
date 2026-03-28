@@ -133,7 +133,13 @@ func (s *TokenService) Rotate(ctx context.Context, oldTokenID, tenantID, agentNa
 		return "", nil, errors.New("old token id is required")
 	}
 
-	rawToken, token, err = s.Issue(ctx, tenantID, agentName, "", scopes, ttl)
+	oldToken, lookupErr := s.store.Inspect(ctx, oldTokenID)
+	createdBy := ""
+	if lookupErr == nil && oldToken != nil {
+		createdBy = oldToken.CreatedBy
+	}
+
+	rawToken, token, err = s.Issue(ctx, tenantID, agentName, createdBy, scopes, ttl)
 	if err != nil {
 		return "", nil, fmt.Errorf("issue replacement token: %w", err)
 	}
