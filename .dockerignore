@@ -9,5 +9,3 @@ LICENSE
 Makefile
 docker-compose.yml
 .dockerignore
-console/
-dev-doc/

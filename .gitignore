@@ -7,7 +7,6 @@
 bin/
 /server
 
-
 # IDE / Editor
 .vscode/
 .idea/
@@ -36,37 +35,6 @@ temp/
 .sisyphus/
 .openchrome/
 
-
-
-# ── Transition / parity documents (TS→Go migration artifacts) ──
-
-# Root-level transition docs
-MIDDLEWARE_PARITY_REVIEW_*.md
-PARITY_REVIEW_*.md
-PETA_CORE_GO_INVENTORY.md
-SERVERMANAGER_COMPARISON.md
-PROJECT_COLLABORATION.md
-mcp-tools-guide.md
-DOCKER_BUILD.md
-
-# docs/ parity & porting reports
-docs/parity-*.md
-docs/parity-*.json
-docs/runtime-parity-*
-docs/porting-audit-*
-docs/CYCLE7_PARITY_*
-docs/extra-review-*
-
-# Parity runner scripts
-scripts/parity_*.mjs
-scripts/runtime_parity_*.mjs
-
 # ── Test code — not included in repository ──
 tests/
-internal/testutil/
-scripts/verify-server.sh
-internal/database/database_testhooks.go
-internal/mcp/core/sessionstore_testhooks.go
-internal/mcp/core/servermanager_testhooks.go
-cmd/server/testserver.go
 /kimbap
