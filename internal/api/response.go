@@ -81,11 +81,9 @@ func writeEnvelopeJSON(w http.ResponseWriter, status int, env Envelope) {
 			RequestID: env.RequestID,
 		})
 		w.WriteHeader(http.StatusInternalServerError)
-		_, _ = w.Write(append(fallback, '
-'))
+		_, _ = w.Write(append(fallback, byte('\n')))
 		return
 	}
 	w.WriteHeader(status)
-	_, _ = w.Write(append(payload, '
-'))
+	_, _ = w.Write(append(payload, byte('\n')))
 }
