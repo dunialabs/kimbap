@@ -367,21 +367,24 @@ function getCatchAllRuleWarning(rule: PolicyRule): string | null {
 function RuleCard({
   rule,
   index,
+  expanded,
   canMoveUp,
   canMoveDown,
+  onToggle,
   onChange,
   onMove,
   onRemove,
 }: {
   rule: PolicyRule
   index: number
+  expanded: boolean
   canMoveUp: boolean
   canMoveDown: boolean
+  onToggle: () => void
   onChange: (updated: PolicyRule) => void
   onMove: (direction: 'up' | 'down') => void
   onRemove: () => void
 }) {
-  const [expanded, setExpanded] = useState(index === 0)
   const [extractOpen, setExtractOpen] = useState(rule.extract.length > 0)
   const decisionMeta = DECISIONS.find((d) => d.value === rule.effect.decision)
   const catchAllRuleWarning = getCatchAllRuleWarning(rule)
@@ -391,7 +394,7 @@ function RuleCard({
       <div className="flex items-center gap-2 rounded-t-lg bg-muted/30 px-4 py-3">
         <button
           type="button"
-          onClick={() => setExpanded((prev) => !prev)}
+          onClick={onToggle}
           aria-expanded={expanded}
           className="flex min-h-11 min-w-0 flex-1 items-center gap-2 rounded text-left transition-colors duration-200 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
         >
@@ -740,6 +743,7 @@ export default function PoliciesPage() {
   const [deleting, setDeleting] = useState(false)
   const [togglingPolicyId, setTogglingPolicyId] = useState<string | null>(null)
   const [isDirty, setIsDirty] = useState(false)
+  const [expandedRuleId, setExpandedRuleId] = useState<string | null>(null)
 
   const [editingId, setEditingId] = useState<string | null>(null)
   const [formRules, setFormRules] = useState<PolicyRule[]>([])
@@ -806,9 +810,11 @@ export default function PoliciesPage() {
   }, [dialogOpen])
 
   const openCreate = (trigger?: HTMLElement | null) => {
+    const initialRule = emptyRule()
     rememberDialogTrigger(trigger)
     setEditingId(null)
-    setFormRules([emptyRule()])
+    setFormRules([initialRule])
+    setExpandedRuleId(initialRule.id)
     setIsDirty(false)
     setDialogOpen(true)
   }
@@ -819,6 +825,7 @@ export default function PoliciesPage() {
     const rules = deserializeRules(p.dsl?.rules || [])
     rules.sort((a, b) => a.priority - b.priority)
     setFormRules(rules)
+    setExpandedRuleId(rules[0]?.id ?? null)
     setIsDirty(false)
     setDialogOpen(true)
   }
@@ -916,7 +923,16 @@ export default function PoliciesPage() {
 
   const handleRuleRemove = (index: number) => {
     setIsDirty(true)
-    setFormRules((prev) => prev.filter((_, i) => i !== index))
+    setFormRules((prev) => {
+      const removedRuleId = prev[index]?.id
+      const nextRules = prev.filter((_, i) => i !== index)
+      setExpandedRuleId((current) => {
+        if (!nextRules.length) return null
+        if (current && current !== removedRuleId) return current
+        return nextRules[Math.min(index, nextRules.length - 1)]?.id ?? null
+      })
+      return nextRules
+    })
   }
 
   const handleRuleMove = (index: number, direction: 'up' | 'down') => {
@@ -938,7 +954,10 @@ export default function PoliciesPage() {
       setDiscardDialogOpen(true)
       return
     }
-    if (!open) setDialogOpen(false)
+    if (!open) {
+      setDialogOpen(false)
+      setExpandedRuleId(null)
+    }
   }
 
   return (
@@ -1321,7 +1340,9 @@ export default function PoliciesPage() {
                     size="sm"
                     className="min-h-11"
                     onClick={() => {
-                      setFormRules((prev) => [...prev, emptyRule()])
+                      const nextRule = emptyRule()
+                      setFormRules((prev) => [...prev, nextRule])
+                      setExpandedRuleId(nextRule.id)
                       setIsDirty(true)
                     }}
                   >
@@ -1339,7 +1360,9 @@ export default function PoliciesPage() {
                       size="sm"
                       className="mt-1 min-h-11"
                       onClick={() => {
-                        setFormRules((prev) => [...prev, emptyRule()])
+                        const nextRule = emptyRule()
+                        setFormRules((prev) => [...prev, nextRule])
+                        setExpandedRuleId(nextRule.id)
                         setIsDirty(true)
                       }}
                     >
@@ -1355,8 +1378,10 @@ export default function PoliciesPage() {
                         key={rule.id}
                         rule={rule}
                         index={i}
+                        expanded={expandedRuleId === rule.id}
                         canMoveUp={i > 0}
                         canMoveDown={i < formRules.length - 1}
+                        onToggle={() => setExpandedRuleId((prev) => (prev === rule.id ? null : rule.id))}
                         onChange={(updated) => handleRuleChange(i, updated)}
                         onMove={(direction) => handleRuleMove(i, direction)}
                         onRemove={() => handleRuleRemove(i)}
@@ -1367,7 +1392,9 @@ export default function PoliciesPage() {
                       size="sm"
                       className="min-h-11 w-full"
                       onClick={() => {
-                        setFormRules((prev) => [...prev, emptyRule()])
+                        const nextRule = emptyRule()
+                        setFormRules((prev) => [...prev, nextRule])
+                        setExpandedRuleId(nextRule.id)
                         setIsDirty(true)
                       }}
                     >
