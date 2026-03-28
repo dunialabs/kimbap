@@ -1,7 +1,6 @@
 package api
 
 import (
-	"bytes"
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
@@ -512,11 +511,9 @@ func (s *Server) handleListApprovals(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	status := strings.TrimSpace(r.URL.Query().Get("status"))
-	if status == "" || status == "pending" {
-		if _, err := s.store.ExpirePendingApprovals(r.Context()); err != nil {
-			writeEnvelopeError(w, r, actions.NewExecutionError(actions.ErrDownstreamUnavailable, "internal server error", http.StatusInternalServerError, false, nil))
-			return
-		}
+	if _, err := s.store.ExpirePendingApprovals(r.Context()); err != nil {
+		writeEnvelopeError(w, r, actions.NewExecutionError(actions.ErrDownstreamUnavailable, "internal server error", http.StatusInternalServerError, false, nil))
+		return
 	}
 	items, err := s.store.ListApprovals(r.Context(), tenantID, status)
 	if err != nil {
@@ -776,14 +773,11 @@ func (s *Server) handleExportAudit(w http.ResponseWriter, r *http.Request) {
 		))
 		return
 	}
-	var buf bytes.Buffer
-	if err := s.store.ExportAuditEvents(r.Context(), store.AuditFilter{TenantID: tenantID}, format, &buf); err != nil {
-		writeEnvelopeError(w, r, actions.NewExecutionError(actions.ErrDownstreamUnavailable, "export failed", http.StatusInternalServerError, false, nil))
-		return
-	}
 	w.Header().Set("Content-Type", contentType)
 	w.WriteHeader(http.StatusOK)
-	_, _ = io.Copy(w, &buf)
+	if err := s.store.ExportAuditEvents(r.Context(), store.AuditFilter{TenantID: tenantID}, format, w); err != nil {
+		return
+	}
 }
 
 const maxAPIRequestBodyBytes int64 = 4 << 20
@@ -889,12 +883,16 @@ func (a *storeTokenAdapter) ValidateAndResolve(ctx context.Context, rawToken str
 	if now.After(token.ExpiresAt) {
 		return nil, auth.ErrExpiredToken
 	}
+	scopes := parseScopes(token.Scopes)
+	if token.Scopes != "" && scopes == nil {
+		return nil, auth.ErrInvalidToken
+	}
 	return &auth.Principal{
 		ID:        token.AgentName,
 		Type:      auth.PrincipalTypeService,
 		TenantID:  token.TenantID,
 		AgentName: token.AgentName,
-		Scopes:    parseScopes(token.Scopes),
+		Scopes:    scopes,
 		TokenID:   token.ID,
 		IssuedAt:  token.CreatedAt,
 		ExpiresAt: token.ExpiresAt,

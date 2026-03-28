@@ -2,7 +2,6 @@ package runtime
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"os"
@@ -751,15 +750,17 @@ func withTimeout(ctx context.Context, timeout time.Duration) (context.Context, c
 }
 
 func deepCloneValue(v any) any {
-	switch v.(type) {
-	case map[string]any, []any:
-		b, err := json.Marshal(v)
-		if err != nil {
-			return v
+	switch val := v.(type) {
+	case map[string]any:
+		out := make(map[string]any, len(val))
+		for k, vv := range val {
+			out[k] = deepCloneValue(vv)
 		}
-		var out any
-		if err := json.Unmarshal(b, &out); err != nil {
-			return v
+		return out
+	case []any:
+		out := make([]any, len(val))
+		for i, vv := range val {
+			out[i] = deepCloneValue(vv)
 		}
 		return out
 	default:
