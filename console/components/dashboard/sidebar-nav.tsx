@@ -13,7 +13,7 @@ import {
 } from 'lucide-react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 
 import {
   Collapsible,
@@ -45,17 +45,26 @@ interface SidebarNavProps {
 
 export function SidebarNav({ onNavigate, pendingApprovalCount = 0 }: SidebarNavProps) {
   const pathname = usePathname()
-  const [expandedItems, setExpandedItems] = useState<string[]>([])
+  const [expandedItems, setExpandedItems] = useState<string[]>(() =>
+    pathname.startsWith('/dashboard/usage') ? ['/dashboard/usage'] : []
+  )
+  const hasUserToggledUsageRef = useRef(false)
 
   useEffect(() => {
-    if (pathname.startsWith('/dashboard/usage')) {
-      setExpandedItems(['/dashboard/usage'])
-    } else {
-      setExpandedItems([])
+    const isInUsageSection = pathname.startsWith('/dashboard/usage')
+
+    if (isInUsageSection && !hasUserToggledUsageRef.current) {
+      setExpandedItems((prev) =>
+        prev.includes('/dashboard/usage') ? prev : [...prev, '/dashboard/usage']
+      )
     }
   }, [pathname])
 
   const toggleExpanded = (href: string) => {
+    if (href === '/dashboard/usage') {
+      hasUserToggledUsageRef.current = true
+    }
+
     setExpandedItems((prev) =>
       prev.includes(href)
         ? prev.filter((item) => item !== href)
