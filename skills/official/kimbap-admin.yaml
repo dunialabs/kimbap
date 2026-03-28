@@ -17,8 +17,8 @@ triggers:
     - direct database manipulation inside the console container
 gotchas:
   - symptom: All API calls return 401 Unauthorized
-    likely_cause: kimbap.token vault entry is missing, wrong, or the token has been revoked
-    recovery: Verify kimbap.token is correctly set with kimbap vault set kimbap-admin.token; only call init on a completely fresh uninitialized instance
+    likely_cause: kimbap-admin.token vault entry is missing, wrong, or the token has been revoked
+    recovery: Verify kimbap-admin.token is correctly set with kimbap vault set kimbap-admin.token; only call init on a completely fresh uninitialized instance
     severity: high
   - symptom: init returns error code E3007 Proxy has already been initialized
     likely_cause: The console was already bootstrapped; calling init again is not allowed
