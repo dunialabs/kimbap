@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useCallback, useRef } from 'react'
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import { toast } from 'sonner'
 import {
   Plus,
@@ -377,6 +377,9 @@ function RuleCard({
         >
           {expanded ? <ChevronUp className="h-4 w-4 shrink-0" /> : <ChevronDown className="h-4 w-4 shrink-0" />}
           <span className="shrink-0 text-sm font-medium">Rule {index + 1}</span>
+          <Badge variant="secondary" className="shrink-0 text-[11px]">
+            {index === 0 ? 'First match' : `Priority ${index + 1}`}
+          </Badge>
           <Badge variant="outline" className={`shrink-0 text-xs ${decisionMeta?.color || ''}`}>
             {decisionMeta?.label || rule.effect.decision}
           </Badge>
@@ -707,6 +710,17 @@ export default function PoliciesPage() {
   const policyDialogBodyRef = useRef<HTMLDivElement>(null)
   const canManagePolicies = isOwner || isAdmin
   const canTogglePolicy = isOwner || isAdmin
+  const orderedPolicies = useMemo(() => {
+    return [...policies].sort((a, b) => {
+      const statusDelta = Number(a.status !== 'active') - Number(b.status !== 'active')
+      if (statusDelta !== 0) {
+        return statusDelta
+      }
+      return (Date.parse(b.updatedAt) || 0) - (Date.parse(a.updatedAt) || 0)
+    })
+  }, [policies])
+  const activePolicyCount = orderedPolicies.filter((policy) => policy.status === 'active').length
+  const archivedPolicyCount = orderedPolicies.length - activePolicyCount
 
   const fetchPolicies = useCallback(async () => {
     try {
@@ -896,6 +910,12 @@ export default function PoliciesPage() {
                 {d.label}
               </Badge>
             ))}
+            {orderedPolicies.length > 0 ? (
+              <>
+                <Badge variant="outline" className="text-xs">{formatDisplayNumber(activePolicyCount)} active</Badge>
+                <Badge variant="outline" className="text-xs">{formatDisplayNumber(archivedPolicyCount)} archived</Badge>
+              </>
+            ) : null}
           </div>
         </div>
         {canManagePolicies ? (
@@ -907,10 +927,10 @@ export default function PoliciesPage() {
       </div>
 
       <Card>
-        {policies.length > 0 && (
+        {orderedPolicies.length > 0 && (
           <CardHeader>
             <CardDescription>
-              {formatDisplayNumber(policies.length)} {policies.length === 1 ? 'policy' : 'policies'}
+              {formatDisplayNumber(orderedPolicies.length)} {orderedPolicies.length === 1 ? 'policy' : 'policies'} · {formatDisplayNumber(activePolicyCount)} active · {formatDisplayNumber(archivedPolicyCount)} archived
             </CardDescription>
           </CardHeader>
         )}
@@ -929,7 +949,7 @@ export default function PoliciesPage() {
                 <p className="text-sm text-muted-foreground">Loading access policies...</p>
               </div>
             </div>
-          ) : policies.length === 0 ? (
+          ) : orderedPolicies.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-12 text-center">
               <Shield className="mb-3 h-10 w-10 text-muted-foreground/40" />
               <p className="text-sm text-muted-foreground">
@@ -959,7 +979,7 @@ export default function PoliciesPage() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {policies.map((p) => {
+                {orderedPolicies.map((p) => {
                   const rules = deserializeRules(p.dsl?.rules || [])
                   rules.sort((a, b) => a.priority - b.priority)
                   const title = generatePolicyTitle(rules)

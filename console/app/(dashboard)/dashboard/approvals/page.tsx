@@ -939,7 +939,7 @@ export default function ApprovalsPage() {
           </p>
           {hasMore && (
             <Button variant="outline" size="sm" className="min-h-11" onClick={handleLoadMore} disabled={loadingMore || refreshing}>
-              {loadingMore ? 'Loading more approvals...' : 'Load more'}
+              {loadingMore ? (<><Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" aria-hidden="true" />Loading...</>) : 'Load more'}
             </Button>
           )}
         </div>

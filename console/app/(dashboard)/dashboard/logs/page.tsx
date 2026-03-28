@@ -1170,8 +1170,8 @@ function LogsPageContent() {
                 <CardTitle>Raw Log View</CardTitle>
                 <CardDescription>
                   {loading
-                    ? 'Preparing raw logs for the current filtered page...'
-                    : `Raw server logs for this filtered page (${formatDisplayNumber(logs.length)} rows on page ${formatDisplayNumber(currentPage)} of ${formatDisplayNumber(Math.max(totalPages, 1))})`}
+                   ? 'Preparing raw logs for the current filtered page...'
+                   : `Raw server logs for this filtered page (${formatDisplayNumber(logs.length)} rows on page ${formatDisplayNumber(currentPage)} of ${formatDisplayNumber(Math.max(totalPages, 1))})${debouncedSearchTerm.trim() ? ` — filtered by "${debouncedSearchTerm.trim()}"` : ''}`}
                 </CardDescription>
               </div>
               {!loading && logs.length > 0 && (
