@@ -175,8 +175,9 @@ func (r *Runtime) ExecuteWithTrace(ctx context.Context, req actions.ExecutionReq
 func (r *Runtime) ResumeApproved(ctx context.Context, approvalRequestID string) actions.ExecutionResult {
 	if r.HeldExecutionStore == nil {
 		return actions.ExecutionResult{
-			Status: actions.StatusError,
-			Error:  annotateExecutionError(actions.NewExecutionError(actions.ErrDownstreamUnavailable, "held execution store unavailable", 500, false, nil), "require_approval"),
+			Status:     actions.StatusError,
+			HTTPStatus: 500,
+			Error:      annotateExecutionError(actions.NewExecutionError(actions.ErrDownstreamUnavailable, "held execution store unavailable", 500, false, nil), "require_approval"),
 		}
 	}
 
