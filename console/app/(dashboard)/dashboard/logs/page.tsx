@@ -574,6 +574,122 @@ function LogsPageContent() {
     }
   }
 
+  const getLevelBadgeClass = (level: string) => {
+    switch (getLevelColor(level)) {
+      case 'warn':
+        return 'border-amber-500 bg-amber-50 text-amber-700 dark:bg-amber-950/20 dark:text-amber-300 dark:border-amber-700 text-xs'
+      case 'info':
+        return 'border-blue-500 bg-blue-50 text-blue-700 dark:bg-blue-950/20 dark:text-blue-400 dark:border-blue-700 text-xs'
+      case 'debug':
+        return 'border-slate-300 bg-slate-50 text-slate-700 dark:border-slate-700 dark:bg-slate-900/60 dark:text-slate-200 text-xs'
+      default:
+        return 'text-xs'
+    }
+  }
+
+  const renderLogDetailsDialogContent = (log: LogEntry) => (
+    <ScrollableDialogContent className="max-w-4xl">
+      <DialogHeader>
+        <DialogTitle className="flex items-center gap-2">
+          {getLevelIcon(log.level)}
+          Log details
+        </DialogTitle>
+        <DialogDescription>
+          {formatLogTimestamp(log.timestamp)} • {getDomainLabel(log.source)} • {LOG_LEVEL_DISPLAY[log.level] ?? log.level}
+          {log.requestId ? ` • ${log.requestId}` : ''}
+        </DialogDescription>
+      </DialogHeader>
+
+      <div className="space-y-4">
+        <div>
+          <Label className="text-sm font-medium">Message</Label>
+          <p className="mt-1 rounded bg-muted p-3 text-sm">
+            {log.message}
+          </p>
+        </div>
+
+        {log.userId && (
+          <div>
+            <Label className="text-sm font-medium">User</Label>
+            <p className="mt-1 font-mono text-sm text-muted-foreground">{log.userId}</p>
+          </div>
+        )}
+
+        {Object.keys(log.details).length > 0 && (
+          <div>
+            <Label className="text-sm font-medium">
+              Request Details
+            </Label>
+            <div className="mt-1 space-y-1 rounded bg-muted p-3 text-sm">
+              {log.details.method && (
+                <div>
+                  <strong>Method:</strong>{' '}
+                  {log.details.method}
+                </div>
+              )}
+              {log.details.url && (
+                <div>
+                  <strong>URL:</strong>{' '}
+                  {log.details.url}
+                </div>
+              )}
+              {log.details.statusCode != null && (
+                <div>
+                  <strong>Status:</strong>{' '}
+                  <span className={log.details.statusCode >= 500 ? 'text-red-600 dark:text-red-400 font-medium' : log.details.statusCode >= 400 ? 'text-amber-600 dark:text-amber-400 font-medium' : log.details.statusCode >= 200 && log.details.statusCode < 300 ? 'text-green-600 dark:text-green-400' : ''}>
+                    {formatDisplayNumber(log.details.statusCode)}
+                  </span>
+                </div>
+              )}
+              {log.details.responseTime != null && (
+                <div>
+                  <strong>Response Time:</strong>{' '}
+                  {formatResponseTime(log.details.responseTime)}
+                </div>
+              )}
+              {log.details.ip && (
+                <div>
+                  <strong>IP:</strong> {log.details.ip}
+                </div>
+              )}
+              {log.details.userAgent && (
+                <div>
+                  <strong>User Agent:</strong>{' '}
+                  {log.details.userAgent}
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        <div>
+          <Label
+            htmlFor={`raw-log-data-${log.id}`}
+            className="text-sm font-medium"
+          >
+            Raw Log Data
+          </Label>
+          <Textarea
+            id={`raw-log-data-${log.id}`}
+            value={log.rawData}
+            readOnly
+            className="mt-1 min-h-[200px] font-mono text-xs"
+          />
+        </div>
+      </div>
+
+      <DialogFooter className="border-t pt-4">
+        <Button
+          variant="outline"
+          className="min-h-11"
+          onClick={() => void copyTextToClipboard(log.rawData, 'Raw log data copied to clipboard', 'Could not copy raw log data')}
+        >
+          Copy Raw Data
+        </Button>
+      </DialogFooter>
+    </ScrollableDialogContent>
+  )
+
   // Clear filters function
   const clearFilters = () => {
     setLevelFilter('all')
@@ -900,8 +1016,119 @@ function LogsPageContent() {
               </CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="overflow-x-auto">
-              <Table className="min-w-[900px]">
+              {loading ? (
+                <div className="flex items-center justify-center py-8 md:hidden" role="status" aria-live="polite">
+                  <div className="text-center">
+                    <Loader2 className="mx-auto mb-2 h-5 w-5 animate-spin text-muted-foreground" aria-hidden="true" />
+                    <p className="text-sm text-muted-foreground">Loading filtered logs...</p>
+                  </div>
+                </div>
+              ) : logs.length === 0 ? (
+                <div className="flex flex-col items-center gap-2 py-8 text-center md:hidden">
+                  {loadError ? (
+                    <div className="flex flex-col items-center gap-2" role="alert">
+                      <AlertTriangle className="h-5 w-5 text-red-500 dark:text-red-400" aria-hidden="true" />
+                      <p className="text-sm text-red-600 dark:text-red-400">{loadError}</p>
+                      <Button variant="outline" size="sm" className="min-h-11" onClick={handleRefresh}>
+                        Retry
+                      </Button>
+                    </div>
+                  ) : (
+                    <>
+                      <p className="text-sm text-muted-foreground">No logs found for the current filters.</p>
+                      <p className="text-xs text-muted-foreground">
+                        {debouncedSearchTerm.trim()
+                          ? `No results for "${debouncedSearchTerm.trim()}". Try a different search term or reset filters.`
+                          : 'Try broadening the time range or resetting filters.'}
+                      </p>
+                      {hasActiveFilters ? (
+                        <Button variant="ghost" size="sm" className="min-h-11" onClick={clearFilters}>
+                          Reset filters
+                        </Button>
+                      ) : timeFilter === DEFAULT_TIME_RANGE ? (
+                        <Button variant="outline" size="sm" className="min-h-11" onClick={() => { setTimeFilter('7d'); setCurrentPage(1) }}>
+                          Show last 7 days
+                        </Button>
+                      ) : null}
+                    </>
+                  )}
+                </div>
+              ) : (
+                <div className="space-y-3 md:hidden">
+                  {logs.map((log) => {
+                    const requestSummary = [
+                      log.details.method || null,
+                      log.details.statusCode != null ? `Status ${formatDisplayNumber(log.details.statusCode)}` : null,
+                      log.details.responseTime != null ? formatResponseTime(log.details.responseTime) : null,
+                    ].filter(Boolean).join(' · ')
+
+                    return (
+                      <Dialog key={log.id}>
+                        <Card className="border border-border/60 shadow-sm">
+                          <CardContent className="space-y-4 p-4">
+                            <div className="flex items-start justify-between gap-3">
+                              <div className="min-w-0 space-y-2">
+                                <p className="font-mono text-xs text-muted-foreground">
+                                  {formatLogTimestamp(log.timestamp)}
+                                </p>
+                                <div className="flex flex-wrap items-center gap-2">
+                                  <Badge
+                                    variant={getLevelColor(log.level) === 'destructive' ? 'destructive' : 'outline'}
+                                    className={getLevelBadgeClass(log.level)}
+                                  >
+                                    {getLevelIcon(log.level)}
+                                    <span className="ml-1">{LOG_LEVEL_DISPLAY[log.level] ?? log.level}</span>
+                                  </Badge>
+                                  <Badge variant="outline" className="text-xs">
+                                    {getDomainLabel(log.source)}
+                                  </Badge>
+                                </div>
+                              </div>
+                              {log.requestId ? (
+                                <Badge variant="secondary" className="shrink-0 text-xs" title={log.requestId}>
+                                  {log.requestId.slice(-6)}
+                                </Badge>
+                              ) : null}
+                            </div>
+
+                            <div className="space-y-1">
+                              <p className="text-xs text-muted-foreground">Message</p>
+                              <p className="line-clamp-3 text-sm" title={log.message}>
+                                {log.message}
+                              </p>
+                            </div>
+
+                            <div className="grid grid-cols-1 gap-3 text-sm sm:grid-cols-2">
+                              <div>
+                                <p className="text-xs text-muted-foreground">Request ID</p>
+                                <p className="mt-1 break-all font-mono text-xs text-muted-foreground">
+                                  {log.requestId || '—'}
+                                </p>
+                              </div>
+                              <div>
+                                <p className="text-xs text-muted-foreground">Request</p>
+                                <p className="mt-1 text-sm text-muted-foreground">
+                                  {requestSummary || 'No request metadata'}
+                                </p>
+                              </div>
+                            </div>
+
+                            <DialogTrigger asChild>
+                              <Button variant="outline" size="sm" className="min-h-11 w-full">
+                                View details
+                              </Button>
+                            </DialogTrigger>
+                          </CardContent>
+                        </Card>
+                        {renderLogDetailsDialogContent(log)}
+                      </Dialog>
+                    )
+                  })}
+                </div>
+              )}
+
+              <div className="hidden overflow-x-auto md:block">
+                <Table className="min-w-[900px]">
                   <TableHeader>
                     <TableRow>
                       <TableHead scope="col" className="w-[180px]">Timestamp</TableHead>
@@ -923,165 +1150,55 @@ function LogsPageContent() {
                       </TableRow>
                     ) : logs.map((log) => (
                       <Dialog key={log.id}>
-                      <TableRow>
-                        <TableCell className="font-mono text-xs">
-                          {formatLogTimestamp(log.timestamp)}
-                        </TableCell>
-                        <TableCell>
-                          <Badge
-                            variant={getLevelColor(log.level) === 'destructive' ? 'destructive' : 'outline'}
-                            className={
-                              getLevelColor(log.level) === 'warn'
-                                ? 'border-amber-500 bg-amber-50 text-amber-700 dark:bg-amber-950/20 dark:text-amber-300 dark:border-amber-700 text-xs'
-                                : getLevelColor(log.level) === 'info'
-                                ? 'border-blue-500 bg-blue-50 text-blue-700 dark:bg-blue-950/20 dark:text-blue-400 dark:border-blue-700 text-xs'
-                                : getLevelColor(log.level) === 'debug'
-                                ? 'border-slate-300 bg-slate-50 text-slate-700 dark:border-slate-700 dark:bg-slate-900/60 dark:text-slate-200 text-xs'
-                                : 'text-xs'
-                            }
-                          >
-                            {getLevelIcon(log.level)}
-                             <span className="ml-1">{LOG_LEVEL_DISPLAY[log.level] ?? log.level}</span>
-                          </Badge>
-                        </TableCell>
-                        <TableCell>
-                          <Badge
-                            variant="outline"
-                            className="text-xs whitespace-nowrap"
-                          >
-                            {getDomainLabel(log.source)}
-                          </Badge>
-                        </TableCell>
-                        <TableCell className="max-w-[300px]">
-                          <DialogTrigger asChild>
-                            <button
-                              type="button"
-                              className="min-h-11 w-full truncate rounded py-2 text-left transition-colors duration-200 hover:text-foreground hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
-                              aria-label="Open log details"
-                              title={log.message}
+                        <TableRow>
+                          <TableCell className="font-mono text-xs">
+                            {formatLogTimestamp(log.timestamp)}
+                          </TableCell>
+                          <TableCell>
+                            <Badge
+                              variant={getLevelColor(log.level) === 'destructive' ? 'destructive' : 'outline'}
+                              className={getLevelBadgeClass(log.level)}
                             >
-                              {log.message}
-                            </button>
-                          </DialogTrigger>
-                        </TableCell>
-                        <TableCell className="font-mono text-xs">
-                          {log.requestId ? (
-                            <Badge variant="secondary" className="text-xs" title={log.requestId}>
-                              {log.requestId.slice(-6)}
+                              {getLevelIcon(log.level)}
+                              <span className="ml-1">{LOG_LEVEL_DISPLAY[log.level] ?? log.level}</span>
                             </Badge>
-                          ) : (
-                            <span className="text-muted-foreground">—</span>
-                          )}
-                        </TableCell>
-                      </TableRow>
-                            <ScrollableDialogContent className="max-w-4xl">
-                              <DialogHeader>
-                                <DialogTitle className="flex items-center gap-2">
-                                  {getLevelIcon(log.level)}
-                                  Log details
-                                </DialogTitle>
-                                 <DialogDescription>
-                                   {formatLogTimestamp(log.timestamp)} • {getDomainLabel(log.source)} • {LOG_LEVEL_DISPLAY[log.level] ?? log.level}{log.requestId ? ` • ${log.requestId}` : ''}
-                                 </DialogDescription>
-                              </DialogHeader>
-
-                              <div>
-                              <div className="space-y-4">
-                                <div>
-                                  <Label className="text-sm font-medium">
-                                    Message
-                                  </Label>
-                                  <p className="mt-1 p-3 bg-muted rounded text-sm">
-                                    {log.message}
-                                  </p>
-                                </div>
-
-                                {log.userId && (
-                                  <div>
-                                    <Label className="text-sm font-medium">User</Label>
-                                    <p className="mt-1 font-mono text-sm text-muted-foreground">{log.userId}</p>
-                                  </div>
-                                )}
-
-                                {Object.keys(log.details).length > 0 && (
-                                  <div>
-                                    <Label className="text-sm font-medium">
-                                      Request Details
-                                    </Label>
-                                    <div className="mt-1 p-3 bg-muted rounded text-sm space-y-1">
-                                      {log.details.method && (
-                                        <div>
-                                          <strong>Method:</strong>{' '}
-                                          {log.details.method}
-                                        </div>
-                                      )}
-                                      {log.details.url && (
-                                        <div>
-                                          <strong>URL:</strong>{' '}
-                                          {log.details.url}
-                                        </div>
-                                      )}
-                                       {log.details.statusCode != null && (
-                                         <div>
-                                           <strong>Status:</strong>{' '}
-                                           <span className={log.details.statusCode >= 500 ? 'text-red-600 dark:text-red-400 font-medium' : log.details.statusCode >= 400 ? 'text-amber-600 dark:text-amber-400 font-medium' : log.details.statusCode >= 200 && log.details.statusCode < 300 ? 'text-green-600 dark:text-green-400' : ''}>
-                                             {formatDisplayNumber(log.details.statusCode)}
-                                           </span>
-                                         </div>
-                                       )}
-                                       {log.details.responseTime != null && (
-                                         <div>
-                                           <strong>Response Time:</strong>{' '}
-                                           {formatResponseTime(log.details.responseTime)}
-                                         </div>
-                                       )}
-                                      {log.details.ip && (
-                                        <div>
-                                          <strong>IP:</strong> {log.details.ip}
-                                        </div>
-                                      )}
-                                      {log.details.userAgent && (
-                                        <div>
-                                          <strong>User Agent:</strong>{' '}
-                                          {log.details.userAgent}
-                                        </div>
-                                      )}
-                                    </div>
-                                  </div>
-                                )}
-
-                                <div>
-                                  <Label
-                                    htmlFor={`raw-log-data-${log.id}`}
-                                    className="text-sm font-medium"
-                                  >
-                                    Raw Log Data
-                                  </Label>
-                                  <Textarea
-                                    id={`raw-log-data-${log.id}`}
-                                    value={log.rawData}
-                                    readOnly
-                                    className="mt-1 font-mono text-xs min-h-[200px]"
-                                  />
-                                </div>
-                              </div>
-
-                              </div>
-                              <DialogFooter className="border-t pt-4">
-                                <Button
-                                  variant="outline"
-                                  className="min-h-11"
-                                  onClick={() => void copyTextToClipboard(log.rawData, 'Raw log data copied to clipboard', 'Could not copy raw log data')}
-                                >
-                                  Copy Raw Data
-                                </Button>
-                              </DialogFooter>
-                            </ScrollableDialogContent>
+                          </TableCell>
+                          <TableCell>
+                            <Badge
+                              variant="outline"
+                              className="whitespace-nowrap text-xs"
+                            >
+                              {getDomainLabel(log.source)}
+                            </Badge>
+                          </TableCell>
+                          <TableCell className="max-w-[300px]">
+                            <DialogTrigger asChild>
+                              <button
+                                type="button"
+                                className="min-h-11 w-full truncate rounded py-2 text-left transition-colors duration-200 hover:text-foreground hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                                aria-label="Open log details"
+                                title={log.message}
+                              >
+                                {log.message}
+                              </button>
+                            </DialogTrigger>
+                          </TableCell>
+                          <TableCell className="font-mono text-xs">
+                            {log.requestId ? (
+                              <Badge variant="secondary" className="text-xs" title={log.requestId}>
+                                {log.requestId.slice(-6)}
+                              </Badge>
+                            ) : (
+                              <span className="text-muted-foreground">—</span>
+                            )}
+                          </TableCell>
+                        </TableRow>
+                        {renderLogDetailsDialogContent(log)}
                       </Dialog>
                     ))}
                     {logs.length === 0 && !loading && (
                       <TableRow>
-                        <TableCell colSpan={5} className="text-center py-8">
+                        <TableCell colSpan={5} className="py-8 text-center">
                           {loadError ? (
                             <div className="flex flex-col items-center gap-2" role="alert">
                               <AlertTriangle className="h-5 w-5 text-red-500 dark:text-red-400" aria-hidden="true" />

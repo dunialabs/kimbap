@@ -72,7 +72,8 @@ func AsExecutionError(err error) *ExecutionError {
 	if err == nil {
 		return nil
 	}
-	if execErr, ok := err.(*ExecutionError); ok {
+	var execErr *ExecutionError
+	if errors.As(err, &execErr) {
 		return execErr
 	}
 	return NewExecutionError(
