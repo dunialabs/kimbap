@@ -64,10 +64,13 @@ function WelcomePageContent() {
               Kimbap Console
             </h1>
             <h2 className="mb-6 text-[40px] font-bold leading-tight text-slate-900 dark:text-foreground xl:text-[52px]">
-              Operations Console
+              Operator Workspace
             </h2>
-            <p className="text-[16px] leading-relaxed text-muted-foreground">
-              Review logs, handle approvals, manage policies, and monitor usage from one place.
+            <p className="mb-3 text-[16px] leading-relaxed text-muted-foreground">
+              Manage policies, approvals, logs, and usage for your Kimbap server from one place.
+            </p>
+            <p className="text-sm leading-6 text-muted-foreground">
+              Owners usually sign in with the master password. Admins can use an access token. Member tokens are for using the server, not managing this console.
             </p>
           </div>
         </div>
@@ -77,6 +80,12 @@ function WelcomePageContent() {
             <div className="p-4">
               <Image src="/new_logo.svg" alt="Kimbap Logo" width={226} height={32} className="block h-auto max-w-full dark:hidden" priority />
               <Image src="/darklogo.svg" alt="Kimbap Logo" width={226} height={32} className="hidden h-auto max-w-full dark:block" priority />
+            </div>
+            <div className="border-t border-border/60 px-4 pt-4 lg:hidden">
+              <h1 className="text-2xl font-semibold tracking-tight">Kimbap Console</h1>
+              <p className="mt-2 text-sm leading-6 text-muted-foreground">
+                Operator workspace for policies, approvals, logs, and usage. Owners usually sign in with the master password; admins use access tokens.
+              </p>
             </div>
             <div className="flex-1 flex flex-col justify-center items-center">
               <LoginForm

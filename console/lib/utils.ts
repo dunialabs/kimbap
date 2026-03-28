@@ -34,6 +34,12 @@ export function formatNullableText(value: string | null | undefined): string {
   return normalized ? normalized : '—'
 }
 
+export function formatResponseTime(ms: number | null | undefined): string {
+  if (ms == null || !Number.isFinite(ms)) return '—'
+  if (ms >= 1000) return `${(ms / 1000).toFixed(1)}s`
+  return `${Math.round(ms)}ms`
+}
+
 export function formatRelativeMinutes(totalMinutes: number | null | undefined): string {
   if (totalMinutes == null || !Number.isFinite(totalMinutes)) return '—'
 

@@ -466,9 +466,9 @@ function RuleCard({
             {rule.when.map((cond, ci) => (
               <div key={cond.id} className="flex flex-col items-stretch gap-2 sm:flex-row sm:items-end">
                 <div className="flex-1 space-y-1">
-                  <Label className="text-xs">Field</Label>
-                  <Input
-                    placeholder="e.g., $domain or example.com"
+                   <Label className="text-xs">Left side</Label>
+                   <Input
+                     placeholder="e.g., $domain or example.com"
                     value={cond.left}
                     onChange={(e) => {
                       const next = [...rule.when]

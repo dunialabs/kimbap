@@ -241,8 +241,15 @@ export function LoginForm({
         <h2 className="text-[24px] font-bold mb-[4px]">Sign in to Kimbap Console</h2>
         <p className="text-muted-foreground text-[14px]">
           {loginMode === 'password'
-            ? 'Use the master password to manage this console.'
-            : 'Use an access token when you already have one for this server.'}
+            ? 'Owners use the master password to manage policies, approvals, logs, and usage.'
+            : 'Use an owner or admin access token to open this console and review operator activity.'}
+        </p>
+      </div>
+
+      <div className="rounded-xl border border-border bg-muted/30 p-3">
+        <p className="text-sm font-medium text-foreground">Who signs in here?</p>
+        <p className="mt-1 text-sm leading-6 text-muted-foreground">
+          Owners usually use the master password. Admins can use an access token. Member tokens are for using the server rather than managing this console.
         </p>
       </div>
 
@@ -356,13 +363,13 @@ export function LoginForm({
         {/* Note and Error Messages */}
         {loginMode === 'password' && !loginError && (
           <p id="login-password-note" className="text-xs text-muted-foreground">
-            Use the master password when managing this console from the browser.
+            Owners use the master password when managing this console from the browser.
           </p>
         )}
 
         {loginMode === 'token' && !tokenError && (
           <p id="login-token-note" className="text-xs text-muted-foreground">
-            Use an access token from the server owner or admin.
+            Use an owner or admin access token issued for this server.
           </p>
         )}
 

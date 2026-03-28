@@ -279,9 +279,23 @@ export default function DashboardPage() {
     ? 'Checking the approval queue…'
     : hasPendingApprovals
     ? `Review ${formatDisplayNumber(pendingApprovalCount)} request${pendingApprovalCount === 1 ? '' : 's'} waiting on a decision.`
-    : 'No approvals are waiting right now.'
+    : 'No approvals yet. Requests that need an operator decision will appear here.'
   const localAddressText = isDashboardLoading ? 'Loading address…' : formatNullableText(localAddress)
   const remoteAddressText = isDashboardLoading ? 'Loading address…' : formatNullableText(remoteAddress)
+  const hasRecordedDashboardActivity =
+    (stats.apiRequests ?? 0) > 0 ||
+    (stats.connectedClients ?? 0) > 0 ||
+    toolsUsage.length > 0 ||
+    tokenUsage.length > 0 ||
+    recentActivity.length > 0 ||
+    hasPendingApprovals
+  const isEmptyDashboard =
+    !isDashboardLoading &&
+    !dashboardLoadError &&
+    !pendingApprovalError &&
+    (stats.configuredTools ?? 0) === 0 &&
+    !hasRecordedDashboardActivity
+
 
   const copyConnectionAddress = async (label: string, value: string | null) => {
     if (!value) {
@@ -415,6 +429,34 @@ export default function DashboardPage() {
         </div>
       ) : null}
 
+      {isEmptyDashboard ? (
+        <>
+          <Card className="border-dashed">
+            <CardHeader className="pb-3">
+              <CardTitle>No operator activity yet</CardTitle>
+              <CardDescription>
+                This server is connected, but no tools, approvals, logs, or recent clients have shown up yet.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <p className="text-sm text-muted-foreground">
+                Start by setting your first policy. When agents begin using the server, activity will appear here automatically.
+              </p>
+              <div className="flex flex-col gap-2 sm:flex-row">
+                <Link href="/dashboard/policies" className={cn(buttonVariants({ size: 'sm' }), 'min-h-11 px-4')}>
+                  Set first policy
+                </Link>
+                <Link href="/dashboard/logs" className={cn(buttonVariants({ variant: 'outline', size: 'sm' }), 'min-h-11 px-4')}>
+                  Open logs
+                </Link>
+              </div>
+            </CardContent>
+          </Card>
+
+          <GettingStartedCard />
+        </>
+      ) : null}
+
       {/* Server Metrics */}
       <Card>
         <CardHeader className="pb-4">
@@ -530,7 +572,7 @@ export default function DashboardPage() {
                     <Activity className="h-4 w-4" aria-hidden="true" />
                     <span className="text-sm font-semibold">Logs</span>
                   </div>
-                  <p className="text-xs text-muted-foreground">Investigate recent requests, errors, and live activity.</p>
+                  <p className="text-xs text-muted-foreground">Watch first requests, investigate errors, and inspect live activity.</p>
                 </div>
               </div>
             </Card>
@@ -546,7 +588,7 @@ export default function DashboardPage() {
                     <TrendingUp className="h-4 w-4" aria-hidden="true" />
                     <span className="text-sm font-semibold">Usage</span>
                   </div>
-                  <p className="text-xs text-muted-foreground">Review request volume, token activity, and tool trends.</p>
+                  <p className="text-xs text-muted-foreground">Review request volume, token activity, and tool trends once traffic starts.</p>
                 </div>
               </div>
             </Card>
@@ -562,7 +604,7 @@ export default function DashboardPage() {
                     <Shield className="h-4 w-4" aria-hidden="true" />
                     <span className="text-sm font-semibold">Policies</span>
                   </div>
-                  <p className="text-xs text-muted-foreground">Adjust allow, approval, and block rules for tool calls.</p>
+                  <p className="text-xs text-muted-foreground">Create your first policy or adjust allow, approval, and block rules for tool calls.</p>
                 </div>
               </div>
             </Card>
@@ -675,7 +717,7 @@ export default function DashboardPage() {
             </div>
           ) : !toolsUsage || toolsUsage.length === 0 ? (
             <div className="flex items-center justify-center py-8">
-              <p className="text-sm text-muted-foreground">No tool requests in the last 30 days yet.</p>
+              <p className="text-sm text-muted-foreground">No tool requests yet in the last 30 days. Activity will appear here after the first calls run.</p>
             </div>
           ) : (
             <div className="space-y-2">
@@ -734,7 +776,7 @@ export default function DashboardPage() {
             </div>
           ) : !tokenUsage || tokenUsage.length === 0 ? (
             <div className="flex items-center justify-center py-8">
-              <p className="text-sm text-muted-foreground">No access token activity in the last 30 days yet.</p>
+              <p className="text-sm text-muted-foreground">No access token activity yet in the last 30 days.</p>
             </div>
           ) : (
             <div className="space-y-2">
@@ -799,7 +841,7 @@ export default function DashboardPage() {
               </div>
             ) : !recentActivity || recentActivity.length === 0 ? (
               <div className="flex items-center justify-center py-8">
-                <p className="text-sm text-muted-foreground">No recent activity in the last 30 days yet.</p>
+                <p className="text-sm text-muted-foreground">No recent activity yet in the last 30 days. Logs and approvals will appear here once the server is in use.</p>
               </div>
             ) : (
               <div className="space-y-3">
@@ -841,7 +883,6 @@ export default function DashboardPage() {
           </CardContent>
       </Card>
 
-      <GettingStartedCard />
 
       <Dialog open={isClientsDialogOpen} onOpenChange={setIsClientsDialogOpen}>
         <DialogContent id="connected-clients-dialog" className="max-w-4xl max-h-[80vh] overflow-y-auto">
@@ -870,7 +911,7 @@ export default function DashboardPage() {
               </div>
             ) : connectedClients.length === 0 ? (
               <div className="flex items-center justify-center py-8">
-                <p className="text-sm text-muted-foreground">No clients seen in the last 24 hours.</p>
+                <p className="text-sm text-muted-foreground">No clients seen yet in the last 24 hours.</p>
               </div>
             ) : (
               <div className="overflow-x-auto">

@@ -1,9 +1,10 @@
 'use client'
 
-import { useEffect, useState } from 'react'
 import Link from 'next/link'
-import { Card, CardContent } from '@/components/ui/card'
+import { useEffect, useState } from 'react'
+
 import { Button, buttonVariants } from '@/components/ui/button'
+import { Card, CardContent } from '@/components/ui/card'
 import { cn } from '@/lib/utils'
 
 const STORAGE_KEY = 'kimbap_getting_started_dismissed'
@@ -11,21 +12,21 @@ const STORAGE_KEY = 'kimbap_getting_started_dismissed'
 const shortcuts = [
   {
     href: '/dashboard/policies',
-    title: 'Set Up Access Policies',
-    description: 'Define which tool calls are allowed, need approval, or are blocked.',
-    actionLabel: 'Open Policies'
+    title: 'Set up your first policy',
+    description: 'Start here on a new server. Decide which tool calls are allowed, require approval, or are blocked.',
+    actionLabel: 'Set first policy'
   },
   {
     href: '/dashboard/approvals',
-    title: 'Review Pending Approvals',
-    description: 'Check whether any requests are waiting on an operator decision.',
-    actionLabel: 'Open Approvals'
+    title: 'Check the approvals queue',
+    description: 'If any calls need operator review, they will appear here for approval or rejection.',
+    actionLabel: 'Open approvals'
   },
   {
     href: '/dashboard/logs',
-    title: 'Check Recent Logs',
-    description: 'Open live request and error logs to investigate issues quickly.',
-    actionLabel: 'Open Logs'
+    title: 'Watch the first requests in logs',
+    description: 'Once agents begin using the server, logs show requests, errors, and outcomes in one place.',
+    actionLabel: 'Open logs'
   }
 ]
 
@@ -61,10 +62,10 @@ export function GettingStartedCard() {
         <div className="mb-3 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
           <div className="flex-1">
             <h2 className="mb-1 text-lg font-semibold text-foreground sm:text-xl">
-              Operator shortcuts
+              Getting started
             </h2>
             <p className="text-sm leading-6 text-muted-foreground">
-              Open these common operator views to get oriented quickly.
+              Use these first steps to set up operator guardrails and confirm this server is ready for traffic.
             </p>
           </div>
           <Button
@@ -95,7 +96,7 @@ export function GettingStartedCard() {
               <div className="flex w-full justify-end sm:w-auto">
                 <Link
                   href={shortcut.href}
-                  className={cn(buttonVariants({ size: 'sm' }), 'min-h-11 w-[140px] justify-center px-4')}
+                  className={cn(buttonVariants({ size: 'sm' }), 'min-h-11 w-[148px] justify-center px-4')}
                 >
                   {shortcut.actionLabel}
                 </Link>
