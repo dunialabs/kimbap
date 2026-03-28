@@ -71,12 +71,12 @@ export function AuthLoginDialog({
 
   const handleSendVerificationCode = async () => {
     if (!email.trim()) {
-      setError('Please enter your email address')
+      setError('Enter your email address.')
       return
     }
 
     if (!validateEmail(email)) {
-      setError('Please enter a valid email address')
+      setError('Enter a valid email address.')
       return
     }
 
@@ -90,7 +90,7 @@ export function AuthLoginDialog({
 
   const handleVerifyCode = async () => {
     if (!verificationCode.trim()) {
-      setError('Please enter the verification code')
+      setError('Enter the verification code.')
       return
     }
 
@@ -206,7 +206,7 @@ export function AuthLoginDialog({
                 {isSendingCode ? (
                   <>
                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    Sending sign-in code...
+                    Send sign-in code
                   </>
                 ) : (
                   <>
@@ -279,12 +279,12 @@ export function AuthLoginDialog({
                 {isVerifyingCode ? (
                   <>
                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    Verifying code...
+                    Verify code
                   </>
                 ) : (
                   <>
                     <LogIn className="mr-2 h-4 w-4" />
-                    Sign in
+                    Verify code
                   </>
                 )}
               </Button>
@@ -296,7 +296,7 @@ export function AuthLoginDialog({
                   className="rounded-sm text-sm font-medium text-blue-600 transition-colors duration-200 hover:text-blue-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 dark:text-blue-400 dark:hover:text-blue-300"
                   disabled={isSendingCode || isVerifyingCode}
                 >
-                  {isSendingCode ? 'Resending code...' : 'Resend code'}
+                  Resend code
                 </button>
               </div>
             </form>

@@ -54,14 +54,14 @@ export function DashboardSidebar() {
             </Button>
           </SheetTrigger>
           <SheetContent side="left" className="flex w-[280px] flex-col p-0">
-            <SheetTitle className="sr-only">Navigation Menu</SheetTitle>
+            <SheetTitle className="sr-only">Navigation menu</SheetTitle>
             <SheetDescription className="sr-only">Browse dashboard sections, documentation links, and account actions.</SheetDescription>
             <div className="flex h-14 items-center border-b px-4">
               <Link
                 href="/dashboard"
                 className="flex min-h-11 items-center rounded-md transition-opacity duration-200 hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2"
                 onClick={() => setMobileMenuOpen(false)}
-                aria-label="Go to dashboard"
+                aria-label="Go to the dashboard home"
               >
                 <Image src="/new_logo.svg" width={237} height={34} alt="Kimbap Logo" className="block h-auto max-w-full dark:hidden" priority />
                 <Image src="/darklogo.svg" width={237} height={34} alt="Kimbap Logo" className="hidden h-auto max-w-full dark:block" priority />
@@ -88,20 +88,20 @@ export function DashboardSidebar() {
         <Link
           href="/dashboard"
           className="ml-3 flex min-h-11 items-center rounded-md transition-opacity duration-200 hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2"
-          aria-label="Go to dashboard"
+          aria-label="Go to the dashboard home"
         >
           <Image src="/new_logo.svg" width={160} height={23} alt="Kimbap Logo" className="block h-auto max-w-full dark:hidden" priority />
           <Image src="/darklogo.svg" width={160} height={23} alt="Kimbap Logo" className="hidden h-auto max-w-full dark:block" priority />
         </Link>
       </header>
 
-      <aside className="fixed inset-y-0 hidden w-[220px] border-r bg-background md:block lg:w-[280px]" aria-label="Dashboard sidebar">
+      <aside className="fixed inset-y-0 hidden w-[220px] border-r bg-background md:block lg:w-[280px]" aria-label="Dashboard navigation sidebar">
         <div className="flex h-full flex-col gap-2 overflow-y-auto">
           <div className="flex h-14 items-center border-b px-4 lg:h-[60px] lg:px-6">
             <Link
               href="/dashboard"
               className="flex min-w-0 flex-1 items-center gap-2 rounded-md font-semibold transition-opacity duration-200 hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2"
-              aria-label="Go to dashboard"
+              aria-label="Go to the dashboard home"
             >
               <Image src="/new_logo.svg" width={237} height={34} alt="Kimbap Logo" className="block h-auto max-w-full dark:hidden" priority />
               <Image src="/darklogo.svg" width={237} height={34} alt="Kimbap Logo" className="hidden h-auto max-w-full dark:block" priority />

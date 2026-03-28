@@ -57,17 +57,17 @@ export function MasterPasswordForm({ onSuccess }: MasterPasswordFormProps) {
     e.preventDefault()
 
     if (!masterPassword.trim()) {
-      setError('Please enter a master password')
+      setError('Enter a master password.')
       return
     }
 
     if (masterPassword !== confirmPassword) {
-      setError('Passwords do not match')
+      setError('Passwords do not match. Enter the same password in both fields.')
       return
     }
 
     if (masterPassword.length < 10) {
-      setError('Password must be at least 10 characters long')
+      setError('Choose a master password with at least 10 characters.')
       return
     }
 
@@ -91,7 +91,7 @@ export function MasterPasswordForm({ onSuccess }: MasterPasswordFormProps) {
       onSuccess()
     } catch (error: any) {
       setIsLoading(false)
-      setError(error.message || 'Could not create master password')
+      setError(error.message || 'Could not create the master password. Try again.')
     }
   }
 
@@ -117,7 +117,7 @@ export function MasterPasswordForm({ onSuccess }: MasterPasswordFormProps) {
             <Input
               id="master-password"
               type={showPassword ? 'text' : 'password'}
-              placeholder="At least 10 characters"
+              placeholder="e.g., correct-horse-battery-staple"
               ref={masterPasswordInputRef}
               value={masterPassword}
               onChange={(e) => {
@@ -167,7 +167,7 @@ export function MasterPasswordForm({ onSuccess }: MasterPasswordFormProps) {
             <Input
               id="confirm-password"
               type={showConfirmPassword ? 'text' : 'password'}
-              placeholder="Re-enter master password"
+              placeholder="e.g., correct-horse-battery-staple"
               value={confirmPassword}
               onChange={(e) => {
                 setConfirmPassword(e.target.value)
@@ -235,7 +235,7 @@ export function MasterPasswordForm({ onSuccess }: MasterPasswordFormProps) {
           {isLoading ? (
             <>
               <Loader2 className="mr-2 h-4 w-4 animate-spin" aria-hidden="true" />
-              Creating...
+              Create master password
             </>
           ) : (
             <>

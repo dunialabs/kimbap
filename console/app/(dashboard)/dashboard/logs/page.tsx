@@ -458,7 +458,7 @@ function LogsPageContent() {
       activeTab === 'statistics' ? loadStatistics() : Promise.resolve(true)
     ])
     if (logsOk && statsOk) {
-      toast.success('Logs refreshed')
+      toast.success('Logs refreshed.')
     }
   }
 
@@ -476,7 +476,7 @@ function LogsPageContent() {
     }
 
     if (noExportableLogs) {
-      toast.error('No logs available to download')
+      toast.error('No logs are available to download.')
       return
     }
 
@@ -517,9 +517,9 @@ function LogsPageContent() {
       a.click()
       document.body.removeChild(a)
 
-      toast.success(`Exported ${recordCount} log records`)
+      toast.success(`Exported ${recordCount} log records.`)
     } catch {
-      toast.error('Could not export logs')
+      toast.error('Could not export logs. Try again.')
     } finally {
       setExportLoading(false)
     }
@@ -562,7 +562,7 @@ function LogsPageContent() {
   ) => {
     try {
       if (!navigator?.clipboard?.writeText) {
-        toast.error('Clipboard not available')
+        toast.error('Clipboard is unavailable in this browser.')
         return
       }
 
@@ -684,7 +684,7 @@ function LogsPageContent() {
               className={`mr-2 h-4 w-4 ${loading ? 'animate-spin' : ''}`}
               aria-hidden="true"
             />
-            {loading ? 'Refreshing...' : 'Refresh'}
+            Refresh
           </Button>
           <Button
             variant="outline"
@@ -696,7 +696,7 @@ function LogsPageContent() {
             aria-label={exportLoadFailed ? 'Download logs disabled: retry loading logs before exporting' : noExportableLogs ? 'Download logs disabled: no logs available' : 'Download logs'}
           >
             <Download className="mr-2 h-4 w-4" />
-            {exportLoading ? 'Exporting...' : 'Download Logs'}
+            Download logs
           </Button>
         </div>
       </div>
@@ -754,7 +754,7 @@ function LogsPageContent() {
                     />
                     <Input
                       id="search"
-                      placeholder="Search request ID, user ID, error text, or user agent"
+                      placeholder="e.g., req_123, user_42, timeout, or curl/8.0"
                       value={searchTerm}
                       onChange={(e) => { setSearchTerm(e.target.value); setCurrentPage(1) }}
                       className="h-11 pl-10"
@@ -977,10 +977,10 @@ function LogsPageContent() {
                               <DialogHeader>
                                 <DialogTitle className="flex items-center gap-2">
                                   {getLevelIcon(log.level)}
-                                  Log Details - {formatLogTimestamp(log.timestamp)}
+                                  Log details
                                 </DialogTitle>
                                  <DialogDescription>
-                                   {getDomainLabel(log.source)} • {LOG_LEVEL_DISPLAY[log.level] ?? log.level}{log.requestId ? ` • ${log.requestId}` : ''}
+                                   {formatLogTimestamp(log.timestamp)} • {getDomainLabel(log.source)} • {LOG_LEVEL_DISPLAY[log.level] ?? log.level}{log.requestId ? ` • ${log.requestId}` : ''}
                                  </DialogDescription>
                               </DialogHeader>
 
@@ -1207,7 +1207,7 @@ function LogsPageContent() {
                   readOnly
                   aria-label="Raw log output"
                   className="min-h-[600px] font-mono text-xs"
-                  placeholder="No logs available..."
+                  
                 />
               )}
             </CardContent>
@@ -1317,7 +1317,7 @@ function LogsPageContent() {
               ) : !statistics?.hourlyStats || statistics.hourlyStats.length === 0 ? (
                 <div className="flex flex-col items-center justify-center h-[300px] text-muted-foreground">
                   <Activity className="h-12 w-12 mb-3 opacity-40" />
-                  <p className="text-sm">No log activity data in this period.</p>
+                  <p className="text-sm">No log activity is available for this period. Expand the time range or check back after more traffic arrives.</p>
                 </div>
               ) : (
                 <ResponsiveContainer width="100%" height={300}>
@@ -1359,7 +1359,7 @@ function LogsPageContent() {
                 </div>
               ) : !statistics?.domainStats || statistics.domainStats.length === 0 ? (
                 <div className="flex items-center justify-center py-8">
-                  <p className="text-sm text-muted-foreground">No log sources in this period.</p>
+                  <p className="text-sm text-muted-foreground">No log sources are available for this period. Expand the time range or check back after more traffic arrives.</p>
                 </div>
               ) : (
                 <div className="overflow-x-auto">

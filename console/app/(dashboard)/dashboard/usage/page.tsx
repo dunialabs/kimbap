@@ -268,7 +268,7 @@ function UsagePageContent() {
         setRecentActivityError(null)
       } else {
         setRecentActivity([])
-        setRecentActivityError('Unable to load recent activity. Check your connection and try again.')
+        setRecentActivityError('Could not load recent usage activity. Check your connection and retry.')
       }
     } catch (error) {
       setRecentActivity([])
@@ -339,7 +339,7 @@ function UsagePageContent() {
         </Select>
         <Button className="w-full sm:w-auto" variant="outline" onClick={handleRefresh} disabled={loading || refreshing}>
           <RefreshCw className={`mr-2 h-4 w-4 ${loading || refreshing ? 'animate-spin' : ''}`} />
-          {refreshing ? 'Refreshing...' : loading ? 'Loading overview...' : 'Refresh'}
+          Refresh
         </Button>
       </div>
       <div className="flex flex-wrap items-center gap-2">
@@ -490,7 +490,7 @@ function UsagePageContent() {
                   <Button variant="outline" size="sm" className="mt-2" onClick={handleRefresh}>Retry</Button>
                 </div>
               ) : (
-                <p className="text-sm text-muted-foreground">No tool requests in the selected range.</p>
+                <p className="text-sm text-muted-foreground">No tool requests are available in the selected range. Choose a wider time range or check back after more traffic arrives.</p>
               )}
             </div>
           ) : (
@@ -541,7 +541,7 @@ function UsagePageContent() {
                     <Button variant="outline" size="sm" className="mt-2" onClick={handleRefresh}>Retry</Button>
                   </div>
                 ) : (
-                  <p className="text-sm text-muted-foreground">No active tokens in the selected range.</p>
+                  <p className="text-sm text-muted-foreground">No active tokens are available in the selected range. Create or use a token, or choose a wider time range.</p>
                 )}
               </div>
             ) : (
@@ -592,7 +592,7 @@ function UsagePageContent() {
                     <Button variant="outline" size="sm" className="mt-2" onClick={handleRefresh}>Retry</Button>
                   </div>
                 ) : (
-                  <p className="text-sm text-muted-foreground">No recent activity in the selected range.</p>
+                  <p className="text-sm text-muted-foreground">No recent activity is available in the selected range. Open logs after new requests arrive, or choose a wider time range.</p>
                 )}
               </div>
             ) : (

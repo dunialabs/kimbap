@@ -527,7 +527,7 @@ function TokenUsagePageContent() {
             <SelectItem value="30">Last 30 days</SelectItem>
           </SelectContent>
         </Select>
-        <Button className="w-full sm:w-auto" variant="outline" onClick={handleRefresh} disabled={loading || refreshing}><RefreshCw className={`mr-2 h-4 w-4 ${loading || refreshing ? 'animate-spin' : ''}`} />{refreshing ? 'Refreshing...' : loading ? 'Loading overview...' : 'Refresh'}</Button>
+        <Button className="w-full sm:w-auto" variant="outline" onClick={handleRefresh} disabled={loading || refreshing}><RefreshCw className={`mr-2 h-4 w-4 ${loading || refreshing ? 'animate-spin' : ''}`} />Refresh</Button>
       </div>
       <p className="text-sm text-muted-foreground">Minute-level patterns are available only in the 24-hour view.</p>
       {!loading && loadError ? (
@@ -691,7 +691,7 @@ function TokenUsagePageContent() {
                       <Button variant="outline" size="sm" className="mt-2" onClick={handleRefresh}>Retry</Button>
                     </div>
                   ) : (
-                    <p className="text-sm text-muted-foreground">No token usage data in this period.</p>
+                    <p className="text-sm text-muted-foreground">No token usage data is available for this period. Choose a wider time range or use a token and check back.</p>
                   )}
                 </div>
               ) : (
@@ -746,7 +746,7 @@ function TokenUsagePageContent() {
                       <Button variant="outline" size="sm" className="mt-2" onClick={handleRefresh}>Retry</Button>
                     </div>
                   ) : (
-                    <p className="text-sm text-muted-foreground">No token usage data in this period.</p>
+                    <p className="text-sm text-muted-foreground">No token usage data is available for this period. Choose a wider time range or use a token and check back.</p>
                   )}
                 </div>
               ) : (
@@ -839,7 +839,7 @@ function TokenUsagePageContent() {
                   <Button variant="outline" size="sm" className="mt-2" onClick={handleRefresh}>Retry</Button>
                 </div>
               ) : (
-                <p className="text-sm text-muted-foreground">No client location data in this period.</p>
+                <p className="text-sm text-muted-foreground">No client location data is available for this period. Use a token from a client and check back.</p>
               )}
             </div>
           ) : (
@@ -857,7 +857,7 @@ function TokenUsagePageContent() {
                   <CardContent>
                     <div className="space-y-3">
                       {token.locations.length === 0 ? (
-                        <p className="text-sm text-muted-foreground text-center py-4">No client location data in this period.</p>
+                        <p className="text-sm text-muted-foreground text-center py-4">No client location data is available for this period. Use a token from a client and check back.</p>
                     ) : (
                       token.locations.map((location) => (
                         <div
@@ -919,7 +919,7 @@ function TokenUsagePageContent() {
                       <Button variant="outline" size="sm" className="mt-2" onClick={handleRefresh}>Retry</Button>
                     </div>
                   ) : (
-                    <p className="text-sm text-muted-foreground">No token usage trends in this period.</p>
+                    <p className="text-sm text-muted-foreground">No token usage trends are available for this period. Choose a wider time range or check back after more traffic arrives.</p>
                   )}
                 </div>
               ) : (
@@ -980,7 +980,7 @@ function TokenUsagePageContent() {
                   <Button variant="outline" size="sm" className="mt-2" onClick={handleRefresh}>Retry</Button>
                 </div>
               ) : (
-                <p className="text-sm text-muted-foreground">No tokens used in the last 24 hours for minute-level patterns.</p>
+                <p className="text-sm text-muted-foreground">No tokens were used in the last 24 hours, so minute-level patterns are unavailable. Use a token and refresh this view.</p>
               )}
             </div>
           ) : (
@@ -1025,7 +1025,7 @@ function TokenUsagePageContent() {
                               <Button variant="outline" size="sm" className="mt-2" onClick={handleRefresh}>Retry</Button>
                             </div>
                           ) : (
-                            <p className="text-sm text-muted-foreground">No minute-level usage data available.</p>
+                            <p className="text-sm text-muted-foreground">No minute-level usage data is available yet. Run more requests with this token and refresh the chart.</p>
                           )}
                         </div>
                       )}

@@ -42,7 +42,7 @@ export function TagInput({
   value,
   onChange,
   suggestions = [],
-  placeholder = 'Add tags...',
+  placeholder = 'e.g., prod',
   maxTags = 50,
   maxTagLength = 32,
   disabled = false,
@@ -169,7 +169,7 @@ export function TagInput({
         <Command shouldFilter={false}>
           <CommandInput
             ref={inputRef}
-            placeholder="Search or create tag..."
+            placeholder="e.g., prod-api"
             value={inputValue}
             onValueChange={setInputValue}
             onKeyDown={handleKeyDown}
@@ -178,8 +178,8 @@ export function TagInput({
             {availableSuggestions.length === 0 && !canAddAsNew && (
               <CommandEmpty>
                 {inputValue
-                  ? 'No matching tags found'
-                  : 'No more tags available'}
+                  ? 'No matching tags found. Try a different search or create a new tag.'
+                  : 'No more tags are available. Create a new tag to continue.'}
               </CommandEmpty>
             )}
 

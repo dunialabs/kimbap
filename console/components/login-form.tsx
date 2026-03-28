@@ -122,7 +122,7 @@ export function LoginForm({
       if (loginMode === 'password') {
         // Master password login
         if (!loginMasterPassword.trim()) {
-          setLoginError('Enter master password')
+          setLoginError('Enter your master password.')
           setIsLoggingIn(false)
           return
         }
@@ -132,7 +132,7 @@ export function LoginForm({
         const trimmedToken = token.trim()
 
         if (!trimmedToken) {
-          setTokenError('Enter access token')
+          setTokenError('Enter an access token.')
           setIsLoggingIn(false)
           return
         }
@@ -312,8 +312,8 @@ export function LoginForm({
             }
             placeholder={
               loginMode === 'password'
-                ? 'Enter master password'
-                : 'Enter access token'
+                ? 'e.g., correct-horse-battery-staple'
+                : 'e.g., kimbap_admin_123abc'
             }
             aria-describedby={credentialDescribedBy}
             aria-invalid={Boolean(activeError)}
@@ -386,7 +386,7 @@ export function LoginForm({
                     href="https://kimbap.sh/quick-start/#install-desk"
                     target="_blank"
                     rel="noopener noreferrer"
-                    aria-label="Download Kimbap Desk quick start guide (opens in new tab)"
+                    aria-label="Download the Kimbap Desk quick start guide (opens in a new tab)"
                     className="rounded-sm text-blue-600 underline hover:text-blue-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 dark:text-blue-400 dark:hover:text-blue-300 cursor-pointer font-medium"
                   >
                     download Kimbap Desk
@@ -418,7 +418,7 @@ export function LoginForm({
         {isLoggingIn ? (
           <>
             <Loader2 className="mr-2 h-4 w-4 animate-spin" aria-hidden="true" />
-            Signing in...
+            Sign in
           </>
         ) : (
           <>

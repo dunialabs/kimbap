@@ -569,7 +569,7 @@ export default function ApprovalsPage() {
             disabled={loading || loadingMore || refreshing}
           >
             <RefreshCw className={`h-4 w-4 mr-2 ${loading || loadingMore || refreshing ? 'animate-spin' : ''}`} />
-            {refreshing ? 'Refreshing...' : 'Refresh'}
+            Refresh
           </Button>
         </div>
       </div>
@@ -655,7 +655,7 @@ export default function ApprovalsPage() {
                    <Label htmlFor="approvals-user-filter" className="text-xs">User ID</Label>
                    <Input
                      id="approvals-user-filter"
-                     placeholder="Any user (or click a badge)"
+                     placeholder="e.g., user_123"
                     value={userFilter}
                     onChange={(e) => setUserFilter(e.target.value)}
                     className="h-11 text-sm"
@@ -692,7 +692,7 @@ export default function ApprovalsPage() {
             <div className="flex items-center justify-center min-h-[200px]" role="status">
               <div className="text-center">
                 <Loader2 className="h-8 w-8 animate-spin mx-auto mb-3 text-muted-foreground" aria-hidden="true" />
-                <p className="text-sm text-muted-foreground">Loading the approval queue...</p>
+                <p className="text-sm text-muted-foreground">Loading the approval queue…</p>
               </div>
             </div>
           ) : requests.length === 0 ? (
@@ -903,7 +903,7 @@ export default function ApprovalsPage() {
                               variant="ghost"
                               size="sm"
                               className="min-h-11 px-3 text-xs"
-                              aria-label="View details"
+                              aria-label="View request details"
                               onClick={() => setDetailDialog(r)}
                             >
                               <Eye className="mr-1 h-3.5 w-3.5" />
@@ -951,7 +951,7 @@ export default function ApprovalsPage() {
           </p>
           {hasMore && (
             <Button variant="outline" size="sm" className="min-h-11" onClick={handleLoadMore} disabled={loadingMore || refreshing}>
-              {loadingMore ? (<><Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" aria-hidden="true" />Loading...</>) : 'Load more'}
+              {loadingMore ? (<><Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" aria-hidden="true" />Load more</>) : 'Load more'}
             </Button>
           )}
         </div>
@@ -962,13 +962,13 @@ export default function ApprovalsPage() {
         {detailDialog && (
           <DialogContent className="max-w-lg">
             <DialogHeader>
-              <DialogTitle className="flex items-center gap-2 font-mono text-base">
-                 {detailDialog.toolName}
+              <DialogTitle className="flex items-center gap-2 text-base">
+                 Review approval request
                  <span className="font-sans text-sm font-normal not-italic">{statusBadge(detailDialog.status)}</span>
-               </DialogTitle>
-               <DialogDescription>
-                 Approval request{detailDialog.serverId?.trim() ? ` on server ${detailDialog.serverId}` : ''}
-               </DialogDescription>
+                </DialogTitle>
+                <DialogDescription>
+                  {detailDialog.toolName}{detailDialog.serverId?.trim() ? ` on server ${detailDialog.serverId}` : ''}
+                </DialogDescription>
             </DialogHeader>
             <div className="space-y-4 py-2">
               <div className="grid grid-cols-1 gap-3 text-sm sm:grid-cols-2">
@@ -1084,7 +1084,7 @@ export default function ApprovalsPage() {
                     <Label htmlFor="approval-detail-decision-reason">Decision reason (optional)</Label>
                     <Textarea
                       id="approval-detail-decision-reason"
-                      placeholder="Add a reason for this decision..."
+                      placeholder="e.g., Needed for an incident fix"
                       value={detailDecideReason}
                       onChange={(e) => setDetailDecideReason(e.target.value)}
                       rows={2}
@@ -1104,7 +1104,7 @@ export default function ApprovalsPage() {
                       ) : (
                         <CheckCircle2 className="mr-1.5 h-3.5 w-3.5" />
                       )}
-                      {detailDeciding && detailDecisionAction === 'APPROVED' ? 'Approving...' : 'Approve'}
+                      Approve
                     </Button>
                     <Button
                       size="sm"
@@ -1118,7 +1118,7 @@ export default function ApprovalsPage() {
                       ) : (
                         <XCircle className="mr-1.5 h-3.5 w-3.5" />
                       )}
-                      {detailDeciding && detailDecisionAction === 'REJECTED' ? 'Rejecting...' : 'Reject'}
+                      Reject
                     </Button>
                   </div>
                 </div>
@@ -1138,20 +1138,20 @@ export default function ApprovalsPage() {
         {decideDialog && (
           <DialogContent className="max-w-md">
             <DialogHeader>
-              <DialogTitle className="font-mono text-base">
-                {decideDialog.request.toolName}
+              <DialogTitle className="text-base">
+                {decideDialog.decision === 'APPROVED' ? 'Approve request' : 'Reject request'}
               </DialogTitle>
               <DialogDescription>
                 {decideDialog.decision === 'APPROVED'
-                  ? `Allow this tool call to proceed?`
-                  : `Deny this tool call?`}
+                  ? `Allow ${decideDialog.request.toolName} to proceed?`
+                  : `Deny ${decideDialog.request.toolName}?`}
               </DialogDescription>
             </DialogHeader>
             <div className="space-y-3 py-2">
               <div className="space-y-1.5">
                 <Label>Decision reason (optional)</Label>
                 <Textarea
-                  placeholder="Add a reason for this decision..."
+                  placeholder="e.g., Needed for an incident fix"
                   value={decideReason}
                   onChange={(e) => setDecideReason(e.target.value)}
                   ref={decideReasonRef}
@@ -1172,7 +1172,7 @@ export default function ApprovalsPage() {
                   {deciding ? (
                     <>
                       <Loader2 className="mr-2 h-4 w-4 animate-spin" aria-hidden="true" />
-                      Approving...
+                      Approve
                     </>
                   ) : 'Approve'}
                 </Button>
@@ -1181,7 +1181,7 @@ export default function ApprovalsPage() {
                   {deciding ? (
                     <>
                       <Loader2 className="mr-2 h-4 w-4 animate-spin" aria-hidden="true" />
-                      Rejecting...
+                      Reject
                     </>
                   ) : 'Reject'}
                 </Button>

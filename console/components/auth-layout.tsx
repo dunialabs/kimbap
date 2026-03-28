@@ -39,7 +39,7 @@ export function AuthLayout({ children }: AuthLayoutProps) {
           <Link
             href="/"
             className="inline-block rounded-md transition-opacity duration-200 hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2"
-            aria-label="Go to sign in"
+            aria-label="Go to the sign-in screen"
           >
             <Image src="/new_logo.svg" alt="Kimbap Logo" width={239} height={34} className="block h-auto max-w-full dark:hidden" priority />
             <Image src="/darklogo.svg" alt="Kimbap Logo" width={239} height={34} className="hidden h-auto max-w-full dark:block" priority />

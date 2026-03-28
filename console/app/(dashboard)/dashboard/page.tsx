@@ -322,7 +322,7 @@ export default function DashboardPage() {
       }
 
       await navigator.clipboard.writeText(value)
-      toast.success(`${label} copied`)
+      toast.success(`${label} copied.`)
     } catch {
       toast.error(`Could not copy ${label.toLowerCase()}. Try again.`)
     }
@@ -550,7 +550,7 @@ export default function DashboardPage() {
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
           <Link
             href="/dashboard/approvals"
-            aria-label={!isPendingApprovalLoading && hasPendingApprovals ? `Review Approvals, ${pendingApprovalCount} pending` : undefined}
+            aria-label={!isPendingApprovalLoading && hasPendingApprovals ? `Review approvals, ${pendingApprovalCount} pending` : undefined}
             className="block rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2"
           >
             <Card
@@ -690,7 +690,7 @@ export default function DashboardPage() {
             onClick={() => setIsClientsDialogOpen(true)}
             aria-haspopup="dialog"
             aria-controls="connected-clients-dialog"
-            aria-label={`Open recent clients dialog${stats.connectedClients == null ? "" : `, ${formatDisplayNumber(stats.connectedClients)} clients seen in the last 24 hours`}`}
+            aria-label={`Open recent client details${stats.connectedClients == null ? "" : `, ${formatDisplayNumber(stats.connectedClients)} clients seen in the last 24 hours`}`}
           >
             <Card className="p-4 cursor-pointer hover:bg-muted/50 transition-colors h-full">
               <div className="flex items-center justify-between h-full">
@@ -794,7 +794,7 @@ export default function DashboardPage() {
             </div>
           ) : !tokenUsage || tokenUsage.length === 0 ? (
             <div className="flex items-center justify-center py-8">
-              <p className="text-sm text-muted-foreground">No access token activity yet in the last 30 days.</p>
+              <p className="text-sm text-muted-foreground">No access token activity yet in the last 30 days. Create or use a token to see activity here.</p>
             </div>
           ) : (
             <div className="space-y-2">
@@ -920,7 +920,7 @@ export default function DashboardPage() {
               </div>
             ) : connectedClients.length === 0 ? (
               <div className="flex items-center justify-center py-8">
-                <p className="text-sm text-muted-foreground">No clients seen yet in the last 24 hours.</p>
+                <p className="text-sm text-muted-foreground">No clients have connected in the last 24 hours. Connect a client and run a request to populate this list.</p>
               </div>
             ) : (
               <div className="overflow-x-auto">

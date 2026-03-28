@@ -64,7 +64,7 @@ export function SidebarNav({ onNavigate, pendingApprovalCount = 0 }: SidebarNavP
   }
 
   return (
-    <nav className="px-2 text-sm font-medium lg:px-4" aria-label="Dashboard">
+    <nav className="px-2 text-sm font-medium lg:px-4" aria-label="Dashboard navigation">
       <ul className="grid items-start gap-1">
         {navItems.map((item) => {
           const isExpanded = expandedItems.includes(item.href)
@@ -97,7 +97,7 @@ export function SidebarNav({ onNavigate, pendingApprovalCount = 0 }: SidebarNavP
                       onClick={() => toggleExpanded(item.href)}
                       aria-expanded={isExpanded}
                       aria-controls={subnavId}
-                      aria-label={`${isExpanded ? 'Collapse' : 'Expand'} ${item.label} section`}
+                      aria-label={`${isExpanded ? 'Collapse' : 'Expand'} the ${item.label} section`}
                       className={cn(
                         'h-11 w-11 rounded-lg transition-colors duration-200',
                         'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2',
@@ -141,7 +141,7 @@ export function SidebarNav({ onNavigate, pendingApprovalCount = 0 }: SidebarNavP
                   href={item.href}
                   onClick={onNavigate}
                   aria-current={pathname === item.href ? 'page' : undefined}
-                  aria-label={item.label === 'Approvals' && pendingApprovalCount > 0 ? `Approvals, ${pendingApprovalCount} pending` : undefined}
+                  aria-label={item.label === 'Approvals' && pendingApprovalCount > 0 ? `Open approvals, ${pendingApprovalCount} pending` : undefined}
                   className={cn(
                     'flex min-h-11 items-center gap-3 rounded-lg px-3 py-2 text-foreground transition-colors duration-200',
                     'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2',
@@ -176,7 +176,7 @@ export function SidebarNav({ onNavigate, pendingApprovalCount = 0 }: SidebarNavP
               href="https://docs.kimbap.sh"
               target="_blank"
               rel="noopener noreferrer"
-              aria-label="Documentation (opens in new tab)"
+              aria-label="Documentation (opens in a new tab)"
               className="mb-1 flex min-h-11 items-center gap-3 rounded-lg px-3 py-2 text-muted-foreground transition-colors duration-200 hover:bg-accent/70 hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2"
             >
               <BookOpen className="h-4 w-4" aria-hidden="true" focusable="false" />

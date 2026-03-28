@@ -94,7 +94,7 @@ export function ResetTokenDialog({
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Key className="h-5 w-5" />
-            Reconnect access token
+            Reconnect with a new access token
           </DialogTitle>
           <DialogDescription>
             Connection to <strong>{serverName}</strong> failed. Enter a new access token to reconnect.
@@ -197,7 +197,7 @@ export function ResetTokenDialog({
               {isResetting ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Reconnecting...
+                  Reconnect
                 </>
               ) : (
                 <>

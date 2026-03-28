@@ -512,7 +512,7 @@ function ToolUsagePageContent() {
             <SelectItem value="30">Last 30 days</SelectItem>
           </SelectContent>
         </Select>
-        <Button className="w-full sm:w-auto" variant="outline" onClick={handleRefresh} disabled={loading || refreshing}><RefreshCw className={`mr-2 h-4 w-4 ${loading || refreshing ? 'animate-spin' : ''}`} />{refreshing ? 'Refreshing...' : loading ? 'Loading overview...' : 'Refresh'}</Button>
+        <Button className="w-full sm:w-auto" variant="outline" onClick={handleRefresh} disabled={loading || refreshing}><RefreshCw className={`mr-2 h-4 w-4 ${loading || refreshing ? 'animate-spin' : ''}`} />Refresh</Button>
       </div>
 
       {!loading && loadError ? (
@@ -636,7 +636,7 @@ function ToolUsagePageContent() {
                       <Button variant="outline" size="sm" className="mt-2" onClick={handleRefresh}>Retry</Button>
                     </div>
                   ) : (
-                    <p className="text-sm text-muted-foreground">No tool usage data in the selected range.</p>
+                    <p className="text-sm text-muted-foreground">No tool usage data is available in the selected range. Choose a wider time range or check back after more traffic arrives.</p>
                   )}
                 </div>
               ) : (
@@ -688,7 +688,7 @@ function ToolUsagePageContent() {
                       <Button variant="outline" size="sm" className="mt-2" onClick={handleRefresh}>Retry</Button>
                     </div>
                   ) : (
-                    <p className="text-sm text-muted-foreground">No tool usage data in the selected range.</p>
+                    <p className="text-sm text-muted-foreground">No tool usage data is available in the selected range. Choose a wider time range or check back after more traffic arrives.</p>
                   )}
                 </div>
               ) : (
@@ -762,7 +762,7 @@ function ToolUsagePageContent() {
                       <Button variant="outline" size="sm" className="mt-2" onClick={handleRefresh}>Retry</Button>
                     </div>
                   ) : (
-                    <p className="text-sm text-muted-foreground">No response time data in the selected range.</p>
+                    <p className="text-sm text-muted-foreground">No response time data is available in the selected range. Choose a wider time range or check back after more traffic arrives.</p>
                   )}
                 </div>
               ) : (
@@ -802,7 +802,7 @@ function ToolUsagePageContent() {
                       <Button variant="outline" size="sm" className="mt-2" onClick={handleRefresh}>Retry</Button>
                     </div>
                   ) : (
-                    <p className="text-sm text-muted-foreground">No request outcome data in the selected range.</p>
+                    <p className="text-sm text-muted-foreground">No request outcome data is available in the selected range. Choose a wider time range or check back after more traffic arrives.</p>
                   )}
                 </div>
               ) : (
@@ -841,7 +841,7 @@ function ToolUsagePageContent() {
                     <Button variant="outline" size="sm" className="mt-2" onClick={handleRefresh}>Retry</Button>
                   </div>
                 ) : (
-                  <p className="text-sm text-muted-foreground">No tool error analysis data in the selected range.</p>
+                  <p className="text-sm text-muted-foreground">No tool error analysis data is available in the selected range. Run more tool requests or choose a wider time range.</p>
                 )}
               </CardContent>
             </Card>
@@ -887,7 +887,7 @@ function ToolUsagePageContent() {
                       <Button variant="outline" size="sm" className="mt-2" onClick={handleRefresh}>Retry</Button>
                     </div>
                   ) : (
-                    <p className="text-sm text-muted-foreground">No tool usage trends in the selected range.</p>
+                    <p className="text-sm text-muted-foreground">No tool usage trends are available in the selected range. Choose a wider time range or check back after more traffic arrives.</p>
                   )}
                 </div>
               ) : (
@@ -938,7 +938,7 @@ function ToolUsagePageContent() {
             <CardContent>
               <div className="mb-3 grid grid-cols-1 gap-2 md:grid-cols-3">
                 <Select value={actionLogToolId} onValueChange={(value) => { setActionLogToolId(value); setActionLogType('all'); setActionLogsPage(1) }}>
-                  <SelectTrigger aria-label="Filter by tool"><SelectValue placeholder="Filter by tool" /></SelectTrigger>
+                  <SelectTrigger aria-label="Filter action logs by tool"><SelectValue placeholder="Filter by tool" /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="all">All tools</SelectItem>
                     {actionToolOptions.map((tool) => (
@@ -947,7 +947,7 @@ function ToolUsagePageContent() {
                   </SelectContent>
                 </Select>
                 <Select value={actionLogStatus} onValueChange={(value: 'all' | 'success' | 'failed') => { setActionLogStatus(value); setActionLogType('all'); setActionLogsPage(1) }}>
-                  <SelectTrigger aria-label="Filter by status"><SelectValue placeholder="Filter by status" /></SelectTrigger>
+                  <SelectTrigger aria-label="Filter action logs by status"><SelectValue placeholder="Filter by status" /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="all">All status</SelectItem>
                     <SelectItem value="success">Success</SelectItem>
@@ -955,7 +955,7 @@ function ToolUsagePageContent() {
                   </SelectContent>
                 </Select>
                 <Select value={actionLogType} onValueChange={(value) => { setActionLogType(value); setActionLogsPage(1) }}>
-                  <SelectTrigger aria-label="Filter by action"><SelectValue placeholder="Filter by action" /></SelectTrigger>
+                  <SelectTrigger aria-label="Filter action logs by action"><SelectValue placeholder="Filter by action" /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="all">All actions</SelectItem>
                     {actionTypeOptions.map((actionType) => (
@@ -1008,7 +1008,7 @@ function ToolUsagePageContent() {
                       <Button variant="ghost" size="sm" className="mt-2" onClick={clearActionFilters}>Reset filters</Button>
                     </div>
                   ) : (
-                    <p className="text-sm text-muted-foreground">No tool action logs in the selected range.</p>
+                    <p className="text-sm text-muted-foreground">No tool action logs are available in the selected range. Choose a wider time range or check back after more activity.</p>
                   )}
                 </div>
               ) : (

@@ -86,6 +86,22 @@ interface ToolTestResponse {
   invalidParams: string[]
 }
 
+
+function getToolParamPlaceholder(param: ToolDefinition['parameters'][number]): string {
+  switch (param.type) {
+    case 'number':
+      return 'e.g., 10'
+    case 'boolean':
+      return 'e.g., true'
+    case 'array':
+      return 'e.g., value1,value2'
+    case 'object':
+      return 'e.g., {"key":"value"}'
+    default:
+      return `e.g., ${param.name}`
+  }
+}
+
 const validationStatusConfig: Record<
   RestApiValidationReport['summary'],
   { label: string; badgeClass: string; icon: ComponentType<{ className?: string }> }
@@ -417,12 +433,12 @@ export function RestApiValidationPanel({
                   {isTestingConnection ? (
                     <>
                       <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                      Testing...
+                      Test connection
                     </>
                   ) : (
                     <>
                       <PlugZap className="mr-2 h-4 w-4" />
-                      Test Connection
+                      Test connection
                     </>
                   )}
                 </Button>
@@ -515,7 +531,7 @@ export function RestApiValidationPanel({
                     disabled={!parsedConfig || disabled}
                     onClick={() => openToolDialog(tool)}
                   >
-                    Test Tool
+                    Test tool
                   </Button>
                 </div>
                 {tool.description && <p className="mt-2 text-xs text-muted-foreground">{tool.description}</p>}
@@ -530,10 +546,10 @@ export function RestApiValidationPanel({
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2 text-base">
               <Wrench className="h-4 w-4 text-primary" />
-              Test Tool
+              Test tool
             </DialogTitle>
             <DialogDescription>
-              Provide sample parameters and execute the tool against your API to verify responses.
+              Provide sample parameters and run the tool against your API to verify the response.
             </DialogDescription>
           </DialogHeader>
 
@@ -566,7 +582,7 @@ export function RestApiValidationPanel({
                       <Input
                         value={toolParamInputs[param.name] ?? ''}
                         onChange={(event) => handleToolParamChange(param.name, event.target.value)}
-                        placeholder={param.description || `Enter ${param.name} (${param.type})`}
+                        placeholder={getToolParamPlaceholder(param)}
                       />
                       <p className="text-[0.65rem] text-muted-foreground">Type: {param.type}</p>
                     </div>
@@ -637,10 +653,10 @@ export function RestApiValidationPanel({
               {isTestingTool ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Testing...
+                  Execute tool
                 </>
               ) : (
-                'Execute Tool'
+                'Execute tool'
               )}
             </Button>
           </DialogFooter>

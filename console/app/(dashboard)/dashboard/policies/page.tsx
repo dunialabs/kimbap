@@ -792,12 +792,12 @@ export default function PoliciesPage() {
           id: editingId,
           dsl: { schemaVersion: 1 as const, rules: serializeRules(orderedRules) },
         })
-        toast.success(`Policy updated: ${policyTitle}`)
+        toast.success(`Updated policy: ${policyTitle}.`)
       } else {
         await api.policies.create({
           dsl: { schemaVersion: 1 as const, rules: serializeRules(orderedRules) },
         })
-        toast.success(`Policy created: ${policyTitle}`)
+        toast.success(`Created policy: ${policyTitle}.`)
       }
       setIsDirty(false)
       setDialogOpen(false)
@@ -822,7 +822,7 @@ export default function PoliciesPage() {
       await api.policies.update({ id: p.id, status: nextStatus })
       setPolicies((prev) => prev.map((x) => (x.id === p.id ? { ...x, status: nextStatus } : x)))
       const toggledTitle = generatePolicyTitle(deserializeRules(p.dsl?.rules || []))
-      toast.success(`${toggledTitle}: ${nextStatus === 'active' ? 'enabled' : 'disabled'}`)
+      toast.success(`${nextStatus === 'active' ? 'Enabled' : 'Disabled'} policy: ${toggledTitle}.`)
     } catch (error: unknown) {
       toast.error(
         getRequestErrorMessage(error, {
@@ -847,7 +847,7 @@ export default function PoliciesPage() {
     try {
       const deletedTitle = generatePolicyTitle(deserializeRules(deleteTarget.dsl?.rules || []))
       await api.policies.delete(deleteTarget.id)
-      toast.success(`Policy deleted: ${deletedTitle}`)
+      toast.success(`Deleted policy: ${deletedTitle}.`)
       setDeleteDialogOpen(false)
       setDeleteTarget(null)
       fetchPolicies()
@@ -949,7 +949,7 @@ export default function PoliciesPage() {
             <div className="flex min-h-[200px] items-center justify-center">
               <div className="text-center">
                 <Loader2 className="mx-auto mb-3 h-8 w-8 animate-spin text-muted-foreground" />
-                <p className="text-sm text-muted-foreground">Loading access policies...</p>
+                <p className="text-sm text-muted-foreground">Loading access policies…</p>
               </div>
             </div>
           ) : orderedPolicies.length === 0 ? (
@@ -1013,7 +1013,7 @@ export default function PoliciesPage() {
                       </TableCell>
                       <TableCell>
                         {rules.length === 0 ? (
-                          <p className="text-sm text-muted-foreground">No rules defined</p>
+                          <p className="text-sm text-muted-foreground">No rules defined yet. Open this policy to add your first rule.</p>
                         ) : (
                           <div className="space-y-1.5">
                             {rules.slice(0, 2).map((rule) => {
@@ -1112,7 +1112,7 @@ export default function PoliciesPage() {
         <ScrollableDialogContent className="max-w-2xl p-0">
           <div className="border-b px-6 pb-4 pt-6">
             <DialogHeader>
-              <DialogTitle>{editingId ? 'Edit Access Policy' : 'Create Access Policy'}</DialogTitle>
+              <DialogTitle>{editingId ? 'Edit access policy' : 'Create access policy'}</DialogTitle>
               <DialogDescription>
                 {editingId
                   ? 'Update the rules for this access policy.'
@@ -1192,7 +1192,7 @@ export default function PoliciesPage() {
               </Button>
               <Button className="min-h-11 w-full sm:w-auto" onClick={handleSave} disabled={saving || formRules.length === 0}>
                 {saving ? (
-                  <><Loader2 className="mr-2 h-4 w-4 animate-spin" aria-hidden="true" />Saving...</>
+                  <><Loader2 className="mr-2 h-4 w-4 animate-spin" aria-hidden="true" />{editingId ? 'Save changes' : 'Create policy'}</>
                 ) : editingId ? 'Save Changes' : 'Create Policy'}
               </Button>
             </div>
@@ -1203,7 +1203,7 @@ export default function PoliciesPage() {
       <AlertDialog open={deleteDialogOpen} onOpenChange={(open) => { if (!deleting) setDeleteDialogOpen(open) }}>
         <AlertDialogContent className="max-w-md">
           <AlertDialogHeader>
-             <AlertDialogTitle>Delete Policy</AlertDialogTitle>
+             <AlertDialogTitle>Delete policy</AlertDialogTitle>
              <AlertDialogDescription>
                {deleteTarget && (
                  <span className="font-medium text-foreground">
@@ -1226,7 +1226,7 @@ export default function PoliciesPage() {
               {deleting ? (
                 <span className="inline-flex items-center gap-2">
                   <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
-                  Deleting...
+                  Delete
                 </span>
               ) : 'Delete'}
             </AlertDialogAction>
@@ -1239,7 +1239,7 @@ export default function PoliciesPage() {
           <AlertDialogHeader>
             <AlertDialogTitle>Discard changes?</AlertDialogTitle>
             <AlertDialogDescription>
-              Your unsaved changes will be lost.
+              Your unsaved changes will be lost. Continue editing or discard them.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
