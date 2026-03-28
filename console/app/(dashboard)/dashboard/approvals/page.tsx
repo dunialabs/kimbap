@@ -44,6 +44,7 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { Textarea } from '@/components/ui/textarea';
+import { useDebounce } from '@/hooks/use-debounce';
 import { cn, formatDateTime, formatDisplayNumber, formatNullableText, formatRelativeMinutes } from '@/lib/utils';
 
 // ─── Types ──────────────────────────────────────────────
@@ -259,6 +260,7 @@ export default function ApprovalsPage() {
   const [hasMore, setHasMore] = useState(false);
   const [statusFilter, setStatusFilter] = useState<StatusFilter>(DEFAULT_STATUS_FILTER);
   const [userFilter, setUserFilter] = useState('');
+  const debouncedUserFilter = useDebounce(userFilter, 300);
   const [detailDialog, setDetailDialog] = useState<ApprovalRequest | null>(null);
   const [decideDialog, setDecideDialog] = useState<{
     request: ApprovalRequest;
@@ -339,7 +341,7 @@ export default function ApprovalsPage() {
       const pageSize = options?.pageSize ?? BASE_PAGE_SIZE;
       const append = options?.append === true;
       const status = options?.status ?? statusFilter;
-      const userId = options?.userId ?? userFilter;
+      const userId = options?.userId ?? debouncedUserFilter;
 
       if (append) {
         setLoadingMore(true);
@@ -406,7 +408,7 @@ export default function ApprovalsPage() {
         setLoadingMore(false);
       }
     },
-    [statusFilter, userFilter],
+    [statusFilter, debouncedUserFilter],
   );
 
   useEffect(() => {
@@ -420,7 +422,7 @@ export default function ApprovalsPage() {
       page: 1,
       pageSize: BASE_PAGE_SIZE,
       status: statusFilter,
-      userId: userFilter,
+      userId: debouncedUserFilter,
     });
 
     refreshTimerRef.current = setInterval(() => {
@@ -428,7 +430,7 @@ export default function ApprovalsPage() {
         page: 1,
         pageSize: loadedPagesRef.current * BASE_PAGE_SIZE,
         status: statusFilter,
-        userId: userFilter,
+        userId: debouncedUserFilter,
       });
     }, 30000);
     tickRef.current = setInterval(() => {
@@ -443,7 +445,7 @@ export default function ApprovalsPage() {
       if (refreshTimerRef.current) clearInterval(refreshTimerRef.current);
       if (tickRef.current) clearInterval(tickRef.current);
     };
-  }, [fetchData, statusFilter, userFilter]);
+  }, [fetchData, statusFilter, debouncedUserFilter]);
 
   useEffect(() => {
     if (!decideDialog) {
