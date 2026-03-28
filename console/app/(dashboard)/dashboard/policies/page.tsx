@@ -396,7 +396,7 @@ function RuleCard({
           className="flex min-h-11 min-w-0 flex-1 items-center gap-2 rounded text-left transition-colors duration-200 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
         >
           {expanded ? <ChevronUp className="h-4 w-4 shrink-0" /> : <ChevronDown className="h-4 w-4 shrink-0" />}
-          <span className="shrink-0 text-sm font-medium">Rule {index + 1}</span>
+          <span className="shrink-0 text-sm font-medium">Rule Rule {index + 1}</span>
           <Badge variant="secondary" className="shrink-0 text-[11px]">
             {index === 0 ? 'First match' : `Priority ${index + 1}`}
           </Badge>
@@ -1193,7 +1193,7 @@ export default function PoliciesPage() {
                                    return (
                                      <div key={rule.id} className="flex items-center gap-2 text-sm flex-wrap">
                                         <Badge variant="secondary" className="px-1.5 py-0 text-[10px] leading-5">
-                                          #{rules.findIndex((candidate) => candidate.id === rule.id) + 1}
+                                          #Rule {rules.findIndex((candidate) => candidate.id === rule.id) + 1}
                                         </Badge>
                                        <Badge
                                          variant="outline"

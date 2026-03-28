@@ -1099,7 +1099,7 @@ export default function ApprovalsPage() {
               {Object.keys(redactArgs(detailDialog.redactedArgs || {})).length > 0 && (
                 <div>
                   <Label className="text-xs text-muted-foreground">Tool Arguments (Redacted)</Label>
-                  <pre className="mt-1 text-xs bg-muted/50 p-3 rounded-md overflow-x-auto font-mono max-h-48 whitespace-pre-wrap break-all">
+                  <pre className="mt-1 max-h-48 overflow-x-auto rounded-md bg-muted/50 p-3 font-mono text-[11px] leading-relaxed whitespace-pre-wrap break-all">
                     {JSON.stringify(redactArgs(detailDialog.redactedArgs || {}), null, 2)}
                   </pre>
                 </div>
@@ -1185,7 +1185,7 @@ export default function ApprovalsPage() {
               {Object.keys(redactArgs(decideDialog.request.redactedArgs || {})).length > 0 && (
                 <div className="space-y-1">
                   <Label className="text-xs text-muted-foreground">Tool arguments</Label>
-                  <pre className="max-h-36 overflow-auto rounded-md bg-muted/50 p-2 font-mono text-xs whitespace-pre-wrap break-all">
+                  <pre className="max-h-36 overflow-auto rounded-md bg-muted/50 p-2 font-mono text-[11px] leading-relaxed whitespace-pre-wrap break-all">
                     {JSON.stringify(redactArgs(decideDialog.request.redactedArgs || {}), null, 2)}
                   </pre>
                 </div>

@@ -1440,39 +1440,55 @@ function LogsPageContent() {
             </div>
           ) : null}
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
-            <Card className="h-full">
-              <CardHeader className="pb-2">
-                <CardTitle className="text-sm font-medium">Total Logs</CardTitle>
-                <CardDescription className="text-xs">All log levels in {getTimeRangeLabel(statisticsTimeFilter)}</CardDescription>
-              </CardHeader>
-              <CardContent className="flex flex-col justify-center gap-1">
-                <div className={statsLoading || !statistics ? (statsError ? "text-sm text-red-600 dark:text-red-400" : "text-sm text-muted-foreground") : "text-2xl font-bold"}>
-                  {statsLoading
-                    ? '—'
-                    : !statistics
-                    ? (statsError ? 'Unavailable' : '—')
-                    : formatDisplayNumber(statistics.totalLogs, { compact: true })}
-                </div>
-                <p className="text-xs text-muted-foreground">Includes error, warning, info, and debug entries.</p>
-              </CardContent>
-            </Card>
+            <button
+              type="button"
+              disabled={statsLoading || !statistics || !!statsError}
+              aria-label="View all logs in table"
+              className="block w-full rounded-xl text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none"
+              onClick={() => openLevelFromStatistics(null)}
+            >
+              <Card className="h-full cursor-pointer transition-colors hover:bg-muted/50">
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-sm font-medium">Total Logs</CardTitle>
+                  <CardDescription className="text-xs">All log levels in {getTimeRangeLabel(statisticsTimeFilter)}</CardDescription>
+                </CardHeader>
+                <CardContent className="flex flex-col justify-center gap-1">
+                  <div className={statsLoading || !statistics ? (statsError ? "text-sm text-red-600 dark:text-red-400" : "text-sm text-muted-foreground") : "text-2xl font-bold"}>
+                    {statsLoading
+                      ? '—'
+                      : !statistics
+                      ? (statsError ? 'Unavailable' : '—')
+                      : formatDisplayNumber(statistics.totalLogs, { compact: true })}
+                  </div>
+                  <p className="text-xs text-muted-foreground">Includes error, warning, info, and debug entries.</p>
+                </CardContent>
+              </Card>
+            </button>
 
-            <Card className="h-full">
-              <CardHeader className="pb-2">
-                <CardTitle className="text-sm font-medium">Error Logs</CardTitle>
-                <CardDescription className="text-xs">Entries marked ERROR in {getTimeRangeLabel(statisticsTimeFilter)}</CardDescription>
-              </CardHeader>
-              <CardContent className="flex flex-col justify-center gap-1">
-                <div className={statsLoading || !statistics ? (statsError ? "text-sm text-red-600 dark:text-red-400" : "text-sm text-muted-foreground") : "text-2xl font-bold"}>
-                  {statsLoading
-                    ? '—'
-                    : !statistics
-                    ? (statsError ? 'Unavailable' : '—')
-                    : formatDisplayNumber(statistics.errorLogs, { compact: true })}
-                </div>
-                <p className="text-xs text-muted-foreground">Absolute count of ERROR entries for this period.</p>
-              </CardContent>
-            </Card>
+            <button
+              type="button"
+              disabled={statsLoading || !statistics || !!statsError}
+              aria-label="View Error logs in table"
+              className="block w-full rounded-xl text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none"
+              onClick={() => openLevelFromStatistics('ERROR')}
+            >
+              <Card className="h-full cursor-pointer transition-colors hover:bg-muted/50">
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-sm font-medium">Error Logs</CardTitle>
+                  <CardDescription className="text-xs">Entries marked ERROR in {getTimeRangeLabel(statisticsTimeFilter)}</CardDescription>
+                </CardHeader>
+                <CardContent className="flex flex-col justify-center gap-1">
+                  <div className={statsLoading || !statistics ? (statsError ? "text-sm text-red-600 dark:text-red-400" : "text-sm text-muted-foreground") : "text-2xl font-bold"}>
+                    {statsLoading
+                      ? '—'
+                      : !statistics
+                      ? (statsError ? 'Unavailable' : '—')
+                      : formatDisplayNumber(statistics.errorLogs, { compact: true })}
+                  </div>
+                  <p className="text-xs text-muted-foreground">Absolute count of ERROR entries for this period.</p>
+                </CardContent>
+              </Card>
+            </button>
 
             <Card className="h-full">
               <CardHeader className="pb-2">
