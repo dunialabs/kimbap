@@ -43,23 +43,37 @@ curl -fsSL https://kimbap.sh/install.sh | bash
 
 ## Initialize workspace
 
+### Local / dev evaluation
+
 ```bash
+kimbap init --mode dev --services all
+```
+
+Dev mode auto-generates a vault master key and stores it in `~/.kimbap/.dev-master-key`. Suitable for local experimentation only.
+
+### Production
+
+```bash
+export KIMBAP_MASTER_KEY_HEX="$(openssl rand -hex 32)"
 kimbap init --services all
 ```
 
-This creates the kimbap workspace on first run. Specifically, it:
+Store the key securely. You need it to unlock the vault on every run.
+
+### What init does
 
 - Creates `~/.kimbap/` as the data directory
 - Generates `config.yaml` with default settings
 - Initializes the encrypted vault
 - Creates a default policy file
-- Installs all 54 built-in service manifests
+- Installs all 54 built-in service manifests (when `--services all`)
 
 **Init flags:**
 
 | Flag | Description |
 |---|---|
-| `--services <list>` | Comma-separated service names, or `"all"` to install everything (default: all) |
+| `--mode <mode>` | Runtime mode: `dev`, `embedded`, or `connected` |
+| `--services <list>` | Comma-separated service names, or `"all"` to install everything |
 | `--no-services` | Skip service installation |
 | `--with-console` | Enable the embedded console route |
 | `--with-agents` | Run agent setup immediately after init |
@@ -80,7 +94,7 @@ printf '%s' "$GITHUB_TOKEN" | kimbap vault set github.token --stdin
 kimbap vault set stripe.api_key --file ./key.txt
 ```
 
-The vault is encrypted with a master key. In dev mode (`KIMBAP_DEV=true`), the key is auto-generated. In production, set `KIMBAP_MASTER_KEY_HEX` explicitly.
+The vault is encrypted with a master key. In dev mode (`--mode dev` or `KIMBAP_DEV=true`), the key is auto-generated and stored locally. In production, set `KIMBAP_MASTER_KEY_HEX` explicitly.
 
 ---
 
@@ -102,12 +116,14 @@ Linking tells kimbap which credential to inject when that service's actions are 
 For services backed by OAuth rather than static API keys:
 
 ```bash
-kimbap connector login slack
-kimbap connector login notion
+kimbap auth connect slack
+kimbap auth connect notion
 kimbap auth connect zoom
 ```
 
-Each command starts the OAuth flow for that provider and stores the resulting tokens in the vault.
+Bundled OAuth providers: canva, canvas, figma, notion, slack, stripe, zendesk, zoom.
+
+Each command starts the OAuth flow for that provider and stores the resulting tokens in the connector auth store (encrypted separately from the vault).
 
 ---
 
@@ -152,10 +168,11 @@ kimbap doctor
 
 `doctor` checks:
 
+- Configuration file validity
+- Data directory accessibility
 - Vault status and key availability
-- Proxy CA certificate installation
-- Network connectivity
-- Configuration integrity
+- Services directory and installed manifests
+- Policy file presence
 
 To confirm actions are available and callable:
 

@@ -1,6 +1,6 @@
 # Kimbap CLI Reference
 
-Complete reference for the `kimbap` CLI.
+Reference for the `kimbap` CLI. Covers the most commonly used commands and their flags.
 
 ---
 
@@ -21,17 +21,16 @@ kimbap call <service>.<action> [--<arg> <value> ...]
 **Examples:**
 
 ```bash
-kimbap call github.list-repos --owner octocat
-kimbap call stripe.list-charges --limit 10
-kimbap call slack.post-message --channel C123 --text "hello"
+kimbap call github.list-repos --sort updated
 kimbap call github.create-issue --owner acme --repo api --title "fix bug" --body "details"
+kimbap call slack.post-message --channel C123 --text "hello"
 ```
 
 ---
 
 ### kimbap search \<query\>
 
-Search installed actions by keyword or description. Matches against action names, descriptions, and tags.
+Search installed actions by keyword or description. Matches against action names, descriptions, and service names.
 
 **Syntax:**
 
@@ -73,7 +72,7 @@ kimbap actions list --service stripe
 
 ### kimbap actions describe \<service\>.\<action\>
 
-Show the full schema for an action, including input field types, required fields, auth requirements, risk level, and usage examples embedded in the manifest.
+Show the full schema for an action, including input field types, required fields, auth requirements, and risk level.
 
 **Syntax:**
 
@@ -245,7 +244,7 @@ kimbap link stripe
 
 ### kimbap connector login \<provider\>
 
-Start an OAuth device flow or browser-based flow for the given provider. On completion, the token is stored in the vault and linked to the provider.
+Start an OAuth device flow or browser-based flow for the given provider. On completion, the token is stored in the encrypted connector auth store and linked to the provider.
 
 **Syntax:**
 
@@ -309,6 +308,8 @@ kimbap auth providers list
 
 Authenticate with an OAuth provider. Starts the appropriate flow (device code or browser redirect) and persists the resulting token.
 
+Bundled providers: canva, canvas, figma, notion, slack, stripe, zendesk, zoom.
+
 **Syntax:**
 
 ```
@@ -318,8 +319,8 @@ kimbap auth connect <provider>
 **Example:**
 
 ```bash
-kimbap auth connect github
-kimbap auth connect google
+kimbap auth connect slack
+kimbap auth connect notion
 ```
 
 ---
@@ -508,22 +509,18 @@ Start an HTTP/HTTPS proxy that intercepts outbound requests, classifies them aga
 
 Route matching uses specificity-based priority: exact paths take precedence over parameterized paths, which take precedence over wildcard patterns.
 
-**Flags:**
-
-| Flag | Default | Description |
-|---|---|---|
-| `--port` | `10255` | Port to listen on |
+Default listen address is `127.0.0.1:7788` (configurable via `ProxyAddr` in config).
 
 **Example:**
 
 ```bash
-kimbap proxy --port 10255
+kimbap proxy
 ```
 
 Then in the agent's environment:
 
 ```bash
-export HTTPS_PROXY=http://127.0.0.1:10255
+export HTTPS_PROXY=http://127.0.0.1:7788
 python agent.py
 ```
 
@@ -709,12 +706,15 @@ kimbap generate py --service github -o ./types/github.py
 
 ### kimbap init
 
-Bootstrap a fresh Kimbap installation. Creates the data directory, generates a vault master key (if not already set), and optionally installs services.
+Bootstrap a fresh Kimbap installation. Creates the data directory, initializes the vault, and optionally installs services.
+
+In dev mode (`--mode dev`), a vault master key is auto-generated. In production, set `KIMBAP_MASTER_KEY_HEX` before running init.
 
 **Flags:**
 
 | Flag | Description |
 |---|---|
+| `--mode <mode>` | Runtime mode: `dev`, `embedded`, or `connected` |
 | `--services <list>` | Comma-separated official service names to install, or `all` |
 | `--no-services` | Skip service installation entirely |
 | `--with-console` | Enable the `/console` route in the generated config |
@@ -725,7 +725,7 @@ Bootstrap a fresh Kimbap installation. Creates the data directory, generates a v
 **Examples:**
 
 ```bash
-kimbap init
+kimbap init --mode dev --services all
 kimbap init --services all --with-agents --agents-project-dir .
 kimbap init --services github,stripe --force
 kimbap init --no-services
@@ -735,19 +735,12 @@ kimbap init --no-services
 
 ### kimbap doctor
 
-Run environment diagnostics. Checks vault status, proxy CA certificate trust, network connectivity, and configuration validity. Reports pass/fail for each check with actionable error messages.
+Run environment diagnostics. Checks configuration file, data directory, vault status, services directory, and policy file. Reports pass/fail for each check with actionable error messages.
 
-**Syntax:**
-
-```
-kimbap doctor [check]
-```
-
-**Examples:**
+**Example:**
 
 ```bash
 kimbap doctor
-kimbap doctor proxy
 ```
 
 ---
@@ -771,9 +764,11 @@ Configuration is read from environment variables or `~/.kimbap/config.yaml`. Env
 
 Risk levels are declared per-action in service manifests. Policy rules can match on risk level to apply blanket decisions across action categories.
 
-| Level | Meaning | Default behavior |
+| Level | Meaning | Approval hint |
 |---|---|---|
-| `low` | Read-only, no side effects, fully reversible | Auto-approved |
-| `medium` | Writes data, limited blast radius | Auto-approved |
+| `low` | Read-only, no side effects, fully reversible | Auto-approve suggested |
+| `medium` | Writes data, limited blast radius | Auto-approve suggested |
 | `high` | Destructive or financially significant | Policy-dependent |
-| `critical` | Irreversible or high blast radius | Requires explicit approval |
+| `critical` | Irreversible or high blast radius | Approval recommended |
+
+Approval hints are suggestions to the policy engine. Active policy rules always take precedence.

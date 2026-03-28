@@ -41,10 +41,12 @@ and set up kimbap for this project.
 
 ```bash
 brew install kimbap
-kimbap init --services all
+kimbap init --mode dev --services all      # dev mode auto-generates vault key
 printf '%s' "$GITHUB_TOKEN" | kimbap vault set github.token --stdin
 kimbap call github.create-issue --owner acme --repo api --title "fix auth bug"
 ```
+
+> **Production?** Set `KIMBAP_MASTER_KEY_HEX` instead of using `--mode dev`.
 
 ---
 
@@ -80,7 +82,7 @@ Finder · Safari · Contacts · Shortcuts · Notes · Calendar · Reminders · K
 
 ### Office & data
 
-Microsoft Word · Excel · PowerPoint · Wikipedia · Hacker News · CoinGecko · Open-Meteo · Financial Datasets · REST Countries · Exchange Rate · Public Holidays · Nominatim · ntfy
+Microsoft Word · Excel · PowerPoint · Wikipedia · Hacker News · CoinGecko · Open-Meteo (weather, air quality, historical, geocoding) · Financial Datasets · REST Countries · Exchange Rate · Public Holidays · Nominatim · ntfy · Peta
 
 ---
 
@@ -90,7 +92,7 @@ Microsoft Word · Excel · PowerPoint · Wikipedia · Hacker News · CoinGecko �
 |---|---|---|
 | Call | `kimbap call <service>.<action>` | Direct use, scripts, agent integration |
 | Run | `kimbap run -- <cmd>` | Wrap any agent subprocess |
-| Proxy | `kimbap proxy --port 10255` | Existing HTTP agents, zero code changes |
+| Proxy | `kimbap proxy` | Existing HTTP agents, zero code changes |
 | Serve | `kimbap serve` | Persistent daemon with HTTP API |
 
 All modes go through the same pipeline. Same credentials, same policy, same audit.
@@ -132,7 +134,7 @@ Full schema and examples: **[Service Development Guide](./docs/service-developme
 ## Documentation
 
 - **[Installation Guide](./docs/installation.md)** — step-by-step setup, agent-readable
-- **[CLI Reference](./docs/cli-reference.md)** — every command, every flag, every option
+- **[CLI Reference](./docs/cli-reference.md)** — commands, flags, configuration
 - **[Service Development Guide](./docs/service-development.md)** — manifest authoring, adapters, contributing services
 - **[Architecture & Internals](./docs/architecture.md)**
 - **[Security & Permissions](./docs/security.md)**

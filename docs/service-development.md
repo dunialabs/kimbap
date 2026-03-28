@@ -227,7 +227,7 @@ actions:
 - `executable` (required): the binary name or full path. It must be on `$PATH` or an absolute path.
 - `json_flag` (optional): a flag appended to every invocation to request JSON output (e.g. `--json`, `--output json`).
 - `timeout` (optional): a duration string like `"30s"` or `"5m"`. Defaults to the global runtime timeout if omitted.
-- `env_inject` (optional): a map of environment variables to inject at invocation time. Values can reference vault keys.
+- `env_inject` (optional): a map of environment variables to inject at invocation time. Values are passed through literally.
 
 **`command`** on each action is the subcommand string passed to the executable. For the example above, `kimbap call blender.render` would run something equivalent to `cli-anything-blender render execute --json --project ... --output ...`.
 
@@ -285,7 +285,7 @@ actions:
 
 **`command`** on each action must reference a registered AppleScript command handler. Kimbap dispatches to this handler by name, passing args as a record. If the handler is not registered, the action will fail at runtime with a handler-not-found error.
 
-The adapter does not use `method`, `path`, `base_url`, or `command_spec`. Auth type is almost always `none` for AppleScript actions unless you wrap a sandboxed application that requires a credential.
+The adapter does not use `method`, `path`, `base_url`, or `command_spec`. Auth type must be `none` for AppleScript actions.
 
 ---
 
@@ -315,7 +315,7 @@ The adapter does not use `method`, `path`, `base_url`, or `command_spec`. Auth t
 | `executable` | string | yes | Binary name or absolute path |
 | `json_flag` | string | no | Flag appended to every invocation to request JSON |
 | `timeout` | string | no | Duration string, e.g. `"300s"`, `"5m"` |
-| `env_inject` | map | no | Environment variables to inject. Values may reference vault keys |
+| `env_inject` | map | no | Environment variables to inject. Values are passed through literally |
 
 ### auth fields
 
@@ -398,7 +398,7 @@ The adapter does not use `method`, `path`, `base_url`, or `command_spec`. Auth t
 | Field | Type | Notes |
 |---|---|---|
 | `type` | string | `object` or `array` |
-| `extract` | string | JSONPath-like expression to pull a sub-value from the response |
+| `extract` | string | Dot-path expression (with optional `[index]`) to pull a sub-value from the response |
 
 ### risk fields
 
@@ -493,22 +493,16 @@ kimbap call github.create-issue --owner myorg --repo myrepo --title "Bug: someth
 kimbap service export-agent-skill my-service
 ```
 
-If a call fails, run with verbose output to see the full request and response:
-
-```bash
-kimbap call my-service.my-action --arg value --verbose
-```
-
 To check what's installed:
 
 ```bash
 kimbap service list
 ```
 
-To uninstall:
+To remove an installed service:
 
 ```bash
-kimbap service uninstall my-service
+kimbap service remove my-service
 ```
 
 ---
