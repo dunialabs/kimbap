@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strings"
 	"sync"
 	"time"
 
@@ -77,6 +78,11 @@ func (m *ApprovalManager) Submit(ctx context.Context, req *ApprovalRequest) erro
 }
 
 func (m *ApprovalManager) Approve(ctx context.Context, id string, approvedBy string) error {
+	approvedBy = strings.TrimSpace(approvedBy)
+	if approvedBy == "" {
+		return errors.New("approved_by is required")
+	}
+
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
@@ -104,10 +110,7 @@ func (m *ApprovalManager) Approve(ctx context.Context, id string, approvedBy str
 		VotedAt:    now,
 	})
 
-	required := req.RequiredApprovals
-	if required <= 1 {
-		required = 1
-	}
+	required := max(1, req.RequiredApprovals)
 	approveCount := 0
 	for _, v := range req.Votes {
 		if v.Decision == StatusApproved {
@@ -125,6 +128,11 @@ func (m *ApprovalManager) Approve(ctx context.Context, id string, approvedBy str
 }
 
 func (m *ApprovalManager) Deny(ctx context.Context, id string, deniedBy string, reason string) error {
+	deniedBy = strings.TrimSpace(deniedBy)
+	if deniedBy == "" {
+		return errors.New("denied_by is required")
+	}
+
 	m.mu.Lock()
 	defer m.mu.Unlock()
 

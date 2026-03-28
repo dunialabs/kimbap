@@ -201,6 +201,67 @@ func TestMultiApproverDuplicateVoteRejected(t *testing.T) {
 	}
 }
 
+func TestApproveRejectsEmptyApproverID(t *testing.T) {
+	ctx := context.Background()
+	store := newMemApprovalStore()
+	manager := NewApprovalManager(store, nil, time.Minute)
+
+	req := &ApprovalRequest{
+		ID:        "ap-empty-approver",
+		TenantID:  "tenant-a",
+		Status:    StatusPending,
+		CreatedAt: time.Now(),
+		ExpiresAt: time.Now().Add(time.Minute),
+	}
+	_ = store.Create(ctx, req)
+
+	if err := manager.Approve(ctx, "ap-empty-approver", "   "); err == nil {
+		t.Fatal("expected empty approver ID to be rejected")
+	}
+}
+
+func TestDenyRejectsEmptyApproverID(t *testing.T) {
+	ctx := context.Background()
+	store := newMemApprovalStore()
+	manager := NewApprovalManager(store, nil, time.Minute)
+
+	req := &ApprovalRequest{
+		ID:        "ap-empty-denier",
+		TenantID:  "tenant-a",
+		Status:    StatusPending,
+		CreatedAt: time.Now(),
+		ExpiresAt: time.Now().Add(time.Minute),
+	}
+	_ = store.Create(ctx, req)
+
+	if err := manager.Deny(ctx, "ap-empty-denier", "\t\n", "reason"); err == nil {
+		t.Fatal("expected empty denied_by to be rejected")
+	}
+}
+
+func TestDuplicateVoteRejectsWhitespaceVariantApproverID(t *testing.T) {
+	ctx := context.Background()
+	store := newMemApprovalStore()
+	manager := NewApprovalManager(store, nil, time.Minute)
+
+	req := &ApprovalRequest{
+		ID:                "ap-whitespace-dup",
+		TenantID:          "tenant-a",
+		Status:            StatusPending,
+		CreatedAt:         time.Now(),
+		ExpiresAt:         time.Now().Add(time.Minute),
+		RequiredApprovals: 2,
+	}
+	_ = store.Create(ctx, req)
+
+	if err := manager.Approve(ctx, "ap-whitespace-dup", "operator-1"); err != nil {
+		t.Fatalf("first vote: %v", err)
+	}
+	if err := manager.Approve(ctx, "ap-whitespace-dup", "  operator-1  "); err == nil {
+		t.Fatal("expected whitespace-variant duplicate vote to be rejected")
+	}
+}
+
 func TestMultiApproverDenyImmediatelyResolves(t *testing.T) {
 	ctx := context.Background()
 	store := newMemApprovalStore()
