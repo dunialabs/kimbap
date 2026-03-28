@@ -94,8 +94,7 @@ export function LoginForm({
   const credentialInputRef = useRef<HTMLInputElement>(null)
   const activeError = loginMode === 'password' ? loginError : tokenError
   const activeErrorId = loginMode === 'password' ? 'login-password-error' : 'login-token-error'
-  const activeNoteId = loginMode === 'password' ? 'login-password-note' : 'login-token-note'
-  const credentialDescribedBy = [activeNoteId, activeError ? activeErrorId : ''].filter(Boolean).join(' ') || undefined
+  const credentialDescribedBy = activeError ? activeErrorId : undefined
 
 
   useEffect(() => {
@@ -356,19 +355,6 @@ export function LoginForm({
           )}
         </div>
 
-        {/* Note and Error Messages */}
-        {loginMode === 'password' && !loginError && (
-          <p id="login-password-note" className="text-xs text-muted-foreground">
-            Enter the master password you set when configuring this server.
-          </p>
-        )}
-
-        {loginMode === 'token' && !tokenError && (
-          <p id="login-token-note" className="text-xs text-muted-foreground">
-            Paste the token you received from the server owner.
-          </p>
-        )}
-
         {loginError && loginMode === 'password' && (
           <Alert id="login-password-error" className="border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-950/20" role="alert">
             <AlertDescription className="text-sm text-red-800 dark:text-red-200">
@@ -381,19 +367,7 @@ export function LoginForm({
            <Alert id="login-token-error" className="border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-950/20" role="alert">
             <AlertDescription className="text-sm text-red-800 dark:text-red-200">
               {tokenError === 'member_link' ? (
-                <>
-                  Members can use the server but not this console. Sign in with an owner or admin token, or{' '}
-                  <a
-                    href="https://kimbap.sh/quick-start/#install-desk"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    aria-label="Download the Kimbap Desk quick start guide (opens in a new tab)"
-                    className="rounded-sm text-blue-600 underline hover:text-blue-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 dark:text-blue-400 dark:hover:text-blue-300 cursor-pointer font-medium"
-                  >
-                    download Kimbap Desk
-                  </a>
-                  .
-                </>
+                'Member tokens cannot sign in to Console. Use an owner or admin token.'
               ) : (
                 renderErrorMessageWithLinks(tokenError)
               )}

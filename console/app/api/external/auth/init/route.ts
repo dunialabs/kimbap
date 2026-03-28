@@ -32,6 +32,18 @@ interface InitResponse {
  * Initialize the Kimbap proxy system and create an owner token.
  * This is the first step to set up a new proxy instance.
  */
+export async function GET(request: NextRequest) {
+  try {
+    const existingProxy = await getProxy();
+    if (existingProxy) {
+      return ApiResponse.success({ initialized: true }, 200, request);
+    }
+    return ApiResponse.success({ initialized: false }, 200, request);
+  } catch {
+    return ApiResponse.success({ initialized: false }, 200, request);
+  }
+}
+
 export async function POST(request: NextRequest) {
   let lockAcquired = false;
   try {

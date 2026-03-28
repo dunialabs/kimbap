@@ -2,19 +2,10 @@
 
 import {
   Server,
-  CheckCircle,
-  Shield,
-  Activity,
-  Globe,
-  MapPin,
-  Users,
-  TrendingUp,
-  Copy,
   AlertTriangle
 } from 'lucide-react'
 import Link from 'next/link'
-import { useEffect, useState, useCallback, useRef } from 'react'
-import { toast } from 'sonner'
+import { useEffect, useState, useCallback } from 'react'
 
 import { Badge } from '@/components/ui/badge'
 import { Button, buttonVariants } from '@/components/ui/button'
@@ -25,24 +16,8 @@ import {
   CardHeader,
   CardTitle
 } from '@/components/ui/card'
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle
-} from '@/components/ui/dialog'
-import { Progress } from '@/components/ui/progress'
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow
-} from '@/components/ui/table'
 import { GettingStartedCard } from '@/components/getting-started-card'
-import { cn, formatDisplayNumber, formatNullableText, formatPercentage } from '@/lib/utils'
+import { cn, formatDisplayNumber, formatNullableText } from '@/lib/utils'
 
 function getRequestErrorMessage(
   error: unknown,
@@ -96,28 +71,21 @@ interface DashboardData {
   apiRequests: number | null
   activeTokens: number | null
   configuredTools: number | null
-  connectedClientsCount: number | null
   uptime: string | null
-  monthlyUsage: number
-  toolsUsage: Array<{ name: string; percentage: number; requests: number }>
-  tokenUsage: Array<{ name: string; token: string; percentage: number; requests: number }>
-  connectedClients: Array<{ id: string; name: string; ip: string; location: string; lastActive: string; requests: number }>
   recentActivity: Array<{ action: string; time: string; status: string }>
-  manualConnection: string | null
-  sshTunnelAddress: string | null
 }
 
 export default function DashboardPage() {
   const [serverInfo, setServerInfo] = useState<ServerInfo | null>(null)
   const [serverFetchError, setServerFetchError] = useState<string | null>(null)
   const [isServerInfoLoading, setIsServerInfoLoading] = useState(true)
-  const [isClientsDialogOpen, setIsClientsDialogOpen] = useState(false)
+
   const [dashboardData, setDashboardData] = useState<DashboardData | null>(null)
   const [dashboardLoadError, setDashboardLoadError] = useState<string | null>(null)
   const [pendingApprovalCount, setPendingApprovalCount] = useState<number | null>(null)
   const [pendingApprovalError, setPendingApprovalError] = useState<string | null>(null)
   const [isPendingApprovalLoading, setIsPendingApprovalLoading] = useState(true)
-  const clientsTriggerRef = useRef<HTMLButtonElement | null>(null)
+
 
   const fetchServerInfo = useCallback(async () => {
     setIsServerInfoLoading(true)
@@ -283,31 +251,14 @@ export default function DashboardPage() {
     apiRequests: dashboardData?.apiRequests ?? null,
     activeTokens: dashboardData?.activeTokens ?? null,
     configuredTools: dashboardData?.configuredTools ?? null,
-    connectedClients: dashboardData?.connectedClientsCount ?? null,
     uptime: dashboardData?.uptime ?? null,
-    monthlyUsage: dashboardData?.monthlyUsage ?? 0
   }
 
-  const toolsUsage = dashboardData?.toolsUsage || []
-  const tokenUsage = dashboardData?.tokenUsage || []
-  const connectedClients = dashboardData?.connectedClients || []
   const recentActivity = dashboardData?.recentActivity || []
-  const localAddress = dashboardData?.manualConnection ?? null
-  const remoteAddress = dashboardData?.sshTunnelAddress ?? null
   const isDashboardLoading = !dashboardData && !dashboardLoadError
   const hasPendingApprovals = (pendingApprovalCount ?? 0) > 0
-  const approvalSummaryText = isPendingApprovalLoading
-    ? 'Checking the approval queue…'
-    : hasPendingApprovals
-    ? `Review ${formatDisplayNumber(pendingApprovalCount)} request${pendingApprovalCount === 1 ? '' : 's'} waiting on a decision.`
-    : 'No approvals yet. Add approval rules in Policies to route sensitive calls here.'
-  const localAddressText = isDashboardLoading ? 'Loading address…' : formatNullableText(localAddress)
-  const remoteAddressText = isDashboardLoading ? 'Loading address…' : formatNullableText(remoteAddress)
   const hasRecordedDashboardActivity =
     (stats.apiRequests ?? 0) > 0 ||
-    (stats.connectedClients ?? 0) > 0 ||
-    toolsUsage.length > 0 ||
-    tokenUsage.length > 0 ||
     recentActivity.length > 0 ||
     hasPendingApprovals
   const isEmptyDashboard =
@@ -316,30 +267,6 @@ export default function DashboardPage() {
     !pendingApprovalError &&
     (stats.configuredTools ?? 0) === 0 &&
     !hasRecordedDashboardActivity
-
-
-  const copyConnectionAddress = async (label: string, value: string | null) => {
-    if (!value) {
-      return
-    }
-
-    try {
-      if (!navigator?.clipboard?.writeText) {
-        toast.error('Clipboard is unavailable in this browser.')
-        return
-      }
-
-      await navigator.clipboard.writeText(value)
-      toast.success(`${label} copied.`)
-    } catch {
-      toast.error(`Could not copy ${label.toLowerCase()}. Try again.`)
-    }
-  }
-
-
-  const handleCopyClientIp = (ip: string) => {
-    void copyConnectionAddress('Client IP', ip)
-  }
 
   if (isServerInfoLoading) {
     return (
@@ -622,141 +549,6 @@ export default function DashboardPage() {
             )}
           </CardContent>
       </Card>
-
-
-      <Dialog open={isClientsDialogOpen} onOpenChange={setIsClientsDialogOpen}>
-        <DialogContent
-          id="connected-clients-dialog"
-          className="max-h-[80vh] max-w-4xl overflow-y-auto"
-          onCloseAutoFocus={(event) => {
-            event.preventDefault()
-            clientsTriggerRef.current?.focus()
-          }}
-        >
-          <DialogHeader>
-            <DialogTitle className="flex flex-wrap items-center gap-2">
-              <Users className="h-5 w-5" />
-              Recent Clients (24 hours) ({formatDisplayNumber(connectedClients.length)})
-            </DialogTitle>
-            <DialogDescription>
-              Clients seen in the last 24 hours on your{' '}
-              {serverInfo?.proxyName || 'Kimbap Server'}
-            </DialogDescription>
-          </DialogHeader>
-          <div className="space-y-4">
-            {isDashboardLoading ? (
-              <div className="flex min-h-[240px] items-center justify-center" role="status" aria-live="polite">
-                <div className="text-center">
-                  <div className="mx-auto mb-3 h-6 w-6 animate-spin rounded-full border-2 border-muted-foreground/30 border-t-foreground" aria-hidden="true" />
-                  <p className="text-sm text-muted-foreground">Loading recent client details…</p>
-                </div>
-              </div>
-            ) : dashboardLoadError ? (
-              <div role="alert" className="flex flex-col items-center justify-center gap-2 py-8 text-center">
-                <p className="text-sm text-red-600 dark:text-red-400">Recent client details could not be loaded.</p>
-                <Button variant="outline" size="sm" className="min-h-11" onClick={() => void fetchDashboardData()}>Retry</Button>
-              </div>
-            ) : connectedClients.length === 0 ? (
-              <div className="flex items-center justify-center py-8">
-                <p className="text-sm text-muted-foreground">No clients have connected in the last 24 hours. Connect a client and run a request to populate this list.</p>
-              </div>
-            ) : (
-              <>
-                <div className="space-y-3 md:hidden">
-                  {connectedClients.map((client) => (
-                    <Card key={client.id} className="border border-border/60 shadow-sm">
-                      <CardContent className="space-y-4 p-4">
-                        <div className="space-y-1">
-                          <p className="text-sm font-medium">{formatNullableText(client.name)}</p>
-                          <div className="flex items-center gap-1 text-sm text-muted-foreground">
-                            <MapPin className="h-3 w-3" aria-hidden="true" />
-                            <span>{formatNullableText(client.location)}</span>
-                          </div>
-                        </div>
-
-                        <div className="grid grid-cols-1 gap-3 text-sm sm:grid-cols-2">
-                          <div>
-                            <p className="text-xs text-muted-foreground">IP address</p>
-                            <p className="mt-1 break-all font-mono text-xs">{client.ip}</p>
-                          </div>
-                          <div>
-                            <p className="text-xs text-muted-foreground">Last active</p>
-                            <p className="mt-1 text-muted-foreground">{formatNullableText(client.lastActive)}</p>
-                          </div>
-                          <div>
-                            <p className="text-xs text-muted-foreground">Requests</p>
-                            <p className="mt-1">{formatDisplayNumber(client.requests, { compact: true })}</p>
-                          </div>
-                        </div>
-
-                        <Button
-                          type="button"
-                          variant="outline"
-                          size="sm"
-                          className="min-h-11 w-full"
-                          onClick={() => handleCopyClientIp(client.ip)}
-                        >
-                          <Copy className="mr-1.5 h-3.5 w-3.5" aria-hidden="true" />
-                          Copy IP address
-                        </Button>
-                      </CardContent>
-                    </Card>
-                  ))}
-                </div>
-
-                <div className="hidden overflow-x-auto md:block">
-                  <Table className="min-w-[760px]">
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead scope="col">Client Name</TableHead>
-                        <TableHead scope="col">IP Address</TableHead>
-                        <TableHead scope="col">Location</TableHead>
-                        <TableHead scope="col">Last Active</TableHead>
-                        <TableHead scope="col" className="text-right">Requests</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {connectedClients.map((client) => (
-                        <TableRow key={client.id}>
-                          <TableCell className="max-w-[220px] break-words">{formatNullableText(client.name)}</TableCell>
-                          <TableCell className="min-w-[220px] font-mono text-sm">
-                            <div className="flex flex-wrap items-center gap-2">
-                              <span>{client.ip}</span>
-                              <Button
-                                type="button"
-                                variant="ghost"
-                                size="sm"
-                                className="min-h-11 shrink-0 px-3 text-xs"
-                                aria-label={`Copy IP address ${client.ip}`}
-                                onClick={() => handleCopyClientIp(client.ip)}
-                              >
-                                <Copy className="mr-1 h-3.5 w-3.5" aria-hidden="true" />
-                                Copy
-                              </Button>
-                            </div>
-                          </TableCell>
-                          <TableCell>
-                            <div className="flex items-center gap-1">
-                              <MapPin className="h-3 w-3 text-muted-foreground" />
-                              <span className="text-sm">{formatNullableText(client.location)}</span>
-                            </div>
-                          </TableCell>
-                          <TableCell className="text-sm text-muted-foreground">
-                            {formatNullableText(client.lastActive)}
-                          </TableCell>
-                          <TableCell className="text-right">
-                            {formatDisplayNumber(client.requests, { compact: true })}
-                          </TableCell>
-                        </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
-                </div>
-              </>
-            )}
-          </div>
-        </DialogContent>
-      </Dialog>
     </div>
   )
 }

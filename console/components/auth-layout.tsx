@@ -26,10 +26,7 @@ export function AuthLayout({ children }: AuthLayoutProps) {
             Operator Workspace
           </h2>
           <p className="mb-3 text-[16px] leading-relaxed text-muted-foreground">
-            Manage policies, approvals, logs, and usage for your Kimbap server from one place.
-          </p>
-          <p className="text-sm leading-6 text-muted-foreground">
-            Owners usually sign in with the master password. Admins can use an access token. Member tokens are for using the server, not managing this console.
+            Manage policies, approvals, and server access.
           </p>
         </div>
       </div>
@@ -49,7 +46,7 @@ export function AuthLayout({ children }: AuthLayoutProps) {
         <div className="border-t border-border/60 px-4 pt-4 lg:hidden">
           <h1 className="text-2xl font-bold tracking-tight">Kimbap Console</h1>
           <p className="mt-2 text-sm leading-6 text-muted-foreground">
-            Operator workspace for policies, approvals, logs, and usage. Owners usually sign in with the master password; admins use access tokens.
+            Manage policies, approvals, and server access.
           </p>
         </div>
 

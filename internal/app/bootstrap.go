@@ -443,13 +443,14 @@ func (r *vaultCredentialResolver) Resolve(ctx context.Context, tenantID string, 
 		}
 		return nil, err
 	}
-	if err := r.store.MarkUsed(ctx, tenantID, secretName); err != nil {
-		log.Warn().Err(err).Str("tenantID", tenantID).Str("secret", secretName).Msg("failed to mark credential as used")
-	}
-
 	set := parseCredentialSet(raw, req)
 	if set == nil && !req.Optional {
 		return nil, fmt.Errorf("credential %q is empty", secretName)
+	}
+	if set != nil {
+		if err := r.store.MarkUsed(ctx, tenantID, secretName); err != nil {
+			log.Warn().Err(err).Str("tenantID", tenantID).Str("secret", secretName).Msg("failed to mark credential as used")
+		}
 	}
 	return set, nil
 }

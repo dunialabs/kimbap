@@ -190,6 +190,8 @@ export const api = {
       }),
     init: (params: { masterPwd: string }) =>
       apiClient.post('/api/external/auth/init', params),
+    checkInitStatus: () =>
+      apiClient.get('/api/external/auth/init'),
   },
 
   servers: {
