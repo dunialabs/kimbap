@@ -275,6 +275,7 @@ export default function ApprovalsPage() {
   const [timeAgo, setTimeAgo] = useState('');
   const [loadedPages, setLoadedPages] = useState(1);
   const hasActiveFilters = statusFilter !== DEFAULT_STATUS_FILTER || userFilter.trim().length > 0;
+  const isPendingOnlyEmptyState = statusFilter === DEFAULT_STATUS_FILTER && !userFilter.trim();
   const orderedRequests = useMemo(() => {
     const statusRank: Record<ApprovalRequest['status'], number> = {
       PENDING: 0,
@@ -695,8 +696,8 @@ export default function ApprovalsPage() {
                   ? 'Approval requests could not be loaded right now.'
                   : statusFilter === 'all' && !userFilter.trim()
                   ? 'No approval requests yet. New requests that need a decision will appear here.'
-                  : statusFilter === DEFAULT_STATUS_FILTER && !userFilter.trim()
-                  ? 'No pending approvals right now. New requests that need a decision will appear here.'
+                  : isPendingOnlyEmptyState
+                  ? 'No pending approvals right now. View all requests to review recent decisions, or wait for the next request.'
                   : 'No requests match your filters. Adjust or reset the filters and try again.'}
               </p>
               {loadError ? (
@@ -709,11 +710,20 @@ export default function ApprovalsPage() {
                 >
                   Retry
                 </Button>
-              ) : hasActiveFilters && (
+              ) : isPendingOnlyEmptyState ? (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="mt-2 min-h-11"
+                  onClick={() => setStatusFilter('all')}
+                >
+                  View all requests
+                </Button>
+              ) : hasActiveFilters ? (
                 <Button variant="ghost" size="sm" className="mt-2 min-h-11" onClick={resetFilters}>
                   Reset filters
                 </Button>
-              )}
+              ) : null}
             </div>
           ) : (
             <>
