@@ -406,6 +406,9 @@ function RuleCard({
                 onChange={(v) => onChange({ ...rule, match: { ...rule.match, tool: v } })}
                 className="h-9"
               />
+              <p className="text-xs text-muted-foreground">
+                Use <code className="font-mono">*</code> to match all tools, or <code className="font-mono">prefix_*</code> to match tools starting with a prefix.
+              </p>
             </div>
           </div>
 
