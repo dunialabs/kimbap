@@ -239,7 +239,7 @@ func (s *Server) handleCreateToken(w http.ResponseWriter, r *http.Request) {
 		}
 		ttl = time.Duration(req.TTLSeconds) * time.Second
 	}
-	raw, issued, err := s.tokenService.Issue(r.Context(), tenantID, req.AgentName, issuedScopes, ttl)
+	raw, issued, err := s.tokenService.Issue(r.Context(), tenantID, req.AgentName, principal.ID, issuedScopes, ttl)
 	if err != nil {
 		if errors.Is(err, auth.ErrInvalidTTL) {
 			writeEnvelopeError(w, r, actions.NewExecutionError(actions.ErrValidationFailed, err.Error(), http.StatusBadRequest, false, nil))

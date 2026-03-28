@@ -25,7 +25,7 @@ func TestTokenServiceRotateRollsBackReplacementTokenWhenOldRevokeFails(t *testin
 	baseStore := newInMemoryTokenStore()
 	issuer := NewTokenService(baseStore)
 
-	oldRawToken, oldToken, err := issuer.Issue(ctx, "tenant-a", "agent-alpha", []string{"tools:read"}, time.Hour)
+	oldRawToken, oldToken, err := issuer.Issue(ctx, "tenant-a", "agent-alpha", "", []string{"tools:read"}, time.Hour)
 	if err != nil {
 		t.Fatalf("issue original token: %v", err)
 	}

@@ -65,7 +65,7 @@ func newTokenCreateCommand() *cobra.Command {
 			} else if ttl < 0 {
 				return auth.ErrInvalidTTL
 			}
-			raw, tok, err := tokenService.Issue(contextBackground(), tenant, agent, parseCSV(scopes), ttl)
+			raw, tok, err := tokenService.Issue(contextBackground(), tenant, agent, "", parseCSV(scopes), ttl)
 			if err != nil {
 				return err
 			}

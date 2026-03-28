@@ -56,7 +56,7 @@ var (
 	maxTokenTTL = 365 * 24 * time.Hour
 )
 
-func (s *TokenService) Issue(ctx context.Context, tenantID, agentName string, scopes []string, ttl time.Duration) (rawToken string, token *ServiceToken, err error) {
+func (s *TokenService) Issue(ctx context.Context, tenantID, agentName, createdBy string, scopes []string, ttl time.Duration) (rawToken string, token *ServiceToken, err error) {
 	if s == nil || s.store == nil {
 		return "", nil, errors.New("token store is required")
 	}
@@ -92,6 +92,7 @@ func (s *TokenService) Issue(ctx context.Context, tenantID, agentName string, sc
 		Scopes:      append([]string(nil), scopes...),
 		CreatedAt:   now,
 		ExpiresAt:   now.Add(ttl),
+		CreatedBy:   strings.TrimSpace(createdBy),
 	}
 
 	if err := s.store.Create(ctx, token); err != nil {
@@ -132,7 +133,7 @@ func (s *TokenService) Rotate(ctx context.Context, oldTokenID, tenantID, agentNa
 		return "", nil, errors.New("old token id is required")
 	}
 
-	rawToken, token, err = s.Issue(ctx, tenantID, agentName, scopes, ttl)
+	rawToken, token, err = s.Issue(ctx, tenantID, agentName, "", scopes, ttl)
 	if err != nil {
 		return "", nil, fmt.Errorf("issue replacement token: %w", err)
 	}

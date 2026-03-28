@@ -3,6 +3,7 @@ package services
 import (
 	"bytes"
 	"fmt"
+	"io"
 	"math"
 	"net"
 	"net/url"
@@ -65,6 +66,10 @@ func ParseManifest(data []byte) (*ServiceManifest, error) {
 	decoder.KnownFields(true)
 	if err := decoder.Decode(&manifest); err != nil {
 		return nil, fmt.Errorf("parse service manifest: %w", err)
+	}
+	var extra any
+	if err := decoder.Decode(&extra); err != io.EOF {
+		return nil, fmt.Errorf("parse service manifest: file must contain exactly one YAML document")
 	}
 
 	errs := ValidateManifest(&manifest)

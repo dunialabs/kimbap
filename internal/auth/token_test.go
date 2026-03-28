@@ -13,7 +13,7 @@ func TestTokenServiceIssueReturnsPrefixedRawToken(t *testing.T) {
 	store := newInMemoryTokenStore()
 	svc := NewTokenService(store)
 
-	rawToken, token, err := svc.Issue(context.Background(), "tenant-a", "agent-alpha", []string{"tools:read"}, time.Hour)
+	rawToken, token, err := svc.Issue(context.Background(), "tenant-a", "agent-alpha", "", []string{"tools:read"}, time.Hour)
 	if err != nil {
 		t.Fatalf("issue token: %v", err)
 	}
@@ -33,7 +33,7 @@ func TestTokenServiceIssueTrimsTenantAndAgentName(t *testing.T) {
 	store := newInMemoryTokenStore()
 	svc := NewTokenService(store)
 
-	_, token, err := svc.Issue(context.Background(), " tenant-a ", " agent-alpha ", []string{"tools:read"}, time.Hour)
+	_, token, err := svc.Issue(context.Background(), " tenant-a ", " agent-alpha ", "", []string{"tools:read"}, time.Hour)
 	if err != nil {
 		t.Fatalf("issue token: %v", err)
 	}
@@ -58,7 +58,7 @@ func TestTokenServiceValidateSucceedsWithCorrectRawToken(t *testing.T) {
 	store := newInMemoryTokenStore()
 	svc := NewTokenService(store)
 
-	rawToken, issued, err := svc.Issue(context.Background(), "tenant-a", "agent-alpha", []string{"tools:read"}, time.Hour)
+	rawToken, issued, err := svc.Issue(context.Background(), "tenant-a", "agent-alpha", "", []string{"tools:read"}, time.Hour)
 	if err != nil {
 		t.Fatalf("issue token: %v", err)
 	}
@@ -77,7 +77,7 @@ func TestTokenServiceValidateFailsWithWrongToken(t *testing.T) {
 	store := newInMemoryTokenStore()
 	svc := NewTokenService(store)
 
-	_, _, err := svc.Issue(context.Background(), "tenant-a", "agent-alpha", nil, time.Hour)
+	_, _, err := svc.Issue(context.Background(), "tenant-a", "agent-alpha", "", nil, time.Hour)
 	if err != nil {
 		t.Fatalf("issue token: %v", err)
 	}
@@ -92,7 +92,7 @@ func TestTokenServiceValidateFailsAfterRevocation(t *testing.T) {
 	store := newInMemoryTokenStore()
 	svc := NewTokenService(store)
 
-	rawToken, issued, err := svc.Issue(context.Background(), "tenant-a", "agent-alpha", nil, time.Hour)
+	rawToken, issued, err := svc.Issue(context.Background(), "tenant-a", "agent-alpha", "", nil, time.Hour)
 	if err != nil {
 		t.Fatalf("issue token: %v", err)
 	}
@@ -110,7 +110,7 @@ func TestTokenServiceValidateFailsWhenExpired(t *testing.T) {
 	store := newInMemoryTokenStore()
 	svc := NewTokenService(store)
 
-	rawToken, issued, err := svc.Issue(context.Background(), "tenant-a", "agent-alpha", nil, time.Hour)
+	rawToken, issued, err := svc.Issue(context.Background(), "tenant-a", "agent-alpha", "", nil, time.Hour)
 	if err != nil {
 		t.Fatalf("issue token: %v", err)
 	}
