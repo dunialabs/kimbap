@@ -363,7 +363,7 @@ func generatePackGotchasMD(manifest *ServiceManifest) string {
 		sb.WriteString("## Service-Level Gotchas\n\n")
 		sorted := make([]ServiceGotcha, len(manifest.Gotchas))
 		copy(sorted, manifest.Gotchas)
-		sort.Slice(sorted, func(i, j int) bool {
+		sort.SliceStable(sorted, func(i, j int) bool {
 			return severityRank(sorted[i].Severity) < severityRank(sorted[j].Severity)
 		})
 		for _, g := range sorted {
@@ -469,20 +469,31 @@ func severityRank(severity string) int {
 }
 
 func topGotchasBySeverity(gotchas []ServiceGotcha, limit int) []ServiceGotcha {
-	if len(gotchas) <= limit {
-		sorted := make([]ServiceGotcha, len(gotchas))
-		copy(sorted, gotchas)
-		sort.Slice(sorted, func(i, j int) bool {
-			return severityRank(sorted[i].Severity) < severityRank(sorted[j].Severity)
-		})
-		return sorted
-	}
 	sorted := make([]ServiceGotcha, len(gotchas))
 	copy(sorted, gotchas)
-	sort.Slice(sorted, func(i, j int) bool {
+	sort.SliceStable(sorted, func(i, j int) bool {
 		return severityRank(sorted[i].Severity) < severityRank(sorted[j].Severity)
 	})
-	return sorted[:limit]
+	if limit > 0 && len(sorted) > limit {
+		sorted = sorted[:limit]
+	}
+	return sorted
+}
+
+func actionExamplePriority(action ServiceAction) int {
+	risk := strings.ToLower(strings.TrimSpace(action.Risk.Level))
+	switch risk {
+	case "low":
+		return 0
+	case "medium":
+		return 1
+	case "high":
+		return 2
+	case "critical":
+		return 3
+	default:
+		return 1
+	}
 }
 
 func generateExampleCalls(manifest *ServiceManifest) string {
@@ -490,6 +501,10 @@ func generateExampleCalls(manifest *ServiceManifest) string {
 	if len(keys) == 0 {
 		return ""
 	}
+
+	sort.SliceStable(keys, func(i, j int) bool {
+		return actionExamplePriority(manifest.Actions[keys[i]]) < actionExamplePriority(manifest.Actions[keys[j]])
+	})
 
 	var examples []string
 	for _, key := range keys {
