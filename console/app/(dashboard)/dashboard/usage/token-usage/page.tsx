@@ -178,6 +178,12 @@ function maskIdentifier(value: string | null | undefined): string {
   return `${normalized.slice(0, 4)}****${normalized.slice(-4)}`
 }
 
+function getTokenSuccessRate(token: TokenUsageData): number | null {
+  if (token.totalRequests === 0) return null
+  const successRate = (token.successfulRequests / token.totalRequests) * 100
+  return Number.isFinite(successRate) ? successRate : null
+}
+
 function TokenUsagePageContent() {
   const searchParams = useSearchParams()
   const pathname = usePathname()
@@ -754,76 +760,141 @@ function TokenUsagePageContent() {
                   )}
                 </div>
               ) : (
-                <div className="overflow-x-auto">
-                <Table className="min-w-[920px]">
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead scope="col">Token Name</TableHead>
-                      <TableHead scope="col">Status</TableHead>
-                      <TableHead scope="col">Token ID</TableHead>
-                      <TableHead scope="col">Total Requests</TableHead>
-                      <TableHead scope="col">Success Rate</TableHead>
-                      <TableHead scope="col">Clients</TableHead>
-                      <TableHead scope="col" className="text-right">Last Used</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {displayTokenUsageData.map((token) => (
-                      <TableRow key={token.tokenId}>
-                        <TableCell>
-                          <span className="font-semibold">
-                            {token.tokenName}
-                          </span>
-                        </TableCell>
-                        <TableCell>{getStatusBadge(token.status)}</TableCell>
-                        <TableCell>
-                          <p className="font-mono text-xs truncate max-w-[200px]" title={maskIdentifier(token.tokenId)}>
-                            {maskIdentifier(token.tokenId)}
-                          </p>
-                        </TableCell>
-                        <TableCell>
-                          <span className="font-semibold">
-                            {formatDisplayNumber(token.totalRequests)}
-                          </span>
-                        </TableCell>
-                        <TableCell>
-                          {token.totalRequests === 0 ||
-                          isNaN(
-                            (token.successfulRequests / token.totalRequests) *
-                              100
-                          ) ||
-                          !isFinite(
-                            (token.successfulRequests / token.totalRequests) *
-                              100
-                          ) ? (
-                            <span className="font-semibold text-muted-foreground">—</span>
-                          ) : (
-                            <span className={`font-semibold ${
-                              ((token.successfulRequests / token.totalRequests) * 100) >= HEALTHY_SUCCESS_RATE_THRESHOLD
-                                ? 'text-green-600 dark:text-green-400'
-                                : ((token.successfulRequests / token.totalRequests) * 100) < 80
-                                ? 'text-red-600 dark:text-red-400'
-                                : 'text-amber-600 dark:text-amber-400'
-                            }`}>
-                              {formatPercentage((token.successfulRequests / token.totalRequests) * 100)}
-                            </span>
-                          )}
-                        </TableCell>
-                        <TableCell>
-                          <span className="font-semibold">
-                            {formatDisplayNumber(token.clientCount)}
-                          </span>
-                        </TableCell>
-                        <TableCell className="text-right">
-                          <span className="text-sm text-muted-foreground">
-                            {formatUsageTimestamp(token.lastUsed)}
-                          </span>
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-                </div>
+                <>
+                  <div className="space-y-3 md:hidden">
+                    {displayTokenUsageData.map((token) => {
+                      const successRate = getTokenSuccessRate(token)
+
+                      return (
+                        <Card key={token.tokenId} className="border border-border/60 shadow-sm">
+                          <CardContent className="space-y-4 p-4">
+                            <div className="flex items-start justify-between gap-3">
+                              <div className="min-w-0 space-y-1">
+                                <p className="text-sm font-semibold">{token.tokenName}</p>
+                                <p className="break-all font-mono text-xs text-muted-foreground">
+                                  {maskIdentifier(token.tokenId)}
+                                </p>
+                              </div>
+                              <div className="shrink-0">{getStatusBadge(token.status)}</div>
+                            </div>
+
+                            <div className="grid grid-cols-2 gap-3 text-sm">
+                              <div className="rounded-lg border border-border/60 bg-muted/20 px-3 py-2">
+                                <p className="text-xs text-muted-foreground">Total Requests</p>
+                                <p className="mt-1 font-semibold">{formatDisplayNumber(token.totalRequests)}</p>
+                              </div>
+                              <div className="rounded-lg border border-border/60 bg-muted/20 px-3 py-2">
+                                <p className="text-xs text-muted-foreground">Clients</p>
+                                <p className="mt-1 font-semibold">{formatDisplayNumber(token.clientCount)}</p>
+                              </div>
+                              <div className="rounded-lg border border-border/60 bg-muted/20 px-3 py-2">
+                                <p className="text-xs text-muted-foreground">Success Rate</p>
+                                {successRate == null ? (
+                                  <p className="mt-1 font-semibold text-muted-foreground">—</p>
+                                ) : (
+                                  <p className={`mt-1 font-semibold ${
+                                    successRate >= HEALTHY_SUCCESS_RATE_THRESHOLD
+                                      ? 'text-green-600 dark:text-green-400'
+                                      : successRate < 80
+                                      ? 'text-red-600 dark:text-red-400'
+                                      : 'text-amber-600 dark:text-amber-400'
+                                  }`}>
+                                    {formatPercentage(successRate)}
+                                  </p>
+                                )}
+                              </div>
+                              <div className="rounded-lg border border-border/60 bg-muted/20 px-3 py-2">
+                                <p className="text-xs text-muted-foreground">Last Used</p>
+                                <p className="mt-1 text-muted-foreground">{formatUsageTimestamp(token.lastUsed)}</p>
+                              </div>
+                            </div>
+
+                            <div className="space-y-2">
+                              <div className="flex items-center justify-between gap-2 text-xs text-muted-foreground">
+                                <span>Success rate</span>
+                                <span>{successRate == null ? '—' : formatPercentage(successRate)}</span>
+                              </div>
+                              <Progress
+                                value={successRate ?? 0}
+                                className="h-2"
+                                aria-label={successRate == null
+                                  ? `${token.tokenName} success rate unavailable`
+                                  : `${token.tokenName} success rate ${formatPercentage(successRate)}`}
+                              />
+                            </div>
+                          </CardContent>
+                        </Card>
+                      )
+                    })}
+                  </div>
+
+                  <div className="hidden overflow-x-auto md:block">
+                    <Table className="min-w-[920px]">
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead scope="col">Token Name</TableHead>
+                          <TableHead scope="col">Status</TableHead>
+                          <TableHead scope="col">Token ID</TableHead>
+                          <TableHead scope="col">Total Requests</TableHead>
+                          <TableHead scope="col">Success Rate</TableHead>
+                          <TableHead scope="col">Clients</TableHead>
+                          <TableHead scope="col" className="text-right">Last Used</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {displayTokenUsageData.map((token) => {
+                          const successRate = getTokenSuccessRate(token)
+
+                          return (
+                            <TableRow key={token.tokenId}>
+                              <TableCell>
+                                <span className="font-semibold">
+                                  {token.tokenName}
+                                </span>
+                              </TableCell>
+                              <TableCell>{getStatusBadge(token.status)}</TableCell>
+                              <TableCell>
+                                <p className="max-w-[200px] truncate font-mono text-xs" title={maskIdentifier(token.tokenId)}>
+                                  {maskIdentifier(token.tokenId)}
+                                </p>
+                              </TableCell>
+                              <TableCell>
+                                <span className="font-semibold">
+                                  {formatDisplayNumber(token.totalRequests)}
+                                </span>
+                              </TableCell>
+                              <TableCell>
+                                {successRate == null ? (
+                                  <span className="font-semibold text-muted-foreground">—</span>
+                                ) : (
+                                  <span className={`font-semibold ${
+                                    successRate >= HEALTHY_SUCCESS_RATE_THRESHOLD
+                                      ? 'text-green-600 dark:text-green-400'
+                                      : successRate < 80
+                                      ? 'text-red-600 dark:text-red-400'
+                                      : 'text-amber-600 dark:text-amber-400'
+                                  }`}>
+                                    {formatPercentage(successRate)}
+                                  </span>
+                                )}
+                              </TableCell>
+                              <TableCell>
+                                <span className="font-semibold">
+                                  {formatDisplayNumber(token.clientCount)}
+                                </span>
+                              </TableCell>
+                              <TableCell className="text-right">
+                                <span className="text-sm text-muted-foreground">
+                                  {formatUsageTimestamp(token.lastUsed)}
+                                </span>
+                              </TableCell>
+                            </TableRow>
+                          )
+                        })}
+                      </TableBody>
+                    </Table>
+                  </div>
+                </>
               )}
             </CardContent>
           </Card>

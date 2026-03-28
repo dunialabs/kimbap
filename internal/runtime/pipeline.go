@@ -238,7 +238,7 @@ func (r *Runtime) ResumeApproved(ctx context.Context, approvalRequestID string) 
 			Classification: held.Classification,
 		})
 		if evalErr != nil {
-			return r.finalizeWithError(ctx, &result, *held, actions.NewExecutionError(actions.ErrDownstreamUnavailable, evalErr.Error(), 500, true, nil), startedAt, "deny", approvalRequestID)
+			return r.finalizeWithError(ctx, &result, *held, actions.NewExecutionError(actions.ErrDownstreamUnavailable, evalErr.Error(), 500, true, nil), startedAt, "", approvalRequestID)
 		}
 		if decision != nil && normalizePolicyDecision(decision.Decision) == "deny" {
 			return r.finalizeWithError(ctx, &result, *held, actions.NewExecutionError(actions.ErrUnauthorized, "policy denied action on resume: "+decision.Reason, 403, false, nil), startedAt, "deny", approvalRequestID)
@@ -337,7 +337,7 @@ func (r *Runtime) execute(ctx context.Context, req actions.ExecutionRequest, tra
 		if evalErr != nil {
 			errResult := actions.NewExecutionError(actions.ErrDownstreamUnavailable, evalErr.Error(), 500, true, nil)
 			trace.Record("evaluate_policy", "error", errResult.Error())
-			return r.finalizeWithError(ctx, &result, req, errResult, startedAt, "deny", "")
+			return r.finalizeWithError(ctx, &result, req, errResult, startedAt, "", "")
 		}
 		if decision != nil {
 			policyDecision = normalizePolicyDecision(decision.Decision)
@@ -371,12 +371,21 @@ func (r *Runtime) execute(ctx context.Context, req actions.ExecutionRequest, tra
 				return r.finalizeWithStatus(ctx, &result, req, actions.StatusTimeout, timeoutErr, nil, 408, startedAt, "require_approval", approvalRes.RequestID)
 			}
 			if !approvalRes.Approved {
-				if r.HeldExecutionStore != nil {
-					if holdErr := r.HeldExecutionStore.Hold(ctx, approvalRes.RequestID, req); holdErr != nil {
-						holdFailErr := actions.NewExecutionError(actions.ErrDownstreamUnavailable, fmt.Sprintf("failed to hold execution for approval: %v", holdErr), 500, false, nil)
-						trace.Record("hold_execution", "error", holdFailErr.Error())
-						return r.finalizeWithError(ctx, &result, req, holdFailErr, startedAt, "require_approval", approvalRes.RequestID)
-					}
+				if r.HeldExecutionStore == nil {
+					holdMissingErr := actions.NewExecutionError(
+						actions.ErrDownstreamUnavailable,
+						"approval resume unavailable: held execution store is not configured",
+						500,
+						false,
+						nil,
+					)
+					trace.Record("hold_execution", "error", holdMissingErr.Error())
+					return r.finalizeWithError(ctx, &result, req, holdMissingErr, startedAt, "require_approval", approvalRes.RequestID)
+				}
+				if holdErr := r.HeldExecutionStore.Hold(ctx, approvalRes.RequestID, req); holdErr != nil {
+					holdFailErr := actions.NewExecutionError(actions.ErrDownstreamUnavailable, fmt.Sprintf("failed to hold execution for approval: %v", holdErr), 500, false, nil)
+					trace.Record("hold_execution", "error", holdFailErr.Error())
+					return r.finalizeWithError(ctx, &result, req, holdFailErr, startedAt, "require_approval", approvalRes.RequestID)
 				}
 				approvalErr := actions.NewExecutionError(actions.ErrApprovalRequired, "approval required", 202, false, map[string]any{"approval_request_id": approvalRes.RequestID})
 				trace.Record("request_approval", "error", approvalErr.Error())
@@ -672,6 +681,9 @@ func (r *Runtime) finalizeWithStatus(
 		if result.Meta == nil {
 			result.Meta = map[string]any{}
 		}
+		result.Meta["pre_audit_status"] = string(result.Status)
+		result.Meta["pre_audit_http_status"] = result.HTTPStatus
+		result.Meta["pre_audit_retryable"] = result.Retryable
 		if result.Error != nil {
 			result.Meta["original_error"] = result.Error.Message
 			result.Meta["original_error_code"] = result.Error.Code
