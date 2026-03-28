@@ -223,6 +223,7 @@ func TestResolveInitServiceSelectionFromReader(t *testing.T) {
 		{name: "services all with whitespace", rawServices: " all ", wantAll: true},
 		{name: "services csv returns normalized", rawServices: "github,slack", wantNames: []string{"github", "slack"}},
 		{name: "services csv with whitespace", rawServices: "github , slack", wantNames: []string{"github", "slack"}},
+		{name: "services invalid errors", rawServices: "nonexistent-service-xyz", wantErr: true},
 		{name: "non-interactive empty skips", rawServices: "", interactive: false, wantSkipped: true},
 		{name: "interactive enter installs all", rawServices: "", interactive: true, input: "\n", wantAll: true},
 		{name: "interactive Y installs all", rawServices: "", interactive: true, input: "Y\n", wantAll: true},
