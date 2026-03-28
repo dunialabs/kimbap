@@ -441,7 +441,7 @@ func projectSyncScope(projectDir string) string {
 }
 
 func recordProjectSyncState(scope string, installedServices []agents.InstalledService, installedPacks []agents.InstalledServicePack) {
-	if len(installedPacks) > 0 && len(installedPacks) >= len(installedServices) {
+	if len(installedPacks) > 0 && len(installedPacks) == len(installedServices) {
 		if err := agents.RecordSyncPacks(scope, installedPacks); err != nil {
 			_, _ = fmt.Fprintf(os.Stderr, "warning: failed to record pack-aware sync state: %v\n", err)
 		} else {

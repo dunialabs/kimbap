@@ -463,8 +463,10 @@ func severityRank(severity string) int {
 		return 3
 	case "low":
 		return 4
-	default:
+	case "rare":
 		return 5
+	default:
+		return 6
 	}
 }
 
