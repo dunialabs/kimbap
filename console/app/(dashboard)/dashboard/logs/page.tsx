@@ -1072,13 +1072,21 @@ function LogsPageContent() {
                                   {formatLogTimestamp(log.timestamp)}
                                 </p>
                                 <div className="flex flex-wrap items-center gap-2">
-                                  <Badge
-                                    variant={getLevelColor(log.level) === 'destructive' ? 'destructive' : 'outline'}
-                                    className={getLevelBadgeClass(log.level)}
+                                  <button
+                                    type="button"
+                                    className={`rounded-full transition-opacity duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 ${levelFilter === log.level ? 'ring-2 ring-primary ring-offset-1' : 'hover:opacity-75'}`}
+                                    aria-label={levelFilter === log.level ? `Clear ${LOG_LEVEL_DISPLAY[log.level] ?? log.level} filter` : `Filter logs to ${LOG_LEVEL_DISPLAY[log.level] ?? log.level} level`}
+                                    aria-pressed={levelFilter === log.level}
+                                    onClick={() => { setLevelFilter(prev => prev === log.level ? 'all' : log.level); setCurrentPage(1) }}
                                   >
-                                    {getLevelIcon(log.level)}
-                                    <span className="ml-1">{LOG_LEVEL_DISPLAY[log.level] ?? log.level}</span>
-                                  </Badge>
+                                    <Badge
+                                      variant={getLevelColor(log.level) === 'destructive' ? 'destructive' : 'outline'}
+                                      className={getLevelBadgeClass(log.level)}
+                                    >
+                                      {getLevelIcon(log.level)}
+                                      <span className="ml-1">{LOG_LEVEL_DISPLAY[log.level] ?? log.level}</span>
+                                    </Badge>
+                                  </button>
                                   <Badge variant="outline" className="text-xs">
                                     {getDomainLabel(log.source)}
                                   </Badge>
@@ -1162,13 +1170,21 @@ function LogsPageContent() {
                             {formatLogTimestamp(log.timestamp)}
                           </TableCell>
                           <TableCell>
-                            <Badge
-                              variant={getLevelColor(log.level) === 'destructive' ? 'destructive' : 'outline'}
-                              className={getLevelBadgeClass(log.level)}
+                            <button
+                              type="button"
+                              className={`rounded-full transition-opacity duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 ${levelFilter === log.level ? 'ring-2 ring-primary ring-offset-1' : 'hover:opacity-75'}`}
+                              aria-label={levelFilter === log.level ? `Clear ${LOG_LEVEL_DISPLAY[log.level] ?? log.level} filter` : `Filter logs to ${LOG_LEVEL_DISPLAY[log.level] ?? log.level} level`}
+                              aria-pressed={levelFilter === log.level}
+                              onClick={() => { setLevelFilter(prev => prev === log.level ? 'all' : log.level); setCurrentPage(1) }}
                             >
-                              {getLevelIcon(log.level)}
-                              <span className="ml-1">{LOG_LEVEL_DISPLAY[log.level] ?? log.level}</span>
-                            </Badge>
+                              <Badge
+                                variant={getLevelColor(log.level) === 'destructive' ? 'destructive' : 'outline'}
+                                className={getLevelBadgeClass(log.level)}
+                              >
+                                {getLevelIcon(log.level)}
+                                <span className="ml-1">{LOG_LEVEL_DISPLAY[log.level] ?? log.level}</span>
+                              </Badge>
+                            </button>
                           </TableCell>
                           <TableCell>
                             <Badge
