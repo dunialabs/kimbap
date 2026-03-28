@@ -132,7 +132,7 @@ export function AuthLoginDialog({
             <Button
               variant="ghost"
               size="sm"
-              className="-ml-2 h-8 w-fit px-2 text-sm"
+              className="-ml-2 min-h-11 w-fit px-2 text-sm"
               onClick={handleBackToLogin}
             >
               <ArrowLeft className="mr-1 h-4 w-4" />

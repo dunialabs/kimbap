@@ -1041,7 +1041,7 @@ export default function ApprovalsPage() {
               )}
 
               {(detailDialog.decidedByUserId || detailDialog.decisionChannel) && (
-                <div className="grid grid-cols-2 gap-3 text-sm">
+                <div className="grid grid-cols-1 gap-3 text-sm sm:grid-cols-2">
                   <div>
                     <Label className="text-xs text-muted-foreground">Decided By</Label>
                     <p className="mt-1 font-mono text-xs">

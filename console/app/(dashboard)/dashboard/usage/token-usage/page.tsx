@@ -529,7 +529,9 @@ function TokenUsagePageContent() {
         </Select>
         <Button className="min-h-11 w-full sm:w-auto" variant="outline" onClick={handleRefresh} disabled={loading || refreshing}><RefreshCw className={`mr-2 h-4 w-4 ${loading || refreshing ? 'animate-spin' : ''}`} />Refresh</Button>
       </div>
-      <p className="text-sm text-muted-foreground">Minute-level patterns are available only in the 24-hour view.</p>
+      {activeTab === 'patterns' && timeRange !== 1 ? (
+        <p className="text-sm text-muted-foreground">Minute-level patterns are available only in the last 24 hours view.</p>
+      ) : null}
       {!loading && loadError ? (
         <div role="alert" className="flex flex-col items-start gap-2 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700 dark:border-red-900/40 dark:bg-red-950/20 dark:text-red-300 sm:flex-row sm:items-center">
           <AlertTriangle className="h-4 w-4 shrink-0" aria-hidden="true" />

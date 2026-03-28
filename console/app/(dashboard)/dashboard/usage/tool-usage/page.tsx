@@ -39,7 +39,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Pagination, PaginationContent, PaginationItem } from "@/components/ui/pagination"
 import { api } from '@/lib/api-client'
 import { getActionLabel } from '@/lib/log-utils'
-import { formatDateTime, formatDisplayNumber, formatNullableText, formatPercentage } from '@/lib/utils'
+import { formatDateTime, formatDisplayNumber, formatNullableText, formatPercentage, formatResponseTime } from '@/lib/utils'
 
 interface ToolUsageData {
   toolId?: string
@@ -612,7 +612,7 @@ function ToolUsagePageContent() {
                     ? '—'
                     : summary?.avgResponseTime == null
                     ? (loadError ? 'Unavailable' : '—')
-                    : `${formatDisplayNumber(Math.round(summary.avgResponseTime))}ms`}
+                    : formatResponseTime(summary.avgResponseTime)}
                 </div>
                 <p className="text-xs text-muted-foreground">Across all tools</p>
               </CardContent>
@@ -723,7 +723,7 @@ function ToolUsagePageContent() {
                       </div>
                       <div className="flex flex-col gap-1 justify-center">
                         <p className="text-muted-foreground">Average Response</p>
-                        <p className="font-semibold">{formatDisplayNumber(Math.round(tool.averageResponseTime))}ms</p>
+                        <p className="font-semibold">{formatResponseTime(tool.averageResponseTime)}</p>
                       </div>
                       <div className="flex flex-col gap-1 justify-center">
                         <p className="text-muted-foreground">Usage Status</p>
@@ -996,7 +996,7 @@ function ToolUsagePageContent() {
                     {actionLogType !== 'all' ? (
                       <Badge variant="outline" className="text-xs">Action: {getActionLabel(Number(actionLogType))}</Badge>
                     ) : null}
-                    <Button variant="ghost" size="sm" className="h-7 px-2 text-xs" onClick={clearActionFilters}>Reset filters</Button>
+                    <Button variant="ghost" size="sm" className="min-h-11 px-3 text-xs" onClick={clearActionFilters}>Reset filters</Button>
                   </div>
                 ) : (
                   <p className="text-xs text-muted-foreground">Showing all tools, all outcomes, and all actions.</p>
@@ -1062,7 +1062,7 @@ function ToolUsagePageContent() {
                             </details>
                           )}
                         </TableCell>
-                        <TableCell className="text-right">{formatDisplayNumber(log.responseTime)}ms</TableCell>
+                        <TableCell className="text-right">{formatResponseTime(log.responseTime)}</TableCell>
                       </TableRow>
                     ))}
                   </TableBody>
