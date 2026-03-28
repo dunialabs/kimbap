@@ -771,7 +771,7 @@ function LogsPageContent() {
             <CardHeader>
               <CardTitle className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                 <span>
-                  {loading ? 'Server Logs' : `Server Logs (${totalCount.toLocaleString()} total, showing ${logs.length.toLocaleString()})`}
+                  {loading ? 'Server Logs' : `Server Logs (${formatDisplayNumber(totalCount)} total, showing ${formatDisplayNumber(logs.length)})`}
                 </span>
                 <Badge variant="outline" className={loading || currentPage !== 1 || activeTab !== 'table' || debouncedSearchTerm ? 'border-amber-500 text-amber-700 dark:text-amber-300' : realtimeHealthy ? 'border-green-500 text-green-600 dark:text-green-400' : 'border-red-500 text-red-600 dark:text-red-400'}>
                   <Clock className="mr-1 h-3 w-3" />
@@ -904,6 +904,13 @@ function LogsPageContent() {
                                     {log.message}
                                   </p>
                                 </div>
+
+                                {log.userId && (
+                                  <div>
+                                    <Label className="text-sm font-medium">User</Label>
+                                    <p className="mt-1 font-mono text-sm text-muted-foreground">{log.userId}</p>
+                                  </div>
+                                )}
 
                                 {Object.keys(log.details).length > 0 && (
                                   <div>
@@ -1071,7 +1078,7 @@ function LogsPageContent() {
                 <CardDescription>
                   {loading
                     ? 'Preparing raw logs for the current filtered page...'
-                    : `Raw server logs for this filtered page (${logs.length.toLocaleString()} rows on page ${formatDisplayNumber(currentPage)} of ${formatDisplayNumber(Math.max(totalPages, 1))})`}
+                    : `Raw server logs for this filtered page (${formatDisplayNumber(logs.length)} rows on page ${formatDisplayNumber(currentPage)} of ${formatDisplayNumber(Math.max(totalPages, 1))})`}
                 </CardDescription>
               </div>
               {!loading && logs.length > 0 && (
@@ -1208,7 +1215,7 @@ function LogsPageContent() {
                     : formatDisplayNumber(statistics.infoLogs, { compact: true })}
                 </div>
                 <p className="text-xs text-muted-foreground">
-                  {!statsLoading && statistics ? `+ ${statistics.debugLogs.toLocaleString()} debug logs` : ''}
+                  {!statsLoading && statistics ? `+ ${formatDisplayNumber(statistics.debugLogs)} debug logs` : ''}
                 </p>
               </CardContent>
             </Card>
@@ -1293,9 +1300,9 @@ function LogsPageContent() {
                     {statistics.domainStats.map((stat) => (
                       <TableRow key={stat.domain}>
                         <TableCell>{stat.label}</TableCell>
-                        <TableCell>{stat.logCount.toLocaleString()}</TableCell>
+                        <TableCell>{formatDisplayNumber(stat.logCount, { compact: true })}</TableCell>
                         <TableCell className={stat.errorCount > 0 ? 'text-red-600 dark:text-red-400' : ''}>
-                          {stat.errorCount.toLocaleString()}
+                          {formatDisplayNumber(stat.errorCount, { compact: true })}
                         </TableCell>
                         <TableCell>{formatPercentage(stat.percentage)}</TableCell>
                       </TableRow>
