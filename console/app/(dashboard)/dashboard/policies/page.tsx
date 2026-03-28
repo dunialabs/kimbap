@@ -644,6 +644,11 @@ function RuleCard({
                 />
               </div>
             </div>
+            {rule.effect.decision === 'DENY' && (!rule.match.tool || rule.match.tool === '*') && rule.when.length === 0 && (
+              <p className="text-xs text-amber-700 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 rounded-md px-3 py-2">
+                ⚠ This rule will block <strong>all</strong> tool calls unconditionally. Add a specific tool pattern or a condition to narrow the scope.
+              </p>
+            )}
           </div>
         </CardContent>
       )}
