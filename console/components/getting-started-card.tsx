@@ -1,13 +1,10 @@
 'use client'
 
 import Link from 'next/link'
-import { useEffect, useState } from 'react'
 
-import { Button, buttonVariants } from '@/components/ui/button'
+import { buttonVariants } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { cn } from '@/lib/utils'
-
-const STORAGE_KEY = 'kimbap_getting_started_dismissed'
 
 const shortcuts = [
   {
@@ -31,52 +28,16 @@ const shortcuts = [
 ]
 
 export function GettingStartedCard() {
-  const [dismissed, setDismissed] = useState(false)
-  const [isReady, setIsReady] = useState(false)
-
-  useEffect(() => {
-    try {
-      setDismissed(localStorage.getItem(STORAGE_KEY) === 'true')
-    } catch {
-      setDismissed(false)
-    }
-    setIsReady(true)
-  }, [])
-
-  const handleDismiss = () => {
-    setDismissed(true)
-    try {
-      localStorage.setItem(STORAGE_KEY, 'true')
-    } catch {
-      return
-    }
-  }
-
-  if (!isReady || dismissed) {
-    return null
-  }
-
   return (
     <Card className="rounded-xl border border-blue-200/70 bg-blue-50/80 dark:border-blue-900/70 dark:bg-blue-950/20">
       <CardContent className="p-4">
-        <div className="mb-3 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-          <div className="flex-1">
-            <h2 className="mb-1 text-lg font-semibold text-foreground sm:text-xl">
-              Getting started
-            </h2>
-            <p className="text-sm leading-6 text-muted-foreground">
-              Use these first steps to set up operator guardrails and confirm this server is ready for traffic.
-            </p>
-          </div>
-          <Button
-            type="button"
-            variant="ghost"
-            size="sm"
-            onClick={handleDismiss}
-            className="min-h-11 shrink-0"
-          >
-            Dismiss
-          </Button>
+        <div className="mb-3">
+          <h2 className="mb-1 text-lg font-semibold text-foreground sm:text-xl">
+            Getting started
+          </h2>
+          <p className="text-sm leading-6 text-muted-foreground">
+            Use these first steps to set up operator guardrails and confirm this server is ready for traffic.
+          </p>
         </div>
 
         <ul className="space-y-3">

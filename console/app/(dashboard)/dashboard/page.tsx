@@ -346,8 +346,8 @@ export default function DashboardPage() {
       <div className="flex items-center justify-center min-h-[400px]">
         <div aria-live="polite" className="text-center">
           <div className="w-8 h-8 border-2 border-muted-foreground/30 border-t-foreground rounded-full animate-spin mx-auto mb-4" aria-hidden="true" />
-          <h3 className="text-lg font-semibold mb-2">Loading dashboard overview</h3>
-          <p className="text-muted-foreground">Fetching server metrics, addresses, and recent activity…</p>
+          <h3 className="text-lg font-semibold mb-2">Loading dashboard</h3>
+          <p className="text-muted-foreground">Loading server data…</p>
         </div>
       </div>
     )
@@ -380,7 +380,7 @@ export default function DashboardPage() {
           <Server className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
           <h3 className="text-lg font-semibold mb-2">No server connected</h3>
           <p className="text-muted-foreground mb-4">
-            Return to sign in and reconnect to start using the dashboard.
+            Sign in and connect a server to use the dashboard.
           </p>
           <Link href="/" className={cn(buttonVariants(), 'min-h-11')}>
             Back to sign in
@@ -437,7 +437,7 @@ export default function DashboardPage() {
                   {formatDisplayNumber(pendingApprovalCount)} approval{pendingApprovalCount === 1 ? '' : 's'} waiting for review
                 </p>
                 <p className="text-sm text-muted-foreground">
-                  Requests that need an operator decision are waiting in the approval queue.
+                   These requests need an operator decision before they can proceed.
                 </p>
               </div>
               <Link href="/dashboard/approvals" className={cn(buttonVariants({ size: 'sm' }), 'min-h-11 px-4')}>
@@ -461,12 +461,12 @@ export default function DashboardPage() {
             <CardHeader className="pb-3">
               <CardTitle>No operator activity yet</CardTitle>
               <CardDescription>
-                This server is connected, but no tools, approvals, logs, or recent clients have shown up yet.
+                This server is connected but has no recorded activity yet.
               </CardDescription>
             </CardHeader>
             <CardContent className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
               <p className="text-sm text-muted-foreground">
-                Start by setting your first policy. When agents begin using the server, activity will appear here automatically.
+                Set your first policy to get started. Activity will appear here once agents begin using the server.
               </p>
               <div className="flex flex-col gap-2 sm:flex-row">
                 <Link href="/dashboard/policies" className={cn(buttonVariants({ size: 'sm' }), 'min-h-11 px-4')}>

@@ -224,8 +224,8 @@ export function LoginForm({
         <h2 className="mb-1 text-2xl font-bold">Sign in to Kimbap Console</h2>
         <p className="text-sm text-muted-foreground">
           {loginMode === 'password'
-              ? 'Start here if you own this server. Use the master password to open the console, including on a new browser.'
-              : 'Use an owner or admin access token only if one was issued to you for this server.'}
+              ? 'Start here if you own this server. Use the master password to sign in, even from a new browser.'
+              : 'Use an owner or admin access token that was issued to you for this server.'}
         </p>
       </div>
       <fieldset className="m-0 border-0 p-0">
@@ -277,7 +277,9 @@ export function LoginForm({
       </fieldset>
 
       <p className="text-xs leading-5 text-muted-foreground">
-        Master Password is the default for owners. Switch to Access Token if you are signing in as an admin.
+        {loginMode === 'password'
+          ? 'Master Password is the default for server owners.'
+          : 'Access tokens are for admins and operators who received one from the owner.'}
       </p>
 
       {/* Input Field */}
@@ -343,13 +345,13 @@ export function LoginForm({
         {/* Note and Error Messages */}
         {loginMode === 'password' && !loginError && (
           <p id="login-password-note" className="text-xs text-muted-foreground">
-            Use the same server master password you already use as the owner, even on a new browser.
+            Enter the master password you set when configuring this server.
           </p>
         )}
 
         {loginMode === 'token' && !tokenError && (
           <p id="login-token-note" className="text-xs text-muted-foreground">
-            Use an owner or admin access token issued for this server.
+            Paste the token you received from the server owner.
           </p>
         )}
 
@@ -366,8 +368,7 @@ export function LoginForm({
             <AlertDescription className="text-sm text-red-800 dark:text-red-200">
               {tokenError === 'member_link' ? (
                 <>
-                  Members can only use the server. For configuration, please
-                  switch token or{' '}
+                  Members can use the server but not this console. Sign in with an owner or admin token, or{' '}
                   <a
                     href="https://kimbap.sh/quick-start/#install-desk"
                     target="_blank"

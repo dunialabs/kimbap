@@ -31,9 +31,9 @@ export function MasterPasswordForm({ onSuccess }: MasterPasswordFormProps) {
       if (!window.crypto || !window.crypto.subtle) {
         setCryptoAvailable(false)
         setError(
-          'Web Crypto API is not available. This application requires HTTPS or localhost. ' +
-          'Please access via HTTPS (https://...) or localhost (http://localhost:...). ' +
-          'For more information, visit: https://docs.kimbap.sh/#caddy-https-config'
+          'This console requires a secure connection (HTTPS or localhost). ' +
+          'Open it via https:// or http://localhost to continue. ' +
+          'Details: https://docs.kimbap.sh/#caddy-https-config'
         )
       } else {
         setCryptoAvailable(true)
@@ -209,8 +209,7 @@ export function MasterPasswordForm({ onSuccess }: MasterPasswordFormProps) {
         <Alert className="border-blue-200 bg-blue-50 dark:bg-blue-950/20 dark:border-blue-900">
           <AlertDescription className="text-sm text-blue-700 dark:text-blue-200">
             <span className="font-semibold">Important:</span> This password cannot
-            be recovered. Make sure to remember it or store it in a secure
-            location.
+            be recovered. Store it somewhere safe.
           </AlertDescription>
         </Alert>
 
@@ -235,12 +234,12 @@ export function MasterPasswordForm({ onSuccess }: MasterPasswordFormProps) {
           {isLoading ? (
             <>
               <Loader2 className="mr-2 h-4 w-4 animate-spin" aria-hidden="true" />
-              Create master password
+              Create Master Password
             </>
           ) : (
             <>
               <Lock className="w-4 h-4 mr-2" />
-              Create master password
+              Create Master Password
             </>
           )}
         </Button>
