@@ -26,7 +26,7 @@ func Handler() http.Handler {
 
 		f, openErr := dist.Open(path)
 		if openErr != nil {
-			if filepath.Ext(filepath.Base(path)) != "" {
+			if isAssetPath(path) || (filepath.Ext(filepath.Base(path)) != "" && !wantsHTMLNavigation(r)) {
 				http.NotFound(w, r)
 				return
 			}
@@ -38,4 +38,23 @@ func Handler() http.Handler {
 
 		fileServer.ServeHTTP(w, r)
 	})
+}
+
+var assetPrefixes = []string{"assets/", "static/", "js/", "css/", "img/", "fonts/", "images/"}
+
+func isAssetPath(path string) bool {
+	for _, prefix := range assetPrefixes {
+		if strings.HasPrefix(path, prefix) {
+			return true
+		}
+	}
+	return false
+}
+
+func wantsHTMLNavigation(r *http.Request) bool {
+	accept := strings.ToLower(strings.TrimSpace(r.Header.Get("Accept")))
+	if accept == "" {
+		return false
+	}
+	return strings.Contains(accept, "text/html")
 }

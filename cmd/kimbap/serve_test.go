@@ -83,3 +83,27 @@ func TestBuildServeServerOptionsEnablesConsoleWhenRequested(t *testing.T) {
 		t.Fatalf("expected text/html content type for console route, got %q", contentType)
 	}
 }
+
+func TestBuildServeServerOptionsEnablesConsoleDeepLinkWithDot(t *testing.T) {
+	server := api.NewServer(":0", nil, buildServeServerOptions(nil, nil, true)...)
+	ts := httptest.NewServer(server.Router())
+	defer ts.Close()
+
+	req, err := http.NewRequest(http.MethodGet, ts.URL+"/console/releases/v1.2", nil)
+	if err != nil {
+		t.Fatalf("build request: %v", err)
+	}
+	req.Header.Set("Accept", "text/html")
+
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatalf("request console deep link: %v", err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("expected 200 when console deep link is enabled, got %d", resp.StatusCode)
+	}
+	if contentType := resp.Header.Get("Content-Type"); !strings.Contains(contentType, "text/html") {
+		t.Fatalf("expected text/html content type for console deep link, got %q", contentType)
+	}
+}

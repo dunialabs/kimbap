@@ -44,6 +44,7 @@ func TestHandlerServesIndexAtRoot(t *testing.T) {
 func TestHandlerReturnsNotFoundForMissingAssetFile(t *testing.T) {
 	h := Handler()
 	req := httptest.NewRequest(http.MethodGet, "/assets/missing.js", nil)
+	req.Header.Set("Accept", "application/javascript")
 	rr := httptest.NewRecorder()
 
 	h.ServeHTTP(rr, req)
@@ -56,6 +57,7 @@ func TestHandlerFallsBackToIndexForRouteWithoutExtension(t *testing.T) {
 	h := Handler()
 	indexHTML := readEmbeddedIndexHTML(t)
 	req := httptest.NewRequest(http.MethodGet, "/console/dashboard", nil)
+	req.Header.Set("Accept", "text/html")
 	rr := httptest.NewRecorder()
 
 	h.ServeHTTP(rr, req)
@@ -68,5 +70,37 @@ func TestHandlerFallsBackToIndexForRouteWithoutExtension(t *testing.T) {
 	}
 	if got := string(body); got != indexHTML {
 		t.Fatalf("expected SPA fallback to return embedded index.html")
+	}
+}
+
+func TestHandlerReturnsNotFoundForMissingAssetWithHTMLAccept(t *testing.T) {
+	h := Handler()
+	req := httptest.NewRequest(http.MethodGet, "/assets/missing.js", nil)
+	req.Header.Set("Accept", "text/html,application/xhtml+xml")
+	rr := httptest.NewRecorder()
+
+	h.ServeHTTP(rr, req)
+	if rr.Code != http.StatusNotFound {
+		t.Fatalf("status code = %d, want 404 for missing asset even with text/html Accept", rr.Code)
+	}
+}
+
+func TestHandlerFallsBackToIndexForRouteWithDotWhenHTMLNavigation(t *testing.T) {
+	h := Handler()
+	indexHTML := readEmbeddedIndexHTML(t)
+	req := httptest.NewRequest(http.MethodGet, "/console/releases/v1.2", nil)
+	req.Header.Set("Accept", "text/html,application/xhtml+xml")
+	rr := httptest.NewRecorder()
+
+	h.ServeHTTP(rr, req)
+	if rr.Code != http.StatusOK {
+		t.Fatalf("status code = %d, want 200", rr.Code)
+	}
+	body, err := io.ReadAll(rr.Body)
+	if err != nil {
+		t.Fatalf("read response body: %v", err)
+	}
+	if got := string(body); got != indexHTML {
+		t.Fatalf("expected SPA fallback to return embedded index.html for dotted route")
 	}
 }

@@ -42,7 +42,7 @@ If you find a bug or have a feature request:
    - Keep changes scoped and readable
    - Do not hardcode secrets
    - Use structured logging via zerolog wrappers
-   - Update relevant documentation (`README.md`, `CLAUDE.md`, `docs/`)
+   - Update relevant documentation (`README.md`, `docs/`)
    - Add tests where practical
 
 5. **Verify locally**

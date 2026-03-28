@@ -116,6 +116,54 @@ func TestEnsureConsoleEnabledSkipsWhenAlreadyEnabled(t *testing.T) {
 	}
 }
 
+func TestResolveSymlinkTargetRelative(t *testing.T) {
+	dir := t.TempDir()
+	binaryPath := filepath.Join(dir, "kimbap")
+	if err := os.WriteFile(binaryPath, []byte("#!/bin/sh\n"), 0o700); err != nil {
+		t.Fatalf("write binary: %v", err)
+	}
+	linkPath := filepath.Join(dir, "kb")
+	if err := os.Symlink("kimbap", linkPath); err != nil {
+		t.Fatalf("create relative symlink: %v", err)
+	}
+
+	got, err := resolveSymlinkTarget(linkPath, "kimbap")
+	if err != nil {
+		t.Fatalf("resolve relative symlink: %v", err)
+	}
+	want, err := filepath.EvalSymlinks(binaryPath)
+	if err != nil {
+		t.Fatalf("eval expected symlink target: %v", err)
+	}
+	if got != want {
+		t.Fatalf("resolved target = %q, want %q", got, want)
+	}
+}
+
+func TestResolveSymlinkTargetAbsolute(t *testing.T) {
+	dir := t.TempDir()
+	binaryPath := filepath.Join(dir, "kimbap")
+	if err := os.WriteFile(binaryPath, []byte("#!/bin/sh\n"), 0o700); err != nil {
+		t.Fatalf("write binary: %v", err)
+	}
+	linkPath := filepath.Join(dir, "kb")
+	if err := os.Symlink(binaryPath, linkPath); err != nil {
+		t.Fatalf("create absolute symlink: %v", err)
+	}
+
+	got, err := resolveSymlinkTarget(linkPath, binaryPath)
+	if err != nil {
+		t.Fatalf("resolve absolute symlink target: %v", err)
+	}
+	want, err := filepath.EvalSymlinks(binaryPath)
+	if err != nil {
+		t.Fatalf("eval expected symlink target: %v", err)
+	}
+	if got != want {
+		t.Fatalf("resolved target = %q, want %q", got, want)
+	}
+}
+
 func TestRenderInitSummaryIncludesWarnings(t *testing.T) {
 	summary := renderInitSummary("/tmp/config.yaml", []doctorCheck{
 		{Name: "a", Status: "ok", Detail: "ok"},

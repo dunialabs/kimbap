@@ -751,14 +751,17 @@ func ensureKBSymlink() doctorCheck {
 	if existing, statErr := os.Lstat(kbPath); statErr == nil {
 		if existing.Mode()&os.ModeSymlink != 0 {
 			target, readErr := os.Readlink(kbPath)
-			if readErr != nil || target != execPath {
-				_ = os.Remove(kbPath)
-				if symlinkErr := os.Symlink(execPath, kbPath); symlinkErr != nil {
-					return doctorCheck{Name: "kb alias", Status: "fail", Detail: fmt.Sprintf("recreate symlink: %v", symlinkErr)}
+			if readErr == nil {
+				resolvedTarget, resolveErr := resolveSymlinkTarget(kbPath, target)
+				if resolveErr == nil && resolvedTarget == execPath {
+					return doctorCheck{Name: "kb alias", Status: "skip", Detail: fmt.Sprintf("exists: %s", kbPath)}
 				}
-				return doctorCheck{Name: "kb alias", Status: "ok", Detail: fmt.Sprintf("updated: %s -> %s", kbPath, execPath)}
 			}
-			return doctorCheck{Name: "kb alias", Status: "skip", Detail: fmt.Sprintf("exists: %s", kbPath)}
+			_ = os.Remove(kbPath)
+			if symlinkErr := os.Symlink(execPath, kbPath); symlinkErr != nil {
+				return doctorCheck{Name: "kb alias", Status: "fail", Detail: fmt.Sprintf("recreate symlink: %v", symlinkErr)}
+			}
+			return doctorCheck{Name: "kb alias", Status: "ok", Detail: fmt.Sprintf("updated: %s -> %s", kbPath, execPath)}
 		}
 		return doctorCheck{Name: "kb alias", Status: "skip", Detail: fmt.Sprintf("exists (not symlink): %s", kbPath)}
 	}
@@ -766,4 +769,12 @@ func ensureKBSymlink() doctorCheck {
 		return doctorCheck{Name: "kb alias", Status: "fail", Detail: fmt.Sprintf("create symlink: %v (try: sudo ln -s %s %s)", symlinkErr, execPath, kbPath)}
 	}
 	return doctorCheck{Name: "kb alias", Status: "ok", Detail: fmt.Sprintf("created: %s -> %s", kbPath, execPath)}
+}
+
+func resolveSymlinkTarget(linkPath, target string) (string, error) {
+	resolved := target
+	if !filepath.IsAbs(resolved) {
+		resolved = filepath.Join(filepath.Dir(linkPath), resolved)
+	}
+	return filepath.EvalSymlinks(resolved)
 }

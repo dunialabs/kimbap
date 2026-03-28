@@ -1649,6 +1649,30 @@ func TestNewServerServesConsoleWhenEnabled(t *testing.T) {
 	}
 }
 
+func TestNewServerServesConsoleDeepLinkWithDotWhenEnabled(t *testing.T) {
+	server := NewServer(":0", nil, WithConsole())
+	ts := httptest.NewServer(server.Router())
+	t.Cleanup(ts.Close)
+
+	req, err := http.NewRequest(http.MethodGet, ts.URL+"/console/releases/v1.2", nil)
+	if err != nil {
+		t.Fatalf("build request: %v", err)
+	}
+	req.Header.Set("Accept", "text/html")
+
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatalf("request console deep link: %v", err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("expected 200 for console deep link when enabled, got %d", resp.StatusCode)
+	}
+	if got := resp.Header.Get("Content-Type"); !strings.Contains(got, "text/html") {
+		t.Fatalf("expected text/html content type for console deep link, got %q", got)
+	}
+}
+
 type staticPolicyEvaluator struct{}
 
 func (staticPolicyEvaluator) Evaluate(context.Context, runtimepkg.PolicyRequest) (*runtimepkg.PolicyDecision, error) {

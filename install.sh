@@ -124,7 +124,7 @@ install_binary() {
     info "Installing to /usr/local/bin (requires sudo)..."
     sudo mkdir -p "$install_dir"
     sudo install -m 755 "$src_dir/kimbap" "$install_dir/kimbap"
-    sudo install -m 755 "$src_dir/kb"     "$install_dir/kb"
+    sudo ln -sf "kimbap" "$install_dir/kb"
     INSTALL_PATH="$install_dir"
     return
   else
@@ -135,7 +135,7 @@ install_binary() {
   fi
 
   install -m 755 "$src_dir/kimbap" "$install_dir/kimbap"
-  install -m 755 "$src_dir/kb"     "$install_dir/kb"
+  ln -sf "kimbap" "$install_dir/kb"
   INSTALL_PATH="$install_dir"
 }
 
@@ -179,15 +179,16 @@ main() {
   info "Extracting archive..."
   tar -xzf "$archive" -C "$TMPDIR_KIMBAP"
 
-  if [[ ! -f "$TMPDIR_KIMBAP/kimbap" ]] || [[ ! -f "$TMPDIR_KIMBAP/kb" ]]; then
-    error "Archive is missing expected binaries (kimbap, kb). Release may be malformed."
+  if [[ ! -f "$TMPDIR_KIMBAP/kimbap" ]]; then
+    error "Archive is missing expected binary (kimbap). Release may be malformed."
   fi
 
   INSTALL_PATH=""
   install_binary "$TMPDIR_KIMBAP"
 
   printf "\n${GREEN}${BOLD}✓ kimbap v${VERSION} installed successfully!${RESET}\n"
-  printf "  Binaries: %s/kimbap  %s/kb\n\n" "$INSTALL_PATH" "$INSTALL_PATH"
+  printf "  Binary: %s/kimbap\n" "$INSTALL_PATH"
+  printf "  Alias:  %s/kb -> %s/kimbap\n\n" "$INSTALL_PATH" "$INSTALL_PATH"
 
   if [ -t 1 ] && [ -e /dev/tty ]; then
     printf "Run quickstart init? [Y/n] " >/dev/tty
