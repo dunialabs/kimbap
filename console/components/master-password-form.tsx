@@ -5,6 +5,7 @@ import { useState, useEffect, useRef } from 'react'
 import { Button } from '@/components/ui/button'
 import { Label } from '@/components/ui/label'
 import { Alert, AlertDescription } from '@/components/ui/alert'
+import { Input } from '@/components/ui/input'
 import { Eye, EyeOff, Loader2, Lock } from 'lucide-react'
 import { renderErrorMessageWithLinks } from '@/lib/error-utils'
 
@@ -113,7 +114,7 @@ export function MasterPasswordForm({ onSuccess }: MasterPasswordFormProps) {
             <span className="ml-1 text-xs font-normal text-muted-foreground">(required)</span>
           </Label>
           <div className="relative">
-            <input
+            <Input
               id="master-password"
               type={showPassword ? 'text' : 'password'}
               placeholder="At least 10 characters"
@@ -128,7 +129,7 @@ export function MasterPasswordForm({ onSuccess }: MasterPasswordFormProps) {
               autoCapitalize="none"
               autoCorrect="off"
               spellCheck={false}
-              className="h-12 w-full rounded-lg border border-input bg-background pl-3 pr-10 transition-colors duration-200 focus-visible:border-blue-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 disabled:cursor-not-allowed disabled:opacity-50"
+              className="h-12 rounded-lg px-3 pr-10 transition-colors duration-200 focus-visible:border-blue-500 focus-visible:ring-blue-500"
               aria-invalid={passwordTooShort || Boolean(error)}
               aria-describedby={[passwordTooShort ? 'master-password-hint' : '', error ? 'master-password-error' : ''].filter(Boolean).join(' ') || undefined}
               minLength={10}
@@ -163,7 +164,7 @@ export function MasterPasswordForm({ onSuccess }: MasterPasswordFormProps) {
             <span className="ml-1 text-xs font-normal text-muted-foreground">(required)</span>
           </Label>
           <div className="relative">
-            <input
+            <Input
               id="confirm-password"
               type={showConfirmPassword ? 'text' : 'password'}
               placeholder="Re-enter master password"
@@ -177,7 +178,7 @@ export function MasterPasswordForm({ onSuccess }: MasterPasswordFormProps) {
               autoCapitalize="none"
               autoCorrect="off"
               spellCheck={false}
-              className="h-12 w-full rounded-lg border border-input bg-background pl-3 pr-10 transition-colors duration-200 focus-visible:border-blue-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 disabled:cursor-not-allowed disabled:opacity-50"
+              className="h-12 rounded-lg px-3 pr-10 transition-colors duration-200 focus-visible:border-blue-500 focus-visible:ring-blue-500"
               aria-invalid={passwordsMismatch || Boolean(error)}
               aria-describedby={[confirmPassword && masterPassword ? 'confirm-password-status' : '', error ? 'master-password-error' : ''].filter(Boolean).join(' ') || undefined}
               required

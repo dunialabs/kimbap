@@ -555,6 +555,24 @@ function LogsPageContent() {
     }
   }
 
+  const copyTextToClipboard = async (
+    value: string,
+    successMessage: string,
+    errorMessage: string
+  ) => {
+    try {
+      if (!navigator?.clipboard?.writeText) {
+        toast.error('Clipboard not available')
+        return
+      }
+
+      await navigator.clipboard.writeText(value)
+      toast.success(successMessage)
+    } catch {
+      toast.error(errorMessage)
+    }
+  }
+
   // Clear filters function
   const clearFilters = () => {
     setLevelFilter('all')
@@ -1052,18 +1070,7 @@ function LogsPageContent() {
                                 <Button
                                   variant="outline"
                                   className="min-h-11"
-                                  onClick={async () => {
-                                    try {
-                                      if (!navigator?.clipboard?.writeText) {
-                                        toast.error('Clipboard not available')
-                                        return
-                                      }
-                                      await navigator.clipboard.writeText(log.rawData)
-                                      toast.success('Raw log data copied to clipboard')
-                                    } catch {
-                                      toast.error('Could not copy raw log data')
-                                    }
-                                  }}
+                                  onClick={() => void copyTextToClipboard(log.rawData, 'Raw log data copied to clipboard', 'Could not copy raw log data')}
                                 >
                                   Copy Raw Data
                                 </Button>
@@ -1165,19 +1172,7 @@ function LogsPageContent() {
                   variant="outline"
                   size="sm"
                   className="min-h-11 w-full sm:w-auto sm:shrink-0"
-                  onClick={async () => {
-                    const rawText = logs.map((log) => log.rawData).join('\n\n')
-                    try {
-                      if (!navigator?.clipboard?.writeText) {
-                        toast.error('Clipboard not available')
-                        return
-                      }
-                      await navigator.clipboard.writeText(rawText)
-                      toast.success('Raw logs copied to clipboard')
-                    } catch {
-                      toast.error('Could not copy raw logs')
-                    }
-                  }}
+                  onClick={() => void copyTextToClipboard(logs.map((log) => log.rawData).join('\n\n'), 'Raw logs copied to clipboard', 'Could not copy raw logs')}
                 >
                   Copy All
                 </Button>

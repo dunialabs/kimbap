@@ -1,10 +1,10 @@
-"use client"
+'use client'
 
-import { Key, AlertTriangle, CheckCircle, Eye, EyeOff, Loader2 } from "lucide-react"
-import { useEffect, useRef, useState } from "react"
+import { Key, AlertTriangle, CheckCircle, Eye, EyeOff, Loader2 } from 'lucide-react'
+import { useEffect, useRef, useState } from 'react'
 
-import { Alert, AlertDescription } from "@/components/ui/alert"
-import { Button } from "@/components/ui/button"
+import { Alert, AlertDescription } from '@/components/ui/alert'
+import { Button } from '@/components/ui/button'
 import {
   Dialog,
   DialogContent,
@@ -12,9 +12,9 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-} from "@/components/ui/dialog"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
+} from '@/components/ui/dialog'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
 
 interface ResetTokenDialogProps {
   open: boolean
@@ -31,10 +31,10 @@ export function ResetTokenDialog({
   serverAddress,
   onResetToken,
 }: ResetTokenDialogProps) {
-  const [newToken, setNewToken] = useState("")
+  const [newToken, setNewToken] = useState('')
   const [showToken, setShowToken] = useState(false)
   const [isResetting, setIsResetting] = useState(false)
-  const [error, setError] = useState("")
+  const [error, setError] = useState('')
   const tokenInputRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
@@ -53,34 +53,43 @@ export function ResetTokenDialog({
     const trimmedToken = newToken.trim()
 
     if (!trimmedToken) {
-      setError("Enter a new access token.")
+      setError('Enter a new access token.')
       return
     }
 
     setIsResetting(true)
-    setError("")
+    setError('')
 
     try {
       await onResetToken(trimmedToken)
-      setNewToken("")
+      setNewToken('')
       setShowToken(false)
       onOpenChange(false)
-    } catch (err) {
-      setError("Could not reconnect with that access token. Check the token and try again.")
+    } catch {
+      setError('Could not reconnect with that access token. Check the token and try again.')
     } finally {
       setIsResetting(false)
     }
   }
 
   const handleCancel = () => {
-    setNewToken("")
+    setNewToken('')
     setShowToken(false)
-    setError("")
+    setError('')
     onOpenChange(false)
   }
 
+  const handleDialogOpenChange = (isOpen: boolean) => {
+    if (!isOpen) {
+      handleCancel()
+      return
+    }
+
+    onOpenChange(true)
+  }
+
   return (
-    <Dialog open={open} onOpenChange={(isOpen) => { if (!isOpen) handleCancel(); else onOpenChange(true); }}>
+    <Dialog open={open} onOpenChange={handleDialogOpenChange}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
@@ -95,7 +104,7 @@ export function ResetTokenDialog({
         <form
           onSubmit={(e) => {
             e.preventDefault()
-            handleReset()
+            void handleReset()
           }}
         >
           <div className="space-y-4">
@@ -124,13 +133,13 @@ export function ResetTokenDialog({
               <div className="relative">
                 <Input
                   id="new-token"
-                  type={showToken ? "text" : "password"}
+                  type={showToken ? 'text' : 'password'}
                   placeholder="kimbap_..."
                   ref={tokenInputRef}
                   value={newToken}
                   onChange={(e) => {
                     setNewToken(e.target.value)
-                    setError("")
+                    setError('')
                   }}
                   disabled={isResetting}
                   aria-invalid={Boolean(error)}
@@ -146,7 +155,7 @@ export function ResetTokenDialog({
                   type="button"
                   onClick={() => setShowToken((prev) => !prev)}
                   className="absolute right-3 top-1/2 -translate-y-1/2 rounded text-muted-foreground transition-colors duration-200 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
-                  aria-label={showToken ? "Hide access token" : "Show access token"}
+                  aria-label={showToken ? 'Hide access token' : 'Show access token'}
                   disabled={isResetting}
                 >
                   {showToken ? <EyeOff className="h-4 w-4" aria-hidden="true" /> : <Eye className="h-4 w-4" aria-hidden="true" />}
@@ -164,9 +173,9 @@ export function ResetTokenDialog({
               </Alert>
             )}
 
-            <div className="bg-blue-50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-800 rounded-md p-3">
+            <div className="rounded-md border border-blue-200 bg-blue-50 p-3 dark:border-blue-800 dark:bg-blue-950/20">
               <div className="flex items-start gap-2">
-                <CheckCircle className="h-4 w-4 text-blue-600 dark:text-blue-400 mt-0.5 flex-shrink-0" />
+                <CheckCircle className="mt-0.5 h-4 w-4 shrink-0 text-blue-600 dark:text-blue-400" />
                 <div className="text-sm text-blue-800 dark:text-blue-200">
                   <p className="mb-1 font-medium">To get a new access token:</p>
                   <ul className="space-y-1">

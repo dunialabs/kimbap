@@ -34,29 +34,27 @@ export function AuthLayout({ children }: AuthLayoutProps) {
         </div>
       </div>
 
-      <main className="flex flex-1 rounded-xl border border-border/60 bg-card shadow-sm">
-        <div className="flex w-full flex-col">
-          <div className="p-4">
-            <Link
-              href="/"
-              className="inline-block rounded-md transition-opacity duration-200 hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2"
-              aria-label="Go to sign in"
-            >
-              <Image src="/new_logo.svg" alt="Kimbap Logo" width={239} height={34} className="block h-auto max-w-full dark:hidden" priority />
-              <Image src="/darklogo.svg" alt="Kimbap Logo" width={239} height={34} className="hidden h-auto max-w-full dark:block" priority />
-            </Link>
-          </div>
+      <main className="flex w-full flex-1 flex-col rounded-xl border border-border/60 bg-card shadow-sm">
+        <div className="p-4">
+          <Link
+            href="/"
+            className="inline-block rounded-md transition-opacity duration-200 hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2"
+            aria-label="Go to sign in"
+          >
+            <Image src="/new_logo.svg" alt="Kimbap Logo" width={239} height={34} className="block h-auto max-w-full dark:hidden" priority />
+            <Image src="/darklogo.svg" alt="Kimbap Logo" width={239} height={34} className="hidden h-auto max-w-full dark:block" priority />
+          </Link>
+        </div>
 
-          <div className="border-t border-border/60 px-4 pt-4 lg:hidden">
-            <h1 className="text-2xl font-bold tracking-tight">Kimbap Console</h1>
-            <p className="mt-2 text-sm leading-6 text-muted-foreground">
-              Operator workspace for policies, approvals, logs, and usage. Owners usually sign in with the master password; admins use access tokens.
-            </p>
-          </div>
+        <div className="border-t border-border/60 px-4 pt-4 lg:hidden">
+          <h1 className="text-2xl font-bold tracking-tight">Kimbap Console</h1>
+          <p className="mt-2 text-sm leading-6 text-muted-foreground">
+            Operator workspace for policies, approvals, logs, and usage. Owners usually sign in with the master password; admins use access tokens.
+          </p>
+        </div>
 
-          <div className="flex flex-1 flex-col items-center justify-center px-4 py-6 sm:px-6">
-            {children}
-          </div>
+        <div className="flex flex-1 flex-col items-center justify-center px-4 py-6 sm:px-6">
+          {children}
         </div>
       </main>
     </div>

@@ -5,6 +5,7 @@ import { useState, useEffect, useRef } from 'react'
 import { Button } from '@/components/ui/button'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Label } from '@/components/ui/label'
+import { Input } from '@/components/ui/input'
 import { Eye, EyeOff, Loader2, LogIn } from 'lucide-react'
 import { MasterPasswordManager } from '@/lib/crypto'
 import { renderErrorMessageWithLinks } from '@/lib/error-utils'
@@ -221,7 +222,7 @@ export function LoginForm({
     <form
       onSubmit={(e) => {
         e.preventDefault()
-        handleLogin()
+        void handleLogin()
       }}
       className="w-full max-w-[460px] space-y-3 px-6 py-8 sm:min-h-[480px]"
     >
@@ -300,7 +301,7 @@ export function LoginForm({
           <span className="ml-1 text-xs font-normal text-muted-foreground">(required)</span>
         </Label>
         <div className="relative">
-          <input
+          <Input
             id="login-credential"
             type={
               loginMode === 'password'
@@ -328,7 +329,7 @@ export function LoginForm({
               }
             }}
             disabled={isLoggingIn}
-            className="h-12 w-full rounded-lg border border-input bg-background pl-3 pr-10 text-foreground transition-colors duration-200 focus-visible:border-blue-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 disabled:cursor-not-allowed disabled:opacity-50"
+            className="h-12 rounded-lg px-3 pr-10 text-foreground transition-colors duration-200 focus-visible:border-blue-500 focus-visible:ring-blue-500"
             autoComplete={loginMode === 'password' ? 'current-password' : 'off'}
             autoCapitalize="none"
             autoCorrect="off"

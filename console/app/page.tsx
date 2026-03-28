@@ -40,6 +40,11 @@ function WelcomePageContent() {
     setCheckingAuth(false)
   }, [router])
 
+  const handleLoginSuccess = () => {
+    const redirectTo = searchParams.get('redirect')
+    router.push(redirectTo?.startsWith('/dashboard') ? redirectTo : '/dashboard')
+  }
+
   if (checkingAuth) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-muted px-4" role="status" aria-live="polite">
@@ -75,26 +80,19 @@ function WelcomePageContent() {
           </div>
         </div>
 
-        <div className="flex-1 rounded-xl border border-border/60 bg-card shadow-sm">
-          <div className="w-full flex flex-col">
-            <div className="p-4">
-              <Image src="/new_logo.svg" alt="Kimbap Logo" width={226} height={32} className="block h-auto max-w-full dark:hidden" priority />
-              <Image src="/darklogo.svg" alt="Kimbap Logo" width={226} height={32} className="hidden h-auto max-w-full dark:block" priority />
-            </div>
-            <div className="border-t border-border/60 px-4 pt-4 lg:hidden">
-              <h1 className="text-2xl font-bold tracking-tight">Kimbap Console</h1>
-              <p className="mt-2 text-sm leading-6 text-muted-foreground">
-                Operator workspace for policies, approvals, logs, and usage. Owners usually sign in with the master password; admins use access tokens.
-              </p>
-            </div>
-            <div className="flex-1 flex flex-col justify-center items-center">
-              <LoginForm
-                onSuccess={() => {
-                  const redirectTo = searchParams.get('redirect')
-                  router.push(redirectTo?.startsWith('/dashboard') ? redirectTo : '/dashboard')
-                }}
-              />
-            </div>
+        <div className="flex flex-1 flex-col rounded-xl border border-border/60 bg-card shadow-sm">
+          <div className="p-4">
+            <Image src="/new_logo.svg" alt="Kimbap Logo" width={226} height={32} className="block h-auto max-w-full dark:hidden" priority />
+            <Image src="/darklogo.svg" alt="Kimbap Logo" width={226} height={32} className="hidden h-auto max-w-full dark:block" priority />
+          </div>
+          <div className="border-t border-border/60 px-4 pt-4 lg:hidden">
+            <h1 className="text-2xl font-bold tracking-tight">Kimbap Console</h1>
+            <p className="mt-2 text-sm leading-6 text-muted-foreground">
+              Operator workspace for policies, approvals, logs, and usage. Owners usually sign in with the master password; admins use access tokens.
+            </p>
+          </div>
+          <div className="flex flex-1 flex-col items-center justify-center">
+            <LoginForm onSuccess={handleLoginSuccess} />
           </div>
         </div>
       </div>

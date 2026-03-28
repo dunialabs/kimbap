@@ -18,12 +18,14 @@ export default function DashboardLayout({
       </a>
       <DashboardSidebar />
       <div className="md:pl-[220px] lg:pl-[280px]">
-        <main id="dashboard-main-content" tabIndex={-1} className="flex min-h-screen flex-1 flex-col bg-muted/40">
-          <div className="mx-auto w-full px-4 py-4 sm:px-6 sm:py-6 lg:px-8 max-w-[1080px] flex-1">
-            {children}
-          </div>
+        <div className="flex min-h-screen flex-col bg-muted/40">
+          <main id="dashboard-main-content" tabIndex={-1} className="flex-1">
+            <div className="mx-auto flex h-full w-full max-w-[1080px] flex-1 px-4 py-4 sm:px-6 sm:py-6 lg:px-8">
+              {children}
+            </div>
+          </main>
           <GlobalFooter />
-        </main>
+        </div>
       </div>
     </div>
   )

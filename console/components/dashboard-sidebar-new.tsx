@@ -11,7 +11,6 @@ import { SidebarNav } from './dashboard/sidebar-nav'
 import { api } from '@/lib/api-client'
 import { useUserRole } from '@/hooks/use-user-role'
 
-
 export function DashboardSidebar() {
   const router = useRouter()
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
@@ -30,8 +29,10 @@ export function DashboardSidebar() {
   }, [])
 
   useEffect(() => {
-    fetchPendingCount()
-    timerRef.current = setInterval(fetchPendingCount, 30_000)
+    void fetchPendingCount()
+    timerRef.current = setInterval(() => {
+      void fetchPendingCount()
+    }, 30_000)
     return () => {
       if (timerRef.current) clearInterval(timerRef.current)
     }
@@ -44,8 +45,7 @@ export function DashboardSidebar() {
 
   return (
     <>
-      {/* Mobile header with hamburger */}
-      <div className="sticky top-0 z-40 flex h-14 items-center border-b bg-background px-4 md:hidden">
+      <header className="sticky top-0 z-40 flex h-14 items-center border-b bg-background px-4 md:hidden">
         <Sheet open={mobileMenuOpen} onOpenChange={setMobileMenuOpen}>
           <SheetTrigger asChild>
             <Button variant="outline" size="icon" className="h-11 w-11 shrink-0 bg-transparent">
@@ -70,13 +70,13 @@ export function DashboardSidebar() {
             <div className="flex-1 overflow-y-auto py-2">
               <SidebarNav onNavigate={() => setMobileMenuOpen(false)} pendingApprovalCount={pendingApprovalCount} />
             </div>
-            <div className="mt-auto p-4 space-y-2">
+            <div className="mt-auto space-y-2 p-4">
               {userRole && (
-                <p className="text-xs text-muted-foreground px-1">Role: {userRole}</p>
+                <p className="px-1 text-xs text-muted-foreground">Role: {userRole}</p>
               )}
               <Button
                 variant="outline"
-                className="h-11 w-full justify-start px-3 rounded-lg"
+                className="h-11 w-full justify-start rounded-lg px-3"
                 onClick={handleSignOut}
               >
                 <LogOut className="h-5 w-5" aria-hidden="true" />
@@ -93,31 +93,30 @@ export function DashboardSidebar() {
           <Image src="/new_logo.svg" width={160} height={23} alt="Kimbap Logo" className="block h-auto max-w-full dark:hidden" priority />
           <Image src="/darklogo.svg" width={160} height={23} alt="Kimbap Logo" className="hidden h-auto max-w-full dark:block" priority />
         </Link>
-      </div>
+      </header>
 
-      {/* Desktop sidebar */}
-      <div className="fixed inset-y-0 hidden w-[220px] border-r bg-background md:block lg:w-[280px]">
+      <aside className="fixed inset-y-0 hidden w-[220px] border-r bg-background md:block lg:w-[280px]" aria-label="Dashboard sidebar">
         <div className="flex h-full flex-col gap-2 overflow-y-auto">
           <div className="flex h-14 items-center border-b px-4 lg:h-[60px] lg:px-6">
             <Link
               href="/dashboard"
-              className="flex flex-1 min-w-0 items-center gap-2 rounded-md font-semibold transition-opacity duration-200 hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2"
+              className="flex min-w-0 flex-1 items-center gap-2 rounded-md font-semibold transition-opacity duration-200 hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2"
               aria-label="Go to dashboard"
             >
-              <Image src="/new_logo.svg" width={237} height={34} alt="Kimbap Logo" className="block dark:hidden max-w-full h-auto" priority />
-              <Image src="/darklogo.svg" width={237} height={34} alt="Kimbap Logo" className="hidden dark:block max-w-full h-auto" priority />
+              <Image src="/new_logo.svg" width={237} height={34} alt="Kimbap Logo" className="block h-auto max-w-full dark:hidden" priority />
+              <Image src="/darklogo.svg" width={237} height={34} alt="Kimbap Logo" className="hidden h-auto max-w-full dark:block" priority />
             </Link>
           </div>
           <div className="flex-1">
             <SidebarNav pendingApprovalCount={pendingApprovalCount} />
           </div>
-          <div className="mt-auto p-4 space-y-2">
+          <div className="mt-auto space-y-2 p-4">
             {userRole && (
-              <p className="text-xs text-muted-foreground px-1">Role: {userRole}</p>
+              <p className="px-1 text-xs text-muted-foreground">Role: {userRole}</p>
             )}
             <Button
               variant="outline"
-              className="h-11 w-full justify-start px-3 rounded-lg"
+              className="h-11 w-full justify-start rounded-lg px-3"
               onClick={handleSignOut}
             >
               <LogOut className="h-5 w-5" aria-hidden="true" />
@@ -125,7 +124,7 @@ export function DashboardSidebar() {
             </Button>
           </div>
         </div>
-      </div>
+      </aside>
     </>
   )
 }

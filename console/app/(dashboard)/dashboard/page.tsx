@@ -72,6 +72,18 @@ function getRequestErrorMessage(
   return rawMessage || messages.fallback
 }
 
+
+function getRecentActivityStatusMeta(status: string): { dot: string; label: string } {
+  const statusMap: Record<string, { dot: string; label: string }> = {
+    success: { dot: 'bg-green-500', label: 'Success' },
+    warning: { dot: 'bg-amber-500', label: 'Warning' },
+    info: { dot: 'bg-blue-500', label: 'Info' },
+    error: { dot: 'bg-red-500', label: 'Error' },
+  }
+
+  return statusMap[status] ?? { dot: 'bg-muted-foreground', label: status }
+}
+
 interface ServerInfo {
   proxyId: string
   proxyName: string
@@ -314,6 +326,11 @@ export default function DashboardPage() {
     } catch {
       toast.error(`Could not copy ${label.toLowerCase()}. Try again.`)
     }
+  }
+
+
+  const handleCopyClientIp = (ip: string) => {
+    void copyConnectionAddress('Client IP', ip)
   }
 
   if (isServerInfoLoading) {
@@ -846,39 +863,32 @@ export default function DashboardPage() {
               </div>
             ) : (
               <div className="space-y-3">
-                {recentActivity.map((activity) => (
-                  <Link
-                    key={`${activity.action}-${formatNullableText(activity.time)}`}
-                    href="/dashboard/logs?timeRange=30d"
-                    className="-mx-2 flex items-center gap-3 rounded-md px-2 py-3 transition-colors duration-200 hover:bg-muted/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2"
-                  >
-                    <div className="flex-shrink-0">
-                      {(() => {
-                        const statusMap: Record<string, { dot: string; label: string }> = {
-                          success: { dot: 'bg-green-500', label: 'Success' },
-                          warning: { dot: 'bg-amber-500', label: 'Warning' },
-                          info:    { dot: 'bg-blue-500',  label: 'Info' },
-                          error:   { dot: 'bg-red-500',   label: 'Error' },
-                        }
-                        const s = statusMap[activity.status] ?? { dot: 'bg-muted-foreground', label: activity.status }
-                        return (
-                          <div className="flex items-center gap-2">
-                            <div className={`w-2 h-2 rounded-full ${s.dot}`} />
-                            <span className="text-xs text-muted-foreground">{s.label}</span>
-                          </div>
-                        )
-                      })()}
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm">
-                        {activity.action}
-                        <span className="text-xs text-muted-foreground gap-1 ml-2">
-                          {formatNullableText(activity.time)}
-                        </span>
-                      </p>
-                    </div>
-                  </Link>
-                ))}
+                {recentActivity.map((activity) => {
+                  const statusMeta = getRecentActivityStatusMeta(activity.status)
+
+                  return (
+                    <Link
+                      key={`${activity.action}-${formatNullableText(activity.time)}`}
+                      href="/dashboard/logs?timeRange=30d"
+                      className="-mx-2 flex items-center gap-3 rounded-md px-2 py-3 transition-colors duration-200 hover:bg-muted/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2"
+                    >
+                      <div className="flex-shrink-0">
+                        <div className="flex items-center gap-2">
+                          <div className={`h-2 w-2 rounded-full ${statusMeta.dot}`} />
+                          <span className="text-xs text-muted-foreground">{statusMeta.label}</span>
+                        </div>
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <p className="text-sm">
+                          {activity.action}
+                          <span className="ml-2 gap-1 text-xs text-muted-foreground">
+                            {formatNullableText(activity.time)}
+                          </span>
+                        </p>
+                      </div>
+                    </Link>
+                  )
+                })}
               </div>
             )}
           </CardContent>
@@ -938,18 +948,7 @@ export default function DashboardPage() {
                               variant="ghost"
                               size="sm"
                               className="min-h-11 px-3 text-xs"
-                              onClick={async () => {
-                                try {
-                                  if (!navigator?.clipboard?.writeText) {
-                                    toast.error('Clipboard is unavailable in this browser.')
-                                    return
-                                  }
-                                  await navigator.clipboard.writeText(client.ip)
-                                  toast.success('Client IP copied')
-                                } catch {
-                                  toast.error('Could not copy the client IP. Try again.')
-                                }
-                              }}
+                              onClick={() => handleCopyClientIp(client.ip)}
                             >
                               <Copy className="mr-1 h-3.5 w-3.5" aria-hidden="true" />
                               Copy

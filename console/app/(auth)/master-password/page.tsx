@@ -1,9 +1,9 @@
-"use client"
+'use client'
 
-import { useRouter } from "next/navigation"
+import { useRouter } from 'next/navigation'
 
-import { AuthLayout } from "@/components/auth-layout"
-import { MasterPasswordForm } from "@/components/master-password-form"
+import { AuthLayout } from '@/components/auth-layout'
+import { MasterPasswordForm } from '@/components/master-password-form'
 
 export default function MasterPasswordPage() {
   const router = useRouter()
@@ -16,10 +16,10 @@ export default function MasterPasswordPage() {
           <p className="mt-2 leading-6 text-muted-foreground">
             It is the owner sign-in for this console. You will use it to unlock owner access when managing policies, approvals, logs, and usage from the browser.
           </p>
-          <ul className="mt-3 space-y-2 leading-6 text-muted-foreground">
-            <li>• Owners use this password to manage the console.</li>
-            <li>• Admins and other operators usually sign in with access tokens instead.</li>
-            <li>• Choose a password you can store safely because it cannot be recovered.</li>
+          <ul className="mt-3 list-disc space-y-2 pl-5 leading-6 text-muted-foreground">
+            <li>Owners use this password to manage the console.</li>
+            <li>Admins and other operators usually sign in with access tokens instead.</li>
+            <li>Choose a password you can store safely because it cannot be recovered.</li>
           </ul>
         </div>
 
