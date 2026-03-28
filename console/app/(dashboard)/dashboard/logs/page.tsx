@@ -879,6 +879,7 @@ function LogsPageContent() {
                       autoCorrect="off"
                       spellCheck={false}
                     />
+                    <p className="mt-1 text-xs text-muted-foreground">Search matches message text, request IDs, user IDs, and raw metadata.</p>
                   </div>
                 </div>
                 ) : null}
@@ -1437,9 +1438,7 @@ function LogsPageContent() {
                     ? (statsError ? 'Unavailable' : '—')
                     : formatDisplayNumber(statistics.errorLogs, { compact: true })}
                 </div>
-                <p className={`text-xs ${!statsLoading && statistics ? (statistics.errorRate > 0 ? 'text-red-600 dark:text-red-400' : 'text-green-600 dark:text-green-400') : 'text-muted-foreground'}`}>
-                  {!statsLoading && statistics ? `${formatPercentage(statistics.errorRate)} of all logs` : ''}
-                </p>
+                <p className="text-xs text-muted-foreground">Absolute count of ERROR entries for this period.</p>
               </CardContent>
             </Card>
 
