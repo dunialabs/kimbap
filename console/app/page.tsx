@@ -90,7 +90,7 @@ function WelcomePageContent() {
               Manage policies, approvals, logs, and usage for your Kimbap server from one place.
             </p>
             <p className="text-sm leading-6 text-muted-foreground">
-              Owners usually sign in with the master password. Admins can use an access token. Member tokens are for using the server, not managing this console.
+              Owners usually sign in with the master password. Admins can use an access token. Open the console URL directly in your browser — you no longer need to paste a separate server URL here. Member tokens are for using the server, not managing this console.
             </p>
           </div>
         </div>
@@ -103,7 +103,7 @@ function WelcomePageContent() {
           <div className="border-t border-border/60 px-4 pt-4 lg:hidden">
             <h1 className="text-2xl font-bold tracking-tight">Kimbap Console</h1>
             <p className="mt-2 text-sm leading-6 text-muted-foreground">
-              Operator workspace for policies, approvals, logs, and usage. Owners usually sign in with the master password; admins use access tokens.
+              Operator workspace for policies, approvals, logs, and usage. Open the console URL directly in your browser, then sign in with the master password or an admin access token.
             </p>
           </div>
           <div className="flex flex-1 flex-col items-center justify-center">
