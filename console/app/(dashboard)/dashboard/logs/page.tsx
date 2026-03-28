@@ -1373,8 +1373,10 @@ function LogsPageContent() {
                   size="sm"
                   className="min-h-11 w-full sm:w-auto sm:shrink-0"
                   onClick={() => void copyTextToClipboard(logs.map((log) => log.rawData).join('\n\n'), 'Raw logs copied to clipboard', 'Could not copy raw logs')}
+                  aria-label="Copy raw log entries for this page"
+                  title="Copy raw log entries for this page"
                 >
-                  Copy All
+                  Copy page raw logs
                 </Button>
               )}
             </CardHeader>
