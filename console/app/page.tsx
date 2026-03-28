@@ -1,6 +1,5 @@
 'use client'
 
-import Image from 'next/image'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { Suspense, useEffect, useState } from 'react'
 
@@ -97,8 +96,7 @@ function WelcomePageContent() {
 
         <div className="flex flex-1 flex-col rounded-xl border border-border/60 bg-card shadow-sm">
           <div className="p-4">
-            <Image src="/new_logo.svg" alt="Kimbap Logo" width={226} height={32} className="block h-auto max-w-full dark:hidden" priority />
-            <Image src="/darklogo.svg" alt="Kimbap Logo" width={226} height={32} className="hidden h-auto max-w-full dark:block" priority />
+            <span className="text-xl font-bold tracking-tight text-foreground">Kimbap</span>
           </div>
           <div className="border-t border-border/60 px-4 pt-4 lg:hidden">
             <h1 className="text-2xl font-bold tracking-tight">Kimbap Console</h1>

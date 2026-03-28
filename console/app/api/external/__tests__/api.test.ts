@@ -13,7 +13,7 @@
  */
 
 const BASE_URL = process.env.API_BASE_URL || 'http://localhost:3000';
-const OWNER_TOKEN = '3d10f57081c4a761b2b7f55072bffcd2c91abba003445085c9d3311805b2e0f66b88a84847fc2fccfb1d023691e2a4d445b7bacbd9c8f39bc686fdbdff74579b';
+const OWNER_TOKEN = process.env.OWNER_TOKEN || '';
 const TARGET_ENDPOINT = process.argv[2];
 const tokenFlowContext = {
   createdTokenIds: [] as string[],

@@ -11,7 +11,11 @@ export interface AuthUser {
   accessToken: string;
 }
 
-const EXTERNAL_GENERAL_RATE_LIMIT = Number(process.env.EXTERNAL_API_RATE_LIMIT || 120);
+const _parsedExternalRateLimit = Number(process.env.EXTERNAL_API_RATE_LIMIT);
+const EXTERNAL_GENERAL_RATE_LIMIT =
+  Number.isInteger(_parsedExternalRateLimit) && _parsedExternalRateLimit > 0
+    ? _parsedExternalRateLimit
+    : 120;
 
 function toStableTokenKey(token: string): string {
   return hashToken(token).slice(0, 16);

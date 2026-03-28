@@ -851,7 +851,7 @@ function LogsPageContent() {
                     type="button"
                     variant={selectedTimeRange === range ? 'default' : 'outline'}
                     size="sm"
-                    className="h-9 px-3 text-xs"
+                    className="h-11 px-3 text-xs"
                     onClick={() => applyTimeRange(range)}
                     aria-pressed={selectedTimeRange === range}
                   >
@@ -1368,13 +1368,19 @@ function LogsPageContent() {
               </span>
             </div>
           ) : null}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+          <div className="flex items-start gap-2 rounded-md border border-border/60 bg-muted/20 px-3 py-2 text-sm text-muted-foreground">
+            <Info className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
+            <p>
+              These totals count log entries in {getTimeRangeLabel(statisticsTimeFilter)}. Error rate is the share of all logs marked <span className="font-medium text-foreground">ERROR</span>, and debug logs are tracked separately from <span className="font-medium text-foreground">Info Logs</span>.
+            </p>
+          </div>
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
             <Card className="h-full">
               <CardHeader className="pb-2">
                 <CardTitle className="text-sm font-medium">Total Logs</CardTitle>
-                <CardDescription className="text-xs">{getTimeRangeLabel(statisticsTimeFilter)}</CardDescription>
+                <CardDescription className="text-xs">All log levels in {getTimeRangeLabel(statisticsTimeFilter)}</CardDescription>
               </CardHeader>
-              <CardContent className="flex flex-col gap-1 justify-center">
+              <CardContent className="flex flex-col justify-center gap-1">
                 <div className={statsLoading || !statistics ? (statsError ? "text-sm text-red-600 dark:text-red-400" : "text-sm text-muted-foreground") : "text-2xl font-bold"}>
                   {statsLoading
                     ? '—'
@@ -1382,15 +1388,16 @@ function LogsPageContent() {
                     ? (statsError ? 'Unavailable' : '—')
                     : formatDisplayNumber(statistics.totalLogs, { compact: true })}
                 </div>
+                <p className="text-xs text-muted-foreground">Includes error, warning, info, and debug entries.</p>
               </CardContent>
             </Card>
 
             <Card className="h-full">
               <CardHeader className="pb-2">
-                <CardTitle className="text-sm font-medium">Errors</CardTitle>
-                <CardDescription className="text-xs">{getTimeRangeLabel(statisticsTimeFilter)}</CardDescription>
+                <CardTitle className="text-sm font-medium">Error Logs</CardTitle>
+                <CardDescription className="text-xs">Entries marked ERROR in {getTimeRangeLabel(statisticsTimeFilter)}</CardDescription>
               </CardHeader>
-              <CardContent className="flex flex-col gap-1 justify-center">
+              <CardContent className="flex flex-col justify-center gap-1">
                 <div className={statsLoading || !statistics ? (statsError ? "text-sm text-red-600 dark:text-red-400" : "text-sm text-muted-foreground") : "text-2xl font-bold"}>
                   {statsLoading
                     ? '—'
@@ -1399,17 +1406,17 @@ function LogsPageContent() {
                     : formatDisplayNumber(statistics.errorLogs, { compact: true })}
                 </div>
                 <p className={`text-xs ${!statsLoading && statistics ? (statistics.errorRate > 0 ? 'text-red-600 dark:text-red-400' : 'text-green-600 dark:text-green-400') : 'text-muted-foreground'}`}>
-                  {!statsLoading && statistics ? `${formatPercentage(statistics.errorRate)} error rate` : ''}
+                  {!statsLoading && statistics ? `${formatPercentage(statistics.errorRate)} of all logs` : ''}
                 </p>
               </CardContent>
             </Card>
 
             <Card className="h-full">
               <CardHeader className="pb-2">
-                <CardTitle className="text-sm font-medium">Warnings</CardTitle>
-                <CardDescription className="text-xs">{getTimeRangeLabel(statisticsTimeFilter)}</CardDescription>
+                <CardTitle className="text-sm font-medium">Warning Logs</CardTitle>
+                <CardDescription className="text-xs">Entries marked WARN in {getTimeRangeLabel(statisticsTimeFilter)}</CardDescription>
               </CardHeader>
-              <CardContent className="flex flex-col gap-1 justify-center">
+              <CardContent className="flex flex-col justify-center gap-1">
                 <div className={statsLoading || !statistics ? (statsError ? "text-sm text-red-600 dark:text-red-400" : "text-sm text-muted-foreground") : "text-2xl font-bold"}>
                   {statsLoading
                     ? '—'
@@ -1417,16 +1424,16 @@ function LogsPageContent() {
                     ? (statsError ? 'Unavailable' : '—')
                     : formatDisplayNumber(statistics.warnLogs, { compact: true })}
                 </div>
-                <p className="text-xs text-muted-foreground">{!statsLoading && statistics && statistics.totalLogs > 0 ? `${formatPercentage((statistics.warnLogs / statistics.totalLogs) * 100)} of total` : ''}</p>
+                <p className="text-xs text-muted-foreground">{!statsLoading && statistics && statistics.totalLogs > 0 ? `${formatPercentage((statistics.warnLogs / statistics.totalLogs) * 100)} of all logs` : ''}</p>
               </CardContent>
             </Card>
 
             <Card className="h-full">
               <CardHeader className="pb-2">
-                <CardTitle className="text-sm font-medium">Info</CardTitle>
-                <CardDescription className="text-xs">{getTimeRangeLabel(statisticsTimeFilter)}</CardDescription>
+                <CardTitle className="text-sm font-medium">Info Logs</CardTitle>
+                <CardDescription className="text-xs">Entries marked INFO in {getTimeRangeLabel(statisticsTimeFilter)}</CardDescription>
               </CardHeader>
-              <CardContent className="flex flex-col gap-1 justify-center">
+              <CardContent className="flex flex-col justify-center gap-1">
                 <div className={statsLoading || !statistics ? (statsError ? "text-sm text-red-600 dark:text-red-400" : "text-sm text-muted-foreground") : "text-2xl font-bold"}>
                   {statsLoading
                     ? '—'
@@ -1435,7 +1442,7 @@ function LogsPageContent() {
                     : formatDisplayNumber(statistics.infoLogs, { compact: true })}
                 </div>
                 <p className="text-xs text-muted-foreground">
-                  {!statsLoading && statistics ? `+ ${formatDisplayNumber(statistics.debugLogs)} debug logs` : ''}
+                  {!statsLoading && statistics ? `${formatDisplayNumber(statistics.debugLogs)} debug logs tracked separately` : ''}
                 </p>
               </CardContent>
             </Card>
@@ -1444,7 +1451,7 @@ function LogsPageContent() {
           <Card>
             <CardHeader>
               <CardTitle>Log Activity</CardTitle>
-              <CardDescription>Hourly log volume and error trend</CardDescription>
+              <CardDescription>Total logs by hour with errors overlaid for the same period.</CardDescription>
             </CardHeader>
             <CardContent>
               {statsLoading ? (
@@ -1488,7 +1495,7 @@ function LogsPageContent() {
           <Card>
             <CardHeader>
               <CardTitle>Log Sources</CardTitle>
-              <CardDescription>Distribution by source domain</CardDescription>
+              <CardDescription>Each source's share of total logs in this time range.</CardDescription>
             </CardHeader>
             <CardContent>
               {statsLoading ? (

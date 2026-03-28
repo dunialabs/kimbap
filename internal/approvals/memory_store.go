@@ -174,11 +174,13 @@ func (s *MemoryApprovalStore) ListAll(_ context.Context, tenantID string, filter
 func (s *MemoryApprovalStore) ExpireOld(_ context.Context) (int, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	now := time.Now()
+	now := time.Now().UTC()
 	count := 0
 	for id, item := range s.items {
 		if item.Status == StatusPending && !item.ExpiresAt.IsZero() && now.After(item.ExpiresAt) {
 			item.Status = StatusExpired
+			item.ResolvedAt = &now
+			item.ResolvedBy = "system"
 			s.items[id] = item
 			count++
 		}

@@ -537,16 +537,18 @@ func addRequestBodyArgs(action *ServiceAction, op map[string]any, resolver *open
 		for _, propName := range propNames {
 			propSchema := mapAt(properties, propName)
 			if len(propSchema) > 0 {
-				if resolved, resolveErr := resolver.resolveMap(propSchema); resolveErr == nil {
-					propSchema = resolved
+				resolved, resolveErr := resolver.resolveMap(propSchema)
+				if resolveErr != nil {
+					return fmt.Errorf("resolve property %q schema ref: %w", propName, resolveErr)
 				}
+				propSchema = resolved
 				propSchema = resolveCompositeSchema(propSchema, resolver)
 			}
 
 			arg := ActionArg{
 				Name:     propName,
 				Type:     schemaType(propSchema),
-				Required: hasKey(requiredSet, propName),
+				Required: boolAt(requestBody, "required") && hasKey(requiredSet, propName),
 			}
 			if def, ok := valueAt(propSchema, "default"); ok {
 				arg.Default = def

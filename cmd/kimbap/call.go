@@ -298,6 +298,13 @@ func splitGlobalCallFlags(tokens []string) ([]string, error) {
 		"--mode":            &opts.mode,
 		"--idempotency-key": &opts.idempotencyKey,
 	}
+	// actionFlagConflicts: these global flags must NOT be consumed after the action name
+	// because services may have identically-named input parameters.
+	actionFlagConflicts := map[string]bool{
+		"--format": true,
+		"--json":   true,
+	}
+	actionSeen := false
 	for i := 0; i < len(tokens); i++ {
 		tok := strings.TrimSpace(tokens[i])
 		if tok == "--" {
@@ -343,7 +350,7 @@ func splitGlobalCallFlags(tokens []string) ([]string, error) {
 			continue
 		default:
 			handled := false
-			if target, ok := globalStringFlags[tok]; ok {
+			if target, ok := globalStringFlags[tok]; ok && !(actionSeen && actionFlagConflicts[tok]) {
 				next := ""
 				if i+1 < len(tokens) {
 					next = strings.TrimSpace(tokens[i+1])
@@ -354,8 +361,11 @@ func splitGlobalCallFlags(tokens []string) ([]string, error) {
 				i++
 				*target = strings.TrimSpace(tokens[i])
 				handled = true
-			} else {
+			} else if !handled {
 				for prefix, target := range globalStringFlags {
+					if actionSeen && actionFlagConflicts[prefix] {
+						continue
+					}
 					if strings.HasPrefix(tok, prefix+"=") {
 						*target = strings.TrimSpace(strings.TrimPrefix(tok, prefix+"="))
 						handled = true
@@ -364,6 +374,9 @@ func splitGlobalCallFlags(tokens []string) ([]string, error) {
 				}
 			}
 			if !handled {
+				if !strings.HasPrefix(tok, "-") {
+					actionSeen = true
+				}
 				out = append(out, tokens[i])
 			}
 		}

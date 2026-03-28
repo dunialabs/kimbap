@@ -53,8 +53,10 @@ function maybeSweepStaleRows(nowMs: number): void {
 
 export function getBearerToken(request: NextRequest): string | null {
   const authHeader = request.headers.get('authorization') || request.headers.get('Authorization');
-  if (!authHeader || !authHeader.startsWith('Bearer ')) return null;
-  const token = authHeader.slice('Bearer '.length).trim();
+  if (!authHeader) return null;
+  const [scheme, ...rest] = authHeader.trim().split(/\s+/);
+  if (!scheme || scheme.toLowerCase() !== 'bearer') return null;
+  const token = rest.join(' ').trim();
   return token || null;
 }
 
