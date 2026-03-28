@@ -775,8 +775,11 @@ export default function DashboardPage() {
                         />
                       </div>
                     </div>
-                    <div className="whitespace-nowrap text-sm text-muted-foreground">
-                      {typeof tool.requests === 'number' ? formatDisplayNumber(tool.requests, { compact: true }) : tool.requests}
+                    <div className="text-right">
+                      <div className="whitespace-nowrap text-sm text-muted-foreground">
+                        {typeof tool.requests === 'number' ? `${formatDisplayNumber(tool.requests, { compact: true })} requests` : tool.requests}
+                      </div>
+                      <div className="text-xs text-muted-foreground">{formatPercentage(tool.percentage)} share</div>
                     </div>
                   </div>
                 </Link>
@@ -839,8 +842,9 @@ export default function DashboardPage() {
                     </div>
                     <div className="flex items-center justify-between gap-3 sm:block sm:text-right">
                       <div className="whitespace-nowrap text-sm text-muted-foreground">
-                        {typeof token.requests === 'number' ? formatDisplayNumber(token.requests, { compact: true }) : token.requests}
+                        {typeof token.requests === 'number' ? `${formatDisplayNumber(token.requests, { compact: true })} requests` : token.requests}
                       </div>
+                      <div className="text-xs text-muted-foreground">{formatPercentage(token.percentage)} share</div>
                       <div className="hidden whitespace-nowrap font-mono text-xs text-muted-foreground sm:block">
                         {formatNullableText(token.token)}
                       </div>
