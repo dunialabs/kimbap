@@ -684,6 +684,10 @@ export default function PoliciesPage() {
   }, [])
 
   useEffect(() => {
+    document.title = 'Policies | Kimbap Console'
+  }, [])
+
+  useEffect(() => {
     fetchPolicies()
   }, [fetchPolicies])
 
@@ -925,17 +929,20 @@ export default function PoliciesPage() {
                           <div className="space-y-1.5">
                             {rules.slice(0, 2).map((rule) => {
                               const decisionMeta = DECISIONS.find((d) => d.value === rule.effect.decision)
-                              return (
-                                <div key={rule.id} className="flex items-center gap-2 text-sm">
-                                  <Badge
-                                    variant="outline"
-                                    className={`px-1.5 py-0 text-xs leading-5 ${decisionMeta?.color || ''}`}
-                                  >
-                                    {decisionMeta?.label || rule.effect.decision}
-                                  </Badge>
+                               return (
+                                 <div key={rule.id} className="flex items-center gap-2 text-sm flex-wrap">
+                                   <Badge
+                                     variant="outline"
+                                     className={`px-1.5 py-0 text-xs leading-5 ${decisionMeta?.color || ''}`}
+                                   >
+                                     {decisionMeta?.label || rule.effect.decision}
+                                   </Badge>
                                    <span className="font-mono text-xs">{rule.match.tool === '*' || !rule.match.tool ? 'All tools' : rule.match.tool}</span>
-                                </div>
-                              )
+                                   {(rule.when?.length ?? 0) > 0 && (
+                                     <span className="text-xs text-muted-foreground">· {rule.when.length} condition{rule.when.length === 1 ? '' : 's'}</span>
+                                   )}
+                                 </div>
+                               )
                             })}
                             {rules.length > 2 && (
                               <p className="text-xs text-muted-foreground">+ {rules.length - 2} more rules</p>
