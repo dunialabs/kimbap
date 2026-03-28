@@ -38,6 +38,7 @@ export function GettingStartedCard() {
           <p className="text-sm leading-6 text-muted-foreground">
             Follow these steps in order to set guardrails first, then verify approvals and logs before wider rollout.
           </p>
+          <p className="mt-1 text-xs text-muted-foreground">You can revisit this checklist anytime from the dashboard home.</p>
         </div>
 
         <ul className="space-y-3">
