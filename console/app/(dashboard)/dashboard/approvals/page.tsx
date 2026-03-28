@@ -644,9 +644,9 @@ export default function ApprovalsPage() {
                     </SelectContent>
                   </Select>
                 </div>
-                <div className="space-y-1.5">
-                   <Label htmlFor="approvals-user-filter" className="text-xs">User ID</Label>
-                   <Input
+                 <div className="space-y-1.5">
+                    <Label htmlFor="approvals-user-filter" className="text-xs">User ID</Label>
+                    <Input
                      id="approvals-user-filter"
                      placeholder="e.g., user_123"
                     value={userFilter}
@@ -654,10 +654,11 @@ export default function ApprovalsPage() {
                     className="h-11 text-sm"
                     autoCapitalize="none"
                     autoCorrect="off"
-                    spellCheck={false}
-                    autoComplete="off"
-                  />
-                </div>
+                     spellCheck={false}
+                     autoComplete="off"
+                   />
+                   <p className="text-xs text-muted-foreground">Results update automatically while you type.</p>
+                 </div>
                 <div className="flex items-end">
                   <Button
                     variant="ghost"
