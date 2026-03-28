@@ -1173,7 +1173,7 @@ export default function ApprovalsPage() {
               </DialogDescription>
             </DialogHeader>
             <div className="space-y-3 py-2">
-              {decideDialog.request.reason && (
+              {decideDialog.request.reason?.trim() && (
                 <div className="space-y-1">
                   <Label className="text-xs text-muted-foreground">Why approval is required</Label>
                   <p className="text-sm">{decideDialog.request.reason}</p>
