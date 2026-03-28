@@ -196,6 +196,12 @@ func (r *Runtime) ResumeApproved(ctx context.Context, approvalRequestID string) 
 		}
 	}
 
+	if held.Timeout > 0 {
+		var cancel context.CancelFunc
+		ctx, cancel = withTimeout(ctx, held.Timeout)
+		defer cancel()
+	}
+
 	startedAt := r.now()
 	result := actions.ExecutionResult{
 		RequestID:      held.RequestID,
