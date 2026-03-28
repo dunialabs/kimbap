@@ -1030,7 +1030,7 @@ function LogsPageContent() {
                 <div className="flex items-center justify-center py-8 md:hidden" role="status" aria-live="polite">
                   <div className="text-center">
                     <Loader2 className="mx-auto mb-2 h-5 w-5 animate-spin text-muted-foreground" aria-hidden="true" />
-                    <p className="text-sm text-muted-foreground">Loading filtered logs...</p>
+                    <p className="text-sm text-muted-foreground">Loading filtered logs…</p>
                   </div>
                 </div>
               ) : logs.length === 0 ? (
@@ -1177,7 +1177,7 @@ function LogsPageContent() {
                         <TableCell colSpan={5} className="py-8">
                           <div className="flex items-center justify-center gap-2 text-sm text-muted-foreground" role="status" aria-live="polite">
                             <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
-                            <span>Loading filtered logs...</span>
+                            <span>Loading filtered logs…</span>
                           </div>
                         </TableCell>
                       </TableRow>
