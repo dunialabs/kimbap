@@ -60,15 +60,12 @@ func newActionsCommand() *cobra.Command {
 				return printOutput("No actions found.")
 			}
 
-			if brief {
-				for _, def := range out {
-					fmt.Printf("%-40s %s\n", def.Name, def.Description)
-				}
-				return nil
-			}
-
 			for _, def := range out {
-				fmt.Printf("- %s\n  risk=%s auth=%s method=%s path=%s\n", def.Name, def.Risk, def.Auth.Type, strings.ToUpper(def.Verb), def.Resource)
+				desc := def.Description
+				if desc == "" {
+					desc = "-"
+				}
+				fmt.Printf("%-40s %s\n", def.Name, desc)
 			}
 			return nil
 		},
@@ -98,6 +95,8 @@ func newActionsCommand() *cobra.Command {
 					defer closeVaultStoreIfPossible(vs)
 					if raw, gErr := vs.GetValue(contextBackground(), defaultTenantID(), def.Auth.CredentialRef); gErr == nil && len(raw) > 0 {
 						credReady = true
+					} else if gErr != nil {
+						_, _ = fmt.Fprintf(os.Stderr, "warning: credential lookup failed, status unknown: %v\n", gErr)
 					}
 				} else {
 					_, _ = fmt.Fprintf(os.Stderr, "warning: vault unavailable, credential status unknown: %v\n", vErr)

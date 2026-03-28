@@ -227,8 +227,9 @@ func newLinkListCommand() *cobra.Command {
 						providerID = info.Service
 					}
 					row.AuthType = string(actions.AuthTypeOAuth2)
-					row.Connector = connectorStoreName(providerID, "")
-					row.Status = linkOAuthConnectionStatus(providerID, "", oauthStates)
+					connName, connStatus := linkBestOAuthStatus(providerID, oauthStates)
+					row.Connector = connName
+					row.Status = connStatus
 
 				case info.AuthType == actions.AuthTypeNone:
 					row.Status = "connected"
@@ -398,6 +399,19 @@ func linkOAuthConnectionStatus(providerID, profile string, states []connectorSta
 		}
 	}
 	return "not_connected"
+}
+
+func linkBestOAuthStatus(providerID string, states []connectorStateRow) (string, string) {
+	defaultName := connectorStoreName(providerID, "")
+	for _, state := range states {
+		if strings.EqualFold(state.Provider, providerID) {
+			status := connectorComputedStatus(state)
+			if status == string(connectors.StatusConnected) {
+				return state.Name, status
+			}
+		}
+	}
+	return defaultName, linkOAuthConnectionStatus(providerID, "", states)
 }
 
 func linkHandleKeyBasedService(cfg *config.KimbapConfig, info linkServiceInfo, statusOnly bool, tenantID string, fromStdin bool, fromFile string) error {
