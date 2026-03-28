@@ -102,7 +102,7 @@ export function MasterPasswordForm({ onSuccess }: MasterPasswordFormProps) {
           Create a Master Password
         </h2>
         <p className="text-sm text-muted-foreground">
-          This password protects access to this console.
+          Choose a long, unique passphrase you can store safely. You&apos;ll need it whenever you manage this console.
         </p>
       </div>
 
@@ -152,7 +152,7 @@ export function MasterPasswordForm({ onSuccess }: MasterPasswordFormProps) {
           </div>
           {masterPassword && masterPassword.length < 10 && (
             <p id="master-password-hint" className="text-xs text-muted-foreground" aria-live="polite">
-              {masterPassword.length}/10 characters minimum
+              {masterPassword.length}/10 characters minimum. Longer passphrases are easier to remember and harder to guess.
             </p>
           )}
         </div>
