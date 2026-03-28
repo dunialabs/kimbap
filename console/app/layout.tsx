@@ -21,7 +21,10 @@ const ibmPlexMono = IBM_Plex_Mono({
 })
 
 export const metadata: Metadata = {
-  title: 'Kimbap Console',
+  title: {
+    default: 'Kimbap Console',
+    template: '%s | Kimbap Console'
+  },
   description: 'Operations console for the Kimbap platform.'
 }
 

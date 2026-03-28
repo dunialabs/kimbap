@@ -41,7 +41,7 @@ import {
   TableRow
 } from '@/components/ui/table'
 import { GettingStartedCard } from '@/components/getting-started-card'
-import { cn } from '@/lib/utils'
+import { cn, formatDisplayNumber, formatNullableText, formatPercentage } from '@/lib/utils'
 
 interface ServerInfo {
   proxyId: string
@@ -227,8 +227,8 @@ export default function DashboardPage() {
     : hasPendingApprovals
     ? `Review ${pendingApprovalCount!.toLocaleString()} request${pendingApprovalCount === 1 ? '' : 's'} waiting on a decision.`
     : 'No approvals are waiting right now.'
-  const localAddressText = isDashboardLoading ? 'Loading address…' : localAddress || 'Not configured'
-  const remoteAddressText = isDashboardLoading ? 'Loading address…' : remoteAddress || 'Not configured'
+  const localAddressText = isDashboardLoading ? 'Loading address…' : formatNullableText(localAddress)
+  const remoteAddressText = isDashboardLoading ? 'Loading address…' : formatNullableText(remoteAddress)
 
   const copyConnectionAddress = async (label: string, value: string | null) => {
     if (!value) {
@@ -383,9 +383,7 @@ export default function DashboardPage() {
                     : 'font-mono text-sm font-normal text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300'
                 }
               >
-                {stats.apiRequests == null
-                  ? '—'
-                  : stats.apiRequests.toLocaleString()}
+                {formatDisplayNumber(stats.apiRequests, { compact: true })}
               </div>
             </Link>
             <Link
@@ -400,7 +398,7 @@ export default function DashboardPage() {
                     : 'font-mono text-sm font-normal text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300'
                 }
               >
-                {stats.activeTokens == null ? '—' : stats.activeTokens}
+                {formatDisplayNumber(stats.activeTokens, { compact: true })}
               </div>
             </Link>
             <Link
@@ -417,7 +415,7 @@ export default function DashboardPage() {
                     : 'font-mono text-sm font-normal text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300'
                 }
               >
-                {stats.configuredTools == null ? '—' : stats.configuredTools}
+                {formatDisplayNumber(stats.configuredTools, { compact: true })}
               </div>
             </Link>
 
@@ -568,7 +566,7 @@ export default function DashboardPage() {
             onClick={() => setIsClientsDialogOpen(true)}
             aria-haspopup="dialog"
             aria-controls="connected-clients-dialog"
-            aria-label={`Open recent clients dialog${stats.connectedClients == null ? "" : `, ${stats.connectedClients} clients seen in the last 24 hours`}`}
+            aria-label={`Open recent clients dialog${stats.connectedClients == null ? "" : `, ${formatDisplayNumber(stats.connectedClients)} clients seen in the last 24 hours`}`}
           >
             <Card className="p-4 cursor-pointer hover:bg-muted/50 transition-colors h-full">
               <div className="flex items-center justify-between h-full">
@@ -577,7 +575,7 @@ export default function DashboardPage() {
                     Recent clients (24 hours)
                   </p>
                   <p className={stats.connectedClients == null ? 'text-sm text-muted-foreground' : 'font-mono text-sm font-normal'}>
-                    {stats.connectedClients == null ? '—' : stats.connectedClients}
+                    {formatDisplayNumber(stats.connectedClients, { compact: true })}
                   </p>
                 </div>
                 <Users className="h-5 w-5 text-muted-foreground" />
@@ -626,7 +624,7 @@ export default function DashboardPage() {
                       <div className="mt-2">
                         <Progress
                           value={tool.percentage}
-                          aria-label={`${tool.name} usage ${tool.percentage}%`}
+                          aria-label={`${tool.name} usage ${formatPercentage(tool.percentage)}`}
                           className="h-[8px] [&>div]:bg-slate-900 dark:[&>div]:bg-slate-100"
                         />
                       </div>
@@ -678,13 +676,13 @@ export default function DashboardPage() {
                         {token.name}
                       </div>
                       <div className="mt-1 font-mono text-xs text-muted-foreground sm:hidden">
-                        {token.token?.trim() || '-'}
+                        {formatNullableText(token.token)}
                       </div>
                     </div>
                     <div className="min-w-0 flex-1">
                       <Progress
                         value={token.percentage}
-                        aria-label={`${token.name} usage ${token.percentage}%`}
+                        aria-label={`${token.name} usage ${formatPercentage(token.percentage)}`}
                         className="h-[8px] [&>div]:bg-slate-900 dark:[&>div]:bg-slate-100"
                       />
                     </div>
@@ -693,7 +691,7 @@ export default function DashboardPage() {
                         {typeof token.requests === 'number' ? token.requests.toLocaleString() : token.requests}
                       </div>
                       <div className="hidden whitespace-nowrap font-mono text-xs text-muted-foreground sm:block">
-                        {token.token?.trim() || '-'}
+                        {formatNullableText(token.token)}
                       </div>
                     </div>
                   </div>
@@ -728,7 +726,7 @@ export default function DashboardPage() {
               <div className="space-y-3">
                 {recentActivity.map((activity) => (
                   <Link
-                    key={`${activity.action}-${activity.time}`}
+                    key={`${activity.action}-${formatNullableText(activity.time)}`}
                     href="/dashboard/logs?timeRange=30d"
                     className="flex items-center gap-3 rounded-md p-1 -m-1 hover:bg-muted/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2"
                   >
@@ -753,7 +751,7 @@ export default function DashboardPage() {
                       <p className="text-sm">
                         {activity.action}
                         <span className="text-xs text-muted-foreground gap-1 ml-2">
-                          {activity.time}
+                          {formatNullableText(activity.time)}
                         </span>
                       </p>
                     </div>
@@ -805,7 +803,7 @@ export default function DashboardPage() {
                   <TableBody>
                     {connectedClients.map((client) => (
                       <TableRow key={client.id}>
-                        <TableCell>{client.name}</TableCell>
+                        <TableCell>{formatNullableText(client.name)}</TableCell>
                         <TableCell className="font-mono text-sm">
                           <div className="flex items-center gap-2">
                             <span>{client.ip}</span>
@@ -835,11 +833,11 @@ export default function DashboardPage() {
                         <TableCell>
                           <div className="flex items-center gap-1">
                             <MapPin className="h-3 w-3 text-muted-foreground" />
-                            <span className="text-sm">{client.location}</span>
+                            <span className="text-sm">{formatNullableText(client.location)}</span>
                           </div>
                         </TableCell>
                         <TableCell className="text-sm text-muted-foreground">
-                          {client.lastActive}
+                          {formatNullableText(client.lastActive)}
                         </TableCell>
                         <TableCell className="text-right">
                           {client.requests.toLocaleString()}

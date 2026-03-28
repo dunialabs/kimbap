@@ -56,6 +56,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Button } from '@/components/ui/button'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { api } from '@/lib/api-client'
+import { formatDisplayNumber, formatNullableText, formatPercentage } from '@/lib/utils'
 
 interface TokenUsageData {
   tokenName: string
@@ -130,7 +131,7 @@ const HEALTHY_SUCCESS_RATE_THRESHOLD = 95
 
 function maskIdentifier(value: string | null | undefined): string {
   const normalized = value?.trim() || ''
-  if (!normalized) return '-'
+  if (!normalized) return '—'
   if (normalized.length <= 8) return `${normalized.slice(0, 2)}***${normalized.slice(-2)}`
   return `${normalized.slice(0, 4)}****${normalized.slice(-4)}`
 }
@@ -495,7 +496,7 @@ function TokenUsagePageContent() {
                     ? '—'
                     : summary?.totalTokens == null
                     ? (loadError ? 'Unavailable' : '—')
-                    : summary.totalTokens.toLocaleString()}
+                    : formatDisplayNumber(summary.totalTokens, { compact: true })}
                 </div>
                 <p className="text-xs text-muted-foreground">
                   {loading
@@ -504,7 +505,7 @@ function TokenUsagePageContent() {
                     ? 'Unavailable'
                     : summary?.activeTokens == null
                     ? '—'
-                    : `${summary.activeTokens.toLocaleString()} active`}
+                    : `${formatDisplayNumber(summary.activeTokens)} active`}
                 </p>
               </CardContent>
             </Card>
@@ -528,7 +529,7 @@ function TokenUsagePageContent() {
                     ? '—'
                     : summary?.totalRequests == null
                     ? (loadError ? 'Unavailable' : '—')
-                    : summary.totalRequests.toLocaleString()}
+                    : formatDisplayNumber(summary.totalRequests, { compact: true })}
                 </div>
                 <p className="text-xs text-muted-foreground">
                   Last {timeRangeLabel}
@@ -561,7 +562,7 @@ function TokenUsagePageContent() {
                         ? 'text-red-600 dark:text-red-400'
                         : 'text-amber-600 dark:text-amber-400'
                     }`}>
-                      {successRate.toFixed(1)}%
+                      {formatPercentage(successRate)}
                     </div>
                   )
                 })()}
@@ -590,7 +591,7 @@ function TokenUsagePageContent() {
                     ? '—'
                     : summary?.totalClients == null
                     ? (loadError ? 'Unavailable' : '—')
-                    : summary.totalClients.toLocaleString()}
+                    : formatDisplayNumber(summary.totalClients, { compact: true })}
                 </div>
                 <p className="text-xs text-muted-foreground">
                   Clients seen in the last {timeRangeLabel}
@@ -705,7 +706,7 @@ function TokenUsagePageContent() {
                         </TableCell>
                         <TableCell>
                           <span className="font-semibold">
-                            {token.totalRequests.toLocaleString()}
+                            {formatDisplayNumber(token.totalRequests)}
                           </span>
                         </TableCell>
                         <TableCell>
@@ -718,9 +719,7 @@ function TokenUsagePageContent() {
                             (token.successfulRequests / token.totalRequests) *
                               100
                           ) ? (
-                            <span className="font-semibold text-muted-foreground">
-                              -
-                            </span>
+                            <span className="font-semibold text-muted-foreground">—</span>
                           ) : (
                             <span className={`font-semibold ${
                               ((token.successfulRequests / token.totalRequests) * 100) >= HEALTHY_SUCCESS_RATE_THRESHOLD
@@ -729,18 +728,18 @@ function TokenUsagePageContent() {
                                 ? 'text-red-600 dark:text-red-400'
                                 : 'text-amber-600 dark:text-amber-400'
                             }`}>
-                              {((token.successfulRequests / token.totalRequests) * 100).toFixed(1)}%
+                              {formatPercentage((token.successfulRequests / token.totalRequests) * 100)}
                             </span>
                           )}
                         </TableCell>
                         <TableCell>
                           <span className="font-semibold">
-                            {token.clientCount.toLocaleString()}
+                            {formatDisplayNumber(token.clientCount)}
                           </span>
                         </TableCell>
                         <TableCell className="text-right">
                           <span className="text-sm text-muted-foreground">
-                            {token.lastUsed}
+                            {formatNullableText(token.lastUsed)}
                           </span>
                         </TableCell>
                       </TableRow>
@@ -802,7 +801,7 @@ function TokenUsagePageContent() {
                           </div>
                           <div className="flex w-full items-center justify-between gap-2 sm:w-auto">
                             <span className="text-sm font-semibold">
-                              {location.requests.toLocaleString()}
+                              {formatDisplayNumber(location.requests)}
                             </span>
                             <div className="w-20">
                               <Progress
@@ -813,7 +812,7 @@ function TokenUsagePageContent() {
                               />
                             </div>
                             <span className="text-xs text-muted-foreground w-12">
-                              {location.percentage.toFixed(1)}%
+                              {formatPercentage(location.percentage)}
                             </span>
                           </div>
                         </div>

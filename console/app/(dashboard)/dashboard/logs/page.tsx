@@ -62,6 +62,8 @@ import { Textarea } from '@/components/ui/textarea'
 import { getDomainLabel } from '@/lib/log-utils'
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer, Legend } from 'recharts'
 
+import { formatDateTime, formatDisplayNumber, formatNullableText, formatPercentage } from '@/lib/utils'
+
 interface LogEntry {
   id: string
   timestamp: string
@@ -101,6 +103,15 @@ const DEFAULT_TIME_RANGE = '24h'
 const getStatisticsTimeRange = (range: string) => (
   STATISTICS_SUPPORTED_TIME_RANGES.has(range) ? range : DEFAULT_TIME_RANGE
 )
+
+const formatLogTimestamp = (timestamp: string) => formatDateTime(timestamp, {
+  year: 'numeric',
+  month: 'short',
+  day: 'numeric',
+  hour: '2-digit',
+  minute: '2-digit',
+  second: '2-digit'
+})
 
 interface LogStatistics {
   totalLogs: number
@@ -770,7 +781,7 @@ function LogsPageContent() {
               <CardDescription>
                 {!loading && totalPages > 1 && (
                   <span>
-                    Page {currentPage} of {totalPages}
+                    Page {formatDisplayNumber(currentPage)} of {formatDisplayNumber(totalPages)}
                   </span>
                 )}
                 <span className="block text-xs mt-1">
@@ -813,7 +824,7 @@ function LogsPageContent() {
                       <Dialog key={log.id}>
                       <TableRow>
                         <TableCell className="font-mono text-xs">
-                          {log.timestamp}
+                          {formatLogTimestamp(log.timestamp)}
                         </TableCell>
                         <TableCell>
                           <Badge
@@ -858,7 +869,7 @@ function LogsPageContent() {
                               {log.requestId.slice(-6)}
                             </Badge>
                           ) : (
-                            <span className="text-muted-foreground">-</span>
+                            <span className="text-muted-foreground">—</span>
                           )}
                         </TableCell>
                         <TableCell>
@@ -875,11 +886,11 @@ function LogsPageContent() {
                               <DialogHeader>
                                 <DialogTitle className="flex items-center gap-2">
                                   {getLevelIcon(log.level)}
-                                  Log Details - {log.timestamp}
+                                  Log Details - {formatLogTimestamp(log.timestamp)}
                                 </DialogTitle>
                                 <DialogDescription>
                                   {getDomainLabel(log.source)} • {log.level} •{' '}
-                                  {log.requestId || 'No Request ID'}
+                                  {formatNullableText(log.requestId)}
                                 </DialogDescription>
                               </DialogHeader>
 
@@ -915,13 +926,13 @@ function LogsPageContent() {
                                       {log.details.statusCode && (
                                         <div>
                                           <strong>Status:</strong>{' '}
-                                          {log.details.statusCode}
+                                          {formatDisplayNumber(log.details.statusCode)}
                                         </div>
                                       )}
                                       {log.details.responseTime && (
                                         <div>
                                           <strong>Response Time:</strong>{' '}
-                                          {log.details.responseTime}ms
+                                          {formatDisplayNumber(log.details.responseTime)}ms
                                         </div>
                                       )}
                                       {log.details.ip && (
@@ -1018,8 +1029,8 @@ function LogsPageContent() {
                 <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                   <div className="text-sm text-muted-foreground">
                     Showing {(currentPage - 1) * pageSize + 1} to{' '}
-                    {Math.min(currentPage * pageSize, totalCount)} of{' '}
-                    {totalCount} logs
+                    {formatDisplayNumber(Math.min(currentPage * pageSize, totalCount))} of{' '}
+                    {formatDisplayNumber(totalCount)} logs
                   </div>
                   <div className="flex gap-2">
                     <Button
@@ -1033,7 +1044,7 @@ function LogsPageContent() {
                       Previous
                     </Button>
                     <span className="flex items-center px-3 py-1 text-sm">
-                      Page {currentPage} of {totalPages}
+                      Page {formatDisplayNumber(currentPage)} of {formatDisplayNumber(totalPages)}
                     </span>
                     <Button
                       variant="outline"
@@ -1060,7 +1071,7 @@ function LogsPageContent() {
                 <CardDescription>
                   {loading
                     ? 'Preparing raw logs for the current filtered page...'
-                    : `Raw server logs for this filtered page (${logs.length.toLocaleString()} rows on page ${currentPage} of ${Math.max(totalPages, 1)})`}
+                    : `Raw server logs for this filtered page (${logs.length.toLocaleString()} rows on page ${formatDisplayNumber(currentPage)} of ${formatDisplayNumber(Math.max(totalPages, 1))})`}
                 </CardDescription>
               </div>
               {!loading && logs.length > 0 && (
@@ -1142,7 +1153,7 @@ function LogsPageContent() {
                     ? '—'
                     : !statistics
                     ? (statsError ? 'Unavailable' : '—')
-                    : statistics.totalLogs.toLocaleString()}
+                    : formatDisplayNumber(statistics.totalLogs, { compact: true })}
                 </div>
               </CardContent>
             </Card>
@@ -1158,10 +1169,10 @@ function LogsPageContent() {
                     ? '—'
                     : !statistics
                     ? (statsError ? 'Unavailable' : '—')
-                    : statistics.errorLogs.toLocaleString()}
+                    : formatDisplayNumber(statistics.errorLogs, { compact: true })}
                 </div>
                 <p className={`text-xs ${!statsLoading && statistics ? (statistics.errorRate > 0 ? 'text-red-600 dark:text-red-400' : 'text-green-600 dark:text-green-400') : 'text-muted-foreground'}`}>
-                  {!statsLoading && statistics ? `${statistics.errorRate.toFixed(1)}% error rate` : ''}
+                  {!statsLoading && statistics ? `${formatPercentage(statistics.errorRate)} error rate` : ''}
                 </p>
               </CardContent>
             </Card>
@@ -1177,9 +1188,9 @@ function LogsPageContent() {
                     ? '—'
                     : !statistics
                     ? (statsError ? 'Unavailable' : '—')
-                    : statistics.warnLogs.toLocaleString()}
+                    : formatDisplayNumber(statistics.warnLogs, { compact: true })}
                 </div>
-                <p className="text-xs text-muted-foreground">{!statsLoading && statistics && statistics.totalLogs > 0 ? `${(statistics.warnLogs / statistics.totalLogs * 100).toFixed(1)}% of total` : ''}</p>
+                <p className="text-xs text-muted-foreground">{!statsLoading && statistics && statistics.totalLogs > 0 ? `${formatPercentage((statistics.warnLogs / statistics.totalLogs) * 100)} of total` : ''}</p>
               </CardContent>
             </Card>
 
@@ -1194,7 +1205,7 @@ function LogsPageContent() {
                     ? '—'
                     : !statistics
                     ? (statsError ? 'Unavailable' : '—')
-                    : statistics.infoLogs.toLocaleString()}
+                    : formatDisplayNumber(statistics.infoLogs, { compact: true })}
                 </div>
                 <p className="text-xs text-muted-foreground">
                   {!statsLoading && statistics ? `+ ${statistics.debugLogs.toLocaleString()} debug logs` : ''}
@@ -1286,7 +1297,7 @@ function LogsPageContent() {
                         <TableCell className={stat.errorCount > 0 ? 'text-red-600 dark:text-red-400' : ''}>
                           {stat.errorCount.toLocaleString()}
                         </TableCell>
-                        <TableCell>{stat.percentage.toFixed(1)}%</TableCell>
+                        <TableCell>{formatPercentage(stat.percentage)}</TableCell>
                       </TableRow>
                     ))}
                   </TableBody>

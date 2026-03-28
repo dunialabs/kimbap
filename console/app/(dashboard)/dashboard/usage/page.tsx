@@ -17,6 +17,7 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { api } from "@/lib/api-client"
+import { formatDisplayNumber, formatRelativeMinutes } from "@/lib/utils"
 
 interface OverviewSummary {
   totalRequests24h: number
@@ -61,21 +62,6 @@ const activityColorClass: Record<string, string> = {
   orange: 'bg-orange-500',
   yellow: 'bg-amber-500',
   red: 'bg-red-500',
-}
-
-function formatRelativeMinutes(totalMinutes: number) {
-  if (totalMinutes === 0) return 'just now'
-  if (totalMinutes < 60) {
-    return `${totalMinutes} minute${totalMinutes === 1 ? '' : 's'} ago`
-  }
-
-  const hours = Math.floor(totalMinutes / 60)
-  if (hours < 24) {
-    return `${hours} hour${hours === 1 ? '' : 's'} ago`
-  }
-
-  const days = Math.floor(hours / 24)
-  return `${days} day${days === 1 ? '' : 's'} ago`
 }
 
 function LoadingListPlaceholder({
@@ -315,7 +301,7 @@ function UsagePageContent() {
                 ? '—'
                 : overviewSummary?.totalRequests24h == null
                 ? (loadError ? 'Unavailable' : '—')
-                : overviewSummary.totalRequests24h.toLocaleString()}
+                : formatDisplayNumber(overviewSummary.totalRequests24h, { compact: true })}
             </div>
             <p className="text-xs text-muted-foreground">
               {!loading && overviewSummary && overviewSummary.requestsChangePercent !== undefined ? (
@@ -340,7 +326,7 @@ function UsagePageContent() {
                 ? '—'
                 : overviewSummary?.activeTokens == null
                 ? (loadError ? 'Unavailable' : '—')
-                : overviewSummary.activeTokens}
+                : formatDisplayNumber(overviewSummary.activeTokens, { compact: true })}
             </div>
             <p className="text-xs text-muted-foreground">
               {!loading && overviewSummary && overviewSummary.tokensUsedLastHour != null && `${overviewSummary.tokensUsedLastHour.toLocaleString()} tokens used in last hour`}
@@ -359,7 +345,7 @@ function UsagePageContent() {
                 ? '—'
                 : overviewSummary?.toolsInUse == null
                 ? (loadError ? 'Unavailable' : '—')
-                    : overviewSummary.toolsInUse.toLocaleString()}
+                    : formatDisplayNumber(overviewSummary.toolsInUse, { compact: true })}
             </div>
             <p className="text-xs text-muted-foreground">
               {loading
@@ -382,7 +368,7 @@ function UsagePageContent() {
                 ? '—'
                 : overviewSummary?.avgResponseTime == null
                 ? (loadError ? 'Unavailable' : '—')
-                : `${Math.round(overviewSummary.avgResponseTime)}ms`}
+                : `${formatDisplayNumber(Math.round(overviewSummary.avgResponseTime))}ms`}
             </div>
             <p className="text-xs text-muted-foreground">
               {!loading && overviewSummary && overviewSummary.responseTimeChange !== undefined ? (
@@ -391,7 +377,7 @@ function UsagePageContent() {
                   return (
                     <>
                       <span className={roundedChange <= 0 ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400"}>
-                        {roundedChange <= 0 ? '' : '+'}{roundedChange}ms
+                        {roundedChange <= 0 ? '' : '+'}{formatDisplayNumber(roundedChange)}ms
                       </span> from previous period
                     </>
                   )
@@ -431,7 +417,7 @@ function UsagePageContent() {
                     <span className="truncate font-medium">{tool.toolName}</span>
                   </div>
                   <div className="w-full text-left sm:w-auto sm:text-right">
-                    <div className="font-medium">{tool.requestCount.toLocaleString()} requests</div>
+                    <div className="font-medium">{formatDisplayNumber(tool.requestCount)} requests</div>
                     <div className="text-sm text-muted-foreground">{tool.percentage.toFixed(1)}% of total</div>
                   </div>
                 </Link>
@@ -471,7 +457,7 @@ function UsagePageContent() {
                       <div className="mt-1 font-mono text-xs text-muted-foreground">{token.tokenMask}</div>
                     </div>
                     <div className="w-full text-left sm:w-auto sm:text-right">
-                      <div className="font-medium">{token.requestCount.toLocaleString()} requests</div>
+                      <div className="font-medium">{formatDisplayNumber(token.requestCount)} requests</div>
                       <div className={`text-sm ${token.isCurrentlyActive ? 'text-green-600 dark:text-green-400' : 'text-muted-foreground'}`}>
                         {token.isCurrentlyActive ? 'Used' : 'Last used'} {formatRelativeMinutes(token.lastUsedMinutesAgo)}
                       </div>

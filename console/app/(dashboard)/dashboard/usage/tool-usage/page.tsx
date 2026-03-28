@@ -37,6 +37,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { api } from '@/lib/api-client'
 import { getActionLabel } from '@/lib/log-utils'
+import { formatDisplayNumber, formatNullableText, formatPercentage } from '@/lib/utils'
 
 interface ToolUsageData {
   toolId?: string
@@ -469,7 +470,7 @@ function ToolUsagePageContent() {
                     ? '—'
                     : summary?.totalTools == null
                     ? (loadError ? 'Unavailable' : '—')
-                    : summary.totalTools}
+                    : formatDisplayNumber(summary.totalTools, { compact: true })}
                 </div>
                 <p className="text-xs text-muted-foreground">
                   {loading
@@ -478,7 +479,7 @@ function ToolUsagePageContent() {
                     ? 'Unavailable'
                     : summary?.activeTools == null
                     ? '—'
-                    : `${summary.activeTools} active`}
+                    : `${formatDisplayNumber(summary.activeTools)} active`}
                 </p>
               </CardContent>
             </Card>
@@ -493,7 +494,7 @@ function ToolUsagePageContent() {
                     ? '—'
                     : summary?.totalRequests == null
                     ? (loadError ? 'Unavailable' : '—')
-                    : summary.totalRequests.toLocaleString()}
+                    : formatDisplayNumber(summary.totalRequests, { compact: true })}
                 </div>
                 <p className="text-xs text-muted-foreground">Last {timeRangeLabel}</p>
               </CardContent>
@@ -517,7 +518,7 @@ function ToolUsagePageContent() {
                     ? '—'
                     : summary?.avgSuccessRate == null
                     ? (loadError ? 'Unavailable' : '—')
-                    : `${summary.avgSuccessRate.toFixed(1)}%`}
+                    : formatPercentage(summary.avgSuccessRate)}
                 </div>
                 <p className="text-xs text-muted-foreground">Average across all tools</p>
               </CardContent>
@@ -533,7 +534,7 @@ function ToolUsagePageContent() {
                     ? '—'
                     : summary?.avgResponseTime == null
                     ? (loadError ? 'Unavailable' : '—')
-                    : `${Math.round(summary.avgResponseTime)}ms`}
+                    : `${formatDisplayNumber(Math.round(summary.avgResponseTime))}ms`}
                 </div>
                 <p className="text-xs text-muted-foreground">Across all tools</p>
               </CardContent>
@@ -623,25 +624,25 @@ function ToolUsagePageContent() {
                         <h3 className="font-semibold">{tool.toolName}</h3>
                         {getStatusBadge(tool.status)}
                       </div>
-                      <div className="text-sm text-muted-foreground">Last used: {tool.lastUsed}</div>
+                      <div className="text-sm text-muted-foreground">Last used: {formatNullableText(tool.lastUsed)}</div>
                     </div>
 
                     <div className="grid grid-cols-2 md:grid-cols-5 gap-3 text-sm">
                       <div className="flex flex-col gap-1 justify-center">
                         <p className="text-muted-foreground">Total Requests</p>
-                        <p className="font-semibold">{tool.totalRequests.toLocaleString()}</p>
+                        <p className="font-semibold">{formatDisplayNumber(tool.totalRequests)}</p>
                       </div>
                       <div className="flex flex-col gap-1 justify-center">
                         <p className="text-muted-foreground">Success Rate</p>
-                        <p className={`font-semibold ${tool.successRate >= HEALTHY_SUCCESS_RATE_THRESHOLD ? 'text-green-600 dark:text-green-400' : tool.successRate < 80 ? 'text-red-600 dark:text-red-400' : 'text-amber-600 dark:text-amber-400'}`}>{tool.successRate}%</p>
+                        <p className={`font-semibold ${tool.successRate >= HEALTHY_SUCCESS_RATE_THRESHOLD ? 'text-green-600 dark:text-green-400' : tool.successRate < 80 ? 'text-red-600 dark:text-red-400' : 'text-amber-600 dark:text-amber-400'}`}>{formatPercentage(tool.successRate)}</p>
                       </div>
                       <div className="flex flex-col gap-1 justify-center">
                         <p className="text-muted-foreground">Failed Requests</p>
-                        <p className="font-semibold text-red-600 dark:text-red-400">{tool.failedRequests.toLocaleString()}</p>
+                        <p className="font-semibold text-red-600 dark:text-red-400">{formatDisplayNumber(tool.failedRequests)}</p>
                       </div>
                       <div className="flex flex-col gap-1 justify-center">
                         <p className="text-muted-foreground">Average Response</p>
-                        <p className="font-semibold">{tool.averageResponseTime}ms</p>
+                        <p className="font-semibold">{formatDisplayNumber(Math.round(tool.averageResponseTime))}ms</p>
                       </div>
                       <div className="flex flex-col gap-1 justify-center">
                         <p className="text-muted-foreground">Usage Status</p>
@@ -652,7 +653,7 @@ function ToolUsagePageContent() {
                     <div className="mt-3">
                       <div className="flex justify-between text-xs text-muted-foreground mb-1">
                         <span>Success Rate</span>
-                        <span>{tool.successRate}%</span>
+                        <span>{formatPercentage(tool.successRate)}</span>
                       </div>
                       <Progress value={tool.successRate} className="h-2" />
                     </div>
@@ -779,7 +780,7 @@ function ToolUsagePageContent() {
                     {tool.errorTypes.map((error) => (
                       <div key={`${tool.toolId}-${error.errorCode}`} className="flex flex-col items-start gap-1 sm:flex-row sm:items-center sm:justify-between">
                         <span className="text-sm">{error.errorMessage}</span>
-                        <span className="text-xs text-red-600 dark:text-red-400">{error.count.toLocaleString()} ({error.percentage.toFixed(1)}%)</span>
+                        <span className="text-xs text-red-600 dark:text-red-400">{formatDisplayNumber(error.count)} ({formatPercentage(error.percentage)})</span>
                       </div>
                     ))}
                   </CardContent>
@@ -965,11 +966,11 @@ function ToolUsagePageContent() {
                           ) : (
                             <details>
                               <summary className="cursor-pointer rounded-sm text-xs text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2">View details</summary>
-                              <pre className="mt-1 max-h-24 overflow-auto whitespace-pre-wrap break-words rounded bg-muted p-2 text-xs">{log.details || '-'}</pre>
+                              <pre className="mt-1 max-h-24 overflow-auto whitespace-pre-wrap break-words rounded bg-muted p-2 text-xs">{formatNullableText(log.details)}</pre>
                             </details>
                           )}
                         </TableCell>
-                        <TableCell className="text-right">{log.responseTime}ms</TableCell>
+                        <TableCell className="text-right">{formatDisplayNumber(log.responseTime)}ms</TableCell>
                       </TableRow>
                     ))}
                   </TableBody>
@@ -978,10 +979,10 @@ function ToolUsagePageContent() {
               )}
               {!actionLoading && !actionLogsError ? (
                 <div className="mt-3 flex flex-col gap-3 text-sm text-muted-foreground sm:flex-row sm:items-center sm:justify-between">
-                  <span>{actionLogsTotal.toLocaleString()} total logs</span>
+                  <span>{formatDisplayNumber(actionLogsTotal)} total logs</span>
                   <div className="flex flex-wrap items-center gap-2">
                     <Button variant="outline" size="sm" onClick={() => setActionLogsPage((p) => Math.max(1, p - 1))} disabled={actionLogsPage <= 1}>Previous</Button>
-                    <span>Page {actionLogsPage} of {Math.max(1, Math.ceil(actionLogsTotal / 20))}</span>
+                    <span>Page {formatDisplayNumber(actionLogsPage)} of {formatDisplayNumber(Math.max(1, Math.ceil(actionLogsTotal / 20)))}</span>
                     <Button variant="outline" size="sm" onClick={() => setActionLogsPage((p) => p + 1)} disabled={actionLogs.length < 20 || actionLogsPage * 20 >= actionLogsTotal}>Next</Button>
                   </div>
                 </div>

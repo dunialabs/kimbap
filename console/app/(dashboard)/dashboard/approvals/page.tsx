@@ -44,6 +44,7 @@ import {
 } from '@/components/ui/table';
 import { Textarea } from '@/components/ui/textarea';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { formatDateTime, formatNullableText, formatRelativeMinutes } from '@/lib/utils';
 
 // ─── Types ──────────────────────────────────────────────
 
@@ -144,12 +145,7 @@ function statusBadge(status: string) {
 }
 
 function formatTime(iso: string): string {
-  if (!iso) return '—';
-  const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) {
-    return iso;
-  }
-  return d.toLocaleString(undefined, {
+  return formatDateTime(iso, {
     month: 'short',
     day: 'numeric',
     hour: '2-digit',
@@ -181,7 +177,7 @@ function roleLabel(role?: number | null): string {
     case 4:
       return 'Guest';
     default:
-      return String(role ?? '');
+      return '—';
   }
 }
 
@@ -334,12 +330,7 @@ export default function ApprovalsPage() {
       setLastUpdated((prev) => {
         if (!prev) return prev;
         const secs = Math.floor((Date.now() - prev.getTime()) / 1000);
-        if (secs < 30) setTimeAgo('just now');
-        else if (secs < 60) setTimeAgo('less than a minute ago');
-        else {
-          const minutes = Math.floor(secs / 60);
-          setTimeAgo(`${minutes} minute${minutes === 1 ? '' : 's'} ago`);
-        }
+        setTimeAgo(formatRelativeMinutes(secs / 60));
         return prev;
       });
     }, 10000);
@@ -622,7 +613,7 @@ export default function ApprovalsPage() {
                                 {r.userId}
                               </button>
                               <span className="text-xs text-muted-foreground">
-                                {r.serverId || 'No server ID'}
+                                {formatNullableText(r.serverId)}
                               </span>
                             </div>
                           </div>
