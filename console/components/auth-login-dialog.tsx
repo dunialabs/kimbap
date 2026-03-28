@@ -70,12 +70,12 @@ export function AuthLoginDialog({
   }, [open, step])
 
   const handleSendVerificationCode = async () => {
-    if (!email.trim()) {
+    if (!trimmedEmail) {
       setError('Enter your email address.')
       return
     }
 
-    if (!validateEmail(email)) {
+    if (!validateEmail(trimmedEmail)) {
       setError('Enter a valid email address.')
       return
     }
@@ -101,7 +101,13 @@ export function AuthLoginDialog({
       await new Promise((resolve) => setTimeout(resolve, 1000))
 
       setIsVerifyingCode(false)
-      onLoginSuccess?.({ email })
+      if (verificationCode.trim().length !== 6) {
+        setIsVerifyingCode(false)
+        setError('Enter the full 6-digit verification code.')
+        return
+      }
+
+      onLoginSuccess?.({ email: trimmedEmail })
       onOpenChange(false)
       resetForm()
     } catch (error: any) {

@@ -333,8 +333,8 @@ function LogsPageContent() {
     try {
       const response = await api.logs.getRealtimeLogs({
         lastLogId: latestLogId,
-        level: levelFilter,
-        source: sourceFilter,
+        level: levelFilter === 'all' ? undefined : levelFilter,
+        source: sourceFilter === 'all' ? undefined : sourceFilter,
         limit: pageSize
       })
 

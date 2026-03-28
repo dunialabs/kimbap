@@ -72,14 +72,16 @@ function LoadingListPlaceholder({
   label: string
   rows?: number
 }) {
+  const placeholderRows = Array.from({ length: rows }, (_, row) => row + 1)
+
   return (
     <div className="space-y-3" role="status" aria-live="polite">
       <div className="flex items-center gap-2 text-sm text-muted-foreground">
         <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
         <span>{label}</span>
       </div>
-      {Array.from({ length: rows }).map((_, index) => (
-        <div key={index} className="rounded-lg border p-3">
+      {placeholderRows.map((rowId) => (
+        <div key={rowId} className="rounded-lg border p-3">
           <div className="h-4 w-1/3 animate-pulse rounded bg-muted" />
           <div className="mt-3 h-3 w-2/3 animate-pulse rounded bg-muted/70" />
         </div>
@@ -138,6 +140,8 @@ function UsagePageContent() {
   const timeRangeLabel = timeRange === 1 ? '24 hours' : `${timeRange} days`
   const logsTimeRange = timeRange === 1 ? '24h' : `${timeRange}d`
   const hasDataRef = useRef(false)
+  const usageRequestSeqRef = useRef(0)
+  const activityRequestSeqRef = useRef(0)
   const displayTopTools = useMemo(() => [...topTools].sort((a, b) => b.requestCount - a.requestCount), [topTools])
   const displayActiveTokens = useMemo(
     () =>
@@ -181,6 +185,8 @@ function UsagePageContent() {
   }, [pathname, router, searchParams, timeRange])
 
   const fetchUsageData = useCallback(async () => {
+    const requestSeq = ++usageRequestSeqRef.current
+
     try {
       if (!hasDataRef.current) setLoading(true)
 
@@ -191,6 +197,10 @@ function UsagePageContent() {
       ])
 
       let summaryFailure = false
+
+      if (requestSeq !== usageRequestSeqRef.current) {
+        return
+      }
 
       if (summaryResult.status === 'fulfilled' && summaryResult.value.data?.common?.code === 0 && summaryResult.value.data?.data) {
         setOverviewSummary(summaryResult.value.data.data)
@@ -217,6 +227,9 @@ function UsagePageContent() {
 
       try {
         const activityRes = await api.usage.getRecentActivity({ timeRange, limit: 5 })
+        if (requestSeq !== usageRequestSeqRef.current) {
+          return
+        }
         if (activityRes.data?.common?.code === 0 && activityRes.data?.data?.activities) {
           setRecentActivity(activityRes.data.data.activities)
           setRecentActivityError(null)
@@ -225,6 +238,9 @@ function UsagePageContent() {
           setRecentActivityError('Could not load recent usage activity for this time range. Retry to refresh the Recent Activity section.')
         }
       } catch (error) {
+        if (requestSeq !== usageRequestSeqRef.current) {
+          return
+        }
         setRecentActivity([])
         setRecentActivityError(
           getRequestErrorMessage(error, {
@@ -234,6 +250,10 @@ function UsagePageContent() {
           })
         )
       }
+      if (requestSeq !== usageRequestSeqRef.current) {
+        return
+      }
+
       if (!summaryFailure) {
         setLoadError(null)
       } else {
@@ -241,6 +261,9 @@ function UsagePageContent() {
       }
       hasDataRef.current = true
     } catch (error) {
+      if (requestSeq !== usageRequestSeqRef.current) {
+        return
+      }
       setOverviewSummary(null)
       setTopTools([])
       setTopToolsError('Could not load top tool activity for this time range. Retry to refresh the Top Tools section.')
@@ -256,13 +279,20 @@ function UsagePageContent() {
         })
       )
     } finally {
-      setLoading(false)
+      if (requestSeq === usageRequestSeqRef.current) {
+        setLoading(false)
+      }
     }
   }, [timeRange])
 
   const fetchRecentActivity = useCallback(async () => {
+    const activityRequestSeq = ++activityRequestSeqRef.current
+
     try {
       const activityRes = await api.usage.getRecentActivity({ timeRange, limit: 5 })
+      if (activityRequestSeq !== activityRequestSeqRef.current) {
+        return
+      }
       if (activityRes.data?.common?.code === 0 && activityRes.data?.data?.activities) {
         setRecentActivity(activityRes.data.data.activities)
         setRecentActivityError(null)
@@ -271,6 +301,9 @@ function UsagePageContent() {
         setRecentActivityError('Could not load recent usage activity. Check your connection and retry.')
       }
     } catch (error) {
+      if (activityRequestSeq !== activityRequestSeqRef.current) {
+        return
+      }
       setRecentActivity([])
       setRecentActivityError(
         getRequestErrorMessage(error, {

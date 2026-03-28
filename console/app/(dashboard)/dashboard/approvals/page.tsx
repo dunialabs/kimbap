@@ -905,11 +905,11 @@ export default function ApprovalsPage() {
                         <TableCell className="text-sm text-muted-foreground">
                           {formatTime(r.createdAt)}
                         </TableCell>
-                        <TableCell className="max-w-[320px] text-sm text-muted-foreground" title={r.reason || undefined}>
-                          <span className="block truncate">
-                            {r.reason || '—'}
-                          </span>
-                        </TableCell>
+                         <TableCell className="max-w-[320px] text-sm text-muted-foreground" title={r.reason || undefined}>
+                           <span className="block line-clamp-2">
+                             {r.reason || '—'}
+                           </span>
+                         </TableCell>
                         <TableCell className="text-right">
                           <div className="flex items-center justify-end gap-1">
                             <Button
@@ -1156,7 +1156,7 @@ export default function ApprovalsPage() {
       <Dialog open={!!decideDialog} onOpenChange={(open) => !open && setDecideDialog(null)}>
         {decideDialog && (
           <DialogContent
-            className="max-w-md"
+            className="max-w-lg"
             onCloseAutoFocus={(event) => {
               event.preventDefault()
               lastDialogTriggerRef.current?.focus()
@@ -1173,6 +1173,20 @@ export default function ApprovalsPage() {
               </DialogDescription>
             </DialogHeader>
             <div className="space-y-3 py-2">
+              {decideDialog.request.reason && (
+                <div className="space-y-1">
+                  <Label className="text-xs text-muted-foreground">Why approval is required</Label>
+                  <p className="text-sm">{decideDialog.request.reason}</p>
+                </div>
+              )}
+              {Object.keys(redactArgs(decideDialog.request.redactedArgs || {})).length > 0 && (
+                <div className="space-y-1">
+                  <Label className="text-xs text-muted-foreground">Tool arguments</Label>
+                  <pre className="max-h-36 overflow-auto rounded-md bg-muted/50 p-2 font-mono text-xs whitespace-pre-wrap break-all">
+                    {JSON.stringify(redactArgs(decideDialog.request.redactedArgs || {}), null, 2)}
+                  </pre>
+                </div>
+              )}
               <div className="space-y-1.5">
                 <Label>Decision reason (optional)</Label>
                 <Textarea
@@ -1180,7 +1194,9 @@ export default function ApprovalsPage() {
                   value={decideReason}
                   onChange={(e) => setDecideReason(e.target.value)}
                   ref={decideReasonRef}
-                  rows={3}
+                  rows={2}
+                  disabled={deciding}
+                  className="text-sm resize-none"
                 />
               </div>
             </div>

@@ -69,7 +69,7 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
 import { useUserRole } from '@/hooks/use-user-role'
-import { formatDateTime, formatDisplayNumber } from '@/lib/utils'
+import { cn, formatDateTime, formatDisplayNumber } from '@/lib/utils'
 
 function ToolPatternInput({
   value,
@@ -978,140 +978,266 @@ export default function PoliciesPage() {
               ) : null}
             </div>
           ) : (
-            <div className="overflow-x-auto">
-              <Table className="min-w-[720px]">
-                <TableHeader>
-                <TableRow>
-                  <TableHead scope="col">Policy</TableHead>
-                  <TableHead scope="col">Top rules</TableHead>
-                  <TableHead scope="col">Updated</TableHead>
-                  <TableHead scope="col" className="text-center">Status</TableHead>
-                  <TableHead scope="col" className="text-right">Actions</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
+            <>
+              <div className="space-y-3 md:hidden">
                 {orderedPolicies.map((p) => {
                   const rules = deserializeRules(p.dsl?.rules || [])
                   rules.sort((a, b) => a.priority - b.priority)
                   const title = generatePolicyTitle(rules)
+                  const isActive = p.status === 'active'
 
                   return (
-                    <TableRow key={p.id} className={p.status !== 'active' ? 'opacity-50' : ''}>
-                      <TableCell>
-                        {canManagePolicies ? (
-                          <button
-                            type="button"
-                            className="group w-full cursor-pointer rounded py-2 text-left space-y-1 transition-colors duration-200 hover:bg-muted/30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
-                            onClick={(event) => openEdit(p, event.currentTarget)}
-                            aria-label={`Edit policy: ${title}`}
-                          >
-                            <p className="text-sm font-medium group-hover:underline group-focus-visible:underline">{title}</p>
-                            <p className="text-xs text-muted-foreground">
-                              {formatDisplayNumber(rules.length)} rules · v{p.version}
-                            </p>
-                          </button>
-                        ) : (
-                          <div className="space-y-1">
-                            <p className="text-sm font-medium">{title}</p>
-                            <p className="text-xs text-muted-foreground">
-                              {formatDisplayNumber(rules.length)} rules · v{p.version}
-                            </p>
-                          </div>
-                        )}
-                      </TableCell>
-                      <TableCell>
-                        {rules.length === 0 ? (
-                          <p className="text-sm text-muted-foreground">No rules defined yet. Open this policy to add your first rule.</p>
-                        ) : (
-                          <div className="space-y-1.5">
-                            {rules.slice(0, 2).map((rule) => {
-                              const decisionMeta = DECISIONS.find((d) => d.value === rule.effect.decision)
-                               return (
-                                 <div key={rule.id} className="flex items-center gap-2 text-sm flex-wrap">
-                                    <Badge variant="secondary" className="px-1.5 py-0 text-[10px] leading-5">
-                                      #{rules.findIndex((candidate) => candidate.id === rule.id) + 1}
-                                    </Badge>
-                                   <Badge
-                                     variant="outline"
-                                     className={`px-1.5 py-0 text-xs leading-5 ${decisionMeta?.color || ''}`}
-                                   >
-                                     {decisionMeta?.label || rule.effect.decision}
-                                   </Badge>
-                                   <span className="font-mono text-xs">{rule.match.tool === '*' || !rule.match.tool ? 'All tools' : rule.match.tool}</span>
-                                   {(rule.when?.length ?? 0) > 0 && (
-                                     <span className="text-xs text-muted-foreground">· {rule.when.length} condition{rule.when.length === 1 ? '' : 's'}</span>
-                                   )}
-                                 </div>
-                               )
-                            })}
-                            {rules.length > 2 && (
-                              <p className="text-xs text-muted-foreground">+ {rules.length - 2} more rules</p>
+                    <Card key={p.id} className={cn('border border-border/60 shadow-sm', !isActive && 'opacity-70')}>
+                      <CardContent className="space-y-4 p-4">
+                        <div className="flex items-start justify-between gap-3">
+                          <div className="min-w-0 flex-1 space-y-1">
+                            {canManagePolicies ? (
+                              <button
+                                type="button"
+                                className="group w-full rounded text-left transition-colors duration-200 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                                onClick={(event) => openEdit(p, event.currentTarget)}
+                                aria-label={`Edit policy: ${title}`}
+                              >
+                                <p className="text-sm font-medium group-hover:underline group-focus-visible:underline">{title}</p>
+                              </button>
+                            ) : (
+                              <p className="text-sm font-medium">{title}</p>
                             )}
+                            <p className="text-xs text-muted-foreground">
+                              {formatDisplayNumber(rules.length)} rules · v{p.version}
+                            </p>
                           </div>
-                        )}
-                      </TableCell>
-                       <TableCell>
-                         <span className="text-sm text-muted-foreground" title={`Created: ${formatDateTime(p.createdAt, { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}`}>
-                           {formatDateTime(p.updatedAt, { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
-                         </span>
-                       </TableCell>
-                      <TableCell className="text-center">
-                        <div className="flex items-center justify-center gap-2">
                           <Badge
                             variant="outline"
-                            className={p.status === 'active'
-                              ? 'border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-900 dark:bg-emerald-950/20 dark:text-emerald-300'
-                              : 'border-slate-200 bg-slate-50 text-slate-700 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-300'}
+                            className={isActive
+                              ? 'shrink-0 border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-900 dark:bg-emerald-950/20 dark:text-emerald-300'
+                              : 'shrink-0 border-slate-200 bg-slate-50 text-slate-700 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-300'}
                           >
-                            {p.status === 'active' ? 'Active' : 'Archived'}
+                            {isActive ? 'Active' : 'Archived'}
                           </Badge>
-                          {togglingPolicyId === p.id ? (
-                            <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" aria-hidden="true" />
-                          ) : null}
-                          <Switch
-                            className="h-11 w-[72px] [&>span]:h-8 [&>span]:w-8 data-[state=checked]:[&>span]:translate-x-7"
-                            checked={p.status === 'active'}
-                            onCheckedChange={() => handleToggle(p)}
-                            disabled={!canTogglePolicy || togglingPolicyId === p.id}
-                            aria-label={p.status === 'active' ? 'Deactivate policy' : 'Activate policy'}
-                            title={!canTogglePolicy ? 'Requires admin or owner role to enable or disable policies' : undefined}
-                          />
                         </div>
-                      </TableCell>
-                      <TableCell className="text-right">
+
+                        <div className="flex items-center justify-between gap-3 rounded-lg border border-border/60 bg-muted/20 px-3 py-2">
+                          <div className="min-w-0">
+                            <p className="text-xs text-muted-foreground">Updated</p>
+                            <p className="text-sm text-muted-foreground" title={`Created: ${formatDateTime(p.createdAt, { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}`}>
+                              {formatDateTime(p.updatedAt, { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                            </p>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            {togglingPolicyId === p.id ? (
+                              <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" aria-hidden="true" />
+                            ) : null}
+                            <Switch
+                              className="h-11 w-[72px] [&>span]:h-8 [&>span]:w-8 data-[state=checked]:[&>span]:translate-x-7"
+                              checked={isActive}
+                              onCheckedChange={() => handleToggle(p)}
+                              disabled={!canTogglePolicy || togglingPolicyId === p.id}
+                              aria-label={isActive ? 'Deactivate policy' : 'Activate policy'}
+                              title={!canTogglePolicy ? 'Requires admin or owner role to enable or disable policies' : undefined}
+                            />
+                          </div>
+                        </div>
+
+                        <div className="space-y-2">
+                          <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Top rules</p>
+                          {rules.length === 0 ? (
+                            <p className="text-sm text-muted-foreground">No rules defined yet. Open this policy to add your first rule.</p>
+                          ) : (
+                            <div className="space-y-1.5">
+                              {rules.slice(0, 2).map((rule, index) => {
+                                const decisionMeta = DECISIONS.find((d) => d.value === rule.effect.decision)
+
+                                return (
+                                  <div key={rule.id} className="flex flex-wrap items-center gap-2 text-sm">
+                                    <Badge variant="secondary" className="px-1.5 py-0 text-[10px] leading-5">
+                                      #{index + 1}
+                                    </Badge>
+                                    <Badge
+                                      variant="outline"
+                                      className={`px-1.5 py-0 text-xs leading-5 ${decisionMeta?.color || ''}`}
+                                    >
+                                      {decisionMeta?.label || rule.effect.decision}
+                                    </Badge>
+                                    <span className="font-mono text-xs">{rule.match.tool === '*' || !rule.match.tool ? 'All tools' : rule.match.tool}</span>
+                                    {(rule.when?.length ?? 0) > 0 ? (
+                                      <span className="text-xs text-muted-foreground">· {rule.when.length} condition{rule.when.length === 1 ? '' : 's'}</span>
+                                    ) : null}
+                                  </div>
+                                )
+                              })}
+                              {rules.length > 2 ? (
+                                <p className="text-xs text-muted-foreground">+ {rules.length - 2} more rules</p>
+                              ) : null}
+                            </div>
+                          )}
+                        </div>
+
                         {canManagePolicies ? (
-                          <div className="flex items-center justify-end gap-1">
+                          <div className="flex flex-col gap-2 sm:flex-row">
                             <Button
-                              variant="ghost"
-                              size="icon"
-                              className="h-11 w-11"
+                              variant="outline"
+                              className="min-h-11 flex-1"
                               onClick={(event) => openEdit(p, event.currentTarget)}
-                              aria-label="Edit policy"
-                               title="Edit policy"
-                               disabled={togglingPolicyId === p.id}
-                             >
-                               <Pencil className="h-3.5 w-3.5" />
-                             </Button>
-                             <Button
-                               variant="ghost"
-                               size="icon"
-                               className="h-11 w-11 text-destructive hover:bg-destructive/10 hover:text-destructive"
-                               onClick={() => confirmDelete(p)}
-                               aria-label="Delete policy"
-                               title="Delete policy"
-                               disabled={togglingPolicyId === p.id}
+                              disabled={togglingPolicyId === p.id}
                             >
-                              <Trash2 className="h-3.5 w-3.5" />
+                              <Pencil className="mr-2 h-4 w-4" />
+                              Edit policy
+                            </Button>
+                            <Button
+                              variant="outline"
+                              className="min-h-11 flex-1 text-destructive hover:bg-destructive/10 hover:text-destructive"
+                              onClick={() => confirmDelete(p)}
+                              disabled={togglingPolicyId === p.id}
+                            >
+                              <Trash2 className="mr-2 h-4 w-4" />
+                              Delete policy
                             </Button>
                           </div>
                         ) : null}
-                      </TableCell>
-                    </TableRow>
+                      </CardContent>
+                    </Card>
                   )
                 })}
-                </TableBody>
-              </Table>
-            </div>
+              </div>
+
+              <div className="hidden md:block">
+                <div className="overflow-x-auto">
+                  <Table className="min-w-[720px]">
+                    <TableHeader>
+                    <TableRow>
+                      <TableHead scope="col">Policy</TableHead>
+                      <TableHead scope="col">Top rules</TableHead>
+                      <TableHead scope="col">Updated</TableHead>
+                      <TableHead scope="col" className="text-center">Status</TableHead>
+                      <TableHead scope="col" className="text-right">Actions</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {orderedPolicies.map((p) => {
+                      const rules = deserializeRules(p.dsl?.rules || [])
+                      rules.sort((a, b) => a.priority - b.priority)
+                      const title = generatePolicyTitle(rules)
+
+                      return (
+                        <TableRow key={p.id} className={p.status !== 'active' ? 'opacity-50' : ''}>
+                          <TableCell>
+                            {canManagePolicies ? (
+                              <button
+                                type="button"
+                                className="group w-full cursor-pointer rounded py-2 text-left space-y-1 transition-colors duration-200 hover:bg-muted/30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                                onClick={(event) => openEdit(p, event.currentTarget)}
+                                aria-label={`Edit policy: ${title}`}
+                              >
+                                <p className="text-sm font-medium group-hover:underline group-focus-visible:underline">{title}</p>
+                                <p className="text-xs text-muted-foreground">
+                                  {formatDisplayNumber(rules.length)} rules · v{p.version}
+                                </p>
+                              </button>
+                            ) : (
+                              <div className="space-y-1">
+                                <p className="text-sm font-medium">{title}</p>
+                                <p className="text-xs text-muted-foreground">
+                                  {formatDisplayNumber(rules.length)} rules · v{p.version}
+                                </p>
+                              </div>
+                            )}
+                          </TableCell>
+                          <TableCell>
+                            {rules.length === 0 ? (
+                              <p className="text-sm text-muted-foreground">No rules defined yet. Open this policy to add your first rule.</p>
+                            ) : (
+                              <div className="space-y-1.5">
+                                {rules.slice(0, 2).map((rule) => {
+                                  const decisionMeta = DECISIONS.find((d) => d.value === rule.effect.decision)
+                                   return (
+                                     <div key={rule.id} className="flex items-center gap-2 text-sm flex-wrap">
+                                        <Badge variant="secondary" className="px-1.5 py-0 text-[10px] leading-5">
+                                          #{rules.findIndex((candidate) => candidate.id === rule.id) + 1}
+                                        </Badge>
+                                       <Badge
+                                         variant="outline"
+                                         className={`px-1.5 py-0 text-xs leading-5 ${decisionMeta?.color || ''}`}
+                                       >
+                                         {decisionMeta?.label || rule.effect.decision}
+                                       </Badge>
+                                       <span className="font-mono text-xs">{rule.match.tool === '*' || !rule.match.tool ? 'All tools' : rule.match.tool}</span>
+                                       {(rule.when?.length ?? 0) > 0 && (
+                                         <span className="text-xs text-muted-foreground">· {rule.when.length} condition{rule.when.length === 1 ? '' : 's'}</span>
+                                       )}
+                                     </div>
+                                   )
+                                })}
+                                {rules.length > 2 && (
+                                  <p className="text-xs text-muted-foreground">+ {rules.length - 2} more rules</p>
+                                )}
+                              </div>
+                            )}
+                          </TableCell>
+                           <TableCell>
+                             <span className="text-sm text-muted-foreground" title={`Created: ${formatDateTime(p.createdAt, { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}`}>
+                               {formatDateTime(p.updatedAt, { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                             </span>
+                           </TableCell>
+                          <TableCell className="text-center">
+                            <div className="flex items-center justify-center gap-2">
+                              <Badge
+                                variant="outline"
+                                className={p.status === 'active'
+                                  ? 'border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-900 dark:bg-emerald-950/20 dark:text-emerald-300'
+                                  : 'border-slate-200 bg-slate-50 text-slate-700 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-300'}
+                              >
+                                {p.status === 'active' ? 'Active' : 'Archived'}
+                              </Badge>
+                              {togglingPolicyId === p.id ? (
+                                <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" aria-hidden="true" />
+                              ) : null}
+                              <Switch
+                                className="h-11 w-[72px] [&>span]:h-8 [&>span]:w-8 data-[state=checked]:[&>span]:translate-x-7"
+                                checked={p.status === 'active'}
+                                onCheckedChange={() => handleToggle(p)}
+                                disabled={!canTogglePolicy || togglingPolicyId === p.id}
+                                aria-label={p.status === 'active' ? 'Deactivate policy' : 'Activate policy'}
+                                title={!canTogglePolicy ? 'Requires admin or owner role to enable or disable policies' : undefined}
+                              />
+                            </div>
+                          </TableCell>
+                          <TableCell className="text-right">
+                            {canManagePolicies ? (
+                              <div className="flex items-center justify-end gap-1">
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="h-11 w-11"
+                                  onClick={(event) => openEdit(p, event.currentTarget)}
+                                  aria-label="Edit policy"
+                                   title="Edit policy"
+                                   disabled={togglingPolicyId === p.id}
+                                 >
+                                   <Pencil className="h-3.5 w-3.5" />
+                                 </Button>
+                                 <Button
+                                   variant="ghost"
+                                   size="icon"
+                                   className="h-11 w-11 text-destructive hover:bg-destructive/10 hover:text-destructive"
+                                   onClick={() => confirmDelete(p)}
+                                   aria-label="Delete policy"
+                                   title="Delete policy"
+                                   disabled={togglingPolicyId === p.id}
+                                >
+                                  <Trash2 className="h-3.5 w-3.5" />
+                                </Button>
+                              </div>
+                            ) : null}
+                          </TableCell>
+                        </TableRow>
+                      )
+                    })}
+                    </TableBody>
+                  </Table>
+                </div>
+              </div>
+            </>
           )}
         </CardContent>
       </Card>
