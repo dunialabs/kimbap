@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { toast } from 'sonner';
 import {
   CheckCircle2,
@@ -43,7 +43,6 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { Textarea } from '@/components/ui/textarea';
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { formatDateTime, formatDisplayNumber, formatNullableText, formatRelativeMinutes } from '@/lib/utils';
 
 // ─── Types ──────────────────────────────────────────────
@@ -173,6 +172,16 @@ function formatExpiryTime(iso: string, status: string): { text: string; urgent: 
   return { text: formatTime(iso), urgent: false };
 }
 
+function getRequestSortTimestamp(iso?: string | null): number {
+  if (!iso) return Number.MAX_SAFE_INTEGER;
+  const parsed = Date.parse(iso);
+  return Number.isNaN(parsed) ? Number.MAX_SAFE_INTEGER : parsed;
+}
+
+function formatStatusLabel(status: string): string {
+  return `${status.charAt(0)}${status.slice(1).toLowerCase()}`;
+}
+
 function redactArgs(args: Record<string, any>): Record<string, any> {
   if (!args || typeof args !== 'object') return {};
   const redacted: Record<string, any> = {};
@@ -265,6 +274,47 @@ export default function ApprovalsPage() {
   const [timeAgo, setTimeAgo] = useState('');
   const [loadedPages, setLoadedPages] = useState(1);
   const hasActiveFilters = statusFilter !== DEFAULT_STATUS_FILTER || userFilter.trim().length > 0;
+  const orderedRequests = useMemo(() => {
+    const statusRank: Record<ApprovalRequest['status'], number> = {
+      PENDING: 0,
+      EXECUTING: 1,
+      FAILED: 2,
+      APPROVED: 3,
+      REJECTED: 4,
+      EXECUTED: 5,
+      EXPIRED: 6,
+    };
+
+    return [...requests].sort((a, b) => {
+      const statusDelta = (statusRank[a.status] ?? 99) - (statusRank[b.status] ?? 99);
+      if (statusDelta !== 0) {
+        return statusDelta;
+      }
+
+      if (a.status === 'PENDING' && b.status === 'PENDING') {
+        return getRequestSortTimestamp(a.expiresAt) - getRequestSortTimestamp(b.expiresAt);
+      }
+
+      return getRequestSortTimestamp(b.createdAt) - getRequestSortTimestamp(a.createdAt);
+    });
+  }, [requests]);
+  const visibleStatusCounts = useMemo(
+    () =>
+      orderedRequests.reduce<Record<string, number>>((counts, request) => {
+        counts[request.status] = (counts[request.status] || 0) + 1;
+        return counts;
+      }, {}),
+    [orderedRequests],
+  );
+  const expiringSoonCount = useMemo(
+    () =>
+      orderedRequests.filter((request) => {
+        if (request.status !== 'PENDING') return false;
+        const remainingMs = new Date(request.expiresAt).getTime() - Date.now();
+        return remainingMs > 0 && remainingMs <= 30 * 60 * 1000;
+      }).length,
+    [orderedRequests],
+  );
   const refreshTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const tickRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const loadedPagesRef = useRef(1);
@@ -533,6 +583,14 @@ export default function ApprovalsPage() {
               <span className="text-sm font-medium">
                 {formatDisplayNumber(pendingCount)} pending approval{pendingCount !== 1 ? 's' : ''} awaiting review
               </span>
+              {expiringSoonCount > 0 ? (
+                <Badge
+                  variant="outline"
+                  className="border-amber-300 bg-background/80 text-amber-700 dark:border-amber-800 dark:bg-background dark:text-amber-300"
+                >
+                  {formatDisplayNumber(expiringSoonCount)} expiring soon
+                </Badge>
+              ) : null}
             </div>
             {statusFilter !== DEFAULT_STATUS_FILTER && (
               <Button
@@ -554,9 +612,16 @@ export default function ApprovalsPage() {
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
             <div>
                 <CardTitle className="text-base">Approval Requests</CardTitle>
-                <CardDescription>
-                  {formatDisplayNumber(requests.length)} request{requests.length !== 1 ? 's' : ''}
-                  {statusFilter !== 'all' ? ` (${statusFilter.charAt(0).toUpperCase() + statusFilter.slice(1).toLowerCase()})` : ''}
+                <CardDescription className="flex flex-wrap items-center gap-2">
+                  <span>
+                    {formatDisplayNumber(orderedRequests.length)} request{orderedRequests.length !== 1 ? 's' : ''}
+                    {statusFilter !== 'all' ? ` (${formatStatusLabel(statusFilter)})` : ''}
+                  </span>
+                  {Object.entries(visibleStatusCounts).map(([status, count]) => (
+                    <Badge key={status} variant="outline" className="text-[11px]">
+                      {formatStatusLabel(status)} {formatDisplayNumber(count)}
+                    </Badge>
+                  ))}
                 </CardDescription>
               </div>
             <div className="w-full rounded-lg border border-border/60 bg-muted/20 p-3 sm:w-auto">
@@ -661,7 +726,7 @@ export default function ApprovalsPage() {
           ) : (
             <>
               <div className="space-y-3 md:hidden">
-                {requests.map((r) => {
+                {orderedRequests.map((r) => {
                   const remainingMs = new Date(r.expiresAt).getTime() - Date.now()
                   const expiresSoon = r.status === 'PENDING' && remainingMs > 0 && remainingMs < 30 * 60 * 1000
 
@@ -716,7 +781,7 @@ export default function ApprovalsPage() {
 
                         <div>
                           <p className="text-xs text-muted-foreground">Why Required</p>
-                          <p className="text-sm text-muted-foreground">{r.reason || '—'}</p>
+                          <p className="line-clamp-2 text-sm text-muted-foreground" title={r.reason || undefined}>{r.reason || '—'}</p>
                         </div>
 
                         <div className="flex flex-wrap gap-2">
@@ -772,7 +837,7 @@ export default function ApprovalsPage() {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {requests.map((r) => (
+                    {orderedRequests.map((r) => (
                       <TableRow key={r.id}>
                         <TableCell>
                           <button
@@ -822,23 +887,16 @@ export default function ApprovalsPage() {
                         </TableCell>
                         <TableCell className="text-right">
                           <div className="flex items-center justify-end gap-1">
-                            <TooltipProvider delayDuration={300}>
-                              <Tooltip>
-                                <TooltipTrigger asChild>
-                                  <Button
-                                    variant="ghost"
-                                    size="sm"
-                                    className="min-h-11 px-3 text-xs"
-                                    aria-label="View details"
-                                    onClick={() => setDetailDialog(r)}
-                                  >
-                                    <Eye className="mr-1 h-3.5 w-3.5" />
-                                    Details
-                                  </Button>
-                                </TooltipTrigger>
-                                <TooltipContent>View details</TooltipContent>
-                              </Tooltip>
-                            </TooltipProvider>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="min-h-11 px-3 text-xs"
+                              aria-label="View details"
+                              onClick={() => setDetailDialog(r)}
+                            >
+                              <Eye className="mr-1 h-3.5 w-3.5" />
+                              Details
+                            </Button>
                             {r.status === 'PENDING' && (
                               <>
                                 <Button
@@ -874,10 +932,10 @@ export default function ApprovalsPage() {
         </CardContent>
       </Card>
 
-      {!loading && requests.length > 0 && (
+      {!loading && orderedRequests.length > 0 && (
         <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
           <p className="text-xs text-muted-foreground">
-            {formatDisplayNumber(requests.length)} requests
+            {formatDisplayNumber(orderedRequests.length)} requests
           </p>
           {hasMore && (
             <Button variant="outline" size="sm" className="min-h-11" onClick={handleLoadMore} disabled={loadingMore || refreshing}>

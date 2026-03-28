@@ -62,7 +62,7 @@ import { Textarea } from '@/components/ui/textarea'
 import { getDomainLabel } from '@/lib/log-utils'
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer, Legend } from 'recharts'
 
-import { formatDateTime, formatDisplayNumber, formatNullableText, formatPercentage } from '@/lib/utils'
+import { formatDateTime, formatDisplayNumber, formatNullableText, formatPercentage, formatResponseTime } from '@/lib/utils'
 
 interface LogEntry {
   id: string
@@ -99,6 +99,8 @@ interface RealtimeLogsApiResponse {
 
 const STATISTICS_SUPPORTED_TIME_RANGES = new Set(['1h', '6h', '24h', '7d'])
 const DEFAULT_TIME_RANGE = '24h'
+const QUICK_TABLE_TIME_RANGES = ['1h', '6h', '24h', '7d', '30d'] as const
+const QUICK_STATISTICS_TIME_RANGES = ['1h', '6h', '24h', '7d'] as const
 
 const getStatisticsTimeRange = (range: string) => (
   STATISTICS_SUPPORTED_TIME_RANGES.has(range) ? range : DEFAULT_TIME_RANGE
@@ -564,6 +566,15 @@ function LogsPageContent() {
     setCurrentPage(1)
   }
 
+  const applyTimeRange = (value: string) => {
+    if (activeTab === 'statistics') {
+      setStatisticsTimeFilter(getStatisticsTimeRange(value))
+    } else {
+      setTimeFilter(value)
+    }
+    setCurrentPage(1)
+  }
+
   const getTimeRangeLabel = (range: string) => {
     switch (range) {
       case '1h': return 'Last hour'
@@ -590,6 +601,7 @@ function LogsPageContent() {
   const isRealtimePaused = currentPage !== 1 || activeTab !== 'table' || !!debouncedSearchTerm
   const liveStatusText = loading ? 'Syncing' : isRealtimePaused ? 'Paused' : realtimeHealthy ? 'Live' : 'Refresh required'
   const selectedTimeRange = activeTab === 'statistics' ? statisticsTimeFilter : timeFilter
+  const quickTimeRanges = activeTab === 'statistics' ? QUICK_STATISTICS_TIME_RANGES : QUICK_TABLE_TIME_RANGES
   const activeFilterBadges: string[] = []
 
   if (selectedTimeRange !== DEFAULT_TIME_RANGE) {
@@ -614,12 +626,34 @@ function LogsPageContent() {
 
   return (
     <div className="space-y-4">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div className="space-y-0">
-          <h1 className="text-[30px] font-bold">Logs & Monitoring</h1>
-          <p className="text-base text-muted-foreground">
-            Investigate requests, errors, and live activity.
-          </p>
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+        <div className="space-y-2">
+          <div className="space-y-0">
+            <h1 className="text-[30px] font-bold">Logs & Monitoring</h1>
+            <p className="text-base text-muted-foreground">
+              Investigate requests, errors, and live activity.
+            </p>
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
+            <Badge variant="outline" className="text-xs">{getTimeRangeLabel(selectedTimeRange)}</Badge>
+            <Badge
+              variant="outline"
+              className={loading || isRealtimePaused ? 'border-amber-500 text-amber-700 dark:text-amber-300' : realtimeHealthy ? 'border-green-500 text-green-600 dark:text-green-400' : 'border-red-500 text-red-600 dark:text-red-400'}
+            >
+              <Clock className="mr-1 h-3 w-3" />
+              {liveStatusText}
+            </Badge>
+            {activeTab === 'statistics' ? (
+              <Badge variant="outline" className="text-xs">
+                {formatDisplayNumber(statistics?.totalLogs ?? 0)} logs
+              </Badge>
+            ) : (
+              <>
+                <Badge variant="outline" className="text-xs">{formatDisplayNumber(totalCount)} total</Badge>
+                <Badge variant="outline" className="text-xs">{formatDisplayNumber(logs.length)} shown</Badge>
+              </>
+            )}
+          </div>
         </div>
         <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row">
           <Button
@@ -675,6 +709,22 @@ function LogsPageContent() {
           </CardHeader>
           <CollapsibleContent>
             <CardContent>
+              <div className="mb-4 flex flex-wrap items-center gap-2">
+                <span className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Quick ranges</span>
+                {quickTimeRanges.map((range) => (
+                  <Button
+                    key={range}
+                    type="button"
+                    variant={selectedTimeRange === range ? 'default' : 'outline'}
+                    size="sm"
+                    className="h-9 px-3 text-xs"
+                    onClick={() => applyTimeRange(range)}
+                    aria-pressed={selectedTimeRange === range}
+                  >
+                    {getTimeRangeLabel(range)}
+                  </Button>
+                ))}
+              </div>
               <div className={`grid grid-cols-1 ${tableScopedFiltersEnabled ? 'md:grid-cols-4' : 'md:grid-cols-2'} gap-3`}>
                 {tableScopedFiltersEnabled ? (
                 <div className="space-y-2">
@@ -703,14 +753,7 @@ function LogsPageContent() {
                   <Label htmlFor="time-range-filter">Time Range</Label>
                   <Select
                     value={activeTab === 'statistics' ? statisticsTimeFilter : timeFilter}
-                    onValueChange={(value) => {
-                      if (activeTab === 'statistics') {
-                        setStatisticsTimeFilter(getStatisticsTimeRange(value))
-                      } else {
-                        setTimeFilter(value)
-                      }
-                      setCurrentPage(1)
-                    }}
+                    onValueChange={applyTimeRange}
                   >
                     <SelectTrigger id="time-range-filter" className="h-11">
                       <SelectValue />
@@ -971,18 +1014,20 @@ function LogsPageContent() {
                                           {log.details.url}
                                         </div>
                                       )}
-                                      {log.details.statusCode && (
-                                        <div>
-                                          <strong>Status:</strong>{' '}
-                                          {formatDisplayNumber(log.details.statusCode)}
-                                        </div>
-                                      )}
-                                      {log.details.responseTime && (
-                                        <div>
-                                          <strong>Response Time:</strong>{' '}
-                                          {formatDisplayNumber(log.details.responseTime)}ms
-                                        </div>
-                                      )}
+                                       {log.details.statusCode && (
+                                         <div>
+                                           <strong>Status:</strong>{' '}
+                                           <span className={log.details.statusCode >= 500 ? 'text-red-600 dark:text-red-400 font-medium' : log.details.statusCode >= 400 ? 'text-amber-600 dark:text-amber-400 font-medium' : log.details.statusCode >= 200 && log.details.statusCode < 300 ? 'text-green-600 dark:text-green-400' : ''}>
+                                             {formatDisplayNumber(log.details.statusCode)}
+                                           </span>
+                                         </div>
+                                       )}
+                                       {log.details.responseTime && (
+                                         <div>
+                                           <strong>Response Time:</strong>{' '}
+                                           {formatResponseTime(log.details.responseTime)}
+                                         </div>
+                                       )}
                                       {log.details.ip && (
                                         <div>
                                           <strong>IP:</strong> {log.details.ip}
