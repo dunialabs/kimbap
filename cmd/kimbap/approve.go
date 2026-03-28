@@ -63,9 +63,10 @@ func newApproveListCommand() *cobra.Command {
 					fmt.Println("No approval requests found.")
 					return nil
 				}
-				fmt.Printf("%-16s %-30s %-12s %s\n", "AGENT", "ACTION", "STATUS", "CREATED")
+				fmt.Printf("%-36s %-16s %-30s %-12s %s\n", "ID", "AGENT", "ACTION", "STATUS", "CREATED")
 				for _, item := range items {
-					fmt.Printf("%-16s %-30s %-12s %s\n",
+					fmt.Printf("%-36s %-16s %-30s %-12s %s\n",
+						item.ID,
 						item.AgentName,
 						item.Service+"."+item.Action,
 						item.Status,

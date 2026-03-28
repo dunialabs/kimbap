@@ -322,6 +322,7 @@ func newServiceOutdatedCommand() *cobra.Command {
 
 				manifest, _, resolveErr := official.Resolve(contextBackground(), officialName)
 				if resolveErr != nil {
+					_, _ = fmt.Fprintf(os.Stderr, "warning: failed to resolve %q from catalog: %v\n", officialName, resolveErr)
 					continue
 				}
 
