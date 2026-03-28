@@ -901,11 +901,9 @@ func readErrorMessage(body []byte) string {
 			return errMsg
 		}
 	}
-	if len(trimmed) > 300 {
-		for len(trimmed) > 300 {
-			_, size := utf8.DecodeLastRuneInString(trimmed)
-			trimmed = trimmed[:len(trimmed)-size]
-		}
+	for len(trimmed) > 300 {
+		_, size := utf8.DecodeLastRuneInString(trimmed)
+		trimmed = trimmed[:len(trimmed)-size]
 	}
 	return trimmed
 }
