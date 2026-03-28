@@ -536,7 +536,12 @@ function TokenUsagePageContent() {
         <Button className="min-h-11 w-full sm:w-auto" variant="outline" onClick={handleRefresh} disabled={loading || refreshing}><RefreshCw className={`mr-2 h-4 w-4 ${loading || refreshing ? 'animate-spin' : ''}`} />Refresh</Button>
       </div>
       {activeTab === 'patterns' && timeRange !== 1 ? (
-        <p className="text-sm text-muted-foreground">Minute-level patterns are available only in the last 24 hours view.</p>
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between rounded-md border border-border/60 bg-muted/20 px-3 py-2">
+          <p className="text-sm text-muted-foreground">Minute-level patterns are available only in the last 24 hours view.</p>
+          <Button type="button" variant="outline" size="sm" className="min-h-11 w-full sm:w-auto" onClick={() => setTimeRange(1)}>
+            Switch to last 24 hours
+          </Button>
+        </div>
       ) : null}
       {!loading && loadError ? (
         <div role="alert" className="flex flex-col items-start gap-2 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700 dark:border-red-900/40 dark:bg-red-950/20 dark:text-red-300 sm:flex-row sm:items-center">
