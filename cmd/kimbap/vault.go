@@ -242,7 +242,10 @@ func newVaultDeleteCommand() *cobra.Command {
 			if err := store.Delete(contextBackground(), defaultTenantID(), name); err != nil {
 				return err
 			}
-			return printOutput(map[string]any{"deleted": true, "name": name})
+			if outputAsJSON() {
+				return printOutput(map[string]any{"deleted": true, "name": name})
+			}
+			return printOutput(fmt.Sprintf("✓ %s deleted", name))
 		},
 	}
 	cmd.Flags().BoolVar(&force, "force", false, "confirm intent to permanently delete the secret")

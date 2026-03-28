@@ -341,7 +341,10 @@ func newServiceValidateCommand() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			return printOutput(map[string]any{"valid": true, "name": manifest.Name, "version": manifest.Version})
+			if outputAsJSON() {
+				return printOutput(map[string]any{"valid": true, "name": manifest.Name, "version": manifest.Version})
+			}
+			return printOutput(fmt.Sprintf("✓ %s (%s) is valid", manifest.Name, manifest.Version))
 		},
 	}
 	return cmd
