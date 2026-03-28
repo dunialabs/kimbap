@@ -25,9 +25,13 @@ app.includeStandardAdditions = false;
 var start = input.start_date ? new Date(input.start_date) : new Date();
 var end = input.end_date ? new Date(input.end_date) : new Date(start.getTime() + 7 * 24 * 60 * 60 * 1000);
 
-var calendars = input.calendar
-	? app.calendars.whose({name: input.calendar})()
-	: app.calendars();
+var calendars;
+if (input.calendar) {
+	calendars = app.calendars.whose({name: input.calendar})();
+	if (calendars.length === 0) throw new Error("[NOT_FOUND] calendar not found: " + input.calendar);
+} else {
+	calendars = app.calendars();
+}
 
 var result = [];
 calendars.forEach(function(c) {
@@ -58,7 +62,7 @@ var app = Application("Calendar");
 app.includeStandardAdditions = false;
 
 var calendars = app.calendars();
-var result = null;
+var matches = [];
 
 for (var i = 0; i < calendars.length; i++) {
 	var c = calendars[i];
@@ -67,21 +71,21 @@ for (var i = 0; i < calendars.length; i++) {
 	for (var j = 0; j < events.length; j++) {
 		var e = events[j];
 		if (e.summary() === input.title) {
-			result = {
+			matches.push({
 				title: e.summary(),
 				startDate: e.startDate() ? e.startDate().toISOString() : null,
 				endDate: e.endDate() ? e.endDate().toISOString() : null,
 				location: e.location(),
 				notes: e.description(),
 				calendar: calName
-			};
-			break;
+			});
 		}
 	}
-	if (result) break;
 }
 
-if (!result) throw new Error("[NOT_FOUND] event not found");
+if (matches.length === 0) throw new Error("[NOT_FOUND] event not found");
+if (matches.length > 1) throw new Error("[AMBIGUOUS] multiple events with title " + JSON.stringify(input.title));
+var result = matches[0];
 JSON.stringify(result);`,
 		},
 		"create-event": {

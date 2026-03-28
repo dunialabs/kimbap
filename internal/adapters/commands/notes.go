@@ -35,7 +35,9 @@ app.includeStandardAdditions = false;
 var notes;
 if (input.folder) {
 	var folders = app.folders.whose({name: input.folder})();
-	notes = folders.length > 0 ? folders[0].notes() : [];
+	if (folders.length === 0) throw new Error("[NOT_FOUND] folder not found: " + input.folder);
+	if (folders.length > 1) throw new Error("[AMBIGUOUS] multiple folders with name " + JSON.stringify(input.folder));
+	notes = folders[0].notes();
 } else {
 	notes = app.notes();
 }
@@ -95,6 +97,7 @@ var targetFolder;
 if (input.folder) {
   var folders = app.folders.whose({name: input.folder})();
   if (folders.length === 0) throw new Error("[NOT_FOUND] folder not found: " + input.folder);
+  if (folders.length > 1) throw new Error("[AMBIGUOUS] multiple folders with name " + JSON.stringify(input.folder));
   targetFolder = folders[0];
 } else {
   targetFolder = app.defaultAccount().defaultFolder();

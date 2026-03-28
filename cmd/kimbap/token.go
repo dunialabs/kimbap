@@ -224,12 +224,16 @@ func (a *sqlTokenStoreAdapter) ValidateAndResolve(ctx context.Context, rawToken 
 	if now.After(token.ExpiresAt) {
 		return nil, auth.ErrExpiredToken
 	}
+	scopes := parseScopes(token.Scopes)
+	if token.Scopes != "" && scopes == nil {
+		return nil, auth.ErrInvalidToken
+	}
 	return &auth.Principal{
 		ID:        token.AgentName,
 		Type:      auth.PrincipalTypeService,
 		TenantID:  token.TenantID,
 		AgentName: token.AgentName,
-		Scopes:    parseScopes(token.Scopes),
+		Scopes:    scopes,
 		TokenID:   token.ID,
 		IssuedAt:  token.CreatedAt,
 		ExpiresAt: token.ExpiresAt,
