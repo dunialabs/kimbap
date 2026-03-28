@@ -635,9 +635,14 @@ function UsagePageContent() {
                 ) : null}
                 {displayRecentActivity.map((activity) => (
                   <Link key={`${activity.timestamp}-${activity.description}`} href={`/dashboard/logs?timeRange=${logsTimeRange}`} className="-m-1 flex items-start gap-3 rounded-md p-1 transition-colors duration-200 hover:bg-muted/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2">
-                    <div className={`w-2 h-2 rounded-full mt-2 ${activityColorClass[activity.color] || 'bg-muted-foreground'}`}></div>
+                    <div className={`mt-2 h-2 w-2 rounded-full ${activityColorClass[activity.color] || 'bg-muted-foreground'}`}></div>
                     <div className="flex-1">
-                      <div className="text-sm font-medium">{activity.description}</div>
+                      <div className="flex flex-col gap-1 sm:flex-row sm:items-start sm:justify-between sm:gap-3">
+                        <div className="text-sm font-medium">{activity.description}</div>
+                        <div className="shrink-0 text-xs text-muted-foreground">
+                          {formatRelativeMinutes((Date.now() / 1000 - activity.timestamp) / 60)}
+                        </div>
+                      </div>
                       <div className="text-xs text-muted-foreground">{activity.details}</div>
                     </div>
                   </Link>
