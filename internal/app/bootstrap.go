@@ -660,6 +660,9 @@ func mapAuditStatus(event runtimepkg.AuditEvent) audit.AuditStatus {
 	case actions.StatusCancelled:
 		return audit.AuditStatusCancelled
 	default:
+		if event.ErrorCode == actions.ErrValidationFailed {
+			return audit.AuditStatusValidationFailed
+		}
 		return audit.AuditStatusError
 	}
 }

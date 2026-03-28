@@ -77,7 +77,7 @@ func GenerateAgentSkillMD(manifest *ServiceManifest, opts ...SkillMDOption) (str
 	fmt.Fprintf(&sb, "- Service installed: `%s`\n", buildInstallInstruction(manifest.Name, cfg))
 	credRefs := collectCredentialRefs(manifest)
 	for _, ref := range credRefs {
-		fmt.Fprintf(&sb, "- Credential configured: `kimbap vault set %s`\n", ref)
+		fmt.Fprintf(&sb, "- Credential configured: `printf '%%s' \"$SECRET\" | kimbap vault set %s --stdin`\n", ref)
 	}
 	sb.WriteString("\n")
 
