@@ -36,19 +36,15 @@ const (
 // ConnectorConfig holds environment- or tenant-specific OAuth provider
 // installation settings. It maps to the PRD "OAuth Installation" layer.
 type ConnectorConfig struct {
-	Name              string          `yaml:"name"`
-	Provider          string          `yaml:"provider"`
-	ClientID          string          `yaml:"client_id"`
-	ClientSecret      string          `yaml:"client_secret"`
-	Scopes            []string        `yaml:"scopes"`
-	AuthURL           string          `yaml:"auth_url"`
-	TokenURL          string          `yaml:"token_url"`
-	DeviceURL         string          `yaml:"device_url,omitempty"`
-	RevocationURL     string          `yaml:"revocation_url,omitempty"`
-	ConnectionScope   ConnectionScope `yaml:"connection_scope,omitempty"`
-	EnableBrowserFlow bool            `yaml:"enable_browser_flow,omitempty"`
-	EnableDeviceFlow  bool            `yaml:"enable_device_flow,omitempty"`
-	AuthMethod        string          `yaml:"auth_method,omitempty"`
+	Name            string          `yaml:"name"`
+	Provider        string          `yaml:"provider"`
+	ClientID        string          `yaml:"client_id"`
+	ClientSecret    string          `yaml:"client_secret"`
+	Scopes          []string        `yaml:"scopes"`
+	TokenURL        string          `yaml:"token_url"`
+	DeviceURL       string          `yaml:"device_url,omitempty"`
+	ConnectionScope ConnectionScope `yaml:"connection_scope,omitempty"`
+	AuthMethod      string          `yaml:"auth_method,omitempty"`
 }
 
 // ConnectorState holds the runtime token lifecycle state for an external

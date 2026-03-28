@@ -1513,41 +1513,57 @@ function LogsPageContent() {
               </CardContent>
             </Card>
 
-            <Card className="h-full">
-              <CardHeader className="pb-2">
-                <CardTitle className="text-sm font-medium">Warning Logs</CardTitle>
-                <CardDescription className="text-xs">Entries marked WARN in {getTimeRangeLabel(statisticsTimeFilter)}</CardDescription>
-              </CardHeader>
-              <CardContent className="flex flex-col justify-center gap-1">
-                <div className={statsLoading || !statistics ? (statsError ? "text-sm text-red-600 dark:text-red-400" : "text-sm text-muted-foreground") : "text-2xl font-bold"}>
-                  {statsLoading
-                    ? '—'
-                    : !statistics
-                    ? (statsError ? 'Unavailable' : '—')
-                    : formatDisplayNumber(statistics.warnLogs, { compact: true })}
-                </div>
-                <p className="text-xs text-muted-foreground">{!statsLoading && statistics && statistics.totalLogs > 0 ? `${formatPercentage((statistics.warnLogs / statistics.totalLogs) * 100)} of all logs` : ''}</p>
-              </CardContent>
-            </Card>
+            <button
+              type="button"
+              disabled={statsLoading || !statistics || !!statsError}
+              aria-label="View Warning logs in table"
+              className="block w-full rounded-xl text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none"
+              onClick={() => openLevelFromStatistics('WARN')}
+            >
+              <Card className="h-full cursor-pointer transition-colors hover:bg-muted/50">
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-sm font-medium">Warning Logs</CardTitle>
+                  <CardDescription className="text-xs">Entries marked WARN in {getTimeRangeLabel(statisticsTimeFilter)}</CardDescription>
+                </CardHeader>
+                <CardContent className="flex flex-col justify-center gap-1">
+                  <div className={statsLoading || !statistics ? (statsError ? "text-sm text-red-600 dark:text-red-400" : "text-sm text-muted-foreground") : "text-2xl font-bold"}>
+                    {statsLoading
+                      ? '—'
+                      : !statistics
+                      ? (statsError ? 'Unavailable' : '—')
+                      : formatDisplayNumber(statistics.warnLogs, { compact: true })}
+                  </div>
+                  <p className="text-xs text-muted-foreground">{!statsLoading && statistics && statistics.totalLogs > 0 ? `${formatPercentage((statistics.warnLogs / statistics.totalLogs) * 100)} of all logs` : ''}</p>
+                </CardContent>
+              </Card>
+            </button>
 
-            <Card className="h-full">
-              <CardHeader className="pb-2">
-                <CardTitle className="text-sm font-medium">Info Logs</CardTitle>
-                <CardDescription className="text-xs">Entries marked INFO in {getTimeRangeLabel(statisticsTimeFilter)}</CardDescription>
-              </CardHeader>
-              <CardContent className="flex flex-col justify-center gap-1">
-                <div className={statsLoading || !statistics ? (statsError ? "text-sm text-red-600 dark:text-red-400" : "text-sm text-muted-foreground") : "text-2xl font-bold"}>
-                  {statsLoading
-                    ? '—'
-                    : !statistics
-                    ? (statsError ? 'Unavailable' : '—')
-                    : formatDisplayNumber(statistics.infoLogs, { compact: true })}
-                </div>
-                <p className="text-xs text-muted-foreground">
-                  {!statsLoading && statistics ? `${formatDisplayNumber(statistics.debugLogs)} debug logs tracked separately` : ''}
-                </p>
-              </CardContent>
-            </Card>
+            <button
+              type="button"
+              disabled={statsLoading || !statistics || !!statsError}
+              aria-label="View Info logs in table"
+              className="block w-full rounded-xl text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none"
+              onClick={() => openLevelFromStatistics('INFO')}
+            >
+              <Card className="h-full cursor-pointer transition-colors hover:bg-muted/50">
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-sm font-medium">Info Logs</CardTitle>
+                  <CardDescription className="text-xs">Entries marked INFO in {getTimeRangeLabel(statisticsTimeFilter)}</CardDescription>
+                </CardHeader>
+                <CardContent className="flex flex-col justify-center gap-1">
+                  <div className={statsLoading || !statistics ? (statsError ? "text-sm text-red-600 dark:text-red-400" : "text-sm text-muted-foreground") : "text-2xl font-bold"}>
+                    {statsLoading
+                      ? '—'
+                      : !statistics
+                      ? (statsError ? 'Unavailable' : '—')
+                      : formatDisplayNumber(statistics.infoLogs, { compact: true })}
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    {!statsLoading && statistics ? `${formatDisplayNumber(statistics.debugLogs)} debug logs tracked separately` : ''}
+                  </p>
+                </CardContent>
+              </Card>
+            </button>
           </div>
 
           <Card>

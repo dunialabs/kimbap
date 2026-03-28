@@ -1091,7 +1091,7 @@ export default function PoliciesPage() {
                                 return (
                                   <div key={rule.id} className="flex flex-wrap items-center gap-2 text-sm">
                                     <Badge variant="secondary" className="px-1.5 py-0 text-[10px] leading-5">
-                                      #{index + 1}
+                                      Rule {index + 1}
                                     </Badge>
                                     <Badge
                                       variant="outline"
@@ -1193,7 +1193,7 @@ export default function PoliciesPage() {
                                    return (
                                      <div key={rule.id} className="flex items-center gap-2 text-sm flex-wrap">
                                         <Badge variant="secondary" className="px-1.5 py-0 text-[10px] leading-5">
-                                          #Rule {rules.findIndex((candidate) => candidate.id === rule.id) + 1}
+                                          Rule {rules.findIndex((candidate) => candidate.id === rule.id) + 1}
                                         </Badge>
                                        <Badge
                                          variant="outline"

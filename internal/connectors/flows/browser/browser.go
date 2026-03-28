@@ -302,7 +302,11 @@ func openBrowser(authURL string) error {
 		return err
 	}
 	cmd := exec.Command(name, args...)
-	return cmd.Start()
+	if err := cmd.Start(); err != nil {
+		return err
+	}
+	_ = cmd.Process.Release()
+	return nil
 }
 
 func browserOpenCommandForOS(goos, authURL string, lookPath func(file string) (string, error), browserEnv string) (string, []string, error) {
