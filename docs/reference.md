@@ -10,7 +10,7 @@ Actions are addressed as `service.action` (e.g., `github.create-issue`).
 
 The execution pipeline: **identify → resolve → policy → credential → execute → audit**
 
-All CLI modes (call, proxy, run, daemon) pass through the same pipeline.
+All CLI modes (call, proxy, run, serve, daemon) pass through the same pipeline.
 
 ## Configuration
 

@@ -224,19 +224,28 @@ Run an agent subprocess inside a Kimbap-controlled environment. Credentials are 
 kimbap run -- python agent.py
 ```
 
-### `kimbap proxy [--port 10255]`
+### `kimbap proxy`
 
-Start an HTTP/HTTPS proxy that intercepts outbound requests, classifies them into actions, and injects credentials server-side.
+Start an HTTP/HTTPS proxy that intercepts outbound requests, classifies them into actions, and injects credentials server-side. Default listen address is `127.0.0.1:7788`.
 
 ```bash
-kimbap proxy --port 10255
-export HTTPS_PROXY=http://127.0.0.1:10255
+kimbap proxy
+export HTTPS_PROXY=http://127.0.0.1:7788
 python agent.py
+```
+
+### `kimbap serve`
+
+Start a connected-mode REST API server over HTTP. Default listen address is `:8080`.
+
+```bash
+kimbap serve
+kimbap serve --port 9000 --console
 ```
 
 ### `kimbap daemon`
 
-Start the background job runner for token refresh and scheduled tasks.
+Start a persistent runtime daemon that keeps the execution pipeline warm to avoid cold-start overhead on every `kimbap call`. Exposes `/call`, `/health`, and `/shutdown` endpoints over a Unix domain socket.
 
 ---
 

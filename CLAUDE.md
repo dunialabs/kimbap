@@ -30,7 +30,7 @@ kimbap is a CLI-first secure action runtime for AI agents. It runs actions local
 - `kimbap search <query>` — search installed actions
 
 ### Credential and connector management
-- `kimbap vault set <key>` — store a secret in the encrypted vault
+- `kimbap vault set <key> --stdin` or `--file <path>` — store a secret in the encrypted vault
 - `kimbap vault list` — list vault key metadata
 - `kimbap link <service>` — link a service to vault credentials or OAuth connector
 - `kimbap connector login <provider>` — start an OAuth connector flow
@@ -44,8 +44,9 @@ kimbap is a CLI-first secure action runtime for AI agents. It runs actions local
 
 ### Runtime modes
 - `kimbap run -- <cmd>` — wrap an agent subprocess with credential injection
-- `kimbap proxy [--port 10255]` — start HTTP proxy interceptor
-- `kimbap daemon` — start a persistent background daemon (unix socket)
+- `kimbap proxy` — start HTTP proxy interceptor (default: 127.0.0.1:7788)
+- `kimbap serve` — start connected-mode REST API server (default: :8080)
+- `kimbap daemon` — start a persistent daemon (unix socket)
 
 ### Agents and setup
 - `kimbap agents setup` / `kimbap agents sync` — SKILL.md management

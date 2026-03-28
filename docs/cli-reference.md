@@ -550,7 +550,7 @@ kimbap serve --port 9000 --console
 
 ### kimbap daemon
 
-Start the background job runner. Handles token refresh, scheduled credential rotation, and other async tasks. Communicates via a Unix domain socket.
+Start a persistent runtime daemon that keeps the execution pipeline warm to avoid cold-start overhead on every `kimbap call`. Exposes `/call`, `/health`, and `/shutdown` endpoints over a Unix domain socket.
 
 **Example:**
 

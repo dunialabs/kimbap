@@ -58,7 +58,7 @@ make deps && make build
 kimbap init --mode dev
 ```
 
-Dev mode auto-generates a vault master key and stores it in `~/.kimbap/.dev-master-key`. In interactive mode, pressing Enter at the service prompt installs all 54 services by default.
+Dev mode auto-generates a vault master key and stores it in `~/.kimbap/.dev-master-key`. In interactive mode, pressing Enter at the service prompt installs all built-in services by default.
 
 ### Production
 
@@ -75,7 +75,7 @@ Store the key securely. You need it to unlock the vault on every run. Use `--ser
 - Generates `config.yaml` with default settings
 - Initializes the encrypted vault
 - Creates a default policy file
-- Installs all 54 built-in service manifests (when `--services all`)
+- Installs all built-in service manifests (when `--services all`)
 
 **Init flags:**
 

@@ -157,7 +157,7 @@ actions:
 
 **`request` block** controls how args map into the outgoing request. Values like `"{sort}"` are string templates referencing arg names. You can place arg values into `query`, `headers`, `body`, or `path_params`.
 
-**`auth.credential_ref`** is a dot-separated path into the kimbap vault. `github.token` refers to the `token` key under the `github` namespace. Set it with `kimbap vault set github.token`.
+**`auth.credential_ref`** is a dot-separated path into the kimbap vault. `github.token` refers to the `token` key under the `github` namespace. Set it with `printf '%s' "$TOKEN" | kimbap vault set github.token --stdin`.
 
 ---
 

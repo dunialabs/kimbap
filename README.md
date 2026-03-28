@@ -114,9 +114,9 @@ actions:
 ```
 
 ```bash
-kimbap vault set stripe.api_key      # encrypted at rest
+printf '%s' "$STRIPE_KEY" | kimbap vault set stripe.api_key --stdin   # encrypted at rest
 kimbap service install stripe.yaml
-kimbap call stripe.list-charges       # done
+kimbap call stripe.list-charges   # done
 ```
 
 Three adapter types: **HTTP** (REST APIs), **Command** (CLI wrappers), **AppleScript** (macOS native apps).
@@ -166,14 +166,15 @@ kimbap agents sync                   # sync SKILL.md to agent discovery director
 
 ---
 
-## 4 modes
+## 5 modes
 
 | Mode | Command | Use case |
 |---|---|---|
 | Call | `kimbap call <service>.<action>` | Direct use, scripts, agent integration |
 | Run | `kimbap run -- <cmd>` | Wrap any agent subprocess |
 | Proxy | `kimbap proxy` | Existing HTTP agents, zero code changes |
-| Serve | `kimbap serve` | Persistent daemon with HTTP API |
+| Serve | `kimbap serve` | Connected-mode REST API server (HTTP) |
+| Daemon | `kimbap daemon` | Persistent daemon (unix socket) |
 
 All modes go through the same pipeline. Same credentials, same policy, same audit.
 

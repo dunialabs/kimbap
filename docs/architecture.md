@@ -7,11 +7,11 @@ Kimbap is a **secure action runtime for AI agents**. Its job is to sit between a
 The central concept is the **Action Runtime**: a canonical execution pipeline that every product surface converges to. Whether a request arrives from the CLI, an HTTP proxy, a subprocess wrapper, a connected server, or the REST API, it passes through the same pipeline before anything executes.
 
 ```
-┌─────────────────────────────────────────────────────────────────┐
-│                        Product Surfaces                         │
-│                                                                 │
-│      kimbap call   kimbap proxy   kimbap run   kimbap daemon      │
-└────────────────────────────┬────────────────────────────────────┘
+┌──────────────────────────────────────────────────────────────────────────┐
+│                            Product Surfaces                              │
+│                                                                          │
+│  kimbap call   kimbap proxy   kimbap run   kimbap serve   kimbap daemon  │
+└─────────────────────────────────┬────────────────────────────────────────┘
                              │
                              ▼
 ┌─────────────────────────────────────────────────────────────────┐
@@ -131,8 +131,8 @@ The runtime runs in-process. No server required.
 Intercepts outbound HTTP traffic from an existing agent and routes matching requests through the Action Runtime.
 
 ```bash
-kimbap proxy --port 10255
-export HTTP_PROXY=http://127.0.0.1:10255
+kimbap proxy
+export HTTP_PROXY=http://127.0.0.1:7788
 python agent.py
 ```
 
@@ -195,18 +195,16 @@ The subprocess never receives long-lived credentials. It receives only what the 
 
 ### Daemon Mode
 
-A background process that manages long-lived connector sessions, token refresh cycles, and job scheduling.
+A persistent runtime daemon that keeps the execution pipeline warm to avoid cold-start overhead on every `kimbap call`. Listens on a Unix domain socket and exposes `/call`, `/health`, and `/shutdown` endpoints.
 
-**Entry point:** `internal/jobs/`
+**Entry point:** `cmd/kimbap/daemon.go`
 
 Responsibilities:
 
-- Periodic OAuth token refresh for active connectors
-- Connector health checks and reconnection
-- Scheduled audit log sync
-- Background policy cache invalidation
-
-The daemon does not handle inbound action requests directly. It keeps the runtime's state consistent so that execution-time credential injection is fast and reliable.
+- Accepts `/call` requests over a Unix socket, routing them through the full action runtime pipeline
+- Health checking via `/health`
+- Graceful shutdown via `/shutdown`
+- Keeps runtime state warm so credential injection and service resolution are fast
 
 
 ---
@@ -410,7 +408,7 @@ kimbap call github.list-pull-requests --repo owner/repo
 Agent: GET https://api.github.com/repos/owner/repo/pulls
   │
   ▼
-kimbap proxy (port 10255)
+kimbap proxy (127.0.0.1:7788)
   │
   ├── Classifier: matches github.list-pull-requests pattern
   │

@@ -45,7 +45,7 @@ cp .env.example .env
 make build
 
 # 5. Start the service
-./bin/kimbap daemon
+./bin/kimbap serve
 ```
 
 For process management in production you can use systemd:
@@ -60,7 +60,7 @@ Type=simple
 User=kimbap
 WorkingDirectory=/opt/kimbap
 EnvironmentFile=/opt/kimbap/.env
-ExecStart=/opt/kimbap/bin/kimbap daemon
+ExecStart=/opt/kimbap/bin/kimbap serve
 Restart=on-failure
 RestartSec=5s
 
