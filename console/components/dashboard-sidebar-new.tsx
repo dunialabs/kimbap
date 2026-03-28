@@ -60,7 +60,9 @@ export function DashboardSidebar() {
               <Button variant="outline" size="icon" className="h-11 w-11 bg-transparent">
                 <Menu className="h-5 w-5" />
                 <span className="sr-only">
-                  Toggle navigation menu{pendingApprovalCount > 0 ? `, ${pendingApprovalCount} pending approval${pendingApprovalCount === 1 ? '' : 's'}` : ''}
+                  {mobileMenuOpen
+                    ? 'Close navigation menu'
+                    : `Open navigation menu${pendingApprovalCount > 0 ? `, ${pendingApprovalCount} pending approval${pendingApprovalCount === 1 ? '' : 's'}` : ''}`}
                 </span>
               </Button>
             </SheetTrigger>
