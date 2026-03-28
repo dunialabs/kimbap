@@ -178,7 +178,9 @@ func (m *Manager) CompleteLogin(ctx context.Context, tenantID, name string, code
 	}
 
 	m.mu.Lock()
-	delete(m.pending, m.pendingKey(tenantID, name))
+	if cur, ok := m.pending[m.pendingKey(tenantID, name)]; ok && cur.deviceCode == deviceCode {
+		delete(m.pending, m.pendingKey(tenantID, name))
+	}
 	m.mu.Unlock()
 
 	return nil

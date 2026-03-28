@@ -45,11 +45,6 @@ func (w *Worker) Start(ctx context.Context) {
 		w.wg.Add(1)
 		go func() {
 			defer w.wg.Done()
-			defer func() {
-				if r := recover(); r != nil {
-					w.logger.Error("approval expiry job panicked", "panic", r)
-				}
-			}()
 			ticker := time.NewTicker(w.interval)
 			defer ticker.Stop()
 
@@ -60,21 +55,30 @@ func (w *Worker) Start(ctx context.Context) {
 				case <-w.stopCh:
 					return
 				case <-ticker.C:
-					if w.expirer == nil {
-						continue
-					}
-					expireCtx, expireCancel := context.WithTimeout(ctx, w.interval)
-					expired, err := w.expirer.ExpireStale(expireCtx)
-					expireCancel()
-					if err != nil {
-						w.logger.Warn("approval expiry job failed", "error", err)
-						continue
-					}
-					w.logger.Debug("approval expiry job ran", "expired_count", expired)
+					w.runExpiry(ctx)
 				}
 			}
 		}()
 	})
+}
+
+func (w *Worker) runExpiry(ctx context.Context) {
+	defer func() {
+		if r := recover(); r != nil {
+			w.logger.Error("approval expiry job panicked", "panic", r)
+		}
+	}()
+	if w.expirer == nil {
+		return
+	}
+	expireCtx, expireCancel := context.WithTimeout(ctx, w.interval)
+	defer expireCancel()
+	expired, err := w.expirer.ExpireStale(expireCtx)
+	if err != nil {
+		w.logger.Warn("approval expiry job failed", "error", err)
+		return
+	}
+	w.logger.Debug("approval expiry job ran", "expired_count", expired)
 }
 
 func (w *Worker) Stop() {
