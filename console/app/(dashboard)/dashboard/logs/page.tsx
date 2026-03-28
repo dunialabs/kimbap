@@ -229,7 +229,7 @@ function LogsPageContent() {
   const tableScopedFiltersEnabled = activeTab !== 'statistics'
   const [latestLogId, setLatestLogId] = useState<number>(0)
   const [realtimeHealthy, setRealtimeHealthy] = useState<boolean>(true)
-  const [filtersOpen, setFiltersOpen] = useState<boolean>(true)
+  const [filtersOpen, setFiltersOpen] = useState<boolean>(false)
   const logsRequestSeqRef = useRef(0)
   const statsRequestSeqRef = useRef(0)
 
