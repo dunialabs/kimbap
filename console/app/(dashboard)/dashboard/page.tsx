@@ -199,9 +199,9 @@ export default function DashboardPage() {
       } else {
         setServerFetchError(
           getRequestErrorMessage(error, {
-            auth: 'Your session expired or you no longer have access to this server. Sign in again and reconnect.',
-            network: 'Could not reach this server. Check your network connection and retry.',
-            fallback: 'Could not load server details for this dashboard. Retry or sign in again.'
+            auth: 'Session expired or access revoked. Sign in again.',
+            network: 'Could not reach the server. Check your connection and retry.',
+            fallback: 'Could not load server details. Retry or sign in again.'
           })
         )
       }
@@ -230,9 +230,9 @@ export default function DashboardPage() {
       setPendingApprovalCount(null)
       setPendingApprovalError(
         getRequestErrorMessage(error, {
-          auth: 'Could not check pending approvals because your session expired or your access changed. Sign in again to continue.',
+          auth: 'Session expired or access revoked. Sign in again to check approvals.',
           network: 'Could not check the approval queue. Check your connection and retry.',
-          fallback: 'Could not load the pending approval count right now. Retry to check the queue again.'
+          fallback: 'Could not load pending approvals. Retry.'
         })
       )
     } finally {
@@ -260,15 +260,15 @@ export default function DashboardPage() {
         setDashboardLoadError(null)
       } else {
         setDashboardData(null)
-        setDashboardLoadError('Could not load dashboard metrics for the last 30 days. Retry to load usage, recent activity, and addresses again.')
+        setDashboardLoadError('Could not load dashboard data. Retry.')
       }
     } catch (error: unknown) {
       setDashboardData(null)
       setDashboardLoadError(
         getRequestErrorMessage(error, {
-          auth: 'Could not load dashboard metrics because your session expired or your access changed. Sign in again and retry.',
-          network: 'Could not load dashboard metrics. Check your connection and retry.',
-          fallback: 'Could not load dashboard metrics for the last 30 days. Retry to load usage, recent activity, and addresses again.'
+          auth: 'Session expired or access revoked. Sign in again.',
+          network: 'Could not load dashboard data. Check your connection and retry.',
+          fallback: 'Could not load dashboard data. Retry.'
         })
       )
     }

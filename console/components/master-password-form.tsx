@@ -227,6 +227,7 @@ export function MasterPasswordForm({ onSuccess }: MasterPasswordFormProps) {
           type="submit"
           disabled={
             isLoading || !cryptoAvailable || !masterPassword.trim() || !confirmPassword.trim()
+            || passwordTooShort || passwordsMismatch
           }
           className="h-12 w-full text-base"
           size="lg"
