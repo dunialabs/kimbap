@@ -2,7 +2,7 @@
 
 import { Wrench, TrendingUp, CheckCircle, XCircle, Clock, Activity, Zap, RefreshCw, AlertTriangle } from "lucide-react"
 import Link from "next/link"
-import { Suspense, useState, useEffect, useCallback, useRef } from "react"
+import { Suspense, useState, useEffect, useCallback, useMemo, useRef } from "react"
 import { usePathname, useRouter, useSearchParams } from "next/navigation"
 import {
   BarChart,
@@ -172,6 +172,29 @@ function ToolUsagePageContent() {
   const [actionToolOptions, setActionToolOptions] = useState<Array<{ toolId: string; toolName: string }>>([])
   const timeRangeLabel = timeRange === 1 ? '24 hours' : `${timeRange} days`
   const hasDataRef = useRef(false)
+  const displayToolUsageData = useMemo(() => {
+    const statusRank: Record<ToolUsageData['status'], number> = {
+      active: 0,
+      error: 1,
+      inactive: 2,
+    }
+    const getTimestamp = (value: string) => {
+      const parsed = Date.parse(value)
+      return Number.isNaN(parsed) ? 0 : parsed
+    }
+
+    return [...toolUsageData].sort((a, b) => {
+      const statusDelta = (statusRank[a.status] ?? 9) - (statusRank[b.status] ?? 9)
+      if (statusDelta !== 0) {
+        return statusDelta
+      }
+      const lastUsedDelta = getTimestamp(b.lastUsed) - getTimestamp(a.lastUsed)
+      if (lastUsedDelta !== 0) {
+        return lastUsedDelta
+      }
+      return b.totalRequests - a.totalRequests
+    })
+  }, [toolUsageData])
 
   useEffect(() => {
     const tabTitles: Record<string, string> = {
@@ -398,7 +421,7 @@ function ToolUsagePageContent() {
     fetchActionLogsData()
   }, [activeTab, fetchActionLogsData])
 
-  const pieData = toolUsageData.map((tool) => ({
+  const pieData = displayToolUsageData.map((tool) => ({
     name: tool.toolName,
     value: tool.totalRequests,
   }))
@@ -635,9 +658,10 @@ function ToolUsagePageContent() {
           <Card>
             <CardHeader>
               <CardTitle>Tool Details</CardTitle>
+              <CardDescription>Sorted with active and most recently used tools first.</CardDescription>
             </CardHeader>
             <CardContent>
-              {loading || !toolUsageData || toolUsageData.length === 0 ? (
+              {loading || displayToolUsageData.length === 0 ? (
                 <div className="flex items-center justify-center py-8">
                   {loading ? (
                     <div className="text-center">
@@ -655,7 +679,7 @@ function ToolUsagePageContent() {
                 </div>
               ) : (
                 <div className="space-y-4">
-                  {toolUsageData.map((tool) => (
+                  {displayToolUsageData.map((tool) => (
                   <div key={tool.toolName} className="border rounded-lg p-4">
                     <div className="flex flex-wrap items-center justify-between gap-y-1 mb-3">
                       <div className="flex flex-wrap items-center gap-2">
@@ -711,7 +735,7 @@ function ToolUsagePageContent() {
               <CardDescription>Average response time for each tool</CardDescription>
             </CardHeader>
             <CardContent>
-              {loading || toolUsageData.length === 0 ? (
+              {loading || displayToolUsageData.length === 0 ? (
                 <div className="flex items-center justify-center h-[300px]">
                   {loading ? (
                     <div className="text-center">
@@ -729,7 +753,7 @@ function ToolUsagePageContent() {
                 </div>
               ) : (
                 <ResponsiveContainer width="100%" height={300}>
-                  <BarChart data={toolUsageData}>
+                  <BarChart data={displayToolUsageData}>
                     <CartesianGrid stroke={chartGridColor} strokeDasharray="3 3" />
                     <XAxis dataKey="toolName" stroke={chartAxisColor} tick={{ fill: chartAxisColor }} tickFormatter={(value) => value.length > 12 ? value.slice(0, 12) + '…' : value} />
                     <YAxis stroke={chartAxisColor} tick={{ fill: chartAxisColor }} />
@@ -751,7 +775,7 @@ function ToolUsagePageContent() {
               <CardDescription>Request success and failure comparison</CardDescription>
             </CardHeader>
             <CardContent>
-              {loading || toolUsageData.length === 0 ? (
+              {loading || displayToolUsageData.length === 0 ? (
                 <div className="flex items-center justify-center h-[300px]">
                   {loading ? (
                     <div className="text-center">
@@ -769,7 +793,7 @@ function ToolUsagePageContent() {
                 </div>
               ) : (
                 <ResponsiveContainer width="100%" height={300}>
-                  <BarChart data={toolUsageData}>
+                  <BarChart data={displayToolUsageData}>
                     <CartesianGrid stroke={chartGridColor} strokeDasharray="3 3" />
                     <XAxis dataKey="toolName" stroke={chartAxisColor} tick={{ fill: chartAxisColor }} tickFormatter={(value) => value.length > 12 ? value.slice(0, 12) + '…' : value} />
                     <YAxis stroke={chartAxisColor} tick={{ fill: chartAxisColor }} />

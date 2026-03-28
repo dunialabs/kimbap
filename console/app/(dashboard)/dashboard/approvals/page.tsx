@@ -950,13 +950,13 @@ export default function ApprovalsPage() {
         {detailDialog && (
           <DialogContent className="max-w-lg">
             <DialogHeader>
-              <DialogTitle>Approval Request Details</DialogTitle>
-              <DialogDescription>
-                Request for <strong>{detailDialog.toolName}</strong>
-                {detailDialog.serverId?.trim() && (
-                  <> on server <strong>{detailDialog.serverId}</strong></>
-                )}
-              </DialogDescription>
+              <DialogTitle className="flex items-center gap-2 font-mono text-base">
+                 {detailDialog.toolName}
+                 <span className="font-sans text-sm font-normal not-italic">{statusBadge(detailDialog.status)}</span>
+               </DialogTitle>
+               <DialogDescription>
+                 Approval request{detailDialog.serverId?.trim() ? ` on server ${detailDialog.serverId}` : ''}
+               </DialogDescription>
             </DialogHeader>
             <div className="space-y-4 py-2">
               <div className="grid grid-cols-1 gap-3 text-sm sm:grid-cols-2">

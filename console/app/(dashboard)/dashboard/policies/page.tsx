@@ -972,7 +972,7 @@ export default function PoliciesPage() {
                 <TableHeader>
                 <TableRow>
                   <TableHead scope="col">Policy</TableHead>
-                  <TableHead scope="col">What happens</TableHead>
+                  <TableHead scope="col">Top rules</TableHead>
                   <TableHead scope="col">Updated</TableHead>
                   <TableHead scope="col" className="text-center">Status</TableHead>
                   <TableHead scope="col" className="text-right">Actions</TableHead>
@@ -1017,6 +1017,9 @@ export default function PoliciesPage() {
                               const decisionMeta = DECISIONS.find((d) => d.value === rule.effect.decision)
                                return (
                                  <div key={rule.id} className="flex items-center gap-2 text-sm flex-wrap">
+                                    <Badge variant="secondary" className="px-1.5 py-0 text-[10px] leading-5">
+                                      #{rules.findIndex((candidate) => candidate.id === rule.id) + 1}
+                                    </Badge>
                                    <Badge
                                      variant="outline"
                                      className={`px-1.5 py-0 text-xs leading-5 ${decisionMeta?.color || ''}`}
@@ -1197,10 +1200,15 @@ export default function PoliciesPage() {
       <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
         <AlertDialogContent className="max-w-md">
           <AlertDialogHeader>
-            <AlertDialogTitle>Delete Policy</AlertDialogTitle>
-            <AlertDialogDescription>
-              Are you sure you want to delete this policy? This action cannot be undone.
-            </AlertDialogDescription>
+             <AlertDialogTitle>Delete Policy</AlertDialogTitle>
+             <AlertDialogDescription>
+               {deleteTarget && (
+                 <span className="font-medium text-foreground">
+                   {generatePolicyTitle(deserializeRules(deleteTarget.dsl?.rules || []))}
+                 </span>
+               )}
+               {deleteTarget ? ' will be permanently deleted. This action cannot be undone.' : 'Are you sure you want to delete this policy? This action cannot be undone.'}
+             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel className="min-h-11" disabled={deleting}>Cancel</AlertDialogCancel>

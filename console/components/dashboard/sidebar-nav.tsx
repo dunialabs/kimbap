@@ -20,12 +20,6 @@ import {
   Collapsible,
   CollapsibleContent
 } from '@/components/ui/collapsible'
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger
-} from '@/components/ui/tooltip'
 import { cn } from '@/lib/utils'
 
 export const navItems = [
@@ -185,26 +179,17 @@ export function SidebarNav({ onNavigate, pendingApprovalCount = 0 }: SidebarNavP
           <LinkIcon className="ml-auto h-3 w-3 opacity-60" aria-hidden="true" focusable="false" />
         </a>
 
-        <TooltipProvider>
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <a
-                href="https://kimbap.sh/quick-start/#install-desk"
-                target="_blank"
-                rel="noopener noreferrer"
-                aria-label="Install Kimbap Desk quick start guide (opens in new tab)"
-                className="mb-1 flex min-h-11 items-center gap-3 rounded-lg px-3 py-2 text-muted-foreground transition-all hover:bg-accent/70 hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2"
-              >
-                <Download className="h-4 w-4" aria-hidden="true" focusable="false" />
-                <span className="font-medium">Install Kimbap Desk</span>
-                <LinkIcon className="ml-auto h-3 w-3 opacity-60" aria-hidden="true" focusable="false" />
-              </a>
-            </TooltipTrigger>
-            <TooltipContent side="right">
-              <p>Opens the Kimbap Desk quick start guide</p>
-            </TooltipContent>
-          </Tooltip>
-        </TooltipProvider>
+        <a
+          href="https://kimbap.sh/quick-start/#install-desk"
+          target="_blank"
+          rel="noopener noreferrer"
+          aria-label="Install Kimbap Desk quick start guide (opens in new tab)"
+          className="mb-1 flex min-h-11 items-center gap-3 rounded-lg px-3 py-2 text-muted-foreground transition-all hover:bg-accent/70 hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2"
+        >
+          <Download className="h-4 w-4" aria-hidden="true" focusable="false" />
+          <span className="font-medium">Install Kimbap Desk</span>
+          <LinkIcon className="ml-auto h-3 w-3 opacity-60" aria-hidden="true" focusable="false" />
+        </a>
       </div>
     </nav>
   )

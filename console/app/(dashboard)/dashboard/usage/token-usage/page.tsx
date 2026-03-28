@@ -9,7 +9,7 @@ import {
   AlertTriangle
 } from 'lucide-react'
 import Link from 'next/link'
-import { Suspense, useState, useEffect, useCallback, useRef } from 'react'
+import { Suspense, useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import { usePathname, useRouter, useSearchParams } from 'next/navigation'
 import {
   XAxis,
@@ -191,8 +191,32 @@ function TokenUsagePageContent() {
   const [patternUsageErrors, setPatternUsageErrors] = useState<Record<string, string>>({})
   const [patternLoading, setPatternLoading] = useState(false)
   const timeRangeLabel = timeRange === 1 ? '24 hours' : `${timeRange} days`
-  const patternTokens = tokenUsageData.filter((token) => token.status === 'active').slice(0, 5)
   const hasDataRef = useRef(false)
+  const displayTokenUsageData = useMemo(() => {
+    const statusRank: Record<TokenUsageData['status'], number> = {
+      active: 0,
+      limited: 1,
+      inactive: 2,
+      expired: 3,
+    }
+    const getTimestamp = (value: string | null) => {
+      const parsed = Date.parse(value || '')
+      return Number.isNaN(parsed) ? 0 : parsed
+    }
+
+    return [...tokenUsageData].sort((a, b) => {
+      const statusDelta = (statusRank[a.status] ?? 9) - (statusRank[b.status] ?? 9)
+      if (statusDelta !== 0) {
+        return statusDelta
+      }
+      const lastUsedDelta = getTimestamp(b.lastUsed) - getTimestamp(a.lastUsed)
+      if (lastUsedDelta !== 0) {
+        return lastUsedDelta
+      }
+      return b.totalRequests - a.totalRequests
+    })
+  }, [tokenUsageData])
+  const patternTokens = displayTokenUsageData.filter((token) => token.status === 'active').slice(0, 5)
 
   useEffect(() => {
     const tabTitles: Record<string, string> = {
@@ -343,7 +367,7 @@ function TokenUsagePageContent() {
 
       setPatternLoading(true)
 
-      const activeTokens = tokenUsageData.filter((token) => token.status === 'active').slice(0, 5)
+      const activeTokens = displayTokenUsageData.filter((token) => token.status === 'active').slice(0, 5)
       if (activeTokens.length === 0) {
         if (!cancelled) {
           setPatternUsage({})
@@ -411,7 +435,7 @@ function TokenUsagePageContent() {
     fetchTokenUsageData()
   }, [fetchTokenUsageData])
 
-  const pieData = tokenUsageData.map((token) => ({
+  const pieData = displayTokenUsageData.map((token) => ({
     name: token.tokenName,
     value: token.totalRequests
   }))
@@ -692,9 +716,10 @@ function TokenUsagePageContent() {
           <Card>
             <CardHeader>
               <CardTitle>Token Details</CardTitle>
+              <CardDescription>Sorted with active and most recently used tokens first.</CardDescription>
             </CardHeader>
             <CardContent>
-              {loading || !tokenUsageData || tokenUsageData.length === 0 ? (
+              {loading || displayTokenUsageData.length === 0 ? (
                 <div className="flex items-center justify-center py-8">
                   {loading ? (
                     <div className="text-center">
@@ -725,7 +750,7 @@ function TokenUsagePageContent() {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {tokenUsageData.map((token) => (
+                    {displayTokenUsageData.map((token) => (
                       <TableRow key={token.tokenId}>
                         <TableCell>
                           <span className="font-semibold">
@@ -972,8 +997,8 @@ function TokenUsagePageContent() {
                               type="monotone"
                               dataKey="requests"
                               name="Requests"
-                              stroke={COLORS[tokenUsageData.findIndex((t) => t.tokenId === token.tokenId) % COLORS.length]}
-                              fill={COLORS[tokenUsageData.findIndex((t) => t.tokenId === token.tokenId) % COLORS.length]}
+                              stroke={COLORS[displayTokenUsageData.findIndex((t) => t.tokenId === token.tokenId) % COLORS.length]}
+                              fill={COLORS[displayTokenUsageData.findIndex((t) => t.tokenId === token.tokenId) % COLORS.length]}
                               fillOpacity={0.3}
                             />
                           </AreaChart>

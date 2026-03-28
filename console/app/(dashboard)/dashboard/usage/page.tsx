@@ -2,7 +2,7 @@
 
 import { AlertTriangle, Loader2, RefreshCw } from "lucide-react"
 import Link from "next/link"
-import { useState, useEffect, useCallback, useRef, Suspense } from "react"
+import { useState, useEffect, useCallback, useMemo, useRef, Suspense } from "react"
 import { usePathname, useRouter, useSearchParams } from "next/navigation"
 
 import {
@@ -13,7 +13,8 @@ import {
   BreadcrumbPage,
   BreadcrumbSeparator
 } from "@/components/ui/breadcrumb"
-import { Button } from "@/components/ui/button"
+import { Badge } from "@/components/ui/badge"
+import { Button, buttonVariants } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { api } from "@/lib/api-client"
@@ -137,6 +138,24 @@ function UsagePageContent() {
   const timeRangeLabel = timeRange === 1 ? '24 hours' : `${timeRange} days`
   const logsTimeRange = timeRange === 1 ? '24h' : `${timeRange}d`
   const hasDataRef = useRef(false)
+  const displayTopTools = useMemo(() => [...topTools].sort((a, b) => b.requestCount - a.requestCount), [topTools])
+  const displayActiveTokens = useMemo(
+    () =>
+      [...activeTokens].sort((a, b) => {
+        const activeDelta = Number(b.isCurrentlyActive) - Number(a.isCurrentlyActive)
+        if (activeDelta !== 0) {
+          return activeDelta
+        }
+        if (a.lastUsedMinutesAgo !== b.lastUsedMinutesAgo) {
+          return a.lastUsedMinutesAgo - b.lastUsedMinutesAgo
+        }
+        return b.requestCount - a.requestCount
+      }),
+    [activeTokens]
+  )
+  const displayRecentActivity = useMemo(() => [...recentActivity].sort((a, b) => b.timestamp - a.timestamp), [recentActivity])
+  const leadingTool = displayTopTools[0] ?? null
+  const mostRecentToken = displayActiveTokens[0] ?? null
 
   useEffect(() => {
     document.title = 'Usage Overview | Kimbap Console'
@@ -323,6 +342,15 @@ function UsagePageContent() {
           {refreshing ? 'Refreshing...' : loading ? 'Loading overview...' : 'Refresh'}
         </Button>
       </div>
+      <div className="flex flex-wrap items-center gap-2">
+        <Badge variant="outline" className="text-xs">Last {timeRangeLabel}</Badge>
+        {!loading && leadingTool ? <Badge variant="outline" className="text-xs">Top tool: {leadingTool.toolName}</Badge> : null}
+        {!loading && mostRecentToken ? (
+          <Badge variant="outline" className="text-xs">
+            {mostRecentToken.tokenName} {mostRecentToken.isCurrentlyActive ? 'active now' : `used ${formatRelativeMinutes(mostRecentToken.lastUsedMinutesAgo)}`}
+          </Badge>
+        ) : null}
+      </div>
       {!loading && loadError ? (
         <div role="alert" className="flex flex-col items-start gap-2 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700 dark:border-red-900/40 dark:bg-red-950/20 dark:text-red-300 sm:flex-row sm:items-center">
           <AlertTriangle className="h-4 w-4" aria-hidden="true" />
@@ -436,12 +464,23 @@ function UsagePageContent() {
 
       {/* Top Tools by Usage */}
       <Card>
-        <CardHeader>
-            <CardTitle><Link href={`/dashboard/usage/tool-usage?timeRange=${timeRange}`} className="rounded-sm hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2">Top Tools</Link></CardTitle>
+        <CardHeader className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+          <div>
+            <CardTitle className="flex items-center gap-2">
+              <Link href={`/dashboard/usage/tool-usage?timeRange=${timeRange}`} className="rounded-sm hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2">Top Tools</Link>
+              {!loading && displayTopTools.length > 0 ? <Badge variant="outline" className="text-xs">{formatDisplayNumber(displayTopTools.length)}</Badge> : null}
+            </CardTitle>
             <CardDescription>Most-used tools in the last {timeRangeLabel}</CardDescription>
+          </div>
+          <Link
+            href={`/dashboard/usage/tool-usage?timeRange=${timeRange}`}
+            className="inline-flex min-h-11 items-center justify-center rounded-md border border-input bg-background px-3 text-sm font-medium shadow-sm transition-colors hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 w-full sm:w-auto"
+          >
+            Open tool usage
+          </Link>
         </CardHeader>
         <CardContent>
-          {loading || !topTools || topTools.length === 0 ? (
+          {loading || displayTopTools.length === 0 ? (
             <div className="flex items-center justify-center py-8">
               {loading ? (
                 <LoadingListPlaceholder label="Loading top tool activity..." />
@@ -456,7 +495,7 @@ function UsagePageContent() {
             </div>
           ) : (
             <div className="space-y-4">
-              {topTools.map((tool) => (
+              {displayTopTools.map((tool) => (
                 <Link key={tool.toolName} href={`/dashboard/usage/tool-usage?timeRange=${timeRange}`} className="flex flex-col gap-2 rounded-md p-1 -m-1 hover:bg-muted/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 sm:flex-row sm:items-center sm:justify-between">
                   <div className="flex min-w-0 items-center gap-3">
                     <div className={`w-2 h-2 rounded-full`} style={{ backgroundColor: tool.color }}></div>
@@ -476,12 +515,23 @@ function UsagePageContent() {
       {/* Token Activity & Recent Usage */}
       <div className="grid lg:grid-cols-2 gap-3">
         <Card>
-          <CardHeader>
-            <CardTitle><Link href={`/dashboard/usage/token-usage?timeRange=${timeRange}`} className="rounded-sm hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2">Active Tokens</Link></CardTitle>
-            <CardDescription>Most active tokens in the last {timeRangeLabel}</CardDescription>
+          <CardHeader className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+            <div>
+              <CardTitle className="flex items-center gap-2">
+                <Link href={`/dashboard/usage/token-usage?timeRange=${timeRange}`} className="rounded-sm hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2">Active Tokens</Link>
+                {!loading && displayActiveTokens.length > 0 ? <Badge variant="outline" className="text-xs">{formatDisplayNumber(displayActiveTokens.length)}</Badge> : null}
+              </CardTitle>
+              <CardDescription>Most active and recently used tokens in the last {timeRangeLabel}</CardDescription>
+            </div>
+            <Link
+              href={`/dashboard/usage/token-usage?timeRange=${timeRange}`}
+              className="inline-flex min-h-11 items-center justify-center rounded-md border border-input bg-background px-3 text-sm font-medium shadow-sm transition-colors hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 w-full sm:w-auto"
+            >
+              Open token usage
+            </Link>
           </CardHeader>
           <CardContent>
-            {loading || !activeTokens || activeTokens.length === 0 ? (
+            {loading || displayActiveTokens.length === 0 ? (
               <div className="flex items-center justify-center py-8">
                 {loading ? (
                   <LoadingListPlaceholder label="Loading active token activity..." />
@@ -496,7 +546,7 @@ function UsagePageContent() {
               </div>
             ) : (
               <div className="space-y-3">
-                {activeTokens.map((token) => (
+                {displayActiveTokens.map((token) => (
                   <Link key={token.tokenMask} href={`/dashboard/usage/token-usage?timeRange=${timeRange}`} className="flex flex-col items-start gap-3 rounded-lg border p-3 hover:bg-muted/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 sm:flex-row sm:items-center sm:justify-between">
                     <div className="min-w-0">
                       <div className="font-medium">{token.tokenName}</div>
@@ -516,12 +566,23 @@ function UsagePageContent() {
         </Card>
 
         <Card>
-          <CardHeader>
-            <CardTitle><Link href={`/dashboard/logs?timeRange=${logsTimeRange}`} className="rounded-sm hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2">Recent Activity</Link></CardTitle>
-            <CardDescription>Recent events in the last {timeRangeLabel}</CardDescription>
+          <CardHeader className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+            <div>
+              <CardTitle className="flex items-center gap-2">
+                <Link href={`/dashboard/logs?timeRange=${logsTimeRange}`} className="rounded-sm hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2">Recent Activity</Link>
+                {!loading && displayRecentActivity.length > 0 ? <Badge variant="outline" className="text-xs">{formatDisplayNumber(displayRecentActivity.length)}</Badge> : null}
+              </CardTitle>
+              <CardDescription>Most recent events in the last {timeRangeLabel}</CardDescription>
+            </div>
+            <Link
+              href={`/dashboard/logs?timeRange=${logsTimeRange}`}
+              className="inline-flex min-h-11 items-center justify-center rounded-md border border-input bg-background px-3 text-sm font-medium shadow-sm transition-colors hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 w-full sm:w-auto"
+            >
+              Open logs
+            </Link>
           </CardHeader>
           <CardContent>
-            {loading || !recentActivity || recentActivity.length === 0 ? (
+            {loading || displayRecentActivity.length === 0 ? (
               <div className="flex items-center justify-center py-8">
                 {loading ? (
                   <LoadingListPlaceholder label="Loading recent usage events..." />
@@ -539,7 +600,7 @@ function UsagePageContent() {
                 {recentActivityError ? (
                   <p className="text-xs text-amber-600 dark:text-amber-400">{recentActivityError}</p>
                 ) : null}
-                {recentActivity.map((activity) => (
+                {displayRecentActivity.map((activity) => (
                   <Link key={`${activity.timestamp}-${activity.description}`} href={`/dashboard/logs?timeRange=${logsTimeRange}`} className="flex items-start gap-3 rounded-md p-1 -m-1 hover:bg-muted/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2">
                     <div className={`w-2 h-2 rounded-full mt-2 ${activityColorClass[activity.color] || 'bg-muted-foreground'}`}></div>
                     <div className="flex-1">
