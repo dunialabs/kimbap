@@ -1024,7 +1024,7 @@ function ToolUsagePageContent() {
                       <Button variant="ghost" size="sm" className="mt-2" onClick={clearActionFilters}>Reset filters</Button>
                     </div>
                   ) : (
-                    <p className="text-sm text-muted-foreground">No tool action logs are available in the selected range. Choose a wider time range or check back after more activity.</p>
+                    <p className="text-sm text-muted-foreground">No tool action logs were found for the last {timeRangeLabel}. Choose a wider range or check back after more activity.</p>
                   )}
                 </div>
               ) : (
