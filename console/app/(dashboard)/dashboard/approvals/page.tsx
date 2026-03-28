@@ -840,6 +840,7 @@ export default function ApprovalsPage() {
                             size="sm"
                             className="min-h-11 flex-1 sm:flex-none"
                             onClick={(event) => openDetailDialog(r, event.currentTarget)}
+                            aria-label={`View details for ${r.toolName}`}
                           >
                             <Eye className="mr-1.5 h-3.5 w-3.5" />
                             Details
@@ -850,6 +851,7 @@ export default function ApprovalsPage() {
                                 size="sm"
                                 className="min-h-11 flex-1 bg-emerald-600 text-white hover:bg-emerald-700"
                                 onClick={(event) => openDecideDialog(r, 'APPROVED', event.currentTarget)}
+                                aria-label={`Approve ${r.toolName}`}
                               >
                                 <CheckCircle2 className="mr-1.5 h-3.5 w-3.5" />
                                 Approve
@@ -859,6 +861,7 @@ export default function ApprovalsPage() {
                                 variant="destructive"
                                 className="min-h-11 flex-1"
                                 onClick={(event) => openDecideDialog(r, 'REJECTED', event.currentTarget)}
+                                aria-label={`Reject ${r.toolName}`}
                               >
                                 <XCircle className="mr-1.5 h-3.5 w-3.5" />
                                 Reject
@@ -967,7 +970,7 @@ export default function ApprovalsPage() {
                               variant="ghost"
                               size="sm"
                               className="min-h-11 px-3 text-xs"
-                              aria-label="View request details"
+                              aria-label={`View details for ${r.toolName}`}
                               onClick={(event) => openDetailDialog(r, event.currentTarget)}
                             >
                               <Eye className="mr-1 h-3.5 w-3.5" />
@@ -978,7 +981,7 @@ export default function ApprovalsPage() {
                                 <Button
                                   size="sm"
                                   className="min-h-11 bg-emerald-600 px-3 text-xs text-white hover:bg-emerald-700"
-                                  aria-label="Approve"
+                                  aria-label={`Approve ${r.toolName}`}
                                   onClick={(event) => openDecideDialog(r, 'APPROVED', event.currentTarget)}
                                 >
                                   <CheckCircle2 className="mr-1 h-3.5 w-3.5" />
@@ -988,7 +991,7 @@ export default function ApprovalsPage() {
                                   variant="destructive"
                                   size="sm"
                                   className="min-h-11 px-3 text-xs"
-                                  aria-label="Reject"
+                                  aria-label={`Reject ${r.toolName}`}
                                   onClick={(event) => openDecideDialog(r, 'REJECTED', event.currentTarget)}
                                 >
                                   <XCircle className="mr-1 h-3.5 w-3.5" />

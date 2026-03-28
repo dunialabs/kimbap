@@ -1320,7 +1320,7 @@ export default function PoliciesPage() {
             </DialogHeader>
           </div>
 
-          <div ref={policyDialogBodyRef} className="px-6 py-5">
+          <div ref={policyDialogBodyRef} className="px-6 py-5 pb-28 sm:pb-24">
             <div className="space-y-5">
               <div className="space-y-3">
                 <div className="flex items-center justify-between">

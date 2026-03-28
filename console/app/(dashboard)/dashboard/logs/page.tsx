@@ -988,8 +988,8 @@ function LogsPageContent() {
                 ) : (
                   <p className="text-xs text-muted-foreground">
                     {tableScopedFiltersEnabled
-                      ? 'Showing the last 24 hours with all levels and all sources.'
-                      : 'Statistics view uses only the time range filter. Search, level, and source resume in Table View.'}
+                      ? `Showing ${getTimeRangeLabel(selectedTimeRange).toLowerCase()} with all levels and all sources.`
+                      : `Statistics view is currently showing ${getTimeRangeLabel(statisticsTimeFilter)}. Search, level, and source filters resume in Table View.`}
                   </p>
                 )}
               </div>
@@ -1245,7 +1245,7 @@ function LogsPageContent() {
                               <button
                                 type="button"
                                 className="min-h-11 w-full truncate rounded py-2 text-left transition-colors duration-200 hover:text-foreground hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
-                                aria-label="Open log details"
+                                aria-label={`Open ${LOG_LEVEL_DISPLAY[log.level] ?? log.level} log from ${getDomainLabel(log.source)} at ${formatLogTimestamp(log.timestamp)}`}
                                 title={log.message}
                               >
                                 {log.message}

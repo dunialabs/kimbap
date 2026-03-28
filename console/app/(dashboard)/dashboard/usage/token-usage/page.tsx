@@ -54,6 +54,7 @@ import {
 } from '@/components/ui/table'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Button } from '@/components/ui/button'
+import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { api } from '@/lib/api-client'
 import { formatDateTime, formatDisplayNumber, formatNullableText, formatPercentage } from '@/lib/utils'
@@ -524,16 +525,26 @@ function TokenUsagePageContent() {
         <h1 className="text-[30px] font-bold tracking-tight">Access Token Usage</h1>
         <p className="text-sm leading-6 text-muted-foreground">See which tokens are active, where they are used, and when patterns change.</p>
       </div>
-      <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center">
-        <Select value={String(timeRange)} onValueChange={(value) => setTimeRange(Number(value))}>
-          <SelectTrigger className="min-h-11 w-full sm:w-[180px]" aria-label="Time range"><SelectValue placeholder="Time range" /></SelectTrigger>
-          <SelectContent>
-            <SelectItem value="1">Last 24 hours</SelectItem>
-            <SelectItem value="7">Last 7 days</SelectItem>
-            <SelectItem value="30">Last 30 days</SelectItem>
-          </SelectContent>
-        </Select>
+      <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-end">
+        <div className="space-y-1">
+          <Label htmlFor="token-usage-time-range" className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Time range</Label>
+          <Select value={String(timeRange)} onValueChange={(value) => setTimeRange(Number(value))}>
+            <SelectTrigger id="token-usage-time-range" className="min-h-11 w-full sm:w-[180px]" aria-describedby="token-usage-time-range-note"><SelectValue placeholder="Time range" /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="1">Last 24 hours</SelectItem>
+              <SelectItem value="7">Last 7 days</SelectItem>
+              <SelectItem value="30">Last 30 days</SelectItem>
+            </SelectContent>
+          </Select>
+          <p id="token-usage-time-range-note" className="text-xs text-muted-foreground">Applies to the summary cards, token table, client locations, and usage patterns below.</p>
+        </div>
         <Button className="min-h-11 w-full sm:w-auto" variant="outline" onClick={handleRefresh} disabled={loading || refreshing}><RefreshCw className={`mr-2 h-4 w-4 ${loading || refreshing ? 'animate-spin' : ''}`} />Refresh</Button>
+      </div>
+      <div className="flex flex-wrap items-center gap-2" aria-live="polite">
+        <Badge variant="outline" className="text-xs">Last {timeRangeLabel}</Badge>
+        {!loading && summary?.activeTokens != null ? <Badge variant="outline" className="text-xs">{formatDisplayNumber(summary.activeTokens)} active</Badge> : null}
+        {!loading && displayTokenUsageData[0] ? <Badge variant="outline" className="text-xs">Most recent: {displayTokenUsageData[0].tokenName}</Badge> : null}
+        {activeTab === 'patterns' && timeRange === 1 ? <Badge variant="outline" className="text-xs">Minute patterns for active tokens</Badge> : null}
       </div>
       {activeTab === 'patterns' && timeRange !== 1 ? (
         <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between rounded-md border border-border/60 bg-muted/20 px-3 py-2" role="status" aria-live="polite">
