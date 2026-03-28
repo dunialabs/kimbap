@@ -36,7 +36,7 @@ export function GettingStartedCard() {
             Getting started
           </h2>
           <p className="text-sm leading-6 text-muted-foreground">
-            Use these first steps to set up operator guardrails and confirm this server is ready for traffic.
+            Follow these steps in order to set guardrails first, then verify approvals and logs before wider rollout.
           </p>
         </div>
 
