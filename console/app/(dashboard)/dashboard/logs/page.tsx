@@ -1087,7 +1087,7 @@ function LogsPageContent() {
                               {log.requestId ? (
                                 <button
                                   type="button"
-                                  className={`shrink-0 inline-flex items-center justify-center rounded-full border px-1.5 font-mono text-xs transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 ${searchTerm.trim() === log.requestId ? 'border-primary bg-accent text-accent-foreground shadow-sm' : 'border-input bg-secondary text-secondary-foreground hover:bg-secondary/80 hover:underline'}`}
+                                  className={`shrink-0 inline-flex items-center rounded-md border px-3 py-2 font-mono text-xs transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 ${searchTerm.trim() === log.requestId ? 'border-primary bg-accent text-accent-foreground shadow-sm' : 'border-input bg-background hover:bg-muted/50'}`}
                                   title={`${log.requestId} — click to filter by this request`}
                                   aria-label={`Filter logs by request ${log.requestId}`}
                                   aria-pressed={searchTerm.trim() === log.requestId}

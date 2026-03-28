@@ -345,6 +345,25 @@ function generatePolicyTitle(rules: PolicyRule[]): string {
   return `${tool}${serverPart} — ${decision}${condPart}`
 }
 
+function getCatchAllRuleWarning(rule: PolicyRule): string | null {
+  const matchesAllTools = !rule.match.tool || rule.match.tool === '*'
+
+  if (!matchesAllTools || rule.when.length > 0) {
+    return null
+  }
+
+  switch (rule.effect.decision) {
+    case 'ALLOW':
+      return 'This rule will allow all tool calls unconditionally. If it stays above more specific rules, those later rules will never be checked. Add a specific tool pattern or a condition to narrow the scope.'
+    case 'REQUIRE_APPROVAL':
+      return 'This rule will send every tool call to the approval queue. If it stays above more specific rules, those later rules will never be checked. Add a specific tool pattern or a condition to narrow the scope.'
+    case 'DENY':
+      return 'This rule will block all tool calls unconditionally. If it stays above more specific rules, those later rules will never be checked. Add a specific tool pattern or a condition to narrow the scope.'
+    default:
+      return null
+  }
+}
+
 function RuleCard({
   rule,
   index,
@@ -365,6 +384,7 @@ function RuleCard({
   const [expanded, setExpanded] = useState(true)
   const [extractOpen, setExtractOpen] = useState(rule.extract.length > 0)
   const decisionMeta = DECISIONS.find((d) => d.value === rule.effect.decision)
+  const catchAllRuleWarning = getCatchAllRuleWarning(rule)
 
   return (
     <Card className="border border-border/60 shadow-sm">
@@ -679,9 +699,9 @@ function RuleCard({
                 />
               </div>
             </div>
-            {rule.effect.decision === 'DENY' && (!rule.match.tool || rule.match.tool === '*') && rule.when.length === 0 && (
-              <p className="text-xs text-amber-700 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 rounded-md px-3 py-2">
-                ⚠ This rule will block <strong>all</strong> tool calls unconditionally. Add a specific tool pattern or a condition to narrow the scope.
+            {catchAllRuleWarning && (
+              <p className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-700 dark:border-amber-800 dark:bg-amber-950/30 dark:text-amber-400">
+                ⚠ {catchAllRuleWarning}
               </p>
             )}
           </div>

@@ -12,9 +12,11 @@ import (
 	"net/http/httptest"
 	"path/filepath"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
+	"github.com/dunialabs/kimbap/internal/actions"
 	"github.com/dunialabs/kimbap/internal/auth"
 	"github.com/dunialabs/kimbap/internal/config"
 	runtimepkg "github.com/dunialabs/kimbap/internal/runtime"
@@ -411,8 +413,9 @@ func TestHandleExecuteActionEmitsApprovalRequestedWebhook(t *testing.T) {
 	dispatcher := webhooks.NewDispatcher()
 	server := &Server{
 		runtime: &runtimepkg.Runtime{
-			PolicyEvaluator: staticPolicyEvaluator{},
-			ApprovalManager: staticApprovalManager{requestID: "apr_req_evt_1"},
+			PolicyEvaluator:    staticPolicyEvaluator{},
+			ApprovalManager:    staticApprovalManager{requestID: "apr_req_evt_1"},
+			HeldExecutionStore: testHeldExecutionStore{},
 		},
 		webhookDispatcher: dispatcher,
 	}
@@ -1659,6 +1662,30 @@ type staticApprovalManager struct {
 
 func (m staticApprovalManager) CreateRequest(context.Context, runtimepkg.ApprovalRequest) (*runtimepkg.ApprovalResult, error) {
 	return &runtimepkg.ApprovalResult{Approved: false, RequestID: m.requestID}, nil
+}
+
+type noopHeldExecutionStore struct{}
+
+func (noopHeldExecutionStore) Hold(_ context.Context, _ string, _ actions.ExecutionRequest) error {
+	return nil
+}
+func (noopHeldExecutionStore) Resume(_ context.Context, _ string) (*actions.ExecutionRequest, error) {
+	return nil, nil
+}
+func (noopHeldExecutionStore) Remove(_ context.Context, _ string) error {
+	return nil
+}
+
+type testHeldExecutionStore struct{}
+
+func (testHeldExecutionStore) Hold(_ context.Context, _ string, _ actions.ExecutionRequest) error {
+	return nil
+}
+func (testHeldExecutionStore) Resume(_ context.Context, _ string) (*actions.ExecutionRequest, error) {
+	return nil, nil
+}
+func (testHeldExecutionStore) Remove(_ context.Context, _ string) error {
+	return nil
 }
 
 type stubVaultStore struct {
