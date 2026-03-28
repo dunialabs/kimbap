@@ -232,13 +232,16 @@ func newServiceUpdateCommand() *cobra.Command {
 			}
 
 			if !force && strings.TrimSpace(manifest.Version) == strings.TrimSpace(installed.Manifest.Version) {
-				return printOutput(map[string]any{
-					"updated": false,
-					"name":    installed.Manifest.Name,
-					"version": installed.Manifest.Version,
-					"source":  source,
-					"message": "already up to date (use --force to reinstall)",
-				})
+				if outputAsJSON() {
+					return printOutput(map[string]any{
+						"updated": false,
+						"name":    installed.Manifest.Name,
+						"version": installed.Manifest.Version,
+						"source":  source,
+						"message": "already up to date (use --force to reinstall)",
+					})
+				}
+				return printOutput(fmt.Sprintf("✓ %s (%s) already up to date", installed.Manifest.Name, installed.Manifest.Version))
 			}
 
 			updated, installErr := installer.InstallWithForceAndActivation(manifest, newSource, true, installed.Enabled)
@@ -246,12 +249,15 @@ func newServiceUpdateCommand() *cobra.Command {
 				return installErr
 			}
 
-			return printOutput(map[string]any{
-				"updated": true,
-				"name":    updated.Manifest.Name,
-				"version": updated.Manifest.Version,
-				"source":  updated.Source,
-			})
+			if outputAsJSON() {
+				return printOutput(map[string]any{
+					"updated": true,
+					"name":    updated.Manifest.Name,
+					"version": updated.Manifest.Version,
+					"source":  updated.Source,
+				})
+			}
+			return printOutput(fmt.Sprintf("✓ %s updated to %s", updated.Manifest.Name, updated.Manifest.Version))
 		},
 	}
 	cmd.Flags().BoolVar(&force, "force", false, "force update even if version is unchanged")
