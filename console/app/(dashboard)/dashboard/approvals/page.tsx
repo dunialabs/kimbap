@@ -549,7 +549,7 @@ export default function ApprovalsPage() {
             Review pending tool requests, then use filters to inspect approved, rejected, and executed history from the same queue. After each decision, the list refreshes so you can keep moving.
           </p>
         </div>
-        <div className="flex flex-wrap items-center gap-3">
+        <div className="flex flex-wrap items-center gap-3" aria-live="polite">
           {refreshFailed && <span className="text-xs text-amber-600 dark:text-amber-400">Last refresh failed</span>}
           {!refreshFailed && lastUpdated && (
             <span className="text-xs text-muted-foreground">Updated {timeAgo || 'just now'}</span>

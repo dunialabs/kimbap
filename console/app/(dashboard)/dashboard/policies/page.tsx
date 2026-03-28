@@ -1077,7 +1077,10 @@ export default function PoliciesPage() {
                         </div>
 
                         <div className="space-y-2">
-                          <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Top rules</p>
+                          <div className="space-y-1">
+                            <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Top rules</p>
+                            <p className="text-xs text-muted-foreground">Shown in evaluation order. Rule #1 is checked first.</p>
+                          </div>
                           {rules.length === 0 ? (
                             <p className="text-sm text-muted-foreground">No rules defined yet. Open this policy to add your first rule.</p>
                           ) : (
@@ -1144,7 +1147,7 @@ export default function PoliciesPage() {
                     <TableHeader>
                     <TableRow>
                       <TableHead scope="col">Policy</TableHead>
-                      <TableHead scope="col">Top rules</TableHead>
+                      <TableHead scope="col">Top rules (checked first)</TableHead>
                       <TableHead scope="col">Updated</TableHead>
                       <TableHead scope="col" className="text-center">Status</TableHead>
                       <TableHead scope="col" className="text-right">Actions</TableHead>
