@@ -113,6 +113,13 @@ const formatLogTimestamp = (timestamp: string) => formatDateTime(timestamp, {
   second: '2-digit'
 })
 
+const LOG_LEVEL_DISPLAY: Record<string, string> = {
+  ERROR: 'Error',
+  WARN: 'Warning',
+  INFO: 'Info',
+  DEBUG: 'Debug',
+}
+
 interface LogStatistics {
   totalLogs: number
   errorLogs: number
@@ -583,13 +590,6 @@ function LogsPageContent() {
   const isRealtimePaused = currentPage !== 1 || activeTab !== 'table' || !!debouncedSearchTerm
   const liveStatusText = loading ? 'Syncing' : isRealtimePaused ? 'Paused' : realtimeHealthy ? 'Live' : 'Refresh required'
   const selectedTimeRange = activeTab === 'statistics' ? statisticsTimeFilter : timeFilter
-  const levelDisplayLabel: Record<string, string> = {
-    ERROR: 'Error',
-    WARN: 'Warning',
-    INFO: 'Info',
-    DEBUG: 'Debug',
-  }
-
   const activeFilterBadges: string[] = []
 
   if (selectedTimeRange !== DEFAULT_TIME_RANGE) {
@@ -602,7 +602,7 @@ function LogsPageContent() {
     }
 
     if (levelFilter !== 'all') {
-      activeFilterBadges.push(`Level: ${levelDisplayLabel[levelFilter] || levelFilter}`)
+      activeFilterBadges.push(`Level: ${LOG_LEVEL_DISPLAY[levelFilter] || levelFilter}`)
     }
 
     if (sourceFilter !== 'all') {
@@ -881,7 +881,7 @@ function LogsPageContent() {
                             }
                           >
                             {getLevelIcon(log.level)}
-                             <span className="ml-1">{levelDisplayLabel[log.level] ?? log.level}</span>
+                             <span className="ml-1">{LOG_LEVEL_DISPLAY[log.level] ?? log.level}</span>
                           </Badge>
                         </TableCell>
                         <TableCell>
@@ -931,7 +931,7 @@ function LogsPageContent() {
                                   Log Details - {formatLogTimestamp(log.timestamp)}
                                 </DialogTitle>
                                  <DialogDescription>
-                                   {getDomainLabel(log.source)} • {levelDisplayLabel[log.level] ?? log.level}{log.requestId ? ` • ${log.requestId}` : ''}
+                                   {getDomainLabel(log.source)} • {LOG_LEVEL_DISPLAY[log.level] ?? log.level}{log.requestId ? ` • ${log.requestId}` : ''}
                                  </DialogDescription>
                               </DialogHeader>
 

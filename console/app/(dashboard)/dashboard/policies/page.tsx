@@ -573,9 +573,9 @@ function RuleCard({
                       </div>
                     </div>
                     <div className="flex-1 space-y-1">
-                      <Label className="text-xs">Path</Label>
-                      <Input
-                        placeholder="e.g., url, config.host"
+                       <Label className="text-xs">Field path (dot notation)</Label>
+                       <Input
+                         placeholder="e.g., url, body.size, config.host"
                         value={ext.path}
                         onChange={(e) => {
                           const next = [...rule.extract]

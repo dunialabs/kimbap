@@ -776,13 +776,14 @@ export default function ApprovalsPage() {
                       <TableRow key={r.id}>
                         <TableCell>
                           <button
-                            type="button"
-                            className="inline-flex min-h-11 items-center font-mono text-sm text-left rounded cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 hover:underline"
-                            onClick={() => setDetailDialog(r)}
-                            aria-label={`View details for ${r.toolName}`}
-                          >
-                            {r.toolName}
-                          </button>
+                             type="button"
+                             className="inline-flex min-h-11 max-w-[200px] items-center truncate font-mono text-sm text-left rounded cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 hover:underline"
+                             onClick={() => setDetailDialog(r)}
+                             aria-label={`View details for ${r.toolName}`}
+                             title={r.toolName}
+                           >
+                             {r.toolName}
+                           </button>
                         </TableCell>
                         <TableCell>
                           <span className="text-sm text-muted-foreground truncate max-w-[120px] block" title={r.serverId || undefined}>
