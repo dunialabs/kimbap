@@ -157,18 +157,25 @@ export async function POST(request: NextRequest) {
       await updateUser(tokenId, updateData, undefined, ownerToken);
     }
 
+    let warnings: string[] | undefined;
+
     if (body.namespace !== undefined || body.tags !== undefined) {
       const metadataInput = {
         ...(body.namespace !== undefined ? { namespace: normalizeNamespace(body.namespace) } : {}),
         ...(body.tags !== undefined ? { tags: normalizeTags(body.tags) } : {}),
       };
 
+      try {
         await upsertTokenMetadata(tokenId, metadataInput);
+      } catch {
+        warnings = ['Token updated but metadata (namespace/tags) failed to persist'];
+      }
     }
 
     return ApiResponse.success({
       tokenId,
       message: 'Token updated successfully',
+      ...(warnings && { warnings }),
     }, 200, request);
   } catch (error) {
     return ApiResponse.handleError(error, request);
