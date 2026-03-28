@@ -75,8 +75,8 @@ function WelcomePageContent() {
         <div className="flex-1 rounded-xl border border-border/60 bg-card shadow-sm">
           <div className="w-full flex flex-col">
             <div className="p-4">
-              <Image src="/new_logo.svg" alt="Kimbap Logo" width={226} height={32} className="block dark:hidden" priority />
-              <Image src="/darklogo.svg" alt="Kimbap Logo" width={226} height={32} className="hidden dark:block" priority />
+              <Image src="/new_logo.svg" alt="Kimbap Logo" width={226} height={32} className="block h-auto max-w-full dark:hidden" priority />
+              <Image src="/darklogo.svg" alt="Kimbap Logo" width={226} height={32} className="hidden h-auto max-w-full dark:block" priority />
             </div>
             <div className="flex-1 flex flex-col justify-center items-center">
               <LoginForm

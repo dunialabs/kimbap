@@ -170,7 +170,7 @@ function LogsPageContent() {
   const tableScopedFiltersEnabled = activeTab !== 'statistics'
   const [latestLogId, setLatestLogId] = useState<number>(0)
   const [realtimeHealthy, setRealtimeHealthy] = useState<boolean>(true)
-  const [filtersOpen, setFiltersOpen] = useState<boolean>(false)
+  const [filtersOpen, setFiltersOpen] = useState<boolean>(true)
   const logsRequestSeqRef = useRef(0)
   const statsRequestSeqRef = useRef(0)
 
@@ -566,10 +566,11 @@ function LogsPageContent() {
             Investigate requests, errors, and live activity.
           </p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row">
           <Button
             variant="outline"
             size="sm"
+            className="w-full sm:w-auto"
             onClick={handleRefresh}
             disabled={loading}
           >
@@ -582,6 +583,7 @@ function LogsPageContent() {
           <Button
             variant="outline"
             size="sm"
+            className="w-full sm:w-auto"
             onClick={handleDownloadLogs}
             disabled={loading || exportLoading || exportLoadFailed || noExportableLogs}
             title={exportLoadFailed ? 'Retry loading logs before exporting' : noExportableLogs ? 'No logs available to download' : 'Download logs'}
@@ -618,7 +620,7 @@ function LogsPageContent() {
           </CardHeader>
           <CollapsibleContent>
             <CardContent>
-              <div className={`grid grid-cols-1 ${tableScopedFiltersEnabled ? 'md:grid-cols-5' : 'md:grid-cols-2'} gap-3`}>
+              <div className={`grid grid-cols-1 ${tableScopedFiltersEnabled ? 'md:grid-cols-4' : 'md:grid-cols-2'} gap-3`}>
                 {tableScopedFiltersEnabled ? (
                 <div className="space-y-2">
                   <Label htmlFor="search">Search</Label>
@@ -706,13 +708,6 @@ function LogsPageContent() {
                 </div>
                 ) : null}
 
-                {tableScopedFiltersEnabled ? (
-                <div className="flex items-end">
-                  <Button variant="outline" onClick={clearFilters}>
-                    Reset filters
-                  </Button>
-                </div>
-                ) : null}
               </div>
 
               <div className="mt-3">
@@ -752,7 +747,7 @@ function LogsPageContent() {
         <TabsContent value="table">
           <Card>
             <CardHeader>
-              <CardTitle className="flex items-center justify-between">
+              <CardTitle className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                 <span>
                   {loading ? 'Server Logs' : `Server Logs (${totalCount.toLocaleString()} total, showing ${logs.length.toLocaleString()})`}
                 </span>
@@ -1006,7 +1001,7 @@ function LogsPageContent() {
 
               {/* Pagination controls */}
               {totalPages > 1 && (
-                <div className="flex items-center justify-between mt-4">
+                <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                   <div className="text-sm text-muted-foreground">
                     Showing {(currentPage - 1) * pageSize + 1} to{' '}
                     {Math.min(currentPage * pageSize, totalCount)} of{' '}
@@ -1045,7 +1040,7 @@ function LogsPageContent() {
 
         <TabsContent value="raw">
             <Card>
-            <CardHeader className="flex flex-row items-start justify-between gap-2">
+            <CardHeader className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
               <div>
                 <CardTitle>Raw Log View</CardTitle>
                 <CardDescription>
@@ -1058,7 +1053,7 @@ function LogsPageContent() {
                 <Button
                   variant="outline"
                   size="sm"
-                  className="shrink-0"
+                  className="w-full sm:w-auto sm:shrink-0"
                   onClick={async () => {
                     const rawText = logs.map((log) => log.rawData).join('\n\n')
                     try {
@@ -1115,10 +1110,10 @@ function LogsPageContent() {
 
         <TabsContent value="statistics" className="space-y-4">
           {statsError ? (
-            <div role="alert" className="flex items-center gap-2 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700 dark:border-red-900/40 dark:bg-red-950/20 dark:text-red-300">
+            <div role="alert" className="flex flex-col items-start gap-2 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700 dark:border-red-900/40 dark:bg-red-950/20 dark:text-red-300 sm:flex-row sm:items-center">
               <AlertTriangle className="h-4 w-4 shrink-0" aria-hidden="true" />
               <span>{statsError}</span>
-              <Button variant="outline" size="sm" className="ml-auto" onClick={() => void loadStatistics()}>Retry</Button>
+              <Button variant="outline" size="sm" className="w-full sm:ml-auto sm:w-auto" onClick={() => void loadStatistics()}>Retry</Button>
             </div>
           ) : null}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">

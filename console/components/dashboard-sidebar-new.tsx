@@ -63,8 +63,8 @@ export function DashboardSidebar() {
                 onClick={() => setMobileMenuOpen(false)}
                 aria-label="Go to dashboard"
               >
-                <Image src="/new_logo.svg" width={237} height={34} alt="Kimbap Logo" className="block dark:hidden" priority />
-                <Image src="/darklogo.svg" width={237} height={34} alt="Kimbap Logo" className="hidden dark:block" priority />
+                <Image src="/new_logo.svg" width={237} height={34} alt="Kimbap Logo" className="block h-auto max-w-full dark:hidden" priority />
+                <Image src="/darklogo.svg" width={237} height={34} alt="Kimbap Logo" className="hidden h-auto max-w-full dark:block" priority />
               </Link>
             </div>
             <div className="flex-1 overflow-y-auto py-2">
@@ -90,8 +90,8 @@ export function DashboardSidebar() {
           className="ml-3 rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2"
           aria-label="Go to dashboard"
         >
-          <Image src="/new_logo.svg" width={160} height={23} alt="Kimbap Logo" className="block dark:hidden" priority />
-          <Image src="/darklogo.svg" width={160} height={23} alt="Kimbap Logo" className="hidden dark:block" priority />
+          <Image src="/new_logo.svg" width={160} height={23} alt="Kimbap Logo" className="block h-auto max-w-full dark:hidden" priority />
+          <Image src="/darklogo.svg" width={160} height={23} alt="Kimbap Logo" className="hidden h-auto max-w-full dark:block" priority />
         </Link>
       </div>
 

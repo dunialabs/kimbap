@@ -445,7 +445,7 @@ export default function ApprovalsPage() {
             Review tool requests that are waiting for a decision.
           </p>
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex flex-wrap items-center gap-3">
           {refreshFailed && <span className="text-xs text-amber-600">Last refresh failed</span>}
           {!refreshFailed && lastUpdated && (
             <span className="text-xs text-muted-foreground">Updated {timeAgo || 'just now'}</span>
@@ -603,7 +603,7 @@ export default function ApprovalsPage() {
                           <div className="shrink-0">{statusBadge(r.status)}</div>
                         </div>
 
-                        <div className="grid grid-cols-2 gap-3 text-sm">
+                        <div className="grid grid-cols-1 gap-3 text-sm sm:grid-cols-2">
                           <div>
                             <p className="text-xs text-muted-foreground">Created</p>
                             <p>{formatTime(r.createdAt)}</p>
@@ -770,7 +770,7 @@ export default function ApprovalsPage() {
       </Card>
 
       {!loading && requests.length > 0 && (
-        <div className="flex items-center justify-between">
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
           <p className="text-xs text-muted-foreground">
             {requests.length.toLocaleString()} requests
           </p>
@@ -796,7 +796,7 @@ export default function ApprovalsPage() {
               </DialogDescription>
             </DialogHeader>
             <div className="space-y-4 py-2">
-              <div className="grid grid-cols-2 gap-3 text-sm">
+              <div className="grid grid-cols-1 gap-3 text-sm sm:grid-cols-2">
                 <div>
                   <Label className="text-xs text-muted-foreground">Status</Label>
                   <div className="mt-1">{statusBadge(detailDialog.status)}</div>
@@ -902,10 +902,10 @@ export default function ApprovalsPage() {
                     disabled={detailDeciding}
                     className="text-sm resize-none"
                   />
-                  <div className="flex gap-2">
+                  <div className="flex flex-col gap-2 sm:flex-row">
                     <Button
                       size="sm"
-                      className="bg-emerald-600 hover:bg-emerald-700 text-white"
+                      className="w-full sm:w-auto bg-emerald-600 text-white hover:bg-emerald-700"
                       onClick={() => handleDetailDecide('APPROVED')}
                       disabled={detailDeciding}
                     >
@@ -915,6 +915,7 @@ export default function ApprovalsPage() {
                     <Button
                       size="sm"
                       variant="destructive"
+                      className="w-full sm:w-auto"
                       onClick={() => handleDetailDecide('REJECTED')}
                       disabled={detailDeciding}
                     >
@@ -924,8 +925,8 @@ export default function ApprovalsPage() {
                   </div>
                 </div>
               )}
-              <div className="flex justify-end">
-                <Button variant="outline" onClick={() => { setDetailDialog(null); setDetailDecideReason(''); }} disabled={detailDeciding}>
+              <div className="flex justify-stretch sm:justify-end">
+                <Button variant="outline" className="w-full sm:w-auto" onClick={() => { setDetailDialog(null); setDetailDecideReason(''); }} disabled={detailDeciding}>
                   Close
                 </Button>
               </div>

@@ -384,23 +384,23 @@ function ToolUsagePageContent() {
         <h1 className="text-[30px] font-bold">Tool Usage</h1>
         <p className="text-base text-muted-foreground">See which tools are busiest, failing, or slowing down.</p>
       </div>
-      <div className="flex flex-wrap items-center gap-2">
+      <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center">
         <Select value={String(timeRange)} onValueChange={(value) => { setTimeRange(Number(value)); setActionLogToolId('all'); setActionLogStatus('all'); setActionLogType('all'); setActionLogsPage(1) }}>
-          <SelectTrigger className="w-[180px]" aria-label="Time range"><SelectValue placeholder="Time range" /></SelectTrigger>
+          <SelectTrigger className="w-full sm:w-[180px]" aria-label="Time range"><SelectValue placeholder="Time range" /></SelectTrigger>
           <SelectContent>
             <SelectItem value="1">Last 24 hours</SelectItem>
             <SelectItem value="7">Last 7 days</SelectItem>
             <SelectItem value="30">Last 30 days</SelectItem>
           </SelectContent>
         </Select>
-        <Button variant="outline" onClick={handleRefresh} disabled={loading || refreshing}><RefreshCw className={`mr-2 h-4 w-4 ${loading || refreshing ? 'animate-spin' : ''}`} />Refresh</Button>
+        <Button className="w-full sm:w-auto" variant="outline" onClick={handleRefresh} disabled={loading || refreshing}><RefreshCw className={`mr-2 h-4 w-4 ${loading || refreshing ? 'animate-spin' : ''}`} />Refresh</Button>
       </div>
 
       {!loading && loadError ? (
-        <div role="alert" className="flex items-center gap-2 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700 dark:border-red-900/40 dark:bg-red-950/20 dark:text-red-300">
+        <div role="alert" className="flex flex-col items-start gap-2 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700 dark:border-red-900/40 dark:bg-red-950/20 dark:text-red-300 sm:flex-row sm:items-center">
           <AlertTriangle className="h-4 w-4 shrink-0" aria-hidden="true" />
           <span>{loadError}</span>
-          <Button variant="outline" size="sm" className="ml-auto" onClick={handleRefresh}>Retry</Button>
+          <Button variant="outline" size="sm" className="w-full sm:ml-auto sm:w-auto" onClick={handleRefresh}>Retry</Button>
         </div>
       ) : null}
 
@@ -576,7 +576,7 @@ function ToolUsagePageContent() {
                   {toolUsageData.map((tool) => (
                   <div key={tool.toolName} className="border rounded-lg p-4">
                     <div className="flex flex-wrap items-center justify-between gap-y-1 mb-3">
-                      <div className="flex items-center gap-2">
+                      <div className="flex flex-wrap items-center gap-2">
                         {getStatusIcon(tool.status)}
                         <h3 className="font-semibold">{tool.toolName}</h3>
                         {getStatusBadge(tool.status)}
@@ -735,7 +735,7 @@ function ToolUsagePageContent() {
                   </CardHeader>
                   <CardContent className="space-y-3">
                     {tool.errorTypes.map((error) => (
-                      <div key={`${tool.toolId}-${error.errorCode}`} className="flex items-center justify-between gap-3">
+                      <div key={`${tool.toolId}-${error.errorCode}`} className="flex flex-col items-start gap-1 sm:flex-row sm:items-center sm:justify-between">
                         <span className="text-sm">{error.errorMessage}</span>
                         <span className="text-xs text-red-600 dark:text-red-400">{error.count.toLocaleString()} ({error.percentage.toFixed(1)}%)</span>
                       </div>
@@ -935,9 +935,9 @@ function ToolUsagePageContent() {
                 </div>
               )}
               {!actionLoading && !actionLogsError ? (
-                <div className="mt-3 flex items-center justify-between text-sm text-muted-foreground">
+                <div className="mt-3 flex flex-col gap-3 text-sm text-muted-foreground sm:flex-row sm:items-center sm:justify-between">
                   <span>{actionLogsTotal.toLocaleString()} total logs</span>
-                  <div className="flex items-center gap-2">
+                  <div className="flex flex-wrap items-center gap-2">
                     <Button variant="outline" size="sm" onClick={() => setActionLogsPage((p) => Math.max(1, p - 1))} disabled={actionLogsPage <= 1}>Previous</Button>
                     <span>Page {actionLogsPage} of {Math.max(1, Math.ceil(actionLogsTotal / 20))}</span>
                     <Button variant="outline" size="sm" onClick={() => setActionLogsPage((p) => p + 1)} disabled={actionLogs.length < 20 || actionLogsPage * 20 >= actionLogsTotal}>Next</Button>

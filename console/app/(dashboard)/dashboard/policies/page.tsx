@@ -436,7 +436,7 @@ function RuleCard({
             )}
 
             {rule.when.map((cond, ci) => (
-              <div key={cond.id} className="flex items-end gap-2">
+              <div key={cond.id} className="flex flex-col items-stretch gap-2 sm:flex-row sm:items-end">
                 <div className="flex-1 space-y-1">
                   <Label className="text-xs">Field</Label>
                   <Input
@@ -450,7 +450,7 @@ function RuleCard({
                     className="h-9 font-mono text-sm"
                   />
                 </div>
-                <div className="w-28 space-y-1">
+                <div className="w-full space-y-1 sm:w-28">
                   <Label className="text-xs">Check</Label>
                   <Select
                     value={cond.op}
@@ -520,7 +520,7 @@ function RuleCard({
               <CollapsibleContent className="space-y-2 pt-2">
                 <p className="text-[11px] text-muted-foreground">Extract values from the tool call so you can use them in conditions.</p>
                 {rule.extract.map((ext, ei) => (
-                  <div key={ext.id} className="flex items-end gap-2">
+                  <div key={ext.id} className="flex flex-col items-stretch gap-2 sm:flex-row sm:items-end">
                     <div className="flex-1 space-y-1">
                       <Label className="text-xs">Variable name</Label>
                       <div className="relative">
@@ -550,7 +550,7 @@ function RuleCard({
                         className="h-9 font-mono text-sm"
                       />
                     </div>
-                    <div className="w-32 space-y-1">
+                    <div className="w-full space-y-1 sm:w-32">
                       <Label className="text-xs">Type</Label>
                       <Select
                         value={ext.type}
@@ -810,7 +810,7 @@ export default function PoliciesPage() {
             Tool Access Policies
           </h1>
           <p className="text-base text-muted-foreground">
-            See which tool calls run automatically, require approval, or stay blocked.
+            Policies decide whether matching tool calls run automatically, require approval, or stay blocked. Rules are checked top to bottom, and the first match wins.
           </p>
           <div className="flex flex-wrap items-center gap-2">
             {DECISIONS.map((d) => (
@@ -821,7 +821,7 @@ export default function PoliciesPage() {
           </div>
         </div>
         {canManagePolicies ? (
-          <Button onClick={openCreate}>
+          <Button onClick={openCreate} className="w-full sm:w-auto">
             <Plus className="mr-2 h-4 w-4" />
             Create Policy
           </Button>
@@ -1069,11 +1069,11 @@ export default function PoliciesPage() {
           </div>
 
           <div className="border-t px-6 py-4">
-            <div className="flex items-center justify-end gap-2">
-              <Button variant="outline" onClick={() => tryCloseDialog(false)}>
+            <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+              <Button variant="outline" className="w-full sm:w-auto" onClick={() => tryCloseDialog(false)}>
                 Cancel
               </Button>
-              <Button onClick={handleSave} disabled={saving || formRules.length === 0}>
+              <Button className="w-full sm:w-auto" onClick={handleSave} disabled={saving || formRules.length === 0}>
                 {saving ? 'Saving...' : editingId ? 'Save Changes' : 'Create Policy'}
               </Button>
             </div>

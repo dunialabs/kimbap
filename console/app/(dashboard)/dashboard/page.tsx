@@ -41,6 +41,7 @@ import {
   TableRow
 } from '@/components/ui/table'
 import { GettingStartedCard } from '@/components/getting-started-card'
+import { cn } from '@/lib/utils'
 
 interface ServerInfo {
   proxyId: string
@@ -283,7 +284,7 @@ export default function DashboardPage() {
             {serverInfo?.proxyName || 'Kimbap Server'}
           </p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           <span className="relative flex h-3 w-3">
             {serverInfo?.status === 1 ? (
               <>
@@ -306,9 +307,106 @@ export default function DashboardPage() {
           </Badge>
         </div>
       </div>
-      {/* Header */}
       <div className="space-y-4">
-        <GettingStartedCard />
+        {pendingApprovalCount > 0 ? (
+          <Card className="border-amber-500/30 bg-amber-500/5">
+            <CardContent className="flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between">
+              <div className="min-w-0">
+                <p className="text-sm font-semibold text-foreground">
+                  {pendingApprovalCount.toLocaleString()} approval{pendingApprovalCount === 1 ? '' : 's'} waiting for review
+                </p>
+                <p className="text-sm text-muted-foreground">
+                  Requests that need an operator decision are waiting in the approval queue.
+                </p>
+              </div>
+              <Link href="/dashboard/approvals" className={buttonVariants({ size: 'sm' })}>
+                Review approvals
+              </Link>
+            </CardContent>
+          </Card>
+        ) : null}
+
+      {dashboardLoadError ? (
+        <div role="alert" className="flex flex-col items-start gap-2 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700 dark:border-red-900/40 dark:bg-red-950/20 dark:text-red-300 sm:flex-row sm:items-center">
+          <Server className="h-4 w-4 shrink-0" aria-hidden="true" />
+          <span>Could not load dashboard metrics. Check your connection and try again.</span>
+          <Button variant="outline" size="sm" className="w-full sm:ml-auto sm:w-auto" onClick={() => void fetchDashboardData()}>Retry</Button>
+        </div>
+      ) : null}
+
+      {/* Server Metrics */}
+      <Card>
+        <CardHeader className="pb-4">
+          <CardTitle>Server Metrics</CardTitle>
+          <CardDescription>Last 30 days</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+            <div className="text-center p-3 rounded-lg border bg-muted/20 h-full flex flex-col gap-1 justify-center">
+              <div className="text-sm text-muted-foreground">Uptime</div>
+              <div
+                className={
+                  stats.uptime == null
+                    ? 'text-sm text-muted-foreground'
+                    : 'font-mono text-sm font-normal'
+                }
+              >
+                {stats.uptime == null ? '—' : stats.uptime}
+              </div>
+            </div>
+            <Link
+              href="/dashboard/usage?timeRange=30"
+              className="text-center p-3 rounded-lg border cursor-pointer hover:bg-blue-50 hover:border-blue-200 dark:hover:bg-blue-950/50 dark:hover:border-blue-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 transition-all duration-200 h-full flex flex-col gap-1 justify-center"
+            >
+              <div className="text-sm text-muted-foreground">API Requests</div>
+              <div
+                className={
+                  stats.apiRequests == null
+                    ? 'text-sm text-muted-foreground'
+                    : 'font-mono text-sm font-normal text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300'
+                }
+              >
+                {stats.apiRequests == null
+                  ? '—'
+                  : stats.apiRequests.toLocaleString()}
+              </div>
+            </Link>
+            <Link
+              href="/dashboard/usage/token-usage?timeRange=30"
+              className="text-center p-3 rounded-lg border cursor-pointer hover:bg-blue-50 hover:border-blue-200 dark:hover:bg-blue-950/50 dark:hover:border-blue-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 transition-all duration-200 h-full flex flex-col gap-1 justify-center"
+            >
+              <div className="text-sm text-muted-foreground">Active Tokens</div>
+              <div
+                className={
+                  stats.activeTokens == null
+                    ? 'text-sm text-muted-foreground'
+                    : 'font-mono text-sm font-normal text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300'
+                }
+              >
+                {stats.activeTokens == null ? '—' : stats.activeTokens}
+              </div>
+            </Link>
+            <Link
+              href="/dashboard/usage/tool-usage?timeRange=30"
+              className="text-center p-3 rounded-lg border cursor-pointer hover:bg-blue-50 hover:border-blue-200 dark:hover:bg-blue-950/50 dark:hover:border-blue-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 transition-all duration-200 h-full flex flex-col gap-1 justify-center"
+            >
+              <div className="text-sm text-muted-foreground">
+                Configured Tools
+              </div>
+              <div
+                className={
+                  stats.configuredTools == null
+                    ? 'text-sm text-muted-foreground'
+                    : 'font-mono text-sm font-normal text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300'
+                }
+              >
+                {stats.configuredTools == null ? '—' : stats.configuredTools}
+              </div>
+            </Link>
+
+          </div>
+        </CardContent>
+      </Card>
 
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
           <Link
@@ -316,7 +414,14 @@ export default function DashboardPage() {
             aria-label={pendingApprovalCount > 0 ? `Review Approvals, ${pendingApprovalCount} pending` : undefined}
             className="block rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2"
           >
-            <Card className="h-full cursor-pointer transition-colors hover:bg-muted/50">
+            <Card
+              className={cn(
+                'h-full cursor-pointer transition-colors',
+                pendingApprovalCount > 0
+                  ? 'border-amber-300 bg-amber-50/80 hover:bg-amber-50 dark:border-amber-800 dark:bg-amber-950/20 dark:hover:bg-amber-950/30'
+                  : 'hover:bg-muted/50'
+              )}
+            >
               <div className="flex h-full items-start justify-between gap-3 p-4">
                 <div className="min-w-0 space-y-1 text-left">
                   <div className="flex flex-wrap items-center gap-2">
@@ -467,87 +572,6 @@ export default function DashboardPage() {
         </div>
       </div>
 
-      {dashboardLoadError ? (
-        <div role="alert" className="flex items-center gap-2 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700 dark:border-red-900/40 dark:bg-red-950/20 dark:text-red-300">
-          <Server className="h-4 w-4 shrink-0" aria-hidden="true" />
-          <span>Could not load dashboard metrics. Check your connection and try again.</span>
-          <Button variant="outline" size="sm" className="ml-auto" onClick={() => void fetchDashboardData()}>Retry</Button>
-        </div>
-      ) : null}
-
-      {/* Server Metrics */}
-      <Card>
-        <CardHeader className="pb-4">
-          <CardTitle>Server Metrics</CardTitle>
-          <CardDescription>Last 30 days</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-            <div className="text-center p-3 rounded-lg border bg-muted/20 h-full flex flex-col gap-1 justify-center">
-              <div className="text-sm text-muted-foreground">Uptime</div>
-              <div
-                className={
-                  stats.uptime == null
-                    ? 'text-sm text-muted-foreground'
-                    : 'font-mono text-sm font-normal'
-                }
-              >
-                {stats.uptime == null ? '—' : stats.uptime}
-              </div>
-            </div>
-            <Link
-              href="/dashboard/usage?timeRange=30"
-              className="text-center p-3 rounded-lg border cursor-pointer hover:bg-blue-50 hover:border-blue-200 dark:hover:bg-blue-950/50 dark:hover:border-blue-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 transition-all duration-200 h-full flex flex-col gap-1 justify-center"
-            >
-              <div className="text-sm text-muted-foreground">API Requests</div>
-              <div
-                className={
-                  stats.apiRequests == null
-                    ? 'text-sm text-muted-foreground'
-                    : 'font-mono text-sm font-normal text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300'
-                }
-              >
-                {stats.apiRequests == null
-                  ? '—'
-                  : stats.apiRequests.toLocaleString()}
-              </div>
-            </Link>
-            <Link
-              href="/dashboard/usage/token-usage?timeRange=30"
-              className="text-center p-3 rounded-lg border cursor-pointer hover:bg-blue-50 hover:border-blue-200 dark:hover:bg-blue-950/50 dark:hover:border-blue-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 transition-all duration-200 h-full flex flex-col gap-1 justify-center"
-            >
-              <div className="text-sm text-muted-foreground">Active Tokens</div>
-              <div
-                className={
-                  stats.activeTokens == null
-                    ? 'text-sm text-muted-foreground'
-                    : 'font-mono text-sm font-normal text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300'
-                }
-              >
-                {stats.activeTokens == null ? '—' : stats.activeTokens}
-              </div>
-            </Link>
-            <Link
-              href="/dashboard/usage/tool-usage?timeRange=30"
-              className="text-center p-3 rounded-lg border cursor-pointer hover:bg-blue-50 hover:border-blue-200 dark:hover:bg-blue-950/50 dark:hover:border-blue-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 transition-all duration-200 h-full flex flex-col gap-1 justify-center"
-            >
-              <div className="text-sm text-muted-foreground">
-                Configured Tools
-              </div>
-              <div
-                className={
-                  stats.configuredTools == null
-                    ? 'text-sm text-muted-foreground'
-                    : 'font-mono text-sm font-normal text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300'
-                }
-              >
-                {stats.configuredTools == null ? '—' : stats.configuredTools}
-              </div>
-            </Link>
-
-          </div>
-        </CardContent>
-      </Card>
 
       {/* Tools Usage */}
       <Card>
@@ -704,10 +728,12 @@ export default function DashboardPage() {
           </CardContent>
       </Card>
 
+      <GettingStartedCard />
+
       <Dialog open={isClientsDialogOpen} onOpenChange={setIsClientsDialogOpen}>
         <DialogContent id="connected-clients-dialog" className="max-w-4xl max-h-[80vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
+            <DialogTitle className="flex flex-wrap items-center gap-2">
               <Users className="h-5 w-5" />
               Recent Clients (24 hours) ({connectedClients.length.toLocaleString()})
             </DialogTitle>

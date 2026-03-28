@@ -405,23 +405,23 @@ function TokenUsagePageContent() {
         <h1 className="text-[30px] font-bold">Access Token Usage</h1>
         <p className="text-base text-muted-foreground">See which tokens are active, where they are used, and when patterns change.</p>
       </div>
-      <div className="flex flex-wrap items-center gap-2">
+      <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center">
         <Select value={String(timeRange)} onValueChange={(value) => setTimeRange(Number(value))}>
-          <SelectTrigger className="w-[180px]" aria-label="Time range"><SelectValue placeholder="Time range" /></SelectTrigger>
+          <SelectTrigger className="w-full sm:w-[180px]" aria-label="Time range"><SelectValue placeholder="Time range" /></SelectTrigger>
           <SelectContent>
             <SelectItem value="1">Last 24 hours</SelectItem>
             <SelectItem value="7">Last 7 days</SelectItem>
             <SelectItem value="30">Last 30 days</SelectItem>
           </SelectContent>
         </Select>
-        <Button variant="outline" onClick={handleRefresh} disabled={loading || refreshing}><RefreshCw className={`mr-2 h-4 w-4 ${loading || refreshing ? 'animate-spin' : ''}`} />Refresh</Button>
+        <Button className="w-full sm:w-auto" variant="outline" onClick={handleRefresh} disabled={loading || refreshing}><RefreshCw className={`mr-2 h-4 w-4 ${loading || refreshing ? 'animate-spin' : ''}`} />Refresh</Button>
       </div>
       <p className="text-xs text-muted-foreground">Minute-level patterns are available only in the 24-hour view.</p>
       {!loading && loadError ? (
-        <div role="alert" className="flex items-center gap-2 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700 dark:border-red-900/40 dark:bg-red-950/20 dark:text-red-300">
+        <div role="alert" className="flex flex-col items-start gap-2 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700 dark:border-red-900/40 dark:bg-red-950/20 dark:text-red-300 sm:flex-row sm:items-center">
           <AlertTriangle className="h-4 w-4 shrink-0" aria-hidden="true" />
           <span>{loadError}</span>
-          <Button variant="outline" size="sm" className="ml-auto" onClick={handleRefresh}>Retry</Button>
+          <Button variant="outline" size="sm" className="w-full sm:ml-auto sm:w-auto" onClick={handleRefresh}>Retry</Button>
         </div>
       ) : null}
 
@@ -750,9 +750,9 @@ function TokenUsagePageContent() {
                       token.locations.map((location) => (
                         <div
                           key={`${location.country}-${location.city}`}
-                          className="flex items-center justify-between"
+                          className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between"
                         >
-                          <div className="flex items-center gap-2">
+                          <div className="flex min-w-0 items-center gap-2">
                             <Globe className="h-4 w-4 text-muted-foreground" />
                             <span className="text-sm">
                               {location.city && location.country
@@ -760,7 +760,7 @@ function TokenUsagePageContent() {
                                 : location.city || location.country || 'Unknown location'}
                             </span>
                           </div>
-                          <div className="flex items-center gap-2">
+                          <div className="flex w-full items-center justify-between gap-2 sm:w-auto">
                             <span className="text-sm font-semibold">
                               {location.requests.toLocaleString()}
                             </span>

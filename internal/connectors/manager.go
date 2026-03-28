@@ -480,7 +480,7 @@ func deriveStatus(state *ConnectorState) ConnectorStatus {
 	}
 
 	now := time.Now().UTC()
-	if now.After(*state.ExpiresAt) {
+	if !now.Before(*state.ExpiresAt) {
 		return StatusOldExpired
 	}
 	if now.Add(5 * time.Minute).After(*state.ExpiresAt) {
@@ -510,7 +510,7 @@ func DeriveConnectionStatus(state *ConnectorState) ConnectionStatus {
 	}
 
 	now := time.Now().UTC()
-	if now.After(*state.ExpiresAt) {
+	if !now.Before(*state.ExpiresAt) {
 		return StatusExpired
 	}
 	if now.Add(5 * time.Minute).After(*state.ExpiresAt) {
