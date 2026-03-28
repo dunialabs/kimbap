@@ -761,7 +761,7 @@ func (s *Server) handleExportAudit(w http.ResponseWriter, r *http.Request) {
 	format := strings.TrimSpace(r.URL.Query().Get("format"))
 	var contentType string
 	switch strings.ToLower(format) {
-	case "", "json", "jsonl", "ndjson":
+	case "", "jsonl", "ndjson":
 		contentType = "application/x-ndjson"
 		format = "jsonl"
 	case "csv":
@@ -769,7 +769,7 @@ func (s *Server) handleExportAudit(w http.ResponseWriter, r *http.Request) {
 	default:
 		writeEnvelopeError(w, r, actions.NewExecutionError(
 			actions.ErrValidationFailed,
-			fmt.Sprintf("unsupported export format %q; accepted values: json, jsonl, csv", format),
+			fmt.Sprintf("unsupported export format %q; accepted values: jsonl, ndjson, csv", format),
 			http.StatusBadRequest, false, nil,
 		))
 		return

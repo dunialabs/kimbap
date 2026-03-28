@@ -407,7 +407,7 @@ func buildAuditQueryArgs(filter AuditFilter, unlimited bool) (string, []any) {
 		args = append(args, *filter.To)
 	}
 
-	query += " ORDER BY timestamp DESC"
+	query += " ORDER BY timestamp DESC, id DESC"
 	if !unlimited {
 		effectiveLimit := filter.Limit
 		if effectiveLimit <= 0 || effectiveLimit > maxAuditQueryLimit {

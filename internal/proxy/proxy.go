@@ -59,7 +59,7 @@ var proxyForwardTransport = &http.Transport{
 	IdleConnTimeout:        90 * time.Second,
 	MaxResponseHeaderBytes: 1 << 20,
 	ForceAttemptHTTP2:      false,
-	DisableCompression:     false,
+	DisableCompression:     true,
 	MaxIdleConns:           100,
 	MaxIdleConnsPerHost:    10,
 }
