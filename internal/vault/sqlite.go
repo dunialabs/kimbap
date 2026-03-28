@@ -161,11 +161,6 @@ func (s *SQLiteStore) Upsert(ctx context.Context, tenantID string, name string, 
 	if err != nil {
 		return nil, err
 	}
-	labelsJSON, err := marshalLabels(labels)
-	if err != nil {
-		return nil, err
-	}
-
 	now := time.Now().UTC()
 	tx, err := s.db.BeginTx(ctx, nil)
 	if err != nil {
@@ -179,11 +174,22 @@ func (s *SQLiteStore) Upsert(ctx context.Context, tenantID string, name string, 
 	var currentVersion int
 	var createdAt time.Time
 	var lastUsedAt sql.NullTime
-	if err := tx.QueryRowContext(ctx, `SELECT id, current_version, created_at, last_used_at FROM secrets WHERE tenant_id = ? AND name = ?`, tenantID, name).Scan(&secretID, &currentVersion, &createdAt, &lastUsedAt); err != nil {
+	var existingLabelsJSON string
+	if err := tx.QueryRowContext(ctx, `SELECT id, current_version, created_at, last_used_at, labels FROM secrets WHERE tenant_id = ? AND name = ?`, tenantID, name).Scan(&secretID, &currentVersion, &createdAt, &lastUsedAt, &existingLabelsJSON); err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return nil, ErrSecretNotFound
 		}
 		return nil, err
+	}
+
+	var labelsJSON string
+	if labels == nil {
+		labelsJSON = existingLabelsJSON
+	} else {
+		labelsJSON, err = marshalLabels(labels)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	newVersion := currentVersion + 1
