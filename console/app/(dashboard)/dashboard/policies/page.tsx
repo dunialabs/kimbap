@@ -535,13 +535,14 @@ function RuleCard({
 
             <Collapsible open={extractOpen} onOpenChange={setExtractOpen}>
               <CollapsibleTrigger asChild>
-                <button
-                  type="button"
-                  aria-expanded={extractOpen}
-                  className="flex items-center gap-1 rounded text-xs text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
-                >
-                  {extractOpen ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
-                  Extract fields (advanced)
+                 <button
+                   type="button"
+                   aria-expanded={extractOpen}
+                   title="Extract specific fields from tool call arguments to use as variables in conditions"
+                   className="flex items-center gap-1 rounded text-xs text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                 >
+                   {extractOpen ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
+                   Extract fields (advanced)
                   {rule.extract.length > 0 && (
                     <Badge variant="secondary" className="ml-1 h-4 px-1.5 text-xs">
                       {rule.extract.length}
@@ -1155,7 +1156,9 @@ export default function PoliciesPage() {
                 Cancel
               </Button>
               <Button className="w-full sm:w-auto" onClick={handleSave} disabled={saving || formRules.length === 0}>
-                {saving ? 'Saving...' : editingId ? 'Save Changes' : 'Create Policy'}
+                {saving ? (
+                  <><Loader2 className="mr-2 h-4 w-4 animate-spin" aria-hidden="true" />Saving...</>
+                ) : editingId ? 'Save Changes' : 'Create Policy'}
               </Button>
             </div>
           </div>
