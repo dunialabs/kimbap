@@ -381,7 +381,7 @@ function RuleCard({
   onMove: (direction: 'up' | 'down') => void
   onRemove: () => void
 }) {
-  const [expanded, setExpanded] = useState(true)
+  const [expanded, setExpanded] = useState(index === 0)
   const [extractOpen, setExtractOpen] = useState(rule.extract.length > 0)
   const decisionMeta = DECISIONS.find((d) => d.value === rule.effect.decision)
   const catchAllRuleWarning = getCatchAllRuleWarning(rule)
