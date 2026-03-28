@@ -808,7 +808,7 @@ export default function DashboardPage() {
             </div>
           ) : !tokenUsage || tokenUsage.length === 0 ? (
             <div className="flex items-center justify-center py-8">
-              <p className="text-sm text-muted-foreground">No access token activity yet in the last 30 days. Create or use a token to see activity here.</p>
+              <p className="text-sm text-muted-foreground">No access token activity yet in the last 30 days. Use an access token to see activity here.</p>
             </div>
           ) : (
             <div className="space-y-2">

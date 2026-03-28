@@ -575,7 +575,7 @@ function UsagePageContent() {
                     <Button variant="outline" size="sm" className="mt-2" onClick={handleRefresh}>Retry</Button>
                   </div>
                 ) : (
-                  <p className="text-sm text-muted-foreground">No active tokens are available in the selected range. Create or use a token, or choose a wider time range.</p>
+                  <p className="text-sm text-muted-foreground">No active tokens are available in the selected range. Use an access token or choose a wider time range.</p>
                 )}
               </div>
             ) : (
