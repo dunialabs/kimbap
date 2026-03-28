@@ -978,6 +978,7 @@ function ToolUsagePageContent() {
                     </Select>
                   </div>
                 </div>
+                <p className="mt-2 text-xs text-muted-foreground">Changing a filter immediately refreshes logs and returns to page 1.</p>
               </div>
               <div className="mb-3">
                 {hasActionFilters ? (
