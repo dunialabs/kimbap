@@ -92,12 +92,14 @@ export function LoginForm({
         params.masterPwd = loginMasterPassword
       } else {
         // Token login
-        if (!token.trim()) {
+        const trimmedToken = token.trim()
+
+        if (!trimmedToken) {
           setTokenError('Enter access token')
           setIsLoggingIn(false)
           return
         }
-        params.accessToken = token
+        params.accessToken = trimmedToken
       }
 
       const response = await api.auth.login(params)
@@ -154,7 +156,7 @@ export function LoginForm({
       }
 
       if (loginMode === 'token') {
-        if (!safeStorageSet('auth_token', token.trim())) {
+        if (!safeStorageSet('auth_token', params.accessToken)) {
           throw new Error('Unable to persist auth token in browser storage')
         }
         safeStorageRemove('accessToken')
@@ -342,7 +344,7 @@ export function LoginForm({
                   Members can only use the server. For configuration, please
                   switch token or{' '}
                   <a
-                    href="https://www.kimbap.sh/quick-start/#install-desk"
+                    href="https://kimbap.sh/quick-start/#install-desk"
                     target="_blank"
                     rel="noopener noreferrer"
                     aria-label="Download Kimbap Desk quick start guide (opens in new tab)"

@@ -189,7 +189,7 @@ export function SidebarNav({ onNavigate, pendingApprovalCount = 0 }: SidebarNavP
           <Tooltip>
             <TooltipTrigger asChild>
               <a
-                href="https://www.kimbap.sh/quick-start/#install-desk"
+                href="https://kimbap.sh/quick-start/#install-desk"
                 target="_blank"
                 rel="noopener noreferrer"
                 aria-label="Install Kimbap Desk quick start guide (opens in new tab)"

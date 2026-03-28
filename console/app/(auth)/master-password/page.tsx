@@ -9,7 +9,7 @@ export default function MasterPasswordPage() {
 
   return (
     <AuthLayout>
-      <MasterPasswordForm onSuccess={() => router.replace("/dashboard")} />
+      <MasterPasswordForm onSuccess={() => router.replace('/')} />
     </AuthLayout>
   )
 }

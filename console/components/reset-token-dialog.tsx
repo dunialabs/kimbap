@@ -49,7 +49,9 @@ export function ResetTokenDialog({
   }, [open, isResetting])
 
   const handleReset = async () => {
-    if (!newToken.trim()) {
+    const trimmedToken = newToken.trim()
+
+    if (!trimmedToken) {
       setError("Enter a new access token.")
       return
     }
@@ -58,7 +60,7 @@ export function ResetTokenDialog({
     setError("")
 
     try {
-      await onResetToken(newToken)
+      await onResetToken(trimmedToken)
       setNewToken("")
       onOpenChange(false)
     } catch (err) {
