@@ -140,6 +140,7 @@ export function MasterPasswordForm({ onSuccess }: MasterPasswordFormProps) {
               onClick={() => setShowPassword(!showPassword)}
               className="absolute right-1 top-1/2 flex h-11 w-11 -translate-y-1/2 items-center justify-center rounded text-muted-foreground transition-colors duration-200 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
               aria-label={showPassword ? 'Hide password' : 'Show password'}
+              title={showPassword ? 'Hide password' : 'Show password'}
                disabled={isLoading || !cryptoAvailable}
             >
 
@@ -188,6 +189,7 @@ export function MasterPasswordForm({ onSuccess }: MasterPasswordFormProps) {
               onClick={() => setShowConfirmPassword(!showConfirmPassword)}
               className="absolute right-1 top-1/2 flex h-11 w-11 -translate-y-1/2 items-center justify-center rounded text-muted-foreground transition-colors duration-200 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
               aria-label={showConfirmPassword ? 'Hide confirm password' : 'Show confirm password'}
+              title={showConfirmPassword ? 'Hide confirm password' : 'Show confirm password'}
                disabled={isLoading || !cryptoAvailable}
             >
 
