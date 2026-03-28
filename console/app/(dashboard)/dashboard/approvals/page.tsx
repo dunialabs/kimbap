@@ -154,6 +154,25 @@ function formatTime(iso: string): string {
   });
 }
 
+function getRelativeTimeLabel(iso: string): { display: string; absolute: string } {
+  const absolute = formatTime(iso)
+  const timestamp = Date.parse(iso)
+
+  if (Number.isNaN(timestamp)) {
+    return { display: absolute, absolute }
+  }
+
+  const minutesAgo = (Date.now() - timestamp) / 60000
+  if (minutesAgo < 0) {
+    return { display: absolute, absolute }
+  }
+
+  return {
+    display: formatRelativeMinutes(minutesAgo),
+    absolute,
+  }
+}
+
 function formatExpiryTime(iso: string, status: string): { text: string; urgent: boolean } {
   if (!iso) return { text: '—', urgent: false };
   const d = new Date(iso);
@@ -797,7 +816,10 @@ export default function ApprovalsPage() {
                           </div>
                           <div>
                             <p className="text-xs text-muted-foreground">Created</p>
-                            <p>{formatTime(r.createdAt)}</p>
+                            {(() => {
+                              const createdTime = getRelativeTimeLabel(r.createdAt)
+                              return <p title={createdTime.absolute}>{createdTime.display}</p>
+                            })()}
                           </div>
                         </div>
 
@@ -918,7 +940,10 @@ export default function ApprovalsPage() {
                           )
                         })()}
                         <TableCell className="text-sm text-muted-foreground">
-                          {formatTime(r.createdAt)}
+                          {(() => {
+                            const createdTime = getRelativeTimeLabel(r.createdAt)
+                            return <span title={createdTime.absolute}>{createdTime.display}</span>
+                          })()}
                         </TableCell>
                          <TableCell className="max-w-[320px] text-sm text-muted-foreground" title={r.reason || undefined}>
                            <span className="block line-clamp-2">
@@ -1032,18 +1057,27 @@ export default function ApprovalsPage() {
                  })()}
                 <div>
                   <Label className="text-xs text-muted-foreground">Created</Label>
-                  <p className="mt-1">{formatTime(detailDialog.createdAt)}</p>
+                  {(() => {
+                    const createdTime = getRelativeTimeLabel(detailDialog.createdAt)
+                    return <p className="mt-1" title={createdTime.absolute}>{createdTime.display}</p>
+                  })()}
                 </div>
                  {detailDialog.executedAt && (
                   <div>
                     <Label className="text-xs text-muted-foreground">Executed At</Label>
-                    <p className="mt-1">{formatTime(detailDialog.executedAt)}</p>
+                    {(() => {
+                      const executedTime = getRelativeTimeLabel(detailDialog.executedAt)
+                      return <p className="mt-1" title={executedTime.absolute}>{executedTime.display}</p>
+                    })()}
                   </div>
                 )}
                 {detailDialog.decidedAt && (
                   <div>
                     <Label className="text-xs text-muted-foreground">Decided At</Label>
-                    <p className="mt-1">{formatTime(detailDialog.decidedAt)}</p>
+                    {(() => {
+                      const decidedTime = getRelativeTimeLabel(detailDialog.decidedAt)
+                      return <p className="mt-1" title={decidedTime.absolute}>{decidedTime.display}</p>
+                    })()}
                   </div>
                 )}
               </div>
