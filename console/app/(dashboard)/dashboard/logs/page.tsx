@@ -535,6 +535,15 @@ function LogsPageContent() {
     setActiveTab('table')
   }
 
+  const openLevelFromStatistics = (level: string | null) => {
+    setTimeFilter(statisticsTimeFilter)
+    setLevelFilter(level ?? 'all')
+    setSourceFilter('all')
+    setSearchTerm('')
+    setCurrentPage(1)
+    setActiveTab('table')
+  }
+
   const getLevelIcon = (level: string) => {
     switch (level) {
       case 'ERROR':

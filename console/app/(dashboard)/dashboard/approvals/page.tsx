@@ -979,7 +979,14 @@ export default function ApprovalsPage() {
           </p>
           {hasMore && (
             <Button variant="outline" size="sm" className="min-h-11" onClick={handleLoadMore} disabled={loadingMore || refreshing}>
-              {loadingMore ? (<><Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" aria-hidden="true" />Load more</>) : 'Load more'}
+              {loadingMore ? (
+                <>
+                  <Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" aria-hidden="true" />
+                  Load more requests
+                </>
+              ) : (
+                `Load more (${formatDisplayNumber(orderedRequests.length)} loaded)`
+              )}
             </Button>
           )}
         </div>
