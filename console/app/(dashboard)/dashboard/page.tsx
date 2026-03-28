@@ -479,7 +479,7 @@ export default function DashboardPage() {
       <Card>
         <CardHeader className="pb-4">
           <CardTitle>Server Metrics</CardTitle>
-          <CardDescription>Last 30 days</CardDescription>
+          <CardDescription>Uptime and activity from the last 30 days</CardDescription>
         </CardHeader>
         <CardContent>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
@@ -879,11 +879,9 @@ export default function DashboardPage() {
                         </div>
                       </div>
                       <div className="min-w-0 flex-1">
-                        <p className="text-sm">
-                          {activity.action}
-                          <span className="ml-2 gap-1 text-xs text-muted-foreground">
-                            {formatNullableText(activity.time)}
-                          </span>
+                        <p className="text-sm">{activity.action}</p>
+                        <p className="mt-1 text-xs text-muted-foreground">
+                          {formatNullableText(activity.time)}
                         </p>
                       </div>
                     </Link>

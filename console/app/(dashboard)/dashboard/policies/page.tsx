@@ -886,6 +886,9 @@ export default function PoliciesPage() {
   }
 
   const tryCloseDialog = (open: boolean) => {
+    if (!open && saving) {
+      return
+    }
     if (!open && isDirty) {
       setDiscardDialogOpen(true)
       return
@@ -1184,7 +1187,7 @@ export default function PoliciesPage() {
 
           <div className="sticky bottom-0 border-t bg-background/95 px-6 py-4 backdrop-blur supports-[backdrop-filter]:bg-background/80">
             <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
-              <Button variant="outline" className="min-h-11 w-full sm:w-auto" onClick={() => tryCloseDialog(false)}>
+              <Button variant="outline" className="min-h-11 w-full sm:w-auto" onClick={() => tryCloseDialog(false)} disabled={saving}>
                 Cancel
               </Button>
               <Button className="min-h-11 w-full sm:w-auto" onClick={handleSave} disabled={saving || formRules.length === 0}>
@@ -1197,7 +1200,7 @@ export default function PoliciesPage() {
         </ScrollableDialogContent>
       </Dialog>
 
-      <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+      <AlertDialog open={deleteDialogOpen} onOpenChange={(open) => { if (!deleting) setDeleteDialogOpen(open) }}>
         <AlertDialogContent className="max-w-md">
           <AlertDialogHeader>
              <AlertDialogTitle>Delete Policy</AlertDialogTitle>
@@ -1214,6 +1217,7 @@ export default function PoliciesPage() {
             <AlertDialogCancel className="min-h-11" disabled={deleting}>Cancel</AlertDialogCancel>
             <AlertDialogAction
               className="min-h-11 bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              disabled={deleting}
               onClick={(e) => {
                 e.preventDefault()
                 handleDelete()
@@ -1239,9 +1243,10 @@ export default function PoliciesPage() {
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel className="min-h-11" disabled={deleting}>Cancel</AlertDialogCancel>
+            <AlertDialogCancel className="min-h-11" disabled={saving}>Cancel</AlertDialogCancel>
             <AlertDialogAction
               className="min-h-11 bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              disabled={saving}
               onClick={() => {
                 setDiscardDialogOpen(false)
                 setDialogOpen(false)

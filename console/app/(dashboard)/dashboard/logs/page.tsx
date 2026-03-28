@@ -852,7 +852,7 @@ function LogsPageContent() {
       </Collapsible>
 
       {/* Logs Display */}
-      {loadError ? (
+      {activeTab !== "statistics" && loadError ? (
         <div role="alert" className="flex flex-col items-start gap-2 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700 dark:border-red-900/40 dark:bg-red-950/20 dark:text-red-300 sm:flex-row sm:items-center">
           <AlertTriangle className="h-4 w-4 shrink-0" aria-hidden="true" />
           <span>{loadError}</span>
@@ -1020,7 +1020,7 @@ function LogsPageContent() {
                                           {log.details.url}
                                         </div>
                                       )}
-                                       {log.details.statusCode && (
+                                       {log.details.statusCode != null && (
                                          <div>
                                            <strong>Status:</strong>{' '}
                                            <span className={log.details.statusCode >= 500 ? 'text-red-600 dark:text-red-400 font-medium' : log.details.statusCode >= 400 ? 'text-amber-600 dark:text-amber-400 font-medium' : log.details.statusCode >= 200 && log.details.statusCode < 300 ? 'text-green-600 dark:text-green-400' : ''}>
@@ -1028,7 +1028,7 @@ function LogsPageContent() {
                                            </span>
                                          </div>
                                        )}
-                                       {log.details.responseTime && (
+                                       {log.details.responseTime != null && (
                                          <div>
                                            <strong>Response Time:</strong>{' '}
                                            {formatResponseTime(log.details.responseTime)}

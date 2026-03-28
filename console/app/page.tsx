@@ -16,6 +16,21 @@ const safeStorageGet = (key: string): string | null => {
   }
 }
 
+function SessionCheckFallback() {
+  return (
+    <div className="flex min-h-screen items-center justify-center bg-muted px-4" role="status" aria-live="polite">
+      <div className="text-center">
+        <div
+          className="mx-auto mb-4 h-8 w-8 animate-spin rounded-full border-2 border-muted-foreground/30 border-t-foreground"
+          aria-hidden="true"
+        />
+        <h1 className="text-lg font-semibold">Checking your session</h1>
+        <p className="text-sm text-muted-foreground">Confirming whether this browser is already connected…</p>
+      </div>
+    </div>
+  )
+}
+
 function WelcomePageContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
@@ -104,7 +119,7 @@ function WelcomePageContent() {
 
 export default function WelcomePage() {
   return (
-    <Suspense>
+    <Suspense fallback={<SessionCheckFallback />}>
       <WelcomePageContent />
     </Suspense>
   )

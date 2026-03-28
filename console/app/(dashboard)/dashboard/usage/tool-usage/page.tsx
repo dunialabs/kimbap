@@ -108,6 +108,20 @@ interface ToolUsageSummary {
 const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884D8', '#82CA9D', '#FF6B6B', '#4ECDC4', '#A855F7', '#F97316']
 const HEALTHY_SUCCESS_RATE_THRESHOLD = 95
 
+function formatUsageTimestamp(value: string): string {
+  if (!value?.trim()) return '—'
+
+  const parsed = Date.parse(value)
+  if (Number.isNaN(parsed)) return formatNullableText(value)
+
+  return formatDateTime(parsed, {
+    month: 'short',
+    day: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit'
+  })
+}
+
 function getRequestErrorMessage(
   error: unknown,
   messages: { auth: string; network: string; fallback: string }
@@ -687,7 +701,7 @@ function ToolUsagePageContent() {
                         <h3 className="font-semibold">{tool.toolName}</h3>
                         {getStatusBadge(tool.status)}
                       </div>
-                      <div className="text-sm text-muted-foreground">Last used: {formatNullableText(tool.lastUsed)}</div>
+                      <div className="text-sm text-muted-foreground">Last used: {formatUsageTimestamp(tool.lastUsed)}</div>
                     </div>
 
                     <div className="grid grid-cols-2 md:grid-cols-5 gap-3 text-sm">

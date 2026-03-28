@@ -577,8 +577,8 @@ export default function ApprovalsPage() {
       {/* Pending Count Banner */}
       {pendingCount > 0 && (
         <Card className="border-amber-500/30 bg-amber-500/5 dark:border-amber-800/70 dark:bg-amber-950/20">
-          <CardContent className="flex items-center justify-between gap-3 py-3">
-            <div className="flex items-center gap-3">
+          <CardContent className="flex flex-col items-start gap-3 py-3 sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex flex-wrap items-center gap-3">
               <Clock className="h-5 w-5 shrink-0 text-amber-600 dark:text-amber-400" />
               <span className="text-sm font-medium">
                 {formatDisplayNumber(pendingCount)} pending approval{pendingCount !== 1 ? 's' : ''} awaiting review
@@ -596,7 +596,7 @@ export default function ApprovalsPage() {
               <Button
                 variant="outline"
                 size="sm"
-                className="shrink-0"
+                className="min-h-11 w-full shrink-0 sm:w-auto"
                 onClick={() => setStatusFilter(DEFAULT_STATUS_FILTER)}
               >
                 View pending
@@ -682,10 +682,10 @@ export default function ApprovalsPage() {
         </CardHeader>
         <CardContent>
           {loadError ? (
-            <div role="alert" className="mb-4 flex items-center gap-2 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700 dark:border-red-900/40 dark:bg-red-950/20 dark:text-red-300">
+            <div role="alert" className="mb-4 flex flex-col items-start gap-2 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700 dark:border-red-900/40 dark:bg-red-950/20 dark:text-red-300 sm:flex-row sm:items-center">
               <AlertTriangle className="h-4 w-4 shrink-0" aria-hidden="true" />
               <span>{loadError}</span>
-              <Button variant="outline" size="sm" className="ml-auto min-h-11" onClick={() => void handleManualRefresh()} disabled={refreshing}>Retry</Button>
+              <Button variant="outline" size="sm" className="min-h-11 w-full sm:ml-auto sm:w-auto" onClick={() => void handleManualRefresh()} disabled={refreshing}>Retry</Button>
             </div>
           ) : null}
           {loading ? (

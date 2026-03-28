@@ -56,7 +56,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Button } from '@/components/ui/button'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { api } from '@/lib/api-client'
-import { formatDisplayNumber, formatNullableText, formatPercentage } from '@/lib/utils'
+import { formatDateTime, formatDisplayNumber, formatNullableText, formatPercentage } from '@/lib/utils'
 
 interface TokenUsageData {
   tokenName: string
@@ -128,6 +128,20 @@ const COLORS = [
   '#F97316'
 ]
 const HEALTHY_SUCCESS_RATE_THRESHOLD = 95
+
+function formatUsageTimestamp(value: string | null): string {
+  if (!value?.trim()) return '—'
+
+  const parsed = Date.parse(value)
+  if (Number.isNaN(parsed)) return formatNullableText(value)
+
+  return formatDateTime(parsed, {
+    month: 'short',
+    day: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit'
+  })
+}
 
 function getRequestErrorMessage(
   error: unknown,
@@ -798,7 +812,7 @@ function TokenUsagePageContent() {
                         </TableCell>
                         <TableCell className="text-right">
                           <span className="text-sm text-muted-foreground">
-                            {formatNullableText(token.lastUsed)}
+                            {formatUsageTimestamp(token.lastUsed)}
                           </span>
                         </TableCell>
                       </TableRow>
