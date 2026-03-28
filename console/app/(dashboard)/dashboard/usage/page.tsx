@@ -361,7 +361,7 @@ function UsagePageContent() {
       </div>
       <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center">
         <Select value={String(timeRange)} onValueChange={(value) => setTimeRange(Number(value))}>
-          <SelectTrigger className="min-h-11 w-full sm:w-[180px]" aria-label="Time range">
+          <SelectTrigger className="min-h-11 w-full sm:w-[180px]" aria-label="Time range" aria-describedby="usage-overview-time-range-note">
             <SelectValue placeholder="Time range" />
           </SelectTrigger>
           <SelectContent>
@@ -374,7 +374,7 @@ function UsagePageContent() {
           <RefreshCw className={`mr-2 h-4 w-4 ${loading || refreshing ? 'animate-spin' : ''}`} />
           Refresh
         </Button>
-        <span className="text-xs text-muted-foreground">Auto-refreshes every 30 seconds.</span>
+        <span id="usage-overview-time-range-note" className="text-xs text-muted-foreground">Auto-refreshes every 30 seconds.</span>
       </div>
       <div className="flex flex-wrap items-center gap-2" aria-live="polite">
         <Badge variant="outline" className="text-xs">Last {timeRangeLabel}</Badge>
