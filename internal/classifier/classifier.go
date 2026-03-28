@@ -75,7 +75,12 @@ func (c *Classifier) AddRulesFromService(svc *services.ServiceManifest) error {
 		if err != nil || !u.IsAbs() || strings.TrimSpace(u.Host) == "" {
 			return fmt.Errorf("invalid base URL for service %q: %q", strings.TrimSpace(svc.Name), svc.BaseURL)
 		}
-		hostPattern = normalizeHostPattern(u.Host)
+		host := u.Host
+		if (u.Scheme == "https" && strings.HasSuffix(host, ":443")) ||
+			(u.Scheme == "http" && strings.HasSuffix(host, ":80")) {
+			host = u.Hostname()
+		}
+		hostPattern = normalizeHostPattern(host)
 		basePath = strings.TrimSuffix(u.Path, "/")
 	}
 

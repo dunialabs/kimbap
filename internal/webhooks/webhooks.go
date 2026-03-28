@@ -84,11 +84,6 @@ func NewDispatcher() *Dispatcher {
 			if len(ips) == 0 {
 				return nil, fmt.Errorf("no address resolved for %s", host)
 			}
-			for _, ip := range ips {
-				if isPrivateIPAddr(ip) {
-					return nil, fmt.Errorf("blocked private address resolution for %s", host)
-				}
-			}
 			var lastErr error
 			for _, ip := range ips {
 				if isPrivateIPAddr(ip) {
