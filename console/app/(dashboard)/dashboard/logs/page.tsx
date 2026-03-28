@@ -300,7 +300,7 @@ function LogsPageContent() {
         setLatestLogId(0)
         setLoadError(
           getRequestErrorMessage(error, {
-            auth: 'Could not load log entries because your session expired or your access changed. Sign in again and retry.',
+            auth: 'Session expired or access revoked. Sign in again.',
             network: 'Could not load log entries. Check your connection and retry.',
             fallback: 'Could not load log entries for the current filters. Retry to refresh the table and raw view.'
           })
@@ -427,7 +427,7 @@ function LogsPageContent() {
       setStatistics(null)
       setStatsError(
         getRequestErrorMessage(error, {
-          auth: 'Could not load log statistics because your session expired or your access changed. Sign in again and retry.',
+          auth: 'Session expired or access revoked. Sign in again.',
           network: 'Could not load log statistics. Check your connection and retry.',
           fallback: 'Could not load log statistics for this time range. Retry to refresh the charts and source table.'
         })
@@ -1360,7 +1360,7 @@ function LogsPageContent() {
                 <div className="flex flex-col items-center justify-center py-16 text-muted-foreground" role={loadError ? 'alert' : undefined}>
                   <Activity className="h-12 w-12 mb-3 opacity-40" />
                   <p className={loadError ? 'text-sm text-red-600 dark:text-red-400' : 'text-sm'}>{loadError || 'No logs available'}</p>
-                  <p className="text-xs mt-1">{loadError ? 'Try Refresh to load data again' : 'Try adjusting your filters or check back later'}</p>
+                  <p className="text-xs mt-1">{loadError ? 'Try Refresh to load data again.' : 'Try adjusting filters, switching to Table View, or checking back later.'}</p>
                   {loadError ? (
                     <Button variant="outline" size="sm" className="mt-3 min-h-11" onClick={handleRefresh}>
                       Retry
