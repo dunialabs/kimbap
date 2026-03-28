@@ -744,7 +744,7 @@ function TokenUsagePageContent() {
           {/* Detailed Token List */}
           <Card>
             <CardHeader>
-              <CardTitle>Token Details</CardTitle>
+              <CardTitle>Tokens by Usage</CardTitle>
               <CardDescription>Sorted with active and most recently used tokens first.</CardDescription>
             </CardHeader>
             <CardContent>

@@ -1040,7 +1040,7 @@ function LogsPageContent() {
                   </div>
                 </div>
               ) : logs.length === 0 ? (
-                <div className="flex flex-col items-center gap-2 py-8 text-center md:hidden">
+                <div className="flex flex-col items-center gap-2 py-8 text-center md:hidden" role="status" aria-live="polite">
                   {loadError ? (
                     <div className="flex flex-col items-center gap-2" role="alert">
                       <AlertTriangle className="h-5 w-5 text-red-500 dark:text-red-400" aria-hidden="true" />
