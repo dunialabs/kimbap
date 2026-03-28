@@ -20,9 +20,6 @@ func NewSQLHeldExecutionStore(st store.HeldExecutionStore) runtime.HeldExecution
 }
 
 func (s *sqlHeldExecutionStore) Hold(ctx context.Context, approvalRequestID string, req actions.ExecutionRequest) error {
-	if s == nil || s.st == nil {
-		return fmt.Errorf("held execution store is not initialized")
-	}
 	b, err := json.Marshal(req)
 	if err != nil {
 		return fmt.Errorf("marshal held execution: %w", err)
@@ -31,9 +28,6 @@ func (s *sqlHeldExecutionStore) Hold(ctx context.Context, approvalRequestID stri
 }
 
 func (s *sqlHeldExecutionStore) Resume(ctx context.Context, approvalRequestID string) (*actions.ExecutionRequest, error) {
-	if s == nil || s.st == nil {
-		return nil, fmt.Errorf("held execution store is not initialized")
-	}
 	b, err := s.st.ResumeExecution(ctx, approvalRequestID)
 	if err != nil {
 		return nil, err
@@ -49,9 +43,6 @@ func (s *sqlHeldExecutionStore) Resume(ctx context.Context, approvalRequestID st
 }
 
 func (s *sqlHeldExecutionStore) Remove(ctx context.Context, approvalRequestID string) error {
-	if s == nil || s.st == nil {
-		return fmt.Errorf("held execution store is not initialized")
-	}
 	return s.st.RemoveExecution(ctx, approvalRequestID)
 }
 
@@ -65,27 +56,15 @@ func NewMemoryHeldExecutionStore() runtime.HeldExecutionStore {
 }
 
 func (s *memoryHeldExecutionStore) Hold(_ context.Context, approvalRequestID string, req actions.ExecutionRequest) error {
-	if s == nil {
-		return fmt.Errorf("held execution store is not initialized")
-	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	if s.held == nil {
-		s.held = map[string]actions.ExecutionRequest{}
-	}
 	s.held[approvalRequestID] = req
 	return nil
 }
 
 func (s *memoryHeldExecutionStore) Resume(_ context.Context, approvalRequestID string) (*actions.ExecutionRequest, error) {
-	if s == nil {
-		return nil, fmt.Errorf("held execution store is not initialized")
-	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	if s.held == nil {
-		return nil, nil
-	}
 	req, ok := s.held[approvalRequestID]
 	if !ok {
 		return nil, nil
@@ -95,14 +74,8 @@ func (s *memoryHeldExecutionStore) Resume(_ context.Context, approvalRequestID s
 }
 
 func (s *memoryHeldExecutionStore) Remove(_ context.Context, approvalRequestID string) error {
-	if s == nil {
-		return fmt.Errorf("held execution store is not initialized")
-	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	if s.held == nil {
-		return nil
-	}
 	delete(s.held, approvalRequestID)
 	return nil
 }
