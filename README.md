@@ -11,7 +11,7 @@
 ![Go](https://img.shields.io/badge/go-%3E%3D1.24-green.svg)
 ![License](https://img.shields.io/badge/license-MIT-blue.svg)
 
-[Quick Start](https://kimbap.sh/quick-start) · [Docs](https://docs.kimbap.sh) · [Website](https://kimbap.sh)
+[Quick Start](https://kimbap.sh/docs/quick-start) · [Docs](https://kimbap.sh/docs) · [Website](https://kimbap.sh)
 
 ---
 
