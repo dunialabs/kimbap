@@ -1,6 +1,6 @@
 "use client"
 
-import { Key, AlertTriangle, CheckCircle, Loader2 } from "lucide-react"
+import { Key, AlertTriangle, CheckCircle, Eye, EyeOff, Loader2 } from "lucide-react"
 import { useEffect, useRef, useState } from "react"
 
 import { Alert, AlertDescription } from "@/components/ui/alert"
@@ -32,6 +32,7 @@ export function ResetTokenDialog({
   onResetToken,
 }: ResetTokenDialogProps) {
   const [newToken, setNewToken] = useState("")
+  const [showToken, setShowToken] = useState(false)
   const [isResetting, setIsResetting] = useState(false)
   const [error, setError] = useState("")
   const tokenInputRef = useRef<HTMLInputElement>(null)
@@ -62,6 +63,7 @@ export function ResetTokenDialog({
     try {
       await onResetToken(trimmedToken)
       setNewToken("")
+      setShowToken(false)
       onOpenChange(false)
     } catch (err) {
       setError("Could not reconnect with that access token. Check the token and try again.")
@@ -72,6 +74,7 @@ export function ResetTokenDialog({
 
   const handleCancel = () => {
     setNewToken("")
+    setShowToken(false)
     setError("")
     onOpenChange(false)
   }
@@ -114,24 +117,41 @@ export function ResetTokenDialog({
             </Alert>
 
             <div className="space-y-2">
-              <Label htmlFor="new-token">Access token</Label>
-              <Input
-                id="new-token"
-                type="password"
-                placeholder="kimbap_..."
-                ref={tokenInputRef}
-                value={newToken}
-                onChange={(e) => {
-                  setNewToken(e.target.value)
-                  setError("")
-                }}
-                disabled={isResetting}
-                aria-invalid={Boolean(error)}
-                aria-describedby={error ? 'reset-token-error' : 'reset-token-note'}
-                autoCapitalize="none"
-                autoCorrect="off"
-                spellCheck={false}
-              />
+              <Label htmlFor="new-token">
+                Access token
+                <span className="ml-1 text-xs font-normal text-muted-foreground">(required)</span>
+              </Label>
+              <div className="relative">
+                <Input
+                  id="new-token"
+                  type={showToken ? "text" : "password"}
+                  placeholder="kimbap_..."
+                  ref={tokenInputRef}
+                  value={newToken}
+                  onChange={(e) => {
+                    setNewToken(e.target.value)
+                    setError("")
+                  }}
+                  disabled={isResetting}
+                  aria-invalid={Boolean(error)}
+                  aria-describedby={error ? 'reset-token-error reset-token-note' : 'reset-token-note'}
+                  autoCapitalize="none"
+                  autoCorrect="off"
+                  spellCheck={false}
+                  autoComplete="off"
+                  className="pr-10"
+                  required
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowToken((prev) => !prev)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 rounded text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                  aria-label={showToken ? "Hide access token" : "Show access token"}
+                  disabled={isResetting}
+                >
+                  {showToken ? <EyeOff className="h-4 w-4" aria-hidden="true" /> : <Eye className="h-4 w-4" aria-hidden="true" />}
+                </button>
+              </div>
               <p id="reset-token-note" className="text-xs text-muted-foreground">
                 Use a token with access to this server.
               </p>

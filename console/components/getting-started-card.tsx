@@ -69,7 +69,7 @@ export function GettingStartedCard() {
           </div>
           <Button
             type="button"
-            variant="outline"
+            variant="ghost"
             size="sm"
             onClick={handleDismiss}
             className="shrink-0"

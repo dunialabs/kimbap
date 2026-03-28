@@ -73,7 +73,8 @@ export default function DashboardPage() {
   const [isClientsDialogOpen, setIsClientsDialogOpen] = useState(false)
   const [dashboardData, setDashboardData] = useState<DashboardData | null>(null)
   const [dashboardLoadError, setDashboardLoadError] = useState(false)
-  const [pendingApprovalCount, setPendingApprovalCount] = useState(0)
+  const [pendingApprovalCount, setPendingApprovalCount] = useState<number | null>(null)
+  const [isPendingApprovalLoading, setIsPendingApprovalLoading] = useState(true)
 
 
   useEffect(() => {
@@ -165,6 +166,9 @@ export default function DashboardPage() {
         setPendingApprovalCount(data?.count || 0)
       } catch {
         // Non-critical — don't block dashboard
+        setPendingApprovalCount(null)
+      } finally {
+        setIsPendingApprovalLoading(false)
       }
     }
     fetchPendingApprovals()
@@ -212,6 +216,15 @@ export default function DashboardPage() {
   const recentActivity = dashboardData?.recentActivity || []
   const localAddress = dashboardData?.manualConnection ?? null
   const remoteAddress = dashboardData?.sshTunnelAddress ?? null
+  const isDashboardLoading = !dashboardData && !dashboardLoadError
+  const hasPendingApprovals = (pendingApprovalCount ?? 0) > 0
+  const approvalSummaryText = isPendingApprovalLoading
+    ? 'Checking the approval queue…'
+    : hasPendingApprovals
+    ? `Review ${pendingApprovalCount!.toLocaleString()} request${pendingApprovalCount === 1 ? '' : 's'} waiting on a decision.`
+    : 'No approvals are waiting right now.'
+  const localAddressText = isDashboardLoading ? 'Loading address…' : localAddress || 'Not configured'
+  const remoteAddressText = isDashboardLoading ? 'Loading address…' : remoteAddress || 'Not configured'
 
   const copyConnectionAddress = async (label: string, value: string | null) => {
     if (!value) {
@@ -308,12 +321,12 @@ export default function DashboardPage() {
         </div>
       </div>
       <div className="space-y-4">
-        {pendingApprovalCount > 0 ? (
+        {!isPendingApprovalLoading && hasPendingApprovals ? (
           <Card className="border-amber-500/30 bg-amber-500/5">
             <CardContent className="flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between">
               <div className="min-w-0">
                 <p className="text-sm font-semibold text-foreground">
-                  {pendingApprovalCount.toLocaleString()} approval{pendingApprovalCount === 1 ? '' : 's'} waiting for review
+                  {pendingApprovalCount!.toLocaleString()} approval{pendingApprovalCount === 1 ? '' : 's'} waiting for review
                 </p>
                 <p className="text-sm text-muted-foreground">
                   Requests that need an operator decision are waiting in the approval queue.
@@ -411,13 +424,13 @@ export default function DashboardPage() {
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
           <Link
             href="/dashboard/approvals"
-            aria-label={pendingApprovalCount > 0 ? `Review Approvals, ${pendingApprovalCount} pending` : undefined}
+            aria-label={!isPendingApprovalLoading && hasPendingApprovals ? `Review Approvals, ${pendingApprovalCount} pending` : undefined}
             className="block rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2"
           >
             <Card
               className={cn(
                 'h-full cursor-pointer transition-colors',
-                pendingApprovalCount > 0
+                hasPendingApprovals
                   ? 'border-amber-300 bg-amber-50/80 hover:bg-amber-50 dark:border-amber-800 dark:bg-amber-950/20 dark:hover:bg-amber-950/30'
                   : 'hover:bg-muted/50'
               )}
@@ -427,16 +440,14 @@ export default function DashboardPage() {
                   <div className="flex flex-wrap items-center gap-2">
                     <CheckCircle className="h-4 w-4" aria-hidden="true" />
                     <span className="text-sm font-semibold">Approvals</span>
-                    {pendingApprovalCount > 0 && (
+                    {hasPendingApprovals && (
                       <span className="inline-flex items-center justify-center rounded-full bg-amber-100 px-1.5 text-xs font-medium text-amber-800 dark:bg-amber-900 dark:text-amber-300">
-                        {pendingApprovalCount > 99 ? '99+' : pendingApprovalCount} pending
+                        {(pendingApprovalCount ?? 0) > 99 ? '99+' : pendingApprovalCount} pending
                       </span>
                     )}
                   </div>
                   <p className="text-xs text-muted-foreground">
-                    {pendingApprovalCount > 0
-                      ? `Review ${pendingApprovalCount.toLocaleString()} request${pendingApprovalCount === 1 ? '' : 's'} waiting on a decision.`
-                      : 'No approvals are waiting right now.'}
+                    {approvalSummaryText}
                   </p>
                 </div>
               </div>
@@ -505,15 +516,15 @@ export default function DashboardPage() {
                     variant="ghost"
                     size="sm"
                     className="h-7 px-2 text-xs"
-                    disabled={!localAddress}
+                    disabled={!localAddress || isDashboardLoading}
                     onClick={() => void copyConnectionAddress('Local address', localAddress)}
                   >
                     <Copy className="mr-1 h-3.5 w-3.5" aria-hidden="true" />
                     Copy
                   </Button>
                 </div>
-                <p className={localAddress ? "font-mono text-sm font-normal break-words" : "text-sm text-muted-foreground"}>
-                  {localAddress || 'Not configured'}
+                <p className={localAddress && !isDashboardLoading ? "font-mono text-sm font-normal break-words" : "text-sm text-muted-foreground"}>
+                  {localAddressText}
                 </p>
               </div>
               <MapPin className="h-5 w-5 text-muted-foreground" />
@@ -532,15 +543,15 @@ export default function DashboardPage() {
                     variant="ghost"
                     size="sm"
                     className="h-7 px-2 text-xs"
-                    disabled={!remoteAddress}
+                    disabled={!remoteAddress || isDashboardLoading}
                     onClick={() => void copyConnectionAddress('Remote address', remoteAddress)}
                   >
                     <Copy className="mr-1 h-3.5 w-3.5" aria-hidden="true" />
                     Copy
                   </Button>
                 </div>
-                <p className={remoteAddress ? "font-mono text-sm font-normal break-words" : "text-sm text-muted-foreground"}>
-                  {remoteAddress || 'Not configured'}
+                <p className={remoteAddress && !isDashboardLoading ? "font-mono text-sm font-normal break-words" : "text-sm text-muted-foreground"}>
+                  {remoteAddressText}
                 </p>
               </div>
               <Globe className="h-5 w-5 text-muted-foreground" />
@@ -584,7 +595,14 @@ export default function DashboardPage() {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          {!toolsUsage || toolsUsage.length === 0 ? (
+          {isDashboardLoading ? (
+            <div className="flex min-h-[120px] items-center justify-center" role="status" aria-live="polite">
+              <div className="text-center">
+                <div className="mx-auto mb-3 h-6 w-6 animate-spin rounded-full border-2 border-muted-foreground/30 border-t-foreground" aria-hidden="true" />
+                <p className="text-sm text-muted-foreground">Loading tool activity for the last 30 days…</p>
+              </div>
+            </div>
+          ) : !toolsUsage || toolsUsage.length === 0 ? (
             <div className="flex items-center justify-center py-8">
               <p className="text-sm text-muted-foreground">No tool requests in the last 30 days yet.</p>
             </div>
@@ -631,7 +649,14 @@ export default function DashboardPage() {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          {!tokenUsage || tokenUsage.length === 0 ? (
+          {isDashboardLoading ? (
+            <div className="flex min-h-[120px] items-center justify-center" role="status" aria-live="polite">
+              <div className="text-center">
+                <div className="mx-auto mb-3 h-6 w-6 animate-spin rounded-full border-2 border-muted-foreground/30 border-t-foreground" aria-hidden="true" />
+                <p className="text-sm text-muted-foreground">Loading access token activity for the last 30 days…</p>
+              </div>
+            </div>
+          ) : !tokenUsage || tokenUsage.length === 0 ? (
             <div className="flex items-center justify-center py-8">
               <p className="text-sm text-muted-foreground">No access token activity in the last 30 days yet.</p>
             </div>
@@ -684,7 +709,14 @@ export default function DashboardPage() {
             <CardDescription>Last 30 days</CardDescription>
           </CardHeader>
           <CardContent>
-            {!recentActivity || recentActivity.length === 0 ? (
+            {isDashboardLoading ? (
+              <div className="flex min-h-[120px] items-center justify-center" role="status" aria-live="polite">
+                <div className="text-center">
+                  <div className="mx-auto mb-3 h-6 w-6 animate-spin rounded-full border-2 border-muted-foreground/30 border-t-foreground" aria-hidden="true" />
+                  <p className="text-sm text-muted-foreground">Loading recent dashboard activity…</p>
+                </div>
+              </div>
+            ) : !recentActivity || recentActivity.length === 0 ? (
               <div className="flex items-center justify-center py-8">
                 <p className="text-sm text-muted-foreground">No recent activity in the last 30 days yet.</p>
               </div>
@@ -743,7 +775,14 @@ export default function DashboardPage() {
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
-            {connectedClients.length === 0 ? (
+            {isDashboardLoading ? (
+              <div className="flex min-h-[240px] items-center justify-center" role="status" aria-live="polite">
+                <div className="text-center">
+                  <div className="mx-auto mb-3 h-6 w-6 animate-spin rounded-full border-2 border-muted-foreground/30 border-t-foreground" aria-hidden="true" />
+                  <p className="text-sm text-muted-foreground">Loading recent client details…</p>
+                </div>
+              </div>
+            ) : connectedClients.length === 0 ? (
               <div className="flex items-center justify-center py-8">
                 <p className="text-sm text-muted-foreground">No clients seen in the last 24 hours.</p>
               </div>

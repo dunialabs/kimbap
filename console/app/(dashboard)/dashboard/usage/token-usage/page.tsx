@@ -414,7 +414,7 @@ function TokenUsagePageContent() {
             <SelectItem value="30">Last 30 days</SelectItem>
           </SelectContent>
         </Select>
-        <Button className="w-full sm:w-auto" variant="outline" onClick={handleRefresh} disabled={loading || refreshing}><RefreshCw className={`mr-2 h-4 w-4 ${loading || refreshing ? 'animate-spin' : ''}`} />Refresh</Button>
+        <Button className="w-full sm:w-auto" variant="outline" onClick={handleRefresh} disabled={loading || refreshing}><RefreshCw className={`mr-2 h-4 w-4 ${loading || refreshing ? 'animate-spin' : ''}`} />{refreshing ? 'Refreshing...' : loading ? 'Loading overview...' : 'Refresh'}</Button>
       </div>
       <p className="text-xs text-muted-foreground">Minute-level patterns are available only in the 24-hour view.</p>
       {!loading && loadError ? (

@@ -70,6 +70,29 @@ function formatRelativeMinutes(totalMinutes: number) {
   return `${days} day${days === 1 ? '' : 's'} ago`
 }
 
+function LoadingListPlaceholder({
+  label,
+  rows = 3,
+}: {
+  label: string
+  rows?: number
+}) {
+  return (
+    <div className="space-y-3" role="status" aria-live="polite">
+      <div className="flex items-center gap-2 text-sm text-muted-foreground">
+        <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
+        <span>{label}</span>
+      </div>
+      {Array.from({ length: rows }).map((_, index) => (
+        <div key={index} className="rounded-lg border p-3">
+          <div className="h-4 w-1/3 animate-pulse rounded bg-muted" />
+          <div className="mt-3 h-3 w-2/3 animate-pulse rounded bg-muted/70" />
+        </div>
+      ))}
+    </div>
+  )
+}
+
 function UsagePageContent() {
   const searchParams = useSearchParams()
   const pathname = usePathname()
@@ -239,7 +262,7 @@ function UsagePageContent() {
         </Select>
         <Button className="w-full sm:w-auto" variant="outline" onClick={handleRefresh} disabled={loading || refreshing}>
           <RefreshCw className={`mr-2 h-4 w-4 ${loading || refreshing ? 'animate-spin' : ''}`} />
-          Refresh
+          {refreshing ? 'Refreshing...' : loading ? 'Loading overview...' : 'Refresh'}
         </Button>
       </div>
       {!loading && loadError ? (
@@ -363,10 +386,7 @@ function UsagePageContent() {
           {loading || !topTools || topTools.length === 0 ? (
             <div className="flex items-center justify-center py-8">
               {loading ? (
-                <div className="text-center">
-                  <Loader2 className="h-8 w-8 animate-spin mx-auto mb-3 text-muted-foreground" />
-                  <p className="text-sm text-muted-foreground">Loading top tool activity...</p>
-                </div>
+                <LoadingListPlaceholder label="Loading top tool activity..." />
               ) : topToolsError ? (
                 <div className="text-center">
                   <p className="text-sm text-red-600 dark:text-red-400">{topToolsError}</p>
@@ -406,10 +426,7 @@ function UsagePageContent() {
             {loading || !activeTokens || activeTokens.length === 0 ? (
               <div className="flex items-center justify-center py-8">
                 {loading ? (
-                  <div className="text-center">
-                    <Loader2 className="h-8 w-8 animate-spin mx-auto mb-3 text-muted-foreground" />
-                    <p className="text-sm text-muted-foreground">Loading active token activity...</p>
-                  </div>
+                  <LoadingListPlaceholder label="Loading active token activity..." />
                 ) : activeTokensError ? (
                   <div className="text-center">
                     <p className="text-sm text-red-600 dark:text-red-400">{activeTokensError}</p>
@@ -449,10 +466,7 @@ function UsagePageContent() {
             {loading || !recentActivity || recentActivity.length === 0 ? (
               <div className="flex items-center justify-center py-8">
                 {loading ? (
-                  <div className="text-center">
-                    <Loader2 className="h-8 w-8 animate-spin mx-auto mb-3 text-muted-foreground" />
-                    <p className="text-sm text-muted-foreground">Loading recent usage events...</p>
-                  </div>
+                  <LoadingListPlaceholder label="Loading recent usage events..." />
                 ) : recentActivityError ? (
                   <div className="text-center">
                     <p className="text-sm text-red-600 dark:text-red-400">{recentActivityError}</p>

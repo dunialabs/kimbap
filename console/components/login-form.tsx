@@ -262,6 +262,7 @@ export function LoginForm({
       <div className="space-y-[4px]">
         <Label htmlFor="login-credential" className="text-[14px] font-[700]">
           {loginMode === 'password' ? 'Master Password' : 'Access Token'}
+          <span className="ml-1 text-xs font-normal text-muted-foreground">(required)</span>
         </Label>
         <div className="relative">
           <input
@@ -297,6 +298,7 @@ export function LoginForm({
             autoCapitalize="none"
             autoCorrect="off"
             spellCheck={false}
+            required
           />
           {loginMode === 'password' && (
             <button

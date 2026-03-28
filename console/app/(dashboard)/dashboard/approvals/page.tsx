@@ -214,6 +214,7 @@ export default function ApprovalsPage() {
   const [deciding, setDeciding] = useState(false);
   const [detailDecideReason, setDetailDecideReason] = useState('');
   const [detailDeciding, setDetailDeciding] = useState(false);
+  const [detailDecisionAction, setDetailDecisionAction] = useState<'APPROVED' | 'REJECTED' | null>(null);
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
   const decideReasonRef = useRef<HTMLTextAreaElement>(null);
   const [refreshFailed, setRefreshFailed] = useState(false);
@@ -413,6 +414,7 @@ export default function ApprovalsPage() {
   const handleDetailDecide = async (decision: 'APPROVED' | 'REJECTED') => {
     if (!detailDialog) return;
     setDetailDeciding(true);
+    setDetailDecisionAction(decision);
     try {
       await api.approvals.decide({
         id: detailDialog.id,
@@ -429,6 +431,7 @@ export default function ApprovalsPage() {
       toast.error(`Could not ${actionLabel} ${detailDialog.toolName} request`);
     } finally {
       setDetailDeciding(false);
+      setDetailDecisionAction(null);
     }
   };
 
@@ -457,7 +460,7 @@ export default function ApprovalsPage() {
             disabled={loading || loadingMore || refreshing}
           >
             <RefreshCw className={`h-4 w-4 mr-2 ${loading || loadingMore || refreshing ? 'animate-spin' : ''}`} />
-            Refresh
+            {refreshing ? 'Refreshing...' : 'Refresh'}
           </Button>
         </div>
       </div>
@@ -485,46 +488,59 @@ export default function ApprovalsPage() {
                   {statusFilter !== 'all' ? ` (${statusFilter.charAt(0).toUpperCase() + statusFilter.slice(1).toLowerCase()})` : ''}
                 </CardDescription>
               </div>
-            <div className="flex flex-wrap items-center gap-2">
-              <div className="flex items-center gap-1.5">
-                <Filter className="h-3.5 w-3.5 text-muted-foreground" />
-                <Select
-                  value={statusFilter}
-                  onValueChange={(v) => setStatusFilter(v as StatusFilter)}
-                >
-                  <SelectTrigger className="h-8 w-[130px] text-sm" aria-label="Filter by status">
-                    <SelectValue placeholder="Status" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All Statuses</SelectItem>
-                    <SelectItem value="PENDING">Pending</SelectItem>
-                    <SelectItem value="APPROVED">Approved</SelectItem>
-                    <SelectItem value="REJECTED">Rejected</SelectItem>
-                    <SelectItem value="EXPIRED">Expired</SelectItem>
-                    <SelectItem value="EXECUTING">Executing</SelectItem>
-                    <SelectItem value="EXECUTED">Executed</SelectItem>
-                    <SelectItem value="FAILED">Failed</SelectItem>
-                  </SelectContent>
-                </Select>
+            <div className="w-full rounded-lg border border-border/60 bg-muted/20 p-3 sm:w-auto">
+              <div className="mb-3 flex items-center gap-1.5">
+                <Filter className="h-3.5 w-3.5 text-muted-foreground" aria-hidden="true" />
+                <span className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Filters</span>
               </div>
-              <Input
-                placeholder="Filter by user ID"
-                value={userFilter}
-                onChange={(e) => setUserFilter(e.target.value)}
-                className="h-8 w-[160px] text-sm"
-                aria-label="Filter by user"
-                autoCapitalize="none"
-                autoCorrect="off"
-                spellCheck={false}
-              />
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={resetFilters}
-                disabled={!hasActiveFilters}
-              >
-                Reset filters
-              </Button>
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-[minmax(0,140px)_minmax(0,180px)_auto]">
+                <div className="space-y-1.5">
+                  <Label htmlFor="approvals-status-filter" className="text-xs">Status</Label>
+                  <Select
+                    value={statusFilter}
+                    onValueChange={(v) => setStatusFilter(v as StatusFilter)}
+                  >
+                    <SelectTrigger id="approvals-status-filter" className="h-8 text-sm">
+                      <SelectValue placeholder="Status" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All Statuses</SelectItem>
+                      <SelectItem value="PENDING">Pending</SelectItem>
+                      <SelectItem value="APPROVED">Approved</SelectItem>
+                      <SelectItem value="REJECTED">Rejected</SelectItem>
+                      <SelectItem value="EXPIRED">Expired</SelectItem>
+                      <SelectItem value="EXECUTING">Executing</SelectItem>
+                      <SelectItem value="EXECUTED">Executed</SelectItem>
+                      <SelectItem value="FAILED">Failed</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-1.5">
+                  <Label htmlFor="approvals-user-filter" className="text-xs">User ID</Label>
+                  <Input
+                    id="approvals-user-filter"
+                    placeholder="Any user"
+                    value={userFilter}
+                    onChange={(e) => setUserFilter(e.target.value)}
+                    className="h-8 text-sm"
+                    autoCapitalize="none"
+                    autoCorrect="off"
+                    spellCheck={false}
+                    autoComplete="off"
+                  />
+                </div>
+                <div className="flex items-end">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="w-full sm:w-auto"
+                    onClick={resetFilters}
+                    disabled={!hasActiveFilters}
+                  >
+                    Reset filters
+                  </Button>
+                </div>
+              </div>
             </div>
           </div>
         </CardHeader>
@@ -722,12 +738,13 @@ export default function ApprovalsPage() {
                                 <TooltipTrigger asChild>
                                   <Button
                                     variant="ghost"
-                                    size="icon"
-                                    className="h-8 w-8"
+                                    size="sm"
+                                    className="h-7 px-2 text-xs"
                                     aria-label="View details"
                                     onClick={() => setDetailDialog(r)}
                                   >
-                                    <Eye className="h-3.5 w-3.5" />
+                                    <Eye className="mr-1 h-3.5 w-3.5" />
+                                    Details
                                   </Button>
                                 </TooltipTrigger>
                                 <TooltipContent>View details</TooltipContent>
@@ -736,23 +753,22 @@ export default function ApprovalsPage() {
                             {r.status === 'PENDING' && (
                               <>
                                 <Button
-                                  variant="ghost"
                                   size="sm"
-                                  className="h-7 px-2 text-xs font-medium text-emerald-600 hover:text-emerald-600 hover:bg-green-100 dark:hover:bg-green-900"
+                                  className="h-7 bg-emerald-600 px-2 text-xs text-white hover:bg-emerald-700"
                                   aria-label="Approve"
                                   onClick={() => openDecideDialog(r, 'APPROVED')}
                                 >
-                                  <CheckCircle2 className="h-3.5 w-3.5 mr-1" />
+                                  <CheckCircle2 className="mr-1 h-3.5 w-3.5" />
                                   Approve
                                 </Button>
                                 <Button
-                                  variant="ghost"
+                                  variant="destructive"
                                   size="sm"
-                                  className="h-7 px-2 text-xs font-medium text-red-600 hover:text-red-600 hover:bg-red-100 dark:hover:bg-red-900"
+                                  className="h-7 px-2 text-xs"
                                   aria-label="Reject"
                                   onClick={() => openDecideDialog(r, 'REJECTED')}
                                 >
-                                  <XCircle className="h-3.5 w-3.5 mr-1" />
+                                  <XCircle className="mr-1 h-3.5 w-3.5" />
                                   Reject
                                 </Button>
                               </>
@@ -894,14 +910,18 @@ export default function ApprovalsPage() {
             <DialogFooter className="flex-col items-stretch gap-3 sm:flex-col">
               {detailDialog.status === 'PENDING' && (
                 <div className="space-y-3 border-t pt-3">
-                  <Textarea
-                    placeholder="Add a reason for this decision (optional)..."
-                    value={detailDecideReason}
-                    onChange={(e) => setDetailDecideReason(e.target.value)}
-                    rows={2}
-                    disabled={detailDeciding}
-                    className="text-sm resize-none"
-                  />
+                  <div className="space-y-1.5">
+                    <Label htmlFor="approval-detail-decision-reason">Decision reason (optional)</Label>
+                    <Textarea
+                      id="approval-detail-decision-reason"
+                      placeholder="Add a reason for this decision..."
+                      value={detailDecideReason}
+                      onChange={(e) => setDetailDecideReason(e.target.value)}
+                      rows={2}
+                      disabled={detailDeciding}
+                      className="text-sm resize-none"
+                    />
+                  </div>
                   <div className="flex flex-col gap-2 sm:flex-row">
                     <Button
                       size="sm"

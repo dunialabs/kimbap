@@ -578,7 +578,7 @@ function LogsPageContent() {
               className={`mr-2 h-4 w-4 ${loading ? 'animate-spin' : ''}`}
               aria-hidden="true"
             />
-            Refresh
+            {loading ? 'Refreshing...' : 'Refresh'}
           </Button>
           <Button
             variant="outline"
@@ -791,8 +791,11 @@ function LogsPageContent() {
                   <TableBody>
                     {loading ? (
                       <TableRow>
-                        <TableCell colSpan={6} className="text-center py-8">
-                          <p className="text-sm text-muted-foreground">Loading filtered logs...</p>
+                        <TableCell colSpan={6} className="py-8">
+                          <div className="flex items-center justify-center gap-2 text-sm text-muted-foreground" role="status" aria-live="polite">
+                            <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
+                            <span>Loading filtered logs...</span>
+                          </div>
                         </TableCell>
                       </TableRow>
                     ) : logs.map((log) => (

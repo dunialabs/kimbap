@@ -29,21 +29,27 @@ export function AuthLoginDialog({
   const [step, setStep] = useState<"login" | "verify">("login")
   const [email, setEmail] = useState("")
   const [verificationCode, setVerificationCode] = useState("")
-  const [isLoading, setIsLoading] = useState(false)
+  const [isSendingCode, setIsSendingCode] = useState(false)
+  const [isVerifyingCode, setIsVerifyingCode] = useState(false)
   const [error, setError] = useState("")
   const emailInputRef = useRef<HTMLInputElement>(null)
   const verificationCodeInputRef = useRef<HTMLInputElement>(null)
+
+  function validateEmail(email: string) {
+    return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)
+  }
+
+  const trimmedEmail = email.trim()
+  const emailFormatInvalid = step === "login" && trimmedEmail.length > 0 && !validateEmail(trimmedEmail)
+  const verificationCodeIncomplete = step === "verify" && verificationCode.length > 0 && verificationCode.length < 6
 
   const resetForm = () => {
     setStep("login")
     setEmail("")
     setVerificationCode("")
     setError("")
-    setIsLoading(false)
-  }
-
-  const validateEmail = (email: string) => {
-    return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)
+    setIsSendingCode(false)
+    setIsVerifyingCode(false)
   }
 
   useEffect(() => {
@@ -74,11 +80,11 @@ export function AuthLoginDialog({
       return
     }
 
-    setIsLoading(true)
+    setIsSendingCode(true)
     setError("")
 
     await new Promise(resolve => setTimeout(resolve, 1500))
-    setIsLoading(false)
+    setIsSendingCode(false)
     setStep("verify")
   }
 
@@ -88,18 +94,18 @@ export function AuthLoginDialog({
       return
     }
 
-    setIsLoading(true)
+    setIsVerifyingCode(true)
     setError("")
 
     try {
       await new Promise(resolve => setTimeout(resolve, 1000))
 
-      setIsLoading(false)
+      setIsVerifyingCode(false)
       onLoginSuccess?.({ email })
       onOpenChange(false)
       resetForm()
     } catch (error: any) {
-      setIsLoading(false)
+      setIsVerifyingCode(false)
       setError(error.response?.data?.error || "That code didn't work. Check the latest email and try again.")
     }
   }
@@ -117,16 +123,19 @@ export function AuthLoginDialog({
     }}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
+          <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+            {step === "login" ? "Step 1 of 2" : "Step 2 of 2"}
+          </p>
           <DialogTitle className="text-2xl flex items-center gap-2">
             {step === "verify" && (
               <Button
                 variant="ghost"
-                size="icon"
-                className="h-6 w-6 -ml-2"
+                size="sm"
+                className="-ml-2 h-8 px-2 text-sm"
                 onClick={handleBackToLogin}
-                aria-label="Back to sign in"
               >
-                <ArrowLeft className="h-4 w-4" />
+                <ArrowLeft className="mr-1 h-4 w-4" />
+                Back
               </Button>
             )}
             <LogIn className="h-6 w-6 text-blue-600 dark:text-blue-400" />
@@ -152,7 +161,10 @@ export function AuthLoginDialog({
                 }}
               >
                 <div className="space-y-2">
-                  <Label htmlFor="login-email">Email address</Label>
+                  <Label htmlFor="login-email">
+                    Email address
+                    <span className="ml-1 text-xs font-normal text-muted-foreground">(required)</span>
+                  </Label>
                   <Input
                     id="login-email"
                     type="email"
@@ -163,14 +175,15 @@ export function AuthLoginDialog({
                       setEmail(e.target.value)
                       setError("")
                     }}
-                    disabled={isLoading}
-                    aria-invalid={Boolean(error)}
-                    aria-describedby={error ? 'auth-login-error' : 'auth-login-note'}
+                    disabled={isSendingCode || isVerifyingCode}
+                    aria-invalid={Boolean(error) || emailFormatInvalid}
+                    aria-describedby={error || emailFormatInvalid ? 'auth-login-error auth-login-note' : 'auth-login-note'}
                     autoCapitalize="none"
                     autoCorrect="off"
                     spellCheck={false}
                     autoComplete="email"
-                    className={error ? "border-red-500" : ""}
+                    className={error || emailFormatInvalid ? "border-red-500" : ""}
+                    required
                   />
                 </div>
 
@@ -178,20 +191,20 @@ export function AuthLoginDialog({
                   We’ll email a one-time code to this address.
                 </p>
 
-                {error && (
+                {(error || emailFormatInvalid) && (
                   <Alert id="auth-login-error" className="border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-950/20">
                     <AlertDescription className="text-sm text-red-800 dark:text-red-200">
-                      {error}
+                      {error || 'Enter a valid email address.'}
                     </AlertDescription>
                   </Alert>
                 )}
 
                 <Button
                   type="submit"
-                  disabled={isLoading || !email.trim()}
+                  disabled={isSendingCode || isVerifyingCode || !trimmedEmail || emailFormatInvalid}
                   className="w-full"
                 >
-                  {isLoading ? (
+                  {isSendingCode ? (
                     <>
                       <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                       Sending sign-in code...
@@ -225,7 +238,10 @@ export function AuthLoginDialog({
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="verification-code">Verification code</Label>
+                  <Label htmlFor="verification-code">
+                    Verification code
+                    <span className="ml-1 text-xs font-normal text-muted-foreground">(required)</span>
+                  </Label>
                   <Input
                     id="verification-code"
                     type="text"
@@ -236,33 +252,35 @@ export function AuthLoginDialog({
                       setVerificationCode(e.target.value.replace(/\D/g, '').slice(0, 6))
                       setError("")
                     }}
-                    disabled={isLoading}
-                    aria-invalid={Boolean(error)}
-                    aria-describedby={error ? 'auth-verify-error' : 'auth-verify-note'}
+                    disabled={isSendingCode || isVerifyingCode}
+                    aria-invalid={Boolean(error) || verificationCodeIncomplete}
+                    aria-describedby={error || verificationCodeIncomplete ? 'auth-verify-error auth-verify-note' : 'auth-verify-note'}
                     inputMode="numeric"
                     autoComplete="one-time-code"
-                    className={`text-center text-lg tracking-widest ${error ? "border-red-500" : ""}`}
+                    className={`text-center text-lg tracking-widest ${error || verificationCodeIncomplete ? "border-red-500" : ""}`}
                     maxLength={6}
+                    pattern="[0-9]{6}"
+                    required
                   />
                   <p id="auth-verify-note" className="text-xs text-muted-foreground text-center">
                     Check your email for the code.
                   </p>
                 </div>
 
-                {error && (
+                {(error || verificationCodeIncomplete) && (
                   <Alert id="auth-verify-error" className="border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-950/20">
                     <AlertDescription className="text-sm text-red-800 dark:text-red-200">
-                      {error}
+                      {error || 'Enter the full 6-digit verification code.'}
                     </AlertDescription>
                   </Alert>
                 )}
 
                 <Button
                   type="submit"
-                  disabled={isLoading || verificationCode.length !== 6}
+                  disabled={isSendingCode || isVerifyingCode || verificationCode.length !== 6}
                   className="w-full"
                 >
-                  {isLoading ? (
+                  {isVerifyingCode ? (
                     <>
                       <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                       Verifying code...
@@ -280,9 +298,9 @@ export function AuthLoginDialog({
                     type="button"
                     onClick={handleSendVerificationCode}
                     className="rounded-sm text-sm text-blue-600 hover:text-blue-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 dark:text-blue-400 dark:hover:text-blue-300"
-                    disabled={isLoading}
+                    disabled={isSendingCode || isVerifyingCode}
                   >
-                    Resend code
+                    {isSendingCode ? 'Resending code...' : 'Resend code'}
                   </button>
                 </div>
               </form>

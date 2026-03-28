@@ -110,6 +110,7 @@ export function MasterPasswordForm({ onSuccess }: MasterPasswordFormProps) {
         <div className="space-y-[4px]">
           <Label htmlFor="master-password" className="text-[14px] font-[700]">
             Master Password
+            <span className="ml-1 text-xs font-normal text-muted-foreground">(required)</span>
           </Label>
           <div className="relative">
             <input
@@ -130,6 +131,7 @@ export function MasterPasswordForm({ onSuccess }: MasterPasswordFormProps) {
               className="h-12 w-full pl-3 pr-10 rounded-lg border border-input bg-background focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
               aria-invalid={passwordTooShort || Boolean(error)}
               aria-describedby={[passwordTooShort ? 'master-password-hint' : '', error ? 'master-password-error' : ''].filter(Boolean).join(' ') || undefined}
+              minLength={10}
               required
             />
             <button
@@ -147,7 +149,7 @@ export function MasterPasswordForm({ onSuccess }: MasterPasswordFormProps) {
             </button>
           </div>
           {masterPassword && masterPassword.length < 10 && (
-            <p id="master-password-hint" className="text-xs text-muted-foreground">
+            <p id="master-password-hint" className="text-xs text-muted-foreground" aria-live="polite">
               {masterPassword.length}/10 characters minimum
             </p>
           )}
@@ -157,6 +159,7 @@ export function MasterPasswordForm({ onSuccess }: MasterPasswordFormProps) {
         <div className="space-y-[4px]">
           <Label htmlFor="confirm-password" className="text-[14px] font-[700]">
             Confirm Master Password
+            <span className="ml-1 text-xs font-normal text-muted-foreground">(required)</span>
           </Label>
           <div className="relative">
             <input

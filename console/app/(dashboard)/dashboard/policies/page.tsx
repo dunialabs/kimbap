@@ -657,6 +657,8 @@ export default function PoliciesPage() {
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
   const [deleteTarget, setDeleteTarget] = useState<PolicySet | null>(null)
   const [saving, setSaving] = useState(false)
+  const [deleting, setDeleting] = useState(false)
+  const [togglingPolicyId, setTogglingPolicyId] = useState<string | null>(null)
   const [isDirty, setIsDirty] = useState(false)
 
   const [editingId, setEditingId] = useState<string | null>(null)
@@ -745,12 +747,15 @@ export default function PoliciesPage() {
 
   const handleToggle = async (p: PolicySet) => {
     const nextStatus = p.status === 'active' ? 'archived' : 'active'
+    setTogglingPolicyId(p.id)
     try {
       await api.policies.update({ id: p.id, status: nextStatus })
       setPolicies((prev) => prev.map((x) => (x.id === p.id ? { ...x, status: nextStatus } : x)))
       toast.success(`Policy ${nextStatus === 'active' ? 'enabled' : 'disabled'}`)
     } catch {
       toast.error('Could not update policy status')
+    } finally {
+      setTogglingPolicyId(null)
     }
   }
 
@@ -761,6 +766,7 @@ export default function PoliciesPage() {
 
   const handleDelete = async () => {
     if (!deleteTarget) return
+    setDeleting(true)
     try {
       await api.policies.delete(deleteTarget.id)
       toast.success('Policy deleted')
@@ -769,6 +775,8 @@ export default function PoliciesPage() {
       fetchPolicies()
     } catch {
       toast.error('Could not delete policy')
+    } finally {
+      setDeleting(false)
     }
   }
 
@@ -862,7 +870,7 @@ export default function PoliciesPage() {
                   Retry
                 </Button>
               ) : canManagePolicies ? (
-                <Button variant="outline" className="mt-4" onClick={openCreate}>
+                <Button className="mt-4" onClick={openCreate}>
                   <Plus className="mr-2 h-4 w-4" />
                   Create Policy
                 </Button>
@@ -950,10 +958,13 @@ export default function PoliciesPage() {
                           >
                             {p.status === 'active' ? 'Active' : 'Archived'}
                           </Badge>
+                          {togglingPolicyId === p.id ? (
+                            <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" aria-hidden="true" />
+                          ) : null}
                           <Switch
                             checked={p.status === 'active'}
                             onCheckedChange={() => handleToggle(p)}
-                            disabled={!canTogglePolicy}
+                            disabled={!canTogglePolicy || togglingPolicyId === p.id}
                             aria-label={p.status === 'active' ? 'Deactivate policy' : 'Activate policy'}
                           />
                         </div>
@@ -967,6 +978,7 @@ export default function PoliciesPage() {
                               className="h-8 w-8"
                               onClick={() => openEdit(p)}
                               aria-label="Edit policy"
+                              disabled={togglingPolicyId === p.id}
                             >
                               <Pencil className="h-3.5 w-3.5" />
                             </Button>
@@ -976,6 +988,7 @@ export default function PoliciesPage() {
                               className="h-8 w-8 text-destructive hover:bg-destructive/10 hover:text-destructive"
                               onClick={() => confirmDelete(p)}
                               aria-label="Delete policy"
+                              disabled={togglingPolicyId === p.id}
                             >
                               <Trash2 className="h-3.5 w-3.5" />
                             </Button>
@@ -1068,7 +1081,7 @@ export default function PoliciesPage() {
             </div>
           </div>
 
-          <div className="border-t px-6 py-4">
+          <div className="sticky bottom-0 border-t bg-background/95 px-6 py-4 backdrop-blur supports-[backdrop-filter]:bg-background/80">
             <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
               <Button variant="outline" className="w-full sm:w-auto" onClick={() => tryCloseDialog(false)}>
                 Cancel
@@ -1090,7 +1103,7 @@ export default function PoliciesPage() {
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogCancel disabled={deleting}>Cancel</AlertDialogCancel>
             <AlertDialogAction
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
               onClick={(e) => {
@@ -1098,7 +1111,12 @@ export default function PoliciesPage() {
                 handleDelete()
               }}
             >
-              Delete
+              {deleting ? (
+                <span className="inline-flex items-center gap-2">
+                  <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
+                  Deleting...
+                </span>
+              ) : 'Delete'}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
@@ -1113,7 +1131,7 @@ export default function PoliciesPage() {
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogCancel disabled={deleting}>Cancel</AlertDialogCancel>
             <AlertDialogAction
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
               onClick={() => {
