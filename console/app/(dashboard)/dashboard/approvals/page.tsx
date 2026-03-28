@@ -546,7 +546,7 @@ export default function ApprovalsPage() {
             Approvals
           </h1>
           <p className="text-sm leading-6 text-muted-foreground">
-            Review tool requests that are waiting for a decision. After each decision, the queue refreshes so you can continue with the next request.
+            Review pending tool requests, then use filters to inspect approved, rejected, and executed history from the same queue. After each decision, the list refreshes so you can keep moving.
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-3">
