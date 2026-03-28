@@ -399,7 +399,7 @@ function RuleCard({
           className="flex min-h-11 min-w-0 flex-1 items-center gap-2 rounded text-left transition-colors duration-200 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
         >
           {expanded ? <ChevronUp className="h-4 w-4 shrink-0" /> : <ChevronDown className="h-4 w-4 shrink-0" />}
-          <span className="shrink-0 text-sm font-medium">Rule Rule {index + 1}</span>
+          <span className="shrink-0 text-sm font-medium">Rule {index + 1}</span>
           <Badge variant="secondary" className="shrink-0 text-[11px]">
             {index === 0 ? 'First match' : `Priority ${index + 1}`}
           </Badge>
@@ -417,7 +417,7 @@ function RuleCard({
             className="h-11 w-11"
             onClick={() => onMove('up')}
             disabled={!canMoveUp}
-            aria-label="Move rule up"
+            aria-label={`Move rule ${index + 1} up`}
           >
             <ArrowUp className="h-3.5 w-3.5" />
           </Button>
@@ -428,7 +428,7 @@ function RuleCard({
             className="h-11 w-11"
             onClick={() => onMove('down')}
             disabled={!canMoveDown}
-            aria-label="Move rule down"
+            aria-label={`Move rule ${index + 1} down`}
           >
             <ArrowDown className="h-3.5 w-3.5" />
           </Button>
@@ -438,7 +438,7 @@ function RuleCard({
             size="icon"
             className="h-11 w-11 text-destructive hover:bg-destructive/10 hover:text-destructive"
             onClick={onRemove}
-            aria-label="Remove rule"
+            aria-label={`Remove rule ${index + 1}`}
           >
             <X className="h-3.5 w-3.5" />
           </Button>
