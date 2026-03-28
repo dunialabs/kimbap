@@ -376,7 +376,7 @@ function UsagePageContent() {
         </Button>
         <span className="text-xs text-muted-foreground">Auto-refreshes every 30 seconds.</span>
       </div>
-      <div className="flex flex-wrap items-center gap-2">
+      <div className="flex flex-wrap items-center gap-2" aria-live="polite">
         <Badge variant="outline" className="text-xs">Last {timeRangeLabel}</Badge>
         {loading ? <Badge variant="outline" className="text-xs">Refreshing metrics…</Badge> : null}
         {!loading && leadingTool ? <Badge variant="outline" className="text-xs">Top tool: {leadingTool.toolName}</Badge> : null}
