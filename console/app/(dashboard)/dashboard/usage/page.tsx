@@ -374,6 +374,7 @@ function UsagePageContent() {
           <RefreshCw className={`mr-2 h-4 w-4 ${loading || refreshing ? 'animate-spin' : ''}`} />
           Refresh
         </Button>
+        <span className="text-xs text-muted-foreground">Auto-refreshes every 30 seconds.</span>
       </div>
       <div className="flex flex-wrap items-center gap-2">
         <Badge variant="outline" className="text-xs">Last {timeRangeLabel}</Badge>
