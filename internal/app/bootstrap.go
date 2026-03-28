@@ -73,8 +73,8 @@ func BuildRuntime(deps RuntimeDeps) (*runtimepkg.Runtime, error) {
 				return nil, parseErr
 			}
 			filePolicyEvaluator = &policyEvaluatorAdapter{evaluator: policy.NewEvaluator(doc)}
-		} else if !errors.Is(err, os.ErrNotExist) {
-			return nil, fmt.Errorf("stat policy path: %w", err)
+		} else {
+			return nil, fmt.Errorf("stat policy path %q: %w", policyPath, err)
 		}
 	}
 	var policyEvaluator runtimepkg.PolicyEvaluator

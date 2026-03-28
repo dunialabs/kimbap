@@ -40,6 +40,7 @@ func newTokenCreateCommand() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "create --agent <name> [--ttl <duration>] [--scopes <s1,s2>]",
 		Short: "Issue a new service token",
+		Args:  cobra.NoArgs,
 		RunE: func(_ *cobra.Command, _ []string) error {
 			if strings.TrimSpace(agent) == "" {
 				return fmt.Errorf("--agent is required")
@@ -141,6 +142,7 @@ func newTokenListCommand() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "list [--tenant <id>]",
 		Short: "List token metadata",
+		Args:  cobra.NoArgs,
 		RunE: func(_ *cobra.Command, _ []string) error {
 			cfg, err := loadAppConfig()
 			if err != nil {
