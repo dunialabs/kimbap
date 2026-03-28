@@ -494,8 +494,8 @@ export default function DashboardPage() {
       {/* Server Metrics */}
       <Card>
         <CardHeader className="pb-4">
-          <CardTitle>Server Metrics</CardTitle>
-          <CardDescription>Uptime and activity from the last 30 days</CardDescription>
+          <CardTitle>30-Day Activity Snapshot</CardTitle>
+          <CardDescription>Server uptime plus request, token, and tool activity from the last 30 days</CardDescription>
         </CardHeader>
         <CardContent>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
