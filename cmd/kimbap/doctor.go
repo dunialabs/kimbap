@@ -52,8 +52,14 @@ func newDoctorCommand() *cobra.Command {
 			checks = append(checks, policyCheck)
 			hasFailure = hasFailure || policyCheck.Status == "fail"
 
-			if err := printOutput(checks); err != nil {
-				return err
+			if outputAsJSON() {
+				if err := printOutput(checks); err != nil {
+					return err
+				}
+			} else {
+				if err := printOutput(renderDoctorSummary(checks)); err != nil {
+					return err
+				}
 			}
 			if hasFailure {
 				return fmt.Errorf("doctor found failing checks")
@@ -163,4 +169,40 @@ func checkPolicyFile(path string) doctorCheck {
 		return doctorCheck{Name: "policy file valid", Status: "fail", Detail: err.Error()}
 	}
 	return doctorCheck{Name: "policy file valid", Status: "ok", Detail: path}
+}
+
+func renderDoctorSummary(checks []doctorCheck) string {
+	passed := 0
+	skipped := 0
+	warnings := 0
+	failed := 0
+	for _, c := range checks {
+		switch c.Status {
+		case "ok":
+			passed++
+		case "skip":
+			skipped++
+		case "warn":
+			warnings++
+		case "fail":
+			failed++
+		}
+	}
+
+	b := strings.Builder{}
+	b.WriteString("Kimbap runtime diagnostics\n")
+	_, _ = fmt.Fprintf(&b, "  passed: %d  skipped: %d  warnings: %d  failed: %d\n\n", passed, skipped, warnings, failed)
+	for _, c := range checks {
+		icon := "✓"
+		switch c.Status {
+		case "skip":
+			icon = "-"
+		case "warn":
+			icon = "!"
+		case "fail":
+			icon = "✗"
+		}
+		_, _ = fmt.Fprintf(&b, "  %s %-25s %s\n", icon, c.Name, c.Detail)
+	}
+	return strings.TrimRight(b.String(), "\n")
 }

@@ -131,6 +131,46 @@ func TestDoctorCommandDoesNotCreateMissingDataDir(t *testing.T) {
 	}
 }
 
+func TestRenderDoctorSummary(t *testing.T) {
+	checks := []doctorCheck{
+		{Name: "config file", Status: "ok", Detail: "/home/.kimbap/config.yaml"},
+		{Name: "data directory writable", Status: "ok", Detail: "/home/.kimbap"},
+		{Name: "vault accessible", Status: "fail", Detail: "vault path is empty"},
+		{Name: "services directory exists", Status: "skip", Detail: "no such file or directory"},
+		{Name: "policy file valid", Status: "warn", Detail: "permissions are 755"},
+	}
+
+	got := renderDoctorSummary(checks)
+
+	if !strings.Contains(got, "Kimbap runtime diagnostics") {
+		t.Errorf("expected header, got:\n%s", got)
+	}
+	if !strings.Contains(got, "passed: 2") {
+		t.Errorf("expected passed: 2, got:\n%s", got)
+	}
+	if !strings.Contains(got, "failed: 1") {
+		t.Errorf("expected failed: 1, got:\n%s", got)
+	}
+	if !strings.Contains(got, "skipped: 1") {
+		t.Errorf("expected skipped: 1, got:\n%s", got)
+	}
+	if !strings.Contains(got, "warnings: 1") {
+		t.Errorf("expected warnings: 1, got:\n%s", got)
+	}
+	if !strings.Contains(got, "✓ config file") {
+		t.Errorf("expected ok icon for config file, got:\n%s", got)
+	}
+	if !strings.Contains(got, "✗ vault accessible") {
+		t.Errorf("expected fail icon for vault, got:\n%s", got)
+	}
+	if !strings.Contains(got, "- services directory exists") {
+		t.Errorf("expected skip icon for services, got:\n%s", got)
+	}
+	if !strings.Contains(got, "! policy file valid") {
+		t.Errorf("expected warn icon for policy, got:\n%s", got)
+	}
+}
+
 func createTestVaultDB(t *testing.T, path string) {
 	t.Helper()
 	db, err := sql.Open("sqlite", path)
