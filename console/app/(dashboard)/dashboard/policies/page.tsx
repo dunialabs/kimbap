@@ -1269,21 +1269,21 @@ export default function PoliciesPage() {
                                   size="icon"
                                   className="h-11 w-11"
                                   onClick={(event) => openEdit(p, event.currentTarget)}
-                                  aria-label="Edit policy"
+                                  aria-label={`Edit policy: ${title}`}
                                    title="Edit policy"
                                    disabled={togglingPolicyId === p.id}
                                  >
                                    <Pencil className="h-3.5 w-3.5" />
                                  </Button>
-                                 <Button
-                                   variant="ghost"
-                                   size="icon"
-                                   className="h-11 w-11 text-destructive hover:bg-destructive/10 hover:text-destructive"
-                                   onClick={() => confirmDelete(p)}
-                                   aria-label="Delete policy"
-                                   title="Delete policy"
-                                   disabled={togglingPolicyId === p.id}
-                                >
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    className="h-11 w-11 text-destructive hover:bg-destructive/10 hover:text-destructive"
+                                    onClick={() => confirmDelete(p)}
+                                    aria-label={`Delete policy: ${title}`}
+                                    title="Delete policy"
+                                    disabled={togglingPolicyId === p.id}
+                                 >
                                   <Trash2 className="h-3.5 w-3.5" />
                                 </Button>
                               </div>
