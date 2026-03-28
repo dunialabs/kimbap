@@ -588,7 +588,7 @@ export default function DashboardPage() {
                       </span>
                     )}
                   </div>
-                  <p className="text-xs text-muted-foreground">
+                  <p className="min-h-[2.5rem] text-xs text-muted-foreground">
                     {approvalSummaryText}
                   </p>
                 </div>
@@ -604,9 +604,9 @@ export default function DashboardPage() {
                 <div className="min-w-0 space-y-1 text-left">
                   <div className="flex items-center gap-2">
                     <Activity className="h-4 w-4" aria-hidden="true" />
-                    <span className="text-sm font-semibold">Logs</span>
+                    <span className="text-sm font-semibold">Logs & Monitoring</span>
                   </div>
-                  <p className="text-xs text-muted-foreground">Watch first requests, investigate errors, and inspect live activity.</p>
+                  <p className="min-h-[2.5rem] text-xs text-muted-foreground">Open request logs, investigate errors, and inspect live activity.</p>
                 </div>
               </div>
             </Card>
@@ -620,9 +620,9 @@ export default function DashboardPage() {
                 <div className="min-w-0 space-y-1 text-left">
                   <div className="flex items-center gap-2">
                     <TrendingUp className="h-4 w-4" aria-hidden="true" />
-                    <span className="text-sm font-semibold">Usage</span>
+                    <span className="text-sm font-semibold">Usage Overview</span>
                   </div>
-                  <p className="text-xs text-muted-foreground">Review request volume, token activity, and tool trends once traffic starts.</p>
+                  <p className="min-h-[2.5rem] text-xs text-muted-foreground">Open request volume, token activity, and tool trend reports.</p>
                 </div>
               </div>
             </Card>
@@ -638,7 +638,7 @@ export default function DashboardPage() {
                     <Shield className="h-4 w-4" aria-hidden="true" />
                     <span className="text-sm font-semibold">Policies</span>
                   </div>
-                  <p className="text-xs text-muted-foreground">Create your first policy or adjust allow, approval, and block rules for tool calls.</p>
+                  <p className="min-h-[2.5rem] text-xs text-muted-foreground">Open policy rules to allow, require approval, or block tool calls.</p>
                 </div>
               </div>
             </Card>
