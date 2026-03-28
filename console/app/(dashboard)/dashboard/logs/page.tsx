@@ -1346,6 +1346,14 @@ function LogsPageContent() {
               <Button variant="outline" size="sm" className="min-h-11 w-full sm:ml-auto sm:w-auto" onClick={() => void loadStatistics()}>Retry</Button>
             </div>
           ) : null}
+          {!STATISTICS_SUPPORTED_TIME_RANGES.has(timeFilter) ? (
+            <div className="flex items-start gap-2 rounded-md border border-blue-200 bg-blue-50 px-3 py-2 text-sm text-blue-700 dark:border-blue-900/40 dark:bg-blue-950/20 dark:text-blue-300">
+              <Info className="h-4 w-4 shrink-0 mt-0.5" aria-hidden="true" />
+              <span>
+                Statistics support up to 7 days. Your table filter ({getTimeRangeLabel(timeFilter)}) isn&apos;t available here, so this view is showing {getTimeRangeLabel(statisticsTimeFilter)} instead.
+              </span>
+            </div>
+          ) : null}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
             <Card className="h-full">
               <CardHeader className="pb-2">
