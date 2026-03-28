@@ -994,12 +994,18 @@ export default function ApprovalsPage() {
                 </div>
               )}
 
-              <div className="text-sm">
+              <div className="grid grid-cols-1 gap-3 text-sm sm:grid-cols-2">
                 <div>
-                  <Label className="text-xs text-muted-foreground">Policy Version</Label>
-                  <p className="mt-1 font-mono text-xs">v{detailDialog.policyVersion}</p>
-                </div>
-              </div>
+                   <Label className="text-xs text-muted-foreground">Policy Version</Label>
+                   <p className="mt-1 font-mono text-xs">v{detailDialog.policyVersion}</p>
+                 </div>
+                 {detailDialog.uniformRequestId && (
+                   <div>
+                     <Label className="text-xs text-muted-foreground">Correlation ID</Label>
+                     <p className="mt-1 font-mono text-xs break-all">{detailDialog.uniformRequestId}</p>
+                   </div>
+                 )}
+               </div>
             </div>
             <DialogFooter className="flex-col items-stretch gap-3 sm:flex-col">
               {detailDialog.status === 'PENDING' && (
