@@ -796,7 +796,7 @@ function TokenUsagePageContent() {
                             <span className="text-sm">
                               {location.city && location.country
                                 ? `${location.city}, ${location.country}`
-                                : location.city || location.country || 'Unknown location'}
+                                : formatNullableText(location.city || location.country)}
                             </span>
                           </div>
                           <div className="flex w-full items-center justify-between gap-2 sm:w-auto">

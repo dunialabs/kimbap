@@ -43,6 +43,34 @@ import {
 import { GettingStartedCard } from '@/components/getting-started-card'
 import { cn, formatDisplayNumber, formatNullableText, formatPercentage } from '@/lib/utils'
 
+function getRequestErrorMessage(
+  error: unknown,
+  messages: { auth: string; network: string; fallback: string }
+) {
+  const requestError = error as {
+    response?: { status?: number; data?: { common?: { message?: string } } }
+    userMessage?: string
+    message?: string
+    code?: string
+  }
+  const status = requestError.response?.status
+  const rawMessage =
+    requestError.userMessage ||
+    requestError.response?.data?.common?.message ||
+    requestError.message ||
+    ''
+
+  if (status === 401 || status === 403) {
+    return rawMessage || messages.auth
+  }
+
+  if (!requestError.response || requestError.code === 'ECONNABORTED') {
+    return messages.network
+  }
+
+  return rawMessage || messages.fallback
+}
+
 interface ServerInfo {
   proxyId: string
   proxyName: string
@@ -68,19 +96,19 @@ interface DashboardData {
 
 export default function DashboardPage() {
   const [serverInfo, setServerInfo] = useState<ServerInfo | null>(null)
-  const [serverFetchError, setServerFetchError] = useState(false)
+  const [serverFetchError, setServerFetchError] = useState<string | null>(null)
   const [isServerInfoLoading, setIsServerInfoLoading] = useState(true)
   const [isClientsDialogOpen, setIsClientsDialogOpen] = useState(false)
   const [dashboardData, setDashboardData] = useState<DashboardData | null>(null)
-  const [dashboardLoadError, setDashboardLoadError] = useState(false)
+  const [dashboardLoadError, setDashboardLoadError] = useState<string | null>(null)
   const [pendingApprovalCount, setPendingApprovalCount] = useState<number | null>(null)
+  const [pendingApprovalError, setPendingApprovalError] = useState<string | null>(null)
   const [isPendingApprovalLoading, setIsPendingApprovalLoading] = useState(true)
 
-
-  useEffect(() => {
-    const fetchServerInfo = async () => {
-      setServerFetchError(false)
-      try {
+  const fetchServerInfo = useCallback(async () => {
+    setIsServerInfoLoading(true)
+    setServerFetchError(null)
+    try {
         const { api } = await import('@/lib/api-client')
 
         // Try to get cached server info from localStorage first
@@ -143,43 +171,62 @@ export default function DashboardPage() {
             }
           }
         }
-      } catch (err: any) {
-        const msg: string = err?.response?.data?.common?.message || err?.message || '';
-        const isNotFound = msg.toLowerCase().includes('not found') || err?.response?.status === 404;
-        if (!isNotFound) {
-          setServerFetchError(true)
-        }
-      } finally {
-        setIsServerInfoLoading(false)
+    } catch (error: unknown) {
+      const requestError = error as { response?: { status?: number; data?: { common?: { message?: string } } }; message?: string }
+      const msg = requestError.response?.data?.common?.message || requestError.message || ''
+      const isNotFound = msg.toLowerCase().includes('not found') || requestError.response?.status === 404
+      if (!isNotFound) {
+        setServerFetchError(
+          getRequestErrorMessage(error, {
+            auth: 'Your session expired or you no longer have access to this server. Sign in again and reconnect.',
+            network: 'Could not reach this server. Check your network connection and retry.',
+            fallback: 'Could not load server details for this dashboard. Retry or sign in again.'
+          })
+        )
       }
+    } finally {
+      setIsServerInfoLoading(false)
     }
-
-    fetchServerInfo()
   }, [])
+
+  useEffect(() => {
+    void fetchServerInfo()
+  }, [fetchServerInfo])
 
   useEffect(() => {
     document.title = 'Dashboard | Kimbap Console'
   }, [])
 
-  useEffect(() => {
-    const fetchPendingApprovals = async () => {
-      try {
-        const { api } = await import('@/lib/api-client')
-        const res = await api.approvals.countPending()
-        const data = res.data?.data || res.data
-        setPendingApprovalCount(data?.count || 0)
-      } catch {
-        // Non-critical — don't block dashboard
-        setPendingApprovalCount(null)
-      } finally {
-        setIsPendingApprovalLoading(false)
-      }
+  const fetchPendingApprovals = useCallback(async () => {
+    setIsPendingApprovalLoading(true)
+    setPendingApprovalError(null)
+    try {
+      const { api } = await import('@/lib/api-client')
+      const res = await api.approvals.countPending()
+      const data = res.data?.data || res.data
+      setPendingApprovalCount(data?.count || 0)
+    } catch (error: unknown) {
+      setPendingApprovalCount(null)
+      setPendingApprovalError(
+        getRequestErrorMessage(error, {
+          auth: 'Could not check pending approvals because your session expired or your access changed. Sign in again to continue.',
+          network: 'Could not check the approval queue. Check your connection and retry.',
+          fallback: 'Could not load the pending approval count right now. Retry to check the queue again.'
+        })
+      )
+    } finally {
+      setIsPendingApprovalLoading(false)
     }
-    fetchPendingApprovals()
   }, [])
+
+  useEffect(() => {
+    void fetchPendingApprovals()
+  }, [fetchPendingApprovals])
 
   const fetchDashboardData = useCallback(async () => {
     if (!serverInfo?.proxyId) return
+
+    setDashboardLoadError(null)
 
     try {
       const { api } = await import('@/lib/api-client')
@@ -189,14 +236,20 @@ export default function DashboardPage() {
 
       if (overviewResponse.data?.data) {
         setDashboardData(overviewResponse.data.data)
-        setDashboardLoadError(false)
+        setDashboardLoadError(null)
       } else {
         setDashboardData(null)
-        setDashboardLoadError(true)
+        setDashboardLoadError('Could not load dashboard metrics for the last 30 days. Retry to load usage, recent activity, and addresses again.')
       }
-    } catch {
+    } catch (error: unknown) {
       setDashboardData(null)
-      setDashboardLoadError(true)
+      setDashboardLoadError(
+        getRequestErrorMessage(error, {
+          auth: 'Could not load dashboard metrics because your session expired or your access changed. Sign in again and retry.',
+          network: 'Could not load dashboard metrics. Check your connection and retry.',
+          fallback: 'Could not load dashboard metrics for the last 30 days. Retry to load usage, recent activity, and addresses again.'
+        })
+      )
     }
   }, [serverInfo])
 
@@ -225,7 +278,7 @@ export default function DashboardPage() {
   const approvalSummaryText = isPendingApprovalLoading
     ? 'Checking the approval queue…'
     : hasPendingApprovals
-    ? `Review ${pendingApprovalCount!.toLocaleString()} request${pendingApprovalCount === 1 ? '' : 's'} waiting on a decision.`
+    ? `Review ${formatDisplayNumber(pendingApprovalCount)} request${pendingApprovalCount === 1 ? '' : 's'} waiting on a decision.`
     : 'No approvals are waiting right now.'
   const localAddressText = isDashboardLoading ? 'Loading address…' : formatNullableText(localAddress)
   const remoteAddressText = isDashboardLoading ? 'Loading address…' : formatNullableText(remoteAddress)
@@ -263,13 +316,18 @@ export default function DashboardPage() {
   if (serverFetchError && !serverInfo) {
     return (
       <div className="flex items-center justify-center min-h-[400px]">
-        <div className="text-center">
+        <div className="text-center" role="alert">
           <Server className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
-          <h3 className="text-lg font-semibold mb-2">Could not reach server</h3>
+          <h3 className="text-lg font-semibold mb-2">Could not load server connection</h3>
           <p className="text-muted-foreground mb-4">
-            Check your connection and retry. If the problem persists, return to sign in and reconnect.
+            {serverFetchError}
           </p>
-          <Button onClick={() => window.location.reload()}>Retry</Button>
+          <div className="flex flex-col gap-2 sm:flex-row sm:justify-center">
+            <Button onClick={() => void fetchServerInfo()}>Retry</Button>
+            <Link href="/" className={buttonVariants({ variant: 'outline' })}>
+              Back to sign in
+            </Link>
+          </div>
         </div>
       </div>
     )
@@ -330,7 +388,7 @@ export default function DashboardPage() {
             <CardContent className="flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between">
               <div className="min-w-0">
                 <p className="text-sm font-semibold text-foreground">
-                  {pendingApprovalCount!.toLocaleString()} approval{pendingApprovalCount === 1 ? '' : 's'} waiting for review
+                  {formatDisplayNumber(pendingApprovalCount)} approval{pendingApprovalCount === 1 ? '' : 's'} waiting for review
                 </p>
                 <p className="text-sm text-muted-foreground">
                   Requests that need an operator decision are waiting in the approval queue.
@@ -604,6 +662,11 @@ export default function DashboardPage() {
                 <p className="text-sm text-muted-foreground">Loading tool activity for the last 30 days…</p>
               </div>
             </div>
+          ) : dashboardLoadError ? (
+            <div role="alert" className="flex flex-col items-center justify-center gap-2 py-8 text-center">
+              <p className="text-sm text-red-600 dark:text-red-400">Tool usage could not be loaded for the last 30 days.</p>
+              <Button variant="outline" size="sm" onClick={() => void fetchDashboardData()}>Retry</Button>
+            </div>
           ) : !toolsUsage || toolsUsage.length === 0 ? (
             <div className="flex items-center justify-center py-8">
               <p className="text-sm text-muted-foreground">No tool requests in the last 30 days yet.</p>
@@ -630,7 +693,7 @@ export default function DashboardPage() {
                       </div>
                     </div>
                     <div className="whitespace-nowrap text-sm text-muted-foreground">
-                      {typeof tool.requests === 'number' ? tool.requests.toLocaleString() : tool.requests}
+                      {typeof tool.requests === 'number' ? formatDisplayNumber(tool.requests, { compact: true }) : tool.requests}
                     </div>
                   </div>
                 </Link>
@@ -657,6 +720,11 @@ export default function DashboardPage() {
                 <div className="mx-auto mb-3 h-6 w-6 animate-spin rounded-full border-2 border-muted-foreground/30 border-t-foreground" aria-hidden="true" />
                 <p className="text-sm text-muted-foreground">Loading access token activity for the last 30 days…</p>
               </div>
+            </div>
+          ) : dashboardLoadError ? (
+            <div role="alert" className="flex flex-col items-center justify-center gap-2 py-8 text-center">
+              <p className="text-sm text-red-600 dark:text-red-400">Access token activity could not be loaded for the last 30 days.</p>
+              <Button variant="outline" size="sm" onClick={() => void fetchDashboardData()}>Retry</Button>
             </div>
           ) : !tokenUsage || tokenUsage.length === 0 ? (
             <div className="flex items-center justify-center py-8">
@@ -688,7 +756,7 @@ export default function DashboardPage() {
                     </div>
                     <div className="flex items-center justify-between gap-3 sm:block sm:text-right">
                       <div className="whitespace-nowrap text-sm text-muted-foreground">
-                        {typeof token.requests === 'number' ? token.requests.toLocaleString() : token.requests}
+                        {typeof token.requests === 'number' ? formatDisplayNumber(token.requests, { compact: true }) : token.requests}
                       </div>
                       <div className="hidden whitespace-nowrap font-mono text-xs text-muted-foreground sm:block">
                         {formatNullableText(token.token)}
@@ -717,6 +785,11 @@ export default function DashboardPage() {
                   <div className="mx-auto mb-3 h-6 w-6 animate-spin rounded-full border-2 border-muted-foreground/30 border-t-foreground" aria-hidden="true" />
                   <p className="text-sm text-muted-foreground">Loading recent dashboard activity…</p>
                 </div>
+              </div>
+            ) : dashboardLoadError ? (
+              <div role="alert" className="flex flex-col items-center justify-center gap-2 py-8 text-center">
+                <p className="text-sm text-red-600 dark:text-red-400">Recent dashboard activity could not be loaded for the last 30 days.</p>
+                <Button variant="outline" size="sm" onClick={() => void fetchDashboardData()}>Retry</Button>
               </div>
             ) : !recentActivity || recentActivity.length === 0 ? (
               <div className="flex items-center justify-center py-8">
@@ -769,7 +842,7 @@ export default function DashboardPage() {
           <DialogHeader>
             <DialogTitle className="flex flex-wrap items-center gap-2">
               <Users className="h-5 w-5" />
-              Recent Clients (24 hours) ({connectedClients.length.toLocaleString()})
+              Recent Clients (24 hours) ({formatDisplayNumber(connectedClients.length)})
             </DialogTitle>
             <DialogDescription>
               Clients seen in the last 24 hours on your{' '}
@@ -783,6 +856,11 @@ export default function DashboardPage() {
                   <div className="mx-auto mb-3 h-6 w-6 animate-spin rounded-full border-2 border-muted-foreground/30 border-t-foreground" aria-hidden="true" />
                   <p className="text-sm text-muted-foreground">Loading recent client details…</p>
                 </div>
+              </div>
+            ) : dashboardLoadError ? (
+              <div role="alert" className="flex flex-col items-center justify-center gap-2 py-8 text-center">
+                <p className="text-sm text-red-600 dark:text-red-400">Recent client details could not be loaded.</p>
+                <Button variant="outline" size="sm" onClick={() => void fetchDashboardData()}>Retry</Button>
               </div>
             ) : connectedClients.length === 0 ? (
               <div className="flex items-center justify-center py-8">
@@ -840,7 +918,7 @@ export default function DashboardPage() {
                           {formatNullableText(client.lastActive)}
                         </TableCell>
                         <TableCell className="text-right">
-                          {client.requests.toLocaleString()}
+                          {formatDisplayNumber(client.requests, { compact: true })}
                         </TableCell>
                       </TableRow>
                     ))}

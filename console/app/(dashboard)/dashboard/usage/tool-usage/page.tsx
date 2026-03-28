@@ -37,7 +37,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { api } from '@/lib/api-client'
 import { getActionLabel } from '@/lib/log-utils'
-import { formatDisplayNumber, formatNullableText, formatPercentage } from '@/lib/utils'
+import { formatDateTime, formatDisplayNumber, formatNullableText, formatPercentage } from '@/lib/utils'
 
 interface ToolUsageData {
   toolId?: string
@@ -774,7 +774,7 @@ function ToolUsagePageContent() {
                 <Card key={tool.toolId}>
                   <CardHeader>
                     <CardTitle>{tool.toolName} - Error Analysis</CardTitle>
-                    <CardDescription>{tool.totalErrors.toLocaleString()} total errors</CardDescription>
+                    <CardDescription>{formatDisplayNumber(tool.totalErrors)} total errors</CardDescription>
                   </CardHeader>
                   <CardContent className="space-y-3">
                     {tool.errorTypes.map((error) => (
@@ -951,7 +951,7 @@ function ToolUsagePageContent() {
                   <TableBody>
                     {actionLogs.map((log) => (
                       <TableRow key={log.logId}>
-                        <TableCell>{new Date(log.timestamp * 1000).toLocaleString()}</TableCell>
+                        <TableCell>{formatDateTime(log.timestamp * 1000, { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit', second: '2-digit' })}</TableCell>
                         <TableCell>{log.toolName}</TableCell>
                         <TableCell className="font-mono text-xs">{getActionLabel(log.actionType)}</TableCell>
                         <TableCell>{log.userName}</TableCell>

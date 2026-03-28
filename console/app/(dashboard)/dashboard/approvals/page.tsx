@@ -992,13 +992,13 @@ export default function ApprovalsPage() {
         {decideDialog && (
           <DialogContent className="max-w-md">
             <DialogHeader>
-              <DialogTitle>
-                {decideDialog.decision === 'APPROVED' ? 'Approve' : 'Reject'} Request
+              <DialogTitle className="font-mono text-base">
+                {decideDialog.request.toolName}
               </DialogTitle>
               <DialogDescription>
                 {decideDialog.decision === 'APPROVED'
-                  ? `Allow ${decideDialog.request.toolName} to proceed for user ${decideDialog.request.userId}.`
-                  : `Deny ${decideDialog.request.toolName} for user ${decideDialog.request.userId}.`}
+                  ? `Allow this tool call to proceed?`
+                  : `Deny this tool call?`}
               </DialogDescription>
             </DialogHeader>
             <div className="space-y-3 py-2">

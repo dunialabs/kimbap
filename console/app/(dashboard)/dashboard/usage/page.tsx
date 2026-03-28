@@ -17,7 +17,7 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { api } from "@/lib/api-client"
-import { formatDisplayNumber, formatRelativeMinutes } from "@/lib/utils"
+import { formatDisplayNumber, formatPercentage, formatRelativeMinutes } from "@/lib/utils"
 
 interface OverviewSummary {
   totalRequests24h: number
@@ -307,7 +307,7 @@ function UsagePageContent() {
               {!loading && overviewSummary && overviewSummary.requestsChangePercent !== undefined ? (
                 <>
                   <span className={overviewSummary.requestsChangePercent >= 0 ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400"}>
-                    {overviewSummary.requestsChangePercent >= 0 ? '+' : ''}{overviewSummary.requestsChangePercent.toFixed(1)}%
+                    {overviewSummary.requestsChangePercent >= 0 ? '+' : '-'}{formatPercentage(Math.abs(overviewSummary.requestsChangePercent))}
                   </span> from previous period
                 </>
               ) : null}
@@ -329,7 +329,7 @@ function UsagePageContent() {
                 : formatDisplayNumber(overviewSummary.activeTokens, { compact: true })}
             </div>
             <p className="text-xs text-muted-foreground">
-              {!loading && overviewSummary && overviewSummary.tokensUsedLastHour != null && `${overviewSummary.tokensUsedLastHour.toLocaleString()} tokens used in last hour`}
+              {!loading && overviewSummary && overviewSummary.tokensUsedLastHour != null && `${formatDisplayNumber(overviewSummary.tokensUsedLastHour, { compact: true })} tokens used in last hour`}
             </p>
           </CardContent>
         </Card>
@@ -418,7 +418,7 @@ function UsagePageContent() {
                   </div>
                   <div className="w-full text-left sm:w-auto sm:text-right">
                     <div className="font-medium">{formatDisplayNumber(tool.requestCount)} requests</div>
-                    <div className="text-sm text-muted-foreground">{tool.percentage.toFixed(1)}% of total</div>
+                    <div className="text-sm text-muted-foreground">{`${formatPercentage(tool.percentage)} of total`}</div>
                   </div>
                 </Link>
               ))}
