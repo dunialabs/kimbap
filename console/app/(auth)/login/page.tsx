@@ -9,7 +9,7 @@ function RedirectFallback() {
       <div className="text-center">
         <div className="mx-auto mb-4 h-8 w-8 animate-spin rounded-full border-2 border-muted-foreground/30 border-t-foreground" aria-hidden="true" />
         <h1 className="text-lg font-semibold">Redirecting to sign in</h1>
-        <p className="text-sm text-muted-foreground">Redirecting…</p>
+        <p className="text-sm text-muted-foreground">Taking you to the sign-in screen…</p>
       </div>
     </div>
   )
@@ -30,7 +30,7 @@ function LoginRedirect() {
       <div className="text-center">
         <div className="mx-auto mb-4 h-8 w-8 animate-spin rounded-full border-2 border-muted-foreground/30 border-t-foreground" aria-hidden="true" />
         <h1 className="text-lg font-semibold">Redirecting to sign in</h1>
-        <p className="text-sm text-muted-foreground">Redirecting…</p>
+        <p className="text-sm text-muted-foreground">Taking you to the sign-in screen…</p>
       </div>
     </div>
   )

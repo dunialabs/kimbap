@@ -28,7 +28,7 @@ export const navItems = [
   {
     href: '/dashboard/usage',
     icon: TrendingUp,
-    label: 'Usage',
+    label: 'Usage Overview',
     subItems: [
       { href: '/dashboard/usage/tool-usage', label: 'Tool Usage' },
       { href: '/dashboard/usage/token-usage', label: 'Access Token Usage' },
