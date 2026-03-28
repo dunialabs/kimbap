@@ -17,9 +17,9 @@ export default function MasterPasswordPage() {
             The master password is your owner credential for this console. You'll use it to manage policies, approvals, logs, and usage from the browser.
           </p>
           <ul className="mt-3 list-disc space-y-2 pl-5 leading-6 text-muted-foreground">
-            <li>Only owners can set or reset the master password.</li>
-            <li>Admins and other operators sign in with access tokens instead.</li>
-            <li>Store it safely — it cannot be recovered.</li>
+            <li><span className="font-medium text-foreground">Owner-only:</span> Only owners can set or reset the master password.</li>
+            <li><span className="font-medium text-foreground">For admins/operators:</span> Sign in with access tokens instead.</li>
+            <li><span className="font-medium text-foreground">Important:</span> Store it safely — it cannot be recovered.</li>
           </ul>
         </div>
 

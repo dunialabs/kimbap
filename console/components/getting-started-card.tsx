@@ -41,14 +41,15 @@ export function GettingStartedCard() {
           <p className="mt-1 text-xs text-muted-foreground">You can revisit this checklist anytime from the dashboard home.</p>
         </div>
 
-        <ul className="space-y-3">
-          {shortcuts.map((shortcut) => (
+        <ol className="space-y-3" aria-label="Getting started checklist">
+          {shortcuts.map((shortcut, index) => (
             <li
               key={shortcut.href}
               className="flex flex-wrap items-center gap-4 rounded-lg border border-blue-200/70 bg-background/90 p-4 dark:border-blue-900/70 dark:bg-background/60 sm:flex-nowrap"
             >
               <div className="flex-1">
-                <h3 className="mb-1 text-sm font-semibold text-foreground">
+                <h3 className="mb-1 flex items-center gap-2 text-sm font-semibold text-foreground">
+                  <span className="inline-flex h-5 min-w-[20px] items-center justify-center rounded-full border border-blue-200 bg-blue-50 px-1.5 text-[11px] font-medium text-blue-700 dark:border-blue-900 dark:bg-blue-950/30 dark:text-blue-300">{index + 1}</span>
                   {shortcut.title}
                 </h3>
                 <p className="text-sm leading-6 text-muted-foreground">
@@ -58,6 +59,7 @@ export function GettingStartedCard() {
               <div className="flex w-full justify-end sm:w-auto">
                 <Link
                   href={shortcut.href}
+                  aria-label={`Step ${index + 1}: ${shortcut.actionLabel}`}
                   className={cn(buttonVariants({ size: 'sm' }), 'min-h-11 w-[148px] justify-center px-4')}
                 >
                   {shortcut.actionLabel}
@@ -65,7 +67,7 @@ export function GettingStartedCard() {
               </div>
             </li>
           ))}
-        </ul>
+        </ol>
       </CardContent>
     </Card>
   )

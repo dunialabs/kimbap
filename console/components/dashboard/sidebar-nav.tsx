@@ -19,7 +19,7 @@ import {
   Collapsible,
   CollapsibleContent
 } from '@/components/ui/collapsible'
-import { cn } from '@/lib/utils'
+import { cn, formatDisplayNumber } from '@/lib/utils'
 
 export const navItems = [
   { href: '/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
@@ -162,9 +162,12 @@ export function SidebarNav({ onNavigate, pendingApprovalCount = 0 }: SidebarNavP
                   <item.icon className="h-4 w-4" aria-hidden="true" focusable="false" />
                   {item.label}
                   {item.label === 'Approvals' && pendingApprovalCount > 0 && (
-                    <span className="ml-auto inline-flex h-5 min-w-[20px] items-center justify-center rounded-full bg-amber-100 px-1.5 text-xs font-medium text-amber-800 dark:bg-amber-900 dark:text-amber-300">
-                      {pendingApprovalCount > 99 ? '99+' : pendingApprovalCount}
-                    </span>
+                    <>
+                      <span className="ml-auto inline-flex h-5 min-w-[20px] items-center justify-center rounded-full bg-amber-100 px-1.5 text-xs font-medium text-amber-800 dark:bg-amber-900 dark:text-amber-300">
+                        {pendingApprovalCount > 99 ? '99+' : pendingApprovalCount}
+                      </span>
+                      <span className="sr-only">{formatDisplayNumber(pendingApprovalCount)} approvals pending</span>
+                    </>
                   )}
                 </Link>
               )}
