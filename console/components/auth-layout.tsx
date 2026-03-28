@@ -6,6 +6,7 @@
  * @FilePath: /kimbap-console/components/auth-layout.tsx
  * @Description: Authentication page layout wrapper
  */
+import Image from 'next/image'
 import Link from 'next/link'
 import type React from 'react'
 
