@@ -633,16 +633,17 @@ export default function DashboardPage() {
         <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
           <Card className="p-4 h-full">
             <div className="flex items-center justify-between h-full gap-3">
-              <div className="flex flex-col gap-1 justify-center min-w-0">
+              <div className="flex flex-col gap-2 justify-center min-w-0">
+                <p className="text-sm text-muted-foreground">Local address</p>
                 <div className="flex flex-wrap items-center gap-2">
-                  <p className="text-sm text-muted-foreground">
-                    Local address
+                  <p className={localAddress && !isDashboardLoading ? "font-mono text-sm font-normal break-all min-w-0" : "text-sm text-muted-foreground"}>
+                    {localAddressText}
                   </p>
                   <Button
                     type="button"
                     variant="ghost"
                     size="sm"
-                    className="min-h-11 px-3 text-xs"
+                    className="min-h-11 shrink-0 px-3 text-xs"
                     disabled={!localAddress || isDashboardLoading}
                     onClick={() => void copyConnectionAddress('Local address', localAddress)}
                   >
@@ -650,26 +651,24 @@ export default function DashboardPage() {
                     Copy
                   </Button>
                 </div>
-                <p className={localAddress && !isDashboardLoading ? "font-mono text-sm font-normal break-words" : "text-sm text-muted-foreground"}>
-                  {localAddressText}
-                </p>
               </div>
-              <MapPin className="h-5 w-5 text-muted-foreground" />
+              <MapPin className="h-5 w-5 shrink-0 text-muted-foreground" />
             </div>
           </Card>
 
           <Card className="p-4 h-full">
             <div className="flex items-center justify-between h-full gap-3">
-              <div className="flex flex-col gap-1 justify-center min-w-0">
+              <div className="flex flex-col gap-2 justify-center min-w-0">
+                <p className="text-sm text-muted-foreground">Remote address</p>
                 <div className="flex flex-wrap items-center gap-2">
-                  <p className="text-sm text-muted-foreground">
-                    Remote address
+                  <p className={remoteAddress && !isDashboardLoading ? "font-mono text-sm font-normal break-all min-w-0" : "text-sm text-muted-foreground"}>
+                    {remoteAddressText}
                   </p>
                   <Button
                     type="button"
                     variant="ghost"
                     size="sm"
-                    className="min-h-11 px-3 text-xs"
+                    className="min-h-11 shrink-0 px-3 text-xs"
                     disabled={!remoteAddress || isDashboardLoading}
                     onClick={() => void copyConnectionAddress('Remote address', remoteAddress)}
                   >
@@ -677,11 +676,8 @@ export default function DashboardPage() {
                     Copy
                   </Button>
                 </div>
-                <p className={remoteAddress && !isDashboardLoading ? "font-mono text-sm font-normal break-words" : "text-sm text-muted-foreground"}>
-                  {remoteAddressText}
-                </p>
               </div>
-              <Globe className="h-5 w-5 text-muted-foreground" />
+              <Globe className="h-5 w-5 shrink-0 text-muted-foreground" />
             </div>
           </Card>
 
