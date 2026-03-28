@@ -8,7 +8,7 @@ import (
 )
 
 // Envelope is the canonical API response envelope used by all kimbap
-// REST endpoints. Both kimbap and kimbap-console converge to this shape.
+// REST endpoints. All kimbap REST endpoints use this shape.
 //
 //	Success: {"success": true,  "data": T,                                "request_id": "..."}
 //	Error:   {"success": false, "error": {"code","message","retryable"},  "request_id": "..."}

@@ -6,7 +6,7 @@
 # Build output
 bin/
 /server
-/peta-core-go
+
 
 # IDE / Editor
 .vscode/
@@ -36,10 +36,7 @@ temp/
 .sisyphus/
 .openchrome/
 
-# Optional web console artifacts
-console/node_modules/
-console/.next/
-console/tsconfig.tsbuildinfo
+
 
 # ── Transition / parity documents (TS→Go migration artifacts) ──
 

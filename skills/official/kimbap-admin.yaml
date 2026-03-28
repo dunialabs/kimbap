@@ -1,24 +1,24 @@
-name: peta
+name: kimbap-admin
 version: 2.0.0
-description: Peta Console API for full MCP tool management, token and policy control, approval workflows, IP whitelisting, cache control, and session inspection
+description: Kimbap Console API for full MCP tool management, token and policy control, approval workflows, IP whitelisting, cache control, and session inspection
 base_url: http://localhost:3000/api/external
 auth:
   type: bearer
-  credential_ref: peta.token
+  credential_ref: kimbap-admin.token
 triggers:
   task_verbs: [list, create, update, delete, approve, reject, manage, enable, disable, start, connect, configure, purge, check, initialize]
-  objects: [tokens, policies, approvals, tools, capabilities, proxy, sessions, scopes, templates, cache, ip-whitelist, user-servers, peta-core]
+  objects: [tokens, policies, approvals, tools, capabilities, proxy, sessions, scopes, templates, cache, ip-whitelist, user-servers, kimbap-core]
   instead_of:
-    - manually logging into the Peta Console web UI to manage tokens, tools, or approvals
-    - calling Peta APIs directly without credentials stored in the vault
+    - manually logging into the Kimbap Console web UI to manage tokens, tools, or approvals
+    - calling Kimbap APIs directly without credentials stored in the vault
     - using raw curl commands to manage console state
   exclusions:
-    - actions unrelated to Peta Console operations
+    - actions unrelated to Kimbap Console operations
     - direct database manipulation inside the console container
 gotchas:
   - symptom: All API calls return 401 Unauthorized
-    likely_cause: peta.token vault entry is missing, wrong, or the token has been revoked
-    recovery: Verify peta.token is correctly set with kimbap vault set peta.token; only call init on a completely fresh uninitialized instance
+    likely_cause: kimbap.token vault entry is missing, wrong, or the token has been revoked
+    recovery: Verify kimbap.token is correctly set with kimbap vault set kimbap-admin.token; only call init on a completely fresh uninitialized instance
     severity: high
   - symptom: init returns error code E3007 Proxy has already been initialized
     likely_cause: The console was already bootstrapped; calling init again is not allowed
@@ -66,11 +66,11 @@ gotchas:
     severity: high
 recipes:
   - name: Bootstrap a fresh console instance
-    description: Initialize the proxy, capture the owner token, and verify peta-core connectivity
+    description: Initialize the proxy, capture the owner token, and verify kimbap-core connectivity
     steps:
       - Call init with a strong masterPwd to create the proxy and obtain the owner accessToken
-      - Store the returned accessToken with kimbap vault set peta.token
-      - Call get-peta-core-status to verify peta-core is configured and connected
+      - Store the returned accessToken with kimbap vault set kimbap-admin.token
+      - Call get-kimbap-core-status to verify kimbap-core is configured and connected
       - Call get-proxy to confirm the proxy is responding
   - name: Install and start a tool from a template
     description: Browse available templates, create a tool, and start it
@@ -130,7 +130,7 @@ actions:
     method: POST
     path: /auth/init
     description: >
-      Initialize Peta for the first time. Creates the proxy record and returns the owner
+      Initialize Kimbap for the first time. Creates the proxy record and returns the owner
       access token. Call only once on a fresh install; subsequent calls fail with E3007 if already initialized.
     auth:
       type: none
@@ -138,7 +138,7 @@ actions:
       - This endpoint requires NO authentication; it bootstraps the very first owner token
       - Fails with E3007 if the proxy has already been initialized; do not call again on an existing instance
       - masterPwd is used to encrypt the owner token server-side; store it securely as it is needed by enable-tool, disable-tool, and start-tool
-      - The returned accessToken must be saved immediately and stored with kimbap vault set peta.token
+      - The returned accessToken must be saved immediately and stored with kimbap vault set kimbap-admin.token
     args:
       - name: masterPwd
         type: string
@@ -182,10 +182,10 @@ actions:
       type: object
     risk:
       level: medium
-  get-peta-core-status:
+  get-kimbap-core-status:
     method: POST
-    path: /peta-core/connect
-    description: Get the currently configured peta-core connection details including host, port, and connected status
+    path: /kimbap-core/connect
+    description: Get the currently configured kimbap-core connection details including host, port, and connected status
     args: []
     request:
       body: {}
@@ -660,7 +660,7 @@ actions:
     method: POST
     path: /templates
     description: >
-      Get all available tool templates from Peta Cloud. Each template includes toolTmplId,
+      Get all available tool templates from Kimbap Cloud. Each template includes toolTmplId,
       name, description, and mcpJsonConf schema used when creating a basic-mcp tool.
     args: []
     request:
@@ -938,7 +938,7 @@ actions:
       Requires masterPwd to decrypt the owner token for the MCP server process.
     warnings:
       - masterPwd must be the password used during init; wrong password returns E2004
-      - Returns E4008 if the start attempt fails; check peta-core connectivity
+      - Returns E4008 if the start attempt fails; check kimbap-core connectivity
     args:
       - name: toolId
         type: string
@@ -971,7 +971,7 @@ actions:
     method: POST
     path: /tools/basic-mcp
     description: >
-      Create a template-based MCP tool using a Peta Cloud template.
+      Create a template-based MCP tool using a Kimbap Cloud template.
       Call list-templates first to get valid toolTmplId values and the mcpJsonConf schema.
       The tool is started automatically; check isStarted in the response.
     warnings:
@@ -1298,7 +1298,7 @@ actions:
     method: POST
     path: /tools/skills
     description: >
-      Create a Skills-based MCP tool. Skills are stored on the peta-core server at skills/{toolId}/
+      Create a Skills-based MCP tool. Skills are stored on the kimbap-core server at skills/{toolId}/
       and served via the Skills MCP Server Docker container.
     warnings:
       - Returns E4001 if the tool creation limit is reached
