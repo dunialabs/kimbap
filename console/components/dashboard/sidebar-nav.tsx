@@ -188,6 +188,7 @@ export function SidebarNav({ onNavigate, pendingApprovalCount = 0 }: SidebarNavP
               target="_blank"
               rel="noopener noreferrer"
               aria-label="Documentation (opens in a new tab)"
+              title="Open documentation in a new tab"
               className="mb-1 flex min-h-11 items-center gap-3 rounded-lg px-3 py-2 text-muted-foreground transition-colors duration-200 hover:bg-accent/70 hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2"
             >
               <BookOpen className="h-4 w-4" aria-hidden="true" focusable="false" />

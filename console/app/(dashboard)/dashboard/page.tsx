@@ -2,13 +2,9 @@
 
 import {
   Server,
-  CheckCircle,
-  Shield,
-  Activity,
   Globe,
   MapPin,
   Users,
-  TrendingUp,
   Copy,
   AlertTriangle
 } from 'lucide-react'
@@ -563,87 +559,6 @@ export default function DashboardPage() {
         </CardContent>
       </Card>
 
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
-          <Link
-            href="/dashboard/approvals"
-            aria-label={!isPendingApprovalLoading && hasPendingApprovals ? `Review approvals, ${pendingApprovalCount} pending` : undefined}
-            className="block rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2"
-          >
-            <Card
-              className={cn(
-                'h-full cursor-pointer transition-colors duration-200',
-                hasPendingApprovals
-                  ? 'border-amber-300 bg-amber-50/80 hover:bg-amber-50 dark:border-amber-800 dark:bg-amber-950/20 dark:hover:bg-amber-950/30'
-                  : 'hover:bg-muted/50'
-              )}
-            >
-              <div className="flex h-full items-start justify-between gap-3 p-4">
-                <div className="min-w-0 space-y-1 text-left">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <CheckCircle className="h-4 w-4" aria-hidden="true" />
-                    <span className="text-sm font-semibold">Approvals</span>
-                    {hasPendingApprovals && (
-                      <span className="inline-flex items-center justify-center rounded-full bg-amber-100 px-1.5 text-xs font-medium text-amber-800 dark:bg-amber-900 dark:text-amber-300">
-                        {(pendingApprovalCount ?? 0) > 99 ? '99+' : pendingApprovalCount} pending
-                      </span>
-                    )}
-                  </div>
-                  <p className="min-h-[2.5rem] text-xs text-muted-foreground">
-                    {approvalSummaryText}
-                  </p>
-                </div>
-              </div>
-            </Card>
-          </Link>
-          <Link
-            href="/dashboard/logs"
-            className="block rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2"
-          >
-            <Card className="h-full cursor-pointer transition-colors duration-200 hover:bg-muted/50">
-              <div className="flex h-full items-start justify-between gap-3 p-4">
-                <div className="min-w-0 space-y-1 text-left">
-                  <div className="flex items-center gap-2">
-                    <Activity className="h-4 w-4" aria-hidden="true" />
-                    <span className="text-sm font-semibold">Logs & Monitoring</span>
-                  </div>
-                  <p className="min-h-[2.5rem] text-xs text-muted-foreground">Open request logs, investigate errors, and inspect live activity.</p>
-                </div>
-              </div>
-            </Card>
-          </Link>
-          <Link
-            href="/dashboard/usage?timeRange=30"
-            className="block rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2"
-          >
-            <Card className="h-full cursor-pointer transition-colors duration-200 hover:bg-muted/50">
-              <div className="flex h-full items-start justify-between gap-3 p-4">
-                <div className="min-w-0 space-y-1 text-left">
-                  <div className="flex items-center gap-2">
-                    <TrendingUp className="h-4 w-4" aria-hidden="true" />
-                    <span className="text-sm font-semibold">Usage Overview</span>
-                  </div>
-                  <p className="min-h-[2.5rem] text-xs text-muted-foreground">Open request volume, token activity, and tool trend reports.</p>
-                </div>
-              </div>
-            </Card>
-          </Link>
-          <Link
-            href="/dashboard/policies"
-            className="block rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2"
-          >
-            <Card className="h-full cursor-pointer transition-colors duration-200 hover:bg-muted/50">
-              <div className="flex h-full items-start justify-between gap-3 p-4">
-                <div className="min-w-0 space-y-1 text-left">
-                  <div className="flex items-center gap-2">
-                    <Shield className="h-4 w-4" aria-hidden="true" />
-                    <span className="text-sm font-semibold">Policies</span>
-                  </div>
-                  <p className="min-h-[2.5rem] text-xs text-muted-foreground">Open policy rules to allow, require approval, or block tool calls.</p>
-                </div>
-              </div>
-            </Card>
-          </Link>
-        </div>
         {/* Connection Info */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
           <Card className="p-4 h-full">
