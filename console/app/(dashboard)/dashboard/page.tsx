@@ -189,7 +189,14 @@ export default function DashboardPage() {
       const requestError = error as { response?: { status?: number; data?: { common?: { message?: string } } }; message?: string }
       const msg = requestError.response?.data?.common?.message || requestError.message || ''
       const isNotFound = msg.toLowerCase().includes('not found') || requestError.response?.status === 404
-      if (!isNotFound) {
+      if (isNotFound) {
+        setServerInfo(null)
+        try {
+          localStorage.removeItem('selectedServer')
+        } catch {
+          // Failed to clear stale server selection
+        }
+      } else {
         setServerFetchError(
           getRequestErrorMessage(error, {
             auth: 'Your session expired or you no longer have access to this server. Sign in again and reconnect.',
