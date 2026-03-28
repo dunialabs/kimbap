@@ -5,6 +5,33 @@ adapter: applescript
 target_app: Calendar
 auth:
   type: none
+triggers:
+  task_verbs: [list, check, schedule, create, search]
+  objects: [calendars, events, meetings, appointments]
+  instead_of:
+    - manually creating or scanning events in Calendar UI
+  exclusions:
+    - attendee invitation workflows requiring external server-side validation
+gotchas:
+  - symptom: create-event fails or creates event at unexpected time
+    likely_cause: Date strings are ambiguous or not parseable in the current locale/timezone
+    recovery: Use explicit ISO-like datetime values with timezone awareness and verify with list-events
+    severity: high
+  - symptom: get-event returns the wrong event when titles are reused
+    likely_cause: Event titles are not unique across calendars and days
+    recovery: Narrow scope by calendar and date range before selecting by title
+    severity: medium
+  - symptom: list-events misses expected items immediately after creation
+    likely_cause: Calendar sync/index updates can lag briefly across accounts
+    recovery: Retry list-events with a short backoff and confirm the target calendar account
+    severity: low
+recipes:
+  - name: Safe event creation and verification
+    description: Create an event in the intended calendar with deterministic validation
+    steps:
+      - Run apple-calendar.list-calendars and confirm the exact calendar name
+      - Run apple-calendar.create-event with explicit title, start_date, end_date, and calendar
+      - Run apple-calendar.list-events for that calendar and date window to verify persistence
 actions:
   list-calendars:
     command: list-calendars

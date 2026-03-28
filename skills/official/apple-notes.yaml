@@ -5,6 +5,33 @@ adapter: applescript
 target_app: Notes
 auth:
   type: none
+triggers:
+  task_verbs: [list, read, search, create, capture, organize]
+  objects: [notes, folders, note content, titles]
+  instead_of:
+    - manually opening Notes to browse or capture text snippets
+  exclusions:
+    - rich text formatting/layout editing beyond plain content capture
+gotchas:
+  - symptom: get-note returns the wrong note when titles look identical
+    likely_cause: Notes titles are not globally unique across folders/accounts
+    recovery: Use list-notes with folder filtering first, then target by exact title within the correct folder
+    severity: high
+  - symptom: create-note succeeds but note appears in an unexpected account/folder
+    likely_cause: Default folder resolution differs between iCloud and On My Mac Notes
+    recovery: Pass folder explicitly and verify it exists via list-folders before creating
+    severity: medium
+  - symptom: Notes actions fail with Automation permission or event timeout errors
+    likely_cause: macOS has not granted the caller permission to control Notes, or Notes is busy syncing
+    recovery: Grant Automation permission in System Settings and retry after Notes finishes syncing
+    severity: common
+recipes:
+  - name: Capture note into a known folder
+    description: Create a note deterministically in the intended location
+    steps:
+      - Run apple-notes.list-folders and confirm the exact destination folder name
+      - Run apple-notes.create-note with title, body, and explicit folder
+      - Run apple-notes.list-notes filtered by that folder to confirm the note exists
 actions:
   list-folders:
     command: list-folders

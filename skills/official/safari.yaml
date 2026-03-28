@@ -5,6 +5,33 @@ adapter: applescript
 target_app: Safari
 auth:
   type: none
+triggers:
+  task_verbs: [open, inspect, list, capture, close, navigate]
+  objects: [urls, tabs, windows, page source]
+  instead_of:
+    - manually switching tabs to collect URLs or source snippets
+  exclusions:
+    - authenticated browser automation requiring form filling or multi-step UI interaction
+gotchas:
+  - symptom: get-url or get-source fails with "no front document" errors
+    likely_cause: Safari has no open window/tab or is still launching
+    recovery: Ensure at least one tab exists (open-url if needed) and retry after Safari is ready
+    severity: common
+  - symptom: close-tab closes the wrong tab
+    likely_cause: Tab indices shift as tabs are opened/closed and are not stable identifiers
+    recovery: Run safari.list-tabs immediately before close-tab and use current window/tab indexes
+    severity: high
+  - symptom: get-source returns partial/old HTML
+    likely_cause: Page is still loading or dynamically mutates after initial load
+    recovery: Wait briefly for load completion and retry source capture
+    severity: medium
+recipes:
+  - name: Deterministic tab closure workflow
+    description: Avoid index drift by resolving tabs just-in-time
+    steps:
+      - Run safari.list-tabs to identify current window_index and tab_index for the target
+      - Optionally run safari.get-url to confirm tab identity
+      - Run safari.close-tab with the validated indexes
 actions:
   get-url:
     command: safari-get-url

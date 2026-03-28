@@ -5,6 +5,33 @@ adapter: applescript
 target_app: Mail
 auth:
   type: none
+triggers:
+  task_verbs: [list, read, search, draft, send]
+  objects: [mailboxes, messages, emails, threads]
+  instead_of:
+    - manually triaging mailbox content or composing routine outbound mail
+  exclusions:
+    - bulk marketing sends and campaign management workflows
+gotchas:
+  - symptom: get-message returns a different email than expected
+    likely_cause: Subject lines are often duplicated across threads and senders
+    recovery: Use list-messages within a specific mailbox first, then match by subject plus sender/date context
+    severity: high
+  - symptom: send-message fails or message remains in Outbox
+    likely_cause: Account is offline, missing selected outgoing account, or Mail is still syncing
+    recovery: Confirm Mail account is online/defaulted correctly and retry after sync completes
+    severity: common
+  - symptom: list-messages misses recent emails
+    likely_cause: Smart mailbox or server mailbox indexing has not refreshed yet
+    recovery: Target a concrete mailbox name and retry with a short delay
+    severity: medium
+recipes:
+  - name: Safe mailbox triage and reply send
+    description: Find the right thread context before sending a response
+    steps:
+      - Run apple-mail.list-mailboxes and select the exact mailbox
+      - Run apple-mail.list-messages with mailbox and limit to identify the target message context
+      - Run apple-mail.send-message with validated recipient, subject, and body
 actions:
   list-mailboxes:
     command: list-mailboxes

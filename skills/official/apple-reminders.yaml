@@ -5,6 +5,33 @@ adapter: applescript
 target_app: Reminders
 auth:
   type: none
+triggers:
+  task_verbs: [list, add, check, complete, track, organize]
+  objects: [reminders, tasks, lists, due dates]
+  instead_of:
+    - manually managing personal task lists in the Reminders UI
+  exclusions:
+    - complex project planning with dependencies and kanban-style workflows
+gotchas:
+  - symptom: complete-reminder marks the wrong task
+    likely_cause: Reminder names are duplicated within or across lists
+    recovery: List reminders in the specific list first and complete only after confirming unique target context
+    severity: high
+  - symptom: due_date is ignored or set to an unexpected day/time
+    likely_cause: Input date format is ambiguous or missing timezone context
+    recovery: Use explicit, unambiguous datetime strings and verify result with get-reminder
+    severity: medium
+  - symptom: list-reminders does not show recently added/updated items
+    likely_cause: iCloud Reminders sync latency or temporary app indexing delay
+    recovery: Retry after short delay and ensure the intended list/account is selected
+    severity: low
+recipes:
+  - name: Create and confirm a dated reminder
+    description: Add a reminder to the correct list and verify due metadata
+    steps:
+      - Run apple-reminders.list-lists to confirm the exact target list name
+      - Run apple-reminders.create-reminder with name, list, and due_date
+      - Run apple-reminders.get-reminder to verify it was created with expected fields
 actions:
   list-lists:
     command: list-lists

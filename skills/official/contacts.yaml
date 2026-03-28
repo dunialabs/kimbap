@@ -5,6 +5,33 @@ adapter: applescript
 target_app: Contacts
 auth:
   type: none
+triggers:
+  task_verbs: [list, search, look up, create, save]
+  objects: [contacts, people, emails, phone numbers]
+  instead_of:
+    - manually searching and entering records in Contacts app
+  exclusions:
+    - CRM pipeline management and account/opportunity tracking
+gotchas:
+  - symptom: contacts-get returns an unexpected person
+    likely_cause: Multiple cards share the same display name
+    recovery: Use contacts-search first and disambiguate by email, phone, or organization fields
+    severity: high
+  - symptom: Newly created contact appears incomplete or split across cards
+    likely_cause: iCloud account merge rules and linked cards can fragment fields
+    recovery: Re-fetch with contacts-search and ensure key identifiers (email/phone) are set consistently
+    severity: medium
+  - symptom: Contacts actions fail with not authorized Apple event errors
+    likely_cause: macOS Automation permission for Contacts has not been granted
+    recovery: Enable Automation permission for the calling process in Privacy & Security, then retry
+    severity: common
+recipes:
+  - name: Create and verify a contact card
+    description: Add a contact with key fields and confirm retrievability
+    steps:
+      - Run contacts.create with first_name and at least one unique identifier (email or phone)
+      - Run contacts.search using that unique identifier to find the newly created card
+      - Run contacts.get on the resolved name to confirm full details
 actions:
   list:
     command: contacts-list

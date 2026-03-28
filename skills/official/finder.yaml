@@ -5,6 +5,33 @@ adapter: applescript
 target_app: Finder
 auth:
   type: none
+triggers:
+  task_verbs: [list, move, copy, delete, open, organize]
+  objects: [files, folders, directories, items]
+  instead_of:
+    - using shell mv/cp/rm for GUI-visible file operations
+  exclusions:
+    - file content reading or editing (use appropriate editors instead)
+gotchas:
+  - symptom: Operation fails with "file not found" despite correct-looking path
+    likely_cause: Path uses ~ or relative format instead of absolute POSIX path
+    recovery: Always use full absolute POSIX paths (e.g. /Users/name/Documents/file.txt)
+    severity: medium
+  - symptom: Move or delete fails silently or targets wrong item
+    likely_cause: Duplicate file/folder names in the same directory or ambiguous path
+    recovery: Verify exact path with finder.list-items first, then use the full unique path
+    severity: high
+  - symptom: File operation returns permission error for Desktop/Documents/Downloads
+    likely_cause: Finder automation lacks Full Disk Access or Files and Folders permission
+    recovery: Grant required macOS privacy permissions to the calling process and retry
+    severity: common
+recipes:
+  - name: Safe file move with preflight verification
+    description: Reduce destructive mistakes by validating source and destination first
+    steps:
+      - Run finder.list-items on the source directory to confirm exact item name/path
+      - Run finder.list-items on the destination directory to ensure target exists
+      - Run finder.move-item with full absolute source_path and destination_path
 actions:
   list-items:
     command: finder-list-items

@@ -5,6 +5,33 @@ adapter: applescript
 target_app: Keynote
 auth:
   type: none
+triggers:
+  task_verbs: [create, open, add, edit, export, present]
+  objects: [presentations, slides, slide text, decks]
+  instead_of:
+    - manually building and exporting slide decks in Keynote UI
+  exclusions:
+    - pixel-perfect visual design review or animation timing fine-tuning
+gotchas:
+  - symptom: set-slide-text fails with invalid object or index errors
+    likely_cause: slide_number or item_index does not exist for the selected slide layout
+    recovery: Add/inspect slide first, then target valid slide_number and text item index
+    severity: high
+  - symptom: export-pdf writes no file or fails on path
+    likely_cause: output_path is relative, points to unwritable directory, or parent folder is missing
+    recovery: Use absolute POSIX output_path and ensure destination directory exists and is writable
+    severity: medium
+  - symptom: add-slide or edit actions affect an unexpected document
+    likely_cause: Multiple presentations are open and automation uses the active/frontmost one
+    recovery: Open the intended presentation immediately before edits and avoid relying on stale frontmost context
+    severity: common
+recipes:
+  - name: Create deck and export to PDF
+    description: Build a minimal presentation and produce a distributable PDF
+    steps:
+      - Run keynote.create-presentation and keynote.add-slide as needed
+      - Run keynote.set-slide-text with validated slide_number/item_index values
+      - Run keynote.export-pdf with an absolute output_path
 actions:
   create-presentation:
     command: keynote-create-presentation

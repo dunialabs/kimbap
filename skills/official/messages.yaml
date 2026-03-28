@@ -5,6 +5,33 @@ adapter: applescript
 target_app: Messages
 auth:
   type: none
+triggers:
+  task_verbs: [send, message, list, check, follow up]
+  objects: [chats, recipients, conversations, messages]
+  instead_of:
+    - manually sending routine iMessage/SMS updates in Messages app
+  exclusions:
+    - long-form email communication or broadcast campaign messaging
+gotchas:
+  - symptom: send reports success but recipient never receives message
+    likely_cause: Address is not iMessage-capable and SMS relay/account routing is unavailable
+    recovery: Verify recipient handle format and active sending account, then test with a known reachable contact
+    severity: high
+  - symptom: message goes to the wrong person/thread
+    likely_cause: Similar contact handles or stale chat resolution in Messages
+    recovery: Confirm exact recipient handle from list-chats or Contacts before calling send
+    severity: high
+  - symptom: Automation fails with permission prompt or "not authorized" errors
+    likely_cause: macOS Automation permission for controlling Messages is not granted
+    recovery: Enable automation permission for the caller in Privacy & Security and retry
+    severity: common
+recipes:
+  - name: Verify recipient before outbound send
+    description: Reduce misdelivery risk by validating destination context first
+    steps:
+      - Run messages.list-chats to inspect recent participants and handles
+      - Confirm the exact intended handle for the recipient
+      - Run messages.send with the verified to value and body
 actions:
   send:
     command: messages-send
