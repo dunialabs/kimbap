@@ -16,27 +16,24 @@ interface AuthLayoutProps {
 
 export function AuthLayout({ children }: AuthLayoutProps) {
   return (
-    <div className="flex min-h-screen p-[24px] bg-slate-100 dark:bg-slate-950">
-      {/* Left Side - Branding */}
-      <div className="hidden lg:flex lg:w-1/2  p-12 flex-col justify-center">
+    <div className="flex min-h-full flex-1 flex-col bg-gradient-to-br from-orange-50 via-background to-amber-50/70 px-4 py-4 dark:from-background dark:via-background dark:to-background sm:px-6 sm:py-6 lg:flex-row">
+      <div className="hidden lg:flex lg:w-1/2 lg:flex-col lg:justify-center lg:p-12">
         <div className="max-w-md">
-          <h1 className="text-[52px] font-bold text-orange-600 dark:text-orange-500 mb-[4px] leading-tight">
+          <h1 className="mb-1 text-[52px] font-bold leading-tight text-orange-600 dark:text-orange-400">
             Kimbap Console
           </h1>
-          <h2 className="text-[52px] font-bold text-slate-900 dark:text-slate-100 mb-[24px] leading-tight">
+          <h2 className="mb-6 text-[40px] font-bold leading-tight text-slate-900 dark:text-foreground xl:text-[52px]">
             Operations Console
           </h2>
-          <p className="text-muted-foreground text-[16px] leading-relaxed">
+          <p className="text-[16px] leading-relaxed text-muted-foreground">
             Review logs, handle approvals, manage policies, and monitor usage from one place.
           </p>
         </div>
       </div>
 
-      {/* Right Side - Content */}
-      <div className="flex-1 flex  bg-white dark:bg-slate-900">
-        <div className="w-full flex flex-col">
-          {/* Logo */}
-          <div className="p-[14px]">
+      <div className="flex flex-1 rounded-xl border border-border/60 bg-card shadow-sm">
+        <div className="flex w-full flex-col">
+          <div className="p-4">
             <Link
               href="/"
               className="inline-block rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2"
@@ -47,8 +44,7 @@ export function AuthLayout({ children }: AuthLayoutProps) {
             </Link>
           </div>
 
-          {/* Content */}
-          <div className="flex-1 flex flex-col justify-center items-center">
+          <div className="flex flex-1 flex-col items-center justify-center px-4 py-6 sm:px-6">
             {children}
           </div>
         </div>

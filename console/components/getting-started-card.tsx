@@ -35,14 +35,14 @@ export function GettingStartedCard() {
   }
 
   return (
-    <Card className="rounded-xl border border-blue-200 bg-blue-50 dark:border-blue-900 dark:bg-blue-950/30">
+    <Card className="rounded-xl border border-blue-200/70 bg-blue-50/80 dark:border-blue-900/70 dark:bg-blue-950/20">
       <CardContent className="p-4">
-        <div className="flex items-start justify-between gap-4 mb-4">
+        <div className="mb-3 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
           <div className="flex-1">
-            <h2 className="text-[24px] font-bold text-blue-700 dark:text-blue-100 mb-[4px]">
+            <h2 className="mb-1 text-lg font-semibold text-foreground sm:text-xl">
               Operator shortcuts
             </h2>
-            <p className="text-[14px] text-foreground dark:text-blue-300">
+            <p className="text-sm leading-6 text-muted-foreground">
               Open these common operator views to get oriented quickly.
             </p>
           </div>
@@ -51,19 +51,19 @@ export function GettingStartedCard() {
             variant="outline"
             size="sm"
             onClick={handleDismiss}
-            className="shrink-0 text-slate-600 dark:text-slate-300"
+            className="shrink-0"
           >
             Dismiss
           </Button>
         </div>
 
         <div className="space-y-3">
-          <div className="flex items-center gap-4 px-[16px] py-[12px] bg-white dark:bg-slate-800 rounded-lg border border-blue-100 dark:border-blue-900 flex-wrap sm:flex-nowrap">
+          <div className="flex flex-wrap items-center gap-4 rounded-lg border border-blue-200/70 bg-background/90 p-4 dark:border-blue-900/70 dark:bg-background/60 sm:flex-nowrap">
             <div className="flex-1">
-              <h3 className="font-[700] text-[14px] text-foreground dark:text-slate-100 mb-1">
+              <h3 className="mb-1 text-sm font-semibold text-foreground">
                 Set Up Access Policies
               </h3>
-              <p className="text-[14px] text-muted-foreground dark:text-slate-400">
+              <p className="text-sm leading-6 text-muted-foreground">
                 Define which tool calls are allowed, need approval, or are blocked.
               </p>
             </div>
@@ -72,7 +72,7 @@ export function GettingStartedCard() {
                 href="/dashboard/policies"
                 className={cn(
                   buttonVariants({ size: 'sm' }),
-                  'w-[140px] bg-slate-900 hover:bg-slate-800 dark:bg-slate-100 dark:hover:bg-slate-200 text-white dark:text-slate-900'
+                  'w-[140px] justify-center'
                 )}
               >
                 Open Policies
@@ -80,12 +80,12 @@ export function GettingStartedCard() {
             </div>
           </div>
 
-          <div className="flex items-center gap-4 px-[16px] py-[12px] bg-white dark:bg-slate-800 rounded-lg border border-blue-100 dark:border-blue-900 flex-wrap sm:flex-nowrap">
+          <div className="flex flex-wrap items-center gap-4 rounded-lg border border-blue-200/70 bg-background/90 p-4 dark:border-blue-900/70 dark:bg-background/60 sm:flex-nowrap">
             <div className="flex-1">
-              <h3 className="font-[700] text-[14px] text-foreground dark:text-slate-100 mb-1">
+              <h3 className="mb-1 text-sm font-semibold text-foreground">
                 Review Pending Approvals
               </h3>
-              <p className="text-[14px] text-muted-foreground dark:text-slate-400">
+              <p className="text-sm leading-6 text-muted-foreground">
                 Check whether any requests are waiting on an operator decision.
               </p>
             </div>
@@ -94,7 +94,7 @@ export function GettingStartedCard() {
                 href="/dashboard/approvals"
                 className={cn(
                   buttonVariants({ size: 'sm' }),
-                  'w-[140px] bg-slate-900 hover:bg-slate-800 dark:bg-slate-100 dark:hover:bg-slate-200 text-white dark:text-slate-900'
+                  'w-[140px] justify-center'
                 )}
               >
                 Open Approvals
@@ -102,12 +102,12 @@ export function GettingStartedCard() {
             </div>
           </div>
 
-          <div className="flex items-center gap-4 px-[16px] py-[12px] bg-white dark:bg-slate-800 rounded-lg border border-blue-100 dark:border-blue-900 flex-wrap sm:flex-nowrap">
+          <div className="flex flex-wrap items-center gap-4 rounded-lg border border-blue-200/70 bg-background/90 p-4 dark:border-blue-900/70 dark:bg-background/60 sm:flex-nowrap">
             <div className="flex-1">
-              <h3 className="font-[700] text-[14px] text-foreground dark:text-slate-100 mb-1">
+              <h3 className="mb-1 text-sm font-semibold text-foreground">
                 Check Recent Logs
               </h3>
-              <p className="text-[14px] text-muted-foreground dark:text-slate-400">
+              <p className="text-sm leading-6 text-muted-foreground">
                 Open live request and error logs to investigate issues quickly.
               </p>
             </div>
@@ -116,7 +116,7 @@ export function GettingStartedCard() {
                 href="/dashboard/logs"
                 className={cn(
                   buttonVariants({ size: 'sm' }),
-                  'w-[140px] bg-slate-900 hover:bg-slate-800 dark:bg-slate-100 dark:hover:bg-slate-200 text-white dark:text-slate-900'
+                  'w-[140px] justify-center'
                 )}
               >
                 Open Logs

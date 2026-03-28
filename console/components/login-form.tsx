@@ -4,6 +4,7 @@ import type React from 'react'
 import { useState, useEffect, useRef } from 'react'
 import { Button } from '@/components/ui/button'
 import { Alert, AlertDescription } from '@/components/ui/alert'
+import { Label } from '@/components/ui/label'
 import { Eye, EyeOff, LogIn } from 'lucide-react'
 import { MasterPasswordManager } from '@/lib/crypto'
 import { renderErrorMessageWithLinks } from '@/lib/error-utils'
@@ -48,6 +49,10 @@ export function LoginForm({
   const [tokenError, setTokenError] = useState('')
   const [isLoggingIn, setIsLoggingIn] = useState(false)
   const credentialInputRef = useRef<HTMLInputElement>(null)
+  const activeError = loginMode === 'password' ? loginError : tokenError
+  const activeErrorId = loginMode === 'password' ? 'login-password-error' : 'login-token-error'
+  const activeNoteId = loginMode === 'password' ? 'login-password-note' : 'login-token-note'
+  const credentialDescribedBy = [activeNoteId, activeError ? activeErrorId : ''].filter(Boolean).join(' ') || undefined
 
   useEffect(() => {
     setLoginMode(MasterPasswordManager.hasMasterPassword() ? 'password' : 'token')
@@ -180,7 +185,7 @@ export function LoginForm({
         e.preventDefault()
         handleLogin()
       }}
-      className="space-y-[12px] w-full max-w-[460px] py-[32px] px-[24px] min-h-[480px]"
+      className="w-full max-w-[460px] space-y-[12px] px-[24px] py-[32px] sm:min-h-[480px]"
     >
       {loginMode === null ? (
         <div className="space-y-[12px]">
@@ -203,14 +208,14 @@ export function LoginForm({
         </p>
       </div>
 
-      <fieldset className="border-0 p-0 m-0">
+      <fieldset className="m-0 border-0 p-0">
         <legend className="sr-only">Login method</legend>
-        <div className="flex border-b border-border" role="radiogroup">
+        <div className="grid grid-cols-2 gap-2 rounded-xl border border-border bg-muted/30 p-1" role="radiogroup" aria-label="Login method">
           <label
-            className={`p-[12px] pl-[0] text-[14px] transition-colors cursor-pointer rounded focus-within:ring-2 focus-within:ring-blue-500 focus-within:ring-offset-2 border-b-2 -mb-px ${
+            className={`flex w-full cursor-pointer items-center justify-center rounded-lg px-4 py-2.5 text-sm transition-colors focus-within:ring-2 focus-within:ring-blue-500 focus-within:ring-offset-2 ${
               loginMode === 'password'
-                ? 'text-foreground font-bold border-foreground'
-                : 'text-foreground/60 font-[400] border-transparent'
+                ? 'bg-background font-semibold text-foreground shadow-sm'
+                : 'text-muted-foreground hover:text-foreground'
             }`}
           >
             <input
@@ -228,10 +233,10 @@ export function LoginForm({
             Master Password
           </label>
           <label
-            className={`p-[12px] pl-[0] text-[14px] transition-colors cursor-pointer rounded focus-within:ring-2 focus-within:ring-blue-500 focus-within:ring-offset-2 border-b-2 -mb-px ${
+            className={`flex w-full cursor-pointer items-center justify-center rounded-lg px-4 py-2.5 text-sm transition-colors focus-within:ring-2 focus-within:ring-blue-500 focus-within:ring-offset-2 ${
               loginMode === 'token'
-                ? 'text-foreground font-bold border-foreground'
-                : 'text-foreground/60 font-[400] border-transparent'
+                ? 'bg-background font-semibold text-foreground shadow-sm'
+                : 'text-muted-foreground hover:text-foreground'
             }`}
           >
             <input
@@ -253,8 +258,12 @@ export function LoginForm({
 
       {/* Input Field */}
       <div className="space-y-[4px]">
+        <Label htmlFor="login-credential" className="text-[14px] font-[700]">
+          {loginMode === 'password' ? 'Master Password' : 'Access Token'}
+        </Label>
         <div className="relative">
           <input
+            id="login-credential"
             type={
               loginMode === 'password'
                 ? showLoginPassword
@@ -267,7 +276,8 @@ export function LoginForm({
                 ? 'Enter master password'
                 : 'Enter access token'
             }
-            aria-label={loginMode === 'password' ? 'Master Password' : 'Access Token'}
+            aria-describedby={credentialDescribedBy}
+            aria-invalid={Boolean(activeError)}
             ref={credentialInputRef}
             value={loginMode === 'password' ? loginMasterPassword : token}
             onChange={(e) => {
@@ -280,7 +290,7 @@ export function LoginForm({
               }
             }}
             disabled={isLoggingIn}
-            className="h-12 w-full pl-3 pr-10 rounded-lg border border-input bg-background focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-foreground"
+            className="h-12 w-full rounded-lg border border-input bg-background pl-3 pr-10 text-foreground focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
             autoComplete={loginMode === 'password' ? 'current-password' : 'off'}
             autoCapitalize="none"
             autoCorrect="off"
@@ -305,19 +315,19 @@ export function LoginForm({
 
         {/* Note and Error Messages */}
         {loginMode === 'password' && !loginError && (
-          <p className="text-xs text-muted-foreground">
+          <p id="login-password-note" className="text-xs text-muted-foreground">
             Use the master password when managing this console from the browser.
           </p>
         )}
 
         {loginMode === 'token' && !tokenError && (
-          <p className="text-xs text-muted-foreground">
+          <p id="login-token-note" className="text-xs text-muted-foreground">
             Use an access token from the server owner or admin.
           </p>
         )}
 
         {loginError && loginMode === 'password' && (
-          <Alert className="border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-950/20" role="alert">
+          <Alert id="login-password-error" className="border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-950/20" role="alert">
             <AlertDescription className="text-sm text-red-800 dark:text-red-200">
               {renderErrorMessageWithLinks(loginError)}
             </AlertDescription>
@@ -325,7 +335,7 @@ export function LoginForm({
         )}
 
         {tokenError && loginMode === 'token' && (
-           <Alert className="border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-950/20" role="alert">
+           <Alert id="login-token-error" className="border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-950/20" role="alert">
             <AlertDescription className="text-sm text-red-800 dark:text-red-200">
               {tokenError === 'member_link' ? (
                 <>

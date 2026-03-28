@@ -46,6 +46,20 @@ interface RecentActivity {
   color: string
 }
 
+function formatRelativeMinutes(totalMinutes: number) {
+  if (totalMinutes < 60) {
+    return `${totalMinutes} minute${totalMinutes === 1 ? '' : 's'} ago`
+  }
+
+  const hours = Math.floor(totalMinutes / 60)
+  if (hours < 24) {
+    return `${hours} hour${hours === 1 ? '' : 's'} ago`
+  }
+
+  const days = Math.floor(hours / 24)
+  return `${days} day${days === 1 ? '' : 's'} ago`
+}
+
 function UsagePageContent() {
   const searchParams = useSearchParams()
   const pathname = usePathname()
@@ -215,7 +229,7 @@ function UsagePageContent() {
         </Select>
         <Button variant="outline" onClick={handleRefresh} disabled={loading || refreshing}>
           <RefreshCw className={`mr-2 h-4 w-4 ${loading || refreshing ? 'animate-spin' : ''}`} />
-          Refresh data
+          Refresh
         </Button>
       </div>
       {!loading && loadError ? (
@@ -398,14 +412,15 @@ function UsagePageContent() {
             ) : (
               <div className="space-y-3">
                 {activeTokens.map((token) => (
-                  <Link key={token.tokenMask} href={`/dashboard/usage/token-usage?timeRange=${timeRange}`} className="flex items-center justify-between p-3 border rounded-lg hover:bg-muted/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2">
-                    <div>
+                  <Link key={token.tokenMask} href={`/dashboard/usage/token-usage?timeRange=${timeRange}`} className="flex items-center justify-between gap-3 rounded-lg border p-3 hover:bg-muted/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2">
+                    <div className="min-w-0">
                       <div className="font-medium">{token.tokenName}</div>
+                      <div className="mt-1 font-mono text-xs text-muted-foreground">{token.tokenMask}</div>
                     </div>
                     <div className="text-right">
                       <div className="font-medium">{token.requestCount.toLocaleString()} requests</div>
                       <div className={`text-sm ${token.isCurrentlyActive ? 'text-green-600 dark:text-green-400' : 'text-muted-foreground'}`}>
-                        {token.isCurrentlyActive ? 'Used' : 'Last used'} {token.lastUsedMinutesAgo < 60 ? `${token.lastUsedMinutesAgo} ${token.lastUsedMinutesAgo === 1 ? 'min' : 'mins'} ago` : `${Math.floor(token.lastUsedMinutesAgo / 60)} ${Math.floor(token.lastUsedMinutesAgo / 60) === 1 ? 'hour' : 'hours'} ago`}
+                        {token.isCurrentlyActive ? 'Used' : 'Last used'} {formatRelativeMinutes(token.lastUsedMinutesAgo)}
                       </div>
                     </div>
                   </Link>

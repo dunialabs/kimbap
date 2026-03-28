@@ -276,7 +276,12 @@ function TokenUsagePageContent() {
   useEffect(() => {
     let cancelled = false
     const loadPatternUsage = async () => {
-      if (activeTab !== 'patterns') {
+      if (activeTab !== 'patterns' || timeRange !== 1) {
+        if (!cancelled) {
+          setPatternUsage({})
+          setPatternUsageErrors({})
+          setPatternLoading(false)
+        }
         return
       }
 
@@ -338,7 +343,7 @@ function TokenUsagePageContent() {
     return () => {
       cancelled = true
     }
-  }, [activeTab, tokenUsageData])
+  }, [activeTab, timeRange, tokenUsageData])
 
   const handleRefresh = async () => {
     setRefreshing(true)
@@ -381,7 +386,7 @@ function TokenUsagePageContent() {
         )
       case 'limited':
         return (
-          <Badge className="bg-yellow-100 text-yellow-800 border-yellow-200 dark:bg-yellow-950/20 dark:text-yellow-300 dark:border-yellow-800">
+          <Badge className="bg-amber-100 text-amber-800 border-amber-200 dark:bg-amber-950/20 dark:text-amber-300 dark:border-amber-800">
             Rate Limited
           </Badge>
         )
@@ -409,7 +414,7 @@ function TokenUsagePageContent() {
             <SelectItem value="30">Last 30 days</SelectItem>
           </SelectContent>
         </Select>
-        <Button variant="outline" onClick={handleRefresh} disabled={loading || refreshing}><RefreshCw className={`mr-2 h-4 w-4 ${loading || refreshing ? 'animate-spin' : ''}`} />Refresh data</Button>
+        <Button variant="outline" onClick={handleRefresh} disabled={loading || refreshing}><RefreshCw className={`mr-2 h-4 w-4 ${loading || refreshing ? 'animate-spin' : ''}`} />Refresh</Button>
       </div>
       <p className="text-xs text-muted-foreground">Minute-level patterns are available only in the 24-hour view.</p>
       {!loading && loadError ? (
@@ -632,7 +637,7 @@ function TokenUsagePageContent() {
                 </div>
               ) : (
                 <div className="overflow-x-auto">
-                <Table>
+                <Table className="min-w-[820px]">
                   <TableHeader>
                     <TableRow>
                       <TableHead>Token Name</TableHead>
@@ -842,7 +847,15 @@ function TokenUsagePageContent() {
             </CardContent>
           </Card>
 
-          {loading || patternLoading || patternPending || patternTokens.length === 0 ? (
+          {timeRange !== 1 ? (
+            <Card>
+              <CardContent className="flex items-center justify-center py-8">
+                <div className="text-center">
+                  <p className="text-sm text-muted-foreground">Switch to Last 24 hours to review minute-level token patterns.</p>
+                </div>
+              </CardContent>
+            </Card>
+          ) : loading || patternLoading || patternPending || patternTokens.length === 0 ? (
             <div className="flex items-center justify-center py-8">
               {loading || patternLoading || patternPending ? (
                 <div className="text-center">

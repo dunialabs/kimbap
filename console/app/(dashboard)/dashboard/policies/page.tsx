@@ -869,7 +869,7 @@ export default function PoliciesPage() {
             </div>
           ) : (
             <div className="overflow-x-auto">
-              <Table>
+              <Table className="min-w-[720px]">
                 <TableHeader>
                 <TableRow>
                   <TableHead>Policy</TableHead>
@@ -940,12 +940,22 @@ export default function PoliciesPage() {
                         </span>
                       </TableCell>
                       <TableCell className="text-center">
-                        <Switch
-                          checked={p.status === 'active'}
-                          onCheckedChange={() => handleToggle(p)}
-                          disabled={!canTogglePolicy}
-                          aria-label={p.status === 'active' ? 'Deactivate policy' : 'Activate policy'}
-                        />
+                        <div className="flex items-center justify-center gap-2">
+                          <Badge
+                            variant="outline"
+                            className={p.status === 'active'
+                              ? 'border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-900 dark:bg-emerald-950/20 dark:text-emerald-300'
+                              : 'border-slate-200 bg-slate-50 text-slate-700 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-300'}
+                          >
+                            {p.status === 'active' ? 'Active' : 'Archived'}
+                          </Badge>
+                          <Switch
+                            checked={p.status === 'active'}
+                            onCheckedChange={() => handleToggle(p)}
+                            disabled={!canTogglePolicy}
+                            aria-label={p.status === 'active' ? 'Deactivate policy' : 'Activate policy'}
+                          />
+                        </div>
                       </TableCell>
                       <TableCell className="text-right">
                         {canManagePolicies ? (

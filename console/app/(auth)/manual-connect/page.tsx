@@ -14,8 +14,8 @@ export default function ManualConnectPage() {
     <div className="flex min-h-screen items-center justify-center bg-muted px-4" role="status" aria-live="polite">
       <div className="text-center">
         <div className="mx-auto mb-4 h-8 w-8 animate-spin rounded-full border-2 border-muted-foreground/30 border-t-foreground" aria-hidden="true" />
-        <h1 className="text-lg font-semibold">Redirecting to manual connect</h1>
-        <p className="text-sm text-muted-foreground">Taking you to the current console entry point…</p>
+        <h1 className="text-lg font-semibold">Redirecting to sign in</h1>
+        <p className="text-sm text-muted-foreground">Manual connect now starts from the main sign-in screen…</p>
       </div>
     </div>
   )

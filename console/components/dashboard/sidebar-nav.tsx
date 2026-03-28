@@ -87,8 +87,8 @@ export function SidebarNav({ onNavigate, pendingApprovalCount = 0 }: SidebarNavP
                     'flex items-center gap-3 rounded-lg px-3 py-2 text-foreground transition-all w-full',
                     'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2',
                     pathname.startsWith(item.href)
-                      ? 'bg-slate-200 dark:bg-slate-700'
-                      : 'hover:bg-slate-100 dark:hover:bg-slate-800'
+                      ? 'bg-accent text-accent-foreground shadow-sm'
+                      : 'text-muted-foreground hover:bg-accent/70 hover:text-accent-foreground'
                   )}
                   onClick={() => {
                     if (!pathname.startsWith(item.href)) {
@@ -120,8 +120,8 @@ export function SidebarNav({ onNavigate, pendingApprovalCount = 0 }: SidebarNavP
                       'flex items-center gap-3 rounded-lg px-3 py-2 text-foreground transition-all text-sm',
                       'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2',
                       pathname === subItem.href
-                        ? 'bg-slate-200 dark:bg-slate-700'
-                        : 'hover:bg-slate-100 dark:hover:bg-slate-800'
+                        ? 'bg-accent text-accent-foreground shadow-sm'
+                        : 'text-muted-foreground hover:bg-accent/70 hover:text-accent-foreground'
                     )}
                   >
                     {subItem.label}
@@ -139,8 +139,8 @@ export function SidebarNav({ onNavigate, pendingApprovalCount = 0 }: SidebarNavP
                 'flex items-center gap-3 rounded-lg px-3 py-2 text-foreground transition-all',
                 'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2',
                 pathname === item.href
-                  ? 'bg-slate-200 dark:bg-slate-700'
-                  : 'hover:bg-slate-100 dark:hover:bg-slate-800'
+                  ? 'bg-accent text-accent-foreground shadow-sm'
+                  : 'text-muted-foreground hover:bg-accent/70 hover:text-accent-foreground'
               )}
             >
               <item.icon className="h-4 w-4" aria-hidden="true" focusable="false" />
@@ -167,7 +167,7 @@ export function SidebarNav({ onNavigate, pendingApprovalCount = 0 }: SidebarNavP
           target="_blank"
           rel="noopener noreferrer"
           aria-label="Documentation (opens in new tab)"
-          className="flex items-center gap-3 rounded-lg px-3 py-2 text-muted-foreground transition-all hover:bg-slate-100 dark:hover:bg-slate-800 mb-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2"
+          className="mb-1 flex items-center gap-3 rounded-lg px-3 py-2 text-muted-foreground transition-all hover:bg-accent/70 hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2"
         >
           <BookOpen className="h-4 w-4" aria-hidden="true" focusable="false" />
           <span className="font-medium">Documentation</span>
@@ -182,7 +182,7 @@ export function SidebarNav({ onNavigate, pendingApprovalCount = 0 }: SidebarNavP
                 target="_blank"
                 rel="noopener noreferrer"
                 aria-label="Install Kimbap Desk quick start guide (opens in new tab)"
-                className="flex items-center gap-3 rounded-lg px-3 py-2 text-muted-foreground transition-all hover:bg-slate-100 dark:hover:bg-slate-800 mb-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2"
+                className="mb-1 flex items-center gap-3 rounded-lg px-3 py-2 text-muted-foreground transition-all hover:bg-accent/70 hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2"
               >
                 <Download className="h-4 w-4" aria-hidden="true" focusable="false" />
                 <span className="font-medium">Install Kimbap Desk</span>

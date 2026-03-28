@@ -279,7 +279,7 @@ export default function DashboardPage() {
       <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-[30px] font-bold tracking-tight">Dashboard</h1>
-          <p className="text-[14px] text-foreground">
+          <p className="text-[14px] text-muted-foreground">
             {serverInfo?.proxyName || 'Kimbap Server'}
           </p>
         </div>
@@ -310,47 +310,79 @@ export default function DashboardPage() {
       <div className="space-y-4">
         <GettingStartedCard />
 
-        <div className="actions grid grid-cols-2 md:grid-cols-4 gap-3">
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
           <Link
             href="/dashboard/approvals"
             aria-label={pendingApprovalCount > 0 ? `Review Approvals, ${pendingApprovalCount} pending` : undefined}
             className="block rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2"
           >
-            <Card className="w-full flex items-center gap-1 justify-center h-[44px] cursor-pointer hover:bg-muted/50 transition-colors">
-              <CheckCircle className="h-4 w-4" />
-              <span className="text-sm font-medium">Review Approvals</span>
-              {pendingApprovalCount > 0 && (
-                <span className="inline-flex items-center justify-center rounded-full bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-300 text-xs font-medium min-w-[20px] h-5 px-1.5">
-                  {pendingApprovalCount > 99 ? '99+' : pendingApprovalCount}
-                </span>
-              )}
+            <Card className="h-full cursor-pointer transition-colors hover:bg-muted/50">
+              <div className="flex h-full items-start justify-between gap-3 p-4">
+                <div className="min-w-0 space-y-1 text-left">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <CheckCircle className="h-4 w-4" aria-hidden="true" />
+                    <span className="text-sm font-semibold">Approvals</span>
+                    {pendingApprovalCount > 0 && (
+                      <span className="inline-flex items-center justify-center rounded-full bg-amber-100 px-1.5 text-xs font-medium text-amber-800 dark:bg-amber-900 dark:text-amber-300">
+                        {pendingApprovalCount > 99 ? '99+' : pendingApprovalCount} pending
+                      </span>
+                    )}
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    {pendingApprovalCount > 0
+                      ? `Review ${pendingApprovalCount.toLocaleString()} request${pendingApprovalCount === 1 ? '' : 's'} waiting on a decision.`
+                      : 'No approvals are waiting right now.'}
+                  </p>
+                </div>
+              </div>
             </Card>
           </Link>
           <Link
             href="/dashboard/logs"
             className="block rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2"
           >
-            <Card className="w-full flex items-center gap-1 justify-center h-[44px] cursor-pointer hover:bg-muted/50 transition-colors">
-              <Activity className="h-4 w-4" />
-              <span className="text-sm font-medium">Open Logs</span>
+            <Card className="h-full cursor-pointer transition-colors hover:bg-muted/50">
+              <div className="flex h-full items-start justify-between gap-3 p-4">
+                <div className="min-w-0 space-y-1 text-left">
+                  <div className="flex items-center gap-2">
+                    <Activity className="h-4 w-4" aria-hidden="true" />
+                    <span className="text-sm font-semibold">Logs</span>
+                  </div>
+                  <p className="text-xs text-muted-foreground">Investigate recent requests, errors, and live activity.</p>
+                </div>
+              </div>
             </Card>
           </Link>
           <Link
             href="/dashboard/usage?timeRange=30"
             className="block rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2"
           >
-            <Card className="w-full flex items-center gap-1 justify-center h-[44px] cursor-pointer hover:bg-muted/50 transition-colors">
-              <TrendingUp className="h-4 w-4" />
-              <span className="text-sm font-medium">Open Usage</span>
+            <Card className="h-full cursor-pointer transition-colors hover:bg-muted/50">
+              <div className="flex h-full items-start justify-between gap-3 p-4">
+                <div className="min-w-0 space-y-1 text-left">
+                  <div className="flex items-center gap-2">
+                    <TrendingUp className="h-4 w-4" aria-hidden="true" />
+                    <span className="text-sm font-semibold">Usage</span>
+                  </div>
+                  <p className="text-xs text-muted-foreground">Review request volume, token activity, and tool trends.</p>
+                </div>
+              </div>
             </Card>
           </Link>
           <Link
             href="/dashboard/policies"
             className="block rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2"
           >
-            <Card className="w-full flex items-center gap-1 justify-center h-[44px] cursor-pointer hover:bg-muted/50 transition-colors">
-              <Shield className="h-4 w-4" />
-              <span className="text-sm font-medium">Open Policies</span>
+            <Card className="h-full cursor-pointer transition-colors hover:bg-muted/50">
+              <div className="flex h-full items-start justify-between gap-3 p-4">
+                <div className="min-w-0 space-y-1 text-left">
+                  <div className="flex items-center gap-2">
+                    <Shield className="h-4 w-4" aria-hidden="true" />
+                    <span className="text-sm font-semibold">Policies</span>
+                  </div>
+                  <p className="text-xs text-muted-foreground">Adjust allow, approval, and block rules for tool calls.</p>
+                </div>
+              </div>
             </Card>
           </Link>
         </div>
@@ -422,7 +454,7 @@ export default function DashboardPage() {
               <div className="flex items-center justify-between h-full">
                 <div className="flex flex-col gap-1 justify-center">
                   <p className="text-sm text-muted-foreground">
-                    Recent clients (24h)
+                    Recent clients (24 hours)
                   </p>
                   <p className={stats.connectedClients == null ? 'text-sm text-muted-foreground' : 'font-mono text-sm font-normal'}>
                     {stats.connectedClients == null ? '—' : stats.connectedClients}
@@ -533,26 +565,29 @@ export default function DashboardPage() {
               <p className="text-sm text-muted-foreground">No tool requests in the last 30 days.</p>
             </div>
           ) : (
-            <div
-              className="grid gap-y-3 gap-x-2 items-center"
-              style={{ gridTemplateColumns: 'max-content 1fr max-content' }}
-            >
+            <div className="space-y-2">
               {toolsUsage.map((tool) => (
                 <Link
                   key={tool.name}
                   href="/dashboard/usage/tool-usage?timeRange=30"
-                  className="group contents focus-visible:outline-none"
+                  className="group block rounded-md p-2 -m-2 transition-colors hover:bg-muted/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2"
                 >
-                  <div className="text-sm max-w-[200px] truncate rounded-sm group-hover:underline group-focus-visible:underline" title={tool.name}>{tool.name}</div>
-                  <div className="min-w-0 rounded-sm">
-                    <Progress
-                      value={tool.percentage}
-                      aria-label={`${tool.name} usage ${tool.percentage}%`}
-                      className="h-[8px] [&>div]:bg-slate-900 dark:[&>div]:bg-slate-100"
-                    />
-                  </div>
-                  <div className="text-sm text-muted-foreground text-right whitespace-nowrap rounded-sm">
-                    {typeof tool.requests === 'number' ? tool.requests.toLocaleString() : tool.requests}
+                  <div className="flex items-center gap-3">
+                    <div className="min-w-0 flex-1">
+                      <div className="truncate text-sm font-medium group-hover:underline" title={tool.name}>
+                        {tool.name}
+                      </div>
+                      <div className="mt-2">
+                        <Progress
+                          value={tool.percentage}
+                          aria-label={`${tool.name} usage ${tool.percentage}%`}
+                          className="h-[8px] [&>div]:bg-slate-900 dark:[&>div]:bg-slate-100"
+                        />
+                      </div>
+                    </div>
+                    <div className="whitespace-nowrap text-sm text-muted-foreground">
+                      {typeof tool.requests === 'number' ? tool.requests.toLocaleString() : tool.requests}
+                    </div>
                   </div>
                 </Link>
               ))}
@@ -577,33 +612,37 @@ export default function DashboardPage() {
               <p className="text-sm text-muted-foreground">No token requests in the last 30 days.</p>
             </div>
           ) : (
-            <div
-              className="grid gap-y-3 gap-x-2 items-center grid-cols-[max-content_1fr_max-content] md:grid-cols-[max-content_1fr_max-content_max-content]"
-            >
+            <div className="space-y-2">
               {tokenUsage.map((token) => (
                 <Link
                   key={`${token.name || 'token'}-${token.token?.trim() || ''}`}
                   href="/dashboard/usage/token-usage?timeRange=30"
-                  className="group contents focus-visible:outline-none"
+                  className="group block rounded-md p-2 -m-2 transition-colors hover:bg-muted/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2"
                 >
-                  <div
-                    className="text-sm max-w-[200px] truncate rounded-sm group-hover:underline group-focus-visible:underline"
-                    title={token.name}
-                  >
-                    {token.name}
-                  </div>
-                  <div className="min-w-0 rounded-sm">
-                    <Progress
-                      value={token.percentage}
-                      aria-label={`${token.name} usage ${token.percentage}%`}
-                      className="h-[8px] [&>div]:bg-slate-900 dark:[&>div]:bg-slate-100"
-                    />
-                  </div>
-                  <div className="text-sm text-muted-foreground text-right whitespace-nowrap rounded-sm">
-                    {typeof token.requests === 'number' ? token.requests.toLocaleString() : token.requests}
-                  </div>
-                  <div className="text-xs text-muted-foreground font-mono text-right whitespace-nowrap hidden md:block rounded-sm">
-                    {token.token?.trim() || '-'}
+                  <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-3">
+                    <div className="min-w-0 sm:w-[220px]">
+                      <div className="truncate text-sm font-medium group-hover:underline" title={token.name}>
+                        {token.name}
+                      </div>
+                      <div className="mt-1 font-mono text-xs text-muted-foreground sm:hidden">
+                        {token.token?.trim() || '-'}
+                      </div>
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <Progress
+                        value={token.percentage}
+                        aria-label={`${token.name} usage ${token.percentage}%`}
+                        className="h-[8px] [&>div]:bg-slate-900 dark:[&>div]:bg-slate-100"
+                      />
+                    </div>
+                    <div className="flex items-center justify-between gap-3 sm:block sm:text-right">
+                      <div className="whitespace-nowrap text-sm text-muted-foreground">
+                        {typeof token.requests === 'number' ? token.requests.toLocaleString() : token.requests}
+                      </div>
+                      <div className="hidden whitespace-nowrap font-mono text-xs text-muted-foreground sm:block">
+                        {token.token?.trim() || '-'}
+                      </div>
+                    </div>
                   </div>
                 </Link>
               ))}
@@ -637,7 +676,7 @@ export default function DashboardPage() {
                       {(() => {
                         const statusMap: Record<string, { dot: string; label: string }> = {
                           success: { dot: 'bg-green-500', label: 'Success' },
-                          warning: { dot: 'bg-yellow-500', label: 'Warning' },
+                          warning: { dot: 'bg-amber-500', label: 'Warning' },
                           info:    { dot: 'bg-blue-500',  label: 'Info' },
                           error:   { dot: 'bg-red-500',   label: 'Error' },
                         }
@@ -670,7 +709,7 @@ export default function DashboardPage() {
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <Users className="h-5 w-5" />
-              Recent Clients (24h) ({connectedClients.length.toLocaleString()})
+              Recent Clients (24 hours) ({connectedClients.length.toLocaleString()})
             </DialogTitle>
             <DialogDescription>
               Clients seen in the last 24 hours on your{' '}
@@ -684,7 +723,7 @@ export default function DashboardPage() {
               </div>
             ) : (
               <div className="overflow-x-auto">
-                <Table>
+                <Table className="min-w-[720px]">
                   <TableHeader>
                     <TableRow>
                       <TableHead>Client Name</TableHead>

@@ -112,7 +112,7 @@ function statusBadge(status: string) {
       );
     case 'EXPIRED':
       return (
-        <Badge variant="secondary">
+        <Badge className="bg-amber-100 text-amber-800 border-amber-200 dark:bg-amber-950/30 dark:text-amber-300 dark:border-amber-800 hover:bg-amber-200">
           <AlertTriangle className="h-3 w-3 mr-1" />
           Expired
         </Badge>
@@ -133,7 +133,7 @@ function statusBadge(status: string) {
       );
     case 'FAILED':
       return (
-        <Badge className="bg-orange-100 text-orange-800 border-orange-200 dark:bg-orange-900 dark:text-orange-300 dark:border-orange-800 hover:bg-orange-200">
+        <Badge className="bg-red-100 text-red-800 border-red-200 dark:bg-red-950/30 dark:text-red-300 dark:border-red-800 hover:bg-red-200">
           <AlertTriangle className="h-3 w-3 mr-1" />
           Failed
         </Badge>
@@ -200,6 +200,7 @@ export default function ApprovalsPage() {
   const [pendingCount, setPendingCount] = useState(0);
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [hasMore, setHasMore] = useState(false);
   const [statusFilter, setStatusFilter] = useState<StatusFilter>(DEFAULT_STATUS_FILTER);
@@ -328,7 +329,10 @@ export default function ApprovalsPage() {
         const secs = Math.floor((Date.now() - prev.getTime()) / 1000);
         if (secs < 30) setTimeAgo('just now');
         else if (secs < 60) setTimeAgo('less than a minute ago');
-        else setTimeAgo(`${Math.floor(secs / 60)} min ago`);
+        else {
+          const minutes = Math.floor(secs / 60);
+          setTimeAgo(`${minutes} minute${minutes === 1 ? '' : 's'} ago`);
+        }
         return prev;
       });
     }, 10000);
@@ -369,23 +373,36 @@ export default function ApprovalsPage() {
     setUserFilter('');
   };
 
+  const handleManualRefresh = async () => {
+    setRefreshing(true);
+    await fetchData({
+      page: 1,
+      pageSize: loadedPagesRef.current * BASE_PAGE_SIZE,
+      status: statusFilter,
+      userId: userFilter,
+    });
+    setRefreshing(false);
+  };
+
   const handleDecide = async () => {
     if (!decideDialog) return;
     setDeciding(true);
+    const decisionLabel = decideDialog.decision === 'APPROVED' ? 'approved' : 'rejected';
+    const actionLabel = decideDialog.decision === 'APPROVED' ? 'approve' : 'reject';
     try {
       await api.approvals.decide({
         id: decideDialog.request.id,
         decision: decideDialog.decision,
         reason: decideReason.trim() || undefined,
       });
-      toast.success(`Request ${decideDialog.decision.toLowerCase()}`);
+      toast.success(`${decideDialog.request.toolName} request ${decisionLabel}`);
       setDecideDialog(null);
-      fetchData({
+      void fetchData({
         page: 1,
         pageSize: loadedPagesRef.current * BASE_PAGE_SIZE,
       });
     } catch {
-      toast.error('Could not submit decision');
+      toast.error(`Could not ${actionLabel} ${decideDialog.request.toolName} request`);
     } finally {
       setDeciding(false);
     }
@@ -412,15 +429,10 @@ export default function ApprovalsPage() {
           <Button
             variant="outline"
             size="sm"
-            onClick={() =>
-              fetchData({
-                page: 1,
-                pageSize: loadedPagesRef.current * BASE_PAGE_SIZE,
-              })
-            }
-            disabled={loading || loadingMore}
+            onClick={() => void handleManualRefresh()}
+            disabled={loading || loadingMore || refreshing}
           >
-            <RefreshCw className={`h-4 w-4 mr-2 ${loading || loadingMore ? 'animate-spin' : ''}`} />
+            <RefreshCw className={`h-4 w-4 mr-2 ${loading || loadingMore || refreshing ? 'animate-spin' : ''}`} />
             Refresh
           </Button>
         </div>
@@ -497,7 +509,7 @@ export default function ApprovalsPage() {
             <div className="mb-4 flex items-center gap-2 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700 dark:border-red-900/40 dark:bg-red-950/20 dark:text-red-300">
               <AlertTriangle className="h-4 w-4 shrink-0" aria-hidden="true" />
               <span>{loadError}</span>
-              <Button variant="outline" size="sm" className="ml-auto" onClick={() => void fetchData({ page: 1, pageSize: loadedPagesRef.current * BASE_PAGE_SIZE, status: statusFilter, userId: userFilter })}>Retry</Button>
+              <Button variant="outline" size="sm" className="ml-auto" onClick={() => void handleManualRefresh()} disabled={refreshing}>Retry</Button>
             </div>
           ) : null}
           {loading ? (
@@ -524,7 +536,8 @@ export default function ApprovalsPage() {
                   variant="outline"
                   size="sm"
                   className="mt-2"
-                  onClick={() => void fetchData({ page: 1, pageSize: loadedPagesRef.current * BASE_PAGE_SIZE, status: statusFilter, userId: userFilter })}
+                  onClick={() => void handleManualRefresh()}
+                  disabled={refreshing}
                 >
                   Retry
                 </Button>
@@ -535,111 +548,199 @@ export default function ApprovalsPage() {
               )}
             </div>
           ) : (
-            <div className="max-h-[min(65dvh,42rem)] overflow-auto">
-              <table className="w-full caption-bottom text-sm">
-                <TableHeader>
-                  <TableRow>
-                    <TableHead className="sticky top-0 z-10 bg-background shadow-[0_1px_0_0_hsl(var(--border))]">Tool</TableHead>
-                    <TableHead className="sticky top-0 z-10 bg-background shadow-[0_1px_0_0_hsl(var(--border))]">Server</TableHead>
-                    <TableHead className="sticky top-0 z-10 bg-background shadow-[0_1px_0_0_hsl(var(--border))]">User</TableHead>
-                    <TableHead className="sticky top-0 z-10 bg-background shadow-[0_1px_0_0_hsl(var(--border))] text-center">Status</TableHead>
-                    <TableHead className="sticky top-0 z-10 bg-background shadow-[0_1px_0_0_hsl(var(--border))]">Created</TableHead>
-                    <TableHead className="sticky top-0 z-10 bg-background shadow-[0_1px_0_0_hsl(var(--border))]">Expires</TableHead>
-                     <TableHead className="sticky top-0 z-10 bg-background shadow-[0_1px_0_0_hsl(var(--border))]">Policy reason</TableHead>
-                    <TableHead className="sticky top-0 z-10 bg-background shadow-[0_1px_0_0_hsl(var(--border))] text-right">Actions</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {requests.map((r) => (
-                    <TableRow key={r.id}>
-                      <TableCell>
-                        <button
-                          type="button"
-                          className="font-mono text-sm text-left rounded cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 hover:underline"
-                          onClick={() => setDetailDialog(r)}
-                          aria-label={`View details for ${r.toolName}`}
-                        >
-                          {r.toolName}
-                        </button>
-                      </TableCell>
-                      <TableCell>
-                        <span className="text-sm text-muted-foreground truncate max-w-[120px] block" title={r.serverId || undefined}>
-                          {r.serverId || '—'}
-                        </span>
-                      </TableCell>
-                      <TableCell>
-                        <Badge variant="outline" className="font-mono text-xs">
-                          {r.userId}
-                        </Badge>
-                      </TableCell>
-                      <TableCell className="text-center">{statusBadge(r.status)}</TableCell>
-                      <TableCell className="text-sm text-muted-foreground">
-                        {formatTime(r.createdAt)}
-                      </TableCell>
-                      <TableCell className={`text-sm ${
-                        (() => {
-                          const remainingMs = new Date(r.expiresAt).getTime() - Date.now()
-                          return r.status === 'PENDING' && remainingMs > 0 && remainingMs < 30 * 60 * 1000
-                            ? 'text-amber-600 dark:text-amber-400 font-medium'
-                            : 'text-muted-foreground'
-                        })()
-                      }`}>
-                        {formatTime(r.expiresAt)}
-                      </TableCell>
-                      <TableCell className="text-sm text-muted-foreground max-w-[180px]" title={r.reason || undefined}>
-                        <span className="block truncate">
-                          {r.reason || '—'}
-                        </span>
-                      </TableCell>
-                      <TableCell className="text-right">
-                        <div className="flex items-center justify-end gap-1">
-                          <TooltipProvider delayDuration={300}>
-                            <Tooltip>
-                              <TooltipTrigger asChild>
-                                <Button
-                                  variant="ghost"
-                                  size="icon"
-                                  className="h-8 w-8"
-                                  aria-label="View details"
-                                  onClick={() => setDetailDialog(r)}
-                                >
-                                  <Eye className="h-3.5 w-3.5" />
-                                </Button>
-                              </TooltipTrigger>
-                              <TooltipContent>View details</TooltipContent>
-                            </Tooltip>
-                          </TooltipProvider>
+            <>
+              <div className="space-y-3 md:hidden">
+                {requests.map((r) => {
+                  const remainingMs = new Date(r.expiresAt).getTime() - Date.now()
+                  const expiresSoon = r.status === 'PENDING' && remainingMs > 0 && remainingMs < 30 * 60 * 1000
+
+                  return (
+                    <Card key={r.id} className="border border-border/60 shadow-sm">
+                      <CardContent className="space-y-4 p-4">
+                        <div className="flex items-start justify-between gap-3">
+                          <div className="min-w-0 space-y-1">
+                            <button
+                              type="button"
+                              className="font-mono text-sm text-left rounded focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 hover:underline"
+                              onClick={() => setDetailDialog(r)}
+                              aria-label={`View details for ${r.toolName}`}
+                            >
+                              {r.toolName}
+                            </button>
+                            <div className="flex flex-wrap items-center gap-2">
+                              <Badge variant="outline" className="font-mono text-xs">
+                                {r.userId}
+                              </Badge>
+                              <span className="text-xs text-muted-foreground">
+                                {r.serverId || 'No server ID'}
+                              </span>
+                            </div>
+                          </div>
+                          <div className="shrink-0">{statusBadge(r.status)}</div>
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-3 text-sm">
+                          <div>
+                            <p className="text-xs text-muted-foreground">Created</p>
+                            <p>{formatTime(r.createdAt)}</p>
+                          </div>
+                          <div>
+                            <p className="text-xs text-muted-foreground">Expires</p>
+                            <p className={expiresSoon ? 'font-medium text-amber-600 dark:text-amber-400' : 'text-muted-foreground'}>
+                              {formatTime(r.expiresAt)}
+                            </p>
+                          </div>
+                        </div>
+
+                        <div>
+                          <p className="text-xs text-muted-foreground">Policy reason</p>
+                          <p className="text-sm text-muted-foreground">{r.reason || '—'}</p>
+                        </div>
+
+                        <div className="flex flex-wrap gap-2">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="flex-1 sm:flex-none"
+                            onClick={() => setDetailDialog(r)}
+                          >
+                            <Eye className="mr-1.5 h-3.5 w-3.5" />
+                            Details
+                          </Button>
                           {r.status === 'PENDING' && (
                             <>
                               <Button
-                                variant="ghost"
                                 size="sm"
-                                className="h-7 px-2 text-xs font-medium text-emerald-600 hover:text-emerald-600 hover:bg-green-100 dark:hover:bg-green-900"
-                                aria-label="Approve"
+                                className="flex-1 bg-emerald-600 text-white hover:bg-emerald-700"
                                 onClick={() => openDecideDialog(r, 'APPROVED')}
                               >
-                                <CheckCircle2 className="h-3.5 w-3.5 mr-1" />
+                                <CheckCircle2 className="mr-1.5 h-3.5 w-3.5" />
                                 Approve
                               </Button>
                               <Button
-                                variant="ghost"
                                 size="sm"
-                                className="h-7 px-2 text-xs font-medium text-red-600 hover:text-red-600 hover:bg-red-100 dark:hover:bg-red-900"
-                                aria-label="Reject"
+                                variant="destructive"
+                                className="flex-1"
                                 onClick={() => openDecideDialog(r, 'REJECTED')}
                               >
-                                <XCircle className="h-3.5 w-3.5 mr-1" />
+                                <XCircle className="mr-1.5 h-3.5 w-3.5" />
                                 Reject
                               </Button>
                             </>
                           )}
                         </div>
-                      </TableCell>
+                      </CardContent>
+                    </Card>
+                  )
+                })}
+              </div>
+
+              <div className="hidden max-h-[min(65dvh,42rem)] overflow-auto md:block">
+                <table className="min-w-[980px] w-full caption-bottom text-sm">
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead className="sticky top-0 z-10 bg-background shadow-[0_1px_0_0_hsl(var(--border))]">Tool</TableHead>
+                      <TableHead className="sticky top-0 z-10 bg-background shadow-[0_1px_0_0_hsl(var(--border))]">Server</TableHead>
+                      <TableHead className="sticky top-0 z-10 bg-background shadow-[0_1px_0_0_hsl(var(--border))]">User</TableHead>
+                      <TableHead className="sticky top-0 z-10 bg-background shadow-[0_1px_0_0_hsl(var(--border))] text-center">Status</TableHead>
+                      <TableHead className="sticky top-0 z-10 bg-background shadow-[0_1px_0_0_hsl(var(--border))]">Created</TableHead>
+                      <TableHead className="sticky top-0 z-10 bg-background shadow-[0_1px_0_0_hsl(var(--border))]">Expires</TableHead>
+                      <TableHead className="sticky top-0 z-10 bg-background shadow-[0_1px_0_0_hsl(var(--border))]">Policy reason</TableHead>
+                      <TableHead className="sticky top-0 z-10 bg-background shadow-[0_1px_0_0_hsl(var(--border))] text-right">Actions</TableHead>
                     </TableRow>
-                  ))}
-                </TableBody>
-              </table>
-            </div>
+                  </TableHeader>
+                  <TableBody>
+                    {requests.map((r) => (
+                      <TableRow key={r.id}>
+                        <TableCell>
+                          <button
+                            type="button"
+                            className="font-mono text-sm text-left rounded cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 hover:underline"
+                            onClick={() => setDetailDialog(r)}
+                            aria-label={`View details for ${r.toolName}`}
+                          >
+                            {r.toolName}
+                          </button>
+                        </TableCell>
+                        <TableCell>
+                          <span className="text-sm text-muted-foreground truncate max-w-[120px] block" title={r.serverId || undefined}>
+                            {r.serverId || '—'}
+                          </span>
+                        </TableCell>
+                        <TableCell>
+                          <Badge variant="outline" className="font-mono text-xs">
+                            {r.userId}
+                          </Badge>
+                        </TableCell>
+                        <TableCell className="text-center">{statusBadge(r.status)}</TableCell>
+                        <TableCell className="text-sm text-muted-foreground">
+                          {formatTime(r.createdAt)}
+                        </TableCell>
+                        <TableCell className={`text-sm ${
+                          (() => {
+                            const remainingMs = new Date(r.expiresAt).getTime() - Date.now()
+                            return r.status === 'PENDING' && remainingMs > 0 && remainingMs < 30 * 60 * 1000
+                              ? 'text-amber-600 dark:text-amber-400 font-medium'
+                              : 'text-muted-foreground'
+                          })()
+                        }`}>
+                          {formatTime(r.expiresAt)}
+                        </TableCell>
+                        <TableCell className="text-sm text-muted-foreground max-w-[180px]" title={r.reason || undefined}>
+                          <span className="block truncate">
+                            {r.reason || '—'}
+                          </span>
+                        </TableCell>
+                        <TableCell className="text-right">
+                          <div className="flex items-center justify-end gap-1">
+                            <TooltipProvider delayDuration={300}>
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    className="h-8 w-8"
+                                    aria-label="View details"
+                                    onClick={() => setDetailDialog(r)}
+                                  >
+                                    <Eye className="h-3.5 w-3.5" />
+                                  </Button>
+                                </TooltipTrigger>
+                                <TooltipContent>View details</TooltipContent>
+                              </Tooltip>
+                            </TooltipProvider>
+                            {r.status === 'PENDING' && (
+                              <>
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  className="h-7 px-2 text-xs font-medium text-emerald-600 hover:text-emerald-600 hover:bg-green-100 dark:hover:bg-green-900"
+                                  aria-label="Approve"
+                                  onClick={() => openDecideDialog(r, 'APPROVED')}
+                                >
+                                  <CheckCircle2 className="h-3.5 w-3.5 mr-1" />
+                                  Approve
+                                </Button>
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  className="h-7 px-2 text-xs font-medium text-red-600 hover:text-red-600 hover:bg-red-100 dark:hover:bg-red-900"
+                                  aria-label="Reject"
+                                  onClick={() => openDecideDialog(r, 'REJECTED')}
+                                >
+                                  <XCircle className="h-3.5 w-3.5 mr-1" />
+                                  Reject
+                                </Button>
+                              </>
+                            )}
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </table>
+              </div>
+            </>
           )}
         </CardContent>
       </Card>
@@ -650,7 +751,7 @@ export default function ApprovalsPage() {
             {requests.length.toLocaleString()} requests
           </p>
           {hasMore && (
-            <Button variant="outline" size="sm" onClick={handleLoadMore} disabled={loadingMore}>
+            <Button variant="outline" size="sm" onClick={handleLoadMore} disabled={loadingMore || refreshing}>
               {loadingMore ? 'Loading more approvals...' : 'Load more'}
             </Button>
           )}
@@ -828,7 +929,7 @@ export default function ApprovalsPage() {
               </div>
             </div>
             <DialogFooter>
-              <Button variant="outline" onClick={() => setDecideDialog(null)}>
+              <Button variant="outline" onClick={() => setDecideDialog(null)} disabled={deciding}>
                 Cancel
               </Button>
               {decideDialog.decision === 'APPROVED' ? (
@@ -837,11 +938,21 @@ export default function ApprovalsPage() {
                   onClick={handleDecide}
                   disabled={deciding}
                 >
-                  {deciding ? 'Approving...' : 'Approve'}
+                  {deciding ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" aria-hidden="true" />
+                      Approving...
+                    </>
+                  ) : 'Approve'}
                 </Button>
               ) : (
                 <Button variant="destructive" onClick={handleDecide} disabled={deciding}>
-                  {deciding ? 'Rejecting...' : 'Reject'}
+                  {deciding ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" aria-hidden="true" />
+                      Rejecting...
+                    </>
+                  ) : 'Reject'}
                 </Button>
               )}
             </DialogFooter>

@@ -170,7 +170,7 @@ function LogsPageContent() {
   const tableScopedFiltersEnabled = activeTab !== 'statistics'
   const [latestLogId, setLatestLogId] = useState<number>(0)
   const [realtimeHealthy, setRealtimeHealthy] = useState<boolean>(true)
-  const [filtersOpen, setFiltersOpen] = useState<boolean>(true)
+  const [filtersOpen, setFiltersOpen] = useState<boolean>(false)
   const logsRequestSeqRef = useRef(0)
   const statsRequestSeqRef = useRef(0)
 
@@ -517,6 +517,8 @@ function LogsPageContent() {
   const chartAxisColor = 'hsl(var(--muted-foreground))'
   const chartGridColor = 'hsl(var(--border))'
   const chartTextColor = 'hsl(var(--foreground))'
+  const chartPrimaryColor = 'hsl(var(--primary))'
+  const chartDestructiveColor = 'hsl(var(--destructive))'
   const exportLoadFailed = activeTab === 'statistics'
     ? !!statsError
     : !!loadError
@@ -575,7 +577,7 @@ function LogsPageContent() {
               className={`mr-2 h-4 w-4 ${loading ? 'animate-spin' : ''}`}
               aria-hidden="true"
             />
-            Refresh data
+            Refresh
           </Button>
           <Button
             variant="outline"
@@ -658,11 +660,11 @@ function LogsPageContent() {
                     </SelectTrigger>
                     <SelectContent>
                       {activeTab === 'statistics' ? null : <SelectItem value="all">All Time</SelectItem>}
-                      <SelectItem value="1h">Last Hour</SelectItem>
-                      <SelectItem value="6h">Last 6 Hours</SelectItem>
-                      <SelectItem value="24h">Last 24 Hours</SelectItem>
-                      <SelectItem value="7d">Last 7 Days</SelectItem>
-                      {activeTab === 'statistics' ? null : <SelectItem value="30d">Last 30 Days</SelectItem>}
+                      <SelectItem value="1h">Last hour</SelectItem>
+                      <SelectItem value="6h">Last 6 hours</SelectItem>
+                      <SelectItem value="24h">Last 24 hours</SelectItem>
+                      <SelectItem value="7d">Last 7 days</SelectItem>
+                      {activeTab === 'statistics' ? null : <SelectItem value="30d">Last 30 days</SelectItem>}
                     </SelectContent>
                   </Select>
                 </div>
@@ -754,7 +756,7 @@ function LogsPageContent() {
                 <span>
                   {loading ? 'Server Logs' : `Server Logs (${totalCount.toLocaleString()} total, showing ${logs.length.toLocaleString()})`}
                 </span>
-                <Badge variant="outline" className={loading || currentPage !== 1 || activeTab !== 'table' || debouncedSearchTerm ? 'border-yellow-500 text-yellow-600 dark:text-yellow-400' : realtimeHealthy ? 'border-green-500 text-green-600 dark:text-green-400' : 'border-red-500 text-red-600 dark:text-red-400'}>
+                <Badge variant="outline" className={loading || currentPage !== 1 || activeTab !== 'table' || debouncedSearchTerm ? 'border-amber-500 text-amber-700 dark:text-amber-300' : realtimeHealthy ? 'border-green-500 text-green-600 dark:text-green-400' : 'border-red-500 text-red-600 dark:text-red-400'}>
                   <Clock className="mr-1 h-3 w-3" />
                   {liveStatusText}
                 </Badge>
@@ -774,13 +776,13 @@ function LogsPageContent() {
                       : 'Live updates pause while searching or browsing older pages.'
                     : realtimeHealthy
                     ? 'Live updates run every 10 seconds.'
-                    : 'Live updates stopped. Select Refresh data to load the latest logs.'}
+                    : 'Live updates stopped. Select Refresh to load the latest logs.'}
                 </span>
               </CardDescription>
             </CardHeader>
             <CardContent>
               <div className="overflow-x-auto">
-              <Table>
+              <Table className="min-w-[980px]">
                   <TableHeader>
                     <TableRow>
                       <TableHead className="w-[180px]">Timestamp</TableHead>
@@ -809,7 +811,7 @@ function LogsPageContent() {
                             variant={getLevelColor(log.level) === 'destructive' ? 'destructive' : 'outline'}
                             className={
                               getLevelColor(log.level) === 'warn'
-                                ? 'border-yellow-500 bg-yellow-50 text-yellow-700 dark:bg-yellow-950/20 dark:text-yellow-400 dark:border-yellow-700 text-xs'
+                                ? 'border-amber-500 bg-amber-50 text-amber-700 dark:bg-amber-950/20 dark:text-amber-300 dark:border-amber-700 text-xs'
                                 : getLevelColor(log.level) === 'info'
                                 ? 'border-blue-500 bg-blue-50 text-blue-700 dark:bg-blue-950/20 dark:text-blue-400 dark:border-blue-700 text-xs'
                                 : getLevelColor(log.level) === 'debug'
@@ -1087,7 +1089,7 @@ function LogsPageContent() {
                 <div className="flex flex-col items-center justify-center py-16 text-muted-foreground">
                   <Activity className="h-12 w-12 mb-3 opacity-40" />
                   <p className="text-sm">{loadError || 'No logs available'}</p>
-                  <p className="text-xs mt-1">{loadError ? 'Try refresh to load data again' : 'Try adjusting your filters or check back later'}</p>
+                  <p className="text-xs mt-1">{loadError ? 'Try Refresh to load data again' : 'Try adjusting your filters or check back later'}</p>
                   {loadError ? (
                     <Button variant="outline" size="sm" className="mt-3" onClick={handleRefresh}>
                       Retry
@@ -1227,8 +1229,8 @@ function LogsPageContent() {
                       itemStyle={{ color: chartTextColor }}
                     />
                     <Legend wrapperStyle={{ color: chartTextColor }} />
-                    <Area type="monotone" dataKey="totalCount" name="Total" stroke="#3b82f6" fill="#3b82f6" fillOpacity={0.1} />
-                    <Area type="monotone" dataKey="errorCount" name="Errors" stroke="#ef4444" fill="#ef4444" fillOpacity={0.1} />
+                    <Area type="monotone" dataKey="totalCount" name="Total" stroke={chartPrimaryColor} fill={chartPrimaryColor} fillOpacity={0.1} />
+                    <Area type="monotone" dataKey="errorCount" name="Errors" stroke={chartDestructiveColor} fill={chartDestructiveColor} fillOpacity={0.1} />
                   </AreaChart>
                 </ResponsiveContainer>
               )}
@@ -1258,7 +1260,7 @@ function LogsPageContent() {
                 </div>
               ) : (
                 <div className="overflow-x-auto">
-                <Table>
+                <Table className="min-w-[480px]">
                   <TableHeader>
                     <TableRow>
                       <TableHead>Source</TableHead>

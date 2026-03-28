@@ -1,6 +1,10 @@
 export function buildSimplePdfBuffer(lines: string[]): Buffer {
   const escapedLines = lines.map((line) =>
-    line.replace(/\\/g, '\\\\').replace(/\(/g, '\\(').replace(/\)/g, '\\)')
+    line
+      .replace(/[\r\n]+/g, ' ')
+      .replace(/\\/g, '\\\\')
+      .replace(/\(/g, '\\(')
+      .replace(/\)/g, '\\)')
   );
   const contentLines = escapedLines.map((line) => `(${line}) Tj T*`).join('\n');
   const streamContent = `BT\n/F1 10 Tf\n50 780 Td\n12 TL\n${contentLines}\nET`;

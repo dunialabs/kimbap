@@ -62,7 +62,7 @@ export function ResetTokenDialog({
       setNewToken("")
       onOpenChange(false)
     } catch (err) {
-      setError("Could not reset token.")
+      setError("Could not reconnect with that access token. Check the token and try again.")
     } finally {
       setIsResetting(false)
     }
@@ -101,8 +101,8 @@ export function ResetTokenDialog({
                   <p>
                     <strong>Server:</strong> {serverName}
                   </p>
-                  <p>
-                    <strong>Address:</strong> {serverAddress}
+                  <p className="break-all font-mono text-xs text-muted-foreground">
+                    <strong className="font-semibold text-foreground">Address:</strong> {serverAddress}
                   </p>
                   <p>
                     <strong>Issue:</strong> Access token is invalid or expired
@@ -124,7 +124,6 @@ export function ResetTokenDialog({
                   setError("")
                 }}
                 disabled={isResetting}
-                autoFocus
                 autoCapitalize="none"
                 autoCorrect="off"
                 spellCheck={false}
@@ -161,16 +160,16 @@ export function ResetTokenDialog({
             <Button type="button" variant="outline" onClick={handleCancel} disabled={isResetting}>
               Cancel
             </Button>
-            <Button type="submit" variant="destructive" disabled={!newToken.trim() || isResetting}>
+            <Button type="submit" disabled={!newToken.trim() || isResetting}>
               {isResetting ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Resetting...
+                  Reconnecting...
                 </>
               ) : (
                 <>
                   <Key className="mr-2 h-4 w-4" />
-                  Reset Token
+                  Reconnect
                 </>
               )}
             </Button>

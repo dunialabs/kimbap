@@ -21,6 +21,8 @@ export function MasterPasswordForm({ onSuccess }: MasterPasswordFormProps) {
   const [error, setError] = useState('')
   const [cryptoAvailable, setCryptoAvailable] = useState(true)
   const masterPasswordInputRef = useRef<HTMLInputElement>(null)
+  const passwordTooShort = masterPassword.length > 0 && masterPassword.length < 10
+  const passwordsMismatch = confirmPassword.length > 0 && masterPassword !== confirmPassword
 
   // Check Web Crypto API availability on component mount
   useEffect(() => {
@@ -126,6 +128,8 @@ export function MasterPasswordForm({ onSuccess }: MasterPasswordFormProps) {
               autoCorrect="off"
               spellCheck={false}
               className="h-12 w-full pl-3 pr-10 rounded-lg border border-input bg-background focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              aria-invalid={passwordTooShort || Boolean(error)}
+              aria-describedby={[passwordTooShort ? 'master-password-hint' : '', error ? 'master-password-error' : ''].filter(Boolean).join(' ') || undefined}
               required
             />
             <button
@@ -143,7 +147,7 @@ export function MasterPasswordForm({ onSuccess }: MasterPasswordFormProps) {
             </button>
           </div>
           {masterPassword && masterPassword.length < 10 && (
-            <p className="text-xs text-muted-foreground">
+            <p id="master-password-hint" className="text-xs text-muted-foreground">
               {masterPassword.length}/10 characters minimum
             </p>
           )}
@@ -170,6 +174,8 @@ export function MasterPasswordForm({ onSuccess }: MasterPasswordFormProps) {
               autoCorrect="off"
               spellCheck={false}
               className="h-12 w-full pl-3 pr-10 rounded-lg border border-input bg-background focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              aria-invalid={passwordsMismatch || Boolean(error)}
+              aria-describedby={[confirmPassword && masterPassword ? 'confirm-password-status' : '', error ? 'master-password-error' : ''].filter(Boolean).join(' ') || undefined}
               required
             />
             <button
@@ -188,8 +194,8 @@ export function MasterPasswordForm({ onSuccess }: MasterPasswordFormProps) {
           </div>
           {confirmPassword && masterPassword && (
             confirmPassword === masterPassword
-              ? <p className="text-xs text-green-600 dark:text-green-400">Passwords match</p>
-              : <p className="text-xs text-red-600 dark:text-red-400">Passwords do not match</p>
+              ? <p id="confirm-password-status" className="text-xs text-green-600 dark:text-green-400" aria-live="polite">Passwords match</p>
+              : <p id="confirm-password-status" className="text-xs text-red-600 dark:text-red-400" aria-live="polite">Passwords do not match</p>
           )}
         </div>
 
@@ -204,7 +210,7 @@ export function MasterPasswordForm({ onSuccess }: MasterPasswordFormProps) {
 
         {/* Error Message */}
         {error && (
-           <Alert className="border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-950/20" role="alert">
+           <Alert id="master-password-error" className="border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-950/20" role="alert">
             <AlertDescription className="text-sm text-red-800 dark:text-red-200">
               {renderErrorMessageWithLinks(error)}
             </AlertDescription>

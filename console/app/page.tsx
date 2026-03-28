@@ -4,6 +4,7 @@ import Image from 'next/image'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { Suspense, useEffect, useState } from 'react'
 
+import { GlobalFooter } from '@/components/global-footer'
 import { LoginForm } from '@/components/login-form'
 import { clearAuthState } from '@/lib/api-client'
 
@@ -55,23 +56,25 @@ function WelcomePageContent() {
   }
 
   return (
-    <div className="flex min-h-screen p-[24px] pb-0 bg-[#F7F7F3] dark:bg-background flex-col">
+    <div className="flex min-h-screen flex-col bg-gradient-to-br from-orange-50 via-background to-amber-50/70 px-4 pb-0 pt-4 dark:from-background dark:via-background dark:to-background sm:px-6 sm:pt-6">
       <div className="flex flex-1">
-        <div className="hidden lg:flex lg:w-1/2 p-12 flex-col justify-center items-center">
-          <div className="max-w-[780px]">
-            <h1 className="text-[52px] font-bold text-[#F56711] leading-[60px] mb-[4px]">Kimbap Console</h1>
-            <h2 className="text-[40px] font-bold text-[#26251E] dark:text-foreground leading-[48px] mb-[24px]">
+        <div className="hidden lg:flex lg:w-1/2 lg:flex-col lg:justify-center lg:p-12">
+          <div className="max-w-md">
+            <h1 className="mb-1 text-[52px] font-bold leading-tight text-orange-600 dark:text-orange-400">
+              Kimbap Console
+            </h1>
+            <h2 className="mb-6 text-[40px] font-bold leading-tight text-slate-900 dark:text-foreground xl:text-[52px]">
               Operations Console
             </h2>
-            <p className="text-muted-foreground leading-[24px] text-[16px]">
+            <p className="text-[16px] leading-relaxed text-muted-foreground">
               Review logs, handle approvals, manage policies, and monitor usage from one place.
             </p>
           </div>
         </div>
 
-        <div className="flex-1 flex bg-white dark:bg-slate-900 rounded-[12px]">
+        <div className="flex-1 rounded-xl border border-border/60 bg-card shadow-sm">
           <div className="w-full flex flex-col">
-            <div className="p-[14px]">
+            <div className="p-4">
               <Image src="/new_logo.svg" alt="Kimbap Logo" width={226} height={32} className="block dark:hidden" priority />
               <Image src="/darklogo.svg" alt="Kimbap Logo" width={226} height={32} className="hidden dark:block" priority />
             </div>
@@ -87,21 +90,7 @@ function WelcomePageContent() {
         </div>
       </div>
 
-      <footer className="w-full py-4 border-t border-slate-200 dark:border-slate-800">
-        <div className="text-center text-xs text-slate-500 dark:text-slate-400">
-          <span>© 2026 </span>
-          <a
-            href="https://kimbap.sh"
-            target="_blank"
-            rel="noopener noreferrer"
-            aria-label="Dunia Labs website (opens in new tab)"
-            className="rounded-sm text-slate-600 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 dark:text-slate-300"
-          >
-            Dunia Labs, Inc.
-          </a>
-          <span> Operations console for the Kimbap platform.</span>
-        </div>
-      </footer>
+      <GlobalFooter />
     </div>
   )
 }
