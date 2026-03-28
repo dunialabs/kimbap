@@ -88,7 +88,7 @@ verify_checksum() {
   filename="$(basename "$archive")"
 
   local expected
-  expected="$(awk -v f="$filename" '$2 == f || $2 == ("*" f) {print $1}' "$checksums_file")" || true
+  expected="$(awk -v f="$filename" '{gsub(/\r$/,"")} $2 == f || $2 == ("*" f) {print $1}' "$checksums_file")" || true
   if [[ -z "$expected" ]]; then
     error "No checksum entry found for '$filename' in checksums file."
   fi

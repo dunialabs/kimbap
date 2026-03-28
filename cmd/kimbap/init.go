@@ -208,7 +208,11 @@ func resolveInitServiceSelectionFromReader(rawServices string, noServices bool, 
 		return initServiceSelection{Names: all}, nil
 	}
 
-	if selected := parseCSV(rawServices); len(selected) > 0 {
+	if strings.TrimSpace(rawServices) != "" {
+		selected := parseCSV(rawServices)
+		if len(selected) == 0 {
+			return initServiceSelection{}, fmt.Errorf("invalid --services value: %q", rawServices)
+		}
 		normalized, err := normalizeSelectedOfficialServices(selected)
 		if err != nil {
 			return initServiceSelection{}, err

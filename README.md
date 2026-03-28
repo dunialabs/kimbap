@@ -43,7 +43,7 @@ and set up kimbap for this project.
 curl -fsSL https://raw.githubusercontent.com/dunialabs/kimbap/main/install.sh | bash
 ```
 
-The installer will prompt to run `kimbap init`. If you skip it, run manually:
+In interactive shells, the installer prompts to run `kimbap init`. If skipped or non-interactive, run manually:
 
 ```bash
 kimbap init --mode dev

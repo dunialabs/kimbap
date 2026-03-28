@@ -206,15 +206,16 @@ func TestEnsureWritableDirWithStatusFailsWhenExistingDirectoryIsNotWritable(t *t
 
 func TestResolveInitServiceSelectionFromReader(t *testing.T) {
 	tests := []struct {
-		name        string
-		rawServices string
-		noServices  bool
-		interactive bool
-		input       string
-		wantSkipped bool
-		wantAll     bool
-		wantNames   []string
-		wantErr     bool
+		name            string
+		rawServices     string
+		noServices      bool
+		interactive     bool
+		input           string
+		wantSkipped     bool
+		wantAll         bool
+		wantNames       []string
+		wantErr         bool
+		wantErrContains string
 	}{
 		{name: "noServices flag skips", noServices: true, wantSkipped: true},
 		{name: "noServices overrides rawServices", rawServices: "all", noServices: true, wantSkipped: true},
@@ -223,7 +224,8 @@ func TestResolveInitServiceSelectionFromReader(t *testing.T) {
 		{name: "services all with whitespace", rawServices: " all ", wantAll: true},
 		{name: "services csv returns normalized", rawServices: "github,slack", wantNames: []string{"github", "slack"}},
 		{name: "services csv with whitespace", rawServices: "github , slack", wantNames: []string{"github", "slack"}},
-		{name: "services invalid errors", rawServices: "nonexistent-service-xyz", wantErr: true},
+		{name: "services invalid errors", rawServices: "nonexistent-service-xyz", wantErr: true, wantErrContains: "unknown official service"},
+		{name: "services comma-only errors", rawServices: ",,,", wantErr: true, wantErrContains: "invalid --services value"},
 		{name: "non-interactive empty skips", rawServices: "", interactive: false, wantSkipped: true},
 		{name: "interactive enter installs all", rawServices: "", interactive: true, input: "\n", wantAll: true},
 		{name: "interactive Y installs all", rawServices: "", interactive: true, input: "Y\n", wantAll: true},
@@ -238,7 +240,7 @@ func TestResolveInitServiceSelectionFromReader(t *testing.T) {
 		{name: "interactive select then all", rawServices: "", interactive: true, input: "select\nall\n", wantAll: true},
 		{name: "interactive select then empty skips", rawServices: "", interactive: true, input: "select\n\n", wantSkipped: true},
 		{name: "interactive select then EOF skips", rawServices: "", interactive: true, input: "select\n", wantSkipped: true},
-		{name: "interactive invalid service errors", rawServices: "", interactive: true, input: "nonexistent-service-xyz\n", wantErr: true},
+		{name: "interactive invalid service errors", rawServices: "", interactive: true, input: "nonexistent-service-xyz\n", wantErr: true, wantErrContains: "unknown official service"},
 	}
 
 	for _, tc := range tests {
@@ -250,8 +252,8 @@ func TestResolveInitServiceSelectionFromReader(t *testing.T) {
 				if err == nil {
 					t.Fatalf("expected error, got nil")
 				}
-				if !strings.Contains(err.Error(), "unknown official service") {
-					t.Fatalf("expected error containing 'unknown official service', got: %v", err)
+				if tc.wantErrContains != "" && !strings.Contains(err.Error(), tc.wantErrContains) {
+					t.Fatalf("expected error containing %q, got: %v", tc.wantErrContains, err)
 				}
 				return
 			}

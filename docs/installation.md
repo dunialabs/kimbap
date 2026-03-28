@@ -23,7 +23,7 @@ Choose one method based on your environment.
 curl -fsSL https://raw.githubusercontent.com/dunialabs/kimbap/main/install.sh | bash
 ```
 
-Downloads the latest release binary, verifies SHA256 checksum, and installs `kimbap` + `kb` into `/usr/local/bin` when writable, otherwise `~/.local/bin` (with PATH instructions). Optionally runs quickstart init afterward.
+Downloads the latest release binary, verifies SHA256 checksum, and installs `kimbap` + `kb`. Install path: `/usr/local/bin` if writable, or via `sudo` in interactive shells, falling back to `~/.local/bin` with PATH instructions. May prompt to run quickstart init in interactive shells.
 
 Pin a specific version:
 
