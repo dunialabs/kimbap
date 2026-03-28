@@ -148,9 +148,27 @@ func isPrivateHost(host string) bool {
 	return false
 }
 
+var registrationPrivateCIDRs = func() []*net.IPNet {
+	var nets []*net.IPNet
+	for _, cidr := range []string{"10.0.0.0/8", "172.16.0.0/12", "192.168.0.0/16", "100.64.0.0/10", "169.254.0.0/16", "fc00::/7"} {
+		if _, n, err := net.ParseCIDR(cidr); err == nil {
+			nets = append(nets, n)
+		}
+	}
+	return nets
+}()
+
 func isPrivateIP(ip net.IP) bool {
 	if v4 := ip.To4(); v4 != nil {
 		ip = v4
 	}
-	return ip.IsLoopback() || ip.IsPrivate() || ip.IsLinkLocalUnicast() || ip.IsLinkLocalMulticast() || ip.IsUnspecified()
+	if ip.IsLoopback() || ip.IsLinkLocalUnicast() || ip.IsLinkLocalMulticast() || ip.IsUnspecified() {
+		return true
+	}
+	for _, n := range registrationPrivateCIDRs {
+		if n.Contains(ip) {
+			return true
+		}
+	}
+	return false
 }

@@ -121,6 +121,17 @@ func (a *HTTPAdapter) executeWithPagination(ctx context.Context, req AdapterRequ
 		}
 		if _, exists := pageInput[limitParam]; !exists {
 			pageInput[limitParam] = limit
+		} else {
+			switch v := pageInput[limitParam].(type) {
+			case int:
+				if v > 0 {
+					limit = v
+				}
+			case float64:
+				if v > 0 {
+					limit = int(v)
+				}
+			}
 		}
 
 		style := strings.ToLower(strings.TrimSpace(pageCfg.Style))
