@@ -178,8 +178,6 @@ func (m *Manager) CompleteLogin(ctx context.Context, tenantID, name string, code
 	if token.ExpiresIn > 0 {
 		expiresAt := now.Add(time.Duration(token.ExpiresIn) * time.Second)
 		state.ExpiresAt = &expiresAt
-	} else {
-		state.ExpiresAt = nil
 	}
 	state.LastRefreshError = ""
 	state.RevokedAt = nil
@@ -268,8 +266,6 @@ func (m *Manager) Refresh(ctx context.Context, tenantID, name string) error {
 	if token.ExpiresIn > 0 {
 		expiresAt := now.Add(time.Duration(token.ExpiresIn) * time.Second)
 		state.ExpiresAt = &expiresAt
-	} else {
-		state.ExpiresAt = nil
 	}
 	state.LastRefresh = &now
 	state.LastRefreshError = ""
@@ -467,9 +463,6 @@ func deriveStatus(state *ConnectorState) ConnectorStatus {
 		return StatusReauthNeeded
 	}
 	if state.Status == StatusReauthNeeded {
-		return StatusReauthNeeded
-	}
-	if strings.TrimSpace(state.LastRefreshError) != "" && state.LastRefresh != nil {
 		return StatusReauthNeeded
 	}
 	if strings.TrimSpace(state.AccessToken) == "" {
