@@ -43,7 +43,7 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { Textarea } from '@/components/ui/textarea';
-import { formatDateTime, formatDisplayNumber, formatNullableText, formatRelativeMinutes } from '@/lib/utils';
+import { cn, formatDateTime, formatDisplayNumber, formatNullableText, formatRelativeMinutes } from '@/lib/utils';
 
 // ─── Types ──────────────────────────────────────────────
 
@@ -737,7 +737,7 @@ export default function ApprovalsPage() {
                           <div className="min-w-0 space-y-1">
                             <button
                               type="button"
-                              className="inline-flex min-h-11 items-center font-mono text-sm text-left rounded focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 hover:underline"
+                              className="inline-flex min-h-11 items-center rounded text-left font-mono text-sm transition-colors duration-200 hover:text-foreground hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
                               onClick={() => setDetailDialog(r)}
                               aria-label={`View details for ${r.toolName}`}
                             >
@@ -746,10 +746,16 @@ export default function ApprovalsPage() {
                             <div className="flex flex-wrap items-center gap-2">
                               <button
                                 type="button"
-                                className="inline-flex min-h-11 items-center rounded-md border border-input bg-background px-3 py-2 font-mono text-xs transition-colors hover:bg-muted/50 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                                className={cn(
+                                 'inline-flex min-h-11 items-center rounded-md border px-3 py-2 font-mono text-xs transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2',
+                                 userFilter.trim() === r.userId
+                                   ? 'border-primary bg-accent text-accent-foreground shadow-sm'
+                                   : 'border-input bg-background hover:bg-muted/50'
+                               )}
                                 title="Click to filter by this user"
                                 aria-label={`Filter approvals by user ${r.userId}`}
-                                onClick={() => setUserFilter(r.userId)}
+                                aria-pressed={userFilter.trim() === r.userId}
+                                 onClick={() => setUserFilter(r.userId)}
                               >
                                 {r.userId}
                               </button>
@@ -842,7 +848,7 @@ export default function ApprovalsPage() {
                         <TableCell>
                           <button
                              type="button"
-                             className="inline-flex min-h-11 max-w-[200px] items-center truncate font-mono text-sm text-left rounded cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 hover:underline"
+                             className="inline-flex min-h-11 max-w-[200px] items-center truncate rounded text-left font-mono text-sm transition-colors duration-200 hover:text-foreground hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
                              onClick={() => setDetailDialog(r)}
                              aria-label={`View details for ${r.toolName}`}
                              title={r.toolName}
@@ -858,10 +864,16 @@ export default function ApprovalsPage() {
                         <TableCell>
                           <button
                             type="button"
-                            className="inline-flex min-h-11 items-center rounded-md border border-input bg-background px-3 py-2 font-mono text-xs transition-colors hover:bg-muted/50 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                            className={cn(
+                             'inline-flex min-h-11 items-center rounded-md border px-3 py-2 font-mono text-xs transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2',
+                             userFilter.trim() === r.userId
+                               ? 'border-primary bg-accent text-accent-foreground shadow-sm'
+                               : 'border-input bg-background hover:bg-muted/50'
+                           )}
                             title="Click to filter by this user"
                             aria-label={`Filter approvals by user ${r.userId}`}
-                            onClick={() => setUserFilter(r.userId)}
+                            aria-pressed={userFilter.trim() === r.userId}
+                             onClick={() => setUserFilter(r.userId)}
                           >
                             {r.userId}
                           </button>

@@ -59,7 +59,7 @@ export function DashboardSidebar() {
             <div className="flex h-14 items-center border-b px-4">
               <Link
                 href="/dashboard"
-                className="flex min-h-11 items-center rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2"
+                className="flex min-h-11 items-center rounded-md transition-opacity duration-200 hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2"
                 onClick={() => setMobileMenuOpen(false)}
                 aria-label="Go to dashboard"
               >
@@ -87,7 +87,7 @@ export function DashboardSidebar() {
         </Sheet>
         <Link
           href="/dashboard"
-          className="ml-3 flex min-h-11 items-center rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2"
+          className="ml-3 flex min-h-11 items-center rounded-md transition-opacity duration-200 hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2"
           aria-label="Go to dashboard"
         >
           <Image src="/new_logo.svg" width={160} height={23} alt="Kimbap Logo" className="block h-auto max-w-full dark:hidden" priority />
@@ -101,7 +101,7 @@ export function DashboardSidebar() {
           <div className="flex h-14 items-center border-b px-4 lg:h-[60px] lg:px-6">
             <Link
               href="/dashboard"
-              className="flex items-center gap-2 font-semibold flex-1 min-w-0 rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2"
+              className="flex flex-1 min-w-0 items-center gap-2 rounded-md font-semibold transition-opacity duration-200 hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2"
               aria-label="Go to dashboard"
             >
               <Image src="/new_logo.svg" width={237} height={34} alt="Kimbap Logo" className="block dark:hidden max-w-full h-auto" priority />

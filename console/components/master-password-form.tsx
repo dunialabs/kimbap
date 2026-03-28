@@ -128,7 +128,7 @@ export function MasterPasswordForm({ onSuccess }: MasterPasswordFormProps) {
               autoCapitalize="none"
               autoCorrect="off"
               spellCheck={false}
-              className="h-12 w-full pl-3 pr-10 rounded-lg border border-input bg-background focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              className="h-12 w-full rounded-lg border border-input bg-background pl-3 pr-10 transition-colors duration-200 focus-visible:border-blue-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 disabled:cursor-not-allowed disabled:opacity-50"
               aria-invalid={passwordTooShort || Boolean(error)}
               aria-describedby={[passwordTooShort ? 'master-password-hint' : '', error ? 'master-password-error' : ''].filter(Boolean).join(' ') || undefined}
               minLength={10}
@@ -137,8 +137,9 @@ export function MasterPasswordForm({ onSuccess }: MasterPasswordFormProps) {
             <button
               type="button"
               onClick={() => setShowPassword(!showPassword)}
-              className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 rounded"
+              className="absolute right-3 top-1/2 -translate-y-1/2 rounded text-muted-foreground transition-colors duration-200 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
               aria-label={showPassword ? 'Hide password' : 'Show password'}
+               disabled={isLoading || !cryptoAvailable}
             >
 
               {showPassword ? (
@@ -176,7 +177,7 @@ export function MasterPasswordForm({ onSuccess }: MasterPasswordFormProps) {
               autoCapitalize="none"
               autoCorrect="off"
               spellCheck={false}
-              className="h-12 w-full pl-3 pr-10 rounded-lg border border-input bg-background focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              className="h-12 w-full rounded-lg border border-input bg-background pl-3 pr-10 transition-colors duration-200 focus-visible:border-blue-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 disabled:cursor-not-allowed disabled:opacity-50"
               aria-invalid={passwordsMismatch || Boolean(error)}
               aria-describedby={[confirmPassword && masterPassword ? 'confirm-password-status' : '', error ? 'master-password-error' : ''].filter(Boolean).join(' ') || undefined}
               required
@@ -184,8 +185,9 @@ export function MasterPasswordForm({ onSuccess }: MasterPasswordFormProps) {
             <button
               type="button"
               onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-              className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 rounded"
+              className="absolute right-3 top-1/2 -translate-y-1/2 rounded text-muted-foreground transition-colors duration-200 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
               aria-label={showConfirmPassword ? 'Hide confirm password' : 'Show confirm password'}
+               disabled={isLoading || !cryptoAvailable}
             >
 
               {showConfirmPassword ? (

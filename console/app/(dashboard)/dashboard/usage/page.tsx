@@ -467,7 +467,7 @@ function UsagePageContent() {
         <CardHeader className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
           <div>
             <CardTitle className="flex items-center gap-2">
-              <Link href={`/dashboard/usage/tool-usage?timeRange=${timeRange}`} className="rounded-sm hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2">Top Tools</Link>
+              <Link href={`/dashboard/usage/tool-usage?timeRange=${timeRange}`} className="rounded-sm transition-colors duration-200 hover:text-foreground hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2">Top Tools</Link>
               {!loading && displayTopTools.length > 0 ? <Badge variant="outline" className="text-xs">{formatDisplayNumber(displayTopTools.length)}</Badge> : null}
             </CardTitle>
             <CardDescription>Most-used tools in the last {timeRangeLabel}</CardDescription>
@@ -496,7 +496,7 @@ function UsagePageContent() {
           ) : (
             <div className="space-y-4">
               {displayTopTools.map((tool) => (
-                <Link key={tool.toolName} href={`/dashboard/usage/tool-usage?timeRange=${timeRange}`} className="flex flex-col gap-2 rounded-md p-1 -m-1 hover:bg-muted/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 sm:flex-row sm:items-center sm:justify-between">
+                <Link key={tool.toolName} href={`/dashboard/usage/tool-usage?timeRange=${timeRange}`} className="-m-1 flex flex-col gap-2 rounded-md p-1 transition-colors duration-200 hover:bg-muted/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 sm:flex-row sm:items-center sm:justify-between">
                   <div className="flex min-w-0 items-center gap-3">
                     <div className={`w-2 h-2 rounded-full`} style={{ backgroundColor: tool.color }}></div>
                     <span className="truncate font-medium">{tool.toolName}</span>
@@ -518,7 +518,7 @@ function UsagePageContent() {
           <CardHeader className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
             <div>
               <CardTitle className="flex items-center gap-2">
-                <Link href={`/dashboard/usage/token-usage?timeRange=${timeRange}`} className="rounded-sm hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2">Active Tokens</Link>
+                <Link href={`/dashboard/usage/token-usage?timeRange=${timeRange}`} className="rounded-sm transition-colors duration-200 hover:text-foreground hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2">Active Tokens</Link>
                 {!loading && displayActiveTokens.length > 0 ? <Badge variant="outline" className="text-xs">{formatDisplayNumber(displayActiveTokens.length)}</Badge> : null}
               </CardTitle>
               <CardDescription>Most active and recently used tokens in the last {timeRangeLabel}</CardDescription>
@@ -547,7 +547,7 @@ function UsagePageContent() {
             ) : (
               <div className="space-y-3">
                 {displayActiveTokens.map((token) => (
-                  <Link key={token.tokenMask} href={`/dashboard/usage/token-usage?timeRange=${timeRange}`} className="flex flex-col items-start gap-3 rounded-lg border p-3 hover:bg-muted/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 sm:flex-row sm:items-center sm:justify-between">
+                  <Link key={token.tokenMask} href={`/dashboard/usage/token-usage?timeRange=${timeRange}`} className="flex flex-col items-start gap-3 rounded-lg border p-3 transition-colors duration-200 hover:bg-muted/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 sm:flex-row sm:items-center sm:justify-between">
                     <div className="min-w-0">
                       <div className="font-medium">{token.tokenName}</div>
                       <div className="mt-1 font-mono text-xs text-muted-foreground">{token.tokenMask}</div>
@@ -569,7 +569,7 @@ function UsagePageContent() {
           <CardHeader className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
             <div>
               <CardTitle className="flex items-center gap-2">
-                <Link href={`/dashboard/logs?timeRange=${logsTimeRange}`} className="rounded-sm hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2">Recent Activity</Link>
+                <Link href={`/dashboard/logs?timeRange=${logsTimeRange}`} className="rounded-sm transition-colors duration-200 hover:text-foreground hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2">Recent Activity</Link>
                 {!loading && displayRecentActivity.length > 0 ? <Badge variant="outline" className="text-xs">{formatDisplayNumber(displayRecentActivity.length)}</Badge> : null}
               </CardTitle>
               <CardDescription>Most recent events in the last {timeRangeLabel}</CardDescription>
@@ -601,7 +601,7 @@ function UsagePageContent() {
                   <p className="text-xs text-amber-600 dark:text-amber-400">{recentActivityError}</p>
                 ) : null}
                 {displayRecentActivity.map((activity) => (
-                  <Link key={`${activity.timestamp}-${activity.description}`} href={`/dashboard/logs?timeRange=${logsTimeRange}`} className="flex items-start gap-3 rounded-md p-1 -m-1 hover:bg-muted/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2">
+                  <Link key={`${activity.timestamp}-${activity.description}`} href={`/dashboard/logs?timeRange=${logsTimeRange}`} className="-m-1 flex items-start gap-3 rounded-md p-1 transition-colors duration-200 hover:bg-muted/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2">
                     <div className={`w-2 h-2 rounded-full mt-2 ${activityColorClass[activity.color] || 'bg-muted-foreground'}`}></div>
                     <div className="flex-1">
                       <div className="text-sm font-medium">{activity.description}</div>

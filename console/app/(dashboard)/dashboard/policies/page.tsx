@@ -373,7 +373,7 @@ function RuleCard({
           type="button"
           onClick={() => setExpanded((prev) => !prev)}
           aria-expanded={expanded}
-          className="flex min-h-11 min-w-0 flex-1 items-center gap-2 rounded text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+          className="flex min-h-11 min-w-0 flex-1 items-center gap-2 rounded text-left transition-colors duration-200 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
         >
           {expanded ? <ChevronUp className="h-4 w-4 shrink-0" /> : <ChevronDown className="h-4 w-4 shrink-0" />}
           <span className="shrink-0 text-sm font-medium">Rule {index + 1}</span>
@@ -544,7 +544,7 @@ function RuleCard({
                    type="button"
                    aria-expanded={extractOpen}
                    title="Extract specific fields from tool call arguments to use as variables in conditions"
-                   className="flex min-h-11 items-center gap-1 rounded px-2 py-2 text-xs text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                   className="flex min-h-11 items-center gap-1 rounded px-2 py-2 text-xs text-muted-foreground transition-colors duration-200 hover:bg-muted/50 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
                  >
                    {extractOpen ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
                    Extract fields (advanced)
@@ -990,7 +990,7 @@ export default function PoliciesPage() {
                         {canManagePolicies ? (
                           <button
                             type="button"
-                            className="group w-full rounded py-2 text-left space-y-1 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                            className="group w-full cursor-pointer rounded py-2 text-left space-y-1 transition-colors duration-200 hover:bg-muted/30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
                             onClick={() => openEdit(p)}
                             aria-label={`Edit policy: ${title}`}
                           >

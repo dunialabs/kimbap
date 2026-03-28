@@ -1028,7 +1028,7 @@ function ToolUsagePageContent() {
                             <div className="text-xs text-red-600 dark:text-red-400 whitespace-pre-wrap break-words">{log.errorMessage}</div>
                           ) : (
                             <details>
-                              <summary className="cursor-pointer rounded-sm text-xs text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2">View details</summary>
+                              <summary className="cursor-pointer rounded-sm text-xs text-muted-foreground transition-colors duration-200 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2">View details</summary>
                               <pre className="mt-1 max-h-24 overflow-auto whitespace-pre-wrap break-words rounded bg-muted p-2 text-xs">{formatNullableText(log.details)}</pre>
                             </details>
                           )}

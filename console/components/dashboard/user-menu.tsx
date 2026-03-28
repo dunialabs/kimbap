@@ -32,7 +32,7 @@ export function UserMenu({
         <button
           type="button"
           aria-label={`Open account menu for ${currentUser.email}`}
-          className="flex items-center justify-between w-full cursor-pointer rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+          className="flex w-full items-center justify-between rounded-md px-2 py-1.5 transition-colors duration-200 hover:bg-accent/60 hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
         >
           <div className="flex items-center gap-2 flex-1">
             <CircleUser className="h-5 w-5 text-muted-foreground" />

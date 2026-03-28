@@ -937,7 +937,7 @@ function LogsPageContent() {
                           <DialogTrigger asChild>
                             <button
                               type="button"
-                              className="min-h-11 w-full truncate rounded py-2 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 hover:text-foreground hover:underline"
+                              className="min-h-11 w-full truncate rounded py-2 text-left transition-colors duration-200 hover:text-foreground hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
                               aria-label="Open log details"
                               title={log.message}
                             >

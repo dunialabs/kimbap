@@ -9,7 +9,7 @@ export function GlobalFooter() {
           target="_blank"
           rel="noopener noreferrer"
           aria-label="Dunia Labs website (opens in new tab)"
-          className="rounded-sm text-foreground/80 hover:text-foreground hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2"
+          className="rounded-sm text-foreground/80 transition-colors duration-200 hover:text-foreground hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2"
         >
           Dunia Labs, Inc.
         </a>

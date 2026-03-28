@@ -480,7 +480,7 @@ export default function DashboardPage() {
             </div>
             <Link
               href="/dashboard/usage?timeRange=30"
-              className="text-center p-3 rounded-lg border cursor-pointer hover:bg-blue-50 hover:border-blue-200 dark:hover:bg-blue-950/50 dark:hover:border-blue-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 transition-all duration-200 h-full flex flex-col gap-1 justify-center"
+              className="text-center p-3 rounded-lg border cursor-pointer hover:bg-blue-50 hover:border-blue-200 dark:hover:bg-blue-950/50 dark:hover:border-blue-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 transition-colors duration-200 h-full flex flex-col gap-1 justify-center"
             >
               <div className="text-sm text-muted-foreground">API Requests</div>
               <div
@@ -495,7 +495,7 @@ export default function DashboardPage() {
             </Link>
             <Link
               href="/dashboard/usage/token-usage?timeRange=30"
-              className="text-center p-3 rounded-lg border cursor-pointer hover:bg-blue-50 hover:border-blue-200 dark:hover:bg-blue-950/50 dark:hover:border-blue-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 transition-all duration-200 h-full flex flex-col gap-1 justify-center"
+              className="text-center p-3 rounded-lg border cursor-pointer hover:bg-blue-50 hover:border-blue-200 dark:hover:bg-blue-950/50 dark:hover:border-blue-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 transition-colors duration-200 h-full flex flex-col gap-1 justify-center"
             >
               <div className="text-sm text-muted-foreground">Active Tokens</div>
               <div
@@ -510,7 +510,7 @@ export default function DashboardPage() {
             </Link>
             <Link
               href="/dashboard/usage/tool-usage?timeRange=30"
-              className="text-center p-3 rounded-lg border cursor-pointer hover:bg-blue-50 hover:border-blue-200 dark:hover:bg-blue-950/50 dark:hover:border-blue-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 transition-all duration-200 h-full flex flex-col gap-1 justify-center"
+              className="text-center p-3 rounded-lg border cursor-pointer hover:bg-blue-50 hover:border-blue-200 dark:hover:bg-blue-950/50 dark:hover:border-blue-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 transition-colors duration-200 h-full flex flex-col gap-1 justify-center"
             >
               <div className="text-sm text-muted-foreground">
                 Configured Tools
@@ -538,7 +538,7 @@ export default function DashboardPage() {
           >
             <Card
               className={cn(
-                'h-full cursor-pointer transition-colors',
+                'h-full cursor-pointer transition-colors duration-200',
                 hasPendingApprovals
                   ? 'border-amber-300 bg-amber-50/80 hover:bg-amber-50 dark:border-amber-800 dark:bg-amber-950/20 dark:hover:bg-amber-950/30'
                   : 'hover:bg-muted/50'
@@ -566,7 +566,7 @@ export default function DashboardPage() {
             href="/dashboard/logs"
             className="block rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2"
           >
-            <Card className="h-full cursor-pointer transition-colors hover:bg-muted/50">
+            <Card className="h-full cursor-pointer transition-colors duration-200 hover:bg-muted/50">
               <div className="flex h-full items-start justify-between gap-3 p-4">
                 <div className="min-w-0 space-y-1 text-left">
                   <div className="flex items-center gap-2">
@@ -582,7 +582,7 @@ export default function DashboardPage() {
             href="/dashboard/usage?timeRange=30"
             className="block rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2"
           >
-            <Card className="h-full cursor-pointer transition-colors hover:bg-muted/50">
+            <Card className="h-full cursor-pointer transition-colors duration-200 hover:bg-muted/50">
               <div className="flex h-full items-start justify-between gap-3 p-4">
                 <div className="min-w-0 space-y-1 text-left">
                   <div className="flex items-center gap-2">
@@ -598,7 +598,7 @@ export default function DashboardPage() {
             href="/dashboard/policies"
             className="block rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2"
           >
-            <Card className="h-full cursor-pointer transition-colors hover:bg-muted/50">
+            <Card className="h-full cursor-pointer transition-colors duration-200 hover:bg-muted/50">
               <div className="flex h-full items-start justify-between gap-3 p-4">
                 <div className="min-w-0 space-y-1 text-left">
                   <div className="flex items-center gap-2">
@@ -697,7 +697,7 @@ export default function DashboardPage() {
       <Card>
         <CardHeader>
           <CardTitle>
-            <Link href="/dashboard/usage/tool-usage?timeRange=30" className="-ml-2 inline-flex min-h-11 items-center rounded-sm px-2 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2">Tool Usage</Link>
+            <Link href="/dashboard/usage/tool-usage?timeRange=30" className="-ml-2 inline-flex min-h-11 items-center rounded-sm px-2 transition-colors duration-200 hover:text-foreground hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2">Tool Usage</Link>
           </CardTitle>
           <CardDescription>
             Requests by tool over the last 30 days
@@ -756,7 +756,7 @@ export default function DashboardPage() {
       <Card>
         <CardHeader>
           <CardTitle>
-            <Link href="/dashboard/usage/token-usage?timeRange=30" className="-ml-2 inline-flex min-h-11 items-center rounded-sm px-2 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2">Access Token Usage</Link>
+            <Link href="/dashboard/usage/token-usage?timeRange=30" className="-ml-2 inline-flex min-h-11 items-center rounded-sm px-2 transition-colors duration-200 hover:text-foreground hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2">Access Token Usage</Link>
           </CardTitle>
           <CardDescription>
             Requests by token over the last 30 days
@@ -823,7 +823,7 @@ export default function DashboardPage() {
       <Card>
           <CardHeader>
             <CardTitle>
-              <Link href="/dashboard/logs?timeRange=30d" className="-ml-2 inline-flex min-h-11 items-center rounded-sm px-2 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2">Recent Activity</Link>
+              <Link href="/dashboard/logs?timeRange=30d" className="-ml-2 inline-flex min-h-11 items-center rounded-sm px-2 transition-colors duration-200 hover:text-foreground hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2">Recent Activity</Link>
             </CardTitle>
             <CardDescription>Last 30 days</CardDescription>
           </CardHeader>
@@ -850,7 +850,7 @@ export default function DashboardPage() {
                   <Link
                     key={`${activity.action}-${formatNullableText(activity.time)}`}
                     href="/dashboard/logs?timeRange=30d"
-                    className="flex items-center gap-3 rounded-md px-2 py-3 -mx-2 hover:bg-muted/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2"
+                    className="-mx-2 flex items-center gap-3 rounded-md px-2 py-3 transition-colors duration-200 hover:bg-muted/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2"
                   >
                     <div className="flex-shrink-0">
                       {(() => {

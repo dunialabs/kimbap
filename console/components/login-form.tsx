@@ -252,7 +252,7 @@ export function LoginForm({
             className={`flex min-h-11 w-full cursor-pointer items-center justify-center rounded-lg px-4 py-2.5 text-sm transition-colors focus-within:ring-2 focus-within:ring-blue-500 focus-within:ring-offset-2 ${
               loginMode === 'password'
                 ? 'bg-background font-semibold text-foreground shadow-sm'
-                : 'text-muted-foreground hover:text-foreground'
+                : 'text-muted-foreground hover:bg-background/60 hover:text-foreground'
             }`}
           >
             <input
@@ -273,7 +273,7 @@ export function LoginForm({
             className={`flex min-h-11 w-full cursor-pointer items-center justify-center rounded-lg px-4 py-2.5 text-sm transition-colors focus-within:ring-2 focus-within:ring-blue-500 focus-within:ring-offset-2 ${
               loginMode === 'token'
                 ? 'bg-background font-semibold text-foreground shadow-sm'
-                : 'text-muted-foreground hover:text-foreground'
+                : 'text-muted-foreground hover:bg-background/60 hover:text-foreground'
             }`}
           >
             <input
@@ -328,7 +328,7 @@ export function LoginForm({
               }
             }}
             disabled={isLoggingIn}
-            className="h-12 w-full rounded-lg border border-input bg-background pl-3 pr-10 text-foreground focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="h-12 w-full rounded-lg border border-input bg-background pl-3 pr-10 text-foreground transition-colors duration-200 focus-visible:border-blue-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 disabled:cursor-not-allowed disabled:opacity-50"
             autoComplete={loginMode === 'password' ? 'current-password' : 'off'}
             autoCapitalize="none"
             autoCorrect="off"
@@ -339,8 +339,9 @@ export function LoginForm({
             <button
               type="button"
               onClick={() => setShowLoginPassword(!showLoginPassword)}
-              className="absolute right-1 top-1/2 flex h-11 w-11 -translate-y-1/2 items-center justify-center rounded text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+              className="absolute right-1 top-1/2 flex h-11 w-11 -translate-y-1/2 items-center justify-center rounded text-muted-foreground transition-colors duration-200 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
               aria-label={showLoginPassword ? 'Hide password' : 'Show password'}
+               disabled={isLoggingIn}
             >
 
               {showLoginPassword ? (

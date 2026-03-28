@@ -125,8 +125,8 @@ export function TagInput({
           aria-expanded={open}
           disabled={disabled}
           className={cn(
-            'flex min-h-10 w-full flex-wrap items-center gap-1.5 rounded-md border border-input bg-background px-3 py-2 text-sm text-left ring-offset-background',
-            'focus:ring-2 focus:ring-ring focus:ring-offset-2 focus:outline-none',
+            'flex min-h-10 w-full flex-wrap items-center gap-1.5 rounded-md border border-input bg-background px-3 py-2 text-sm text-left ring-offset-background transition-colors duration-200',
+            'hover:border-ring/40 hover:bg-muted/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2',
             disabled && 'cursor-not-allowed opacity-50',
             className
           )}
@@ -142,7 +142,7 @@ export function TagInput({
                 <button
                   type="button"
                   aria-label={`Remove tag ${tag}`}
-                  className="ml-0.5 rounded-full p-0.5 hover:bg-muted-foreground/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-1 cursor-pointer"
+                  className="ml-0.5 cursor-pointer rounded-full p-0.5 transition-colors duration-200 hover:bg-muted-foreground/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-1"
                   onKeyDown={(e) => e.stopPropagation()}
                   onClick={(e) => {
                     e.stopPropagation()

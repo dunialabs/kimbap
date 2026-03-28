@@ -145,7 +145,7 @@ export function ResetTokenDialog({
                 <button
                   type="button"
                   onClick={() => setShowToken((prev) => !prev)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 rounded text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                  className="absolute right-3 top-1/2 -translate-y-1/2 rounded text-muted-foreground transition-colors duration-200 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
                   aria-label={showToken ? "Hide access token" : "Show access token"}
                   disabled={isResetting}
                 >
