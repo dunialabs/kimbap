@@ -604,3 +604,17 @@ func TestNotificationConfigEmpty(t *testing.T) {
 		t.Errorf("expected empty webhook url, got %q", cfg.Notifications.Webhook.URL)
 	}
 }
+
+func TestGetReverseRequestTimeoutTrimsRequestType(t *testing.T) {
+	if got := GetReverseRequestTimeout(" sampling "); got != REVERSE_REQUEST_TIMEOUTS["sampling"] {
+		t.Fatalf("expected sampling timeout %d, got %d", REVERSE_REQUEST_TIMEOUTS["sampling"], got)
+	}
+}
+
+func TestGetReverseRequestTimeoutUsesTrimmedEnvValue(t *testing.T) {
+	t.Setenv("REVERSE_REQUEST_TIMEOUT_SAMPLING", " 12345 ")
+
+	if got := GetReverseRequestTimeout("sampling"); got != 12345 {
+		t.Fatalf("expected env override 12345, got %d", got)
+	}
+}
