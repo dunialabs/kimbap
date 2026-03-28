@@ -163,6 +163,7 @@ func (s *SQLStore) Migrate(ctx context.Context) error {
 			reason TEXT NOT NULL
 		)`,
 		`CREATE INDEX IF NOT EXISTS idx_approvals_tenant_status ON approvals(tenant_id, status, created_at DESC)`,
+		`CREATE INDEX IF NOT EXISTS idx_approvals_expiry ON approvals(status, expires_at)`,
 		`CREATE TABLE IF NOT EXISTS policies (
 			tenant_id TEXT PRIMARY KEY,
 			document BYTEA NOT NULL,

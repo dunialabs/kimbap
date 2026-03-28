@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"strings"
 	"time"
 
@@ -46,6 +47,11 @@ func OpenSQLiteStore(dsn string, envelope *corecrypto.EnvelopeService) (*SQLiteS
 	db, err := sql.Open("sqlite", dsn)
 	if err != nil {
 		return nil, err
+	}
+	db.SetMaxOpenConns(1)
+	if _, err := db.ExecContext(context.Background(), "PRAGMA foreign_keys = ON"); err != nil {
+		_ = db.Close()
+		return nil, fmt.Errorf("enable foreign keys: %w", err)
 	}
 	store, err := NewSQLiteStore(db, envelope)
 	if err != nil {
@@ -183,7 +189,7 @@ func (s *SQLiteStore) Upsert(ctx context.Context, tenantID string, name string, 
 	newVersion := currentVersion + 1
 	versionID := uuid.NewString()
 
-	if _, err := tx.ExecContext(ctx, `UPDATE secret_versions SET active = 0 WHERE secret_id = ?`, secretID); err != nil {
+	if _, err := tx.ExecContext(ctx, `UPDATE secret_versions SET active = 0 WHERE secret_id = ? AND version = ?`, secretID, currentVersion); err != nil {
 		return nil, err
 	}
 
@@ -261,6 +267,7 @@ func (s *SQLiteStore) GetValue(ctx context.Context, tenantID string, name string
 }
 
 func (s *SQLiteStore) List(ctx context.Context, tenantID string, opts ListOptions) ([]SecretRecord, error) {
+	tenantID = strings.TrimSpace(tenantID)
 	args := []any{tenantID}
 	query := `
 		SELECT
@@ -408,7 +415,7 @@ func (s *SQLiteStore) Rotate(ctx context.Context, tenantID string, name string, 
 		existingLabels = map[string]string{}
 	}
 
-	if _, err := tx.ExecContext(ctx, `UPDATE secret_versions SET active = 0 WHERE secret_id = ?`, secretID); err != nil {
+	if _, err := tx.ExecContext(ctx, `UPDATE secret_versions SET active = 0 WHERE secret_id = ? AND version = ?`, secretID, currentVersion); err != nil {
 		return nil, err
 	}
 
