@@ -174,7 +174,7 @@ func (s *SQLiteStore) Upsert(ctx context.Context, tenantID string, name string, 
 	var currentVersion int
 	var createdAt time.Time
 	var lastUsedAt sql.NullTime
-	var existingLabelsJSON string
+	var existingLabelsJSON sql.NullString
 	if err := tx.QueryRowContext(ctx, `SELECT id, current_version, created_at, last_used_at, labels FROM secrets WHERE tenant_id = ? AND name = ?`, tenantID, name).Scan(&secretID, &currentVersion, &createdAt, &lastUsedAt, &existingLabelsJSON); err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return nil, ErrSecretNotFound
@@ -184,7 +184,11 @@ func (s *SQLiteStore) Upsert(ctx context.Context, tenantID string, name string, 
 
 	var labelsJSON string
 	if labels == nil {
-		labelsJSON = existingLabelsJSON
+		if existingLabelsJSON.Valid {
+			labelsJSON = existingLabelsJSON.String
+		} else {
+			labelsJSON = "{}"
+		}
 	} else {
 		labelsJSON, err = marshalLabels(labels)
 		if err != nil {
@@ -221,7 +225,9 @@ func (s *SQLiteStore) Upsert(ctx context.Context, tenantID string, name string, 
 
 	effectiveLabels := labels
 	if effectiveLabels == nil {
-		_ = json.Unmarshal([]byte(existingLabelsJSON), &effectiveLabels)
+		if existingLabelsJSON.Valid {
+			_ = json.Unmarshal([]byte(existingLabelsJSON.String), &effectiveLabels)
+		}
 		if effectiveLabels == nil {
 			effectiveLabels = map[string]string{}
 		}
