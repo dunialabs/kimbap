@@ -17,6 +17,20 @@
 
 Choose one method based on your environment.
 
+### Quick install (binary)
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/dunialabs/kimbap/main/install.sh | bash
+```
+
+Downloads the latest release binary, verifies SHA256 checksum, and installs `kimbap` + `kb` into `/usr/local/bin` when writable, otherwise `~/.local/bin` (with PATH instructions). Optionally runs quickstart init afterward.
+
+Pin a specific version:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/dunialabs/kimbap/main/install.sh | VERSION=1.1.0 bash
+```
+
 ### Homebrew (macOS / Linux)
 
 ```bash
@@ -25,18 +39,13 @@ brew install kimbap
 
 ### From source
 
+Requires Go 1.24+. See [`scripts/install-from-source.sh`](../scripts/install-from-source.sh) for the full script, or:
+
 ```bash
 git clone https://github.com/dunialabs/kimbap.git
 cd kimbap
 make deps && make build
 # binary at ./bin/kimbap
-# optionally: sudo cp ./bin/kimbap /usr/local/bin/kimbap
-```
-
-### One-liner
-
-```bash
-curl -fsSL https://kimbap.sh/install.sh | bash
 ```
 
 ---
@@ -46,10 +55,10 @@ curl -fsSL https://kimbap.sh/install.sh | bash
 ### Local / dev evaluation
 
 ```bash
-kimbap init --mode dev --services all
+kimbap init --mode dev
 ```
 
-Dev mode auto-generates a vault master key and stores it in `~/.kimbap/.dev-master-key`. Suitable for local experimentation only.
+Dev mode auto-generates a vault master key and stores it in `~/.kimbap/.dev-master-key`. In interactive mode, pressing Enter at the service prompt installs all 54 services by default.
 
 ### Production
 
@@ -58,7 +67,7 @@ export KIMBAP_MASTER_KEY_HEX="$(openssl rand -hex 32)"
 kimbap init --services all
 ```
 
-Store the key securely. You need it to unlock the vault on every run.
+Store the key securely. You need it to unlock the vault on every run. Use `--services all` explicitly in scripts and non-interactive environments.
 
 ### What init does
 

@@ -40,13 +40,25 @@ and set up kimbap for this project.
 ### Or install yourself
 
 ```bash
+curl -fsSL https://raw.githubusercontent.com/dunialabs/kimbap/main/install.sh | bash
+```
+
+Or with Homebrew:
+
+```bash
 brew install kimbap
-kimbap init --mode dev --services all      # dev mode auto-generates vault key
-printf '%s' "$GITHUB_TOKEN" | kimbap vault set github.token --stdin
-kimbap call github.create-issue --owner acme --repo api --title "fix auth bug"
+kimbap init --mode dev
 ```
 
 > **Production?** Set `KIMBAP_MASTER_KEY_HEX` instead of using `--mode dev`.
+
+### Try it — no API keys needed (macOS)
+
+```bash
+kimbap call apple-notes.list-notes
+```
+
+Open Notes.app — your notes are listed. No credentials, no setup.
 
 ---
 

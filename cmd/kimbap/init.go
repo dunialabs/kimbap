@@ -195,7 +195,7 @@ type initServiceSelection struct {
 	Reason  string
 }
 
-func resolveInitServiceSelection(rawServices string, noServices bool) (initServiceSelection, error) {
+func resolveInitServiceSelectionFromReader(rawServices string, noServices bool, interactive bool, reader io.Reader) (initServiceSelection, error) {
 	if noServices {
 		return initServiceSelection{Skipped: true, Reason: "skipped by --no-services"}, nil
 	}
@@ -216,31 +216,70 @@ func resolveInitServiceSelection(rawServices string, noServices bool) (initServi
 		return initServiceSelection{Names: normalized}, nil
 	}
 
-	if !isInteractiveStdin() {
+	if !interactive {
 		return initServiceSelection{Skipped: true, Reason: "non-interactive stdin"}, nil
 	}
 
-	if err := printOfficialServiceCategories(); err != nil {
-		return initServiceSelection{}, err
-	}
-	_, _ = fmt.Fprint(os.Stdout, "Install services now? (Enter comma-separated names, or 'all' for everything, empty to skip): ")
+	_, _ = fmt.Fprint(os.Stderr, "Install all 54 official services? [Y/n/select]: ")
 
-	line, err := bufio.NewReader(os.Stdin).ReadString('\n')
+	br := bufio.NewReader(reader)
+
+	line, err := br.ReadString('\n')
 	if err != nil && !errors.Is(err, io.EOF) {
 		return initServiceSelection{}, fmt.Errorf("read service selection: %w", err)
 	}
 
 	trimmed := strings.TrimSpace(line)
-	if trimmed == "" {
-		return initServiceSelection{Skipped: true, Reason: "empty selection"}, nil
+
+	if trimmed == "" && errors.Is(err, io.EOF) {
+		return initServiceSelection{Skipped: true, Reason: "EOF"}, nil
 	}
 
-	if strings.EqualFold(trimmed, "all") {
+	if trimmed == "" || strings.EqualFold(trimmed, "y") || strings.EqualFold(trimmed, "yes") {
 		all, listErr := skills.List()
 		if listErr != nil {
 			return initServiceSelection{}, fmt.Errorf("list official services: %w", listErr)
 		}
 		return initServiceSelection{Names: all}, nil
+	}
+
+	if strings.EqualFold(trimmed, "n") || strings.EqualFold(trimmed, "no") {
+		return initServiceSelection{Skipped: true, Reason: "user declined"}, nil
+	}
+
+	if strings.EqualFold(trimmed, "select") {
+		if printErr := printOfficialServiceCategories(); printErr != nil {
+			return initServiceSelection{}, printErr
+		}
+		_, _ = fmt.Fprint(os.Stderr, "Enter comma-separated names, or 'all': ")
+
+		line2, err2 := br.ReadString('\n')
+		if err2 != nil && !errors.Is(err2, io.EOF) {
+			return initServiceSelection{}, fmt.Errorf("read service selection: %w", err2)
+		}
+
+		trimmed2 := strings.TrimSpace(line2)
+		if trimmed2 == "" {
+			return initServiceSelection{Skipped: true, Reason: "empty selection"}, nil
+		}
+
+		if strings.EqualFold(trimmed2, "all") {
+			all, listErr := skills.List()
+			if listErr != nil {
+				return initServiceSelection{}, fmt.Errorf("list official services: %w", listErr)
+			}
+			return initServiceSelection{Names: all}, nil
+		}
+
+		selected2 := parseCSV(trimmed2)
+		normalized2, normalizeErr2 := normalizeSelectedOfficialServices(selected2)
+		if normalizeErr2 != nil {
+			return initServiceSelection{}, normalizeErr2
+		}
+		if len(normalized2) == 0 {
+			return initServiceSelection{Skipped: true, Reason: "empty selection"}, nil
+		}
+		return initServiceSelection{Names: normalized2}, nil
 	}
 
 	selected := parseCSV(trimmed)
@@ -252,6 +291,10 @@ func resolveInitServiceSelection(rawServices string, noServices bool) (initServi
 		return initServiceSelection{Skipped: true, Reason: "empty selection"}, nil
 	}
 	return initServiceSelection{Names: normalized}, nil
+}
+
+func resolveInitServiceSelection(rawServices string, noServices bool) (initServiceSelection, error) {
+	return resolveInitServiceSelectionFromReader(rawServices, noServices, isInteractiveStdin(), os.Stdin)
 }
 
 func isInteractiveStdin() bool {
@@ -371,7 +414,7 @@ func printOfficialServiceCategories() error {
 		knownSet[name] = struct{}{}
 	}
 
-	_, _ = fmt.Fprintln(os.Stdout, "Official services:")
+	_, _ = fmt.Fprintln(os.Stderr, "Official services:")
 	for _, category := range order {
 		names := categories[category]
 		filtered := make([]string, 0, len(names))
@@ -383,7 +426,7 @@ func printOfficialServiceCategories() error {
 		if len(filtered) == 0 {
 			continue
 		}
-		_, _ = fmt.Fprintf(os.Stdout, "  %-16s %s\n", category+":", strings.Join(filtered, ", "))
+		_, _ = fmt.Fprintf(os.Stderr, "  %-16s %s\n", category+":", strings.Join(filtered, ", "))
 	}
 
 	leftovers := make([]string, 0)
@@ -406,7 +449,7 @@ func printOfficialServiceCategories() error {
 	}
 	if len(leftovers) > 0 {
 		sort.Strings(leftovers)
-		_, _ = fmt.Fprintf(os.Stdout, "  %-16s %s\n", "Other:", strings.Join(leftovers, ", "))
+		_, _ = fmt.Fprintf(os.Stderr, "  %-16s %s\n", "Other:", strings.Join(leftovers, ", "))
 	}
 	return nil
 }

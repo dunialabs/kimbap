@@ -5,6 +5,8 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/dunialabs/kimbap/skills"
 )
 
 func TestBuildInitConfigRebasesPolicyPathWithDataDir(t *testing.T) {
@@ -199,5 +201,93 @@ func TestEnsureWritableDirWithStatusFailsWhenExistingDirectoryIsNotWritable(t *t
 	check := ensureWritableDirWithStatus("data directory writable", dataDir)
 	if check.Status != "fail" {
 		t.Fatalf("expected fail for non-writable existing directory, got %q", check.Status)
+	}
+}
+
+func TestResolveInitServiceSelectionFromReader(t *testing.T) {
+	tests := []struct {
+		name        string
+		rawServices string
+		noServices  bool
+		interactive bool
+		input       string
+		wantSkipped bool
+		wantAll     bool
+		wantNames   []string
+		wantErr     bool
+	}{
+		{name: "noServices flag skips", noServices: true, wantSkipped: true},
+		{name: "noServices overrides rawServices", rawServices: "all", noServices: true, wantSkipped: true},
+		{name: "services all returns all", rawServices: "all", wantAll: true},
+		{name: "services ALL case insensitive", rawServices: "ALL", wantAll: true},
+		{name: "services all with whitespace", rawServices: " all ", wantAll: true},
+		{name: "services csv returns normalized", rawServices: "github,slack", wantNames: []string{"github", "slack"}},
+		{name: "services csv with whitespace", rawServices: "github , slack", wantNames: []string{"github", "slack"}},
+		{name: "non-interactive empty skips", rawServices: "", interactive: false, wantSkipped: true},
+		{name: "interactive enter installs all", rawServices: "", interactive: true, input: "\n", wantAll: true},
+		{name: "interactive Y installs all", rawServices: "", interactive: true, input: "Y\n", wantAll: true},
+		{name: "interactive y installs all", rawServices: "", interactive: true, input: "y\n", wantAll: true},
+		{name: "interactive yes installs all", rawServices: "", interactive: true, input: "yes\n", wantAll: true},
+		{name: "interactive n skips", rawServices: "", interactive: true, input: "n\n", wantSkipped: true},
+		{name: "interactive N skips", rawServices: "", interactive: true, input: "N\n", wantSkipped: true},
+		{name: "interactive no skips", rawServices: "", interactive: true, input: "no\n", wantSkipped: true},
+		{name: "interactive csv parses", rawServices: "", interactive: true, input: "github,slack\n", wantNames: []string{"github", "slack"}},
+		{name: "interactive EOF skips", rawServices: "", interactive: true, input: "", wantSkipped: true},
+		{name: "interactive select then csv", rawServices: "", interactive: true, input: "select\ngithub,slack\n", wantNames: []string{"github", "slack"}},
+		{name: "interactive select then all", rawServices: "", interactive: true, input: "select\nall\n", wantAll: true},
+		{name: "interactive select then empty skips", rawServices: "", interactive: true, input: "select\n\n", wantSkipped: true},
+		{name: "interactive select then EOF skips", rawServices: "", interactive: true, input: "select\n", wantSkipped: true},
+		{name: "interactive invalid service errors", rawServices: "", interactive: true, input: "nonexistent-service-xyz\n", wantErr: true},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			reader := strings.NewReader(tc.input)
+			result, err := resolveInitServiceSelectionFromReader(tc.rawServices, tc.noServices, tc.interactive, reader)
+
+			if tc.wantErr {
+				if err == nil {
+					t.Fatalf("expected error, got nil")
+				}
+				if !strings.Contains(err.Error(), "unknown official service") {
+					t.Fatalf("expected error containing 'unknown official service', got: %v", err)
+				}
+				return
+			}
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+
+			if result.Skipped != tc.wantSkipped {
+				t.Fatalf("expected Skipped=%v, got %v (Reason=%q)", tc.wantSkipped, result.Skipped, result.Reason)
+			}
+
+			if tc.wantAll {
+				allServices, listErr := skills.List()
+				if listErr != nil {
+					t.Fatalf("skills.List() error: %v", listErr)
+				}
+				if len(result.Names) != len(allServices) {
+					t.Fatalf("expected %d official services, got %d", len(allServices), len(result.Names))
+				}
+				for i, want := range allServices {
+					if result.Names[i] != want {
+						t.Fatalf("Names[%d]: expected %q, got %q", i, want, result.Names[i])
+					}
+				}
+				return
+			}
+
+			if tc.wantNames != nil {
+				if len(result.Names) != len(tc.wantNames) {
+					t.Fatalf("expected Names=%v, got %v", tc.wantNames, result.Names)
+				}
+				for i, want := range tc.wantNames {
+					if result.Names[i] != want {
+						t.Fatalf("Names[%d]: expected %q, got %q", i, want, result.Names[i])
+					}
+				}
+			}
+		})
 	}
 }
