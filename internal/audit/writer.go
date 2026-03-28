@@ -195,16 +195,6 @@ func (t *TailWriter) Unsubscribe(ch <-chan AuditEvent) {
 	}
 }
 
-func csvEscape(s string) string {
-	if len(s) > 0 && strings.ContainsAny(string(s[0]), "=+-@\t") {
-		s = "'" + s
-	}
-	if strings.ContainsAny(s, ",\"\n\r") {
-		return "\"" + strings.ReplaceAll(s, "\"", "\"\"") + "\""
-	}
-	return s
-}
-
 type redactor struct {
 	patterns []string
 }

@@ -82,6 +82,9 @@ func (r *GitHubRegistry) Resolve(ctx context.Context, name string) (*services.Se
 	if err != nil {
 		return nil, "", err
 	}
+	if strings.TrimSpace(manifest.Name) != strings.TrimSpace(name) {
+		return nil, "", fmt.Errorf("manifest name %q does not match requested service %q", manifest.Name, name)
+	}
 	source := fmt.Sprintf("github:%s/%s", r.owner, r.repo)
 	if r.subdir != "" {
 		source += "/" + r.subdir

@@ -16,6 +16,7 @@ type Worker struct {
 	expirer  ApprovalExpirer
 	logger   *slog.Logger
 	stopCh   chan struct{}
+	cancel   context.CancelFunc
 
 	startOnce sync.Once
 	stopOnce  sync.Once
@@ -42,6 +43,7 @@ func (w *Worker) Start(ctx context.Context) {
 		return
 	}
 	w.startOnce.Do(func() {
+		ctx, w.cancel = context.WithCancel(ctx)
 		w.wg.Add(1)
 		go func() {
 			defer w.wg.Done()
@@ -86,6 +88,9 @@ func (w *Worker) Stop() {
 		return
 	}
 	w.stopOnce.Do(func() {
+		if w.cancel != nil {
+			w.cancel()
+		}
 		close(w.stopCh)
 	})
 	w.wg.Wait()

@@ -69,11 +69,12 @@ func TestParseGitHubRefParsesOwnerRepoServiceAndSubdir(t *testing.T) {
 }
 
 func TestGitHubRegistryResolveAndName(t *testing.T) {
+	githubYAML := strings.Replace(validHTTPManifestYAML, "name: test-service", "name: github", 1)
 	srv := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if got := r.URL.Path; got != "/acme/tools/main/services/github.yaml" {
 			t.Fatalf("request path = %q", got)
 		}
-		_, _ = w.Write([]byte(validHTTPManifestYAML))
+		_, _ = w.Write([]byte(githubYAML))
 	}))
 	defer srv.Close()
 
@@ -94,8 +95,8 @@ func TestGitHubRegistryResolveAndName(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Resolve() error = %v", err)
 	}
-	if manifest.Name != "test-service" {
-		t.Fatalf("manifest name = %q, want test-service", manifest.Name)
+	if manifest.Name != "github" {
+		t.Fatalf("manifest name = %q, want github", manifest.Name)
 	}
 	if source != "github:acme/tools/services:github" {
 		t.Fatalf("source = %q", source)
