@@ -493,7 +493,10 @@ func newServiceSignCommand() *cobra.Command {
 				return err
 			}
 
-			return printOutput(map[string]any{"signed": true})
+			if outputAsJSON() {
+				return printOutput(map[string]any{"signed": true})
+			}
+			return printOutput("✓ lockfile signed")
 		},
 	}
 
@@ -615,7 +618,10 @@ func newServiceExportAgentSkillCommand() *cobra.Command {
 						return writeErr
 					}
 					sort.Strings(writtenFiles)
-					return printOutput(map[string]any{"exported": true, "pack": true, "files": writtenFiles})
+					if outputAsJSON() {
+						return printOutput(map[string]any{"exported": true, "pack": true, "files": writtenFiles})
+					}
+					return printOutput(fmt.Sprintf("✓ %s exported (%d files)", installed.Manifest.Name, len(writtenFiles)))
 				}
 				content, legacyErr := services.GenerateAgentSkillMD(&installed.Manifest, services.WithSource(installed.Source))
 				if legacyErr != nil {
@@ -625,7 +631,10 @@ func newServiceExportAgentSkillCommand() *cobra.Command {
 					return writeErr
 				}
 				outPath := filepath.Join(serviceDir, "SKILL.md")
-				return printOutput(map[string]any{"exported": true, "path": outPath})
+				if outputAsJSON() {
+					return printOutput(map[string]any{"exported": true, "path": outPath})
+				}
+				return printOutput(fmt.Sprintf("✓ %s exported to %s", installed.Manifest.Name, outPath))
 			}
 
 			content, err := services.GenerateAgentSkillMD(&installed.Manifest, services.WithSource(installed.Source))
@@ -637,7 +646,10 @@ func newServiceExportAgentSkillCommand() *cobra.Command {
 				if err := os.WriteFile(outputPath, []byte(content), 0o644); err != nil {
 					return fmt.Errorf("write SKILL.md: %w", err)
 				}
-				return printOutput(map[string]any{"exported": true, "path": outputPath})
+				if outputAsJSON() {
+					return printOutput(map[string]any{"exported": true, "path": outputPath})
+				}
+				return printOutput(fmt.Sprintf("✓ %s exported to %s", installed.Manifest.Name, outputPath))
 			}
 
 			fmt.Print(content)

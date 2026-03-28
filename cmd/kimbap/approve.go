@@ -56,7 +56,23 @@ func newApproveListCommand() *cobra.Command {
 				if err != nil {
 					return err
 				}
-				return printOutput(items)
+				if outputAsJSON() {
+					return printOutput(items)
+				}
+				if len(items) == 0 {
+					fmt.Println("No approval requests found.")
+					return nil
+				}
+				fmt.Printf("%-16s %-30s %-12s %s\n", "AGENT", "ACTION", "STATUS", "CREATED")
+				for _, item := range items {
+					fmt.Printf("%-16s %-30s %-12s %s\n",
+						item.AgentName,
+						item.Service+"."+item.Action,
+						item.Status,
+						item.CreatedAt.Format("2006-01-02 15:04"),
+					)
+				}
+				return nil
 			})
 			if err != nil {
 				if isRuntimeStoreUnavailable(err) {
