@@ -1,5 +1,9 @@
 # Kimbap
 
+<p align="center">
+  <img src="docs/logo.svg" width="120" alt="Kimbap">
+</p>
+
 *Do you like kimbap? It's delicious, healthy, and you can make your own.*
 
 > **Turn anything into a CLI your agent can use. Securely.**
