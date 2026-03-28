@@ -772,17 +772,18 @@ export default function PoliciesPage() {
     setSaving(true)
     try {
       const orderedRules = formRules.map((r, i) => ({ ...r, priority: (i + 1) * 100 }))
+      const policyTitle = generatePolicyTitle(deserializeRules(serializeRules(orderedRules)))
       if (editingId) {
         await api.policies.update({
           id: editingId,
           dsl: { schemaVersion: 1 as const, rules: serializeRules(orderedRules) },
         })
-        toast.success('Policy updated')
+        toast.success(`Policy updated: ${policyTitle}`)
       } else {
         await api.policies.create({
           dsl: { schemaVersion: 1 as const, rules: serializeRules(orderedRules) },
         })
-        toast.success('Policy created')
+        toast.success(`Policy created: ${policyTitle}`)
       }
       setIsDirty(false)
       setDialogOpen(false)
@@ -1050,17 +1051,19 @@ export default function PoliciesPage() {
                               className="h-11 w-11"
                               onClick={() => openEdit(p)}
                               aria-label="Edit policy"
-                              disabled={togglingPolicyId === p.id}
-                            >
-                              <Pencil className="h-3.5 w-3.5" />
-                            </Button>
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className="h-11 w-11 text-destructive hover:bg-destructive/10 hover:text-destructive"
-                              onClick={() => confirmDelete(p)}
-                              aria-label="Delete policy"
-                              disabled={togglingPolicyId === p.id}
+                               title="Edit policy"
+                               disabled={togglingPolicyId === p.id}
+                             >
+                               <Pencil className="h-3.5 w-3.5" />
+                             </Button>
+                             <Button
+                               variant="ghost"
+                               size="icon"
+                               className="h-11 w-11 text-destructive hover:bg-destructive/10 hover:text-destructive"
+                               onClick={() => confirmDelete(p)}
+                               aria-label="Delete policy"
+                               title="Delete policy"
+                               disabled={togglingPolicyId === p.id}
                             >
                               <Trash2 className="h-3.5 w-3.5" />
                             </Button>

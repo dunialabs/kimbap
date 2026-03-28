@@ -1343,7 +1343,7 @@ function LogsPageContent() {
                       <TableHead scope="col">Source</TableHead>
                       <TableHead scope="col">Logs</TableHead>
                       <TableHead scope="col">Errors</TableHead>
-                      <TableHead scope="col">Share</TableHead>
+                      <TableHead scope="col">% Share</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
