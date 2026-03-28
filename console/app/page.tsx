@@ -68,8 +68,8 @@ function WelcomePageContent() {
             className="mx-auto mb-4 h-8 w-8 animate-spin rounded-full border-2 border-muted-foreground/30 border-t-foreground"
             aria-hidden="true"
           />
-          <h1 className="text-lg font-semibold">Checking your session</h1>
-          <p className="text-sm text-muted-foreground">Confirming whether this browser is already connected…</p>
+          <h1 className="text-lg font-semibold">Checking session</h1>
+          <p className="text-sm text-muted-foreground">Verifying your sign-in status…</p>
         </div>
       </div>
     )

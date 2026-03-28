@@ -482,16 +482,30 @@ function RuleCard({
               </Button>
             </div>
 
+            <div className="rounded-md border border-border/60 bg-muted/20 px-3 py-2 text-xs leading-5 text-muted-foreground">
+              Add a condition when this rule should apply only to specific values. You can compare a literal directly, or
+              first extract a field below and reference it here as <code className="font-mono">$name</code>. Example:
+              extract <code className="font-mono">$domain</code> from <code className="font-mono">url</code> as{' '}
+              <code className="font-mono">URL Host</code>, then compare <code className="font-mono">$domain</code>{' '}
+              to <code className="font-mono">api.stripe.com</code>.
+            </div>
+
             {rule.when.length === 0 && rule.extract.length === 0 && (
               <p className="text-xs italic text-muted-foreground">No conditions — applies to all matching tool calls.</p>
+            )}
+
+            {rule.when.length === 0 && rule.extract.length > 0 && (
+              <p className="text-xs italic text-muted-foreground">
+                Extracted fields do nothing until a condition references them as <code className="font-mono">$name</code>.
+              </p>
             )}
 
             {rule.when.map((cond, ci) => (
               <div key={cond.id} className="flex flex-col items-stretch gap-2 sm:flex-row sm:items-end">
                 <div className="flex-1 space-y-1">
-                   <Label className="text-xs">Left side</Label>
+                   <Label className="text-xs">Field, variable, or literal</Label>
                    <Input
-                     placeholder="e.g., $domain or example.com"
+                     placeholder="e.g., $domain or body.size"
                     value={cond.left}
                     onChange={(e) => {
                       const next = [...rule.when]
@@ -502,7 +516,7 @@ function RuleCard({
                   />
                 </div>
                 <div className="w-full space-y-1 sm:w-28">
-                  <Label className="text-xs">Comparison</Label>
+                  <Label className="text-xs">Operator</Label>
                   <Select
                     value={cond.op}
                     onValueChange={(v) => {
@@ -524,14 +538,14 @@ function RuleCard({
                   </Select>
                 </div>
                 <div className="flex-1 space-y-1">
-                   <Label className="text-xs">Value</Label>
+                   <Label className="text-xs">Compare against</Label>
                    <Input
                      placeholder={
                        cond.op === 'in' || cond.op === 'not_in'
-                         ? 'e.g., value1, value2'
+                         ? 'e.g., admin, owner'
                          : cond.op === 'matches'
-                         ? 'e.g., ^prefix.*'
-                         : 'Expected value'
+                         ? 'e.g., ^api\..*'
+                         : 'e.g., api.stripe.com or 1000'
                      }
                      value={cond.right}
                      onChange={(e) => {
@@ -567,7 +581,7 @@ function RuleCard({
                    className="flex min-h-11 items-center gap-1 rounded px-2 py-2 text-xs text-muted-foreground transition-colors duration-200 hover:bg-muted/50 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
                  >
                    {extractOpen ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
-                   Extract fields (advanced)
+                   Extract fields for conditions
                   {rule.extract.length > 0 && (
                     <Badge variant="secondary" className="ml-1 h-4 px-1.5 text-xs">
                       {rule.extract.length}
@@ -576,7 +590,10 @@ function RuleCard({
                 </button>
               </CollapsibleTrigger>
               <CollapsibleContent className="space-y-2 pt-2">
-                <p className="text-[11px] text-muted-foreground">Extract values from the tool call so you can use them in conditions.</p>
+                <p className="text-[11px] leading-5 text-muted-foreground">
+                  Extract a value from the tool call, name it, then reference it in a condition as <code className="font-mono">$name</code>.
+                  Example: <code className="font-mono">$domain</code> from <code className="font-mono">url</code> as <code className="font-mono">URL Host</code>.
+                </p>
                 {rule.extract.map((ext, ei) => (
                   <div key={ext.id} className="flex flex-col items-stretch gap-2 sm:flex-row sm:items-end">
                     <div className="flex-1 space-y-1">

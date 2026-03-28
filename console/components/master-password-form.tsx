@@ -74,9 +74,9 @@ export function MasterPasswordForm({ onSuccess }: MasterPasswordFormProps) {
     // First, check Web Crypto API availability before doing anything
     if (typeof window !== 'undefined' && (!window.crypto || !window.crypto.subtle)) {
       setError(
-        'Web Crypto API is not available. This application requires HTTPS or localhost. ' +
-        'Please access via HTTPS (https://...) or localhost (http://localhost:...). ' +
-        'For more information, visit: https://docs.kimbap.sh/#caddy-https-config'
+        'This console requires a secure connection (HTTPS or localhost). ' +
+        'Open it via https:// or http://localhost to continue. ' +
+        'Details: https://docs.kimbap.sh/#caddy-https-config'
       )
       setCryptoAvailable(false)
       return
