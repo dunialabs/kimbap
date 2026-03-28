@@ -245,14 +245,6 @@ export function LoginForm({
             : 'Use an owner or admin access token to open this console and review operator activity.'}
         </p>
       </div>
-
-      <div className="rounded-xl border border-border bg-muted/30 p-3">
-        <p className="text-sm font-medium text-foreground">Who signs in here?</p>
-        <p className="mt-1 text-sm leading-6 text-muted-foreground">
-          Owners usually use the master password. Admins can use an access token. Member tokens are for using the server rather than managing this console.
-        </p>
-      </div>
-
       <fieldset className="m-0 border-0 p-0">
         <legend className="sr-only">Login method</legend>
         <div className="grid grid-cols-2 gap-2 rounded-xl border border-border bg-muted/30 p-1" role="radiogroup" aria-label="Login method">

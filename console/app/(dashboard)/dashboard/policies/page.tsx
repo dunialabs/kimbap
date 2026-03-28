@@ -482,7 +482,7 @@ function RuleCard({
                   />
                 </div>
                 <div className="w-full space-y-1 sm:w-28">
-                  <Label className="text-xs">Check</Label>
+                  <Label className="text-xs">Comparison</Label>
                   <Select
                     value={cond.op}
                     onValueChange={(v) => {

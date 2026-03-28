@@ -3,7 +3,6 @@
 import {
   Download,
   Search,
-  Eye,
   Clock,
   AlertTriangle,
   Info,
@@ -883,7 +882,7 @@ function LogsPageContent() {
             </CardHeader>
             <CardContent>
               <div className="overflow-x-auto">
-              <Table className="min-w-[980px]">
+              <Table className="min-w-[900px]">
                   <TableHeader>
                     <TableRow>
                       <TableHead scope="col" className="w-[180px]">Timestamp</TableHead>
@@ -891,13 +890,12 @@ function LogsPageContent() {
                       <TableHead scope="col" className="w-[200px]">Source</TableHead>
                       <TableHead scope="col" className="w-[300px]">Message</TableHead>
                       <TableHead scope="col" className="w-[100px]">Request ID</TableHead>
-                      <TableHead scope="col" className="w-[80px]">Actions</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {loading ? (
                       <TableRow>
-                        <TableCell colSpan={6} className="py-8">
+                        <TableCell colSpan={5} className="py-8">
                           <div className="flex items-center justify-center gap-2 text-sm text-muted-foreground" role="status" aria-live="polite">
                             <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
                             <span>Loading filtered logs...</span>
@@ -956,17 +954,7 @@ function LogsPageContent() {
                             <span className="text-muted-foreground">—</span>
                           )}
                         </TableCell>
-                        <TableCell>
-                          <DialogTrigger asChild>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              className="h-11 w-11"
-                              aria-label="View log details"
-                            >
-                              <Eye className="h-4 w-4" />
-                            </Button>
-                          </DialogTrigger>
+                      </TableRow>
                             <ScrollableDialogContent className="max-w-4xl">
                               <DialogHeader>
                                 <DialogTitle className="flex items-center gap-2">
@@ -1081,13 +1069,11 @@ function LogsPageContent() {
                                 </Button>
                               </DialogFooter>
                             </ScrollableDialogContent>
-                        </TableCell>
-                      </TableRow>
                       </Dialog>
                     ))}
                     {logs.length === 0 && !loading && (
                       <TableRow>
-                        <TableCell colSpan={6} className="text-center py-8">
+                        <TableCell colSpan={5} className="text-center py-8">
                           {loadError ? (
                             <div className="flex flex-col items-center gap-2" role="alert">
                               <AlertTriangle className="h-5 w-5 text-red-500 dark:text-red-400" aria-hidden="true" />

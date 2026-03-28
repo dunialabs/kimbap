@@ -9,7 +9,8 @@ import {
   MapPin,
   Users,
   TrendingUp,
-  Copy
+  Copy,
+  AlertTriangle
 } from 'lucide-react'
 import Link from 'next/link'
 import { useEffect, useState, useCallback } from 'react'
@@ -397,9 +398,9 @@ export default function DashboardPage() {
         </div>
       </div>
       <div className="space-y-4">
-        {pendingApprovalError ? (
-          <div role="alert" className="flex flex-col items-start gap-2 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700 dark:border-red-900/40 dark:bg-red-950/20 dark:text-red-300 sm:flex-row sm:items-center">
-            <CheckCircle className="h-4 w-4 shrink-0" aria-hidden="true" />
+         {pendingApprovalError ? (
+           <div role="alert" className="flex flex-col items-start gap-2 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700 dark:border-red-900/40 dark:bg-red-950/20 dark:text-red-300 sm:flex-row sm:items-center">
+             <AlertTriangle className="h-4 w-4 shrink-0" aria-hidden="true" />
             <span>{pendingApprovalError}</span>
             <Button variant="outline" size="sm" className="min-h-11 w-full sm:ml-auto sm:w-auto" onClick={() => void fetchPendingApprovals()}>Retry</Button>
           </div>

@@ -652,10 +652,10 @@ export default function ApprovalsPage() {
                   </Select>
                 </div>
                 <div className="space-y-1.5">
-                  <Label htmlFor="approvals-user-filter" className="text-xs">User ID</Label>
-                  <Input
-                    id="approvals-user-filter"
-                    placeholder="Any user"
+                   <Label htmlFor="approvals-user-filter" className="text-xs">User ID</Label>
+                   <Input
+                     id="approvals-user-filter"
+                     placeholder="Any user (or click a badge)"
                     value={userFilter}
                     onChange={(e) => setUserFilter(e.target.value)}
                     className="h-11 text-sm"
@@ -763,10 +763,6 @@ export default function ApprovalsPage() {
 
                         <div className="grid grid-cols-1 gap-3 text-sm sm:grid-cols-2">
                           <div>
-                            <p className="text-xs text-muted-foreground">Created</p>
-                            <p>{formatTime(r.createdAt)}</p>
-                          </div>
-                          <div>
                             <p className="text-xs text-muted-foreground">Expires</p>
                             {(() => {
                               const { text: expiryText, urgent: expiryUrgent } = formatExpiryTime(r.expiresAt, r.status)
@@ -776,6 +772,10 @@ export default function ApprovalsPage() {
                                 </p>
                               )
                             })()}
+                          </div>
+                          <div>
+                            <p className="text-xs text-muted-foreground">Created</p>
+                            <p>{formatTime(r.createdAt)}</p>
                           </div>
                         </div>
 
@@ -828,10 +828,10 @@ export default function ApprovalsPage() {
                     <TableRow>
                       <TableHead scope="col" className="sticky top-0 z-10 bg-background shadow-[0_1px_0_0_hsl(var(--border))]">Tool</TableHead>
                       <TableHead scope="col" className="sticky top-0 z-10 bg-background shadow-[0_1px_0_0_hsl(var(--border))]">Server</TableHead>
-                      <TableHead scope="col" className="sticky top-0 z-10 bg-background shadow-[0_1px_0_0_hsl(var(--border))]">User</TableHead>
+                      <TableHead scope="col" className="sticky top-0 z-10 bg-background shadow-[0_1px_0_0_hsl(var(--border))]" title="Click a user badge to filter by that user">User</TableHead>
                       <TableHead scope="col" className="sticky top-0 z-10 bg-background shadow-[0_1px_0_0_hsl(var(--border))] text-center">Status</TableHead>
-                      <TableHead scope="col" className="sticky top-0 z-10 bg-background shadow-[0_1px_0_0_hsl(var(--border))]">Created</TableHead>
                       <TableHead scope="col" className="sticky top-0 z-10 bg-background shadow-[0_1px_0_0_hsl(var(--border))]">Expires</TableHead>
+                      <TableHead scope="col" className="sticky top-0 z-10 bg-background shadow-[0_1px_0_0_hsl(var(--border))]">Created</TableHead>
                       <TableHead scope="col" className="sticky top-0 z-10 bg-background shadow-[0_1px_0_0_hsl(var(--border))]">Why Required</TableHead>
                       <TableHead scope="col" className="sticky top-0 z-10 bg-background shadow-[0_1px_0_0_hsl(var(--border))] text-right">Actions</TableHead>
                     </TableRow>
@@ -867,9 +867,6 @@ export default function ApprovalsPage() {
                           </button>
                         </TableCell>
                         <TableCell className="text-center">{statusBadge(r.status)}</TableCell>
-                        <TableCell className="text-sm text-muted-foreground">
-                          {formatTime(r.createdAt)}
-                        </TableCell>
                         {(() => {
                           const { text: expiryText, urgent: expiryUrgent } = formatExpiryTime(r.expiresAt, r.status)
                           const remainingMs = new Date(r.expiresAt).getTime() - Date.now()
@@ -880,6 +877,9 @@ export default function ApprovalsPage() {
                             </TableCell>
                           )
                         })()}
+                        <TableCell className="text-sm text-muted-foreground">
+                          {formatTime(r.createdAt)}
+                        </TableCell>
                         <TableCell className="text-sm text-muted-foreground max-w-[180px]" title={r.reason || undefined}>
                           <span className="block truncate">
                             {r.reason || '—'}
@@ -968,10 +968,6 @@ export default function ApprovalsPage() {
                   <Label className="text-xs text-muted-foreground">User</Label>
                   <p className="mt-1 font-mono text-sm">{detailDialog.userId}</p>
                 </div>
-                <div>
-                  <Label className="text-xs text-muted-foreground">Created</Label>
-                  <p className="mt-1">{formatTime(detailDialog.createdAt)}</p>
-                </div>
                 {(() => {
                    const { text: expiryText, urgent: expiryUrgent } = formatExpiryTime(detailDialog.expiresAt, detailDialog.status)
                    return (
@@ -981,6 +977,10 @@ export default function ApprovalsPage() {
                      </div>
                    )
                  })()}
+                <div>
+                  <Label className="text-xs text-muted-foreground">Created</Label>
+                  <p className="mt-1">{formatTime(detailDialog.createdAt)}</p>
+                </div>
                  {detailDialog.executedAt && (
                   <div>
                     <Label className="text-xs text-muted-foreground">Executed At</Label>
@@ -1087,8 +1087,12 @@ export default function ApprovalsPage() {
                       onClick={() => handleDetailDecide('APPROVED')}
                       disabled={detailDeciding}
                     >
-                      {detailDeciding ? <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" /> : <CheckCircle2 className="mr-1.5 h-3.5 w-3.5" />}
-                      {detailDeciding ? 'Approving...' : 'Approve'}
+                      {detailDeciding && detailDecisionAction === 'APPROVED' ? (
+                        <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
+                      ) : (
+                        <CheckCircle2 className="mr-1.5 h-3.5 w-3.5" />
+                      )}
+                      {detailDeciding && detailDecisionAction === 'APPROVED' ? 'Approving...' : 'Approve'}
                     </Button>
                     <Button
                       size="sm"
@@ -1097,8 +1101,12 @@ export default function ApprovalsPage() {
                       onClick={() => handleDetailDecide('REJECTED')}
                       disabled={detailDeciding}
                     >
-                      {detailDeciding ? <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" /> : <XCircle className="mr-1.5 h-3.5 w-3.5" />}
-                      {detailDeciding ? 'Rejecting...' : 'Reject'}
+                      {detailDeciding && detailDecisionAction === 'REJECTED' ? (
+                        <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
+                      ) : (
+                        <XCircle className="mr-1.5 h-3.5 w-3.5" />
+                      )}
+                      {detailDeciding && detailDecisionAction === 'REJECTED' ? 'Rejecting...' : 'Reject'}
                     </Button>
                   </div>
                 </div>
