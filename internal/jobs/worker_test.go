@@ -14,6 +14,12 @@ type mockExpirer struct {
 	calledC chan struct{}
 }
 
+type panicOnceExpirer struct {
+	mu      sync.Mutex
+	calls   int
+	calledC chan struct{}
+}
+
 func (m *mockExpirer) ExpireStale(context.Context) (int, error) {
 	m.mu.Lock()
 	m.calls++
@@ -28,6 +34,29 @@ func (m *mockExpirer) ExpireStale(context.Context) (int, error) {
 }
 
 func (m *mockExpirer) callCount() int {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	return m.calls
+}
+
+func (m *panicOnceExpirer) ExpireStale(context.Context) (int, error) {
+	m.mu.Lock()
+	m.calls++
+	calls := m.calls
+	m.mu.Unlock()
+	if m.calledC != nil {
+		select {
+		case m.calledC <- struct{}{}:
+		default:
+		}
+	}
+	if calls == 1 {
+		panic("boom")
+	}
+	return 1, nil
+}
+
+func (m *panicOnceExpirer) callCount() int {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	return m.calls
@@ -69,6 +98,22 @@ func TestWorkerCallsExpirerAtInterval(t *testing.T) {
 		case <-m.calledC:
 		case <-deadline:
 			t.Fatalf("expected at least 2 expiry calls, got %d", m.callCount())
+		}
+	}
+}
+
+func TestWorkerContinuesAfterExpirerPanic(t *testing.T) {
+	m := &panicOnceExpirer{calledC: make(chan struct{}, 16)}
+	w := NewWorker(10*time.Millisecond, m, slog.Default())
+	w.Start(t.Context())
+	defer w.Stop()
+
+	deadline := time.After(500 * time.Millisecond)
+	for m.callCount() < 2 {
+		select {
+		case <-m.calledC:
+		case <-deadline:
+			t.Fatalf("expected worker to continue after panic, got %d calls", m.callCount())
 		}
 	}
 }
