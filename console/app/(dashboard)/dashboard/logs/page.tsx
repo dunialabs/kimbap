@@ -844,7 +844,13 @@ function LogsPageContent() {
               )}
             </div>
             <CollapsibleTrigger asChild>
-              <Button variant="ghost" size="sm" className="h-11 w-11 p-0">
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-11 w-11 p-0"
+                aria-label={filtersOpen ? 'Collapse log filters panel' : 'Expand log filters panel'}
+                title={filtersOpen ? 'Collapse filters' : 'Expand filters'}
+              >
                 {filtersOpen ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
                 <span className="sr-only">{filtersOpen ? 'Collapse filters' : 'Expand filters'}</span>
               </Button>
