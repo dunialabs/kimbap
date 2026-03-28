@@ -24,7 +24,12 @@ func newSearchCommand() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "search <query>",
 		Short: "Search actions by keyword or description",
-		Args:  cobra.ExactArgs(1),
+		Example: `  # Find actions related to messages
+  kimbap search message
+
+  # Search within a specific service
+  kimbap search list --service github`,
+		Args: cobra.ExactArgs(1),
 		RunE: func(_ *cobra.Command, args []string) error {
 			if limit < 0 {
 				return fmt.Errorf("--limit must be non-negative")

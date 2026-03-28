@@ -19,8 +19,34 @@ import (
 
 func newCallCommand() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:                "call <service.action> [--arg value...]",
-		Short:              "Execute an installed action",
+		Use:   "call <service.action> [--arg value...]",
+		Short: "Execute an installed action",
+		Long: `Execute an installed action by name with key-value arguments.
+
+Arguments after <service.action> are passed to the action as input flags.
+
+Special call flags:
+  --dry-run                validate and preview without executing
+  --trace                  print execution trace to stderr
+  --format json            emit JSON output (place before action name)
+  --json <object|-|@file>  merge JSON object into action input`,
+		Example: `  # Send a Slack message
+  kimbap call slack.send-message --channel general --text "deployed v2.1"
+
+  # List GitHub repos
+  kimbap call github.list-repos --sort updated
+
+  # Search Apple Notes (no credentials needed on macOS)
+  kimbap call apple-notes.search-notes --query "meeting"
+
+  # Preview without executing
+  kimbap call stripe.list-charges --limit 5 --dry-run
+
+  # Pass input as JSON from a file
+  kimbap call github.create-issue --json @payload.json
+
+  # Get JSON output for scripting
+  kimbap --format json call github.list-repos --sort updated`,
 		DisableFlagParsing: true,
 		Args:               cobra.ArbitraryArgs,
 		PersistentPreRun: func(cmd *cobra.Command, args []string) {

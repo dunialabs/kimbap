@@ -43,7 +43,18 @@ func newLinkCommand() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "link <service>",
 		Short: "Connect a service for use with Kimbap",
-		Args:  cobra.ExactArgs(1),
+		Example: `  # Connect via OAuth (opens browser)
+  kimbap link slack
+
+  # Connect with an API key from stdin
+  printf '%s' "$GITHUB_TOKEN" | kimbap link github --stdin
+
+  # Connect from a key file
+  kimbap link stripe --file /path/to/stripe.key
+
+  # Check connection status
+  kimbap link github --status`,
+		Args: cobra.ExactArgs(1),
 		RunE: func(_ *cobra.Command, args []string) error {
 			service := strings.TrimSpace(args[0])
 			if service == "" {

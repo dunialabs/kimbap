@@ -36,7 +36,15 @@ func newVaultSetCommand() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "set <name> [--force]",
 		Short: "Store encrypted secret from file/stdin",
-		Args:  cobra.ExactArgs(1),
+		Example: `  # Store an API key from stdin
+  printf '%s' "$API_KEY" | kimbap vault set github.api_key --stdin
+
+  # Store from a file
+  kimbap vault set stripe.api_key --file /path/to/key
+
+  # Overwrite an existing secret
+  printf '%s' "$NEW_KEY" | kimbap vault set github.api_key --stdin --force`,
+		Args: cobra.ExactArgs(1),
 		RunE: func(_ *cobra.Command, args []string) error {
 			cfg, err := loadAppConfig()
 			if err != nil {
@@ -131,12 +139,16 @@ func newVaultGetCommand() *cobra.Command {
 			if err := store.MarkUsed(contextBackground(), defaultTenantID(), args[0]); err != nil {
 				_, _ = fmt.Fprintf(os.Stderr, "warning: failed to record secret usage for %q: %v\n", args[0], err)
 			}
-			return printOutput(map[string]any{
-				"name":       args[0],
-				"revealed":   true,
-				"value":      string(value),
-				"value_size": len(value),
-			})
+			if outputAsJSON() {
+				return printOutput(map[string]any{
+					"name":       args[0],
+					"revealed":   true,
+					"value":      string(value),
+					"value_size": len(value),
+				})
+			}
+			_, err = os.Stdout.Write(value)
+			return err
 		},
 	}
 	cmd.Flags().BoolVar(&reveal, "reveal", false, "reveal the secret plaintext (audited operation)")
@@ -322,6 +334,6 @@ func parseSecretType(raw string) (vault.SecretType, error) {
 		vault.SecretTypeCertificate:
 		return trimmed, nil
 	default:
-		return "", fmt.Errorf("unsupported secret type %q", raw)
+		return "", fmt.Errorf("unsupported secret type %q. Valid types: api_key, bearer_token, oauth_client, password, refresh_token, certificate", raw)
 	}
 }

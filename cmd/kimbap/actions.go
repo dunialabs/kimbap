@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"os"
 	"slices"
 	"sort"
 	"strings"
@@ -98,6 +99,8 @@ func newActionsCommand() *cobra.Command {
 					if raw, gErr := vs.GetValue(contextBackground(), defaultTenantID(), def.Auth.CredentialRef); gErr == nil && len(raw) > 0 {
 						credReady = true
 					}
+				} else {
+					_, _ = fmt.Fprintf(os.Stderr, "warning: vault unavailable, credential status unknown: %v\n", vErr)
 				}
 			}
 			approvalRequired := def.ApprovalHint == actions.ApprovalRequired

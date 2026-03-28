@@ -121,4 +121,4 @@ var ErrManifestInvalid = New(ExitValidation, "E_MANIFEST_INVALID",
 
 var ErrCredentialMissing = New(ExitAuthError, "E_CREDENTIAL_MISSING",
 	"credential not found in vault",
-	"Run 'kimbap vault set <credential-ref>' to store the credential.")
+	"Run 'kimbap link <service>' to connect the service, or 'kimbap vault set <credential-ref>' to store the credential directly.")

@@ -144,8 +144,20 @@ func newAgentsUninstallGlobalCommand() *cobra.Command {
 				return err
 			}
 
-			if err := printOutput(results); err != nil {
-				return err
+			if outputAsJSON() {
+				if err := printOutput(results); err != nil {
+					return err
+				}
+			} else {
+				for _, r := range results {
+					if r.Error != "" {
+						fmt.Printf("  ✗ %-16s %s\n", r.Agent, r.Error)
+					} else if !r.AgentSkillRemoved && !r.InjectRemoved {
+						fmt.Printf("  - %-16s nothing to remove\n", r.Agent)
+					} else {
+						fmt.Printf("  ✓ %-16s removed\n", r.Agent)
+					}
+				}
 			}
 
 			var errs []string
@@ -429,7 +441,7 @@ func loadServicesForSync(cfg *config.KimbapConfig, serviceFilter []string) ([]se
 	if len(serviceFilter) == 0 {
 		return installer.ListEnabled()
 	}
-	installed, err := installer.List()
+	installed, err := installer.ListEnabled()
 	if err != nil {
 		return nil, err
 	}

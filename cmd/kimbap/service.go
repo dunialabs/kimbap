@@ -51,7 +51,18 @@ func newServiceInstallCommand() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "install <name|path-to-yaml|url> [--force]",
 		Short: "Install a service manifest",
-		Args:  cobra.ExactArgs(1),
+		Example: `  # Install an official service by name
+  kimbap service install github
+
+  # Install from a local YAML file
+  kimbap service install ./my-service.yaml
+
+  # Install from a URL
+  kimbap service install https://example.com/service.yaml
+
+  # Reinstall (overwrite existing)
+  kimbap service install github --force`,
+		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			cfg, err := loadAppConfig()
 			if err != nil {
@@ -331,11 +342,13 @@ func newServiceOutdatedCommand() *cobra.Command {
 			}
 
 			if len(entries) == 0 {
-				return printOutput("No outdated official services found.")
+				fmt.Println("No outdated official services found.")
+				return nil
 			}
 
+			fmt.Printf("%-30s %-12s %-12s %s\n", "SERVICE", "INSTALLED", "LATEST", "SOURCE")
 			for _, e := range entries {
-				fmt.Printf("%-30s %s -> %s (%s)\n", e.Name, e.InstalledVersion, e.LatestVersion, e.Source)
+				fmt.Printf("%-30s %-12s %-12s %s\n", e.Name, e.InstalledVersion, e.LatestVersion, e.Source)
 			}
 			fmt.Printf("\nRun 'kimbap service update <name>' to update a service.\n")
 			return nil

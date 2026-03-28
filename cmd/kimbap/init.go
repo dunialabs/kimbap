@@ -29,6 +29,14 @@ func newInitCommand() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "init",
 		Short: "Bootstrap a fresh Kimbap installation",
+		Example: `  # Quick start with dev mode and all services
+  kimbap init --mode dev --services all
+
+  # Production setup (requires KIMBAP_MASTER_KEY_HEX)
+  kimbap init --services all
+
+  # Initialize with agent integration
+  kimbap init --mode dev --services all --with-agents`,
 		RunE: func(_ *cobra.Command, _ []string) error {
 			cfg := buildInitConfig()
 			if withConsole {
@@ -716,6 +724,14 @@ func renderInitSummary(configPath string, checks []doctorCheck) string {
 		}
 		_, _ = fmt.Fprintf(&b, "  %s %-25s %s\n", icon, c.Name, c.Detail)
 	}
+
+	if failed == 0 && created > 0 {
+		b.WriteString("\nNext steps:\n")
+		_, _ = fmt.Fprintf(&b, "  %-38s %s\n", "kimbap link <service>", "Connect your first service")
+		_, _ = fmt.Fprintf(&b, "  %-38s %s\n", "kimbap call <service>.<action>", "Run your first action")
+		_, _ = fmt.Fprintf(&b, "  %-38s %s\n", "kimbap agents setup", "Set up AI agent integration (optional)")
+	}
+
 	return strings.TrimRight(b.String(), "\n")
 }
 
