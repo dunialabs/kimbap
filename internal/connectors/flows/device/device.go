@@ -51,7 +51,14 @@ func RunDeviceFlow(ctx context.Context, cfg DeviceFlowConfig, output io.Writer) 
 		TokenURL:     cfg.TokenEndpoint,
 	}
 
-	deviceResponse, err := connectors.DeviceCodeRequestWithContext(ctx, connectorCfg)
+	timeout := cfg.Timeout
+	if timeout <= 0 {
+		timeout = 5 * time.Minute
+	}
+	flowCtx, flowCancel := context.WithTimeout(ctx, timeout)
+	defer flowCancel()
+
+	deviceResponse, err := connectors.DeviceCodeRequestWithContext(flowCtx, connectorCfg)
 	if err != nil {
 		return nil, err
 	}
@@ -60,11 +67,6 @@ func RunDeviceFlow(ctx context.Context, cfg DeviceFlowConfig, output io.Writer) 
 	_, _ = fmt.Fprintf(output, "Enter code:\n  %s\n\n", deviceResponse.UserCode)
 	_, _ = fmt.Fprintf(output, "Waiting for approval... Press Ctrl+C to cancel.\n")
 
-	timeout := cfg.Timeout
-	if timeout <= 0 {
-		timeout = 5 * time.Minute
-	}
-
 	type pollResult struct {
 		token *connectors.TokenResponse
 		err   error
@@ -72,13 +74,13 @@ func RunDeviceFlow(ctx context.Context, cfg DeviceFlowConfig, output io.Writer) 
 	pollCh := make(chan pollResult, 1)
 
 	go func() {
-		token, pollErr := connectors.PollForTokenWithContext(ctx, connectorCfg, deviceResponse.DeviceCode, deviceResponse.Interval, timeout)
+		token, pollErr := connectors.PollForTokenWithContext(flowCtx, connectorCfg, deviceResponse.DeviceCode, deviceResponse.Interval, timeout)
 		pollCh <- pollResult{token: token, err: pollErr}
 	}()
 
 	select {
-	case <-ctx.Done():
-		return nil, fmt.Errorf("device flow canceled: %w", ctx.Err())
+	case <-flowCtx.Done():
+		return nil, fmt.Errorf("device flow canceled: %w", flowCtx.Err())
 	case result := <-pollCh:
 		if result.err != nil {
 			return nil, result.err

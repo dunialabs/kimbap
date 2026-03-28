@@ -176,7 +176,7 @@ func (r *Runtime) ResumeApproved(ctx context.Context, approvalRequestID string) 
 	if r.HeldExecutionStore == nil {
 		return actions.ExecutionResult{
 			Status: actions.StatusError,
-			Error:  annotateExecutionError(actions.NewExecutionError(actions.ErrApprovalRequired, "held execution store unavailable", 500, false, nil), "require_approval"),
+			Error:  annotateExecutionError(actions.NewExecutionError(actions.ErrDownstreamUnavailable, "held execution store unavailable", 500, false, nil), "require_approval"),
 		}
 	}
 
