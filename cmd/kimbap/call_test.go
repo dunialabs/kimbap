@@ -175,13 +175,12 @@ func TestParseScalarNumericOneIsInteger(t *testing.T) {
 }
 
 func TestSplitCallInvocationArgs_StringFlagMissingValue(t *testing.T) {
+	// After the action name, --format is passed through as an action arg.
+	// Only flags that remain global after the action name should still error without a value.
 	tests := []struct {
 		name string
 		args []string
 	}{
-		{"format at end of args", []string{"slack.list-channels", "--format"}},
-		{"format followed by another flag", []string{"slack.list-channels", "--format", "--dry-run"}},
-		{"format followed by short flag", []string{"slack.list-channels", "--format", "-h"}},
 		{"json at end of args", []string{"slack.list-channels", "--json"}},
 		{"idempotency key at end of args", []string{"slack.list-channels", "--idempotency-key"}},
 		{"idempotency key followed by short flag", []string{"slack.list-channels", "--idempotency-key", "-h"}},
@@ -193,6 +192,29 @@ func TestSplitCallInvocationArgs_StringFlagMissingValue(t *testing.T) {
 				t.Fatalf("expected error for %v, got nil", tt.args)
 			}
 		})
+	}
+}
+
+func TestSplitCallInvocationArgs_FormatPassedThroughAfterAction(t *testing.T) {
+	resetOptsForTest(t)
+
+	// --format after action name must be passed as action input, not consumed as global flag.
+	_, input, _, err := splitCallInvocationArgs([]string{"mermaid.render-url", "--diagram_id", "x", "--format", "png"})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if opts.format != "" {
+		t.Fatalf("global format should not be set when --format appears after action; got %q", opts.format)
+	}
+	found := false
+	for i, tok := range input {
+		if tok == "--format" && i+1 < len(input) && input[i+1] == "png" {
+			found = true
+			break
+		}
+	}
+	if !found {
+		t.Fatalf("expected --format png in action input tokens, got %v", input)
 	}
 }
 
