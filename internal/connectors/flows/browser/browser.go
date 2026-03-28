@@ -79,18 +79,24 @@ func RunBrowserFlow(ctx context.Context, cfg BrowserFlowConfig, output io.Writer
 		return nil, fmt.Errorf("generate state: %w", err)
 	}
 
+	bindHost := "127.0.0.1"
 	bindPort := cfg.Port
-	if bindPort == 0 && cfg.RedirectURI != "" {
+	if cfg.RedirectURI != "" {
 		if redirectURL, parseErr := url.Parse(cfg.RedirectURI); parseErr == nil {
-			if p := redirectURL.Port(); p != "" {
-				if pi, convErr := strconv.Atoi(p); convErr == nil {
-					bindPort = pi
+			if h := redirectURL.Hostname(); h == "localhost" || net.ParseIP(h) != nil {
+				bindHost = h
+			}
+			if bindPort == 0 {
+				if p := redirectURL.Port(); p != "" {
+					if pi, convErr := strconv.Atoi(p); convErr == nil {
+						bindPort = pi
+					}
 				}
 			}
 		}
 	}
 
-	listener, err := net.Listen("tcp", net.JoinHostPort("127.0.0.1", strconv.Itoa(bindPort)))
+	listener, err := net.Listen("tcp", net.JoinHostPort(bindHost, strconv.Itoa(bindPort)))
 	if err != nil {
 		return nil, fmt.Errorf("%w: %v", ErrLoopbackListener, err)
 	}
