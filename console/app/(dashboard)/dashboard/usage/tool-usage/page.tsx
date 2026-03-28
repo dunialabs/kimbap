@@ -505,15 +505,19 @@ function ToolUsagePageContent() {
         <h1 className="text-[30px] font-bold tracking-tight">Tool Usage</h1>
         <p className="text-sm leading-6 text-muted-foreground">See which tools are busiest, failing, or slowing down.</p>
       </div>
-      <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center">
-        <Select value={String(timeRange)} onValueChange={(value) => { setTimeRange(Number(value)); setActionLogToolId('all'); setActionLogStatus('all'); setActionLogType('all'); setActionLogsPage(1) }}>
-          <SelectTrigger className="min-h-11 w-full sm:w-[180px]" aria-label="Time range"><SelectValue placeholder="Time range" /></SelectTrigger>
-          <SelectContent>
-            <SelectItem value="1">Last 24 hours</SelectItem>
-            <SelectItem value="7">Last 7 days</SelectItem>
-            <SelectItem value="30">Last 30 days</SelectItem>
-          </SelectContent>
-        </Select>
+      <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-end">
+        <div className="space-y-1">
+          <Label htmlFor="tool-usage-time-range" className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Time range</Label>
+          <Select value={String(timeRange)} onValueChange={(value) => { setTimeRange(Number(value)); setActionLogToolId('all'); setActionLogStatus('all'); setActionLogType('all'); setActionLogsPage(1) }}>
+            <SelectTrigger id="tool-usage-time-range" className="min-h-11 w-full sm:w-[180px]" aria-describedby="tool-usage-time-range-note"><SelectValue placeholder="Time range" /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="1">Last 24 hours</SelectItem>
+              <SelectItem value="7">Last 7 days</SelectItem>
+              <SelectItem value="30">Last 30 days</SelectItem>
+            </SelectContent>
+          </Select>
+          <p id="tool-usage-time-range-note" className="text-xs text-muted-foreground">Applies to the summary cards, charts, and action logs below.</p>
+        </div>
         <Button className="min-h-11 w-full sm:w-auto" variant="outline" onClick={handleRefresh} disabled={loading || refreshing}><RefreshCw className={`mr-2 h-4 w-4 ${loading || refreshing ? 'animate-spin' : ''}`} />Refresh</Button>
       </div>
 
