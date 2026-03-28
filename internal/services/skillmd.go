@@ -141,7 +141,28 @@ func GenerateAgentSkillMD(manifest *ServiceManifest, opts ...SkillMDOption) (str
 	return sb.String(), nil
 }
 
+func buildTriggerBasedDescription(t *TriggerConfig) string {
+	var parts []string
+	if len(t.TaskVerbs) > 0 && len(t.Objects) > 0 {
+		parts = append(parts, fmt.Sprintf("Use when you need to %s %s through approved Kimbap actions.",
+			strings.Join(t.TaskVerbs, ", "),
+			strings.Join(t.Objects, ", ")))
+	}
+	if len(t.InsteadOf) > 0 {
+		parts = append(parts, fmt.Sprintf("Use instead of: %s.", strings.Join(t.InsteadOf, ", ")))
+	}
+	if len(t.Exclusions) > 0 {
+		parts = append(parts, fmt.Sprintf("Do not use for: %s.", strings.Join(t.Exclusions, ", ")))
+	}
+	return strings.Join(parts, "\n")
+}
+
 func buildAgentSkillDescription(m *ServiceManifest) string {
+	if m.Triggers != nil {
+		if desc := buildTriggerBasedDescription(m.Triggers); desc != "" {
+			return desc
+		}
+	}
 	parts := []string{}
 	if m.Description != "" {
 		parts = append(parts, m.Description)
@@ -154,21 +175,6 @@ func buildAgentSkillDescription(m *ServiceManifest) string {
 	default:
 		parts = append(parts, fmt.Sprintf("Use when you need to interact with the %s API.", m.Name))
 	}
-
-	keys := sortedActionKeys(m.Actions)
-	triggerLines := []string{}
-	for _, key := range keys {
-		action := m.Actions[key]
-		if action.Description != "" {
-			humanKey := strings.NewReplacer("_", " ", "-", " ").Replace(key)
-			triggerLines = append(triggerLines, fmt.Sprintf("  - \"%s\": %s", humanKey, action.Description))
-		}
-	}
-	if len(triggerLines) > 0 {
-		parts = append(parts, "Trigger phrases:")
-		parts = append(parts, triggerLines...)
-	}
-
 	return strings.Join(parts, "\n")
 }
 
@@ -218,19 +224,19 @@ Never ask for, print, or store raw API keys, passwords, tokens, cookies, or sess
 </when_to_use>
 
 <protocol>
-If the task is specific: ` + "`kimbap search \"<intent>\" --format json`" + `
-Otherwise discover:     ` + "`kimbap actions list --format json`" + `
-Inspect before calling: ` + "`kimbap actions describe <service.action> --format json`" + `
-Preview risky actions:  ` + "`kimbap call <service.action> --dry-run --format json`" + `
-Execute:                ` + "`kimbap call <service.action> [--param value ...]`" + `
+1. Search by intent:    ` + "`kimbap search \"<intent>\" --format json`" + `
+2. Inspect the action:  ` + "`kimbap actions describe <service.action> --format json`" + `
+3. Preview if non-low:  ` + "`kimbap call <service.action> --dry-run --format json`" + `
+4. Execute:             ` + "`kimbap call <service.action> [--param value ...]`" + `
+Browse all services only when search returns nothing: ` + "`kimbap actions list --format json`" + `
 </protocol>
 
 <troubleshooting>
 Action not found → ` + "`kimbap service list`" + ` | Auth failure → ` + "`kimbap connector list`" + ` | Missing credential → ` + "`kimbap vault list`" + ` | Approval required → ` + "`kimbap approve list`" + `
+If no matching service exists, request a new Kimbap service instead of using direct credentials.
 </troubleshooting>
 
 <rules>
-- If a needed capability is missing, request a new Kimbap service instead of using direct credentials.
 - If a service pack contains GOTCHAS.md or RECIPES.md, read them before unfamiliar or risky actions.
 </rules>
 `
@@ -278,8 +284,8 @@ func generatePackSkillMD(manifest *ServiceManifest, _ skillMDConfig) (string, er
 		sb.WriteString(fmt.Sprintf("%s\n\n", manifest.Description))
 	}
 	sb.WriteString("## Available Actions\n\n")
-	sb.WriteString("| Action | Description | Risk |\n")
-	sb.WriteString("|--------|-------------|------|\n")
+	sb.WriteString("| Action | Description | Inputs | Risk |\n")
+	sb.WriteString("|--------|-------------|--------|------|\n")
 	for _, key := range sortedActionKeys(manifest.Actions) {
 		action := manifest.Actions[key]
 		risk := strings.ToLower(strings.TrimSpace(action.Risk.Level))
@@ -293,17 +299,19 @@ func generatePackSkillMD(manifest *ServiceManifest, _ skillMDConfig) (string, er
 		d = strings.ReplaceAll(d, "\r\n", "\n")
 		d = strings.ReplaceAll(d, "\n", "<br>")
 		d = strings.ReplaceAll(d, "|", `\|`)
+		if len(action.Warnings) > 0 {
+			risk += " ⚠️"
+		}
 		risk = strings.ReplaceAll(risk, "|", `\|`)
-		sb.WriteString(fmt.Sprintf("| `%s.%s` | %s | %s |\n", manifest.Name, key, d, risk))
+		inputs := formatArgsSummary(action.Args)
+		inputs = strings.ReplaceAll(inputs, "|", `\|`)
+		sb.WriteString(fmt.Sprintf("| `%s.%s` | %s | %s | %s |\n", manifest.Name, key, d, inputs, risk))
 	}
 	sb.WriteString("\n")
 	if len(manifest.Gotchas) > 0 {
 		sb.WriteString("## Top Gotchas\n\n")
-		limit := 3
-		if len(manifest.Gotchas) < limit {
-			limit = len(manifest.Gotchas)
-		}
-		for _, g := range manifest.Gotchas[:limit] {
+		topGotchas := topGotchasBySeverity(manifest.Gotchas, 3)
+		for _, g := range topGotchas {
 			sb.WriteString(fmt.Sprintf("- **%s** → %s\n", g.Symptom, g.Recovery))
 		}
 		sb.WriteString("\n")
@@ -320,6 +328,10 @@ func generatePackSkillMD(manifest *ServiceManifest, _ skillMDConfig) (string, er
 		}
 		sb.WriteString("\n")
 	}
+	if exampleSection := generateExampleCalls(manifest); exampleSection != "" {
+		sb.WriteString(exampleSection)
+		sb.WriteString("\n")
+	}
 	sb.WriteString("## Before Execute\n\n")
 	fmt.Fprintf(&sb, "- Inspect: `kimbap actions describe %s.<action> --format json`\n", manifest.Name)
 	fmt.Fprintf(&sb, "- Preview non-low-risk actions: `kimbap call %s.<action> --dry-run --format json`\n", manifest.Name)
@@ -334,21 +346,8 @@ func generatePackSkillMD(manifest *ServiceManifest, _ skillMDConfig) (string, er
 
 func buildPackDescription(manifest *ServiceManifest) string {
 	if manifest.Triggers != nil {
-		t := manifest.Triggers
-		var parts []string
-		if len(t.TaskVerbs) > 0 && len(t.Objects) > 0 {
-			parts = append(parts, fmt.Sprintf("Use when you need to %s %s through approved Kimbap actions.",
-				strings.Join(t.TaskVerbs, ", "),
-				strings.Join(t.Objects, ", ")))
-		}
-		if len(t.InsteadOf) > 0 {
-			parts = append(parts, fmt.Sprintf("Use instead of: %s.", strings.Join(t.InsteadOf, ", ")))
-		}
-		if len(t.Exclusions) > 0 {
-			parts = append(parts, fmt.Sprintf("Do not use for: %s.", strings.Join(t.Exclusions, ", ")))
-		}
-		if len(parts) > 0 {
-			return strings.Join(parts, "\n")
+		if desc := buildTriggerBasedDescription(manifest.Triggers); desc != "" {
+			return desc
 		}
 	}
 	return fmt.Sprintf("Use for approved %s actions through Kimbap.\nInspect the action table below for exact capabilities.", manifest.Name)
@@ -362,8 +361,16 @@ func generatePackGotchasMD(manifest *ServiceManifest) string {
 	sb.WriteString(fmt.Sprintf("# %s — Common Pitfalls\n\n", manifest.Name))
 	if len(manifest.Gotchas) > 0 {
 		sb.WriteString("## Service-Level Gotchas\n\n")
-		for _, g := range manifest.Gotchas {
+		sorted := make([]ServiceGotcha, len(manifest.Gotchas))
+		copy(sorted, manifest.Gotchas)
+		sort.Slice(sorted, func(i, j int) bool {
+			return severityRank(sorted[i].Severity) < severityRank(sorted[j].Severity)
+		})
+		for _, g := range sorted {
 			sb.WriteString(fmt.Sprintf("### %s\n\n", g.Symptom))
+			if g.AppliesTo != "" {
+				sb.WriteString(fmt.Sprintf("**Applies to**: `%s`\n\n", g.AppliesTo))
+			}
 			sb.WriteString(fmt.Sprintf("**Likely cause**: %s\n\n", g.LikelyCause))
 			sb.WriteString(fmt.Sprintf("**Recovery**: %s\n\n", g.Recovery))
 			if g.Severity != "" {
@@ -424,6 +431,90 @@ func packHasActionWarnings(manifest *ServiceManifest) bool {
 
 func GenerateMetaAgentSkillPack() map[string]string {
 	return map[string]string{"SKILL.md": GenerateMetaAgentSkillMD()}
+}
+
+func formatArgsSummary(args []ActionArg) string {
+	if len(args) == 0 {
+		return "-"
+	}
+	parts := make([]string, 0, len(args))
+	for _, arg := range args {
+		entry := "`" + arg.Name + "`"
+		if !arg.Required {
+			entry += "?"
+		}
+		parts = append(parts, entry)
+	}
+	if len(parts) > 4 {
+		parts = append(parts[:3], "…")
+	}
+	return strings.Join(parts, ", ")
+}
+
+func severityRank(severity string) int {
+	switch strings.ToLower(strings.TrimSpace(severity)) {
+	case "critical":
+		return 0
+	case "high":
+		return 1
+	case "medium":
+		return 2
+	case "common":
+		return 3
+	case "low":
+		return 4
+	default:
+		return 5
+	}
+}
+
+func topGotchasBySeverity(gotchas []ServiceGotcha, limit int) []ServiceGotcha {
+	if len(gotchas) <= limit {
+		sorted := make([]ServiceGotcha, len(gotchas))
+		copy(sorted, gotchas)
+		sort.Slice(sorted, func(i, j int) bool {
+			return severityRank(sorted[i].Severity) < severityRank(sorted[j].Severity)
+		})
+		return sorted
+	}
+	sorted := make([]ServiceGotcha, len(gotchas))
+	copy(sorted, gotchas)
+	sort.Slice(sorted, func(i, j int) bool {
+		return severityRank(sorted[i].Severity) < severityRank(sorted[j].Severity)
+	})
+	return sorted[:limit]
+}
+
+func generateExampleCalls(manifest *ServiceManifest) string {
+	keys := sortedActionKeys(manifest.Actions)
+	if len(keys) == 0 {
+		return ""
+	}
+
+	var examples []string
+	for _, key := range keys {
+		action := manifest.Actions[key]
+		var line strings.Builder
+		line.WriteString(fmt.Sprintf("kimbap call %s.%s", manifest.Name, key))
+		for _, arg := range action.Args {
+			if arg.Required {
+				line.WriteString(fmt.Sprintf(" --%s <value>", arg.Name))
+			}
+		}
+		examples = append(examples, line.String())
+		if len(examples) >= 2 {
+			break
+		}
+	}
+
+	var sb strings.Builder
+	sb.WriteString("## Example\n\n")
+	sb.WriteString("```bash\n")
+	for _, ex := range examples {
+		sb.WriteString(ex + "\n")
+	}
+	sb.WriteString("```\n")
+	return sb.String()
 }
 
 func shellQuoteArg(s string) string {

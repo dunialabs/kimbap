@@ -1363,7 +1363,7 @@ func TestGenerateAgentSkillPackEscapesMarkdownTableCells(t *testing.T) {
 		t.Fatalf("GenerateAgentSkillPack: %v", err)
 	}
 	skill := pack["SKILL.md"]
-	if !strings.Contains(skill, "| `notes-service.list_notes` | List notes \\| summarize<br>Second line | low |") {
+	if !strings.Contains(skill, "| `notes-service.list_notes` | List notes \\| summarize<br>Second line | - | low |") {
 		t.Fatalf("expected markdown table cells escaped, got:\n%s", skill)
 	}
 }
@@ -1627,30 +1627,38 @@ func TestGenerateAgentSkillMDCommand(t *testing.T) {
 	}
 }
 
-func TestBuildAgentSkillDescriptionConditionalTriggerPhrases(t *testing.T) {
-	noDesc := &ServiceManifest{
-		Name: "svc",
-		Actions: map[string]ServiceAction{
-			"do": {Method: "GET", Path: "/do", Risk: RiskSpec{Level: "low"}},
-		},
-	}
-	got := buildAgentSkillDescription(noDesc)
-	if strings.Contains(got, "Trigger phrases:") {
-		t.Errorf("expected no 'Trigger phrases:' when no action has a description, got:\n%s", got)
-	}
-
-	withDesc := &ServiceManifest{
+func TestBuildAgentSkillDescriptionUsesTriggersWhenAvailable(t *testing.T) {
+	noTriggers := &ServiceManifest{
 		Name: "svc",
 		Actions: map[string]ServiceAction{
 			"search": {Method: "GET", Path: "/search", Description: "Search for items", Risk: RiskSpec{Level: "low"}},
 		},
 	}
-	got = buildAgentSkillDescription(withDesc)
-	if !strings.Contains(got, "Trigger phrases:") {
-		t.Errorf("expected 'Trigger phrases:' when action has description, got:\n%s", got)
+	got := buildAgentSkillDescription(noTriggers)
+	if strings.Contains(got, "Trigger phrases:") {
+		t.Errorf("expected no legacy trigger phrases dump without triggers, got:\n%s", got)
 	}
-	if !strings.Contains(got, `"search": Search for items`) {
-		t.Errorf("expected humanized trigger line, got:\n%s", got)
+	if !strings.Contains(got, "Use when you need to interact with the svc API.") {
+		t.Errorf("expected fallback description, got:\n%s", got)
+	}
+
+	withTriggers := &ServiceManifest{
+		Name: "svc",
+		Triggers: &TriggerConfig{
+			TaskVerbs: []string{"search", "find"},
+			Objects:   []string{"items"},
+			InsteadOf: []string{"direct API calls"},
+		},
+		Actions: map[string]ServiceAction{
+			"search": {Method: "GET", Path: "/search", Description: "Search for items", Risk: RiskSpec{Level: "low"}},
+		},
+	}
+	got = buildAgentSkillDescription(withTriggers)
+	if !strings.Contains(got, "Use when you need to search, find items through approved Kimbap actions.") {
+		t.Errorf("expected trigger-based description, got:\n%s", got)
+	}
+	if !strings.Contains(got, "Use instead of: direct API calls.") {
+		t.Errorf("expected instead_of line, got:\n%s", got)
 	}
 }
 
@@ -1793,7 +1801,7 @@ func TestGenerateAgentSkillMDRiskLevelHints(t *testing.T) {
 	}
 }
 
-func TestBuildSkillDescriptionHumanizesActionKeys(t *testing.T) {
+func TestBuildSkillDescriptionNoActionKeyDumpWithoutTriggers(t *testing.T) {
 	m := &ServiceManifest{
 		Name: "search",
 		Actions: map[string]ServiceAction{
@@ -1801,11 +1809,11 @@ func TestBuildSkillDescriptionHumanizesActionKeys(t *testing.T) {
 		},
 	}
 	desc := buildAgentSkillDescription(m)
-	if strings.Contains(desc, "web_search") {
-		t.Error("expected humanized action key 'web search', got raw 'web_search'")
+	if strings.Contains(desc, "web_search") || strings.Contains(desc, "web search") || strings.Contains(desc, "Trigger phrases") {
+		t.Errorf("expected no action-key dump without triggers, got:\n%s", desc)
 	}
-	if !strings.Contains(desc, "web search") {
-		t.Errorf("expected 'web search' in description, got:\n%s", desc)
+	if !strings.Contains(desc, "Use when you need to interact with the search API.") {
+		t.Errorf("expected API fallback description, got:\n%s", desc)
 	}
 }
 
@@ -1892,6 +1900,46 @@ func TestToActionDefinitionsRespectsExplicitHTTPIdempotentOverride(t *testing.T)
 	}
 	if !defs[0].Idempotent {
 		t.Fatal("expected explicit HTTP idempotent override to be preserved")
+	}
+}
+
+func TestToActionDefinitionsHTTPUnsafeMethodsAreNotImplicitlyIdempotent(t *testing.T) {
+	manifest := &ServiceManifest{
+		Name:    "http-service",
+		Version: "1.0.0",
+		BaseURL: "https://api.example.com",
+		Auth:    ServiceAuth{Type: "none"},
+		Actions: map[string]ServiceAction{
+			"create": {
+				Method: "POST",
+				Path:   "/items",
+				Risk:   RiskSpec{Level: "medium"},
+			},
+			"replace": {
+				Method: "PUT",
+				Path:   "/items",
+				Risk:   RiskSpec{Level: "medium"},
+			},
+			"remove": {
+				Method: "DELETE",
+				Path:   "/items",
+				Risk:   RiskSpec{Level: "high"},
+			},
+		},
+	}
+
+	defs, err := ToActionDefinitions(manifest)
+	if err != nil {
+		t.Fatalf("ToActionDefinitions: %v", err)
+	}
+	if len(defs) != 3 {
+		t.Fatalf("expected three action definitions, got %d", len(defs))
+	}
+
+	for _, def := range defs {
+		if def.Idempotent {
+			t.Fatalf("expected %s to default to idempotent=false", def.Name)
+		}
 	}
 }
 

@@ -50,3 +50,52 @@ func TestAllOfficialSkillsValidate(t *testing.T) {
 	}
 	t.Logf("validated %d skill manifests", yamlCount)
 }
+
+func TestAllOfficialSkillsHavePackMetadata(t *testing.T) {
+	_, file, _, ok := runtime.Caller(0)
+	if !ok {
+		t.Fatal("failed to resolve current test file path")
+	}
+	repoRoot := filepath.Join(filepath.Dir(file), "..", "..")
+	skillsDir := filepath.Join(repoRoot, "skills", "official")
+	entries, err := os.ReadDir(skillsDir)
+	if err != nil {
+		t.Fatalf("read skills/official: %v", err)
+	}
+
+	for _, entry := range entries {
+		if entry.IsDir() || (!strings.HasSuffix(entry.Name(), ".yaml") && !strings.HasSuffix(entry.Name(), ".yml")) {
+			continue
+		}
+		t.Run(entry.Name(), func(t *testing.T) {
+			path := filepath.Join(skillsDir, entry.Name())
+			data, err := os.ReadFile(path)
+			if err != nil {
+				t.Fatalf("read file: %v", err)
+			}
+			manifest, err := ParseManifest(data)
+			if err != nil {
+				t.Fatalf("parse: %v", err)
+			}
+
+			if manifest.Triggers == nil {
+				t.Error("missing triggers — required for LLM routing quality")
+			}
+
+			hasRiskyAction := false
+			hasWarnings := false
+			for _, action := range manifest.Actions {
+				level := strings.ToLower(strings.TrimSpace(action.Risk.Level))
+				if level != "" && level != "low" {
+					hasRiskyAction = true
+				}
+				if len(action.Warnings) > 0 {
+					hasWarnings = true
+				}
+			}
+			if (hasRiskyAction || hasWarnings) && len(manifest.Gotchas) == 0 {
+				t.Error("missing gotchas — required for services with non-low-risk or warned actions")
+			}
+		})
+	}
+}
