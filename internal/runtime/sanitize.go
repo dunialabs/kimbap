@@ -266,13 +266,12 @@ func checkInputSizeWithOptions(input map[string]any, opts SanitizeOptions) error
 		return nil
 	}
 
-	total := estimateValueSize(input)
-	if total > normalized.MaxTotalInputBytes {
+	if b, err := json.Marshal(input); err == nil && len(b) > normalized.MaxTotalInputBytes {
 		return validationFailure(
 			"input payload too large",
 			map[string]any{
 				"check":       "input_size",
-				"size_bytes":  total,
+				"size_bytes":  len(b),
 				"limit_bytes": normalized.MaxTotalInputBytes,
 			},
 		)

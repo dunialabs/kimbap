@@ -56,6 +56,7 @@ var app = Application("Notes");
 app.includeStandardAdditions = false;
 var matches = app.notes.whose({name: input.name})();
 if (matches.length === 0) throw new Error("[NOT_FOUND] note not found");
+if (matches.length > 1) throw new Error("[AMBIGUOUS] multiple notes with name " + JSON.stringify(input.name) + "; specify folder");
 var n = matches[0];
 var result = {
 	name: n.name(),
