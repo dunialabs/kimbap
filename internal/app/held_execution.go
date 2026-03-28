@@ -56,9 +56,17 @@ func NewMemoryHeldExecutionStore() runtime.HeldExecutionStore {
 }
 
 func (s *memoryHeldExecutionStore) Hold(_ context.Context, approvalRequestID string, req actions.ExecutionRequest) error {
+	b, err := json.Marshal(req)
+	if err != nil {
+		return fmt.Errorf("serialize held request: %w", err)
+	}
+	var cloned actions.ExecutionRequest
+	if err := json.Unmarshal(b, &cloned); err != nil {
+		return fmt.Errorf("deserialize held request: %w", err)
+	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	s.held[approvalRequestID] = req
+	s.held[approvalRequestID] = cloned
 	return nil
 }
 

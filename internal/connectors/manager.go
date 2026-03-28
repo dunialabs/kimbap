@@ -266,6 +266,8 @@ func (m *Manager) Refresh(ctx context.Context, tenantID, name string) error {
 	if token.ExpiresIn > 0 {
 		expiresAt := now.Add(time.Duration(token.ExpiresIn) * time.Second)
 		state.ExpiresAt = &expiresAt
+	} else {
+		state.ExpiresAt = nil
 	}
 	state.LastRefresh = &now
 	state.LastRefreshError = ""
