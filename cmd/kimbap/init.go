@@ -224,7 +224,11 @@ func resolveInitServiceSelectionFromReader(rawServices string, noServices bool, 
 		return initServiceSelection{Skipped: true, Reason: "non-interactive stdin"}, nil
 	}
 
-	_, _ = fmt.Fprint(os.Stderr, "Install all 54 official services? [Y/n/select]: ")
+	serviceCount := 0
+	if all, err := skills.List(); err == nil {
+		serviceCount = len(all)
+	}
+	_, _ = fmt.Fprintf(os.Stderr, "Install all %d official services? [Y/n/select]: ", serviceCount)
 
 	br := bufio.NewReader(reader)
 

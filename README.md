@@ -56,7 +56,7 @@ Every action goes through the same pipeline.
 
 ### Tell your agent (recommended)
 
-Paste this into Claude Code, Cursor, OpenCode, or any CLI-capable agent:
+Paste this into Claude Code, Codex, OpenCode, or any CLI-capable agent:
 
 ```
 Read https://raw.githubusercontent.com/dunialabs/kimbap/main/docs/installation.md
@@ -84,13 +84,13 @@ kimbap init --mode dev
 
 > **Production?** Set `KIMBAP_MASTER_KEY_HEX` instead of using `--mode dev`.
 
-### Try it — no API keys needed (macOS)
+### On macOS? Try it now — no API keys needed
 
 ```bash
-kimbap call apple-notes.list-notes
+kimbap call apple-notes.create-note --title "Hello World" --body "from kimbap" --idempotency-key hello-1
 ```
 
-Your notes are listed in the terminal. No credentials, no setup. macOS may prompt for Automation access on first use.
+A note appears in Apple Notes. No credentials, no setup. `--idempotency-key` is required for write actions. macOS may prompt for Automation access on first use.
 
 ---
 
@@ -114,7 +114,7 @@ actions:
 ```
 
 ```bash
-kimbap vault set stripe.api_key      # store credential once
+kimbap vault set stripe.api_key      # encrypted at rest
 kimbap service install stripe.yaml
 kimbap call stripe.list-charges       # done
 ```
@@ -156,7 +156,7 @@ New services added regularly. Or turn your own API into a CLI.
 
 ## Works with
 
-Claude Code · OpenCode · Cursor · Codex · any agent that can run a CLI command.
+Claude Code · OpenCode · Codex · any agent that can run a CLI command.
 
 ```bash
 kimbap profile install claude-code   # installs operating rules for your agent
