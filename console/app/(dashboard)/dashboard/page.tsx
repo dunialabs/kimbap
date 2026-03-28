@@ -366,11 +366,11 @@ export default function DashboardPage() {
   }
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-6">
       <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-[30px] font-bold tracking-tight">Dashboard</h1>
-          <p className="text-[14px] text-muted-foreground">
+          <p className="text-sm text-muted-foreground">
             {serverInfo?.proxyName || 'Kimbap Server'}
           </p>
         </div>
@@ -397,7 +397,7 @@ export default function DashboardPage() {
           </Badge>
         </div>
       </div>
-      <div className="space-y-4">
+      <div className="space-y-6">
          {pendingApprovalError ? (
            <div role="alert" className="flex flex-col items-start gap-2 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700 dark:border-red-900/40 dark:bg-red-950/20 dark:text-red-300 sm:flex-row sm:items-center">
              <AlertTriangle className="h-4 w-4 shrink-0" aria-hidden="true" />

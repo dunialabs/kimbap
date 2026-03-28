@@ -624,12 +624,12 @@ function LogsPageContent() {
   const hasActiveFilters = activeFilterBadges.length > 0
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-6">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div className="space-y-2">
           <div className="space-y-0">
-            <h1 className="text-[30px] font-bold">Logs & Monitoring</h1>
-            <p className="text-base text-muted-foreground">
+            <h1 className="text-[30px] font-bold tracking-tight">Logs & Monitoring</h1>
+            <p className="text-sm leading-6 text-muted-foreground">
               Investigate requests, errors, and live activity.
             </p>
           </div>

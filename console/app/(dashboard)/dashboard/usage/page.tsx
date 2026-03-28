@@ -308,7 +308,7 @@ function UsagePageContent() {
 
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-6">
       <Breadcrumb>
         <BreadcrumbList>
           <BreadcrumbItem>
@@ -323,8 +323,8 @@ function UsagePageContent() {
         </BreadcrumbList>
       </Breadcrumb>
       <div className="space-y-0">
-        <h1 className="text-[30px] font-bold">Usage Overview</h1>
-        <p className="text-base text-muted-foreground">Check request volume, token activity, and recent changes.</p>
+        <h1 className="text-[30px] font-bold tracking-tight">Usage Overview</h1>
+        <p className="text-sm leading-6 text-muted-foreground">Check request volume, token activity, and recent changes.</p>
       </div>
       <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center">
         <Select value={String(timeRange)} onValueChange={(value) => setTimeRange(Number(value))}>

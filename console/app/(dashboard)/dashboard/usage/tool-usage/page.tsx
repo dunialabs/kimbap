@@ -486,8 +486,8 @@ function ToolUsagePageContent() {
         </BreadcrumbList>
       </Breadcrumb>
       <div className="space-y-0">
-        <h1 className="text-[30px] font-bold">Tool Usage</h1>
-        <p className="text-base text-muted-foreground">See which tools are busiest, failing, or slowing down.</p>
+        <h1 className="text-[30px] font-bold tracking-tight">Tool Usage</h1>
+        <p className="text-sm leading-6 text-muted-foreground">See which tools are busiest, failing, or slowing down.</p>
       </div>
       <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center">
         <Select value={String(timeRange)} onValueChange={(value) => { setTimeRange(Number(value)); setActionLogToolId('all'); setActionLogStatus('all'); setActionLogType('all'); setActionLogsPage(1) }}>

@@ -95,20 +95,20 @@ export function MasterPasswordForm({ onSuccess }: MasterPasswordFormProps) {
   }
 
   return (
-    <div className="space-y-[12px] max-w-[460px] py-[32px] px-[24px]">
+    <div className="max-w-[460px] space-y-3 px-6 py-8">
       <div>
-        <h2 className="text-[24px] font-bold mb-[4px]">
+        <h2 className="mb-1 text-2xl font-bold">
           Create a Master Password
         </h2>
-        <p className="text-muted-foreground text-[14px]">
+        <p className="text-sm text-muted-foreground">
           This password protects access to this console.
         </p>
       </div>
 
-      <form onSubmit={handleCreatePassword} className="space-y-[12px]">
+      <form onSubmit={handleCreatePassword} className="space-y-3">
         {/* Master Password */}
-        <div className="space-y-[4px]">
-          <Label htmlFor="master-password" className="text-[14px] font-[700]">
+        <div className="space-y-1">
+          <Label htmlFor="master-password" className="text-sm font-medium">
             Master Password
             <span className="ml-1 text-xs font-normal text-muted-foreground">(required)</span>
           </Label>
@@ -156,8 +156,8 @@ export function MasterPasswordForm({ onSuccess }: MasterPasswordFormProps) {
         </div>
 
         {/* Confirm Master Password */}
-        <div className="space-y-[4px]">
-          <Label htmlFor="confirm-password" className="text-[14px] font-[700]">
+        <div className="space-y-1">
+          <Label htmlFor="confirm-password" className="text-sm font-medium">
             Confirm Master Password
             <span className="ml-1 text-xs font-normal text-muted-foreground">(required)</span>
           </Label>
@@ -205,7 +205,7 @@ export function MasterPasswordForm({ onSuccess }: MasterPasswordFormProps) {
         {/* Warning Message */}
         <Alert className="border-blue-200 bg-blue-50 dark:bg-blue-950/20 dark:border-blue-900">
           <AlertDescription className="text-sm text-blue-700 dark:text-blue-200">
-            <span className="font-[700]">Important:</span> This password cannot
+            <span className="font-semibold">Important:</span> This password cannot
             be recovered. Make sure to remember it or store it in a secure
             location.
           </AlertDescription>

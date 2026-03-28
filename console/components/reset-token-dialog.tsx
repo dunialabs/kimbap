@@ -167,8 +167,8 @@ export function ResetTokenDialog({
             <div className="bg-blue-50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-800 rounded-md p-3">
               <div className="flex items-start gap-2">
                 <CheckCircle className="h-4 w-4 text-blue-600 dark:text-blue-400 mt-0.5 flex-shrink-0" />
-                <div className="text-xs text-blue-800 dark:text-blue-200">
-                  <p className="font-medium mb-1">To get a new access token:</p>
+                <div className="text-sm text-blue-800 dark:text-blue-200">
+                  <p className="mb-1 font-medium">To get a new access token:</p>
                   <ul className="space-y-1">
                     <li>• Open your server admin panel</li>
                     <li>• Go to Access Tokens</li>

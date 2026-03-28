@@ -552,7 +552,7 @@ export default function ApprovalsPage() {
             <ShieldCheck className="h-6 w-6" />
             Approvals
           </h1>
-          <p className="text-base text-muted-foreground">
+          <p className="text-sm leading-6 text-muted-foreground">
             Review tool requests that are waiting for a decision. After each decision, the queue refreshes so you can continue with the next request.
           </p>
         </div>

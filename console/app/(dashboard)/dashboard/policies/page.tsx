@@ -899,9 +899,9 @@ export default function PoliciesPage() {
         <div className="space-y-2">
           <h1 className="flex items-center gap-2 text-[30px] font-bold tracking-tight">
             <Shield className="h-6 w-6" />
-            Tool Access Policies
+            Policies
           </h1>
-          <p className="text-base text-muted-foreground">
+          <p className="text-sm leading-6 text-muted-foreground">
             Policies decide whether matching tool calls run automatically, require approval, or stay blocked. Rules are checked top to bottom, and the first match wins.
           </p>
           <div className="flex flex-wrap items-center gap-2">

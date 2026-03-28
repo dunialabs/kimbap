@@ -223,23 +223,23 @@ export function LoginForm({
         e.preventDefault()
         handleLogin()
       }}
-      className="w-full max-w-[460px] space-y-[12px] px-[24px] py-[32px] sm:min-h-[480px]"
+      className="w-full max-w-[460px] space-y-3 px-6 py-8 sm:min-h-[480px]"
     >
       {loginMode === null ? (
-        <div className="space-y-[12px]">
+        <div className="space-y-3">
           <div>
-            <h2 className="text-[24px] font-bold mb-[4px]">Sign in to Kimbap Console</h2>
-            <p className="text-muted-foreground text-[14px]">&nbsp;</p>
+            <h2 className="mb-1 text-2xl font-bold">Sign in to Kimbap Console</h2>
+            <p className="text-sm text-muted-foreground">&nbsp;</p>
           </div>
-          <div className="h-[44px] border-b border-border" />
+          <div className="h-11 border-b border-border" />
           <div className="h-12 rounded-lg bg-muted/40 animate-pulse" />
-          <div className="h-12 rounded-[8px] bg-muted/30 animate-pulse" />
+          <div className="h-12 rounded-lg bg-muted/30 animate-pulse" />
         </div>
       ) : (
       <>
       <div>
-        <h2 className="text-[24px] font-bold mb-[4px]">Sign in to Kimbap Console</h2>
-        <p className="text-muted-foreground text-[14px]">
+        <h2 className="mb-1 text-2xl font-bold">Sign in to Kimbap Console</h2>
+        <p className="text-sm text-muted-foreground">
           {loginMode === 'password'
             ? 'Owners use the master password to manage policies, approvals, logs, and usage.'
             : 'Use an owner or admin access token to open this console and review operator activity.'}
@@ -294,8 +294,8 @@ export function LoginForm({
       </fieldset>
 
       {/* Input Field */}
-      <div className="space-y-[4px]">
-        <Label htmlFor="login-credential" className="text-[14px] font-[700]">
+      <div className="space-y-1">
+        <Label htmlFor="login-credential" className="text-sm font-medium">
           {loginMode === 'password' ? 'Master Password' : 'Access Token'}
           <span className="ml-1 text-xs font-normal text-muted-foreground">(required)</span>
         </Label>
@@ -409,7 +409,7 @@ export function LoginForm({
             ? !loginMasterPassword.trim()
             : !token.trim())
         }
-        className="w-full h-12 rounded-[8px] text-base"
+        className="h-12 w-full rounded-lg text-base"
         size="lg"
         aria-busy={isLoggingIn}
       >

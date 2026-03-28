@@ -48,7 +48,7 @@ export function AuthLayout({ children }: AuthLayoutProps) {
           </div>
 
           <div className="border-t border-border/60 px-4 pt-4 lg:hidden">
-            <h1 className="text-2xl font-semibold tracking-tight">Kimbap Console</h1>
+            <h1 className="text-2xl font-bold tracking-tight">Kimbap Console</h1>
             <p className="mt-2 text-sm leading-6 text-muted-foreground">
               Operator workspace for policies, approvals, logs, and usage. Owners usually sign in with the master password; admins use access tokens.
             </p>
