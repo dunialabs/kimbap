@@ -38,10 +38,12 @@ export async function POST(request: NextRequest) {
       throw new ExternalApiError(E1003, 'Invalid field value: serverId must be a string');
     }
 
+    const serverId = body.serverId?.trim() || undefined;
+
     const response = await makeProxyRequestWithUserId<any>(
       AdminActionType.CREATE_TOOL_POLICY,
       {
-        serverId: body.serverId,
+        serverId,
         dsl: body.dsl,
       },
       user.userid,

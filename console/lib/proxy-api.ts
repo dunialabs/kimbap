@@ -589,11 +589,11 @@ export async function createProxy(data: {
 }): Promise<{ id: number; name: string; proxyKey: string; addtime: number; startPort: number }> {
   const result = await makeProxyRequest<{ proxy: any }>(AdminActionType.CREATE_PROXY, data);
 
-  if (!result.success || !result.data) {
+  if (!result.success || !result.data?.proxy) {
     throw new Error(`Failed to create proxy: ${result.error?.message || 'Unknown error'}`);
   }
 
-  return result.data!.proxy;
+  return result.data.proxy;
 }
 
 /**
@@ -609,11 +609,11 @@ export async function getProxy(): Promise<{
 }> {
   const result = await makeProxyRequest<{ proxy: any }>(AdminActionType.GET_PROXY, {});
 
-  if (!result.success) {
+  if (!result.success || !result.data?.proxy) {
     throw new Error(`Failed to get proxy: ${result.error?.message || 'Unknown error'}`);
   }
 
-  return result.data!.proxy;
+  return result.data.proxy;
 }
 
 /**
@@ -678,11 +678,11 @@ export async function createUser(
 ): Promise<{ user: any }> {
   const result = await makeProxyRequest<{ user: any }>(AdminActionType.CREATE_USER, data, token);
 
-  if (!result.success) {
+  if (!result.success || !result.data?.user) {
     throw new Error(`Failed to create user: ${result.error?.message || 'Unknown error'}`);
   }
 
-  return result.data!;
+  return result.data;
 }
 
 /**
@@ -745,7 +745,7 @@ export async function getUserByAccessToken(userId: string, accessToken: string):
 export async function getOwner(): Promise<{ owner: any }> {
   const result = await makeProxyRequest<{ owner: any }>(AdminActionType.GET_OWNER, {});
 
-  if (!result.success) {
+  if (!result.success || !result.data?.owner) {
     // Check if error code is USER_NOT_FOUND
     if (result.error?.code === 2001) {
       throw new ApiError(ErrorCode.USER_NOT_FOUND, 404, {
@@ -755,7 +755,7 @@ export async function getOwner(): Promise<{ owner: any }> {
     throw new Error(`Failed to get owner: ${result.error?.message || 'Unknown error'}`);
   }
 
-  return result.data!;
+  return result.data;
 }
 
 /**

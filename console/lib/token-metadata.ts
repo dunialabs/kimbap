@@ -59,6 +59,9 @@ export function parseExternalTokenPermissions(
         if (typeof func.enabled !== 'boolean') {
           throw new Error(`invalid enabled value for function "${funcName}": expected boolean`);
         }
+        if (tools[funcName]) {
+          throw new Error(`duplicate funcName in permissions for "${toolId}": "${funcName}"`);
+        }
         tools[funcName] = { enabled: func.enabled };
       }
     }
@@ -75,6 +78,9 @@ export function parseExternalTokenPermissions(
         }
         if (typeof res.enabled !== 'boolean') {
           throw new Error(`invalid enabled value for resource "${uri}": expected boolean`);
+        }
+        if (resources[uri]) {
+          throw new Error(`duplicate resource uri in permissions for "${toolId}": "${uri}"`);
         }
         resources[uri] = { enabled: res.enabled };
       }

@@ -81,6 +81,16 @@ export async function POST(request: NextRequest) {
       throw new ExternalApiError(E2003, 'Permission denied: cannot modify owner token');
     }
 
+    if (body.name !== undefined) {
+      if (typeof body.name !== 'string' || !body.name.trim()) {
+        throw new ExternalApiError(E1003, 'Invalid field value: name must be a non-empty string');
+      }
+    }
+
+    if (body.notes !== undefined && typeof body.notes !== 'string') {
+      throw new ExternalApiError(E1003, 'Invalid field value: notes must be a string');
+    }
+
     if (body.namespace !== undefined && typeof body.namespace !== 'string') {
       throw new ExternalApiError(E1003, 'Invalid field value: namespace must be a string');
     }

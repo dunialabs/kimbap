@@ -15,7 +15,9 @@ function normalizeEffectivePolicyInput(body: EffectivePolicyInput): EffectivePol
   if (body.serverId !== undefined && typeof body.serverId !== 'string') {
     throw new ExternalApiError(E1003, 'Invalid field value: serverId must be a string');
   }
-  return body;
+  return {
+    serverId: body.serverId?.trim() || undefined,
+  };
 }
 
 async function getEffectivePolicy(request: NextRequest, input: EffectivePolicyInput) {

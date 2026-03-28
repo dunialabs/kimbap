@@ -226,9 +226,10 @@ func TestRuntimeExecutePolicyDenial(t *testing.T) {
 
 func TestRuntimeExecuteApprovalRequired(t *testing.T) {
 	rt := Runtime{
-		PolicyEvaluator: mockPolicyEvaluator{decision: &PolicyDecision{Decision: "require_approval"}},
-		ApprovalManager: mockApprovalManager{result: &ApprovalResult{Approved: false, RequestID: "apr-1"}},
-		Adapters:        map[string]adapters.Adapter{"http": mockAdapter{kind: "http"}},
+		PolicyEvaluator:    mockPolicyEvaluator{decision: &PolicyDecision{Decision: "require_approval"}},
+		ApprovalManager:    mockApprovalManager{result: &ApprovalResult{Approved: false, RequestID: "apr-1"}},
+		HeldExecutionStore: &mockHeldExecutionStore{held: map[string]actions.ExecutionRequest{}},
+		Adapters:           map[string]adapters.Adapter{"http": mockAdapter{kind: "http"}},
 	}
 
 	res := rt.Execute(context.Background(), baseRequest(actions.ActionDefinition{
@@ -241,6 +242,27 @@ func TestRuntimeExecuteApprovalRequired(t *testing.T) {
 	}
 	if res.Error == nil || res.Error.Code != actions.ErrApprovalRequired {
 		t.Fatalf("expected approval required error, got %+v", res.Error)
+	}
+}
+
+
+func TestRuntimeExecuteApprovalRequiredNoHeldStore(t *testing.T) {
+	rt := Runtime{
+		PolicyEvaluator: mockPolicyEvaluator{decision: &PolicyDecision{Decision: "require_approval"}},
+		ApprovalManager: mockApprovalManager{result: &ApprovalResult{Approved: false, RequestID: "apr-1"}},
+		Adapters:        map[string]adapters.Adapter{"http": mockAdapter{kind: "http"}},
+	}
+
+	res := rt.Execute(context.Background(), baseRequest(actions.ActionDefinition{
+		Name:    "github.issues.create",
+		Adapter: actions.AdapterConfig{Type: "http", URLTemplate: "https://example.com"},
+	}))
+
+	if res.Status != actions.StatusError {
+		t.Fatalf("expected error when held store is nil, got %s", res.Status)
+	}
+	if res.Error == nil || res.Error.Code != actions.ErrDownstreamUnavailable {
+		t.Fatalf("expected downstream unavailable error, got %+v", res.Error)
 	}
 }
 
