@@ -44,7 +44,7 @@ import {
 } from '@/components/ui/table';
 import { Textarea } from '@/components/ui/textarea';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
-import { formatDateTime, formatNullableText, formatRelativeMinutes } from '@/lib/utils';
+import { formatDateTime, formatDisplayNumber, formatNullableText, formatRelativeMinutes } from '@/lib/utils';
 
 // ─── Types ──────────────────────────────────────────────
 
@@ -151,6 +151,26 @@ function formatTime(iso: string): string {
     hour: '2-digit',
     minute: '2-digit',
   });
+}
+
+function formatExpiryTime(iso: string, status: string): { text: string; urgent: boolean } {
+  if (!iso) return { text: '—', urgent: false };
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return { text: iso, urgent: false };
+
+  if (status !== 'PENDING') {
+    return { text: formatTime(iso), urgent: false };
+  }
+
+  const remainingMs = d.getTime() - Date.now();
+  if (remainingMs <= 0) return { text: 'Expired', urgent: false };
+
+  const remainingMins = Math.ceil(remainingMs / 60000);
+  if (remainingMins <= 60) {
+    return { text: `Expires in ${remainingMins} min`, urgent: remainingMins <= 5 };
+  }
+
+  return { text: formatTime(iso), urgent: false };
 }
 
 function redactArgs(args: Record<string, any>): Record<string, any> {
@@ -466,7 +486,7 @@ export default function ApprovalsPage() {
           <CardContent className="flex items-center gap-3 py-3">
             <Clock className="h-5 w-5 text-amber-600" />
             <span className="text-sm font-medium">
-              {pendingCount.toLocaleString()} pending approval{pendingCount !== 1 ? 's' : ''} awaiting review
+              {formatDisplayNumber(pendingCount)} pending approval{pendingCount !== 1 ? 's' : ''} awaiting review
             </span>
           </CardContent>
         </Card>
@@ -479,7 +499,7 @@ export default function ApprovalsPage() {
             <div>
                 <CardTitle className="text-base">Approval Requests</CardTitle>
                 <CardDescription>
-                  {requests.length.toLocaleString()} request{requests.length !== 1 ? 's' : ''}
+                  {formatDisplayNumber(requests.length)} request{requests.length !== 1 ? 's' : ''}
                   {statusFilter !== 'all' ? ` (${statusFilter.charAt(0).toUpperCase() + statusFilter.slice(1).toLowerCase()})` : ''}
                 </CardDescription>
               </div>
@@ -627,9 +647,14 @@ export default function ApprovalsPage() {
                           </div>
                           <div>
                             <p className="text-xs text-muted-foreground">Expires</p>
-                            <p className={expiresSoon ? 'font-medium text-amber-600 dark:text-amber-400' : 'text-muted-foreground'}>
-                              {formatTime(r.expiresAt)}
-                            </p>
+                            {(() => {
+                              const { text: expiryText, urgent: expiryUrgent } = formatExpiryTime(r.expiresAt, r.status)
+                              return (
+                                <p className={expiresSoon || expiryUrgent ? 'font-medium text-amber-600 dark:text-amber-400' : 'text-muted-foreground'}>
+                                  {expiryText}
+                                </p>
+                              )
+                            })()}
                           </div>
                         </div>
 
@@ -723,16 +748,16 @@ export default function ApprovalsPage() {
                         <TableCell className="text-sm text-muted-foreground">
                           {formatTime(r.createdAt)}
                         </TableCell>
-                        <TableCell className={`text-sm ${
-                          (() => {
-                            const remainingMs = new Date(r.expiresAt).getTime() - Date.now()
-                            return r.status === 'PENDING' && remainingMs > 0 && remainingMs < 30 * 60 * 1000
-                              ? 'text-amber-600 dark:text-amber-400 font-medium'
-                              : 'text-muted-foreground'
-                          })()
-                        }`}>
-                          {formatTime(r.expiresAt)}
-                        </TableCell>
+                        {(() => {
+                          const { text: expiryText, urgent: expiryUrgent } = formatExpiryTime(r.expiresAt, r.status)
+                          const remainingMs = new Date(r.expiresAt).getTime() - Date.now()
+                          const amberStyle = (r.status === 'PENDING' && remainingMs > 0 && remainingMs < 30 * 60 * 1000) || expiryUrgent
+                          return (
+                            <TableCell className={`text-sm ${amberStyle ? 'text-amber-600 dark:text-amber-400 font-medium' : 'text-muted-foreground'}`}>
+                              {expiryText}
+                            </TableCell>
+                          )
+                        })()}
                         <TableCell className="text-sm text-muted-foreground max-w-[180px]" title={r.reason || undefined}>
                           <span className="block truncate">
                             {r.reason || '—'}
@@ -795,7 +820,7 @@ export default function ApprovalsPage() {
       {!loading && requests.length > 0 && (
         <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
           <p className="text-xs text-muted-foreground">
-            {requests.length.toLocaleString()} requests
+            {formatDisplayNumber(requests.length)} requests
           </p>
           {hasMore && (
             <Button variant="outline" size="sm" onClick={handleLoadMore} disabled={loadingMore || refreshing}>
