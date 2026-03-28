@@ -423,7 +423,7 @@ function TokenUsagePageContent() {
     return () => {
       cancelled = true
     }
-  }, [activeTab, timeRange, tokenUsageData])
+  }, [activeTab, timeRange, displayTokenUsageData])
 
   const handleRefresh = async () => {
     setRefreshing(true)
