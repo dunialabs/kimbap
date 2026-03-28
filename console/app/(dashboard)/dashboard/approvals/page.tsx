@@ -702,7 +702,7 @@ export default function ApprovalsPage() {
                         </div>
 
                         <div>
-                          <p className="text-xs text-muted-foreground">Why required</p>
+                          <p className="text-xs text-muted-foreground">Why Required</p>
                           <p className="text-sm text-muted-foreground">{r.reason || '—'}</p>
                         </div>
 
@@ -754,7 +754,7 @@ export default function ApprovalsPage() {
                       <TableHead scope="col" className="sticky top-0 z-10 bg-background shadow-[0_1px_0_0_hsl(var(--border))] text-center">Status</TableHead>
                       <TableHead scope="col" className="sticky top-0 z-10 bg-background shadow-[0_1px_0_0_hsl(var(--border))]">Created</TableHead>
                       <TableHead scope="col" className="sticky top-0 z-10 bg-background shadow-[0_1px_0_0_hsl(var(--border))]">Expires</TableHead>
-                      <TableHead scope="col" className="sticky top-0 z-10 bg-background shadow-[0_1px_0_0_hsl(var(--border))]">Why required</TableHead>
+                      <TableHead scope="col" className="sticky top-0 z-10 bg-background shadow-[0_1px_0_0_hsl(var(--border))]">Why Required</TableHead>
                       <TableHead scope="col" className="sticky top-0 z-10 bg-background shadow-[0_1px_0_0_hsl(var(--border))] text-right">Actions</TableHead>
                     </TableRow>
                   </TableHeader>
@@ -925,7 +925,7 @@ export default function ApprovalsPage() {
 
               {detailDialog.reason && (
                 <div>
-                  <Label className="text-xs text-muted-foreground">Why required</Label>
+                  <Label className="text-xs text-muted-foreground">Why Required</Label>
                   <p className="mt-1 text-sm">{detailDialog.reason}</p>
                 </div>
               )}

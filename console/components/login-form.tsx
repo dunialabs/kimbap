@@ -37,6 +37,42 @@ const generateSessionCookieValue = () => {
   return Array.from(bytes, (byte) => byte.toString(16).padStart(2, '0')).join('')
 }
 
+function getLoginErrorMessage(
+  error: unknown,
+  mode: 'token' | 'password'
+): string {
+  const requestError = error as {
+    response?: { status?: number; data?: { common?: { message?: string } } }
+    userMessage?: string
+    message?: string
+    code?: string
+  }
+  const status = requestError.response?.status
+  const rawMessage =
+    requestError.userMessage ||
+    requestError.response?.data?.common?.message ||
+    requestError.message ||
+    ''
+
+  if (rawMessage === 'member_link') {
+    return rawMessage
+  }
+
+  if (status === 401 || status === 403) {
+    return rawMessage || (mode === 'password'
+      ? "We couldn't verify that master password. Check it and try again."
+      : "We couldn't verify that access token. Check it and try again.")
+  }
+
+  if (!requestError.response || requestError.code === 'ECONNABORTED') {
+    return mode === 'password'
+      ? 'Could not reach the console to verify your master password. Check your connection and try again.'
+      : 'Could not reach the console to verify your access token. Check your connection and try again.'
+  }
+
+  return rawMessage || 'Could not sign in. Check your details and try again.'
+}
+
 export function LoginForm({
   onSuccess,
   defaultToken = ''
@@ -170,12 +206,12 @@ export function LoginForm({
       document.cookie = `kimbap_session=${generateSessionCookieValue()}; path=/; max-age=${60 * 60 * 24 * 7}; SameSite=Lax`
 
       onSuccess()
-    } catch (error: any) {
-      // Error handled below via UI state
+    } catch (error: unknown) {
+      const message = getLoginErrorMessage(error, loginMode)
       if (loginMode === 'password') {
-        setLoginError(error.message || 'Could not sign in. Check your details and try again.')
+        setLoginError(message)
       } else {
-        setTokenError(error.message || 'Could not sign in. Check your details and try again.')
+        setTokenError(message)
       }
       setIsLoggingIn(false)
     }

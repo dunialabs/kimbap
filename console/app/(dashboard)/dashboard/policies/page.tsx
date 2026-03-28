@@ -164,6 +164,27 @@ const DECISIONS = [
   { value: 'DENY', label: 'Block', color: 'bg-red-500/10 text-red-600 border-red-500/20 dark:bg-red-500/20 dark:text-red-400 dark:border-red-500/40' },
 ] as const
 
+function getRequestErrorMessage(
+  error: unknown,
+  messages: { auth: string; network: string; fallback: string }
+): string {
+  const requestError = error as {
+    response?: { status?: number; data?: { common?: { message?: string } } }
+    userMessage?: string
+    message?: string
+    code?: string
+  }
+  const status = requestError.response?.status
+  const rawMessage =
+    requestError.userMessage ||
+    requestError.response?.data?.common?.message ||
+    requestError.message ||
+    ''
+  if (status === 401 || status === 403) return rawMessage || messages.auth
+  if (!requestError.response || requestError.code === 'ECONNABORTED') return messages.network
+  return rawMessage || messages.fallback
+}
+
 function generateId(): string {
   return crypto.randomUUID()
 }

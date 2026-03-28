@@ -129,6 +129,34 @@ const COLORS = [
 ]
 const HEALTHY_SUCCESS_RATE_THRESHOLD = 95
 
+function getRequestErrorMessage(
+  error: unknown,
+  messages: { auth: string; network: string; fallback: string }
+) {
+  const requestError = error as {
+    response?: { status?: number; data?: { common?: { message?: string } } }
+    userMessage?: string
+    message?: string
+    code?: string
+  }
+  const status = requestError.response?.status
+  const rawMessage =
+    requestError.userMessage ||
+    requestError.response?.data?.common?.message ||
+    requestError.message ||
+    ''
+
+  if (status === 401 || status === 403) {
+    return rawMessage || messages.auth
+  }
+
+  if (!requestError.response || requestError.code === 'ECONNABORTED') {
+    return messages.network
+  }
+
+  return rawMessage || messages.fallback
+}
+
 function maskIdentifier(value: string | null | undefined): string {
   const normalized = value?.trim() || ''
   if (!normalized) return '—'
@@ -232,7 +260,7 @@ function TokenUsagePageContent() {
         setTrendDataError(null)
       } else {
         setTrendData([])
-        setTrendDataError('Unable to load usage trends. Check your connection and try again.')
+        setTrendDataError('Could not load token usage trends for this time range. Retry to refresh the Usage Patterns tab.')
       }
 
       if (geoResult.status === 'fulfilled' && geoResult.value.data?.common?.code === 0 && geoResult.value.data?.data?.geoUsage) {
@@ -240,7 +268,7 @@ function TokenUsagePageContent() {
         setGeoUsageError(null)
       } else {
         setGeoUsage([])
-        setGeoUsageError('Unable to load client location data. Check your connection and try again.')
+        setGeoUsageError('Could not load client location data for this time range. Retry to refresh the Client Locations tab.')
       }
 
       let metricsFetchSucceeded = false
@@ -268,7 +296,7 @@ function TokenUsagePageContent() {
         setTokenDataError(null)
       } else {
         setTokenUsageData([])
-        setTokenDataError('Unable to load token usage data. Check your connection and try again.')
+        setTokenDataError('Could not load per-token usage data for this time range. Retry to refresh the Overview tab.')
       }
 
       setPatternUsage({})
@@ -276,20 +304,26 @@ function TokenUsagePageContent() {
       if (!summaryFailure) {
         setLoadError(null)
       } else {
-        setLoadError('Unable to load token usage data. Check your connection and try again.')
+        setLoadError('Could not load the token usage summary cards. Retry to refresh totals, success rate, and client counts.')
       }
       hasDataRef.current = true
     } catch (error) {
       setSummary(null)
       setTokenUsageData([])
-      setTokenDataError('Unable to load token usage data. Check your connection and try again.')
+      setTokenDataError('Could not load per-token usage data for this time range. Retry to refresh the Overview tab.')
       setTrendData([])
-      setTrendDataError('Unable to load usage trends. Check your connection and try again.')
+      setTrendDataError('Could not load token usage trends for this time range. Retry to refresh the Usage Patterns tab.')
       setGeoUsage([])
-      setGeoUsageError('Unable to load client location data. Check your connection and try again.')
+      setGeoUsageError('Could not load client location data for this time range. Retry to refresh the Client Locations tab.')
       setPatternUsage({})
       setPatternUsageErrors({})
-      setLoadError('Unable to load token usage data. Check your connection and try again.')
+      setLoadError(
+        getRequestErrorMessage(error, {
+          auth: 'Could not load token usage because your session expired or your access changed. Sign in again and retry.',
+          network: 'Could not load token usage. Check your connection and retry.',
+          fallback: 'Could not load the token usage summary cards. Retry to refresh totals, success rate, and client counts.'
+        })
+      )
     } finally {
       setLoading(false)
     }
@@ -327,7 +361,7 @@ function TokenUsagePageContent() {
               return {
                 tokenId: token.tokenId,
                 points: [] as TokenPatternPoint[],
-        error: 'Unable to load usage patterns. Check your connection and try again.'
+        error: 'Could not load minute-level usage patterns for this token. Retry to refresh the Usage Patterns tab.'
               }
             }
             return {
@@ -339,7 +373,7 @@ function TokenUsagePageContent() {
             return {
               tokenId: token.tokenId,
               points: [] as TokenPatternPoint[],
-        error: 'Unable to load usage patterns. Check your connection and try again.'
+        error: 'Could not load minute-level usage patterns for this token. Retry to refresh the Usage Patterns tab.'
             }
           }
         })
@@ -947,7 +981,7 @@ function TokenUsagePageContent() {
                       ) : (
                         <div className="flex items-center justify-center py-8">
                           {patternUsageErrors[token.tokenId] ? (
-                            <div className="text-center">
+                            <div className="text-center" role="alert">
                               <p className="text-sm text-red-600 dark:text-red-400">{patternUsageErrors[token.tokenId]}</p>
                               <Button variant="outline" size="sm" className="mt-2" onClick={handleRefresh}>Retry</Button>
                             </div>

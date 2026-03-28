@@ -1,8 +1,9 @@
 export function GlobalFooter() {
+  const year = new Date().getFullYear()
   return (
     <footer className="w-full border-t border-border bg-background/80 px-4 py-4 backdrop-blur-sm sm:px-6">
       <div className="mx-auto flex max-w-[1080px] flex-col items-center gap-1 text-center text-xs leading-5 text-muted-foreground sm:flex-row sm:justify-center">
-        <span>© 2026</span>
+        <span>© {year}</span>
         <a
           href="https://kimbap.sh"
           target="_blank"

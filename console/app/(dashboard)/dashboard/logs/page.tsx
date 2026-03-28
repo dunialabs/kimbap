@@ -929,10 +929,9 @@ function LogsPageContent() {
                                   {getLevelIcon(log.level)}
                                   Log Details - {formatLogTimestamp(log.timestamp)}
                                 </DialogTitle>
-                                <DialogDescription>
-                                  {getDomainLabel(log.source)} • {log.level} •{' '}
-                                  {formatNullableText(log.requestId)}
-                                </DialogDescription>
+                                 <DialogDescription>
+                                   {getDomainLabel(log.source)} • {log.level}{log.requestId ? ` • ${log.requestId}` : ''}
+                                 </DialogDescription>
                               </DialogHeader>
 
                               <div>

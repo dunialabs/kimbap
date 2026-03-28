@@ -87,6 +87,34 @@ function LoadingListPlaceholder({
   )
 }
 
+function getRequestErrorMessage(
+  error: unknown,
+  messages: { auth: string; network: string; fallback: string }
+) {
+  const requestError = error as {
+    response?: { status?: number; data?: { common?: { message?: string } } }
+    userMessage?: string
+    message?: string
+    code?: string
+  }
+  const status = requestError.response?.status
+  const rawMessage =
+    requestError.userMessage ||
+    requestError.response?.data?.common?.message ||
+    requestError.message ||
+    ''
+
+  if (status === 401 || status === 403) {
+    return rawMessage || messages.auth
+  }
+
+  if (!requestError.response || requestError.code === 'ECONNABORTED') {
+    return messages.network
+  }
+
+  return rawMessage || messages.fallback
+}
+
 function UsagePageContent() {
   const searchParams = useSearchParams()
   const pathname = usePathname()
@@ -157,7 +185,7 @@ function UsagePageContent() {
         setTopToolsError(null)
       } else {
         setTopTools([])
-        setTopToolsError('Unable to load tool usage. Check your connection and try again.')
+        setTopToolsError('Could not load top tool activity for this time range. Retry to refresh the Top Tools section.')
       }
 
       if (tokensResult.status === 'fulfilled' && tokensResult.value.data?.common?.code === 0 && tokensResult.value.data?.data?.tokens) {
@@ -165,7 +193,7 @@ function UsagePageContent() {
         setActiveTokensError(null)
       } else {
         setActiveTokens([])
-        setActiveTokensError('Unable to load active tokens. Check your connection and try again.')
+        setActiveTokensError('Could not load active token activity for this time range. Retry to refresh the Active Tokens section.')
       }
 
       try {
@@ -175,27 +203,39 @@ function UsagePageContent() {
           setRecentActivityError(null)
         } else {
           setRecentActivity([])
-          setRecentActivityError('Unable to load recent activity. Check your connection and try again.')
+          setRecentActivityError('Could not load recent usage activity for this time range. Retry to refresh the Recent Activity section.')
         }
-      } catch {
+      } catch (error) {
         setRecentActivity([])
-        setRecentActivityError('Unable to load recent activity. Check your connection and try again.')
+        setRecentActivityError(
+          getRequestErrorMessage(error, {
+            auth: 'Could not load recent usage activity because your session expired or your access changed. Sign in again and retry.',
+            network: 'Could not load recent usage activity. Check your connection and retry.',
+            fallback: 'Could not load recent usage activity for this time range. Retry to refresh the Recent Activity section.'
+          })
+        )
       }
       if (!summaryFailure) {
         setLoadError(null)
       } else {
-        setLoadError('Unable to load usage data. Check your connection and try again.')
+        setLoadError('Could not load the usage overview cards. Retry to refresh request volume, token activity, and response time.')
       }
       hasDataRef.current = true
     } catch (error) {
       setOverviewSummary(null)
       setTopTools([])
-      setTopToolsError('Unable to load tool usage. Check your connection and try again.')
+      setTopToolsError('Could not load top tool activity for this time range. Retry to refresh the Top Tools section.')
       setActiveTokens([])
-      setActiveTokensError('Unable to load active tokens. Check your connection and try again.')
+      setActiveTokensError('Could not load active token activity for this time range. Retry to refresh the Active Tokens section.')
       setRecentActivity([])
-      setRecentActivityError('Unable to load recent activity. Check your connection and try again.')
-      setLoadError('Unable to load usage data. Check your connection and try again.')
+      setRecentActivityError('Could not load recent usage activity for this time range. Retry to refresh the Recent Activity section.')
+      setLoadError(
+        getRequestErrorMessage(error, {
+          auth: 'Could not load the usage overview because your session expired or your access changed. Sign in again and retry.',
+          network: 'Could not load the usage overview. Check your connection and retry.',
+          fallback: 'Could not load the usage overview cards. Retry to refresh request volume, token activity, and response time.'
+        })
+      )
     } finally {
       setLoading(false)
     }
@@ -211,9 +251,15 @@ function UsagePageContent() {
         setRecentActivity([])
         setRecentActivityError('Unable to load recent activity. Check your connection and try again.')
       }
-    } catch {
+    } catch (error) {
       setRecentActivity([])
-      setRecentActivityError('Unable to load recent activity. Check your connection and try again.')
+      setRecentActivityError(
+        getRequestErrorMessage(error, {
+          auth: 'Could not load recent usage activity because your session expired or your access changed. Sign in again and retry.',
+          network: 'Could not load recent usage activity. Check your connection and retry.',
+          fallback: 'Could not load recent usage activity for this time range. Retry to refresh the Recent Activity section.'
+        })
+      )
     }
   }, [timeRange])
 
@@ -440,7 +486,7 @@ function UsagePageContent() {
                 {loading ? (
                   <LoadingListPlaceholder label="Loading active token activity..." />
                 ) : activeTokensError ? (
-                  <div className="text-center">
+                  <div className="text-center" role="alert">
                     <p className="text-sm text-red-600 dark:text-red-400">{activeTokensError}</p>
                     <Button variant="outline" size="sm" className="mt-2" onClick={handleRefresh}>Retry</Button>
                   </div>
@@ -480,7 +526,7 @@ function UsagePageContent() {
                 {loading ? (
                   <LoadingListPlaceholder label="Loading recent usage events..." />
                 ) : recentActivityError ? (
-                  <div className="text-center">
+                  <div className="text-center" role="alert">
                     <p className="text-sm text-red-600 dark:text-red-400">{recentActivityError}</p>
                     <Button variant="outline" size="sm" className="mt-2" onClick={handleRefresh}>Retry</Button>
                   </div>

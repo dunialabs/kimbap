@@ -108,6 +108,34 @@ interface ToolUsageSummary {
 const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884D8', '#82CA9D', '#FF6B6B', '#4ECDC4', '#A855F7', '#F97316']
 const HEALTHY_SUCCESS_RATE_THRESHOLD = 95
 
+function getRequestErrorMessage(
+  error: unknown,
+  messages: { auth: string; network: string; fallback: string }
+) {
+  const requestError = error as {
+    response?: { status?: number; data?: { common?: { message?: string } } }
+    userMessage?: string
+    message?: string
+    code?: string
+  }
+  const status = requestError.response?.status
+  const rawMessage =
+    requestError.userMessage ||
+    requestError.response?.data?.common?.message ||
+    requestError.message ||
+    ''
+
+  if (status === 401 || status === 403) {
+    return rawMessage || messages.auth
+  }
+
+  if (!requestError.response || requestError.code === 'ECONNABORTED') {
+    return messages.network
+  }
+
+  return rawMessage || messages.fallback
+}
+
 function ToolUsagePageContent() {
   const searchParams = useSearchParams()
   const pathname = usePathname()
@@ -213,7 +241,7 @@ function ToolUsagePageContent() {
         setTrendDataError(null)
       } else {
         setTrendData([])
-        setTrendDataError('Unable to load usage trends. Check your connection and try again.')
+        setTrendDataError('Could not load tool usage trends for this time range. Retry to refresh the Trends tab.')
       }
 
       if (errorsResult.status === 'fulfilled' && errorsResult.value.data?.common?.code === 0 && errorsResult.value.data?.data?.toolErrors) {
@@ -221,7 +249,7 @@ function ToolUsagePageContent() {
         setErrorDataError(null)
       } else {
         setErrorData([])
-        setErrorDataError('Unable to load tool error analysis. Check your connection and try again.')
+        setErrorDataError('Could not load tool error analysis for this time range. Retry to refresh the Error Analysis tab.')
       }
 
       let metricsFetchSucceeded = false
@@ -254,25 +282,31 @@ function ToolUsagePageContent() {
       } else {
         setToolUsageData([])
         setActionToolOptions([])
-        setToolDataError('Unable to load tool usage data. Check your connection and try again.')
+        setToolDataError('Could not load per-tool usage data for this time range. Retry to refresh the Overview and Performance tabs.')
       }
 
       if (!summaryFailure) {
         setLoadError(null)
       } else {
-        setLoadError('Unable to load tool usage data. Check your connection and try again.')
+        setLoadError('Could not load the tool usage summary cards. Retry to refresh totals, success rate, and response time.')
       }
       hasDataRef.current = true
     } catch (error) {
       setSummary(null)
       setToolUsageData([])
-      setToolDataError('Unable to load tool usage data. Check your connection and try again.')
+      setToolDataError('Could not load per-tool usage data for this time range. Retry to refresh the Overview and Performance tabs.')
       setTrendData([])
-      setTrendDataError('Unable to load usage trends. Check your connection and try again.')
+      setTrendDataError('Could not load tool usage trends for this time range. Retry to refresh the Trends tab.')
       setErrorData([])
-      setErrorDataError('Unable to load tool error analysis. Check your connection and try again.')
+      setErrorDataError('Could not load tool error analysis for this time range. Retry to refresh the Error Analysis tab.')
       setActionToolOptions([])
-      setLoadError('Unable to load tool usage data. Check your connection and try again.')
+      setLoadError(
+        getRequestErrorMessage(error, {
+          auth: 'Could not load tool usage because your session expired or your access changed. Sign in again and retry.',
+          network: 'Could not load tool usage. Check your connection and retry.',
+          fallback: 'Could not load the tool usage summary cards. Retry to refresh totals, success rate, and response time.'
+        })
+      )
     } finally {
       setLoading(false)
     }
@@ -325,15 +359,20 @@ function ToolUsagePageContent() {
         setActionLogs([])
         setActionLogsTotal(0)
         setActionTypeOptions([])
-        setActionLogsError('Unable to load tool action logs. Check your connection and try again.')
-        setActionTypeOptionsError('Unable to load action filter options. Check your connection and try again.')
+        setActionLogsError('Could not load tool action logs for the current filters. Retry to refresh the Action Logs tab.')
+        setActionTypeOptionsError('Could not refresh the action filter options right now. Retry to reload the Action Logs tab.')
       }
-    } catch {
+    } catch (error) {
       setActionLogs([])
       setActionLogsTotal(0)
       setActionTypeOptions([])
-      setActionLogsError('Unable to load tool action logs. Check your connection and try again.')
-      setActionTypeOptionsError('Unable to load action filter options. Check your connection and try again.')
+      const actionErrorMessage = getRequestErrorMessage(error, {
+        auth: 'Could not load tool action logs because your session expired or your access changed. Sign in again and retry.',
+        network: 'Could not load tool action logs. Check your connection and retry.',
+        fallback: 'Could not load tool action logs for the current filters. Retry to refresh the Action Logs tab.'
+      })
+      setActionLogsError(actionErrorMessage)
+      setActionTypeOptionsError(actionErrorMessage)
     } finally {
       setActionLoading(false)
     }
