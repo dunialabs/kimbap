@@ -118,7 +118,9 @@ func (a *HTTPAdapter) executeWithPagination(ctx context.Context, req AdapterRequ
 		if limit <= 0 {
 			limit = 20
 		}
-		pageInput[limitParam] = limit
+		if _, exists := pageInput[limitParam]; !exists {
+			pageInput[limitParam] = limit
+		}
 
 		style := strings.ToLower(strings.TrimSpace(pageCfg.Style))
 		switch style {
@@ -311,14 +313,15 @@ func (a *HTTPAdapter) executeSingle(ctx context.Context, req AdapterRequest) (*A
 		resp, doErr := a.client.Do(httpReq)
 		if doErr != nil {
 			cancel()
-			if attemptCtx.Err() == context.DeadlineExceeded || isTimeoutError(doErr) {
-				return nil, actions.NewExecutionError(actions.ErrDownstreamUnavailable, "adapter request timed out", http.StatusGatewayTimeout, true, nil)
-			}
+			isTimeout := attemptCtx.Err() == context.DeadlineExceeded || isTimeoutError(doErr)
 			if attempt < maxAttempts {
 				if !sleepWithContext(ctx, time.Duration(backoff*attempt)*time.Millisecond) {
 					return nil, actions.NewExecutionError(actions.ErrDownstreamUnavailable, ctx.Err().Error(), http.StatusGatewayTimeout, true, nil)
 				}
 				continue
+			}
+			if isTimeout {
+				return nil, actions.NewExecutionError(actions.ErrDownstreamUnavailable, "adapter request timed out", http.StatusGatewayTimeout, true, nil)
 			}
 			return nil, actions.NewExecutionError(actions.ErrDownstreamUnavailable, doErr.Error(), http.StatusBadGateway, true, nil)
 		}

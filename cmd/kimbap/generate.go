@@ -344,8 +344,11 @@ func actionInputTypeName(actionName string) string {
 		runes[0] = unicode.ToUpper(runes[0])
 		b.WriteString(string(runes))
 	}
-	b.WriteString("Input")
-	return b.String()
+	name := b.String()
+	if len(name) > 0 && name[0] >= '0' && name[0] <= '9' {
+		name = "T" + name
+	}
+	return name + "Input"
 }
 
 func tsSchemaType(schema *actions.Schema) string {
