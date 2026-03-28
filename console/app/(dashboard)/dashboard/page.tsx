@@ -383,7 +383,13 @@ export default function DashboardPage() {
         </div>
       </div>
       <div className="space-y-4">
-        {!isPendingApprovalLoading && hasPendingApprovals ? (
+        {pendingApprovalError ? (
+          <div role="alert" className="flex flex-col items-start gap-2 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700 dark:border-red-900/40 dark:bg-red-950/20 dark:text-red-300 sm:flex-row sm:items-center">
+            <CheckCircle className="h-4 w-4 shrink-0" aria-hidden="true" />
+            <span>{pendingApprovalError}</span>
+            <Button variant="outline" size="sm" className="w-full sm:ml-auto sm:w-auto" onClick={() => void fetchPendingApprovals()}>Retry</Button>
+          </div>
+        ) : !isPendingApprovalLoading && hasPendingApprovals ? (
           <Card className="border-amber-500/30 bg-amber-500/5">
             <CardContent className="flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between">
               <div className="min-w-0">
@@ -404,7 +410,7 @@ export default function DashboardPage() {
       {dashboardLoadError ? (
         <div role="alert" className="flex flex-col items-start gap-2 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700 dark:border-red-900/40 dark:bg-red-950/20 dark:text-red-300 sm:flex-row sm:items-center">
           <Server className="h-4 w-4 shrink-0" aria-hidden="true" />
-          <span>Could not load dashboard metrics. Check your connection and try again.</span>
+          <span>{dashboardLoadError}</span>
           <Button variant="outline" size="sm" className="w-full sm:ml-auto sm:w-auto" onClick={() => void fetchDashboardData()}>Retry</Button>
         </div>
       ) : null}

@@ -691,9 +691,14 @@ export default function PoliciesPage() {
       const data = res.data?.data || res.data
       setPolicies(data?.policySets || [])
       setLoadError(null)
-    } catch {
-      setLoadError('Could not load policies. Check your connection and try again.')
-      toast.error('Could not load policies')
+    } catch (error: unknown) {
+      setLoadError(
+        getRequestErrorMessage(error, {
+          auth: 'Could not load policies because your session expired or your access changed. Sign in again and retry.',
+          network: 'Could not load policies. Check your connection and retry.',
+          fallback: 'Could not load policies right now. Retry to refresh the access policy list.'
+        })
+      )
     } finally {
       setLoading(false)
     }
@@ -758,8 +763,14 @@ export default function PoliciesPage() {
       setIsDirty(false)
       setDialogOpen(false)
       fetchPolicies()
-    } catch {
-      toast.error('Could not save policy')
+    } catch (error: unknown) {
+      toast.error(
+        getRequestErrorMessage(error, {
+          auth: 'Could not save this policy because your session expired or your access changed. Sign in again and retry.',
+          network: 'Could not save this policy. Check your connection and retry.',
+          fallback: 'Could not save this policy right now.'
+        })
+      )
     } finally {
       setSaving(false)
     }
@@ -772,8 +783,14 @@ export default function PoliciesPage() {
       await api.policies.update({ id: p.id, status: nextStatus })
       setPolicies((prev) => prev.map((x) => (x.id === p.id ? { ...x, status: nextStatus } : x)))
       toast.success(`Policy ${nextStatus === 'active' ? 'enabled' : 'disabled'}`)
-    } catch {
-      toast.error('Could not update policy status')
+    } catch (error: unknown) {
+      toast.error(
+        getRequestErrorMessage(error, {
+          auth: 'Could not change the policy status because your session expired or your access changed. Sign in again and retry.',
+          network: 'Could not change the policy status. Check your connection and retry.',
+          fallback: 'Could not update this policy status right now.'
+        })
+      )
     } finally {
       setTogglingPolicyId(null)
     }
@@ -793,8 +810,14 @@ export default function PoliciesPage() {
       setDeleteDialogOpen(false)
       setDeleteTarget(null)
       fetchPolicies()
-    } catch {
-      toast.error('Could not delete policy')
+    } catch (error: unknown) {
+      toast.error(
+        getRequestErrorMessage(error, {
+          auth: 'Could not delete this policy because your session expired or your access changed. Sign in again and retry.',
+          network: 'Could not delete this policy. Check your connection and retry.',
+          fallback: 'Could not delete this policy right now.'
+        })
+      )
     } finally {
       setDeleting(false)
     }
@@ -989,6 +1012,7 @@ export default function PoliciesPage() {
                             onCheckedChange={() => handleToggle(p)}
                             disabled={!canTogglePolicy || togglingPolicyId === p.id}
                             aria-label={p.status === 'active' ? 'Deactivate policy' : 'Activate policy'}
+                            title={!canTogglePolicy ? 'Requires admin or owner role to enable or disable policies' : undefined}
                           />
                         </div>
                       </TableCell>

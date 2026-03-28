@@ -124,6 +124,34 @@ interface LogStatistics {
   hourlyStats: { hour: string; totalCount: number; errorCount: number; timestamp: number }[]
 }
 
+function getRequestErrorMessage(
+  error: unknown,
+  messages: { auth: string; network: string; fallback: string }
+) {
+  const requestError = error as {
+    response?: { status?: number; data?: { common?: { message?: string } } }
+    userMessage?: string
+    message?: string
+    code?: string
+  }
+  const status = requestError.response?.status
+  const rawMessage =
+    requestError.userMessage ||
+    requestError.response?.data?.common?.message ||
+    requestError.message ||
+    ''
+
+  if (status === 401 || status === 403) {
+    return rawMessage || messages.auth
+  }
+
+  if (!requestError.response || requestError.code === 'ECONNABORTED') {
+    return messages.network
+  }
+
+  return rawMessage || messages.fallback
+}
+
 function LogsPageContent() {
   const searchParams = useSearchParams()
   const pathname = usePathname()
@@ -240,18 +268,13 @@ function LogsPageContent() {
         setRealtimeHealthy(true)
         return true
       } else {
-        // API returned non-zero code, toast shown below
         if (!silent) {
-          toast.error(
-            'Unable to load logs: ' +
-              (response.data?.common?.message || 'Unknown error')
-          )
           setLogs([])
           setTotalCount(0)
           setTotalPages(0)
           setAvailableSources([])
           setLatestLogId(0)
-          setLoadError('Unable to load logs. Check your connection and try again.')
+          setLoadError('Could not load log entries for the current filters. Retry to refresh the table and raw view.')
         }
         setRealtimeHealthy(false)
         return false
@@ -260,15 +283,19 @@ function LogsPageContent() {
       if (requestSeq !== logsRequestSeqRef.current) {
         return false
       }
-      // Network/fetch error, toast shown below
       if (!silent) {
-        toast.error('Error loading logs')
         setLogs([])
         setTotalCount(0)
         setTotalPages(0)
         setAvailableSources([])
         setLatestLogId(0)
-        setLoadError('Unable to load logs. Check your connection and try again.')
+        setLoadError(
+          getRequestErrorMessage(error, {
+            auth: 'Could not load log entries because your session expired or your access changed. Sign in again and retry.',
+            network: 'Could not load log entries. Check your connection and retry.',
+            fallback: 'Could not load log entries for the current filters. Retry to refresh the table and raw view.'
+          })
+        )
       }
       setRealtimeHealthy(false)
       return false
@@ -383,13 +410,19 @@ function LogsPageContent() {
         return true
       } else {
         setStatistics(null)
-        setStatsError('Unable to load statistics. Check your connection and try again.')
+        setStatsError('Could not load log statistics for this time range. Retry to refresh the charts and source table.')
         return false
       }
     } catch (error) {
       if (statsSeq !== statsRequestSeqRef.current) return false
       setStatistics(null)
-      setStatsError('Unable to load statistics. Check your connection and try again.')
+      setStatsError(
+        getRequestErrorMessage(error, {
+          auth: 'Could not load log statistics because your session expired or your access changed. Sign in again and retry.',
+          network: 'Could not load log statistics. Check your connection and retry.',
+          fallback: 'Could not load log statistics for this time range. Retry to refresh the charts and source table.'
+        })
+      )
       return false
     } finally {
       if (statsSeq === statsRequestSeqRef.current) {
@@ -759,6 +792,14 @@ function LogsPageContent() {
       </Collapsible>
 
       {/* Logs Display */}
+      {loadError ? (
+        <div role="alert" className="flex flex-col items-start gap-2 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700 dark:border-red-900/40 dark:bg-red-950/20 dark:text-red-300 sm:flex-row sm:items-center">
+          <AlertTriangle className="h-4 w-4 shrink-0" aria-hidden="true" />
+          <span>{loadError}</span>
+          <Button variant="outline" size="sm" className="w-full sm:ml-auto sm:w-auto" onClick={handleRefresh}>Retry</Button>
+        </div>
+      ) : null}
+
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
         <TabsList className="w-full justify-start overflow-x-auto">
           <TabsTrigger value="table">Table View</TabsTrigger>
@@ -1002,7 +1043,7 @@ function LogsPageContent() {
                       <TableRow>
                         <TableCell colSpan={6} className="text-center py-8">
                           {loadError ? (
-                            <div className="flex flex-col items-center gap-2">
+                            <div className="flex flex-col items-center gap-2" role="alert">
                               <AlertTriangle className="h-5 w-5 text-red-500 dark:text-red-400" aria-hidden="true" />
                               <p className="text-sm text-red-600 dark:text-red-400">{loadError}</p>
                               <Button variant="outline" size="sm" onClick={handleRefresh}>
@@ -1113,9 +1154,9 @@ function LogsPageContent() {
                   </div>
                 </div>
               ) : logs.length === 0 ? (
-                <div className="flex flex-col items-center justify-center py-16 text-muted-foreground">
+                <div className="flex flex-col items-center justify-center py-16 text-muted-foreground" role={loadError ? 'alert' : undefined}>
                   <Activity className="h-12 w-12 mb-3 opacity-40" />
-                  <p className="text-sm">{loadError || 'No logs available'}</p>
+                  <p className={loadError ? 'text-sm text-red-600 dark:text-red-400' : 'text-sm'}>{loadError || 'No logs available'}</p>
                   <p className="text-xs mt-1">{loadError ? 'Try Refresh to load data again' : 'Try adjusting your filters or check back later'}</p>
                   {loadError ? (
                     <Button variant="outline" size="sm" className="mt-3" onClick={handleRefresh}>
@@ -1235,9 +1276,10 @@ function LogsPageContent() {
                   </div>
                 </div>
               ) : statsError ? (
-                <div className="flex flex-col items-center justify-center h-[300px] text-muted-foreground">
-                  <Activity className="h-12 w-12 mb-3 opacity-40" />
-                  <p className="text-sm">{statsError}</p>
+                <div className="flex flex-col items-center justify-center h-[300px] gap-2 text-muted-foreground" role="alert">
+                  <Activity className="h-12 w-12 mb-1 opacity-40" />
+                  <p className="text-sm text-red-600 dark:text-red-400">{statsError}</p>
+                  <Button variant="outline" size="sm" onClick={() => void loadStatistics()}>Retry</Button>
                 </div>
               ) : !statistics?.hourlyStats || statistics.hourlyStats.length === 0 ? (
                 <div className="flex flex-col items-center justify-center h-[300px] text-muted-foreground">
@@ -1278,8 +1320,9 @@ function LogsPageContent() {
                   </div>
                 </div>
               ) : statsError ? (
-                <div className="flex items-center justify-center py-8">
-                  <p className="text-sm text-muted-foreground">{statsError}</p>
+                <div className="flex flex-col items-center justify-center gap-2 py-8" role="alert">
+                  <p className="text-sm text-red-600 dark:text-red-400">{statsError}</p>
+                  <Button variant="outline" size="sm" onClick={() => void loadStatistics()}>Retry</Button>
                 </div>
               ) : !statistics?.domainStats || statistics.domainStats.length === 0 ? (
                 <div className="flex items-center justify-center py-8">

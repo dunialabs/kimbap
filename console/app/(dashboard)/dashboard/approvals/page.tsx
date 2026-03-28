@@ -209,6 +209,34 @@ function channelLabel(channel: string | null | undefined): string {
   }
 }
 
+function getRequestErrorMessage(
+  error: unknown,
+  messages: { auth: string; network: string; fallback: string }
+): string {
+  const requestError = error as {
+    response?: { status?: number; data?: { common?: { message?: string } } }
+    userMessage?: string
+    message?: string
+    code?: string
+  }
+  const status = requestError.response?.status
+  const rawMessage =
+    requestError.userMessage ||
+    requestError.response?.data?.common?.message ||
+    requestError.message ||
+    ''
+
+  if (status === 401 || status === 403) {
+    return rawMessage || messages.auth
+  }
+
+  if (!requestError.response || requestError.code === 'ECONNABORTED') {
+    return messages.network
+  }
+
+  return rawMessage || messages.fallback
+}
+
 // ─── Main Page ──────────────────────────────────────────
 
 export default function ApprovalsPage() {
@@ -242,7 +270,6 @@ export default function ApprovalsPage() {
   const loadedPagesRef = useRef(1);
   const fetchVersionRef = useRef(0);
 
-  const isInitialLoad = useRef(true);
 
   useEffect(() => {
     document.title = 'Approvals | Kimbap Console';
@@ -305,12 +332,17 @@ export default function ApprovalsPage() {
         setLastUpdated(new Date());
         setTimeAgo('just now');
         setRefreshFailed(false);
-      } catch {
+      } catch (error: unknown) {
         if (fetchVersion !== fetchVersionRef.current) {
           return;
         }
-        if (isInitialLoad.current) toast.error('Could not load approval requests');
-        setLoadError('Could not load approval requests. Check your connection and try again.');
+        setLoadError(
+          getRequestErrorMessage(error, {
+            auth: 'Could not load approval requests because your session expired or your access changed. Sign in again and retry.',
+            network: 'Could not load approval requests. Check your connection and retry.',
+            fallback: 'Could not load approval requests right now. Retry to refresh the queue.'
+          })
+        );
         setRefreshFailed(true);
       } finally {
         if (fetchVersion !== fetchVersionRef.current) {
@@ -318,7 +350,6 @@ export default function ApprovalsPage() {
         }
         setLoading(false);
         setLoadingMore(false);
-        isInitialLoad.current = false;
       }
     },
     [statusFilter, userFilter],
@@ -419,8 +450,14 @@ export default function ApprovalsPage() {
         page: 1,
         pageSize: loadedPagesRef.current * BASE_PAGE_SIZE,
       });
-    } catch {
-      toast.error(`Could not ${actionLabel} ${decideDialog.request.toolName} request`);
+    } catch (error: unknown) {
+      toast.error(
+        getRequestErrorMessage(error, {
+          auth: `Could not ${actionLabel} ${decideDialog.request.toolName} because your session expired or your access changed. Sign in again and retry.`,
+          network: `Could not ${actionLabel} ${decideDialog.request.toolName}. Check your connection and retry.`,
+          fallback: `Could not ${actionLabel} ${decideDialog.request.toolName} request.`
+        })
+      );
     } finally {
       setDeciding(false);
     }
@@ -441,9 +478,15 @@ export default function ApprovalsPage() {
       setDetailDialog(null);
       setDetailDecideReason('');
       void fetchData({ page: 1, pageSize: loadedPagesRef.current * BASE_PAGE_SIZE });
-    } catch {
+    } catch (error: unknown) {
       const actionLabel = decision === 'APPROVED' ? 'approve' : 'reject';
-      toast.error(`Could not ${actionLabel} ${detailDialog.toolName} request`);
+      toast.error(
+        getRequestErrorMessage(error, {
+          auth: `Could not ${actionLabel} ${detailDialog.toolName} because your session expired or your access changed. Sign in again and retry.`,
+          network: `Could not ${actionLabel} ${detailDialog.toolName}. Check your connection and retry.`,
+          fallback: `Could not ${actionLabel} ${detailDialog.toolName} request.`
+        })
+      );
     } finally {
       setDetailDeciding(false);
       setDetailDecisionAction(null);
@@ -857,11 +900,16 @@ export default function ApprovalsPage() {
                   <Label className="text-xs text-muted-foreground">Created</Label>
                   <p className="mt-1">{formatTime(detailDialog.createdAt)}</p>
                 </div>
-                <div>
-                  <Label className="text-xs text-muted-foreground">Expires</Label>
-                  <p className="mt-1">{formatTime(detailDialog.expiresAt)}</p>
-                </div>
-                {detailDialog.executedAt && (
+                {(() => {
+                   const { text: expiryText, urgent: expiryUrgent } = formatExpiryTime(detailDialog.expiresAt, detailDialog.status)
+                   return (
+                     <div>
+                       <Label className="text-xs text-muted-foreground">Expires</Label>
+                       <p className={`mt-1 ${expiryUrgent ? 'font-medium text-amber-600 dark:text-amber-400' : ''}`}>{expiryText}</p>
+                     </div>
+                   )
+                 })()}
+                 {detailDialog.executedAt && (
                   <div>
                     <Label className="text-xs text-muted-foreground">Executed At</Label>
                     <p className="mt-1">{formatTime(detailDialog.executedAt)}</p>
