@@ -691,7 +691,7 @@ function LogsPageContent() {
         <Button
           variant="outline"
           className="min-h-11"
-          onClick={() => void copyTextToClipboard(log.rawData, 'Raw log data copied to clipboard', 'Could not copy raw log data')}
+          onClick={() => void copyTextToClipboard(log.rawData, 'Raw log data copied to clipboard.', 'Could not copy raw log data. Try again.')}
         >
           Copy Raw Data
         </Button>
