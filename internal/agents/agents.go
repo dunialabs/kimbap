@@ -282,7 +282,7 @@ func SyncServices(installer ServiceInstaller, rulesContent string, opts SyncOpti
 					result.Errors = append(result.Errors, fmt.Sprintf("service %q: create dir: %v", installedService.Name, err))
 					continue
 				}
-				if err := os.WriteFile(agentSkillPath, []byte(installedService.Content), 0o644); err != nil {
+				if err := atomicWriteFile(agentSkillPath, installedService.Content); err != nil {
 					result.Failed = append(result.Failed, installedService.Name)
 					result.Errors = append(result.Errors, fmt.Sprintf("service %q: write file: %v", installedService.Name, err))
 					continue
@@ -315,7 +315,7 @@ func SyncServices(installer ServiceInstaller, rulesContent string, opts SyncOpti
 				} else {
 					if err := os.MkdirAll(filepath.Dir(rulesPath), 0o755); err != nil {
 						result.Errors = append(result.Errors, fmt.Sprintf("rules: create dir: %v", err))
-					} else if err := os.WriteFile(rulesPath, []byte(rulesContent), 0o644); err != nil {
+					} else if err := atomicWriteFile(rulesPath, rulesContent); err != nil {
 						result.Errors = append(result.Errors, fmt.Sprintf("rules: write file: %v", err))
 					} else {
 						result.RulesWritten = true

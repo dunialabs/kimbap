@@ -104,16 +104,18 @@ func (r *Runner) Start(ctx context.Context) error {
 		if cleanupMergedBundle != nil {
 			defer cleanupMergedBundle()
 		}
-		if mergedBundlePath != "" {
-			for _, key := range []string{
-				"SSL_CERT_FILE",
-				"REQUESTS_CA_BUNDLE",
-				"CURL_CA_BUNDLE",
-				"GIT_SSL_CAINFO",
-				"GRPC_DEFAULT_SSL_ROOTS_FILE_PATH",
-			} {
-				env = append(env, key+"="+mergedBundlePath)
-			}
+		effectiveBundlePath := mergedBundlePath
+		if effectiveBundlePath == "" {
+			effectiveBundlePath = certPath
+		}
+		for _, key := range []string{
+			"SSL_CERT_FILE",
+			"REQUESTS_CA_BUNDLE",
+			"CURL_CA_BUNDLE",
+			"GIT_SSL_CAINFO",
+			"GRPC_DEFAULT_SSL_ROOTS_FILE_PATH",
+		} {
+			env = append(env, key+"="+effectiveBundlePath)
 		}
 	}
 	cmd.Env = env
