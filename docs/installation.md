@@ -53,7 +53,7 @@ This creates the kimbap workspace on first run. Specifically, it:
 - Generates `config.yaml` with default settings
 - Initializes the encrypted vault
 - Creates a default policy file
-- Installs all 53 built-in service manifests
+- Installs all 54 built-in service manifests
 
 **Init flags:**
 
@@ -103,7 +103,7 @@ For services backed by OAuth rather than static API keys:
 
 ```bash
 kimbap connector login slack
-kimbap connector login gmail
+kimbap connector login notion
 kimbap auth connect zoom
 ```
 

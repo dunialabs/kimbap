@@ -256,7 +256,7 @@ kimbap connector login <provider>
 **Examples:**
 
 ```bash
-kimbap connector login gmail
+kimbap connector login notion
 kimbap connector login slack
 ```
 
@@ -287,7 +287,7 @@ kimbap connector status <provider>
 **Example:**
 
 ```bash
-kimbap connector status gmail
+kimbap connector status notion
 kimbap connector status slack
 ```
 

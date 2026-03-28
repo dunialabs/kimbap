@@ -8,7 +8,7 @@
 
 ![Go](https://img.shields.io/badge/go-%3E%3D1.24-green.svg)
 ![License](https://img.shields.io/badge/license-MIT-blue.svg)
-![Services](https://img.shields.io/badge/services-53-orange.svg)
+![Services](https://img.shields.io/badge/services-54-orange.svg)
 
 [Quick Start](https://kimbap.sh/quick-start) · [Docs](https://docs.kimbap.sh) · [Website](https://kimbap.sh)
 
@@ -60,7 +60,7 @@ kimbap agents sync                   # sync SKILL.md to agent discovery director
 
 ---
 
-## 53 built-in services
+## 54 built-in services
 
 ### SaaS & APIs
 

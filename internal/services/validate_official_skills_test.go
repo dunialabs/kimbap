@@ -80,6 +80,13 @@ func TestAllOfficialSkillsHavePackMetadata(t *testing.T) {
 
 			if manifest.Triggers == nil {
 				t.Error("missing triggers — required for LLM routing quality")
+			} else {
+				if len(manifest.Triggers.TaskVerbs) == 0 {
+					t.Error("triggers.task_verbs is empty — required for description generation")
+				}
+				if len(manifest.Triggers.Objects) == 0 {
+					t.Error("triggers.objects is empty — required for description generation")
+				}
 			}
 
 			hasRiskyAction := false

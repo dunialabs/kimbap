@@ -361,12 +361,7 @@ func generatePackGotchasMD(manifest *ServiceManifest) string {
 	sb.WriteString(fmt.Sprintf("# %s — Common Pitfalls\n\n", manifest.Name))
 	if len(manifest.Gotchas) > 0 {
 		sb.WriteString("## Service-Level Gotchas\n\n")
-		sorted := make([]ServiceGotcha, len(manifest.Gotchas))
-		copy(sorted, manifest.Gotchas)
-		sort.SliceStable(sorted, func(i, j int) bool {
-			return severityRank(sorted[i].Severity) < severityRank(sorted[j].Severity)
-		})
-		for _, g := range sorted {
+		for _, g := range topGotchasBySeverity(manifest.Gotchas, 0) {
 			sb.WriteString(fmt.Sprintf("### %s\n\n", g.Symptom))
 			if g.AppliesTo != "" {
 				sb.WriteString(fmt.Sprintf("**Applies to**: `%s`\n\n", g.AppliesTo))

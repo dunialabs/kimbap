@@ -551,11 +551,6 @@ func newServiceExportAgentSkillCommand() *cobra.Command {
 				return fmt.Errorf("service %q is installed but disabled; enable it before exporting agent skill", args[0])
 			}
 
-			content, err := services.GenerateAgentSkillMD(&installed.Manifest, services.WithSource(installed.Source))
-			if err != nil {
-				return err
-			}
-
 			if strings.TrimSpace(outputDir) != "" {
 				serviceDir := filepath.Join(outputDir, installed.Manifest.Name)
 				if !exportLegacy {
@@ -570,11 +565,20 @@ func newServiceExportAgentSkillCommand() *cobra.Command {
 					sort.Strings(writtenFiles)
 					return printOutput(map[string]any{"exported": true, "pack": true, "files": writtenFiles})
 				}
+				content, legacyErr := services.GenerateAgentSkillMD(&installed.Manifest, services.WithSource(installed.Source))
+				if legacyErr != nil {
+					return legacyErr
+				}
 				if _, writeErr := writeAgentSkillPackDir(serviceDir, map[string]string{"SKILL.md": content}); writeErr != nil {
 					return writeErr
 				}
 				outPath := filepath.Join(serviceDir, "SKILL.md")
 				return printOutput(map[string]any{"exported": true, "path": outPath})
+			}
+
+			content, err := services.GenerateAgentSkillMD(&installed.Manifest, services.WithSource(installed.Source))
+			if err != nil {
+				return err
 			}
 
 			if strings.TrimSpace(outputPath) != "" {
