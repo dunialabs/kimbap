@@ -232,7 +232,7 @@ Browse all services only when search returns nothing: ` + "`kimbap actions list 
 </protocol>
 
 <troubleshooting>
-Action not found → ` + "`kimbap service list`" + ` | Auth failure → ` + "`kimbap connector list`" + ` | Missing credential → ` + "`kimbap vault list`" + ` | Approval required → ` + "`kimbap approve list`" + `
+Action not found → ` + "`kimbap service list`" + ` | Auth failure → ` + "`kimbap auth list`" + ` | Missing credential → ` + "`kimbap vault list`" + ` | Approval required → ` + "`kimbap approve list`" + `
 If no matching service exists, request a new Kimbap service instead of using direct credentials.
 </troubleshooting>
 

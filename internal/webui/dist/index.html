@@ -1,105 +1,1508 @@
 <!doctype html>
 <html lang="en">
-  <head>
-    <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Kimbap Console</title>
-    <style>
-      :root {
-        color-scheme: light dark;
-        --bg: #0b0d12;
-        --panel: #121722;
-        --text: #e8edf7;
-        --muted: #9aa6bd;
-        --ok: #19c37d;
-        --warn: #f59e0b;
-        --link: #7cc4ff;
-      }
-      * { box-sizing: border-box; }
-      body {
-        margin: 0;
-        min-height: 100vh;
-        background: radial-gradient(circle at top right, #1d2433, var(--bg) 45%);
-        color: var(--text);
-        font-family: ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-      }
-      main {
-        max-width: 780px;
-        margin: 0 auto;
-        padding: 48px 20px 60px;
-      }
-      h1 {
-        margin: 0 0 8px;
-        font-size: 32px;
-        line-height: 1.2;
-      }
-      p { color: var(--muted); line-height: 1.5; }
-      .panel {
-        background: color-mix(in srgb, var(--panel) 88%, transparent);
-        border: 1px solid #283245;
-        border-radius: 14px;
-        padding: 18px;
-        margin-top: 16px;
-      }
-      .status { font-weight: 600; }
-      .status.ok { color: var(--ok); }
-      .status.warn { color: var(--warn); }
-      ul {
-        margin: 12px 0 0;
-        padding-left: 18px;
-      }
-      li { margin: 6px 0; }
-      a { color: var(--link); text-decoration: none; }
-      a:hover { text-decoration: underline; }
-      code {
-        font-size: 0.92em;
-        background: #1a2231;
-        border: 1px solid #33415c;
-        border-radius: 6px;
-        padding: 2px 6px;
-      }
-    </style>
-  </head>
-  <body>
-    <main>
-      <h1>Kimbap Embedded Console</h1>
-      <p>
-        This embedded console route is enabled and served by the same Kimbap binary.
-        It provides quick runtime visibility and links into operational workflows.
-      </p>
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Kimbap Console</title>
+<style>
+:root {
+  --bg-base: #0a0c10;
+  --bg-surface: #11141c;
+  --bg-elevated: #181c28;
+  --bg-hover: #1e2334;
+  --border: #232a3a;
+  --border-subtle: #1a1f2e;
+  --border-focus: #3a4560;
+  --text-primary: #e4e9f4;
+  --text-secondary: #8892a8;
+  --text-muted: #525c72;
+  --accent-green: #00d68f;
+  --accent-green-dim: rgba(0, 214, 143, 0.12);
+  --accent-amber: #f5a623;
+  --accent-amber-dim: rgba(245, 166, 35, 0.12);
+  --accent-red: #ff4d5e;
+  --accent-red-dim: rgba(255, 77, 94, 0.12);
+  --accent-blue: #5b8def;
+  --accent-blue-dim: rgba(91, 141, 239, 0.12);
+  --accent-cyan: #22d3ee;
+  --font-mono: 'SF Mono', 'Cascadia Code', 'Fira Code', 'Consolas', 'Liberation Mono', Menlo, monospace;
+  --font-sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+  --space-2xs: 2px;
+  --space-xs: 4px;
+  --space-sm: 8px;
+  --space-md: 16px;
+  --space-lg: 24px;
+  --space-xl: 32px;
+  --space-2xl: 48px;
+  --radius-xs: 3px;
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 14px;
+  --shadow-sm: 0 1px 3px rgba(0,0,0,0.4);
+  --shadow-md: 0 4px 12px rgba(0,0,0,0.5);
+  --transition-fast: 120ms ease;
+  --transition-normal: 200ms ease;
+}
 
-      <section class="panel">
-        <div id="health" class="status warn">Checking runtime health…</div>
-        <ul>
-          <li><a href="/v1/health" target="_blank" rel="noreferrer">Open health endpoint</a></li>
-          <li><a href="/v1/actions" target="_blank" rel="noreferrer">Open actions API sample</a></li>
-        </ul>
-      </section>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
-      <section class="panel">
-        <strong>Next steps</strong>
-        <ul>
-          <li>Use <code>kimbap doctor</code> to verify local runtime status.</li>
-          <li>Use <code>kimbap actions list</code> and <code>kimbap call</code> for core operations.</li>
-          <li>Use <code>kimbap serve --console</code> when you want this embedded shell route.</li>
-        </ul>
-      </section>
-    </main>
+body {
+  min-height: 100vh;
+  background: var(--bg-base);
+  color: var(--text-primary);
+  font-family: var(--font-sans);
+  font-size: 14px;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
 
-    <script>
-      const healthEl = document.getElementById('health');
-      fetch('/v1/health', { headers: { Accept: 'application/json' } })
-        .then(async (res) => {
-          if (!res.ok) throw new Error('health check failed');
-          const payload = await res.json();
-          const status = payload?.status || payload?.data?.status || 'unknown';
-          healthEl.textContent = `Runtime health: ${status}`;
-          healthEl.className = 'status ' + (status === 'ok' || status === 'healthy' ? 'ok' : 'warn');
-        })
-        .catch(() => {
-          healthEl.textContent = 'Runtime health: unavailable';
-          healthEl.className = 'status warn';
+/* ── Header ── */
+.header {
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  background: var(--bg-surface);
+  border-bottom: 1px solid var(--border);
+}
+
+.header-inner {
+  max-width: 1120px;
+  margin: 0 auto;
+  padding: 0 var(--space-lg);
+  display: flex;
+  align-items: center;
+  height: 56px;
+  gap: var(--space-lg);
+}
+
+.header-brand {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  flex-shrink: 0;
+  text-decoration: none;
+  color: var(--text-primary);
+}
+
+.brand-mark {
+  width: 26px;
+  height: 26px;
+  border-radius: 7px;
+  background: linear-gradient(135deg, #00d68f 0%, #0097a7 100%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  font-size: 13px;
+  color: #0a0c10;
+  letter-spacing: -0.5px;
+  font-family: var(--font-mono);
+}
+
+.brand-text {
+  font-weight: 600;
+  font-size: 15px;
+  letter-spacing: -0.3px;
+}
+
+.brand-badge {
+  font-size: 10px;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
+  color: var(--text-muted);
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-xs);
+  padding: 2px 6px;
+}
+
+/* ── Navigation tabs ── */
+.nav-tabs {
+  display: flex;
+  gap: var(--space-2xs);
+  flex: 1;
+  justify-content: center;
+}
+
+.nav-tab {
+  padding: var(--space-sm) var(--space-md);
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-secondary);
+  background: none;
+  border: none;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: color var(--transition-fast), background var(--transition-fast);
+  font-family: var(--font-sans);
+  position: relative;
+  white-space: nowrap;
+}
+
+.nav-tab:hover {
+  color: var(--text-primary);
+  background: var(--bg-hover);
+}
+
+.nav-tab.active {
+  color: var(--text-primary);
+  background: var(--bg-elevated);
+}
+
+.nav-tab.active::after {
+  content: '';
+  position: absolute;
+  bottom: -9px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 20px;
+  height: 2px;
+  background: var(--accent-green);
+  border-radius: 1px;
+}
+
+/* ── Auth indicator ── */
+.auth-area {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  flex-shrink: 0;
+}
+
+.auth-status {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.auth-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--text-muted);
+  flex-shrink: 0;
+}
+
+.auth-dot.connected {
+  background: var(--accent-green);
+  box-shadow: 0 0 6px rgba(0, 214, 143, 0.4);
+}
+
+.auth-btn {
+  font-size: 11px;
+  font-weight: 500;
+  font-family: var(--font-sans);
+  padding: 4px 10px;
+  border-radius: var(--radius-xs);
+  border: 1px solid var(--border);
+  background: var(--bg-elevated);
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.auth-btn:hover {
+  border-color: var(--border-focus);
+  color: var(--text-primary);
+}
+
+/* ── Main content ── */
+.main {
+  max-width: 1120px;
+  margin: 0 auto;
+  padding: var(--space-xl) var(--space-lg) var(--space-2xl);
+}
+
+.view { display: none; }
+.view.active { display: block; animation: fadeIn 180ms ease; }
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* ── Cards ── */
+.card {
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: var(--space-lg);
+  transition: border-color var(--transition-fast);
+}
+
+.card:hover {
+  border-color: var(--border-focus);
+}
+
+.card-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: var(--space-md);
+}
+
+.card-title {
+  font-size: 12px;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+  color: var(--text-muted);
+  margin-bottom: var(--space-sm);
+}
+
+.card-value {
+  font-size: 28px;
+  font-weight: 700;
+  font-family: var(--font-mono);
+  letter-spacing: -1px;
+  line-height: 1.2;
+}
+
+.card-sub {
+  font-size: 12px;
+  color: var(--text-secondary);
+  margin-top: var(--space-xs);
+}
+
+/* ── Status badges ── */
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  padding: 3px 8px;
+  border-radius: var(--radius-xs);
+  font-family: var(--font-mono);
+}
+
+.badge-green {
+  color: var(--accent-green);
+  background: var(--accent-green-dim);
+}
+
+.badge-amber {
+  color: var(--accent-amber);
+  background: var(--accent-amber-dim);
+}
+
+.badge-red {
+  color: var(--accent-red);
+  background: var(--accent-red-dim);
+}
+
+.badge-blue {
+  color: var(--accent-blue);
+  background: var(--accent-blue-dim);
+}
+
+.badge-muted {
+  color: var(--text-muted);
+  background: var(--bg-elevated);
+}
+
+/* ── Stat indicator ── */
+.stat-healthy { color: var(--accent-green); }
+.stat-unhealthy { color: var(--accent-red); }
+
+/* ── Search input ── */
+.search-wrap {
+  position: relative;
+  margin-bottom: var(--space-lg);
+}
+
+.search-input {
+  width: 100%;
+  padding: var(--space-sm) var(--space-md);
+  padding-left: 36px;
+  font-size: 13px;
+  font-family: var(--font-mono);
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--text-primary);
+  outline: none;
+  transition: border-color var(--transition-fast);
+}
+
+.search-input::placeholder {
+  color: var(--text-muted);
+}
+
+.search-input:focus {
+  border-color: var(--accent-blue);
+}
+
+.search-icon {
+  position: absolute;
+  left: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--text-muted);
+  font-size: 14px;
+  pointer-events: none;
+}
+
+/* ── Table ── */
+.table-wrap {
+  overflow-x: auto;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--bg-surface);
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+
+thead {
+  background: var(--bg-elevated);
+}
+
+th {
+  text-align: left;
+  padding: var(--space-sm) var(--space-md);
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--text-muted);
+  border-bottom: 1px solid var(--border);
+  white-space: nowrap;
+}
+
+td {
+  padding: var(--space-sm) var(--space-md);
+  border-bottom: 1px solid var(--border-subtle);
+  color: var(--text-secondary);
+  vertical-align: top;
+}
+
+tr:last-child td {
+  border-bottom: none;
+}
+
+tr:hover td {
+  background: var(--bg-hover);
+}
+
+td.mono {
+  font-family: var(--font-mono);
+  font-size: 12px;
+}
+
+/* ── Action list items ── */
+.action-item {
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: var(--space-md) var(--space-lg);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-md);
+}
+
+.action-item:hover {
+  border-color: var(--border-focus);
+  background: var(--bg-elevated);
+}
+
+.action-item + .action-item {
+  margin-top: var(--space-sm);
+}
+
+.action-name {
+  font-family: var(--font-mono);
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.action-desc {
+  font-size: 12px;
+  color: var(--text-secondary);
+  margin-top: var(--space-2xs);
+}
+
+.action-meta {
+  display: flex;
+  gap: var(--space-sm);
+  margin-top: var(--space-sm);
+  flex-wrap: wrap;
+}
+
+.action-body {
+  flex: 1;
+  min-width: 0;
+}
+
+/* ── Action detail panel ── */
+.action-detail {
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: var(--space-lg);
+  margin-bottom: var(--space-lg);
+  animation: fadeIn 180ms ease;
+}
+
+.action-detail-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: var(--space-md);
+}
+
+.action-detail h3 {
+  font-family: var(--font-mono);
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.detail-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: var(--space-md);
+  margin-top: var(--space-md);
+}
+
+.detail-field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2xs);
+}
+
+.detail-label {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--text-muted);
+}
+
+.detail-value {
+  font-family: var(--font-mono);
+  font-size: 13px;
+  color: var(--text-primary);
+  word-break: break-all;
+}
+
+.back-btn {
+  font-size: 12px;
+  font-weight: 500;
+  font-family: var(--font-sans);
+  padding: 5px 12px;
+  border-radius: var(--radius-xs);
+  border: 1px solid var(--border);
+  background: var(--bg-elevated);
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.back-btn:hover {
+  border-color: var(--border-focus);
+  color: var(--text-primary);
+}
+
+/* ── Auth gate ── */
+.auth-gate {
+  max-width: 480px;
+  margin: var(--space-2xl) auto;
+  text-align: center;
+}
+
+.auth-gate-icon {
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0 auto var(--space-md);
+  font-size: 20px;
+}
+
+.auth-gate h2 {
+  font-size: 18px;
+  font-weight: 600;
+  margin-bottom: var(--space-sm);
+}
+
+.auth-gate p {
+  color: var(--text-secondary);
+  font-size: 13px;
+  line-height: 1.6;
+  margin-bottom: var(--space-lg);
+}
+
+.auth-gate code {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-xs);
+  padding: 2px 8px;
+  color: var(--accent-cyan);
+}
+
+.token-input-group {
+  display: flex;
+  gap: var(--space-sm);
+}
+
+.token-input {
+  flex: 1;
+  padding: var(--space-sm) var(--space-md);
+  font-size: 13px;
+  font-family: var(--font-mono);
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--text-primary);
+  outline: none;
+  transition: border-color var(--transition-fast);
+}
+
+.token-input:focus {
+  border-color: var(--accent-blue);
+}
+
+.connect-btn {
+  padding: var(--space-sm) var(--space-lg);
+  font-size: 13px;
+  font-weight: 600;
+  font-family: var(--font-sans);
+  background: var(--accent-green);
+  color: var(--bg-base);
+  border: none;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: opacity var(--transition-fast);
+  white-space: nowrap;
+}
+
+.connect-btn:hover {
+  opacity: 0.9;
+}
+
+/* ── Empty / Error states ── */
+.empty-state {
+  text-align: center;
+  padding: var(--space-2xl) var(--space-lg);
+  color: var(--text-muted);
+}
+
+.empty-state-icon {
+  font-size: 32px;
+  margin-bottom: var(--space-md);
+  opacity: 0.5;
+}
+
+.empty-state h3 {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  margin-bottom: var(--space-sm);
+}
+
+.empty-state p {
+  font-size: 13px;
+  line-height: 1.6;
+  max-width: 420px;
+  margin: 0 auto;
+}
+
+.empty-state code {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-xs);
+  padding: 2px 8px;
+  color: var(--accent-cyan);
+}
+
+.error-banner {
+  background: var(--accent-red-dim);
+  border: 1px solid rgba(255, 77, 94, 0.25);
+  border-radius: var(--radius-sm);
+  padding: var(--space-sm) var(--space-md);
+  font-size: 13px;
+  color: var(--accent-red);
+  margin-bottom: var(--space-md);
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+}
+
+/* ── Section headers ── */
+.section-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: var(--space-lg);
+}
+
+.section-title {
+  font-size: 20px;
+  font-weight: 700;
+  letter-spacing: -0.3px;
+}
+
+.section-sub {
+  font-size: 13px;
+  color: var(--text-muted);
+}
+
+/* ── Refresh indicator ── */
+.refresh-info {
+  font-size: 11px;
+  color: var(--text-muted);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.refresh-dot {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--text-muted);
+  animation: pulse 2s ease infinite;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 0.3; }
+  50% { opacity: 1; }
+}
+
+/* ── Loading spinner ── */
+.loading {
+  display: flex;
+  justify-content: center;
+  padding: var(--space-2xl);
+}
+
+.spinner {
+  width: 24px;
+  height: 24px;
+  border: 2px solid var(--border);
+  border-top-color: var(--accent-green);
+  border-radius: 50%;
+  animation: spin 700ms linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+/* ── Risk colors ── */
+.risk-read, .risk-low { color: var(--accent-green); }
+.risk-write, .risk-medium { color: var(--accent-amber); }
+.risk-admin, .risk-high { color: var(--accent-red); }
+.risk-destructive, .risk-critical { color: var(--accent-red); }
+
+/* ── Responsive ── */
+@media (max-width: 768px) {
+  .header-inner { padding: 0 var(--space-md); gap: var(--space-sm); }
+  .brand-badge { display: none; }
+  .nav-tab { padding: var(--space-sm) var(--space-sm); font-size: 12px; }
+  .main { padding: var(--space-md); }
+  .card-grid { grid-template-columns: 1fr; }
+  .auth-status span { display: none; }
+  .token-input-group { flex-direction: column; }
+  .section-title { font-size: 17px; }
+}
+
+/* ── Scrollbar ── */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: var(--border-focus); }
+
+/* ── View specific ── */
+.view-header {
+  margin-bottom: var(--space-xl);
+}
+
+.view-header h1 {
+  font-size: 22px;
+  font-weight: 700;
+  letter-spacing: -0.4px;
+  margin-bottom: var(--space-xs);
+}
+
+.view-header p {
+  color: var(--text-secondary);
+  font-size: 13px;
+}
+
+/* ── Dashboard quick-links ── */
+.quick-links {
+  display: flex;
+  gap: var(--space-sm);
+  flex-wrap: wrap;
+  margin-top: var(--space-xl);
+}
+
+.quick-link {
+  font-size: 12px;
+  font-family: var(--font-mono);
+  color: var(--text-secondary);
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: var(--space-sm) var(--space-md);
+  text-decoration: none;
+  transition: all var(--transition-fast);
+}
+
+.quick-link:hover {
+  border-color: var(--border-focus);
+  color: var(--text-primary);
+}
+
+/* ── Input schema preview ── */
+.schema-preview {
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: var(--space-md);
+  margin-top: var(--space-md);
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--text-secondary);
+  white-space: pre-wrap;
+  word-break: break-all;
+  max-height: 300px;
+  overflow-y: auto;
+}
+</style>
+</head>
+<body>
+
+<header class="header">
+  <div class="header-inner">
+    <a href="/console" class="header-brand">
+      <div class="brand-mark">K</div>
+      <span class="brand-text">kimbap</span>
+      <span class="brand-badge">Console</span>
+    </a>
+
+    <nav class="nav-tabs" id="nav">
+      <button type="button" class="nav-tab active" data-view="dashboard">Dashboard</button>
+      <button type="button" class="nav-tab" data-view="actions">Actions</button>
+      <button type="button" class="nav-tab" data-view="audit">Audit</button>
+      <button type="button" class="nav-tab" data-view="services">Services</button>
+    </nav>
+
+    <div class="auth-area">
+      <div class="auth-status" id="authStatus">
+        <div class="auth-dot" id="authDot"></div>
+        <span id="authLabel">Not connected</span>
+      </div>
+      <button type="button" class="auth-btn" id="authBtn" style="display:none" onclick="clearToken()">Logout</button>
+    </div>
+  </div>
+</header>
+
+<main class="main">
+
+  <div class="view active" id="view-dashboard">
+    <div class="view-header">
+      <div class="section-header">
+        <div>
+          <h1>Dashboard</h1>
+          <p>Runtime overview and system health</p>
+        </div>
+        <div class="refresh-info">
+          <div class="refresh-dot"></div>
+          <span>Auto-refresh 30s</span>
+        </div>
+      </div>
+    </div>
+    <div class="card-grid" id="dashCards">
+      <div class="card">
+        <div class="card-title">Health Status</div>
+        <div class="card-value" id="dashHealth">
+          <div class="spinner" style="width:20px;height:20px"></div>
+        </div>
+        <div class="card-sub" id="dashHealthSub"></div>
+      </div>
+      <div class="card">
+        <div class="card-title">Installed Actions</div>
+        <div class="card-value" id="dashActions">
+          <div class="spinner" style="width:20px;height:20px"></div>
+        </div>
+        <div class="card-sub" id="dashActionsSub"></div>
+      </div>
+      <div class="card">
+        <div class="card-title">Server Version</div>
+        <div class="card-value" id="dashVersion">
+          <div class="spinner" style="width:20px;height:20px"></div>
+        </div>
+        <div class="card-sub" id="dashVersionSub"></div>
+      </div>
+    </div>
+    <div class="quick-links">
+      <a href="/v1/health" target="_blank" rel="noreferrer" class="quick-link">/v1/health</a>
+      <a href="/v1/actions" target="_blank" rel="noreferrer" class="quick-link">/v1/actions</a>
+    </div>
+  </div>
+
+  <div class="view" id="view-actions">
+    <div class="view-header">
+      <h1>Actions</h1>
+      <p>All installed actions available in this runtime</p>
+    </div>
+    <div id="actionDetail"></div>
+    <div id="actionList">
+      <div class="search-wrap">
+        <span class="search-icon">⌕</span>
+        <input class="search-input" type="text" id="actionSearch" placeholder="Filter actions…" autocomplete="off" />
+      </div>
+      <div id="actionItems">
+        <div class="loading"><div class="spinner"></div></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="view" id="view-audit">
+    <div class="view-header">
+      <h1>Audit Log</h1>
+      <p>Execution audit trail for all actions</p>
+    </div>
+    <div id="auditContent">
+      <div class="loading"><div class="spinner"></div></div>
+    </div>
+  </div>
+
+  <div class="view" id="view-services">
+    <div class="view-header">
+      <h1>Vault &amp; Services</h1>
+      <p>Stored credentials and service configurations</p>
+    </div>
+    <div id="servicesContent">
+      <div class="loading"><div class="spinner"></div></div>
+    </div>
+  </div>
+
+</main>
+
+<script>
+(function() {
+  'use strict';
+
+  // ── State ──
+  var state = {
+    view: 'dashboard',
+    token: localStorage.getItem('kimbap_console_token') || '',
+    health: null,
+    actions: null,
+    actionDetail: null,
+    audit: null,
+    vault: null,
+    dashTimer: null,
+    errors: {}
+  };
+
+  // ── API helpers ──
+  function api(path, opts) {
+    opts = opts || {};
+    var headers = { 'Accept': 'application/json' };
+    if (opts.auth && state.token) {
+      headers['Authorization'] = 'Bearer ' + state.token;
+    }
+    return fetch('/v1' + path, { headers: headers })
+      .then(function(res) {
+        return res.json().then(function(body) {
+          return { status: res.status, body: body };
         });
-    </script>
-  </body>
+      });
+  }
+
+  function getField(obj, pascalKey, snakeKey) {
+    if (!obj) return undefined;
+    if (obj[pascalKey] !== undefined) return obj[pascalKey];
+    if (snakeKey && obj[snakeKey] !== undefined) return obj[snakeKey];
+    // Try lowercase
+    var lk = pascalKey.charAt(0).toLowerCase() + pascalKey.slice(1);
+    if (obj[lk] !== undefined) return obj[lk];
+    return undefined;
+  }
+
+  // ── Navigation ──
+  var tabs = document.querySelectorAll('.nav-tab');
+  var views = document.querySelectorAll('.view');
+
+  function switchView(name) {
+    state.view = name;
+    tabs.forEach(function(t) {
+      t.classList.toggle('active', t.dataset.view === name);
+    });
+    views.forEach(function(v) {
+      v.classList.toggle('active', v.id === 'view-' + name);
+    });
+    window.location.hash = name;
+    loadViewData(name);
+  }
+
+  tabs.forEach(function(tab) {
+    tab.addEventListener('click', function() {
+      switchView(tab.dataset.view);
+    });
+  });
+
+  // Hash routing
+  function routeFromHash() {
+    var h = window.location.hash.replace('#', '');
+    if (['dashboard', 'actions', 'audit', 'services'].indexOf(h) !== -1) {
+      return h;
+    }
+    return 'dashboard';
+  }
+
+  window.addEventListener('hashchange', function() {
+    switchView(routeFromHash());
+  });
+
+  // ── Auth management ──
+  function updateAuthUI() {
+    var dot = document.getElementById('authDot');
+    var label = document.getElementById('authLabel');
+    var btn = document.getElementById('authBtn');
+    if (state.token) {
+      dot.classList.add('connected');
+      label.textContent = 'Connected';
+      btn.style.display = '';
+    } else {
+      dot.classList.remove('connected');
+      label.textContent = 'Not connected';
+      btn.style.display = 'none';
+    }
+  }
+
+  window.saveToken = function(inputId) {
+    var el = document.getElementById(inputId);
+    var val = el ? el.value.trim() : '';
+    if (!val) return;
+    state.token = val;
+    localStorage.setItem('kimbap_console_token', val);
+    updateAuthUI();
+    loadViewData(state.view);
+  };
+
+  window.clearToken = function() {
+    state.token = '';
+    localStorage.removeItem('kimbap_console_token');
+    updateAuthUI();
+    state.audit = null;
+    state.vault = null;
+    loadViewData(state.view);
+  };
+
+  // ── Render helpers ──
+  function esc(s) {
+    if (s === null || s === undefined) return '';
+    var d = document.createElement('div');
+    d.textContent = String(s);
+    return d.innerHTML;
+  }
+
+  function escAttr(s) {
+    return esc(s).replace(/'/g, '&#39;').replace(/"/g, '&quot;');
+  }
+
+  function riskBadge(level) {
+    if (!level) return '<span class="badge badge-muted">unknown</span>';
+    var l = String(level).toLowerCase();
+    var cls = 'badge-muted';
+    if (l === 'read' || l === 'low') cls = 'badge-green';
+    else if (l === 'write' || l === 'medium') cls = 'badge-amber';
+    else if (l === 'admin' || l === 'high' || l === 'destructive' || l === 'critical') cls = 'badge-red';
+    return '<span class="badge ' + cls + '">' + esc(l) + '</span>';
+  }
+
+  function statusBadge(status) {
+    if (!status) return '';
+    var s = String(status).toLowerCase();
+    var cls = 'badge-muted';
+    if (s === 'success' || s === 'ok') cls = 'badge-green';
+    else if (s === 'error' || s === 'failed') cls = 'badge-red';
+    else if (s === 'timeout' || s === 'cancelled') cls = 'badge-amber';
+    else if (s === 'approval_required') cls = 'badge-blue';
+    return '<span class="badge ' + cls + '">' + esc(s) + '</span>';
+  }
+
+  function fmtTime(ts) {
+    var d;
+    if (!ts) return '—';
+    try {
+      d = new Date(ts);
+      if (isNaN(d.getTime())) return String(ts);
+      return d.toLocaleString(undefined, {
+        year: 'numeric', month: 'short', day: 'numeric',
+        hour: '2-digit', minute: '2-digit', second: '2-digit'
+      });
+    } catch(e) {
+      return String(ts);
+    }
+  }
+
+  function fmtDuration(ms) {
+    if (ms === undefined || ms === null) return '—';
+    if (ms < 1000) return ms + 'ms';
+    return (ms / 1000).toFixed(2) + 's';
+  }
+
+  function authGateHTML(viewId) {
+    var inputId = 'tokenInput_' + viewId;
+    return '<div class="auth-gate">' +
+      '<div class="auth-gate-icon">🔒</div>' +
+      '<h2>Authentication Required</h2>' +
+      '<p>This view requires a Bearer token to access protected API endpoints.<br>' +
+      'Run <code>kimbap token create</code> to generate a token, then paste it below.</p>' +
+      '<div class="token-input-group">' +
+        '<input class="token-input" type="password" id="' + inputId + '" placeholder="ktk_..." autocomplete="off" />' +
+        '<button class="connect-btn" onclick="saveToken(\'' + inputId + '\')">Connect</button>' +
+      '</div>' +
+    '</div>';
+  }
+
+  function errorBannerHTML(msg) {
+    return '<div class="error-banner">⚠ ' + esc(msg) + '</div>';
+  }
+
+  // ── Dashboard ──
+  function loadDashboard() {
+    api('/health').then(function(r) {
+      var el = document.getElementById('dashHealth');
+      var sub = document.getElementById('dashHealthSub');
+      var s, isOk;
+      if (r.body.success && r.body.data) {
+        s = r.body.data.status || 'unknown';
+        isOk = s === 'ok' || s === 'healthy';
+        el.innerHTML = '<span class="' + (isOk ? 'stat-healthy' : 'stat-unhealthy') + '">' +
+          esc(s.toUpperCase()) + '</span>';
+        sub.textContent = isOk ? 'All systems operational' : 'System needs attention';
+      } else {
+        el.innerHTML = '<span class="stat-unhealthy">ERROR</span>';
+        sub.textContent = 'Health check failed';
+      }
+
+      // Version
+      var ver = document.getElementById('dashVersion');
+      var verSub = document.getElementById('dashVersionSub');
+      if (r.body.success && r.body.data && r.body.data.version) {
+        ver.textContent = r.body.data.version;
+        verSub.textContent = 'kimbap server';
+      } else {
+        ver.textContent = '—';
+        verSub.textContent = 'Version not available';
+      }
+    }).catch(function() {
+      document.getElementById('dashHealth').innerHTML = '<span class="stat-unhealthy">OFFLINE</span>';
+      document.getElementById('dashHealthSub').textContent = 'Cannot connect to server';
+      document.getElementById('dashVersion').textContent = '—';
+      document.getElementById('dashVersionSub').textContent = '';
+    });
+
+    // Actions count
+    api('/actions').then(function(r) {
+      var el = document.getElementById('dashActions');
+      var sub = document.getElementById('dashActionsSub');
+      if (r.body.success && Array.isArray(r.body.data)) {
+        el.textContent = r.body.data.length;
+        sub.textContent = r.body.data.length === 1 ? '1 action installed' : r.body.data.length + ' actions installed';
+        state.actions = r.body.data;
+      } else {
+        el.textContent = '0';
+        sub.textContent = 'No actions found';
+      }
+    }).catch(function() {
+      document.getElementById('dashActions').textContent = '—';
+      document.getElementById('dashActionsSub').textContent = 'Could not load actions';
+    });
+  }
+
+  function startDashboardRefresh() {
+    if (state.dashTimer) clearInterval(state.dashTimer);
+    state.dashTimer = setInterval(function() {
+      if (state.view === 'dashboard') loadDashboard();
+    }, 30000);
+  }
+
+  // ── Actions ──
+  function loadActions() {
+    var container = document.getElementById('actionItems');
+
+    if (state.actions) {
+      renderActionList(state.actions);
+      return;
+    }
+
+    container.innerHTML = '<div class="loading"><div class="spinner"></div></div>';
+    api('/actions').then(function(r) {
+      if (r.body.success && Array.isArray(r.body.data)) {
+        state.actions = r.body.data;
+        renderActionList(state.actions);
+      } else {
+        container.innerHTML = '<div class="empty-state">' +
+          '<div class="empty-state-icon">📦</div>' +
+          '<h3>No actions available</h3>' +
+          '<p>Run <code>kimbap init --mode dev --services all</code> to get started.</p></div>';
+      }
+    }).catch(function() {
+      container.innerHTML = errorBannerHTML('Cannot connect to server');
+    });
+  }
+
+  function renderActionList(items) {
+    var container = document.getElementById('actionItems');
+    if (!items || items.length === 0) {
+      container.innerHTML = '<div class="empty-state">' +
+        '<div class="empty-state-icon">📦</div>' +
+        '<h3>No actions installed</h3>' +
+        '<p>Run <code>kimbap init --mode dev --services all</code> to get started.</p></div>';
+      return;
+    }
+
+    var filter = (document.getElementById('actionSearch').value || '').toLowerCase();
+    var filtered = items.filter(function(a) {
+      var name = (getField(a, 'Name', 'name') || '').toLowerCase();
+      var desc = (getField(a, 'Description', 'description') || '').toLowerCase();
+      var ns = (getField(a, 'Namespace', 'namespace') || '').toLowerCase();
+      return !filter || name.indexOf(filter) !== -1 || desc.indexOf(filter) !== -1 || ns.indexOf(filter) !== -1;
+    });
+
+    if (filtered.length === 0) {
+      container.innerHTML = '<div class="empty-state"><h3>No matching actions</h3>' +
+        '<p>Try a different search term.</p></div>';
+      return;
+    }
+
+    var html = '';
+    filtered.forEach(function(a) {
+      var name = getField(a, 'Name', 'name') || 'unnamed';
+      var desc = getField(a, 'Description', 'description') || '';
+      var risk = getField(a, 'Risk', 'risk') || '';
+      var auth = a.Auth || a.auth || {};
+      var authType = getField(auth, 'Type', 'type') || 'none';
+      var idempotent = getField(a, 'Idempotent', 'idempotent');
+
+      html += '<div class="action-item" data-action="' + escAttr(name) + '">' +
+        '<div class="action-body">' +
+          '<div class="action-name">' + esc(name) + '</div>' +
+          (desc ? '<div class="action-desc">' + esc(desc) + '</div>' : '') +
+          '<div class="action-meta">' +
+            riskBadge(risk) +
+            '<span class="badge badge-muted">' + esc(authType) + '</span>' +
+            (idempotent ? '<span class="badge badge-blue">idempotent</span>' : '') +
+          '</div>' +
+        '</div>' +
+      '</div>';
+    });
+    container.innerHTML = html;
+    container.querySelectorAll('.action-item[data-action]').forEach(function(el) {
+      el.addEventListener('click', function() { showActionDetail(el.getAttribute('data-action')); });
+    });
+  }
+
+  document.getElementById('actionSearch').addEventListener('input', function() {
+    if (state.actions) renderActionList(state.actions);
+  });
+
+  window.showActionDetail = function(name) {
+    var parts = name.split('.');
+    if (parts.length < 2) return;
+    var service = parts[0];
+    var action = parts.slice(1).join('.');
+
+    var detailEl = document.getElementById('actionDetail');
+    detailEl.innerHTML = '<div class="loading"><div class="spinner"></div></div>';
+    document.getElementById('actionList').style.display = 'none';
+
+    api('/actions/' + encodeURIComponent(service) + '/' + encodeURIComponent(action)).then(function(r) {
+      var cached;
+      if (r.body.success && r.body.data) {
+        renderActionDetail(r.body.data);
+      } else {
+        cached = state.actions ? state.actions.find(function(a) {
+          return (getField(a, 'Name', 'name') || '') === name;
+        }) : null;
+        if (cached) {
+          renderActionDetail(cached);
+        } else {
+          detailEl.innerHTML = errorBannerHTML('Action not found');
+          document.getElementById('actionList').style.display = '';
+        }
+      }
+    }).catch(function() {
+      detailEl.innerHTML = errorBannerHTML('Cannot connect to server');
+    });
+  };
+
+  function renderActionDetail(a) {
+    var detailEl = document.getElementById('actionDetail');
+    var name = getField(a, 'Name', 'name') || 'unnamed';
+    var desc = getField(a, 'Description', 'description') || '—';
+    var risk = getField(a, 'Risk', 'risk') || 'unknown';
+    var ns = getField(a, 'Namespace', 'namespace') || '—';
+    var verb = getField(a, 'Verb', 'verb') || '—';
+    var resource = getField(a, 'Resource', 'resource') || '—';
+    var version = getField(a, 'Version', 'version');
+    var displayName = getField(a, 'DisplayName', 'display_name') || '';
+    var idempotent = getField(a, 'Idempotent', 'idempotent');
+    var approvalHint = getField(a, 'ApprovalHint', 'approval_hint') || 'none';
+    var auth = a.Auth || a.auth || {};
+    var authType = getField(auth, 'Type', 'type') || 'none';
+    var credRef = getField(auth, 'CredentialRef', 'credential_ref') || '—';
+    var adapter = a.Adapter || a.adapter || {};
+    var adapterType = getField(adapter, 'Type', 'type') || '—';
+    var method = getField(adapter, 'Method', 'method') || '';
+    var baseUrl = getField(adapter, 'BaseURL', 'base_url') || '';
+    var urlTemplate = getField(adapter, 'URLTemplate', 'url_template') || '';
+    var inputSchema = a.InputSchema || a.input_schema;
+
+    var html = '<div class="action-detail">' +
+      '<div class="action-detail-header">' +
+        '<h3>' + esc(name) + '</h3>' +
+        '<button class="back-btn" onclick="hideActionDetail()">← Back to list</button>' +
+      '</div>' +
+      (displayName ? '<p style="color:var(--text-secondary);margin-bottom:var(--space-md)">' + esc(displayName) + '</p>' : '') +
+      '<p style="color:var(--text-secondary);margin-bottom:var(--space-md)">' + esc(desc) + '</p>' +
+      '<div class="detail-grid">' +
+        detailField('Namespace', ns) +
+        detailField('Verb', verb) +
+        detailField('Resource', resource) +
+        detailField('Version', version !== undefined ? version : '—') +
+        detailField('Risk', risk, riskBadge(risk)) +
+        detailField('Auth Type', authType) +
+        detailField('Credential Ref', credRef) +
+        detailField('Idempotent', idempotent ? 'Yes' : 'No') +
+        detailField('Approval', approvalHint) +
+        detailField('Adapter', adapterType) +
+        (method ? detailField('HTTP Method', method.toUpperCase()) : '') +
+        (baseUrl ? detailField('Base URL', baseUrl) : '') +
+        (urlTemplate ? detailField('URL Template', urlTemplate) : '') +
+      '</div>';
+
+    if (inputSchema) {
+      html += '<div style="margin-top:var(--space-lg)">' +
+        '<div class="detail-label" style="margin-bottom:var(--space-sm)">Input Schema</div>' +
+        '<div class="schema-preview">' + esc(JSON.stringify(inputSchema, null, 2)) + '</div></div>';
+    }
+
+    html += '</div>';
+    detailEl.innerHTML = html;
+  }
+
+  function detailField(label, value, valueHtml) {
+    return '<div class="detail-field">' +
+      '<div class="detail-label">' + esc(label) + '</div>' +
+      '<div class="detail-value">' + (valueHtml || esc(value)) + '</div>' +
+    '</div>';
+  }
+
+  window.hideActionDetail = function() {
+    document.getElementById('actionDetail').innerHTML = '';
+    document.getElementById('actionList').style.display = '';
+  };
+
+  // ── Audit ──
+  function loadAudit() {
+    var container = document.getElementById('auditContent');
+
+    if (!state.token) {
+      container.innerHTML = authGateHTML('audit');
+      return;
+    }
+
+    container.innerHTML = '<div class="loading"><div class="spinner"></div></div>';
+    api('/audit?limit=100', { auth: true }).then(function(r) {
+      var errMsg, items;
+      if (r.status === 401 || r.status === 403) {
+        state.errors.audit = 'Token expired or invalid. Please re-authenticate.';
+        container.innerHTML = errorBannerHTML(state.errors.audit) + authGateHTML('audit');
+        return;
+      }
+      if (!r.body.success) {
+        errMsg = (r.body.error && r.body.error.message) || 'Failed to load audit events';
+        container.innerHTML = errorBannerHTML(errMsg);
+        return;
+      }
+      items = r.body.data;
+      if (!Array.isArray(items) || items.length === 0) {
+        container.innerHTML = '<div class="empty-state">' +
+          '<div class="empty-state-icon">📋</div>' +
+          '<h3>No audit events yet</h3>' +
+          '<p>Audit entries will appear here once actions are executed.</p></div>';
+        return;
+      }
+      renderAuditTable(items, container);
+    }).catch(function() {
+      container.innerHTML = errorBannerHTML('Cannot connect to server');
+    });
+  }
+
+  function renderAuditTable(items, container) {
+    var html = '<div class="table-wrap"><table>' +
+      '<thead><tr>' +
+        '<th>Timestamp</th>' +
+        '<th>Action</th>' +
+        '<th>Agent</th>' +
+        '<th>Status</th>' +
+        '<th>Policy</th>' +
+        '<th>Duration</th>' +
+      '</tr></thead><tbody>';
+
+    items.forEach(function(ev) {
+      var ts = ev.timestamp || ev.Timestamp || '';
+      var svc = ev.service || ev.Service || '';
+      var act = ev.action || ev.Action || '';
+      var actionFull = svc && act ? svc + '.' + act : (svc || act || '—');
+      var agent = ev.agent_name || ev.AgentName || '—';
+      var status = ev.status || ev.Status || '';
+      var policyDec = ev.policy_decision || ev.PolicyDecision || '—';
+      var dur = ev.duration_ms !== undefined ? ev.duration_ms : (ev.DurationMS !== undefined ? ev.DurationMS : null);
+
+      html += '<tr>' +
+        '<td class="mono">' + esc(fmtTime(ts)) + '</td>' +
+        '<td class="mono" style="color:var(--text-primary)">' + esc(actionFull) + '</td>' +
+        '<td>' + esc(agent) + '</td>' +
+        '<td>' + statusBadge(status) + '</td>' +
+        '<td>' + esc(policyDec) + '</td>' +
+        '<td class="mono">' + esc(fmtDuration(dur)) + '</td>' +
+      '</tr>';
+    });
+
+    html += '</tbody></table></div>';
+    container.innerHTML = html;
+  }
+
+  // ── Services (Vault) ──
+  function loadServices() {
+    var container = document.getElementById('servicesContent');
+
+    if (!state.token) {
+      container.innerHTML = authGateHTML('services');
+      return;
+    }
+
+    container.innerHTML = '<div class="loading"><div class="spinner"></div></div>';
+    api('/vault', { auth: true }).then(function(r) {
+      var errMsg, data, items;
+      if (r.status === 401 || r.status === 403) {
+        state.errors.services = 'Token expired or invalid. Please re-authenticate.';
+        container.innerHTML = errorBannerHTML(state.errors.services) + authGateHTML('services');
+        return;
+      }
+      if (!r.body.success) {
+        errMsg = (r.body.error && r.body.error.message) || 'Failed to load vault keys';
+        container.innerHTML = errorBannerHTML(errMsg);
+        return;
+      }
+
+      data = r.body.data;
+      items = [];
+      if (Array.isArray(data)) {
+        items = data;
+      } else if (data && Array.isArray(data.items)) {
+        items = data.items;
+      }
+
+      if (items.length === 0) {
+        container.innerHTML = '<div class="empty-state">' +
+          '<div class="empty-state-icon">🔐</div>' +
+          '<h3>No credentials stored</h3>' +
+          '<p>Store credentials with <code>kimbap vault set</code> and link services with <code>kimbap link</code>.</p></div>';
+        return;
+      }
+
+      renderVaultTable(items, container);
+    }).catch(function() {
+      container.innerHTML = errorBannerHTML('Cannot connect to server');
+    });
+  }
+
+  function renderVaultTable(items, container) {
+    var html = '<div class="table-wrap"><table>' +
+      '<thead><tr>' +
+        '<th>Name</th>' +
+        '<th>Type</th>' +
+        '<th>Version</th>' +
+        '<th>Created</th>' +
+        '<th>Updated</th>' +
+      '</tr></thead><tbody>';
+
+    items.forEach(function(item) {
+      var name = item.Name || item.name || '—';
+      var type = item.Type || item.type || '—';
+      var ver = item.CurrentVersion || item.current_version || item.VersionCount || item.version_count || '—';
+      var created = item.CreatedAt || item.created_at || '';
+      var updated = item.UpdatedAt || item.updated_at || '';
+
+      html += '<tr>' +
+        '<td class="mono" style="color:var(--text-primary)">' + esc(name) + '</td>' +
+        '<td>' + typeBadge(type) + '</td>' +
+        '<td class="mono">' + esc(ver) + '</td>' +
+        '<td class="mono">' + esc(fmtTime(created)) + '</td>' +
+        '<td class="mono">' + esc(fmtTime(updated)) + '</td>' +
+      '</tr>';
+    });
+
+    html += '</tbody></table></div>';
+    container.innerHTML = html;
+  }
+
+  function typeBadge(type) {
+    if (!type) return '<span class="badge badge-muted">—</span>';
+    var t = String(type).toLowerCase();
+    var cls = 'badge-muted';
+    if (t === 'bearer_token' || t === 'bearer') cls = 'badge-green';
+    else if (t === 'api_key') cls = 'badge-blue';
+    else if (t === 'oauth_client' || t === 'oauth2') cls = 'badge-amber';
+    else if (t === 'password' || t === 'certificate') cls = 'badge-red';
+    return '<span class="badge ' + cls + '">' + esc(t.replace(/_/g, ' ')) + '</span>';
+  }
+
+  // ── View loader ──
+  function loadViewData(name) {
+    switch (name) {
+      case 'dashboard':
+        loadDashboard();
+        break;
+      case 'actions':
+        loadActions();
+        break;
+      case 'audit':
+        loadAudit();
+        break;
+      case 'services':
+        loadServices();
+        break;
+    }
+  }
+
+  // ── Init ──
+  updateAuthUI();
+  var initial = routeFromHash();
+  switchView(initial);
+  startDashboardRefresh();
+
+})();
+</script>
+</body>
 </html>

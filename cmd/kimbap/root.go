@@ -108,27 +108,33 @@ func init() {
 
 	rootCmd.AddCommand(newCallCommand())
 	rootCmd.AddCommand(newActionsCommand())
-	rootCmd.AddCommand(newGenerateCommand())
 	rootCmd.AddCommand(newSearchCommand())
 	rootCmd.AddCommand(newVaultCommand())
-	rootCmd.AddCommand(newTokenCommand())
 	rootCmd.AddCommand(newPolicyCommand())
 	rootCmd.AddCommand(newDoctorCommand())
 	rootCmd.AddCommand(newInitCommand())
 	rootCmd.AddCommand(newServiceCommand())
-	rootCmd.AddCommand(newConnectorCommand())
 	rootCmd.AddCommand(newAuthCommand())
 	rootCmd.AddCommand(newLinkCommand())
 	rootCmd.AddCommand(newApproveCommand())
-	rootCmd.AddCommand(newAuditCommand())
 	rootCmd.AddCommand(newRunCommand())
 	rootCmd.AddCommand(newProxyCommand())
 	rootCmd.AddCommand(newServeCommand())
-	rootCmd.AddCommand(newDaemonCommand())
-	rootCmd.AddCommand(newAgentProfileCommand())
 	rootCmd.AddCommand(newAgentsCommand())
-	rootCmd.AddCommand(newAliasCommand())
-	rootCmd.AddCommand(newCompletionCommand())
+
+	for _, c := range []*cobra.Command{
+		newConnectorCommand(),
+		newAgentProfileCommand(),
+		newGenerateCommand(),
+		newTokenCommand(),
+		newAuditCommand(),
+		newDaemonCommand(),
+		newCompletionCommand(),
+		newAliasCommand(),
+	} {
+		c.Hidden = true
+		rootCmd.AddCommand(c)
+	}
 }
 
 // prescanRawSplashFlags scans os.Args for --no-splash and --format flags

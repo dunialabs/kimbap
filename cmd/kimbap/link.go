@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"errors"
 	"fmt"
 	"os"
@@ -36,6 +37,8 @@ func newLinkCommand() *cobra.Command {
 	var tenant string
 	var profile string
 	var statusOnly bool
+	var fromStdin bool
+	var fromFile string
 
 	cmd := &cobra.Command{
 		Use:   "link <service>",
@@ -79,6 +82,14 @@ func newLinkCommand() *cobra.Command {
 			oauthStates, oauthErr := listConnectorStates(contextBackground(), cfg, tenantID)
 			if oauthErr != nil {
 				_, _ = fmt.Fprintf(os.Stderr, "warning: %s\n", unavailableMessage(componentConnectorStore, oauthErr))
+			}
+
+			if err := linkRejectStdinFileForOAuth(info, oauthStates, fromStdin, fromFile); err != nil {
+				return err
+			}
+
+			if statusOnly && (fromStdin || fromFile != "") {
+				return fmt.Errorf("--status cannot be combined with --stdin or --file")
 			}
 
 			switch {
@@ -130,7 +141,7 @@ func newLinkCommand() *cobra.Command {
 				)
 
 			default:
-				return linkHandleKeyBasedService(cfg, info, statusOnly, connectorTenant(tenant))
+				return linkHandleKeyBasedService(cfg, info, statusOnly, connectorTenant(tenant), fromStdin, fromFile)
 			}
 		},
 	}
@@ -140,6 +151,8 @@ func newLinkCommand() *cobra.Command {
 	cmd.Flags().StringVar(&tenant, "tenant", "", "tenant id")
 	cmd.Flags().StringVar(&profile, "profile", "default", "connection profile name for multiple accounts")
 	cmd.Flags().BoolVar(&statusOnly, "status", false, "show connection status without connecting")
+	cmd.Flags().BoolVar(&fromStdin, "stdin", false, "read credential value from stdin")
+	cmd.Flags().StringVar(&fromFile, "file", "", "read credential value from file")
 
 	cmd.AddCommand(newLinkListCommand())
 	return cmd
@@ -368,7 +381,7 @@ func linkOAuthConnectionStatus(providerID, profile string, states []connectorSta
 	return "not_connected"
 }
 
-func linkHandleKeyBasedService(cfg *config.KimbapConfig, info linkServiceInfo, statusOnly bool, tenantID string) error {
+func linkHandleKeyBasedService(cfg *config.KimbapConfig, info linkServiceInfo, statusOnly bool, tenantID string, fromStdin bool, fromFile string) error {
 	credentialRef := strings.TrimSpace(info.CredentialRef)
 	if credentialRef == "" {
 		if outputAsJSON() {
@@ -387,6 +400,10 @@ func linkHandleKeyBasedService(cfg *config.KimbapConfig, info linkServiceInfo, s
 		return err
 	}
 	defer closeVaultStoreIfPossible(vs)
+
+	if fromStdin || fromFile != "" {
+		return linkStoreCredentialFromInput(vs, tenantID, credentialRef, info, fromStdin, fromFile)
+	}
 
 	exists, err := vs.Exists(contextBackground(), tenantID, credentialRef)
 	if err == nil && exists {
@@ -433,11 +450,11 @@ func linkHandleKeyBasedService(cfg *config.KimbapConfig, info linkServiceInfo, s
 		authLabel = "a credential"
 	}
 	instructions := fmt.Sprintf(
-		"%s requires %s.\n\nSet it with:\n  printf '%%s' \"YOUR_CREDENTIAL\" | kimbap vault set %s --stdin\n\nOr store from a file:\n  kimbap vault set %s --file /path/to/key.txt",
+		"%s requires %s.\n\nSet it with:\n  printf '%%s' \"YOUR_CREDENTIAL\" | kimbap link %s --stdin\n\nOr store from a file:\n  kimbap link %s --file /path/to/key.txt",
 		info.Service,
 		authLabel,
-		credentialRef,
-		credentialRef,
+		info.Service,
+		info.Service,
 	)
 	if outputAsJSON() {
 		return printOutput(map[string]any{
@@ -449,6 +466,53 @@ func linkHandleKeyBasedService(cfg *config.KimbapConfig, info linkServiceInfo, s
 		})
 	}
 	return printOutput(instructions)
+}
+
+func linkRejectStdinFileForOAuth(info linkServiceInfo, oauthStates []connectorStateRow, fromStdin bool, fromFile string) error {
+	if !fromStdin && fromFile == "" {
+		return nil
+	}
+	if !linkIsOAuthService(info, oauthStates) {
+		return nil
+	}
+	return fmt.Errorf("service %q uses OAuth authentication. Use 'kimbap auth connect %s' instead of --stdin/--file", info.Service, info.Service)
+}
+
+func linkStoreCredentialFromInput(vs vault.Store, tenantID, credentialRef string, info linkServiceInfo, fromStdin bool, fromFile string) error {
+	payload, err := readSecretInput(fromFile, fromStdin)
+	if err != nil {
+		return err
+	}
+	payload = bytes.TrimSpace(payload)
+	if len(payload) == 0 {
+		return fmt.Errorf("credential value is empty after trimming whitespace")
+	}
+	secretType := linkAuthTypeToSecretType(info.AuthType)
+	if _, err := vs.Upsert(contextBackground(), tenantID, credentialRef, secretType, payload, nil, "cli"); err != nil {
+		return err
+	}
+	if outputAsJSON() {
+		return printOutput(map[string]any{
+			"service":        info.Service,
+			"auth_type":      string(info.AuthType),
+			"status":         "connected",
+			"credential_ref": credentialRef,
+		})
+	}
+	return printOutput(fmt.Sprintf("✓ %s is connected (credential: %s)", info.Service, credentialRef))
+}
+
+func linkAuthTypeToSecretType(authType actions.AuthType) vault.SecretType {
+	switch authType {
+	case actions.AuthTypeBearer:
+		return vault.SecretTypeBearerToken
+	case actions.AuthTypeBasic:
+		return vault.SecretTypePassword
+	case actions.AuthTypeAPIKey, actions.AuthTypeHeader, actions.AuthTypeQuery:
+		return vault.SecretTypeAPIKey
+	default:
+		return vault.SecretTypeAPIKey
+	}
 }
 
 func linkDefaultDash(v string) string {

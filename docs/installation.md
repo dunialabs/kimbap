@@ -93,13 +93,20 @@ Store the key securely. You need it to unlock the vault on every run. Use `--ser
 
 ## Store credentials
 
-Secrets are never accepted as inline CLI arguments. Always pipe them in via `--stdin` or point to a file with `--file`.
+Secrets are never accepted as inline CLI arguments. The easiest way to store and link a credential in one step:
 
 ```bash
-# From environment variable
-printf '%s' "$GITHUB_TOKEN" | kimbap vault set github.token --stdin
+# From environment variable (stores + links in one step)
+printf '%s' "$GITHUB_TOKEN" | kimbap link github --stdin
 
 # From file
+kimbap link stripe --file ./key.txt
+```
+
+Or use `kimbap vault set` for direct vault access:
+
+```bash
+printf '%s' "$GITHUB_TOKEN" | kimbap vault set github.token --stdin
 kimbap vault set stripe.api_key --file ./key.txt
 ```
 
@@ -109,7 +116,7 @@ The vault is encrypted with a master key. In dev mode (`--mode dev` or `KIMBAP_D
 
 ## Link services to credentials
 
-After storing credentials, bind each service to its vault key or OAuth connector:
+For interactive setup, `kimbap link` guides you through credential or OAuth configuration:
 
 ```bash
 kimbap link github
@@ -144,12 +151,8 @@ kimbap ships with profiles for common AI coding agents. Profiles write an operat
 # Auto-detect and configure all installed agents
 kimbap agents setup
 
-# Or install a specific profile
-kimbap profile install claude-code
-kimbap profile install opencode
-kimbap profile install cursor
-kimbap profile install codex
-kimbap profile install generic
+# Also install agent operating profiles into the project directory
+kimbap agents setup --with-profiles
 
 # Sync service discovery (generates SKILL.md per service)
 kimbap agents sync

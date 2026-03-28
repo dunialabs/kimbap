@@ -225,69 +225,61 @@ printf '%s' "$NEW_TOKEN" | kimbap vault rotate github.token --stdin
 
 Link a service to vault credentials or an OAuth connector. Kimbap will look up the correct vault keys or connector tokens when executing actions for that service.
 
+Use `--stdin` or `--file` to supply a credential inline during the link step, skipping a separate `vault set` call.
+
 **Syntax:**
 
 ```
-kimbap link <service>
+kimbap link <service> [--stdin | --file <path>]
 ```
+
+**Flags:**
+
+| Flag | Description |
+|---|---|
+| `--stdin` | Read the credential value from stdin during linking |
+| `--file <path>` | Read the credential value from a file during linking |
 
 **Examples:**
 
 ```bash
 kimbap link github
 kimbap link stripe
+printf '%s' "$GITHUB_TOKEN" | kimbap link github --stdin
+kimbap link stripe --file ./stripe-key.txt
 ```
 
 ---
 
 ## OAuth connectors
 
-### kimbap connector login \<provider\>
-
-Start an OAuth device flow or browser-based flow for the given provider. On completion, the token is stored in the encrypted connector auth store and linked to the provider.
-
-**Syntax:**
-
-```
-kimbap connector login <provider>
-```
-
-**Examples:**
-
-```bash
-kimbap connector login notion
-kimbap connector login slack
-```
-
----
-
-### kimbap connector list
+### kimbap auth list
 
 Show connector health and token state for all linked providers. Includes expiry status and whether the token is valid.
 
 **Example:**
 
 ```bash
-kimbap connector list
+kimbap auth list
 ```
 
 ---
 
-### kimbap connector status \<provider\>
+### kimbap auth status \<provider\>
 
 Show connector health and token state for a single provider.
 
 **Syntax:**
 
 ```
-kimbap connector status <provider>
+kimbap auth status <provider>
 ```
 
 **Example:**
 
 ```bash
-kimbap connector status notion
-kimbap connector status slack
+kimbap auth status notion
+kimbap auth status slack
 ```
 
 ---
@@ -455,7 +447,7 @@ kimbap approve accept req_01HX...
 
 ---
 
-## Audit
+## Audit (Advanced)
 
 ### kimbap audit tail
 
@@ -548,7 +540,7 @@ kimbap serve --port 9000 --console
 
 ---
 
-### kimbap daemon
+### kimbap daemon (Advanced)
 
 Start a persistent runtime daemon that keeps the execution pipeline warm to avoid cold-start overhead on every `kimbap call`. Exposes `/call`, `/health`, and `/shutdown` endpoints over a Unix domain socket.
 
@@ -598,13 +590,13 @@ kimbap agents status
 
 ---
 
-### kimbap profile install \<profile\>
+### kimbap agents setup --with-profiles
 
-Install an agent operating profile. Writes a `KIMBAP_OPERATING_RULES.md` file into the agent's config directory.
+Install global discovery hints **and** agent operating profiles. Writes a `KIMBAP_OPERATING_RULES.md` file into each detected agent's config directory.
 
-**Available profiles:**
+**Profiles installed per agent:**
 
-| Profile | Install location |
+| Agent | Install location |
 |---|---|
 | `claude-code` | `.claude/KIMBAP_OPERATING_RULES.md` |
 | `opencode` | `.opencode/KIMBAP_OPERATING_RULES.md` |
@@ -612,53 +604,16 @@ Install an agent operating profile. Writes a `KIMBAP_OPERATING_RULES.md` file in
 | `codex` | `.codex/KIMBAP_OPERATING_RULES.md` |
 | `generic` | `.agents/KIMBAP_OPERATING_RULES.md` |
 
-**Syntax:**
-
-```
-kimbap profile install <profile>
-```
-
 **Example:**
 
 ```bash
-kimbap profile install claude-code
-kimbap profile install opencode
+kimbap agents setup --with-profiles
+kimbap agents setup --with-profiles --profile-dir /path/to/project
 ```
 
 ---
 
-### kimbap profile list
-
-List all available agent profiles.
-
-**Example:**
-
-```bash
-kimbap profile list
-```
-
----
-
-### kimbap profile print \<profile\>
-
-Print the contents of an agent profile to stdout without installing it.
-
-**Syntax:**
-
-```
-kimbap profile print <profile>
-```
-
-**Example:**
-
-```bash
-kimbap profile print claude-code
-kimbap profile print generic > ./rules.md
-```
-
----
-
-## Code generation
+## Code generation (Advanced)
 
 ### kimbap generate ts
 
@@ -699,6 +654,24 @@ kimbap generate py
 kimbap generate py --service stripe -o ./types/stripe.py
 kimbap generate py --service github -o ./types/github.py
 ```
+
+---
+
+## Other advanced commands
+
+The following commands are hidden from `kimbap --help` and intended for advanced use cases. They are available but not required for normal operation.
+
+### kimbap token (Advanced)
+
+Manage agent access tokens. Use `kimbap token --help` for full usage.
+
+### kimbap alias (Advanced)
+
+Manage action aliases. Use `kimbap alias --help` for full usage.
+
+### kimbap completion (Advanced)
+
+Generate shell completion scripts. Use `kimbap completion --help` for full usage.
 
 ---
 

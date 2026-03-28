@@ -103,31 +103,33 @@ Rotate a stored credential.
 
 ### `kimbap link <service>`
 
-Link a service to vault credentials or an OAuth connector.
+Link a service to vault credentials or an OAuth connector. Pass `--stdin` or `--file` to supply a credential value inline during linking.
 
 ```bash
 kimbap link github
 kimbap link stripe
+printf '%s' "$GITHUB_TOKEN" | kimbap link github --stdin
+kimbap link stripe --file ./stripe-key.txt
 ```
 
 ---
 
 ## OAuth connectors
 
-### `kimbap connector login <provider>`
+### `kimbap auth connect <provider>`
 
 Start an OAuth device/browser flow for a downstream provider.
 
 ```bash
-kimbap connector login gmail
-kimbap connector login slack
+kimbap auth connect gmail
+kimbap auth connect slack
 ```
 
-### `kimbap connector list`
+### `kimbap auth list`
 
 Show connector health and token state for all linked providers.
 
-### `kimbap connector status <provider>`
+### `kimbap auth status <provider>`
 
 Show connector health and token state for a single provider.
 
@@ -202,7 +204,7 @@ kimbap approve accept req_01HX...
 
 ---
 
-## Audit
+## Audit (Advanced)
 
 ### `kimbap audit tail`
 
@@ -243,7 +245,7 @@ kimbap serve
 kimbap serve --port 9000 --console
 ```
 
-### `kimbap daemon`
+### `kimbap daemon` (Advanced)
 
 Start a persistent runtime daemon that keeps the execution pipeline warm to avoid cold-start overhead on every `kimbap call`. Exposes `/call`, `/health`, and `/shutdown` endpoints over a Unix domain socket.
 
@@ -263,26 +265,17 @@ Sync installed services to detected agent skill directories. Generates SKILL.md 
 
 Show sync status for known AI agents.
 
-### `kimbap profile install <profile>`
+### `kimbap agents setup --with-profiles`
 
-Install an agent operating profile for a specific agent framework.
+Install global discovery hints and agent operating profiles for all detected agents.
 
 ```bash
-kimbap profile install claude-code
-kimbap profile install generic
+kimbap agents setup --with-profiles
 ```
-
-### `kimbap profile list`
-
-List available agent profiles.
-
-### `kimbap profile print <profile>`
-
-Print an agent profile to stdout.
 
 ---
 
-## Code generation
+## Code generation (Advanced)
 
 ### `kimbap generate ts`
 

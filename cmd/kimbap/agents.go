@@ -8,6 +8,7 @@ import (
 
 	"github.com/dunialabs/kimbap/internal/agents"
 	"github.com/dunialabs/kimbap/internal/config"
+	"github.com/dunialabs/kimbap/internal/profiles"
 	"github.com/dunialabs/kimbap/internal/services"
 	"github.com/spf13/cobra"
 )
@@ -32,9 +33,11 @@ func newAgentsCommand() *cobra.Command {
 
 func newAgentsSetupCommand() *cobra.Command {
 	var (
-		agentRaw string
-		force    bool
-		dryRun   bool
+		agentRaw     string
+		force        bool
+		dryRun       bool
+		withProfiles bool
+		profileDir   string
 	)
 
 	cmd := &cobra.Command{
@@ -64,6 +67,13 @@ func newAgentsSetupCommand() *cobra.Command {
 			if len(errs) > 0 {
 				return fmt.Errorf("setup errors: %s", strings.Join(errs, "; "))
 			}
+
+			if withProfiles {
+				if err := installProfilesForAgents(results, profileDir, dryRun); err != nil {
+					return err
+				}
+			}
+
 			return nil
 		},
 	}
@@ -71,8 +81,37 @@ func newAgentsSetupCommand() *cobra.Command {
 	cmd.Flags().StringVar(&agentRaw, "agent", "", "comma-separated agent kinds")
 	cmd.Flags().BoolVar(&force, "force", false, "overwrite unchanged files")
 	cmd.Flags().BoolVar(&dryRun, "dry-run", false, "show planned changes without writing files")
+	cmd.Flags().BoolVar(&withProfiles, "with-profiles", false, "also install agent operating profiles into the project directory")
+	cmd.Flags().StringVar(&profileDir, "profile-dir", ".", "target directory for profile installation (used with --with-profiles)")
 
 	return cmd
+}
+
+func installProfilesForAgents(results []agents.GlobalSetupResult, targetDir string, dryRun bool) error {
+	dir := strings.TrimSpace(targetDir)
+	if dir == "" {
+		dir = "."
+	}
+	for _, r := range results {
+		if r.Error != "" {
+			continue
+		}
+		profileType := profiles.ProfileType(r.Agent)
+		profile, err := profiles.GetProfile(profileType)
+		if err != nil {
+			_, _ = fmt.Fprintf(os.Stderr, "warning: no profile for agent %q: %v\n", r.Agent, err)
+			continue
+		}
+		if dryRun {
+			_, _ = fmt.Fprintf(os.Stderr, "would install profile %q to %s\n", profile.Name, filepath.Join(dir, profile.InstallPath))
+			continue
+		}
+		if err := profiles.InstallProfile(profile, dir); err != nil {
+			return fmt.Errorf("install profile for %q: %w", r.Agent, err)
+		}
+		_, _ = fmt.Fprintf(os.Stderr, "installed profile %q → %s\n", profile.Name, filepath.Join(dir, profile.InstallPath))
+	}
+	return nil
 }
 
 func newAgentsUninstallGlobalCommand() *cobra.Command {

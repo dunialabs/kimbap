@@ -1,55 +1,80 @@
 # Kimbap Quick Start
 
-## Prerequisites
+Get from zero to your first `kimbap call` in under 5 minutes.
 
-- Go 1.24+
-- Docker (optional, for postgres)
+---
 
-## Install & Run
-
-```bash
-cd kimbap
-make deps
-make build
-./bin/kimbap --help
-```
-
-## Embedded Mode (local, no server)
+## 1. Install
 
 ```bash
-# Install a service
-./bin/kimbap service install github
-
-# Store credentials
-printf 'ghp_xxx' | ./bin/kimbap vault set github.token --stdin
-
-# Execute an action
-./bin/kimbap call github.list-repos --json '{"owner": "octocat"}'
+curl -fsSL https://raw.githubusercontent.com/dunialabs/kimbap/main/install.sh | bash
 ```
 
-## Connected Mode (REST API server)
+Or with Homebrew:
 
 ```bash
-./bin/kimbap serve
-# enable embedded operations shell at /console for this run
-./bin/kimbap serve --console
+brew install kimbap
 ```
 
-API runs on http://localhost:8080.
+---
+
+## 2. Initialize
 
 ```bash
-curl http://localhost:8080/v1/health
-curl http://localhost:8080/v1/actions
+kimbap init --mode dev --services all
 ```
 
-## Create a Token
+Creates `~/.kimbap/` with a config file, encrypted vault, and default policy. Installs all built-in service manifests. Dev mode auto-generates a vault key stored locally, so no extra setup is needed.
+
+---
+
+## 3. Your first call
+
+macOS native services need no credentials. Try this now:
 
 ```bash
-./bin/kimbap token create --agent my-agent --scopes actions:execute
+kimbap call apple-notes.list-notes
 ```
 
-Use the returned token as `Authorization: Bearer <token>` for API calls.
+Returns your Apple Notes list. macOS may prompt for Automation access on first use.
 
-## API Reference
+---
 
-See [docs/api/API.md](docs/api/API.md) for the full endpoint list.
+## 4. Optional: Connect a SaaS service
+
+```bash
+kimbap link github
+```
+
+Walks you through OAuth or credential setup for GitHub. For non-interactive setups:
+
+```bash
+printf '%s' "$GITHUB_TOKEN" | kimbap link github --stdin
+```
+
+Once linked, call it:
+
+```bash
+kimbap call github.list-repos
+```
+
+The same pattern works for any service: `kimbap link <service>`.
+
+---
+
+## 5. Optional: Connect your AI agent
+
+```bash
+kimbap agents setup
+```
+
+Auto-detects installed agents (Claude Code, OpenCode, Cursor, Codex) and writes operating rules into the current project directory so the agent discovers kimbap automatically.
+
+---
+
+## Next steps
+
+- [CLI Reference](docs/cli-reference.md) — all commands and flags
+- [Service Development Guide](docs/service-development.md) — write your own YAML manifests
+- [Installation Guide](docs/installation.md) — production setup, vault, credentials
+- [Architecture](docs/architecture.md) — how the pipeline works

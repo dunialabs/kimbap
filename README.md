@@ -13,90 +13,87 @@
 
 ---
 
-## This is kimbap
-
-```bash
-# Send a Slack message
-$ kimbap call slack.send-message --channel general --text "deployed v2.1"
-✓ sent
-
-# List Stripe charges
-$ kimbap call stripe.list-charges --limit 5
-✓ 5 charges (JSON)
-
-# Search your notes — no API key needed (macOS)
-$ kimbap call apple-notes.search-notes --query "meeting"
-✓ 3 notes found
-```
-
-Agent calls `kimbap call <service>.<action>`. That's it.
-
-Credentials live in an encrypted vault and are injected at execution time. They never enter the agent process — not in env vars, not in prompts, not in logs.
-
----
-
-## Why kimbap?
-
-| Without kimbap | With kimbap |
-|---|---|
-| Hand API keys to agents via env vars — they can leak into logs and prompts | Encrypted vault injects credentials at execution time. Never enters the agent process |
-| Every service has different auth — painful to integrate | One manifest format works across REST APIs, CLI tools, and macOS apps |
-| Agents run dangerous actions unchecked | Policies and approvals are enforced on every action |
-| No idea what the agent actually did | Audit trail on every action, automatically |
+## How it works
 
 ```
 agent → kimbap → policy → approval → credentials → execute → audit
 ```
 
-Every action goes through the same pipeline.
+Every action goes through the same pipeline. Credentials live in an encrypted vault and are injected at execution time. They never enter the agent process — not in env vars, not in prompts, not in logs.
+
+| Without kimbap | With kimbap |
+|---|---|
+| API keys passed via env vars — leak into logs and prompts | Encrypted vault injects credentials at execution time |
+| Every service has different auth | One manifest format for REST APIs, CLI tools, and macOS apps |
+| Agents run dangerous actions unchecked | Policies and approvals enforced on every action |
+| No record of what the agent did | Audit trail on every action, automatically |
 
 ---
 
-## Get started
+## Try it now
 
-### Tell your agent (recommended)
-
-Paste this into Claude Code, Codex, OpenCode, or any CLI-capable agent:
-
-```
-Read https://raw.githubusercontent.com/dunialabs/kimbap/main/docs/installation.md
-and set up kimbap for this project.
-```
-
-### Or install yourself
+**1. Install**
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/dunialabs/kimbap/main/install.sh | bash
 ```
 
-In interactive shells, the installer prompts to run `kimbap init`. If skipped or non-interactive, run manually (the installer prints the full path if the binary isn't on your PATH):
+Or with Homebrew: `brew install kimbap`
+
+**2. Initialize**
 
 ```bash
-kimbap init --mode dev
+kimbap init --mode dev --services all
 ```
 
-Or with Homebrew:
+**3. Call**
 
 ```bash
-brew install kimbap
-kimbap init --mode dev
+# Send a Slack message
+kimbap call slack.send-message --channel general --text "deployed v2.1"
+
+# List Stripe charges
+kimbap call stripe.list-charges --limit 5
+
+# Search notes — no API key needed (macOS)
+kimbap call apple-notes.search-notes --query "meeting"
 ```
 
-> **Production?** Set `KIMBAP_MASTER_KEY_HEX` instead of using `--mode dev`.
-
-### On macOS? Try it now — no API keys needed
-
-```bash
-kimbap call apple-notes.create-note --title "Hello World" --body "from kimbap" --idempotency-key hello-1
-```
-
-A note appears in Apple Notes. No credentials, no setup. `--idempotency-key` is required for write actions. macOS may prompt for Automation access on first use.
+Agent calls `kimbap call <service>.<action>`. That's it.
 
 ---
 
-## Turn any API into a CLI
+## Add a service
 
-Add any REST API with a single YAML file:
+**1. Connect**
+
+```bash
+printf '%s' "$GITHUB_TOKEN" | kimbap link github --stdin
+```
+
+**2. Call**
+
+```bash
+kimbap call github.list-repos --sort updated
+```
+
+`kimbap link` works for both API keys (`--stdin`/`--file`) and OAuth services (Slack, Notion, Zoom, and more).
+
+---
+
+## Connect your AI agent
+
+```bash
+kimbap agents setup
+```
+
+Auto-detects and configures Claude Code, OpenCode, Codex, Cursor, and any agent that can run a CLI command.
+
+---
+
+## Build your own service
+
+Add any REST API, CLI tool, or macOS app with a single YAML manifest:
 
 ```yaml
 name: stripe
@@ -114,14 +111,11 @@ actions:
 ```
 
 ```bash
-printf '%s' "$STRIPE_KEY" | kimbap vault set stripe.api_key --stdin   # encrypted at rest
 kimbap service install stripe.yaml
-kimbap call stripe.list-charges   # done
+kimbap call stripe.list-charges
 ```
 
 Three adapter types: **HTTP** (REST APIs), **Command** (CLI wrappers), **AppleScript** (macOS native apps).
-
-Wrap a REST API, CLI tool, or macOS app as an agent-usable action in minutes.
 
 Full schema and examples: **[Service Development Guide](./docs/service-development.md)**
 
@@ -137,54 +131,51 @@ GitHub · Slack · Stripe · Notion · Linear · HubSpot · Airtable · Pinecone
 
 Telegram · WhatsApp · WeChat · Zoom · Apple Mail · Messages
 
-### Local applications
+### Local apps
 
 Blender · ComfyUI · Ollama · Mermaid · Spotify · NotebookLM
 
 ### macOS native
 
-Finder · Safari · Contacts · Shortcuts · Notes · Calendar · Reminders · Keynote · Pages · Numbers
+Finder · Safari · Contacts · Shortcuts · Apple Notes · Apple Calendar · Apple Reminders · Keynote · Pages · Numbers
 
-### Office & data
+### Office
 
-Microsoft Word · Excel · PowerPoint · Wikipedia · Hacker News · CoinGecko · Open-Meteo (weather, air quality, historical, geocoding) · Financial Datasets · REST Countries · Exchange Rate · Public Holidays · Nominatim · ntfy · Peta
+Microsoft Word · Excel · PowerPoint
 
-One command for all of them. `kimbap call <service>.<action>`
-New services added regularly. Or turn your own API into a CLI.
+### Data
 
----
+Wikipedia · Hacker News · CoinGecko · Open-Meteo (weather, air quality, historical, geocoding) · Financial Datasets · REST Countries · Exchange Rate · Public Holidays · Nominatim · ntfy
 
-## Works with
-
-Claude Code · OpenCode · Codex · any agent that can run a CLI command.
-
-```bash
-kimbap profile install claude-code   # installs operating rules for your agent
-kimbap agents setup                  # auto-detect and configure installed agents
-kimbap agents sync                   # sync SKILL.md to agent discovery directories
-```
+One command for all of them: `kimbap call <service>.<action>`
 
 ---
 
-## 5 modes
+## Advanced
+
+### Integration modes
 
 | Mode | Command | Use case |
 |---|---|---|
-| Call | `kimbap call <service>.<action>` | Direct use, scripts, agent integration |
+| **Call** (recommended) | `kimbap call <service>.<action>` | Direct use, scripts, agent integration |
 | Run | `kimbap run -- <cmd>` | Wrap any agent subprocess |
 | Proxy | `kimbap proxy` | Existing HTTP agents, zero code changes |
-| Serve | `kimbap serve` | Connected-mode REST API server (HTTP) |
-| Daemon | `kimbap daemon` | Persistent daemon (unix socket) |
+| Serve | `kimbap serve` | Connected-mode REST API server |
 
-All modes go through the same pipeline. Same credentials, same policy, same audit.
+All modes share the same policy, credentials, and audit pipeline.
 
----
+### Production setup
 
-## Documentation
+```bash
+export KIMBAP_MASTER_KEY_HEX="$(openssl rand -hex 32)"
+kimbap init --services all
+```
+
+### Documentation
 
 - **[Installation Guide](./docs/installation.md)** — step-by-step setup, agent-readable
 - **[CLI Reference](./docs/cli-reference.md)** — commands, flags, configuration
-- **[Service Development Guide](./docs/service-development.md)** — manifest authoring, adapters, contributing services
+- **[Service Development Guide](./docs/service-development.md)** — manifest authoring, adapters
 - **[Architecture & Internals](./docs/architecture.md)**
 - **[Security & Permissions](./docs/security.md)**
 - **[Deployment & Configuration](./docs/deployment.md)**
