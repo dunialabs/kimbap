@@ -1675,7 +1675,7 @@ actions:
 }
 
 func TestGenerateMetaAgentSkillPack(t *testing.T) {
-	pack := GenerateMetaAgentSkillPack()
+	pack := generateMetaAgentSkillPack()
 	if len(pack) != 1 {
 		t.Fatalf("expected exactly one file in meta pack, got %d", len(pack))
 	}

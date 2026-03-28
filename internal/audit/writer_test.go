@@ -50,7 +50,7 @@ func TestJSONLWriterRoundTrip(t *testing.T) {
 }
 
 func TestRedactorRemovesMatchingFields(t *testing.T) {
-	r := NewRedactor("token", "password")
+	r := newRedactor("token", "password")
 
 	event := AuditEvent{
 		Input: map[string]any{

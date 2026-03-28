@@ -9,7 +9,6 @@ import (
 	"path/filepath"
 	"strings"
 	"sync"
-	"time"
 )
 
 const redactedValue = "[REDACTED]"
@@ -196,59 +195,21 @@ func (t *TailWriter) Unsubscribe(ch <-chan AuditEvent) {
 	}
 }
 
-type CSVExporter struct{}
-
-var csvHeader = []string{
-	"id", "timestamp", "request_id", "trace_id", "tenant_id",
-	"principal_id", "agent_name", "service", "action", "mode",
-	"status", "policy_decision", "duration_ms", "error_code", "error_message",
-}
-
-func (e *CSVExporter) Export(events []AuditEvent) ([]byte, error) {
-	var buf strings.Builder
-	buf.WriteString(strings.Join(csvHeader, ","))
-	buf.WriteByte('\n')
-	for _, ev := range events {
-		errCode, errMsg := "", ""
-		if ev.Error != nil {
-			errCode = ev.Error.Code
-			errMsg = ev.Error.Message
-		}
-		row := []string{
-			csvEscape(ev.ID),
-			ev.Timestamp.UTC().Format(time.RFC3339),
-			csvEscape(ev.RequestID),
-			csvEscape(ev.TraceID),
-			csvEscape(ev.TenantID),
-			csvEscape(ev.PrincipalID),
-			csvEscape(ev.AgentName),
-			csvEscape(ev.Service),
-			csvEscape(ev.Action),
-			csvEscape(ev.Mode),
-			csvEscape(string(ev.Status)),
-			csvEscape(ev.PolicyDecision),
-			fmt.Sprintf("%d", ev.DurationMS),
-			csvEscape(errCode),
-			csvEscape(errMsg),
-		}
-		buf.WriteString(strings.Join(row, ","))
-		buf.WriteByte('\n')
-	}
-	return []byte(buf.String()), nil
-}
-
 func csvEscape(s string) string {
+	if len(s) > 0 && strings.ContainsAny(string(s[0]), "=+-@\t") {
+		s = "'" + s
+	}
 	if strings.ContainsAny(s, ",\"\n\r") {
 		return "\"" + strings.ReplaceAll(s, "\"", "\"\"") + "\""
 	}
 	return s
 }
 
-type Redactor struct {
+type redactor struct {
 	patterns []string
 }
 
-func NewRedactor(patterns ...string) *Redactor {
+func newRedactor(patterns ...string) *redactor {
 	normalized := make([]string, 0, len(patterns))
 	for _, p := range patterns {
 		p = strings.TrimSpace(strings.ToLower(p))
@@ -256,10 +217,10 @@ func NewRedactor(patterns ...string) *Redactor {
 			normalized = append(normalized, p)
 		}
 	}
-	return &Redactor{patterns: normalized}
+	return &redactor{patterns: normalized}
 }
 
-func (r *Redactor) Redact(event AuditEvent) AuditEvent {
+func (r *redactor) Redact(event AuditEvent) AuditEvent {
 	if r == nil || len(r.patterns) == 0 {
 		return event
 	}

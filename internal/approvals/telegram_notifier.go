@@ -21,7 +21,7 @@ type TelegramNotifier struct {
 type TelegramOption func(*TelegramNotifier)
 
 // WithBaseURL overrides the Telegram API base URL. Intended for testing.
-func WithBaseURL(baseURL string) TelegramOption {
+func withBaseURL(baseURL string) TelegramOption {
 	return func(t *TelegramNotifier) {
 		t.baseURL = strings.TrimRight(baseURL, "/")
 	}

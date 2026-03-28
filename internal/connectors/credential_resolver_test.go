@@ -91,7 +91,7 @@ func TestResolveActionToken_VaultFallback(t *testing.T) {
 	t.Setenv("KIMBAP_CONNECTOR_GITHUB_TOKEN", "")
 	t.Setenv("KIMBAP_GITHUB_TOKEN", "test-token")
 
-	token, source, err := ResolveActionToken(context.Background(), "github", "github.token", "tenant1")
+	token, source, err := resolveActionToken(context.Background(), "github", "github.token", "tenant1")
 	if err != nil {
 		t.Fatalf("ResolveActionToken returned error: %v", err)
 	}
@@ -107,7 +107,7 @@ func TestResolveActionToken_MissingCredential(t *testing.T) {
 	t.Setenv("KIMBAP_CONNECTOR_GITHUB_TOKEN", "")
 	t.Setenv("KIMBAP_GITHUB_TOKEN", "")
 
-	_, _, err := ResolveActionToken(context.Background(), "github", "github.token", "tenant1")
+	_, _, err := resolveActionToken(context.Background(), "github", "github.token", "tenant1")
 	if err == nil {
 		t.Fatal("expected error for missing credential, got nil")
 	}

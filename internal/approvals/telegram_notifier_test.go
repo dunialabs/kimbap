@@ -20,7 +20,7 @@ func TestTelegramNotifierSendsCorrectPayload(t *testing.T) {
 	}))
 	defer srv.Close()
 
-	notifier := NewTelegramNotifier("mytoken123", "mychat456", WithBaseURL(srv.URL))
+	notifier := NewTelegramNotifier("mytoken123", "mychat456", withBaseURL(srv.URL))
 	req := &ApprovalRequest{ID: "appr_tg1", Service: "stripe", Action: "refund", AgentName: "billing-bot", Risk: "high"}
 	if err := notifier.Notify(context.Background(), req); err != nil {
 		t.Fatalf("unexpected error: %v", err)
@@ -51,7 +51,7 @@ func TestTelegramNotifierErrorOnNon2xx(t *testing.T) {
 		w.WriteHeader(http.StatusBadRequest)
 	}))
 	defer srv.Close()
-	notifier := NewTelegramNotifier("tok", "chat", WithBaseURL(srv.URL))
+	notifier := NewTelegramNotifier("tok", "chat", withBaseURL(srv.URL))
 	if err := notifier.Notify(context.Background(), &ApprovalRequest{ID: "x", Service: "s", Action: "a"}); err == nil {
 		t.Fatal("expected error for 400 response")
 	}

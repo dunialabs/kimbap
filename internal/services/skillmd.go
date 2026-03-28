@@ -424,7 +424,7 @@ func packHasActionWarnings(manifest *ServiceManifest) bool {
 	return false
 }
 
-func GenerateMetaAgentSkillPack() map[string]string {
+func generateMetaAgentSkillPack() map[string]string {
 	return map[string]string{"SKILL.md": GenerateMetaAgentSkillMD()}
 }
 

@@ -1,6 +1,7 @@
 package agents
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -528,7 +529,9 @@ func atomicWriteDir(targetDir string, files map[string]string) error {
 	}
 	if err := os.Rename(tmpDir, targetDir); err != nil {
 		if hasOld {
-			_ = os.Rename(oldDir, targetDir)
+			if rollbackErr := os.Rename(oldDir, targetDir); rollbackErr != nil {
+				return errors.Join(fmt.Errorf("rename temp to target: %w", err), fmt.Errorf("rollback also failed: %w", rollbackErr))
+			}
 		}
 		return fmt.Errorf("rename temp to target: %w", err)
 	}

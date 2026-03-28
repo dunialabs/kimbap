@@ -9,7 +9,7 @@ import (
 
 // OAuthClientMaterial holds OAuth app credentials resolved for a specific provider.
 // Used during connector login/auth flows (kimbap connector login <provider>).
-// NOT used for runtime action token resolution — see ResolveActionToken for that.
+// NOT used for runtime action token resolution — see resolveActionToken for that.
 type OAuthClientMaterial struct {
 	// ClientID is the OAuth app client ID. Never empty when resolution succeeds.
 	ClientID string
@@ -76,7 +76,7 @@ func ResolveOAuthClientMaterial(providerID string, manifest *ProviderManifest) (
 	return nil, fmt.Errorf("no auth credentials available for provider %q: configure BYO env vars or managed app", providerID)
 }
 
-// ResolveActionToken resolves the bearer token for a runtime service action call
+// resolveActionToken resolves the bearer token for a runtime service action call
 // using environment variables only. Used as a standalone utility for embedded/CLI mode.
 // For server mode with OAuth connectors, use connectorCredentialResolver in app/bootstrap.go.
 //
@@ -85,7 +85,7 @@ func ResolveOAuthClientMaterial(providerID string, manifest *ProviderManifest) (
 //  2. Env var: KIMBAP_{CREDREF} (vault ref key)
 //  3. Env var: KIMBAP_{PROVIDER}_TOKEN
 //  4. Error: "credential not configured for {providerID}"
-func ResolveActionToken(ctx context.Context, providerID, credRef, tenantID string) (token string, source string, err error) {
+func resolveActionToken(ctx context.Context, providerID, credRef, tenantID string) (token string, source string, err error) {
 	_ = ctx
 	_ = tenantID
 
