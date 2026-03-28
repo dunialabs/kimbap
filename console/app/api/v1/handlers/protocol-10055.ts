@@ -53,7 +53,12 @@ interface Response10055Data {
  * Forwards request to Core
  */
 export async function handleProtocol10055(body: Request10055): Promise<Response10055Data> {
-  const { userId, serverId, toolName, status, page, pageSize } = body.params || {};
+  const userId = typeof body.params?.userId === 'string' ? body.params.userId.trim() : body.params?.userId;
+  const serverId = typeof body.params?.serverId === 'string' ? body.params.serverId.trim() : body.params?.serverId;
+  const toolName = typeof body.params?.toolName === 'string' ? body.params.toolName.trim() : body.params?.toolName;
+  const status = typeof body.params?.status === 'string' ? body.params.status.trim() : body.params?.status;
+  const page = body.params?.page;
+  const pageSize = body.params?.pageSize;
   const userid = body.common?.userid;
   const rawToken = body.common?.rawToken;
 

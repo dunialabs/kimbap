@@ -15,7 +15,9 @@ function normalizeListPoliciesInput(body: ListPoliciesInput): ListPoliciesInput 
   if (body.serverId !== undefined && typeof body.serverId !== 'string') {
     throw new ExternalApiError(E1003, 'Invalid field value: serverId must be a string');
   }
-  return body;
+  return {
+    serverId: body.serverId?.trim() || undefined,
+  };
 }
 
 async function listPolicies(request: NextRequest, input: ListPoliciesInput) {

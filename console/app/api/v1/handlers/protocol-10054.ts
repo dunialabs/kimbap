@@ -32,7 +32,7 @@ interface Response10054Data {
  * Forwards request to Core
  */
 export async function handleProtocol10054(body: Request10054): Promise<Response10054Data> {
-  const { serverId } = body.params || {};
+  const serverId = typeof body.params?.serverId === 'string' ? body.params.serverId.trim() : body.params?.serverId;
   const userid = body.common?.userid;
   const rawToken = body.common?.rawToken;
 

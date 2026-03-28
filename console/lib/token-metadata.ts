@@ -35,27 +35,52 @@ export function parseExternalTokenPermissions(
   const parsed: Record<string, Record<string, unknown>> = {};
 
   for (const perm of permissions) {
+    if (!perm || typeof perm.toolId !== 'string') {
+      throw new Error('invalid toolId: expected non-empty string');
+    }
+    const toolId = perm.toolId.trim();
+    if (!toolId) {
+      throw new Error('invalid toolId: expected non-empty string');
+    }
+    if (parsed[toolId]) {
+      throw new Error(`duplicate toolId in permissions: "${toolId}"`);
+    }
+
     const tools: Record<string, { enabled: boolean }> = {};
     if (perm.functions) {
       for (const func of perm.functions) {
-        if (typeof func.enabled !== 'boolean') {
-          throw new Error(`invalid enabled value for function "${func.funcName}": expected boolean`);
+        if (!func || typeof func.funcName !== 'string') {
+          throw new Error('invalid function name: expected non-empty string');
         }
-        tools[func.funcName] = { enabled: func.enabled };
+        const funcName = func.funcName.trim();
+        if (!funcName) {
+          throw new Error('invalid function name: expected non-empty string');
+        }
+        if (typeof func.enabled !== 'boolean') {
+          throw new Error(`invalid enabled value for function "${funcName}": expected boolean`);
+        }
+        tools[funcName] = { enabled: func.enabled };
       }
     }
 
     const resources: Record<string, { enabled: boolean }> = {};
     if (perm.resources) {
       for (const res of perm.resources) {
-        if (typeof res.enabled !== 'boolean') {
-          throw new Error(`invalid enabled value for resource "${res.uri}": expected boolean`);
+        if (!res || typeof res.uri !== 'string') {
+          throw new Error('invalid resource uri: expected non-empty string');
         }
-        resources[res.uri] = { enabled: res.enabled };
+        const uri = res.uri.trim();
+        if (!uri) {
+          throw new Error('invalid resource uri: expected non-empty string');
+        }
+        if (typeof res.enabled !== 'boolean') {
+          throw new Error(`invalid enabled value for resource "${uri}": expected boolean`);
+        }
+        resources[uri] = { enabled: res.enabled };
       }
     }
 
-    parsed[perm.toolId] = {
+    parsed[toolId] = {
       enabled: true,
       tools,
       resources,

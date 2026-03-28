@@ -40,7 +40,8 @@ interface Response10056Data {
  * Forwards request to Core
  */
 export async function handleProtocol10056(body: Request10056): Promise<Response10056Data> {
-  const { id } = body.params || {};
+  const rawID = body.params?.id;
+  const id = typeof rawID === 'string' ? rawID.trim() : '';
   const userid = body.common?.userid;
   const rawToken = body.common?.rawToken;
 

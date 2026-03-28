@@ -22,7 +22,7 @@ interface Response10058Data {
  * Forwards request to Core
  */
 export async function handleProtocol10058(body: Request10058): Promise<Response10058Data> {
-  const { userId } = body.params || {};
+  const userId = typeof body.params?.userId === 'string' ? body.params.userId.trim() : body.params?.userId;
   const userid = body.common?.userid;
   const rawToken = body.common?.rawToken;
 

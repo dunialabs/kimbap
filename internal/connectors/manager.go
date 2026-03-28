@@ -271,10 +271,10 @@ func (m *Manager) Refresh(ctx context.Context, tenantID, name string) error {
 	} else {
 		state.ExpiresAt = nil
 	}
-	state.Status = deriveStatus(state)
-	state.UpdatedAt = now
 	state.LastRefresh = &now
 	state.LastRefreshError = ""
+	state.Status = deriveStatus(state)
+	state.UpdatedAt = now
 
 	return m.saveState(ctx, state)
 }

@@ -36,7 +36,8 @@ func NewSQLiteStore(db *sql.DB) (*SQLStore, error) {
 }
 
 func OpenSQLiteStore(dsn string) (*SQLStore, error) {
-	if strings.TrimSpace(dsn) == "" {
+	dsn = strings.TrimSpace(dsn)
+	if dsn == "" {
 		return nil, errors.New("dsn is required")
 	}
 	db, err := openDBWithPing("sqlite", dsn, "sqlite")
@@ -59,7 +60,8 @@ func NewPostgresStore(db *sql.DB) (*SQLStore, error) {
 }
 
 func OpenPostgresStore(dsn string) (*SQLStore, error) {
-	if strings.TrimSpace(dsn) == "" {
+	dsn = strings.TrimSpace(dsn)
+	if dsn == "" {
 		return nil, errors.New("dsn is required")
 	}
 	db, err := openDBWithPing("pgx", dsn, "postgres")
@@ -207,7 +209,8 @@ func (s *SQLStore) CreateToken(ctx context.Context, token *TokenRecord) error {
 	if strings.TrimSpace(token.ID) == "" {
 		token.ID = "st_" + strings.ReplaceAll(uuid.NewString(), "-", "")
 	}
-	if strings.TrimSpace(token.TenantID) == "" {
+	token.TenantID = strings.TrimSpace(token.TenantID)
+	if token.TenantID == "" {
 		return ErrInvalidTenantID
 	}
 	if token.CreatedAt.IsZero() {
@@ -242,6 +245,7 @@ func (s *SQLStore) CreateToken(ctx context.Context, token *TokenRecord) error {
 }
 
 func (s *SQLStore) GetToken(ctx context.Context, id string) (*TokenRecord, error) {
+	id = strings.TrimSpace(id)
 	row := s.db.QueryRowContext(ctx, s.bind(`
 		SELECT id, tenant_id, agent_name, token_hash, display_hint, scopes,
 			created_at, expires_at, last_used_at, revoked_at, created_by
@@ -258,6 +262,7 @@ func (s *SQLStore) GetToken(ctx context.Context, id string) (*TokenRecord, error
 }
 
 func (s *SQLStore) GetTokenByHash(ctx context.Context, hash string) (*TokenRecord, error) {
+	hash = strings.TrimSpace(hash)
 	row := s.db.QueryRowContext(ctx, s.bind(`
 		SELECT id, tenant_id, agent_name, token_hash, display_hint, scopes,
 			created_at, expires_at, last_used_at, revoked_at, created_by
@@ -274,7 +279,8 @@ func (s *SQLStore) GetTokenByHash(ctx context.Context, hash string) (*TokenRecor
 }
 
 func (s *SQLStore) ListTokens(ctx context.Context, tenantID string) ([]TokenRecord, error) {
-	if strings.TrimSpace(tenantID) == "" {
+	tenantID = strings.TrimSpace(tenantID)
+	if tenantID == "" {
 		return nil, ErrInvalidTenantID
 	}
 	rows, err := s.db.QueryContext(ctx, s.bind(`
@@ -301,6 +307,7 @@ func (s *SQLStore) ListTokens(ctx context.Context, tenantID string) ([]TokenReco
 }
 
 func (s *SQLStore) UpdateTokenLastUsed(ctx context.Context, id string) error {
+	id = strings.TrimSpace(id)
 	res, err := s.db.ExecContext(ctx, s.bind(`UPDATE service_tokens SET last_used_at = ? WHERE id = ? AND revoked_at IS NULL`), time.Now().UTC(), id)
 	if err != nil {
 		return err
@@ -312,6 +319,7 @@ func (s *SQLStore) UpdateTokenLastUsed(ctx context.Context, id string) error {
 }
 
 func (s *SQLStore) RevokeToken(ctx context.Context, id string) error {
+	id = strings.TrimSpace(id)
 	res, err := s.db.ExecContext(ctx, s.bind(`UPDATE service_tokens SET revoked_at = COALESCE(revoked_at, ?) WHERE id = ?`), time.Now().UTC(), id)
 	if err != nil {
 		return err
@@ -487,7 +495,8 @@ func (s *SQLStore) CreateApproval(ctx context.Context, req *ApprovalRecord) erro
 	if req == nil {
 		return errors.New("approval is required")
 	}
-	if strings.TrimSpace(req.TenantID) == "" {
+	req.TenantID = strings.TrimSpace(req.TenantID)
+	if req.TenantID == "" {
 		return errors.New("tenant_id is required")
 	}
 	if strings.TrimSpace(req.ID) == "" {
@@ -527,6 +536,7 @@ func (s *SQLStore) CreateApproval(ctx context.Context, req *ApprovalRecord) erro
 }
 
 func (s *SQLStore) GetApproval(ctx context.Context, id string) (*ApprovalRecord, error) {
+	id = strings.TrimSpace(id)
 	row := s.db.QueryRowContext(ctx, s.bind(`
 		SELECT id, tenant_id, request_id, agent_name, service, action,
 			status, input_json, created_at, expires_at, resolved_at,
@@ -549,6 +559,10 @@ var (
 )
 
 func (s *SQLStore) UpdateApprovalStatus(ctx context.Context, id string, status string, resolvedBy string, reason string) error {
+	id = strings.TrimSpace(id)
+	status = strings.TrimSpace(status)
+	resolvedBy = strings.TrimSpace(resolvedBy)
+	reason = strings.TrimSpace(reason)
 	now := time.Now().UTC()
 	// CAS: only update if still pending AND not expired
 	res, err := s.db.ExecContext(ctx, s.bind(`
@@ -579,7 +593,8 @@ func (s *SQLStore) UpdateApprovalStatus(ctx context.Context, id string, status s
 }
 
 func (s *SQLStore) ListApprovals(ctx context.Context, tenantID string, status string) ([]ApprovalRecord, error) {
-	if strings.TrimSpace(tenantID) == "" {
+	tenantID = strings.TrimSpace(tenantID)
+	if tenantID == "" {
 		return nil, ErrInvalidTenantID
 	}
 	query := `
@@ -589,7 +604,8 @@ func (s *SQLStore) ListApprovals(ctx context.Context, tenantID string, status st
 		FROM approvals
 		WHERE tenant_id = ?`
 	args := []any{tenantID}
-	if strings.TrimSpace(status) != "" {
+	status = strings.TrimSpace(status)
+	if status != "" {
 		query += " AND status = ?"
 		args = append(args, status)
 	}
@@ -638,7 +654,8 @@ func (s *SQLStore) ExpireApproval(ctx context.Context, id string) (bool, error) 
 }
 
 func (s *SQLStore) SetPolicy(ctx context.Context, tenantID string, document []byte) error {
-	if strings.TrimSpace(tenantID) == "" {
+	tenantID = strings.TrimSpace(tenantID)
+	if tenantID == "" {
 		return ErrInvalidTenantID
 	}
 	now := time.Now().UTC()
@@ -652,7 +669,8 @@ func (s *SQLStore) SetPolicy(ctx context.Context, tenantID string, document []by
 }
 
 func (s *SQLStore) GetPolicy(ctx context.Context, tenantID string) ([]byte, error) {
-	if strings.TrimSpace(tenantID) == "" {
+	tenantID = strings.TrimSpace(tenantID)
+	if tenantID == "" {
 		return nil, ErrInvalidTenantID
 	}
 	var doc []byte
@@ -782,6 +800,7 @@ func affectedRows(res sql.Result) int64 {
 }
 
 func (s *SQLStore) HoldExecution(ctx context.Context, approvalRequestID string, requestJSON []byte) error {
+	approvalRequestID = strings.TrimSpace(approvalRequestID)
 	_, err := s.db.ExecContext(ctx, s.bind(`
 		INSERT INTO held_executions (approval_request_id, request_json, created_at)
 		VALUES (?, ?, ?)
@@ -791,6 +810,7 @@ func (s *SQLStore) HoldExecution(ctx context.Context, approvalRequestID string, 
 }
 
 func (s *SQLStore) ResumeExecution(ctx context.Context, approvalRequestID string) ([]byte, error) {
+	approvalRequestID = strings.TrimSpace(approvalRequestID)
 	tx, err := s.db.BeginTx(ctx, nil)
 	if err != nil {
 		return nil, err
@@ -825,6 +845,7 @@ func (s *SQLStore) ResumeExecution(ctx context.Context, approvalRequestID string
 }
 
 func (s *SQLStore) RemoveExecution(ctx context.Context, approvalRequestID string) error {
+	approvalRequestID = strings.TrimSpace(approvalRequestID)
 	_, err := s.db.ExecContext(ctx, s.bind(`DELETE FROM held_executions WHERE approval_request_id = ?`), approvalRequestID)
 	return err
 }

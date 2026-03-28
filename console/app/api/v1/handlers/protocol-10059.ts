@@ -32,7 +32,7 @@ interface Response10059Data {
  * Forwards request to Core's GET_EFFECTIVE_POLICY (action 9105)
  */
 export async function handleProtocol10059(body: Request10059): Promise<Response10059Data> {
-  const { serverId } = body.params || {};
+  const serverId = typeof body.params?.serverId === 'string' ? body.params.serverId.trim() : body.params?.serverId;
   const userid = body.common?.userid;
   const rawToken = body.common?.rawToken;
 

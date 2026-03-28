@@ -39,7 +39,14 @@ function normalizeListApprovalsInput(body: ListApprovalsInput): ListApprovalsInp
   if (body.pageSize !== undefined && !isPositiveInteger(body.pageSize)) {
     throw new ExternalApiError(E1003, 'Invalid field value: pageSize must be a positive integer');
   }
-  return body;
+  return {
+    userId: body.userId?.trim() || undefined,
+    serverId: body.serverId?.trim() || undefined,
+    toolName: body.toolName?.trim() || undefined,
+    status: body.status?.trim() || undefined,
+    page: body.page,
+    pageSize: body.pageSize,
+  };
 }
 
 function parsePositiveIntParam(raw: string | null, name: string): number | undefined {
