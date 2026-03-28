@@ -11,7 +11,6 @@ const (
 	StatusReconnectRequired ConnectionStatus = "reconnect_required"
 	StatusRevoked           ConnectionStatus = "revoked"
 	StatusExpired           ConnectionStatus = "expired"
-	StatusError             ConnectionStatus = "error"
 )
 
 func (s ConnectionStatus) String() string { return string(s) }
@@ -19,7 +18,7 @@ func (s ConnectionStatus) String() string { return string(s) }
 func (s ConnectionStatus) NeedsAttention() bool {
 	switch s {
 	case StatusDegraded, StatusRefreshFailed, StatusReconnectRequired,
-		StatusRevoked, StatusExpired, StatusError:
+		StatusRevoked, StatusExpired:
 		return true
 	default:
 		return false

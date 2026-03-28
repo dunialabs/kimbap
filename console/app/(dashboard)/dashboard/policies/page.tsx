@@ -331,7 +331,7 @@ function generateRuleSummary(rule: PolicyRule): string {
   }
 
   let summary = `${tool}${serverPart} → ${decision}${condPart}`
-  if (summary.length > 80) summary = `${summary.slice(0, 77)}...`
+  if (summary.length > 110) summary = `${summary.slice(0, 107)}…`
   return summary
 }
 
