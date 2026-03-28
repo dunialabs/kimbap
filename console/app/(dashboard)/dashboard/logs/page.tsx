@@ -1087,9 +1087,17 @@ function LogsPageContent() {
                                       <span className="ml-1">{LOG_LEVEL_DISPLAY[log.level] ?? log.level}</span>
                                     </Badge>
                                   </button>
-                                  <Badge variant="outline" className="text-xs">
-                                    {getDomainLabel(log.source)}
-                                  </Badge>
+                                  <button
+                                    type="button"
+                                    className={`rounded-sm transition-opacity duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 ${sourceFilter === log.source ? 'ring-2 ring-primary ring-offset-1' : 'hover:opacity-75'}`}
+                                    aria-label={sourceFilter === log.source ? `Clear ${getDomainLabel(log.source)} source filter` : `Filter logs to ${getDomainLabel(log.source)} source`}
+                                    aria-pressed={sourceFilter === log.source}
+                                    onClick={() => { setSourceFilter(prev => prev === log.source ? 'all' : log.source); setCurrentPage(1) }}
+                                  >
+                                    <Badge variant="outline" className="text-xs">
+                                      {getDomainLabel(log.source)}
+                                    </Badge>
+                                  </button>
                                 </div>
                               </div>
                               {log.requestId ? (
@@ -1187,12 +1195,20 @@ function LogsPageContent() {
                             </button>
                           </TableCell>
                           <TableCell>
-                            <Badge
-                              variant="outline"
-                              className="whitespace-nowrap text-xs"
+                            <button
+                              type="button"
+                              className={`rounded-sm transition-opacity duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 ${sourceFilter === log.source ? 'ring-2 ring-primary ring-offset-1' : 'hover:opacity-75'}`}
+                              aria-label={sourceFilter === log.source ? `Clear ${getDomainLabel(log.source)} source filter` : `Filter logs to ${getDomainLabel(log.source)} source`}
+                              aria-pressed={sourceFilter === log.source}
+                              onClick={() => { setSourceFilter(prev => prev === log.source ? 'all' : log.source); setCurrentPage(1) }}
                             >
-                              {getDomainLabel(log.source)}
-                            </Badge>
+                              <Badge
+                                variant="outline"
+                                className="whitespace-nowrap text-xs"
+                              >
+                                {getDomainLabel(log.source)}
+                              </Badge>
+                            </button>
                           </TableCell>
                           <TableCell className="max-w-[300px]">
                             <DialogTrigger asChild>
