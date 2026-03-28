@@ -198,6 +198,9 @@ func (i *LocalInstaller) Remove(name string) error {
 	if err != nil {
 		return err
 	}
+	if !hasLockEntry && !hadManifest {
+		return fmt.Errorf("service %q is not installed", name)
+	}
 	if hadManifest {
 		if err := os.Remove(p); err != nil {
 			return fmt.Errorf("remove manifest file: %w", err)

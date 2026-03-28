@@ -29,6 +29,13 @@ func buildInstallInstruction(name string, cfg skillMDConfig) string {
 	case strings.HasPrefix(source, "local:"):
 		trimmed := strings.TrimSpace(strings.TrimPrefix(source, "local:"))
 		return fmt.Sprintf("kimbap service install %s", shellQuoteArg(trimmed))
+	case strings.HasPrefix(source, "github:"):
+		withoutScheme := strings.TrimPrefix(source, "github:")
+		if idx := strings.LastIndex(withoutScheme, ":"); idx >= 0 {
+			installRef := "github:" + withoutScheme[:idx] + "/" + withoutScheme[idx+1:]
+			return fmt.Sprintf("kimbap service install %s", shellQuoteArg(installRef))
+		}
+		return fmt.Sprintf("kimbap service install %s", shellQuoteArg(source))
 	case source == "":
 		return fmt.Sprintf("kimbap service install %s.yaml", name)
 	default:
