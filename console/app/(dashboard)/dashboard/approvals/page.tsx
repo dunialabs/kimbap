@@ -608,9 +608,15 @@ export default function ApprovalsPage() {
                               {r.toolName}
                             </button>
                             <div className="flex flex-wrap items-center gap-2">
-                              <Badge variant="outline" className="font-mono text-xs">
+                              <button
+                                type="button"
+                                className="inline-flex items-center rounded-md border border-input bg-background px-2.5 py-0.5 font-mono text-xs transition-colors hover:bg-muted/50 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                                title="Click to filter by this user"
+                                aria-label={`Filter approvals by user ${r.userId}`}
+                                onClick={() => setUserFilter(r.userId)}
+                              >
                                 {r.userId}
-                              </Badge>
+                              </button>
                               <span className="text-xs text-muted-foreground">
                                 {r.serverId || 'No server ID'}
                               </span>
@@ -708,9 +714,15 @@ export default function ApprovalsPage() {
                           </span>
                         </TableCell>
                         <TableCell>
-                          <Badge variant="outline" className="font-mono text-xs">
+                          <button
+                            type="button"
+                            className="inline-flex items-center rounded-md border border-input bg-background px-2.5 py-0.5 font-mono text-xs transition-colors hover:bg-muted/50 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                            title="Click to filter by this user"
+                            aria-label={`Filter approvals by user ${r.userId}`}
+                            onClick={() => setUserFilter(r.userId)}
+                          >
                             {r.userId}
-                          </Badge>
+                          </button>
                         </TableCell>
                         <TableCell className="text-center">{statusBadge(r.status)}</TableCell>
                         <TableCell className="text-sm text-muted-foreground">
