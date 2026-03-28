@@ -146,6 +146,8 @@ const OPERATORS = [
   { value: 'matches', label: 'matches' },
 ] as const
 
+
+
 const EXTRACT_TYPES = [
   { value: 'string', label: 'String' },
   { value: 'number', label: 'Number' },
@@ -371,7 +373,7 @@ function RuleCard({
           type="button"
           onClick={() => setExpanded((prev) => !prev)}
           aria-expanded={expanded}
-          className="flex min-w-0 flex-1 items-center gap-2 rounded text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+          className="flex min-h-11 min-w-0 flex-1 items-center gap-2 rounded text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
         >
           {expanded ? <ChevronUp className="h-4 w-4 shrink-0" /> : <ChevronDown className="h-4 w-4 shrink-0" />}
           <span className="shrink-0 text-sm font-medium">Rule {index + 1}</span>
@@ -1045,7 +1047,7 @@ export default function PoliciesPage() {
                             <Button
                               variant="ghost"
                               size="icon"
-                              className="h-8 w-8"
+                              className="h-11 w-11"
                               onClick={() => openEdit(p)}
                               aria-label="Edit policy"
                               disabled={togglingPolicyId === p.id}
@@ -1055,7 +1057,7 @@ export default function PoliciesPage() {
                             <Button
                               variant="ghost"
                               size="icon"
-                              className="h-8 w-8 text-destructive hover:bg-destructive/10 hover:text-destructive"
+                              className="h-11 w-11 text-destructive hover:bg-destructive/10 hover:text-destructive"
                               onClick={() => confirmDelete(p)}
                               aria-label="Delete policy"
                               disabled={togglingPolicyId === p.id}

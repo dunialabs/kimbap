@@ -163,7 +163,7 @@ function formatExpiryTime(iso: string, status: string): { text: string; urgent: 
   }
 
   const remainingMs = d.getTime() - Date.now();
-  if (remainingMs <= 0) return { text: 'Expired', urgent: false };
+  if (remainingMs <= 0) return { text: `Expired ${formatTime(iso)}`, urgent: false };
 
   const remainingMins = Math.ceil(remainingMs / 60000);
   if (remainingMins <= 60) {
@@ -592,7 +592,7 @@ export default function ApprovalsPage() {
                   <Button
                     variant="ghost"
                     size="sm"
-                    className="w-full sm:w-auto"
+                    className="min-h-11 w-full sm:w-auto"
                     onClick={resetFilters}
                     disabled={!hasActiveFilters}
                   >

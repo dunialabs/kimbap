@@ -146,7 +146,7 @@ export function SidebarNav({ onNavigate, pendingApprovalCount = 0 }: SidebarNavP
                 aria-current={pathname === item.href ? 'page' : undefined}
                 aria-label={item.label === 'Approvals' && pendingApprovalCount > 0 ? `Approvals, ${pendingApprovalCount} pending` : undefined}
                 className={cn(
-                  'flex items-center gap-3 rounded-lg px-3 py-2 text-foreground transition-all',
+                  'flex min-h-11 items-center gap-3 rounded-lg px-3 py-2 text-foreground transition-all',
                   'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2',
                   pathname === item.href
                     ? 'bg-accent text-accent-foreground shadow-sm'

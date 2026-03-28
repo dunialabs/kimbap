@@ -931,7 +931,7 @@ function LogsPageContent() {
                                   Log Details - {formatLogTimestamp(log.timestamp)}
                                 </DialogTitle>
                                  <DialogDescription>
-                                   {getDomainLabel(log.source)} • {log.level}{log.requestId ? ` • ${log.requestId}` : ''}
+                                   {getDomainLabel(log.source)} • {levelDisplayLabel[log.level] ?? log.level}{log.requestId ? ` • ${log.requestId}` : ''}
                                  </DialogDescription>
                               </DialogHeader>
 
