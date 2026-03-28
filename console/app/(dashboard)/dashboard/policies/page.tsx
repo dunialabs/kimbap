@@ -959,7 +959,7 @@ export default function PoliciesPage() {
                   const title = generatePolicyTitle(rules)
 
                   return (
-                    <TableRow key={p.id}>
+                    <TableRow key={p.id} className={p.status !== 'active' ? 'opacity-50' : ''}>
                       <TableCell>
                         {canManagePolicies ? (
                           <button

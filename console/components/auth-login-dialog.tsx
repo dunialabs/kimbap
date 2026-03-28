@@ -192,7 +192,7 @@ export function AuthLoginDialog({
                 </p>
 
                 {(error || emailFormatInvalid) && (
-                  <Alert id="auth-login-error" className="border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-950/20">
+                  <Alert id="auth-login-error" className="border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-950/20" role="alert">
                     <AlertDescription className="text-sm text-red-800 dark:text-red-200">
                       {error || 'Enter a valid email address.'}
                     </AlertDescription>
@@ -268,7 +268,7 @@ export function AuthLoginDialog({
                 </div>
 
                 {(error || verificationCodeIncomplete) && (
-                  <Alert id="auth-verify-error" className="border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-950/20">
+                  <Alert id="auth-verify-error" className="border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-950/20" role="alert">
                     <AlertDescription className="text-sm text-red-800 dark:text-red-200">
                       {error || 'Enter the full 6-digit verification code.'}
                     </AlertDescription>
