@@ -688,7 +688,8 @@ function TokenUsagePageContent() {
           {/* Token Usage Distribution */}
           <Card>
             <CardHeader>
-              <CardTitle>Token Usage Distribution</CardTitle>
+              <CardTitle>Requests by Token</CardTitle>
+              <CardDescription>Share of total requests for the selected time range.</CardDescription>
             </CardHeader>
             <CardContent>
               {loading || !pieData || pieData.length === 0 ? (
