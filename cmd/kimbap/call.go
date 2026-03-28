@@ -27,6 +27,7 @@ func newCallCommand() *cobra.Command {
 			showSplashOnce()
 		},
 		RunE: func(cmd *cobra.Command, args []string) error {
+			opts.idempotencyKey = ""
 			actionName, inputTokens, showHelp, err := splitCallInvocationArgs(args)
 			if err != nil {
 				return err
@@ -63,7 +64,7 @@ func newCallCommand() *cobra.Command {
 			requestID := "req_" + uuid.NewString()
 			req := actions.ExecutionRequest{
 				RequestID:      requestID,
-				IdempotencyKey: requestID,
+				IdempotencyKey: strings.TrimSpace(opts.idempotencyKey),
 				TenantID:       defaultTenantID(),
 				Principal: actions.Principal{
 					ID:        "cli",
@@ -147,6 +148,7 @@ func buildDryRunPreview(cfg *config.KimbapConfig, req actions.ExecutionRequest) 
 		"dry_run":                true,
 		"action":                 req.Action,
 		"input":                  req.Input,
+		"idempotency_key":        strings.TrimSpace(req.IdempotencyKey),
 		"input_valid":            validationErr == nil,
 		"validation_error":       validationError,
 		"credential_ref":         credentialRef,
@@ -251,10 +253,15 @@ func prescanCallSplashFlags(tokens []string) {
 		tok := strings.TrimSpace(tokens[i])
 		switch {
 		case tok == "--no-splash":
-			opts.noSplash = true
+			value, consumed := parseOptionalBoolFlagValue(tokens, i)
+			opts.noSplash = value
+			i += consumed
 		case tok == "--format" && i+1 < len(tokens):
-			opts.format = strings.TrimSpace(tokens[i+1])
-			i++
+			next := strings.TrimSpace(tokens[i+1])
+			if !strings.HasPrefix(next, "-") {
+				opts.format = next
+				i++
+			}
 		case strings.HasPrefix(tok, "--format="):
 			opts.format = strings.TrimSpace(strings.TrimPrefix(tok, "--format="))
 		}
@@ -264,12 +271,13 @@ func prescanCallSplashFlags(tokens []string) {
 func splitGlobalCallFlags(tokens []string) ([]string, error) {
 	out := make([]string, 0, len(tokens))
 	globalStringFlags := map[string]*string{
-		"--format":    &opts.format,
-		"--json":      &opts.jsonInput,
-		"--config":    &opts.configPath,
-		"--data-dir":  &opts.dataDir,
-		"--log-level": &opts.logLevel,
-		"--mode":      &opts.mode,
+		"--format":          &opts.format,
+		"--json":            &opts.jsonInput,
+		"--config":          &opts.configPath,
+		"--data-dir":        &opts.dataDir,
+		"--log-level":       &opts.logLevel,
+		"--mode":            &opts.mode,
+		"--idempotency-key": &opts.idempotencyKey,
 	}
 	for i := 0; i < len(tokens); i++ {
 		tok := strings.TrimSpace(tokens[i])
@@ -298,10 +306,22 @@ func splitGlobalCallFlags(tokens []string) ([]string, error) {
 			}
 			opts.trace = value
 			continue
+		case tok == "--no-splash":
+			value, consumed := parseOptionalBoolFlagValue(tokens, i)
+			opts.noSplash = value
+			i += consumed
+			continue
+		case strings.HasPrefix(tok, "--no-splash="):
+			value, err := strconv.ParseBool(strings.TrimSpace(strings.TrimPrefix(tok, "--no-splash=")))
+			if err != nil {
+				return nil, fmt.Errorf("invalid --no-splash value %q", tok)
+			}
+			opts.noSplash = value
+			continue
 		default:
 			handled := false
 			if target, ok := globalStringFlags[tok]; ok {
-				if i+1 >= len(tokens) || strings.HasPrefix(strings.TrimSpace(tokens[i+1]), "--") {
+				if i+1 >= len(tokens) || strings.HasPrefix(strings.TrimSpace(tokens[i+1]), "-") {
 					return nil, fmt.Errorf("flag %s requires a value", tok)
 				}
 				i++

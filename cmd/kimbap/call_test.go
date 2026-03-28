@@ -1,6 +1,16 @@
 package main
 
-import "testing"
+import (
+	"os"
+	"testing"
+)
+
+func resetOptsForTest(t *testing.T) {
+	t.Helper()
+	prev := opts
+	t.Cleanup(func() { opts = prev })
+	opts = cliOptions{}
+}
 
 func TestParseJSONInputInline(t *testing.T) {
 	result, err := parseJSONInput(`{"name": "test", "count": 42}`)
@@ -163,12 +173,15 @@ func TestParseScalarNumericOneIsInteger(t *testing.T) {
 
 func TestSplitCallInvocationArgs_StringFlagMissingValue(t *testing.T) {
 	tests := []struct {
-		name   string
-		args   []string
+		name string
+		args []string
 	}{
 		{"format at end of args", []string{"slack.list-channels", "--format"}},
 		{"format followed by another flag", []string{"slack.list-channels", "--format", "--dry-run"}},
+		{"format followed by short flag", []string{"slack.list-channels", "--format", "-h"}},
 		{"json at end of args", []string{"slack.list-channels", "--json"}},
+		{"idempotency key at end of args", []string{"slack.list-channels", "--idempotency-key"}},
+		{"idempotency key followed by short flag", []string{"slack.list-channels", "--idempotency-key", "-h"}},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -177,5 +190,115 @@ func TestSplitCallInvocationArgs_StringFlagMissingValue(t *testing.T) {
 				t.Fatalf("expected error for %v, got nil", tt.args)
 			}
 		})
+	}
+}
+
+func TestSplitCallInvocationArgs_NoSplashOptionalFalse(t *testing.T) {
+	resetOptsForTest(t)
+
+	action, input, showHelp, err := splitCallInvocationArgs([]string{"slack.list-channels", "--no-splash", "false", "--limit", "1"})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if showHelp {
+		t.Fatal("expected showHelp=false")
+	}
+	if action != "slack.list-channels" {
+		t.Fatalf("expected action slack.list-channels, got %q", action)
+	}
+	if opts.noSplash {
+		t.Fatal("expected --no-splash false to keep noSplash=false")
+	}
+	if len(input) != 2 || input[0] != "--limit" || input[1] != "1" {
+		t.Fatalf("unexpected input tokens: %+v", input)
+	}
+}
+
+func TestPrescanCallSplashFlags_NoSplashOptionalFalse(t *testing.T) {
+	resetOptsForTest(t)
+
+	prescanCallSplashFlags([]string{"slack.list-channels", "--no-splash", "false", "--format", "json"})
+
+	if opts.noSplash {
+		t.Fatal("expected noSplash=false when --no-splash false is provided")
+	}
+	if opts.format != "json" {
+		t.Fatalf("expected format=json, got %q", opts.format)
+	}
+}
+
+func TestPrescanRawSplashFlags_NoSplashOptionalFalse(t *testing.T) {
+	resetOptsForTest(t)
+	prevArgs := os.Args
+	t.Cleanup(func() { os.Args = prevArgs })
+
+	os.Args = []string{"kimbap", "call", "slack.list-channels", "--no-splash", "false", "--format", "json"}
+	prescanRawSplashFlags()
+
+	if opts.noSplash {
+		t.Fatal("expected noSplash=false when --no-splash false is provided")
+	}
+	if opts.format != "json" {
+		t.Fatalf("expected format=json, got %q", opts.format)
+	}
+}
+
+func TestPrescanRawSplashFlags_FormatMissingValueIgnored(t *testing.T) {
+	resetOptsForTest(t)
+	prevArgs := os.Args
+	t.Cleanup(func() { os.Args = prevArgs })
+
+	opts.format = "text"
+	os.Args = []string{"kimbap", "call", "slack.list-channels", "--format", "--dry-run"}
+	prescanRawSplashFlags()
+
+	if opts.format != "text" {
+		t.Fatalf("expected format to remain unchanged when --format lacks value, got %q", opts.format)
+	}
+}
+
+func TestPrescanCallSplashFlags_FormatShortFlagValueIgnored(t *testing.T) {
+	resetOptsForTest(t)
+
+	opts.format = "text"
+	prescanCallSplashFlags([]string{"slack.list-channels", "--format", "-h"})
+
+	if opts.format != "text" {
+		t.Fatalf("expected format to remain unchanged when --format is followed by short flag, got %q", opts.format)
+	}
+}
+
+func TestPrescanRawSplashFlags_FormatShortFlagValueIgnored(t *testing.T) {
+	resetOptsForTest(t)
+	prevArgs := os.Args
+	t.Cleanup(func() { os.Args = prevArgs })
+
+	opts.format = "text"
+	os.Args = []string{"kimbap", "call", "slack.list-channels", "--format", "-h"}
+	prescanRawSplashFlags()
+
+	if opts.format != "text" {
+		t.Fatalf("expected format to remain unchanged when --format is followed by short flag, got %q", opts.format)
+	}
+}
+
+func TestSplitCallInvocationArgs_ParsesIdempotencyKeyFlag(t *testing.T) {
+	resetOptsForTest(t)
+
+	action, input, showHelp, err := splitCallInvocationArgs([]string{"slack.list-channels", "--idempotency-key", "idem-123", "--limit", "1"})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if showHelp {
+		t.Fatal("expected showHelp=false")
+	}
+	if action != "slack.list-channels" {
+		t.Fatalf("expected action slack.list-channels, got %q", action)
+	}
+	if opts.idempotencyKey != "idem-123" {
+		t.Fatalf("expected idempotency key idem-123, got %q", opts.idempotencyKey)
+	}
+	if len(input) != 2 || input[0] != "--limit" || input[1] != "1" {
+		t.Fatalf("unexpected input tokens: %+v", input)
 	}
 }

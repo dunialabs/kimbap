@@ -28,15 +28,16 @@ import (
 )
 
 type cliOptions struct {
-	configPath string
-	dataDir    string
-	logLevel   string
-	mode       string
-	format     string
-	jsonInput  string
-	dryRun     bool
-	trace      bool
-	noSplash   bool
+	configPath     string
+	dataDir        string
+	logLevel       string
+	mode           string
+	format         string
+	jsonInput      string
+	idempotencyKey string
+	dryRun         bool
+	trace          bool
+	noSplash       bool
 }
 
 const defaultApprovalTTL = 30 * time.Minute
@@ -78,6 +79,7 @@ var rootCmd = &cobra.Command{
 	Long:         "Kimbap lets AI agents use external services without handling raw credentials.",
 	SilenceUsage: true,
 	PersistentPreRun: func(cmd *cobra.Command, args []string) {
+		prescanRawSplashFlags()
 		showSplashOnce()
 	},
 }
@@ -127,6 +129,38 @@ func init() {
 	rootCmd.AddCommand(newAgentsCommand())
 	rootCmd.AddCommand(newAliasCommand())
 	rootCmd.AddCommand(newCompletionCommand())
+}
+
+// prescanRawSplashFlags scans os.Args for --no-splash and --format flags
+// before cobra parses them. This is needed because the "call" command uses
+// DisableFlagParsing which prevents normal flag parsing, and the root
+// PersistentPreRun fires before any child PersistentPreRun when
+// EnableTraverseRunHooks is enabled.
+func prescanRawSplashFlags() {
+	for i := 1; i < len(os.Args); i++ {
+		tok := strings.TrimSpace(os.Args[i])
+		if tok == "--" {
+			break
+		}
+		switch {
+		case tok == "--no-splash":
+			value, consumed := parseOptionalBoolFlagValue(os.Args, i)
+			opts.noSplash = value
+			i += consumed
+		case strings.HasPrefix(tok, "--no-splash="):
+			if v, err := strconv.ParseBool(strings.TrimSpace(strings.TrimPrefix(tok, "--no-splash="))); err == nil {
+				opts.noSplash = v
+			}
+		case tok == "--format" && i+1 < len(os.Args):
+			next := strings.TrimSpace(os.Args[i+1])
+			if !strings.HasPrefix(next, "-") {
+				opts.format = next
+				i++
+			}
+		case strings.HasPrefix(tok, "--format="):
+			opts.format = strings.TrimSpace(strings.TrimPrefix(tok, "--format="))
+		}
+	}
 }
 
 func showSplashOnce() {
