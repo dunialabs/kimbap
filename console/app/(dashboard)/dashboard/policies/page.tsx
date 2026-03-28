@@ -1387,7 +1387,7 @@ export default function PoliciesPage() {
               </Button>
               <Button className="min-h-11 w-full sm:w-auto" onClick={handleSave} disabled={saving || formRules.length === 0}>
                 {saving ? (
-                  <><Loader2 className="mr-2 h-4 w-4 animate-spin" aria-hidden="true" />{editingId ? 'Save changes' : 'Create policy'}</>
+                  <><Loader2 className="mr-2 h-4 w-4 animate-spin" aria-hidden="true" />{editingId ? 'Save Changes' : 'Create Policy'}</>
                 ) : editingId ? 'Save Changes' : 'Create Policy'}
               </Button>
             </div>
