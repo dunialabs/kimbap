@@ -1029,7 +1029,7 @@ export default function PoliciesPage() {
               ) : canManagePolicies ? (
                 <Button className="mt-4 min-h-11" onClick={(event) => openCreate(event.currentTarget)}>
                   <Plus className="mr-2 h-4 w-4" />
-                  Create Policy
+                  Create your first policy
                 </Button>
               ) : null}
             </div>
