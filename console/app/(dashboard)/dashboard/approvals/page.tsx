@@ -228,6 +228,10 @@ export default function ApprovalsPage() {
 
   const isInitialLoad = useRef(true);
 
+  useEffect(() => {
+    document.title = 'Approvals | Kimbap Console';
+  }, []);
+
   const fetchData = useCallback(
     async (options?: {
       page?: number;
@@ -398,7 +402,7 @@ export default function ApprovalsPage() {
         decision: decideDialog.decision,
         reason: decideReason.trim() || undefined,
       });
-      toast.success(`${decideDialog.request.toolName} request ${decisionLabel}`);
+      toast.success(`${decideDialog.request.toolName} request ${decisionLabel}. The queue refreshed so you can review the next request.`);
       setDecideDialog(null);
       void fetchData({
         page: 1,
@@ -422,7 +426,7 @@ export default function ApprovalsPage() {
         reason: detailDecideReason.trim() || undefined,
       });
       const label = decision === 'APPROVED' ? 'approved' : 'rejected';
-      toast.success(`${detailDialog.toolName} request ${label}`);
+      toast.success(`${detailDialog.toolName} request ${label}. The queue refreshed so you can review the next request.`);
       setDetailDialog(null);
       setDetailDecideReason('');
       void fetchData({ page: 1, pageSize: loadedPagesRef.current * BASE_PAGE_SIZE });
@@ -445,7 +449,7 @@ export default function ApprovalsPage() {
             Approvals
           </h1>
           <p className="text-base text-muted-foreground">
-            Review tool requests that are waiting for a decision.
+            Review tool requests that are waiting for a decision. After each decision, the queue refreshes so you can continue with the next request.
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-3">

@@ -158,6 +158,10 @@ export default function DashboardPage() {
   }, [])
 
   useEffect(() => {
+    document.title = 'Dashboard | Kimbap Console'
+  }, [])
+
+  useEffect(() => {
     const fetchPendingApprovals = async () => {
       try {
         const { api } = await import('@/lib/api-client')

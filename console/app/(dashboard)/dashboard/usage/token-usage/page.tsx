@@ -8,6 +8,7 @@ import {
   RefreshCw,
   AlertTriangle
 } from 'lucide-react'
+import Link from 'next/link'
 import { Suspense, useState, useEffect, useCallback, useRef } from 'react'
 import { usePathname, useRouter, useSearchParams } from 'next/navigation'
 import {
@@ -27,6 +28,14 @@ import {
 } from 'recharts'
 
 import { Badge } from '@/components/ui/badge'
+import {
+  Breadcrumb,
+  BreadcrumbItem,
+  BreadcrumbLink,
+  BreadcrumbList,
+  BreadcrumbPage,
+  BreadcrumbSeparator
+} from '@/components/ui/breadcrumb'
 import {
   Card,
   CardContent,
@@ -155,6 +164,18 @@ function TokenUsagePageContent() {
   const timeRangeLabel = timeRange === 1 ? '24 hours' : `${timeRange} days`
   const patternTokens = tokenUsageData.filter((token) => token.status === 'active').slice(0, 5)
   const hasDataRef = useRef(false)
+
+  useEffect(() => {
+    const tabTitles: Record<string, string> = {
+      overview: 'Access Token Usage',
+      geographic: 'Access Token Client Locations',
+      patterns: 'Access Token Usage Patterns'
+    }
+    const tabTitle = tabTitles[activeTab] || 'Access Token Usage'
+
+    document.title = `${tabTitle} | Kimbap Console`
+  }, [activeTab])
+
   useEffect(() => {
     if (timeRange) {
       hasDataRef.current = false
@@ -401,6 +422,25 @@ function TokenUsagePageContent() {
 
   return (
     <div className="space-y-6">
+      <Breadcrumb>
+        <BreadcrumbList>
+          <BreadcrumbItem>
+            <BreadcrumbLink asChild>
+              <Link href="/dashboard">Dashboard</Link>
+            </BreadcrumbLink>
+          </BreadcrumbItem>
+          <BreadcrumbSeparator />
+          <BreadcrumbItem>
+            <BreadcrumbLink asChild>
+              <Link href="/dashboard/usage">Usage Overview</Link>
+            </BreadcrumbLink>
+          </BreadcrumbItem>
+          <BreadcrumbSeparator />
+          <BreadcrumbItem>
+            <BreadcrumbPage>Access Token Usage</BreadcrumbPage>
+          </BreadcrumbItem>
+        </BreadcrumbList>
+      </Breadcrumb>
       <div className="space-y-0">
         <h1 className="text-[30px] font-bold">Access Token Usage</h1>
         <p className="text-base text-muted-foreground">See which tokens are active, where they are used, and when patterns change.</p>

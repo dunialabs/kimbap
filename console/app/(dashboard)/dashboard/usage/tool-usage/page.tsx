@@ -1,6 +1,7 @@
 "use client"
 
 import { Wrench, TrendingUp, CheckCircle, XCircle, Clock, Activity, Zap, RefreshCw, AlertTriangle } from "lucide-react"
+import Link from "next/link"
 import { Suspense, useState, useEffect, useCallback, useRef } from "react"
 import { usePathname, useRouter, useSearchParams } from "next/navigation"
 import {
@@ -20,6 +21,14 @@ import {
 } from "recharts"
 
 import { Badge } from "@/components/ui/badge"
+import {
+  Breadcrumb,
+  BreadcrumbItem,
+  BreadcrumbLink,
+  BreadcrumbList,
+  BreadcrumbPage,
+  BreadcrumbSeparator
+} from "@/components/ui/breadcrumb"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Progress } from "@/components/ui/progress"
@@ -134,6 +143,20 @@ function ToolUsagePageContent() {
   const [actionToolOptions, setActionToolOptions] = useState<Array<{ toolId: string; toolName: string }>>([])
   const timeRangeLabel = timeRange === 1 ? '24 hours' : `${timeRange} days`
   const hasDataRef = useRef(false)
+
+  useEffect(() => {
+    const tabTitles: Record<string, string> = {
+      overview: 'Tool Usage',
+      performance: 'Tool Usage Performance',
+      errors: 'Tool Usage Error Analysis',
+      trends: 'Tool Usage Trends',
+      actions: 'Tool Action Logs'
+    }
+    const tabTitle = tabTitles[activeTab] || 'Tool Usage'
+
+    document.title = `${tabTitle} | Kimbap Console`
+  }, [activeTab])
+
   useEffect(() => {
     if (timeRange) {
       hasDataRef.current = false
@@ -380,6 +403,25 @@ function ToolUsagePageContent() {
 
   return (
     <div className="space-y-6">
+      <Breadcrumb>
+        <BreadcrumbList>
+          <BreadcrumbItem>
+            <BreadcrumbLink asChild>
+              <Link href="/dashboard">Dashboard</Link>
+            </BreadcrumbLink>
+          </BreadcrumbItem>
+          <BreadcrumbSeparator />
+          <BreadcrumbItem>
+            <BreadcrumbLink asChild>
+              <Link href="/dashboard/usage">Usage Overview</Link>
+            </BreadcrumbLink>
+          </BreadcrumbItem>
+          <BreadcrumbSeparator />
+          <BreadcrumbItem>
+            <BreadcrumbPage>Tool Usage</BreadcrumbPage>
+          </BreadcrumbItem>
+        </BreadcrumbList>
+      </Breadcrumb>
       <div className="space-y-0">
         <h1 className="text-[30px] font-bold">Tool Usage</h1>
         <p className="text-base text-muted-foreground">See which tools are busiest, failing, or slowing down.</p>

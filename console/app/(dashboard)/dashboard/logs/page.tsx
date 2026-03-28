@@ -145,6 +145,17 @@ function LogsPageContent() {
   const [statisticsTimeFilter, setStatisticsTimeFilter] = useState<string>(() => getStatisticsTimeRange(timeFilter))
 
   useEffect(() => {
+    const tabTitles: Record<string, string> = {
+      table: 'Logs & Monitoring',
+      raw: 'Raw Logs',
+      statistics: 'Log Statistics'
+    }
+    const tabTitle = tabTitles[activeTab] || 'Logs & Monitoring'
+
+    document.title = `${tabTitle} | Kimbap Console`
+  }, [activeTab])
+
+  useEffect(() => {
     const currentParam = searchParams.get('timeRange')
     const syncedTimeRange = activeTab === 'statistics' ? statisticsTimeFilter : timeFilter
   

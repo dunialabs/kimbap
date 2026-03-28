@@ -5,6 +5,14 @@ import Link from "next/link"
 import { useState, useEffect, useCallback, useRef, Suspense } from "react"
 import { usePathname, useRouter, useSearchParams } from "next/navigation"
 
+import {
+  Breadcrumb,
+  BreadcrumbItem,
+  BreadcrumbLink,
+  BreadcrumbList,
+  BreadcrumbPage,
+  BreadcrumbSeparator
+} from "@/components/ui/breadcrumb"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
@@ -115,6 +123,11 @@ function UsagePageContent() {
   const timeRangeLabel = timeRange === 1 ? '24 hours' : `${timeRange} days`
   const logsTimeRange = timeRange === 1 ? '24h' : `${timeRange}d`
   const hasDataRef = useRef(false)
+
+  useEffect(() => {
+    document.title = 'Usage Overview | Kimbap Console'
+  }, [])
+
   useEffect(() => {
     if (timeRange) {
       hasDataRef.current = false
@@ -245,6 +258,19 @@ function UsagePageContent() {
 
   return (
     <div className="space-y-4">
+      <Breadcrumb>
+        <BreadcrumbList>
+          <BreadcrumbItem>
+            <BreadcrumbLink asChild>
+              <Link href="/dashboard">Dashboard</Link>
+            </BreadcrumbLink>
+          </BreadcrumbItem>
+          <BreadcrumbSeparator />
+          <BreadcrumbItem>
+            <BreadcrumbPage>Usage Overview</BreadcrumbPage>
+          </BreadcrumbItem>
+        </BreadcrumbList>
+      </Breadcrumb>
       <div className="space-y-0">
         <h1 className="text-[30px] font-bold">Usage Overview</h1>
         <p className="text-base text-muted-foreground">Check request volume, token activity, and recent changes.</p>
