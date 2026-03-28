@@ -775,10 +775,21 @@ export default function ApprovalsPage() {
                             <p className="text-xs text-muted-foreground">Expires</p>
                             {(() => {
                               const { text: expiryText, urgent: expiryUrgent } = formatExpiryTime(r.expiresAt, r.status)
+                              const showExpiringSoonBadge = expiresSoon || expiryUrgent
                               return (
-                                <p className={expiresSoon || expiryUrgent ? 'font-medium text-amber-600 dark:text-amber-400' : 'text-muted-foreground'}>
-                                  {expiryText}
-                                </p>
+                                <div className="space-y-1">
+                                  <p className={showExpiringSoonBadge ? 'font-medium text-amber-600 dark:text-amber-400' : 'text-muted-foreground'}>
+                                    {expiryText}
+                                  </p>
+                                  {showExpiringSoonBadge ? (
+                                    <Badge
+                                      variant="outline"
+                                      className="border-amber-300 bg-amber-50 text-[11px] text-amber-700 dark:border-amber-800 dark:bg-amber-950/30 dark:text-amber-300"
+                                    >
+                                      Expiring soon
+                                    </Badge>
+                                  ) : null}
+                                </div>
                               )
                             })()}
                           </div>
@@ -887,8 +898,20 @@ export default function ApprovalsPage() {
                           const remainingMs = new Date(r.expiresAt).getTime() - Date.now()
                           const amberStyle = (r.status === 'PENDING' && remainingMs > 0 && remainingMs < 30 * 60 * 1000) || expiryUrgent
                           return (
-                            <TableCell className={`text-sm ${amberStyle ? 'text-amber-600 dark:text-amber-400 font-medium' : 'text-muted-foreground'}`}>
-                              {expiryText}
+                            <TableCell className="text-sm">
+                              <div className="space-y-1">
+                                <p className={amberStyle ? 'font-medium text-amber-600 dark:text-amber-400' : 'text-muted-foreground'}>
+                                  {expiryText}
+                                </p>
+                                {amberStyle ? (
+                                  <Badge
+                                    variant="outline"
+                                    className="border-amber-300 bg-amber-50 text-[11px] text-amber-700 dark:border-amber-800 dark:bg-amber-950/30 dark:text-amber-300"
+                                  >
+                                    Expiring soon
+                                  </Badge>
+                                ) : null}
+                              </div>
                             </TableCell>
                           )
                         })()}
