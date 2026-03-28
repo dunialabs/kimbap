@@ -708,8 +708,14 @@ export default function PoliciesPage() {
   const [formRules, setFormRules] = useState<PolicyRule[]>([])
   const [discardDialogOpen, setDiscardDialogOpen] = useState(false)
   const policyDialogBodyRef = useRef<HTMLDivElement>(null)
+  const lastDialogTriggerRef = useRef<HTMLElement | null>(null)
   const canManagePolicies = isOwner || isAdmin
   const canTogglePolicy = isOwner || isAdmin
+
+  const rememberDialogTrigger = useCallback((element?: HTMLElement | null) => {
+    lastDialogTriggerRef.current =
+      element ?? (document.activeElement instanceof HTMLElement ? document.activeElement : null)
+  }, [])
   const orderedPolicies = useMemo(() => {
     return [...policies].sort((a, b) => {
       const statusDelta = Number(a.status !== 'active') - Number(b.status !== 'active')
@@ -762,14 +768,16 @@ export default function PoliciesPage() {
     return () => window.cancelAnimationFrame(frame)
   }, [dialogOpen])
 
-  const openCreate = () => {
+  const openCreate = (trigger?: HTMLElement | null) => {
+    rememberDialogTrigger(trigger)
     setEditingId(null)
     setFormRules([emptyRule()])
     setIsDirty(false)
     setDialogOpen(true)
   }
 
-  const openEdit = (p: PolicySet) => {
+  const openEdit = (p: PolicySet, trigger?: HTMLElement | null) => {
+    rememberDialogTrigger(trigger)
     setEditingId(p.id)
     const rules = deserializeRules(p.dsl?.rules || [])
     rules.sort((a, b) => a.priority - b.priority)
@@ -922,7 +930,7 @@ export default function PoliciesPage() {
           </div>
         </div>
         {canManagePolicies ? (
-          <Button onClick={openCreate} className="min-h-11 w-full sm:w-auto">
+          <Button onClick={(event) => openCreate(event.currentTarget)} className="min-h-11 w-full sm:w-auto">
             <Plus className="mr-2 h-4 w-4" />
             Create Policy
           </Button>
@@ -939,10 +947,10 @@ export default function PoliciesPage() {
         )}
         <CardContent>
           {loadError ? (
-            <div role="alert" className="mb-4 flex items-center gap-2 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700 dark:border-red-900/40 dark:bg-red-950/20 dark:text-red-300">
+            <div role="alert" className="mb-4 flex flex-col items-start gap-2 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700 dark:border-red-900/40 dark:bg-red-950/20 dark:text-red-300 sm:flex-row sm:items-center">
               <AlertTriangle className="h-4 w-4 shrink-0" aria-hidden="true" />
               <span>{loadError}</span>
-              <Button variant="outline" size="sm" className="ml-auto min-h-11" onClick={fetchPolicies}>Retry</Button>
+              <Button variant="outline" size="sm" className="min-h-11 w-full sm:ml-auto sm:w-auto" onClick={fetchPolicies}>Retry</Button>
             </div>
           ) : null}
           {loading ? (
@@ -963,7 +971,7 @@ export default function PoliciesPage() {
                   Retry
                 </Button>
               ) : canManagePolicies ? (
-                <Button className="mt-4 min-h-11" onClick={openCreate}>
+                <Button className="mt-4 min-h-11" onClick={(event) => openCreate(event.currentTarget)}>
                   <Plus className="mr-2 h-4 w-4" />
                   Create Policy
                 </Button>
@@ -994,7 +1002,7 @@ export default function PoliciesPage() {
                           <button
                             type="button"
                             className="group w-full cursor-pointer rounded py-2 text-left space-y-1 transition-colors duration-200 hover:bg-muted/30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
-                            onClick={() => openEdit(p)}
+                            onClick={(event) => openEdit(p, event.currentTarget)}
                             aria-label={`Edit policy: ${title}`}
                           >
                             <p className="text-sm font-medium group-hover:underline group-focus-visible:underline">{title}</p>
@@ -1077,7 +1085,7 @@ export default function PoliciesPage() {
                               variant="ghost"
                               size="icon"
                               className="h-11 w-11"
-                              onClick={() => openEdit(p)}
+                              onClick={(event) => openEdit(p, event.currentTarget)}
                               aria-label="Edit policy"
                                title="Edit policy"
                                disabled={togglingPolicyId === p.id}
@@ -1109,7 +1117,13 @@ export default function PoliciesPage() {
       </Card>
 
       <Dialog open={dialogOpen} onOpenChange={tryCloseDialog}>
-        <ScrollableDialogContent className="max-w-2xl p-0">
+        <ScrollableDialogContent
+          className="max-w-3xl p-0"
+          onCloseAutoFocus={(event) => {
+            event.preventDefault()
+            lastDialogTriggerRef.current?.focus()
+          }}
+        >
           <div className="border-b px-6 pb-4 pt-6">
             <DialogHeader>
               <DialogTitle>{editingId ? 'Edit access policy' : 'Create access policy'}</DialogTitle>

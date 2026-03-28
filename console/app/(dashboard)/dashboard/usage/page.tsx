@@ -328,7 +328,7 @@ function UsagePageContent() {
       </div>
       <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center">
         <Select value={String(timeRange)} onValueChange={(value) => setTimeRange(Number(value))}>
-          <SelectTrigger className="w-full sm:w-[180px]" aria-label="Time range">
+          <SelectTrigger className="min-h-11 w-full sm:w-[180px]" aria-label="Time range">
             <SelectValue placeholder="Time range" />
           </SelectTrigger>
           <SelectContent>
@@ -337,7 +337,7 @@ function UsagePageContent() {
             <SelectItem value="30">Last 30 days</SelectItem>
           </SelectContent>
         </Select>
-        <Button className="w-full sm:w-auto" variant="outline" onClick={handleRefresh} disabled={loading || refreshing}>
+        <Button className="min-h-11 w-full sm:w-auto" variant="outline" onClick={handleRefresh} disabled={loading || refreshing}>
           <RefreshCw className={`mr-2 h-4 w-4 ${loading || refreshing ? 'animate-spin' : ''}`} />
           Refresh
         </Button>
@@ -555,7 +555,7 @@ function UsagePageContent() {
                     <div className="w-full text-left sm:w-auto sm:text-right">
                       <div className="font-medium">{formatDisplayNumber(token.requestCount)} requests</div>
                       <div className={`text-sm ${token.isCurrentlyActive ? 'text-green-600 dark:text-green-400' : 'text-muted-foreground'}`}>
-                        {token.isCurrentlyActive ? 'Used' : 'Last used'} {formatRelativeMinutes(token.lastUsedMinutesAgo)}
+                        {token.isCurrentlyActive ? 'Active now' : `Last used ${formatRelativeMinutes(token.lastUsedMinutesAgo)}`}
                       </div>
                     </div>
                   </Link>

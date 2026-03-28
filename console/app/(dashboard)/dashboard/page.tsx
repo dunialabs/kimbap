@@ -13,7 +13,7 @@ import {
   AlertTriangle
 } from 'lucide-react'
 import Link from 'next/link'
-import { useEffect, useState, useCallback } from 'react'
+import { useEffect, useState, useCallback, useRef } from 'react'
 import { toast } from 'sonner'
 
 import { Badge } from '@/components/ui/badge'
@@ -117,6 +117,7 @@ export default function DashboardPage() {
   const [pendingApprovalCount, setPendingApprovalCount] = useState<number | null>(null)
   const [pendingApprovalError, setPendingApprovalError] = useState<string | null>(null)
   const [isPendingApprovalLoading, setIsPendingApprovalLoading] = useState(true)
+  const clientsTriggerRef = useRef<HTMLButtonElement | null>(null)
 
   const fetchServerInfo = useCallback(async () => {
     setIsServerInfoLoading(true)
@@ -395,7 +396,7 @@ export default function DashboardPage() {
           <span className="relative flex h-3 w-3">
             {serverInfo?.status === 1 ? (
               <>
-            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
+            <span className="absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75 motion-safe:animate-ping"></span>
             <span className="relative inline-flex rounded-full h-3 w-3 bg-green-500"></span>
               </>
             ) : (
@@ -686,6 +687,7 @@ export default function DashboardPage() {
 
           <button
             type="button"
+            ref={clientsTriggerRef}
             className="block w-full rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2"
             onClick={() => setIsClientsDialogOpen(true)}
             aria-haspopup="dialog"
@@ -894,7 +896,14 @@ export default function DashboardPage() {
 
 
       <Dialog open={isClientsDialogOpen} onOpenChange={setIsClientsDialogOpen}>
-        <DialogContent id="connected-clients-dialog" className="max-w-4xl max-h-[80vh] overflow-y-auto">
+        <DialogContent
+          id="connected-clients-dialog"
+          className="max-h-[80vh] max-w-4xl overflow-y-auto"
+          onCloseAutoFocus={(event) => {
+            event.preventDefault()
+            clientsTriggerRef.current?.focus()
+          }}
+        >
           <DialogHeader>
             <DialogTitle className="flex flex-wrap items-center gap-2">
               <Users className="h-5 w-5" />
@@ -924,7 +933,7 @@ export default function DashboardPage() {
               </div>
             ) : (
               <div className="overflow-x-auto">
-                <Table className="min-w-[720px]">
+                <Table className="min-w-[760px]">
                   <TableHeader>
                     <TableRow>
                       <TableHead scope="col">Client Name</TableHead>
@@ -937,15 +946,15 @@ export default function DashboardPage() {
                   <TableBody>
                     {connectedClients.map((client) => (
                       <TableRow key={client.id}>
-                        <TableCell>{formatNullableText(client.name)}</TableCell>
-                        <TableCell className="font-mono text-sm">
-                          <div className="flex items-center gap-2">
+                        <TableCell className="max-w-[220px] break-words">{formatNullableText(client.name)}</TableCell>
+                        <TableCell className="min-w-[220px] font-mono text-sm">
+                          <div className="flex flex-wrap items-center gap-2">
                             <span>{client.ip}</span>
                             <Button
                               type="button"
                               variant="ghost"
                               size="sm"
-                              className="min-h-11 px-3 text-xs"
+                              className="min-h-11 shrink-0 px-3 text-xs"
                               onClick={() => handleCopyClientIp(client.ip)}
                             >
                               <Copy className="mr-1 h-3.5 w-3.5" aria-hidden="true" />

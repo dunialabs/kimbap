@@ -30,11 +30,13 @@ import {
   BreadcrumbSeparator
 } from "@/components/ui/breadcrumb"
 import { Button } from "@/components/ui/button"
+import { Label } from "@/components/ui/label"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Progress } from "@/components/ui/progress"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { Pagination, PaginationContent, PaginationItem } from "@/components/ui/pagination"
 import { api } from '@/lib/api-client'
 import { getActionLabel } from '@/lib/log-utils'
 import { formatDateTime, formatDisplayNumber, formatNullableText, formatPercentage } from '@/lib/utils'
@@ -505,14 +507,14 @@ function ToolUsagePageContent() {
       </div>
       <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center">
         <Select value={String(timeRange)} onValueChange={(value) => { setTimeRange(Number(value)); setActionLogToolId('all'); setActionLogStatus('all'); setActionLogType('all'); setActionLogsPage(1) }}>
-          <SelectTrigger className="w-full sm:w-[180px]" aria-label="Time range"><SelectValue placeholder="Time range" /></SelectTrigger>
+          <SelectTrigger className="min-h-11 w-full sm:w-[180px]" aria-label="Time range"><SelectValue placeholder="Time range" /></SelectTrigger>
           <SelectContent>
             <SelectItem value="1">Last 24 hours</SelectItem>
             <SelectItem value="7">Last 7 days</SelectItem>
             <SelectItem value="30">Last 30 days</SelectItem>
           </SelectContent>
         </Select>
-        <Button className="w-full sm:w-auto" variant="outline" onClick={handleRefresh} disabled={loading || refreshing}><RefreshCw className={`mr-2 h-4 w-4 ${loading || refreshing ? 'animate-spin' : ''}`} />Refresh</Button>
+        <Button className="min-h-11 w-full sm:w-auto" variant="outline" onClick={handleRefresh} disabled={loading || refreshing}><RefreshCw className={`mr-2 h-4 w-4 ${loading || refreshing ? 'animate-spin' : ''}`} />Refresh</Button>
       </div>
 
       {!loading && loadError ? (
@@ -524,12 +526,12 @@ function ToolUsagePageContent() {
       ) : null}
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
-        <TabsList className="w-full justify-start overflow-x-auto">
-          <TabsTrigger className="shrink-0" value="overview">Overview</TabsTrigger>
-          <TabsTrigger className="shrink-0" value="performance">Performance</TabsTrigger>
-          <TabsTrigger className="shrink-0" value="errors">Error Analysis</TabsTrigger>
-          <TabsTrigger className="shrink-0" value="trends">Usage Trends</TabsTrigger>
-          <TabsTrigger className="shrink-0" value="actions">Action Logs</TabsTrigger>
+        <TabsList className="h-11 w-full justify-start overflow-x-auto">
+          <TabsTrigger className="min-h-11 shrink-0 px-4" value="overview">Overview</TabsTrigger>
+          <TabsTrigger className="min-h-11 shrink-0 px-4" value="performance">Performance</TabsTrigger>
+          <TabsTrigger className="min-h-11 shrink-0 px-4" value="errors">Error Analysis</TabsTrigger>
+          <TabsTrigger className="min-h-11 shrink-0 px-4" value="trends">Usage Trends</TabsTrigger>
+          <TabsTrigger className="min-h-11 shrink-0 px-4" value="actions">Action Logs</TabsTrigger>
         </TabsList>
 
         <TabsContent value="overview" className="space-y-4">
@@ -651,6 +653,8 @@ function ToolUsagePageContent() {
                       outerRadius={80}
                       fill="#8884d8"
                       dataKey="value"
+                      stroke="hsl(var(--background))"
+                      strokeWidth={1}
                     >
                       {pieData.map((entry, index) => (
                         <Cell key={entry.name} fill={COLORS[index % COLORS.length]} />
@@ -936,33 +940,44 @@ function ToolUsagePageContent() {
               <CardDescription>Recent tool operations in the selected time range</CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="mb-3 grid grid-cols-1 gap-2 md:grid-cols-3">
-                <Select value={actionLogToolId} onValueChange={(value) => { setActionLogToolId(value); setActionLogType('all'); setActionLogsPage(1) }}>
-                  <SelectTrigger aria-label="Filter action logs by tool"><SelectValue placeholder="Filter by tool" /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All tools</SelectItem>
-                    {actionToolOptions.map((tool) => (
-                      <SelectItem key={tool.toolId} value={tool.toolId}>{tool.toolName}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                <Select value={actionLogStatus} onValueChange={(value: 'all' | 'success' | 'failed') => { setActionLogStatus(value); setActionLogType('all'); setActionLogsPage(1) }}>
-                  <SelectTrigger aria-label="Filter action logs by status"><SelectValue placeholder="Filter by status" /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All status</SelectItem>
-                    <SelectItem value="success">Success</SelectItem>
-                    <SelectItem value="failed">Failed</SelectItem>
-                  </SelectContent>
-                </Select>
-                <Select value={actionLogType} onValueChange={(value) => { setActionLogType(value); setActionLogsPage(1) }}>
-                  <SelectTrigger aria-label="Filter action logs by action"><SelectValue placeholder="Filter by action" /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All actions</SelectItem>
-                    {actionTypeOptions.map((actionType) => (
-                      <SelectItem key={String(actionType)} value={String(actionType)}>{getActionLabel(actionType)}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+              <div className="mb-3 rounded-lg border border-border/60 bg-muted/20 p-3">
+                <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
+                  <div className="space-y-2">
+                    <Label htmlFor="action-log-tool-filter" className="text-xs">Tool</Label>
+                    <Select value={actionLogToolId} onValueChange={(value) => { setActionLogToolId(value); setActionLogType('all'); setActionLogsPage(1) }}>
+                      <SelectTrigger id="action-log-tool-filter" className="min-h-11" aria-label="Filter action logs by tool"><SelectValue placeholder="Filter by tool" /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">All tools</SelectItem>
+                        {actionToolOptions.map((tool) => (
+                          <SelectItem key={tool.toolId} value={tool.toolId}>{tool.toolName}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="action-log-status-filter" className="text-xs">Status</Label>
+                    <Select value={actionLogStatus} onValueChange={(value: 'all' | 'success' | 'failed') => { setActionLogStatus(value); setActionLogType('all'); setActionLogsPage(1) }}>
+                      <SelectTrigger id="action-log-status-filter" className="min-h-11" aria-label="Filter action logs by status"><SelectValue placeholder="Filter by status" /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">All status</SelectItem>
+                        <SelectItem value="success">Success</SelectItem>
+                        <SelectItem value="failed">Failed</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="action-log-type-filter" className="text-xs">Action</Label>
+                    <Select value={actionLogType} onValueChange={(value) => { setActionLogType(value); setActionLogsPage(1) }}>
+                      <SelectTrigger id="action-log-type-filter" className="min-h-11" aria-label="Filter action logs by action"><SelectValue placeholder="Filter by action" /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">All actions</SelectItem>
+                        {actionTypeOptions.map((actionType) => (
+                          <SelectItem key={String(actionType)} value={String(actionType)}>{getActionLabel(actionType)}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
               </div>
               <div className="mb-3">
                 {hasActionFilters ? (
@@ -1013,7 +1028,7 @@ function ToolUsagePageContent() {
                 </div>
               ) : (
                 <div className="overflow-x-auto">
-                <Table className="min-w-[900px]">
+                <Table className="min-w-[980px]">
                   <TableHeader>
                     <TableRow>
                       <TableHead scope="col">Time</TableHead>
@@ -1037,12 +1052,12 @@ function ToolUsagePageContent() {
                              {log.status === 1 ? 'Success' : 'Failed'}
                            </span>
                          </TableCell>
-                        <TableCell className="max-w-[260px]">
+                        <TableCell className="max-w-[360px]">
                           {log.status === 2 && log.errorMessage ? (
                             <div className="text-xs text-red-600 dark:text-red-400 whitespace-pre-wrap break-words">{log.errorMessage}</div>
                           ) : (
                             <details>
-                              <summary className="cursor-pointer rounded-sm text-xs text-muted-foreground transition-colors duration-200 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2">View details</summary>
+                              <summary className="inline-flex min-h-11 items-center cursor-pointer rounded-sm text-xs text-muted-foreground transition-colors duration-200 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2">View details</summary>
                               <pre className="mt-1 max-h-24 overflow-auto whitespace-pre-wrap break-words rounded bg-muted p-2 text-xs">{formatNullableText(log.details)}</pre>
                             </details>
                           )}
@@ -1056,12 +1071,20 @@ function ToolUsagePageContent() {
               )}
               {!actionLoading && !actionLogsError ? (
                 <div className="mt-3 flex flex-col gap-3 text-sm text-muted-foreground sm:flex-row sm:items-center sm:justify-between">
-                  <span>{formatDisplayNumber(actionLogsTotal)} total logs</span>
-                  <div className="flex flex-wrap items-center gap-2">
-                    <Button variant="outline" size="sm" onClick={() => setActionLogsPage((p) => Math.max(1, p - 1))} disabled={actionLogsPage <= 1}>Previous</Button>
-                    <span>Page {formatDisplayNumber(actionLogsPage)} of {formatDisplayNumber(Math.max(1, Math.ceil(actionLogsTotal / 20)))}</span>
-                    <Button variant="outline" size="sm" onClick={() => setActionLogsPage((p) => p + 1)} disabled={actionLogs.length < 20 || actionLogsPage * 20 >= actionLogsTotal}>Next</Button>
-                  </div>
+                  <span>Showing {formatDisplayNumber((actionLogsPage - 1) * 20 + 1)} to {formatDisplayNumber(Math.min(actionLogsPage * 20, actionLogsTotal))} of {formatDisplayNumber(actionLogsTotal)} logs</span>
+                  <Pagination className="mx-0 w-auto justify-start sm:justify-end">
+                    <PaginationContent>
+                      <PaginationItem>
+                        <Button variant="outline" size="sm" className="min-h-11" onClick={() => setActionLogsPage((p) => Math.max(1, p - 1))} disabled={actionLogsPage <= 1}>Previous</Button>
+                      </PaginationItem>
+                      <PaginationItem>
+                        <span className="flex min-h-11 items-center px-3">Page {formatDisplayNumber(actionLogsPage)} of {formatDisplayNumber(Math.max(1, Math.ceil(actionLogsTotal / 20)))}</span>
+                      </PaginationItem>
+                      <PaginationItem>
+                        <Button variant="outline" size="sm" className="min-h-11" onClick={() => setActionLogsPage((p) => p + 1)} disabled={actionLogs.length < 20 || actionLogsPage * 20 >= actionLogsTotal}>Next</Button>
+                      </PaginationItem>
+                    </PaginationContent>
+                  </Pagination>
                 </div>
               ) : null}
             </CardContent>

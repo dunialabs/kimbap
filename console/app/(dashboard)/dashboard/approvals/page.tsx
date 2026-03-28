@@ -25,6 +25,7 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
+  ScrollableDialogContent,
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -270,6 +271,7 @@ export default function ApprovalsPage() {
   const [detailDecisionAction, setDetailDecisionAction] = useState<'APPROVED' | 'REJECTED' | null>(null);
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
   const decideReasonRef = useRef<HTMLTextAreaElement>(null);
+  const lastDialogTriggerRef = useRef<HTMLElement | null>(null);
   const [refreshFailed, setRefreshFailed] = useState(false);
   const [timeAgo, setTimeAgo] = useState('');
   const [loadedPages, setLoadedPages] = useState(1);
@@ -462,7 +464,18 @@ export default function ApprovalsPage() {
     });
   };
 
-  const openDecideDialog = (request: ApprovalRequest, decision: 'APPROVED' | 'REJECTED') => {
+  const rememberDialogTrigger = (element?: HTMLElement | null) => {
+    lastDialogTriggerRef.current =
+      element ?? (document.activeElement instanceof HTMLElement ? document.activeElement : null);
+  };
+
+  const openDetailDialog = (request: ApprovalRequest, trigger?: HTMLElement | null) => {
+    rememberDialogTrigger(trigger);
+    setDetailDialog(request);
+  };
+
+  const openDecideDialog = (request: ApprovalRequest, decision: 'APPROVED' | 'REJECTED', trigger?: HTMLElement | null) => {
+    rememberDialogTrigger(trigger);
     setDecideDialog({ request, decision });
     setDecideReason('');
   };
@@ -738,7 +751,7 @@ export default function ApprovalsPage() {
                             <button
                               type="button"
                               className="inline-flex min-h-11 items-center rounded text-left font-mono text-sm transition-colors duration-200 hover:text-foreground hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
-                              onClick={() => setDetailDialog(r)}
+                              onClick={(event) => openDetailDialog(r, event.currentTarget)}
                               aria-label={`View details for ${r.toolName}`}
                             >
                               {r.toolName}
@@ -795,7 +808,7 @@ export default function ApprovalsPage() {
                             variant="outline"
                             size="sm"
                             className="min-h-11 flex-1 sm:flex-none"
-                            onClick={() => setDetailDialog(r)}
+                            onClick={(event) => openDetailDialog(r, event.currentTarget)}
                           >
                             <Eye className="mr-1.5 h-3.5 w-3.5" />
                             Details
@@ -805,7 +818,7 @@ export default function ApprovalsPage() {
                               <Button
                                 size="sm"
                                 className="min-h-11 flex-1 bg-emerald-600 text-white hover:bg-emerald-700"
-                                onClick={() => openDecideDialog(r, 'APPROVED')}
+                                onClick={(event) => openDecideDialog(r, 'APPROVED', event.currentTarget)}
                               >
                                 <CheckCircle2 className="mr-1.5 h-3.5 w-3.5" />
                                 Approve
@@ -814,7 +827,7 @@ export default function ApprovalsPage() {
                                 size="sm"
                                 variant="destructive"
                                 className="min-h-11 flex-1"
-                                onClick={() => openDecideDialog(r, 'REJECTED')}
+                                onClick={(event) => openDecideDialog(r, 'REJECTED', event.currentTarget)}
                               >
                                 <XCircle className="mr-1.5 h-3.5 w-3.5" />
                                 Reject
@@ -829,7 +842,7 @@ export default function ApprovalsPage() {
               </div>
 
               <div className="hidden max-h-[min(65dvh,42rem)] overflow-auto md:block">
-                <table className="min-w-[980px] w-full caption-bottom text-sm">
+                <table className="min-w-[1120px] w-full caption-bottom text-sm">
                   <TableHeader>
                     <TableRow>
                       <TableHead scope="col" className="sticky top-0 z-10 bg-background shadow-[0_1px_0_0_hsl(var(--border))]">Tool</TableHead>
@@ -848,8 +861,8 @@ export default function ApprovalsPage() {
                         <TableCell>
                           <button
                              type="button"
-                             className="inline-flex min-h-11 max-w-[200px] items-center truncate rounded text-left font-mono text-sm transition-colors duration-200 hover:text-foreground hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
-                             onClick={() => setDetailDialog(r)}
+                             className="inline-flex min-h-11 max-w-[260px] items-center truncate rounded text-left font-mono text-sm transition-colors duration-200 hover:text-foreground hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                             onClick={(event) => openDetailDialog(r, event.currentTarget)}
                              aria-label={`View details for ${r.toolName}`}
                              title={r.toolName}
                            >
@@ -857,7 +870,7 @@ export default function ApprovalsPage() {
                            </button>
                         </TableCell>
                         <TableCell>
-                          <span className="text-sm text-muted-foreground truncate max-w-[120px] block" title={r.serverId || undefined}>
+                          <span className="block max-w-[180px] truncate text-sm text-muted-foreground" title={r.serverId || undefined}>
                             {r.serverId || '—'}
                           </span>
                         </TableCell>
@@ -892,7 +905,7 @@ export default function ApprovalsPage() {
                         <TableCell className="text-sm text-muted-foreground">
                           {formatTime(r.createdAt)}
                         </TableCell>
-                        <TableCell className="text-sm text-muted-foreground max-w-[180px]" title={r.reason || undefined}>
+                        <TableCell className="max-w-[320px] text-sm text-muted-foreground" title={r.reason || undefined}>
                           <span className="block truncate">
                             {r.reason || '—'}
                           </span>
@@ -904,7 +917,7 @@ export default function ApprovalsPage() {
                               size="sm"
                               className="min-h-11 px-3 text-xs"
                               aria-label="View request details"
-                              onClick={() => setDetailDialog(r)}
+                              onClick={(event) => openDetailDialog(r, event.currentTarget)}
                             >
                               <Eye className="mr-1 h-3.5 w-3.5" />
                               Details
@@ -915,7 +928,7 @@ export default function ApprovalsPage() {
                                   size="sm"
                                   className="min-h-11 bg-emerald-600 px-3 text-xs text-white hover:bg-emerald-700"
                                   aria-label="Approve"
-                                  onClick={() => openDecideDialog(r, 'APPROVED')}
+                                  onClick={(event) => openDecideDialog(r, 'APPROVED', event.currentTarget)}
                                 >
                                   <CheckCircle2 className="mr-1 h-3.5 w-3.5" />
                                   Approve
@@ -925,7 +938,7 @@ export default function ApprovalsPage() {
                                   size="sm"
                                   className="min-h-11 px-3 text-xs"
                                   aria-label="Reject"
-                                  onClick={() => openDecideDialog(r, 'REJECTED')}
+                                  onClick={(event) => openDecideDialog(r, 'REJECTED', event.currentTarget)}
                                 >
                                   <XCircle className="mr-1 h-3.5 w-3.5" />
                                   Reject
@@ -960,7 +973,13 @@ export default function ApprovalsPage() {
       {/* Detail Dialog */}
       <Dialog open={!!detailDialog} onOpenChange={(open) => { if (!open && !detailDeciding) { setDetailDialog(null); setDetailDecideReason(''); } }}>
         {detailDialog && (
-          <DialogContent className="max-w-lg">
+          <ScrollableDialogContent
+            className="max-w-2xl"
+            onCloseAutoFocus={(event) => {
+              event.preventDefault()
+              lastDialogTriggerRef.current?.focus()
+            }}
+          >
             <DialogHeader>
               <DialogTitle className="flex items-center gap-2 text-base">
                  Review approval request
@@ -1129,14 +1148,20 @@ export default function ApprovalsPage() {
                 </Button>
               </div>
             </DialogFooter>
-          </DialogContent>
+          </ScrollableDialogContent>
         )}
       </Dialog>
 
       {/* Decide Dialog */}
       <Dialog open={!!decideDialog} onOpenChange={(open) => !open && setDecideDialog(null)}>
         {decideDialog && (
-          <DialogContent className="max-w-md">
+          <DialogContent
+            className="max-w-md"
+            onCloseAutoFocus={(event) => {
+              event.preventDefault()
+              lastDialogTriggerRef.current?.focus()
+            }}
+          >
             <DialogHeader>
               <DialogTitle className="text-base">
                 {decideDialog.decision === 'APPROVED' ? 'Approve request' : 'Reject request'}

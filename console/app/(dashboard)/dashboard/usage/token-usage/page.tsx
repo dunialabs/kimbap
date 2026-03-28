@@ -520,14 +520,14 @@ function TokenUsagePageContent() {
       </div>
       <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center">
         <Select value={String(timeRange)} onValueChange={(value) => setTimeRange(Number(value))}>
-          <SelectTrigger className="w-full sm:w-[180px]" aria-label="Time range"><SelectValue placeholder="Time range" /></SelectTrigger>
+          <SelectTrigger className="min-h-11 w-full sm:w-[180px]" aria-label="Time range"><SelectValue placeholder="Time range" /></SelectTrigger>
           <SelectContent>
             <SelectItem value="1">Last 24 hours</SelectItem>
             <SelectItem value="7">Last 7 days</SelectItem>
             <SelectItem value="30">Last 30 days</SelectItem>
           </SelectContent>
         </Select>
-        <Button className="w-full sm:w-auto" variant="outline" onClick={handleRefresh} disabled={loading || refreshing}><RefreshCw className={`mr-2 h-4 w-4 ${loading || refreshing ? 'animate-spin' : ''}`} />Refresh</Button>
+        <Button className="min-h-11 w-full sm:w-auto" variant="outline" onClick={handleRefresh} disabled={loading || refreshing}><RefreshCw className={`mr-2 h-4 w-4 ${loading || refreshing ? 'animate-spin' : ''}`} />Refresh</Button>
       </div>
       <p className="text-sm text-muted-foreground">Minute-level patterns are available only in the 24-hour view.</p>
       {!loading && loadError ? (
@@ -539,10 +539,10 @@ function TokenUsagePageContent() {
       ) : null}
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
-        <TabsList className="w-full justify-start overflow-x-auto">
-          <TabsTrigger className="shrink-0" value="overview">Overview</TabsTrigger>
-          <TabsTrigger className="shrink-0" value="geographic">Client Locations</TabsTrigger>
-          <TabsTrigger className="shrink-0" value="patterns">Usage Patterns</TabsTrigger>
+        <TabsList className="h-11 w-full justify-start overflow-x-auto">
+          <TabsTrigger className="min-h-11 shrink-0 px-4" value="overview">Overview</TabsTrigger>
+          <TabsTrigger className="min-h-11 shrink-0 px-4" value="geographic">Client Locations</TabsTrigger>
+          <TabsTrigger className="min-h-11 shrink-0 px-4" value="patterns">Usage Patterns</TabsTrigger>
         </TabsList>
 
         <TabsContent value="overview" className="space-y-4">
@@ -706,6 +706,8 @@ function TokenUsagePageContent() {
                       outerRadius={80}
                       fill="#8884d8"
                       dataKey="value"
+                      stroke="hsl(var(--background))"
+                      strokeWidth={1}
                     >
                       {pieData.map((entry, index) => (
                         <Cell
@@ -751,7 +753,7 @@ function TokenUsagePageContent() {
                 </div>
               ) : (
                 <div className="overflow-x-auto">
-                <Table className="min-w-[820px]">
+                <Table className="min-w-[920px]">
                   <TableHeader>
                     <TableRow>
                       <TableHead scope="col">Token Name</TableHead>
@@ -926,7 +928,7 @@ function TokenUsagePageContent() {
                 <ResponsiveContainer width="100%" height={400}>
                   <LineChart data={trendData}>
                     <CartesianGrid stroke={chartGridColor} strokeDasharray="3 3" />
-                    <XAxis dataKey="date" stroke={chartAxisColor} tick={{ fill: chartAxisColor }} />
+                    <XAxis dataKey="date" stroke={chartAxisColor} tick={{ fill: chartAxisColor }} tickMargin={8} minTickGap={24} />
                     <YAxis stroke={chartAxisColor} tick={{ fill: chartAxisColor }} />
                     <Tooltip
                       contentStyle={{ backgroundColor: 'hsl(var(--background))', borderColor: chartGridColor, color: chartTextColor }}
@@ -1000,7 +1002,7 @@ function TokenUsagePageContent() {
                         <ResponsiveContainer width="100%" height={200}>
                           <AreaChart data={patternUsage[token.tokenId]}>
                             <CartesianGrid stroke={chartGridColor} strokeDasharray="3 3" />
-                            <XAxis dataKey="timeLabel" stroke={chartAxisColor} tick={{ fill: chartAxisColor }} />
+                            <XAxis dataKey="timeLabel" stroke={chartAxisColor} tick={{ fill: chartAxisColor }} tickMargin={8} minTickGap={20} />
                             <YAxis stroke={chartAxisColor} tick={{ fill: chartAxisColor }} />
                             <Tooltip
                               contentStyle={{ backgroundColor: 'hsl(var(--background))', borderColor: chartGridColor, color: chartTextColor }}

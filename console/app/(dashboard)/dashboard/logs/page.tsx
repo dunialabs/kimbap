@@ -39,6 +39,7 @@ import {
 } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { Pagination, PaginationContent, PaginationItem } from '@/components/ui/pagination'
 import {
   Select,
   SelectContent,
@@ -904,10 +905,10 @@ function LogsPageContent() {
                   <TableHeader>
                     <TableRow>
                       <TableHead scope="col" className="w-[180px]">Timestamp</TableHead>
-                      <TableHead scope="col" className="w-[80px]">Level</TableHead>
-                      <TableHead scope="col" className="w-[200px]">Source</TableHead>
-                      <TableHead scope="col" className="w-[300px]">Message</TableHead>
-                      <TableHead scope="col" className="w-[100px]">Request ID</TableHead>
+                      <TableHead scope="col" className="w-[96px]">Level</TableHead>
+                      <TableHead scope="col" className="w-[180px]">Source</TableHead>
+                      <TableHead scope="col" className="w-[360px]">Message</TableHead>
+                      <TableHead scope="col" className="w-[140px]">Request ID</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -1119,37 +1120,43 @@ function LogsPageContent() {
               {totalPages > 1 && (
                 <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                   <div className="text-sm text-muted-foreground">
-                    Showing {(currentPage - 1) * pageSize + 1} to{' '}
-                    {formatDisplayNumber(Math.min(currentPage * pageSize, totalCount))} of{' '}
-                    {formatDisplayNumber(totalCount)} logs
+                    Showing {(currentPage - 1) * pageSize + 1} to {formatDisplayNumber(Math.min(currentPage * pageSize, totalCount))} of {formatDisplayNumber(totalCount)} logs
                   </div>
-                  <div className="flex gap-2">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="min-h-11"
-                      onClick={() =>
-                        setCurrentPage((prev) => Math.max(1, prev - 1))
-                      }
-                      disabled={currentPage === 1 || loading}
-                    >
-                      Previous
-                    </Button>
-                    <span className="flex items-center px-3 py-1 text-sm">
-                      Page {formatDisplayNumber(currentPage)} of {formatDisplayNumber(totalPages)}
-                    </span>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="min-h-11"
-                      onClick={() =>
-                        setCurrentPage((prev) => Math.min(totalPages, prev + 1))
-                      }
-                      disabled={currentPage === totalPages || loading}
-                    >
-                      Next
-                    </Button>
-                  </div>
+                  <Pagination className="mx-0 w-auto justify-start sm:justify-end">
+                    <PaginationContent>
+                      <PaginationItem>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="min-h-11"
+                          onClick={() =>
+                            setCurrentPage((prev) => Math.max(1, prev - 1))
+                          }
+                          disabled={currentPage === 1 || loading}
+                        >
+                          Previous
+                        </Button>
+                      </PaginationItem>
+                      <PaginationItem>
+                        <span className="flex min-h-11 items-center px-3 text-sm">
+                          Page {formatDisplayNumber(currentPage)} of {formatDisplayNumber(totalPages)}
+                        </span>
+                      </PaginationItem>
+                      <PaginationItem>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="min-h-11"
+                          onClick={() =>
+                            setCurrentPage((prev) => Math.min(totalPages, prev + 1))
+                          }
+                          disabled={currentPage === totalPages || loading}
+                        >
+                          Next
+                        </Button>
+                      </PaginationItem>
+                    </PaginationContent>
+                  </Pagination>
                 </div>
               )}
             </CardContent>

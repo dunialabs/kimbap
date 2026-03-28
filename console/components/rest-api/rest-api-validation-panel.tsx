@@ -138,6 +138,7 @@ export function RestApiValidationPanel({
   const [validationError, setValidationError] = useState<string | null>(null)
   const [isValidating, setIsValidating] = useState(false)
   const validationAbortRef = useRef<AbortController | null>(null)
+  const lastToolTriggerRef = useRef<HTMLElement | null>(null)
 
   const [connectionResult, setConnectionResult] = useState<ConnectionTestResponse | null>(null)
   const [connectionError, setConnectionError] = useState<string | null>(null)
@@ -245,8 +246,9 @@ export function RestApiValidationPanel({
   }, [parsedConfig, disabled])
 
   const openToolDialog = useCallback(
-    (tool: ToolDefinition) => {
+    (tool: ToolDefinition, trigger?: HTMLElement | null) => {
       if (!parsedConfig) return
+      lastToolTriggerRef.current = trigger ?? (document.activeElement instanceof HTMLElement ? document.activeElement : null)
       setActiveTool(tool)
 
       const initialValues: Record<string, string> = {}
@@ -542,7 +544,13 @@ export function RestApiValidationPanel({
       )}
 
       <Dialog open={toolDialogOpen} onOpenChange={setToolDialogOpen}>
-        <DialogContent className="max-h-[90vh] overflow-hidden sm:max-w-2xl">
+        <DialogContent
+          className="max-h-[90vh] overflow-hidden sm:max-w-2xl"
+          onCloseAutoFocus={(event) => {
+            event.preventDefault()
+            lastToolTriggerRef.current?.focus()
+          }}
+        >
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2 text-base">
               <Wrench className="h-4 w-4 text-primary" />
