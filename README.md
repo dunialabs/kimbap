@@ -43,6 +43,12 @@ and set up kimbap for this project.
 curl -fsSL https://raw.githubusercontent.com/dunialabs/kimbap/main/install.sh | bash
 ```
 
+The installer will prompt to run `kimbap init`. If you skip it, run manually:
+
+```bash
+kimbap init --mode dev
+```
+
 Or with Homebrew:
 
 ```bash
@@ -58,7 +64,7 @@ kimbap init --mode dev
 kimbap call apple-notes.list-notes
 ```
 
-Open Notes.app — your notes are listed. No credentials, no setup.
+Your notes are listed in the terminal. No credentials, no setup. macOS may prompt for Automation access on first use.
 
 ---
 

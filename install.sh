@@ -179,6 +179,10 @@ main() {
   info "Extracting archive..."
   tar -xzf "$archive" -C "$TMPDIR_KIMBAP"
 
+  if [[ ! -f "$TMPDIR_KIMBAP/kimbap" ]] || [[ ! -f "$TMPDIR_KIMBAP/kb" ]]; then
+    error "Archive is missing expected binaries (kimbap, kb). Release may be malformed."
+  fi
+
   INSTALL_PATH=""
   install_binary "$TMPDIR_KIMBAP"
 

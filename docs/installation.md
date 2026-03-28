@@ -138,7 +138,7 @@ Each command starts the OAuth flow for that provider and stores the resulting to
 
 ## Configure your AI agent
 
-kimbap ships with profiles for common AI coding agents. Profiles write an operating rules file into the agent's config directory so the agent knows kimbap is available and how to call it.
+kimbap ships with profiles for common AI coding agents. Profiles write an operating rules file into the current project directory so the agent discovers kimbap when working in that project.
 
 ```bash
 # Auto-detect and configure all installed agents
