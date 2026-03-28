@@ -498,7 +498,7 @@ export default function DashboardPage() {
         </CardHeader>
         <CardContent>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-            <div className="text-center p-3 rounded-lg border bg-muted/20 h-full flex flex-col gap-1 justify-center">
+            <div className="cursor-default text-center p-3 rounded-lg border bg-muted/20 h-full flex flex-col gap-1 justify-center">
               <div className="text-sm text-muted-foreground">Uptime</div>
               <div
                 className={
