@@ -46,7 +46,17 @@ interface RecentActivity {
   color: string
 }
 
+const activityColorClass: Record<string, string> = {
+  green: 'bg-green-500',
+  blue: 'bg-blue-500',
+  purple: 'bg-purple-500',
+  orange: 'bg-orange-500',
+  yellow: 'bg-amber-500',
+  red: 'bg-red-500',
+}
+
 function formatRelativeMinutes(totalMinutes: number) {
+  if (totalMinutes === 0) return 'just now'
   if (totalMinutes < 60) {
     return `${totalMinutes} minute${totalMinutes === 1 ? '' : 's'} ago`
   }
@@ -216,9 +226,9 @@ function UsagePageContent() {
         <h1 className="text-[30px] font-bold">Usage Overview</h1>
         <p className="text-base text-muted-foreground">Check request volume, token activity, and recent changes.</p>
       </div>
-      <div className="flex flex-wrap items-center gap-2">
+      <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center">
         <Select value={String(timeRange)} onValueChange={(value) => setTimeRange(Number(value))}>
-          <SelectTrigger className="w-[180px]" aria-label="Time range">
+          <SelectTrigger className="w-full sm:w-[180px]" aria-label="Time range">
             <SelectValue placeholder="Time range" />
           </SelectTrigger>
           <SelectContent>
@@ -227,16 +237,16 @@ function UsagePageContent() {
             <SelectItem value="30">Last 30 days</SelectItem>
           </SelectContent>
         </Select>
-        <Button variant="outline" onClick={handleRefresh} disabled={loading || refreshing}>
+        <Button className="w-full sm:w-auto" variant="outline" onClick={handleRefresh} disabled={loading || refreshing}>
           <RefreshCw className={`mr-2 h-4 w-4 ${loading || refreshing ? 'animate-spin' : ''}`} />
           Refresh
         </Button>
       </div>
       {!loading && loadError ? (
-        <div role="alert" className="flex items-center gap-2 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700 dark:border-red-900/40 dark:bg-red-950/20 dark:text-red-300">
+        <div role="alert" className="flex flex-col items-start gap-2 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700 dark:border-red-900/40 dark:bg-red-950/20 dark:text-red-300 sm:flex-row sm:items-center">
           <AlertTriangle className="h-4 w-4" aria-hidden="true" />
           <span>{loadError}</span>
-          <Button variant="outline" size="sm" className="ml-auto" onClick={handleRefresh}>
+          <Button variant="outline" size="sm" className="w-full sm:ml-auto sm:w-auto" onClick={handleRefresh}>
             Retry
           </Button>
         </div>
@@ -369,12 +379,12 @@ function UsagePageContent() {
           ) : (
             <div className="space-y-4">
               {topTools.map((tool) => (
-                <Link key={tool.toolName} href={`/dashboard/usage/tool-usage?timeRange=${timeRange}`} className="flex items-center justify-between rounded-md p-1 -m-1 hover:bg-muted/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2">
-                  <div className="flex items-center gap-3">
+                <Link key={tool.toolName} href={`/dashboard/usage/tool-usage?timeRange=${timeRange}`} className="flex flex-col gap-2 rounded-md p-1 -m-1 hover:bg-muted/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 sm:flex-row sm:items-center sm:justify-between">
+                  <div className="flex min-w-0 items-center gap-3">
                     <div className={`w-2 h-2 rounded-full`} style={{ backgroundColor: tool.color }}></div>
-                    <span className="font-medium">{tool.toolName}</span>
+                    <span className="truncate font-medium">{tool.toolName}</span>
                   </div>
-                  <div className="text-right">
+                  <div className="w-full text-left sm:w-auto sm:text-right">
                     <div className="font-medium">{tool.requestCount.toLocaleString()} requests</div>
                     <div className="text-sm text-muted-foreground">{tool.percentage.toFixed(1)}% of total</div>
                   </div>
@@ -412,12 +422,12 @@ function UsagePageContent() {
             ) : (
               <div className="space-y-3">
                 {activeTokens.map((token) => (
-                  <Link key={token.tokenMask} href={`/dashboard/usage/token-usage?timeRange=${timeRange}`} className="flex items-center justify-between gap-3 rounded-lg border p-3 hover:bg-muted/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2">
+                  <Link key={token.tokenMask} href={`/dashboard/usage/token-usage?timeRange=${timeRange}`} className="flex flex-col items-start gap-3 rounded-lg border p-3 hover:bg-muted/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 sm:flex-row sm:items-center sm:justify-between">
                     <div className="min-w-0">
                       <div className="font-medium">{token.tokenName}</div>
                       <div className="mt-1 font-mono text-xs text-muted-foreground">{token.tokenMask}</div>
                     </div>
-                    <div className="text-right">
+                    <div className="w-full text-left sm:w-auto sm:text-right">
                       <div className="font-medium">{token.requestCount.toLocaleString()} requests</div>
                       <div className={`text-sm ${token.isCurrentlyActive ? 'text-green-600 dark:text-green-400' : 'text-muted-foreground'}`}>
                         {token.isCurrentlyActive ? 'Used' : 'Last used'} {formatRelativeMinutes(token.lastUsedMinutesAgo)}
@@ -459,7 +469,7 @@ function UsagePageContent() {
                 ) : null}
                 {recentActivity.map((activity) => (
                   <Link key={`${activity.timestamp}-${activity.description}`} href={`/dashboard/logs?timeRange=${logsTimeRange}`} className="flex items-start gap-3 rounded-md p-1 -m-1 hover:bg-muted/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2">
-                    <div className={`w-2 h-2 rounded-full mt-2`} style={{ backgroundColor: activity.color }}></div>
+                    <div className={`w-2 h-2 rounded-full mt-2 ${activityColorClass[activity.color] || 'bg-muted-foreground'}`}></div>
                     <div className="flex-1">
                       <div className="text-sm font-medium">{activity.description}</div>
                       <div className="text-xs text-muted-foreground">{activity.details}</div>
