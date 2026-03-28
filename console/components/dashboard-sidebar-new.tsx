@@ -67,6 +67,7 @@ export function DashboardSidebar() {
             {pendingApprovalCount > 0 && (
               <span
                 aria-hidden="true"
+                title={`${pendingApprovalCount} pending approval${pendingApprovalCount === 1 ? '' : 's'}`}
                 className="pointer-events-none absolute -right-1 -top-1 inline-flex h-5 min-w-[20px] items-center justify-center rounded-full bg-amber-100 px-1.5 text-xs font-medium text-amber-800 dark:bg-amber-900 dark:text-amber-300"
               >
                 {pendingApprovalCount > 99 ? '99+' : pendingApprovalCount}
