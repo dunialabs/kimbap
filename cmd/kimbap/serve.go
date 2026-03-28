@@ -138,8 +138,11 @@ func buildServeRuntime(cfg *config.KimbapConfig, st *store.SQLStore, vaultStore 
 		writers = append(writers, &storeAuditWriter{st: st})
 	}
 	var auditWriter runtime.AuditWriter
+	var auditCloser interface{ Close() error }
 	if len(writers) > 0 {
-		auditWriter = app.NewAuditWriterAdapter(audit.NewMultiWriter(writers...))
+		multiWriter := audit.NewMultiWriter(writers...)
+		auditWriter = app.NewAuditWriterAdapter(multiWriter)
+		auditCloser = multiWriter
 	}
 
 	approvalMgr := approvals.NewApprovalManager(
@@ -169,7 +172,7 @@ func buildServeRuntime(cfg *config.KimbapConfig, st *store.SQLStore, vaultStore 
 		}
 	}
 
-	return app.BuildRuntime(app.RuntimeDeps{
+	rt, err := app.BuildRuntime(app.RuntimeDeps{
 		Config:           cfg,
 		VaultStore:       vaultStore,
 		ConnectorStore:   connStore,
@@ -181,6 +184,14 @@ func buildServeRuntime(cfg *config.KimbapConfig, st *store.SQLStore, vaultStore 
 		ApprovalManager:  app.NewApprovalManagerAdapter(approvalMgr),
 		HeldStore:        st,
 	})
+	if err != nil {
+		if auditCloser != nil {
+			_ = auditCloser.Close()
+		}
+		closeConnectorStoreIfPossible(connStore)
+		return nil, err
+	}
+	return rt, nil
 }
 
 type storeAuditWriter struct {

@@ -443,20 +443,9 @@ func resolveVaultMasterKey(cfg *config.KimbapConfig) ([]byte, error) {
 		return nil, fmt.Errorf("vault master key is required: set KIMBAP_MASTER_KEY_HEX or enable dev mode (--mode dev or KIMBAP_DEV=true)")
 	}
 	devKeyPath := filepath.Join(cfg.DataDir, ".dev-master-key")
-	existing, readErr := os.ReadFile(devKeyPath)
+	existing, readErr := readPersistedDevMasterKey(devKeyPath)
 	if readErr == nil {
-		if len(existing) == 32 {
-			return existing, nil
-		}
-		// Short read — another process may still be writing. Retry briefly.
-		for range 10 {
-			time.Sleep(50 * time.Millisecond)
-			existing, readErr = os.ReadFile(devKeyPath)
-			if readErr == nil && len(existing) == 32 {
-				return existing, nil
-			}
-		}
-		return nil, fmt.Errorf("invalid dev master key at %s: expected 32 bytes, got %d", devKeyPath, len(existing))
+		return existing, nil
 	}
 	if !os.IsNotExist(readErr) {
 		return nil, fmt.Errorf("read dev master key %s: %w", devKeyPath, readErr)
@@ -471,10 +460,11 @@ func resolveVaultMasterKey(cfg *config.KimbapConfig) ([]byte, error) {
 	f, err := os.OpenFile(devKeyPath, os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0o600)
 	if err != nil {
 		if os.IsExist(err) {
-			existing, readErr := os.ReadFile(devKeyPath)
-			if readErr == nil && len(existing) == 32 {
+			existing, readErr := readPersistedDevMasterKey(devKeyPath)
+			if readErr == nil {
 				return existing, nil
 			}
+			return nil, fmt.Errorf("read dev master key %s after concurrent create: %w", devKeyPath, readErr)
 		}
 		return nil, fmt.Errorf("persist dev master key: %w", err)
 	}
@@ -485,6 +475,27 @@ func resolveVaultMasterKey(cfg *config.KimbapConfig) ([]byte, error) {
 		return nil, fmt.Errorf("write dev master key: %w", writeErr)
 	}
 	return key, nil
+}
+
+func readPersistedDevMasterKey(path string) ([]byte, error) {
+	existing, readErr := os.ReadFile(path)
+	if readErr != nil {
+		return nil, readErr
+	}
+	if len(existing) == 32 {
+		return existing, nil
+	}
+	for range 10 {
+		time.Sleep(50 * time.Millisecond)
+		existing, readErr = os.ReadFile(path)
+		if readErr == nil && len(existing) == 32 {
+			return existing, nil
+		}
+	}
+	if readErr != nil {
+		return nil, readErr
+	}
+	return nil, fmt.Errorf("invalid dev master key at %s: expected 32 bytes, got %d", path, len(existing))
 }
 
 func parseJSONMap(raw string) (map[string]any, error) {

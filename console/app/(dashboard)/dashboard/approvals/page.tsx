@@ -268,9 +268,6 @@ export default function ApprovalsPage() {
   } | null>(null);
   const [decideReason, setDecideReason] = useState('');
   const [deciding, setDeciding] = useState(false);
-  const [detailDecideReason, setDetailDecideReason] = useState('');
-  const [detailDeciding, setDetailDeciding] = useState(false);
-  const [detailDecisionAction, setDetailDecisionAction] = useState<'APPROVED' | 'REJECTED' | null>(null);
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
   const decideReasonRef = useRef<HTMLTextAreaElement>(null);
   const lastDialogTriggerRef = useRef<HTMLElement | null>(null);
@@ -530,34 +527,12 @@ export default function ApprovalsPage() {
     }
   };
 
-  const handleDetailDecide = async (decision: 'APPROVED' | 'REJECTED') => {
+  const openDecisionFromDetail = (decision: 'APPROVED' | 'REJECTED') => {
     if (!detailDialog) return;
-    setDetailDeciding(true);
-    setDetailDecisionAction(decision);
-    try {
-      await api.approvals.decide({
-        id: detailDialog.id,
-        decision,
-        reason: detailDecideReason.trim() || undefined,
-      });
-      const label = decision === 'APPROVED' ? 'approved' : 'rejected';
-      toast.success(`${detailDialog.toolName} request ${label}. The queue refreshed so you can review the next request.`);
-      setDetailDialog(null);
-      setDetailDecideReason('');
-      void fetchData({ page: 1, pageSize: loadedPagesRef.current * BASE_PAGE_SIZE });
-    } catch (error: unknown) {
-      const actionLabel = decision === 'APPROVED' ? 'approve' : 'reject';
-      toast.error(
-        getRequestErrorMessage(error, {
-          auth: `Could not ${actionLabel} ${detailDialog.toolName} because your session expired or your access changed. Sign in again and retry.`,
-          network: `Could not ${actionLabel} ${detailDialog.toolName}. Check your connection and retry.`,
-          fallback: `Could not ${actionLabel} ${detailDialog.toolName} request.`
-        })
-      );
-    } finally {
-      setDetailDeciding(false);
-      setDetailDecisionAction(null);
-    }
+
+    setDecideReason('');
+    setDecideDialog({ request: detailDialog, decision });
+    setDetailDialog(null);
   };
 
   return (
@@ -975,7 +950,7 @@ export default function ApprovalsPage() {
       )}
 
       {/* Detail Dialog */}
-      <Dialog open={!!detailDialog} onOpenChange={(open) => { if (!open && !detailDeciding) { setDetailDialog(null); setDetailDecideReason(''); } }}>
+      <Dialog open={!!detailDialog} onOpenChange={(open) => { if (!open) { setDetailDialog(null); } }}>
         {detailDialog && (
           <ScrollableDialogContent
             className="max-w-2xl"
@@ -1039,7 +1014,7 @@ export default function ApprovalsPage() {
 
               {detailDialog.decisionReason && (
                 <div>
-                  <Label className="text-xs text-muted-foreground">Decision Reason</Label>
+                  <Label className="text-xs text-muted-foreground">Decision note</Label>
                   <p className="mt-1 text-sm">{detailDialog.decisionReason}</p>
                 </div>
               )}
@@ -1103,51 +1078,32 @@ export default function ApprovalsPage() {
             <DialogFooter className="flex-col items-stretch gap-3 sm:flex-col">
               {detailDialog.status === 'PENDING' && (
                 <div className="space-y-3 border-t pt-3">
-                  <div className="space-y-1.5">
-                    <Label htmlFor="approval-detail-decision-reason">Decision reason (optional)</Label>
-                    <Textarea
-                      id="approval-detail-decision-reason"
-                      placeholder="e.g., Needed for an incident fix"
-                      value={detailDecideReason}
-                      onChange={(e) => setDetailDecideReason(e.target.value)}
-                      rows={2}
-                      disabled={detailDeciding}
-                      className="text-sm resize-none"
-                    />
-                  </div>
+                  <p className="text-sm text-muted-foreground">
+                    Approve or reject in the next step. You can add an optional note before you confirm.
+                  </p>
                   <div className="flex flex-col gap-2 sm:flex-row">
                     <Button
                       size="sm"
                       className="min-h-11 w-full sm:w-auto bg-emerald-600 text-white hover:bg-emerald-700"
-                      onClick={() => handleDetailDecide('APPROVED')}
-                      disabled={detailDeciding}
+                      onClick={() => openDecisionFromDetail('APPROVED')}
                     >
-                      {detailDeciding && detailDecisionAction === 'APPROVED' ? (
-                        <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
-                      ) : (
-                        <CheckCircle2 className="mr-1.5 h-3.5 w-3.5" />
-                      )}
-                      Approve
+                      <CheckCircle2 className="mr-1.5 h-3.5 w-3.5" />
+                      Approve…
                     </Button>
                     <Button
                       size="sm"
                       variant="destructive"
                       className="min-h-11 w-full sm:w-auto"
-                      onClick={() => handleDetailDecide('REJECTED')}
-                      disabled={detailDeciding}
+                      onClick={() => openDecisionFromDetail('REJECTED')}
                     >
-                      {detailDeciding && detailDecisionAction === 'REJECTED' ? (
-                        <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
-                      ) : (
-                        <XCircle className="mr-1.5 h-3.5 w-3.5" />
-                      )}
-                      Reject
+                      <XCircle className="mr-1.5 h-3.5 w-3.5" />
+                      Reject…
                     </Button>
                   </div>
                 </div>
               )}
               <div className="flex justify-stretch sm:justify-end">
-                <Button variant="outline" className="min-h-11 w-full sm:w-auto" onClick={() => { setDetailDialog(null); setDetailDecideReason(''); }} disabled={detailDeciding}>
+                <Button variant="outline" className="min-h-11 w-full sm:w-auto" onClick={() => setDetailDialog(null)}>
                   Close
                 </Button>
               </div>
@@ -1192,7 +1148,7 @@ export default function ApprovalsPage() {
                 </div>
               )}
               <div className="space-y-1.5">
-                <Label>Decision reason (optional)</Label>
+                <Label>Add note with this decision (optional)</Label>
                 <Textarea
                   placeholder={
                     decideDialog.decision === 'APPROVED'
@@ -1206,6 +1162,9 @@ export default function ApprovalsPage() {
                   disabled={deciding}
                   className="text-sm resize-none"
                 />
+                <p className="text-xs text-muted-foreground">
+                  This note is saved with the request and shown in the detail view.
+                </p>
               </div>
             </div>
             <DialogFooter>
