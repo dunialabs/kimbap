@@ -1173,7 +1173,9 @@ export default function ApprovalsPage() {
                   disabled={deciding}
                   className="text-sm resize-none"
                 />
-                <p className="text-[11px] text-muted-foreground">{decideReason.trim().length} characters</p>
+                {decideReason.trim().length > 0 && (
+                  <p className="text-[11px] text-muted-foreground">{decideReason.trim().length} characters</p>
+                )}
                 <p className="text-xs text-muted-foreground">
                   This note is saved with the request and shown in the detail view.
                 </p>
