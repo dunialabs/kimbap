@@ -321,8 +321,9 @@ func TestProxyRuntimePolicyDenialReturnsJSONWith403(t *testing.T) {
 	rt := runtime.NewRuntime(runtime.Runtime{
 		PolicyEvaluator: denyPolicyEvaluator{},
 		ActionRegistry: staticActionRegistry{def: actions.ActionDefinition{
-			Name: "test-svc.test-action",
-			Auth: actions.AuthRequirement{Type: actions.AuthTypeNone},
+			Name:       "test-svc.test-action",
+			Idempotent: true,
+			Auth:       actions.AuthRequirement{Type: actions.AuthTypeNone},
 		}},
 		Adapters: map[string]adapters.Adapter{"http": echoAdapter{}},
 	})
@@ -376,9 +377,10 @@ func TestProxyRuntime5xxErrorReturnsMaskedPlainText(t *testing.T) {
 	rt := runtime.NewRuntime(runtime.Runtime{
 		PolicyEvaluator: allowPolicyEvaluator{},
 		ActionRegistry: staticActionRegistry{def: actions.ActionDefinition{
-			Name:    "test-svc.test-action",
-			Auth:    actions.AuthRequirement{Type: actions.AuthTypeNone},
-			Adapter: actions.AdapterConfig{Type: "nonexistent-adapter"},
+			Name:       "test-svc.test-action",
+			Idempotent: true,
+			Auth:       actions.AuthRequirement{Type: actions.AuthTypeNone},
+			Adapter:    actions.AdapterConfig{Type: "nonexistent-adapter"},
 		}},
 		Adapters: map[string]adapters.Adapter{},
 	})
@@ -422,9 +424,10 @@ func TestProxyRuntimeSuccessReturnsJSON(t *testing.T) {
 	rt := runtime.NewRuntime(runtime.Runtime{
 		PolicyEvaluator: allowPolicyEvaluator{},
 		ActionRegistry: staticActionRegistry{def: actions.ActionDefinition{
-			Name:    "test-svc.test-action",
-			Auth:    actions.AuthRequirement{Type: actions.AuthTypeNone},
-			Adapter: actions.AdapterConfig{Type: "http"},
+			Name:       "test-svc.test-action",
+			Idempotent: true,
+			Auth:       actions.AuthRequirement{Type: actions.AuthTypeNone},
+			Adapter:    actions.AdapterConfig{Type: "http"},
 		}},
 		Adapters: map[string]adapters.Adapter{"http": echoAdapter{}},
 	})
@@ -462,6 +465,54 @@ func TestProxyRuntimeSuccessReturnsJSON(t *testing.T) {
 	output, ok := result["Output"].(map[string]any)
 	if !ok || output["proxied"] != true {
 		t.Fatalf("expected Output.proxied=true, got %v", result["Output"])
+	}
+}
+
+func TestProxyRuntimeRequiresExplicitIdempotencyKeyForNonIdempotentAction(t *testing.T) {
+	target := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer target.Close()
+
+	targetURL, _ := url.Parse(target.URL)
+	rt := runtime.NewRuntime(runtime.Runtime{
+		PolicyEvaluator: allowPolicyEvaluator{},
+		ActionRegistry: staticActionRegistry{def: actions.ActionDefinition{
+			Name:       "test-svc.test-action",
+			Idempotent: false,
+			Auth:       actions.AuthRequirement{Type: actions.AuthTypeNone},
+			Adapter:    actions.AdapterConfig{Type: "http"},
+		}},
+		Adapters: map[string]adapters.Adapter{"http": echoAdapter{}},
+	})
+
+	proxyAddr, stop := startTestProxyWithRuntime(t, testClassifierForHost(t, targetURL.Hostname()), UnmatchedPolicyAllow, rt)
+	defer stop()
+
+	proxyURL, _ := url.Parse("http://" + proxyAddr)
+	client := &http.Client{Transport: &http.Transport{Proxy: http.ProxyURL(proxyURL)}}
+
+	resp, err := client.Get(target.URL + "/api")
+	if err != nil {
+		t.Fatalf("request via proxy failed: %v", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusBadRequest {
+		b, _ := io.ReadAll(resp.Body)
+		t.Fatalf("expected 400 without idempotency key, got %d body=%s", resp.StatusCode, string(b))
+	}
+
+	var result map[string]any
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		t.Fatalf("failed to decode JSON response: %v", err)
+	}
+	errObj, ok := result["Error"].(map[string]any)
+	if !ok {
+		t.Fatalf("expected Error object, got %T", result["Error"])
+	}
+	if errObj["Code"] != "ERR_IDEMPOTENCY_REQUIRED" {
+		t.Fatalf("expected ERR_IDEMPOTENCY_REQUIRED, got %v", errObj["Code"])
 	}
 }
 

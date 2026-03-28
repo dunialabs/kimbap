@@ -476,9 +476,6 @@ func (p *ProxyServer) executeClassifiedRequest(ctx context.Context, req *http.Re
 	actionName := buildActionName(classification)
 
 	idempotencyKey := strings.TrimSpace(req.Header.Get("Idempotency-Key"))
-	if idempotencyKey == "" {
-		idempotencyKey = requestID
-	}
 	result := p.runtime.Execute(ctx, actions.ExecutionRequest{
 		RequestID:      requestID,
 		IdempotencyKey: idempotencyKey,
