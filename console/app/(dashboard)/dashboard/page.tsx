@@ -300,7 +300,7 @@ export default function DashboardPage() {
     ? 'Checking the approval queue…'
     : hasPendingApprovals
     ? `Review ${formatDisplayNumber(pendingApprovalCount)} request${pendingApprovalCount === 1 ? '' : 's'} waiting on a decision.`
-    : 'No approvals yet. Requests that need an operator decision will appear here.'
+    : 'No approvals yet. Add approval rules in Policies to route sensitive calls here.'
   const localAddressText = isDashboardLoading ? 'Loading address…' : formatNullableText(localAddress)
   const remoteAddressText = isDashboardLoading ? 'Loading address…' : formatNullableText(remoteAddress)
   const hasRecordedDashboardActivity =
