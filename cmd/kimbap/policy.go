@@ -54,11 +54,14 @@ func newPolicySetCommand() *cobra.Command {
 				return err
 			}
 
-			return printOutput(map[string]any{
-				"policy_path": cfg.Policy.Path,
-				"rule_count":  len(doc.Rules),
-				"version":     doc.Version,
-			})
+			if outputAsJSON() {
+				return printOutput(map[string]any{
+					"policy_path": cfg.Policy.Path,
+					"rule_count":  len(doc.Rules),
+					"version":     doc.Version,
+				})
+			}
+			return printOutput(fmt.Sprintf("✓ policy loaded (%d rules, version %s)", len(doc.Rules), doc.Version))
 		},
 	}
 	cmd.Flags().StringVar(&filePath, "file", "", "policy file path")

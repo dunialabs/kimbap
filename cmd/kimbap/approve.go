@@ -116,12 +116,15 @@ func newApproveDenyCommand() *cobra.Command {
 					}
 					return fmt.Errorf("deny failed: %w", err)
 				}
-				return printOutput(map[string]any{
-					"request_id":  args[0],
-					"status":      "denied",
-					"resolved_by": "cli",
-					"reason":      reason,
-				})
+				if outputAsJSON() {
+					return printOutput(map[string]any{
+						"request_id":  args[0],
+						"status":      "denied",
+						"resolved_by": "cli",
+						"reason":      reason,
+					})
+				}
+				return printOutput(fmt.Sprintf("✓ %s denied", args[0]))
 			})
 			if err != nil {
 				if isRuntimeStoreUnavailable(err) {
@@ -165,11 +168,14 @@ func runApproveAccept(requestID string) error {
 			return fmt.Errorf("approve failed: %w", err)
 		}
 
-		return printOutput(map[string]any{
-			"request_id":  requestID,
-			"status":      "approved",
-			"resolved_by": "cli",
-		})
+		if outputAsJSON() {
+			return printOutput(map[string]any{
+				"request_id":  requestID,
+				"status":      "approved",
+				"resolved_by": "cli",
+			})
+		}
+		return printOutput(fmt.Sprintf("✓ %s approved", requestID))
 	})
 	if err != nil {
 		if isRuntimeStoreUnavailable(err) {

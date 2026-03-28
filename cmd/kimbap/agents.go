@@ -54,8 +54,20 @@ func newAgentsSetupCommand() *cobra.Command {
 				return err
 			}
 
-			if err := printOutput(results); err != nil {
-				return err
+			if outputAsJSON() {
+				if err := printOutput(results); err != nil {
+					return err
+				}
+			} else {
+				for _, r := range results {
+					if r.Error != "" {
+						fmt.Printf("  ✗ %-16s %s\n", r.Agent, r.Error)
+					} else if r.Skipped {
+						fmt.Printf("  - %-16s skipped\n", r.Agent)
+					} else {
+						fmt.Printf("  ✓ %-16s skill written\n", r.Agent)
+					}
+				}
 			}
 
 			var errs []string
@@ -172,7 +184,19 @@ func newAgentsSyncCommand() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			return printOutput(result)
+			if outputAsJSON() {
+				return printOutput(result)
+			}
+			fmt.Printf("Agents found: %d\n", result.AgentsFound)
+			for _, r := range result.SyncResults {
+				icon := "✓"
+				if len(r.Failed) > 0 {
+					icon = "✗"
+				}
+				fmt.Printf("  %s %-16s written=%d skipped=%d failed=%d\n",
+					icon, r.Agent, len(r.Written), len(r.Skipped), len(r.Failed))
+			}
+			return nil
 		},
 	}
 
@@ -207,10 +231,58 @@ func newAgentsStatusCommand() *cobra.Command {
 				return projectErr
 			}
 
-			return printOutput(combinedStatusResult{
+			combined := combinedStatusResult{
 				Global:  globalResults,
 				Project: projectResults,
-			})
+			}
+
+			if outputAsJSON() {
+				return printOutput(combined)
+			}
+
+			if len(combined.Global) > 0 {
+				fmt.Println("Global:")
+				for _, r := range combined.Global {
+					icon := "✗"
+					if r.Detected {
+						icon = "✓"
+					}
+					skill := "absent"
+					if r.AgentSkillPresent {
+						skill = "present"
+					}
+					inject := "absent"
+					if r.InjectPresent {
+						inject = "present"
+					}
+					fmt.Printf("  %s %-16s skill=%-10s instruction=%s\n", icon, r.Agent, skill, inject)
+				}
+			}
+
+			if len(combined.Project) > 0 {
+				fmt.Printf("Project (%s):\n", dir)
+				for _, r := range combined.Project {
+					icon := "✗"
+					if r.Detected {
+						icon = "✓"
+					}
+					synced := "-"
+					if len(r.SyncedServices) > 0 {
+						synced = strings.Join(r.SyncedServices, ", ")
+					}
+					rules := "absent"
+					if r.RulesPresent {
+						rules = "present"
+					}
+					fmt.Printf("  %s %-16s synced=%-20s rules=%s\n", icon, r.Agent, synced, rules)
+				}
+			}
+
+			if len(combined.Global) == 0 && len(combined.Project) == 0 {
+				fmt.Println("No agent configurations found.")
+			}
+
+			return nil
 		},
 	}
 

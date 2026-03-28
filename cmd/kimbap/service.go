@@ -67,7 +67,14 @@ func newServiceInstallCommand() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			return printOutput(installed)
+			if outputAsJSON() {
+				return printOutput(installed)
+			}
+			status := "enabled"
+			if !installed.Enabled {
+				status = "disabled"
+			}
+			return printOutput(fmt.Sprintf("✓ %s (%s) installed [%s]", installed.Manifest.Name, installed.Manifest.Version, status))
 		},
 	}
 	cmd.Flags().BoolVar(&force, "force", false, "overwrite existing service if already installed")
@@ -396,8 +403,8 @@ func newServiceVerifyCommand() *cobra.Command {
 				if verifyErr != nil {
 					return verifyErr
 				}
-				if includeSignatures && !outputAsJSON() {
-					printServiceVerifyResultText(*result, true)
+				if !outputAsJSON() {
+					printServiceVerifyResultText(*result, includeSignatures)
 				} else {
 					if printErr := printOutput(result); printErr != nil {
 						return printErr
@@ -421,9 +428,9 @@ func newServiceVerifyCommand() *cobra.Command {
 				}
 				results = append(results, *result)
 			}
-			if includeSignatures && !outputAsJSON() {
+			if !outputAsJSON() {
 				for _, result := range results {
-					printServiceVerifyResultText(result, true)
+					printServiceVerifyResultText(result, includeSignatures)
 				}
 			} else {
 				if printErr := printOutput(results); printErr != nil {

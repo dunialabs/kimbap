@@ -65,7 +65,10 @@ func newVaultSetCommand() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			return printOutput(rec)
+			if outputAsJSON() {
+				return printOutput(rec)
+			}
+			return printOutput(fmt.Sprintf("✓ %s stored (%s)", rec.Name, rec.Type))
 		},
 	}
 	cmd.Flags().StringVar(&filePath, "file", "", "read secret from file path")
@@ -100,7 +103,19 @@ func newVaultGetCommand() *cobra.Command {
 				if err != nil {
 					return err
 				}
-				return printOutput(rec)
+				if outputAsJSON() {
+					return printOutput(rec)
+				}
+				fmt.Printf("Name:       %s\n", rec.Name)
+				fmt.Printf("Type:       %s\n", rec.Type)
+				fmt.Printf("Updated:    %s\n", rec.UpdatedAt.Format(time.RFC3339))
+				lastUsed := "-"
+				if rec.LastUsedAt != nil {
+					lastUsed = rec.LastUsedAt.Format(time.RFC3339)
+				}
+				fmt.Printf("Last Used:  %s\n", lastUsed)
+				fmt.Printf("Version:    %d\n", rec.CurrentVersion)
+				return nil
 			}
 
 			if reveal && !confirmReveal {
@@ -203,7 +218,10 @@ func newVaultRotateCommand() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			return printOutput(rec)
+			if outputAsJSON() {
+				return printOutput(rec)
+			}
+			return printOutput(fmt.Sprintf("✓ %s rotated (version %d)", rec.Name, rec.CurrentVersion))
 		},
 	}
 	cmd.Flags().StringVar(&filePath, "file", "", "read new secret from file path")
