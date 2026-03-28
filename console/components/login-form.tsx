@@ -59,6 +59,10 @@ function getLoginErrorMessage(
     return rawMessage
   }
 
+  if (rawMessage.toLowerCase().includes('configuration not found')) {
+    return 'Server setup is incomplete. Configure Kimbap Core host and port, then try again.'
+  }
+
   if (status === 401 || status === 403) {
     return rawMessage || (mode === 'password'
       ? "We couldn't verify that master password. Check it and try again."
@@ -96,7 +100,16 @@ export function LoginForm({
 
   useEffect(() => {
     const frame = window.requestAnimationFrame(() => {
-      credentialInputRef.current?.focus()
+      const input = credentialInputRef.current
+      if (!input) {
+        return
+      }
+
+      input.focus()
+      if (loginMode === 'password') {
+        const end = input.value.length
+        input.setSelectionRange(end, end)
+      }
     })
 
     return () => window.cancelAnimationFrame(frame)
@@ -229,8 +242,8 @@ export function LoginForm({
         </p>
       </div>
       <fieldset className="m-0 border-0 p-0">
-        <legend className="sr-only">Login method</legend>
-        <div className="grid grid-cols-2 gap-2 rounded-xl border border-border bg-muted/30 p-1" role="radiogroup" aria-label="Login method">
+        <legend className="sr-only">Sign-in method</legend>
+        <div className="grid grid-cols-2 gap-2 rounded-xl border border-border bg-muted/30 p-1" role="radiogroup" aria-label="Sign-in method">
           <label
             className={`flex min-h-11 w-full cursor-pointer items-center justify-center rounded-lg px-4 py-2.5 text-sm transition-colors focus-within:ring-2 focus-within:ring-blue-500 focus-within:ring-offset-2 ${
               loginMode === 'password'
@@ -404,7 +417,7 @@ export function LoginForm({
         {isLoggingIn ? (
           <>
             <Loader2 className="mr-2 h-4 w-4 animate-spin" aria-hidden="true" />
-            Sign in
+            Signing in…
           </>
         ) : (
           <>
