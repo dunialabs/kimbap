@@ -656,6 +656,8 @@ func mapAuditStatus(event runtimepkg.AuditEvent) audit.AuditStatus {
 		return audit.AuditStatusApprovalRequired
 	case actions.StatusTimeout:
 		return audit.AuditStatusTimeout
+	case actions.StatusCancelled:
+		return audit.AuditStatusCancelled
 	default:
 		return audit.AuditStatusError
 	}

@@ -131,11 +131,11 @@ func buildServeRuntime(cfg *config.KimbapConfig, st *store.SQLStore, vaultStore 
 		if jwErr != nil {
 			_, _ = fmt.Fprintln(os.Stderr, "warning: JSONL audit writer init failed:", jwErr)
 		} else {
-			writers = append(writers, jw)
+			writers = append(writers, audit.NewRedactingWriter(jw))
 		}
 	}
 	if st != nil {
-		writers = append(writers, &storeAuditWriter{st: st})
+		writers = append(writers, audit.NewRedactingWriter(&storeAuditWriter{st: st}))
 	}
 	var auditWriter runtime.AuditWriter
 	var auditCloser interface{ Close() error }

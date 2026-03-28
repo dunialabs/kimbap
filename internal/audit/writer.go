@@ -266,3 +266,28 @@ func shouldRedact(key string, patterns []string) bool {
 	}
 	return false
 }
+
+var DefaultRedactPatterns = []string{
+	"password", "secret", "token", "key", "credential",
+	"authorization", "cookie", "api_key", "apikey", "private",
+}
+
+type RedactingWriter struct {
+	inner Writer
+	r     *redactor
+}
+
+func NewRedactingWriter(inner Writer, patterns ...string) *RedactingWriter {
+	if len(patterns) == 0 {
+		patterns = DefaultRedactPatterns
+	}
+	return &RedactingWriter{inner: inner, r: newRedactor(patterns...)}
+}
+
+func (w *RedactingWriter) Write(ctx context.Context, event AuditEvent) error {
+	return w.inner.Write(ctx, w.r.Redact(event))
+}
+
+func (w *RedactingWriter) Close() error {
+	return w.inner.Close()
+}

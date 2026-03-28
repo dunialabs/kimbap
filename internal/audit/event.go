@@ -36,4 +36,5 @@ const (
 	AuditStatusApprovalRequired AuditStatus = "approval_required"
 	AuditStatusValidationFailed AuditStatus = "validation_failed"
 	AuditStatusTimeout          AuditStatus = "timeout"
+	AuditStatusCancelled        AuditStatus = "cancelled"
 )
