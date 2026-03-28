@@ -1339,6 +1339,18 @@ export default function PoliciesPage() {
                         onRemove={() => handleRuleRemove(i)}
                       />
                     ))}
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="min-h-11 w-full"
+                      onClick={() => {
+                        setFormRules((prev) => [...prev, emptyRule()])
+                        setIsDirty(true)
+                      }}
+                    >
+                      <Plus className="mr-1 h-3.5 w-3.5" />
+                      Add Rule
+                    </Button>
                   </div>
                 )}
               </div>
