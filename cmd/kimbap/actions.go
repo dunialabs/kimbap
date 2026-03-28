@@ -134,6 +134,30 @@ func newActionsCommand() *cobra.Command {
 					}
 					fmt.Printf("  - %s: %s (%s)\n", key, s.Type, required)
 				}
+
+				var requiredParts, optionalParts []string
+				for _, key := range keys {
+					s := def.InputSchema.Properties[key]
+					paramType := s.Type
+					if paramType == "" {
+						paramType = "value"
+					}
+					if slices.Contains(def.InputSchema.Required, key) {
+						requiredParts = append(requiredParts, fmt.Sprintf("--%s <%s>", key, paramType))
+					} else {
+						optionalParts = append(optionalParts, fmt.Sprintf("[--%s <%s>]", key, paramType))
+					}
+				}
+				fmt.Printf("Usage:\n  kimbap call %s", def.Name)
+				for _, p := range requiredParts {
+					fmt.Printf(" %s", p)
+				}
+				for _, p := range optionalParts {
+					fmt.Printf(" %s", p)
+				}
+				fmt.Println()
+			} else {
+				fmt.Printf("Usage:\n  kimbap call %s\n", def.Name)
 			}
 			return nil
 		},

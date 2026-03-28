@@ -63,7 +63,15 @@ func newLinkCommand() *cobra.Command {
 			lookup := strings.ToLower(service)
 			info, ok := services[lookup]
 			if !ok {
-				return fmt.Errorf("service %q not found in installed actions", service)
+				names := make([]string, 0, len(services))
+				for key := range services {
+					names = append(names, key)
+				}
+				hint := "Run 'kimbap link list' to see available services."
+				if suggestion := didYouMean(lookup, names); suggestion != "" {
+					hint = fmt.Sprintf("Did you mean %q? Run 'kimbap link list' to see available services.", suggestion)
+				}
+				return fmt.Errorf("service %q not found in installed services. %s", service, hint)
 			}
 
 			if info.AuthType == actions.AuthTypeNone {

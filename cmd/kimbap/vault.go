@@ -5,6 +5,7 @@ import (
 	"io"
 	"os"
 	"strings"
+	"time"
 
 	"github.com/dunialabs/kimbap/internal/vault"
 	"github.com/spf13/cobra"
@@ -132,7 +133,7 @@ func newVaultListCommand() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "list",
 		Short: "List stored secret metadata",
-		RunE: func(_ *cobra.Command, _ []string) error {
+		RunE: func(cmd *cobra.Command, _ []string) error {
 			cfg, err := loadAppConfig()
 			if err != nil {
 				return err
@@ -146,7 +147,30 @@ func newVaultListCommand() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			return printOutput(records)
+
+			if outputAsJSON() {
+				return printOutput(records)
+			}
+
+			if len(records) == 0 {
+				_, _ = fmt.Fprintln(cmd.OutOrStdout(), "No secrets stored.")
+				return nil
+			}
+
+			_, _ = fmt.Fprintf(cmd.OutOrStdout(), "%-28s %-16s %-24s %s\n", "NAME", "TYPE", "UPDATED", "LAST USED")
+			for _, rec := range records {
+				lastUsed := "-"
+				if rec.LastUsedAt != nil {
+					lastUsed = rec.LastUsedAt.Format(time.RFC3339)
+				}
+				_, _ = fmt.Fprintf(cmd.OutOrStdout(), "%-28s %-16s %-24s %s\n",
+					rec.Name,
+					string(rec.Type),
+					rec.UpdatedAt.Format(time.RFC3339),
+					lastUsed,
+				)
+			}
+			return nil
 		},
 	}
 	return cmd

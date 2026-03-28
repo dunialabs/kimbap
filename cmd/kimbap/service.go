@@ -146,7 +146,10 @@ func newServiceEnableCommand() *cobra.Command {
 			if err := installerFromConfig(cfg).Enable(args[0]); err != nil {
 				return err
 			}
-			return printOutput(map[string]any{"enabled": true, "name": args[0]})
+			if outputAsJSON() {
+				return printOutput(map[string]any{"enabled": true, "name": args[0]})
+			}
+			return printOutput(fmt.Sprintf("✓ %s enabled", args[0]))
 		},
 	}
 	return cmd
@@ -165,7 +168,10 @@ func newServiceDisableCommand() *cobra.Command {
 			if err := installerFromConfig(cfg).Disable(args[0]); err != nil {
 				return err
 			}
-			return printOutput(map[string]any{"enabled": false, "name": args[0]})
+			if outputAsJSON() {
+				return printOutput(map[string]any{"enabled": false, "name": args[0]})
+			}
+			return printOutput(fmt.Sprintf("✓ %s disabled", args[0]))
 		},
 	}
 	return cmd
@@ -184,7 +190,10 @@ func newServiceRemoveCommand() *cobra.Command {
 			if err := installerFromConfig(cfg).Remove(args[0]); err != nil {
 				return err
 			}
-			return printOutput(map[string]any{"removed": true, "name": args[0]})
+			if outputAsJSON() {
+				return printOutput(map[string]any{"removed": true, "name": args[0]})
+			}
+			return printOutput(fmt.Sprintf("✓ %s removed", args[0]))
 		},
 	}
 	return cmd

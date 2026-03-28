@@ -106,21 +106,40 @@ func init() {
 		defaultHelp(cmd, args)
 	})
 
-	rootCmd.AddCommand(newCallCommand())
-	rootCmd.AddCommand(newActionsCommand())
-	rootCmd.AddCommand(newSearchCommand())
-	rootCmd.AddCommand(newVaultCommand())
-	rootCmd.AddCommand(newPolicyCommand())
-	rootCmd.AddCommand(newDoctorCommand())
-	rootCmd.AddCommand(newInitCommand())
-	rootCmd.AddCommand(newServiceCommand())
-	rootCmd.AddCommand(newAuthCommand())
-	rootCmd.AddCommand(newLinkCommand())
-	rootCmd.AddCommand(newApproveCommand())
-	rootCmd.AddCommand(newRunCommand())
-	rootCmd.AddCommand(newProxyCommand())
-	rootCmd.AddCommand(newServeCommand())
-	rootCmd.AddCommand(newAgentsCommand())
+	rootCmd.AddGroup(
+		&cobra.Group{ID: "core", Title: "Core Commands:"},
+		&cobra.Group{ID: "setup", Title: "Setup:"},
+		&cobra.Group{ID: "management", Title: "Management:"},
+		&cobra.Group{ID: "advanced", Title: "Advanced:"},
+	)
+
+	addGrouped := func(cmd *cobra.Command, groupID string) {
+		cmd.GroupID = groupID
+		rootCmd.AddCommand(cmd)
+	}
+
+	// Core — day-to-day workflow
+	addGrouped(newCallCommand(), "core")
+	addGrouped(newLinkCommand(), "core")
+	addGrouped(newSearchCommand(), "core")
+	addGrouped(newActionsCommand(), "core")
+
+	// Setup — install and configure
+	addGrouped(newInitCommand(), "setup")
+	addGrouped(newServiceCommand(), "setup")
+	addGrouped(newAgentsCommand(), "setup")
+
+	// Management — credentials, policy, diagnostics
+	addGrouped(newVaultCommand(), "management")
+	addGrouped(newPolicyCommand(), "management")
+	addGrouped(newDoctorCommand(), "management")
+	addGrouped(newAuthCommand(), "management")
+
+	// Advanced — specialized integration modes
+	addGrouped(newApproveCommand(), "advanced")
+	addGrouped(newRunCommand(), "advanced")
+	addGrouped(newProxyCommand(), "advanced")
+	addGrouped(newServeCommand(), "advanced")
 
 	for _, c := range []*cobra.Command{
 		newConnectorCommand(),

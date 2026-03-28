@@ -259,27 +259,32 @@ func TestE2EHiddenCommandsAccessible(t *testing.T) {
 func extractAvailableCommands(helpOutput string) map[string]struct{} {
 	commands := map[string]struct{}{}
 	lines := strings.Split(helpOutput, "\n")
-	inAvailable := false
+	inSection := false
 	for _, line := range lines {
 		trimmed := strings.TrimSpace(line)
-		if trimmed == "Available Commands:" {
-			inAvailable = true
-			continue
-		}
-		if !inAvailable {
-			continue
-		}
-		if trimmed == "" || strings.HasSuffix(trimmed, ":") {
-			if trimmed == "" {
+		if strings.HasSuffix(trimmed, ":") && !strings.HasPrefix(trimmed, "-") {
+			label := strings.ToLower(trimmed)
+			if strings.Contains(label, "command") || label == "setup:" || label == "management:" || label == "advanced:" || label == "additional commands:" {
+				inSection = true
 				continue
 			}
-			break
+			if label == "flags:" || label == "global flags:" {
+				inSection = false
+				continue
+			}
+		}
+		if !inSection {
+			continue
+		}
+		if trimmed == "" {
+			continue
 		}
 		fields := strings.Fields(trimmed)
 		if len(fields) == 0 {
 			continue
 		}
 		if strings.HasPrefix(fields[0], "-") {
+			inSection = false
 			continue
 		}
 		commands[fields[0]] = struct{}{}
