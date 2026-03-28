@@ -341,7 +341,7 @@ function ToolUsagePageContent() {
       setActionToolOptions([])
       setLoadError(
         getRequestErrorMessage(error, {
-          auth: 'Could not load tool usage because your session expired or your access changed. Sign in again and retry.',
+          auth: 'Session expired or access revoked. Sign in again.',
           network: 'Could not load tool usage. Check your connection and retry.',
           fallback: 'Could not load the tool usage summary cards. Retry to refresh totals, success rate, and response time.'
         })
@@ -406,7 +406,7 @@ function ToolUsagePageContent() {
       setActionLogsTotal(0)
       setActionTypeOptions([])
       const actionErrorMessage = getRequestErrorMessage(error, {
-        auth: 'Could not load tool action logs because your session expired or your access changed. Sign in again and retry.',
+        auth: 'Session expired or access revoked. Sign in again.',
         network: 'Could not load tool action logs. Check your connection and retry.',
         fallback: 'Could not load tool action logs for the current filters. Retry to refresh the Action Logs tab.'
       })

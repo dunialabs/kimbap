@@ -82,6 +82,8 @@ export async function handleProtocol23001(body: Request23001): Promise<Response2
       requestId = '',
       userId = '',
     } = body.params;
+    const safePage = Math.max(1, Math.floor(Number(page) || 1));
+    const safePageSize = Math.min(1000, Math.max(1, Math.floor(Number(pageSize) || 50)));
 
     // 1. Get proxyKey
     let proxyKey = '';
@@ -144,14 +146,14 @@ export async function handleProtocol23001(body: Request23001): Promise<Response2
 
     // 3. Query
     const totalCount = await prisma.log.count({ where: whereCondition });
-    const totalPages = Math.ceil(totalCount / pageSize);
-    const skip = (page - 1) * pageSize;
+    const totalPages = Math.ceil(totalCount / safePageSize);
+    const skip = (safePage - 1) * safePageSize;
 
     const logs = await prisma.log.findMany({
       where: whereCondition,
       orderBy: { addtime: 'desc' },
       skip,
-      take: pageSize,
+      take: safePageSize,
       select: {
         id: true,
         addtime: true,
@@ -238,6 +240,8 @@ export async function handleProtocol23001(body: Request23001): Promise<Response2
       level,
       source,
       hasSearch: !!search,
+      page: safePage,
+      pageSize: safePageSize,
     });
 
     return response;

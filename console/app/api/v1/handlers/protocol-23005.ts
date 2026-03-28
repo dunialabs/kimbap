@@ -62,13 +62,15 @@ interface Response23005Data {
 export async function handleProtocol23005(body: Request23005): Promise<Response23005Data> {
   try {
     const { lastLogId = 0, level = 'all', source = 'all', limit = 50 } = body.params;
+    const safeLastLogId = Math.max(0, Math.floor(Number(lastLogId) || 0));
+    const safeLimit = Math.min(1000, Math.max(1, Math.floor(Number(limit) || 50)));
 
     // Get proxy key for filtering
     const proxy = await getProxy();
     const proxyKey = proxy.proxyKey;
 
     // Build where condition using AND array (consistent with 23001/23004)
-    const andConditions: any[] = [{ id: { gt: lastLogId } }, { proxyKey }];
+    const andConditions: any[] = [{ id: { gt: safeLastLogId } }, { proxyKey }];
 
     // Level filter (DB-level for all levels)
     if (level !== 'all') {
@@ -92,7 +94,7 @@ export async function handleProtocol23005(body: Request23005): Promise<Response2
       orderBy: {
         id: 'asc',
       },
-      take: limit + 1,
+      take: safeLimit + 1,
       select: {
         id: true,
         addtime: true,
@@ -108,10 +110,10 @@ export async function handleProtocol23005(body: Request23005): Promise<Response2
       },
     });
 
-    const hasMore = raw.length > limit;
-    const logs = hasMore ? raw.slice(0, limit) : raw;
+    const hasMore = raw.length > safeLimit;
+    const logs = hasMore ? raw.slice(0, safeLimit) : raw;
     const latestLogId =
-      logs.length > 0 ? Math.max(...logs.map((log) => log.id)) : lastLogId;
+      logs.length > 0 ? Math.max(...logs.map((log) => log.id)) : safeLastLogId;
 
     // Convert to responsive format
     const newLogs: LogEntry[] = logs.map((log) => {
@@ -161,7 +163,8 @@ export async function handleProtocol23005(body: Request23005): Promise<Response2
       newLogsCount: newLogs.length,
       latestLogId,
       hasMore,
-      lastLogId,
+      lastLogId: safeLastLogId,
+      limit: safeLimit,
       filters: { level, source },
     });
 

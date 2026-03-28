@@ -775,7 +775,7 @@ export default function PoliciesPage() {
     } catch (error: unknown) {
       setLoadError(
         getRequestErrorMessage(error, {
-          auth: 'Could not load policies because your session expired or your access changed. Sign in again and retry.',
+        auth: 'Session expired or access revoked. Sign in again.',
           network: 'Could not load policies. Check your connection and retry.',
           fallback: 'Could not load policies right now. Retry to refresh the access policy list.'
         })
@@ -850,7 +850,7 @@ export default function PoliciesPage() {
     } catch (error: unknown) {
       toast.error(
         getRequestErrorMessage(error, {
-          auth: 'Could not save this policy because your session expired or your access changed. Sign in again and retry.',
+        auth: 'Session expired or access revoked. Sign in again.',
           network: 'Could not save this policy. Check your connection and retry.',
           fallback: 'Could not save this policy right now.'
         })
@@ -871,7 +871,7 @@ export default function PoliciesPage() {
     } catch (error: unknown) {
       toast.error(
         getRequestErrorMessage(error, {
-          auth: 'Could not change the policy status because your session expired or your access changed. Sign in again and retry.',
+        auth: 'Session expired or access revoked. Sign in again.',
           network: 'Could not change the policy status. Check your connection and retry.',
           fallback: 'Could not update this policy status right now.'
         })
@@ -899,7 +899,7 @@ export default function PoliciesPage() {
     } catch (error: unknown) {
       toast.error(
         getRequestErrorMessage(error, {
-          auth: 'Could not delete this policy because your session expired or your access changed. Sign in again and retry.',
+          auth: 'Session expired or access revoked. Sign in again.',
           network: 'Could not delete this policy. Check your connection and retry.',
           fallback: 'Could not delete this policy right now.'
         })

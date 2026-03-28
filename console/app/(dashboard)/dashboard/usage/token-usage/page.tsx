@@ -363,7 +363,7 @@ function TokenUsagePageContent() {
       setPatternUsageErrors({})
       setLoadError(
         getRequestErrorMessage(error, {
-          auth: 'Could not load token usage because your session expired or your access changed. Sign in again and retry.',
+          auth: 'Session expired or access revoked. Sign in again.',
           network: 'Could not load token usage. Check your connection and retry.',
           fallback: 'Could not load the token usage summary cards. Retry to refresh totals, success rate, and client counts.'
         })
@@ -659,7 +659,7 @@ function TokenUsagePageContent() {
             <Card className="h-full">
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                 <CardTitle className="text-sm font-medium">
-                  Clients
+                  Unique Clients
                 </CardTitle>
                 <Globe className="h-4 w-4 text-muted-foreground" />
               </CardHeader>
@@ -679,7 +679,7 @@ function TokenUsagePageContent() {
                     : formatDisplayNumber(summary.totalClients, { compact: true })}
                 </div>
                 <p className="text-xs text-muted-foreground">
-                  Clients seen in the last {timeRangeLabel}
+                  Distinct clients seen in the last {timeRangeLabel}
                 </p>
               </CardContent>
             </Card>
@@ -789,7 +789,7 @@ function TokenUsagePageContent() {
                                 <p className="mt-1 font-semibold">{formatDisplayNumber(token.totalRequests)}</p>
                               </div>
                               <div className="rounded-lg border border-border/60 bg-muted/20 px-3 py-2">
-                                <p className="text-xs text-muted-foreground">Clients</p>
+                                <p className="text-xs text-muted-foreground">Unique Clients</p>
                                 <p className="mt-1 font-semibold">{formatDisplayNumber(token.clientCount)}</p>
                               </div>
                               <div className="rounded-lg border border-border/60 bg-muted/20 px-3 py-2">
@@ -842,7 +842,7 @@ function TokenUsagePageContent() {
                           <TableHead scope="col">Token ID</TableHead>
                           <TableHead scope="col">Total Requests</TableHead>
                           <TableHead scope="col">Success Rate</TableHead>
-                          <TableHead scope="col">Clients</TableHead>
+                          <TableHead scope="col">Unique Clients</TableHead>
                           <TableHead scope="col" className="text-right">Last Used</TableHead>
                         </TableRow>
                       </TableHeader>

@@ -55,11 +55,13 @@ interface Response21002Data {
  */
 export async function handleProtocol21002(body: Request21002): Promise<Response21002Data> {
   try {
-    const { tokenIds, page = 1, pageSize = 50 } = body.params;
+    const { tokenIds } = body.params;
     const rawToken = body.common?.rawToken;
     const normalizedTimeRange = Number.isFinite(Math.floor(Number(body.params.timeRange))) && Math.floor(Number(body.params.timeRange)) >= 1
       ? Math.floor(Number(body.params.timeRange))
       : 1;
+    const safePage = Math.max(1, Math.floor(Number(body.params.page) || 1));
+    const safePageSize = Math.min(1000, Math.max(1, Math.floor(Number(body.params.pageSize) || 50)));
     const normalizedTokenIds = Array.isArray(tokenIds)
       ? tokenIds.map((id) => String(id).trim()).filter(Boolean)
       : [];
@@ -138,8 +140,8 @@ export async function handleProtocol21002(body: Request21002): Promise<Response2
     const totalCount = filteredUserIds.length;
     
     // 
-    const offset = (page - 1) * pageSize;
-    const pagedUserIds = filteredUserIds.slice(offset, offset + pageSize);
+    const offset = (safePage - 1) * safePageSize;
+    const pagedUserIds = filteredUserIds.slice(offset, offset + safePageSize);
     
     // 
     const usersMap = new Map(validUsers.map(u => [u.userId, u]));
@@ -293,8 +295,8 @@ export async function handleProtocol21002(body: Request21002): Promise<Response2
     console.log('Protocol 21002 response:', {
       tokenCount: tokenMetrics.length,
       totalCount,
-      page,
-      pageSize
+      page: safePage,
+      pageSize: safePageSize
     });
     
     return response;
