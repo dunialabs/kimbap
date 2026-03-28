@@ -57,8 +57,7 @@ if (!selectedMaster && layoutProvided) {
 }
 if (!selectedMaster && masterSlides.length > 0) selectedMaster = masterSlides[0];
 
-var slide = app.Slide({baseSlide: selectedMaster});
-doc.slides.push(slide);
+var slide = app.make({new: "slide", at: doc.slides.end(), withProperties: selectedMaster ? {baseSlide: selectedMaster} : {}});
 
 JSON.stringify({presentation: doc.name(), added: true, slideNumber: doc.slides().length});`,
 		},
@@ -123,7 +122,7 @@ try {
 	throw new Error("[NOT_FOUND] active presentation not found");
 }
 
-app.play(doc);
+doc.start();
 JSON.stringify({name: doc.name(), slideshowStarted: true});`,
 		},
 		"keynote-close-presentation": {
