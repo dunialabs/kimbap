@@ -809,7 +809,7 @@ function LogsPageContent() {
             className="min-h-11 w-full sm:w-auto"
             onClick={handleDownloadLogs}
             disabled={loading || exportLoading || exportLoadFailed || noExportableLogs}
-            title={exportLoadFailed ? 'Retry loading logs before exporting' : noExportableLogs ? 'No logs available to download' : 'Download logs'}
+            title={exportLoadFailed ? 'Retry loading logs before exporting' : noExportableLogs ? 'No logs available to download' : `Download logs for ${getTimeRangeLabel(selectedTimeRange)}`}
             aria-label={exportLoadFailed ? 'Download logs disabled: retry loading logs before exporting' : noExportableLogs ? 'Download logs disabled: no logs available' : 'Download logs'}
           >
             <Download className="mr-2 h-4 w-4" />
@@ -1406,7 +1406,7 @@ function LogsPageContent() {
               These totals count log entries in {getTimeRangeLabel(statisticsTimeFilter)}. Error rate is the share of all logs marked <span className="font-medium text-foreground">ERROR</span>, and debug logs are tracked separately from <span className="font-medium text-foreground">Info Logs</span>.
             </p>
           </div>
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
             <Card className="h-full">
               <CardHeader className="pb-2">
                 <CardTitle className="text-sm font-medium">Total Logs</CardTitle>
@@ -1439,6 +1439,29 @@ function LogsPageContent() {
                 </div>
                 <p className={`text-xs ${!statsLoading && statistics ? (statistics.errorRate > 0 ? 'text-red-600 dark:text-red-400' : 'text-green-600 dark:text-green-400') : 'text-muted-foreground'}`}>
                   {!statsLoading && statistics ? `${formatPercentage(statistics.errorRate)} of all logs` : ''}
+                </p>
+              </CardContent>
+            </Card>
+
+            <Card className="h-full">
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm font-medium">Error Rate</CardTitle>
+                <CardDescription className="text-xs">Share of all logs marked ERROR in {getTimeRangeLabel(statisticsTimeFilter)}</CardDescription>
+              </CardHeader>
+              <CardContent className="flex flex-col justify-center gap-1">
+                <div className={statsLoading || !statistics ? (statsError ? "text-sm text-red-600 dark:text-red-400" : "text-sm text-muted-foreground") : statistics.errorRate > 0 ? "text-2xl font-bold text-red-600 dark:text-red-400" : "text-2xl font-bold text-green-600 dark:text-green-400"}>
+                  {statsLoading
+                    ? '—'
+                    : !statistics
+                    ? (statsError ? 'Unavailable' : '—')
+                    : formatPercentage(statistics.errorRate)}
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  {!statsLoading && statistics
+                    ? statistics.totalLogs > 0
+                      ? `${formatDisplayNumber(statistics.errorLogs, { compact: true })} error logs out of ${formatDisplayNumber(statistics.totalLogs, { compact: true })}`
+                      : 'No logs recorded in this period.'
+                    : ''}
                 </p>
               </CardContent>
             </Card>
