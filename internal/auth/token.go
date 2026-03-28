@@ -60,10 +60,12 @@ func (s *TokenService) Issue(ctx context.Context, tenantID, agentName string, sc
 	if s == nil || s.store == nil {
 		return "", nil, errors.New("token store is required")
 	}
-	if strings.TrimSpace(tenantID) == "" {
+	tenantID = strings.TrimSpace(tenantID)
+	agentName = strings.TrimSpace(agentName)
+	if tenantID == "" {
 		return "", nil, errors.New("tenant id is required")
 	}
-	if strings.TrimSpace(agentName) == "" {
+	if agentName == "" {
 		return "", nil, errors.New("agent name is required")
 	}
 	if ttl <= 0 || ttl > maxTokenTTL {

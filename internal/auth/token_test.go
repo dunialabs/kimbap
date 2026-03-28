@@ -29,6 +29,31 @@ func TestTokenServiceIssueReturnsPrefixedRawToken(t *testing.T) {
 	}
 }
 
+func TestTokenServiceIssueTrimsTenantAndAgentName(t *testing.T) {
+	store := newInMemoryTokenStore()
+	svc := NewTokenService(store)
+
+	_, token, err := svc.Issue(context.Background(), " tenant-a ", " agent-alpha ", []string{"tools:read"}, time.Hour)
+	if err != nil {
+		t.Fatalf("issue token: %v", err)
+	}
+
+	if token.TenantID != "tenant-a" {
+		t.Fatalf("expected trimmed tenant id, got %q", token.TenantID)
+	}
+	if token.AgentName != "agent-alpha" {
+		t.Fatalf("expected trimmed agent name, got %q", token.AgentName)
+	}
+
+	stored, err := store.Inspect(context.Background(), token.ID)
+	if err != nil {
+		t.Fatalf("inspect stored token: %v", err)
+	}
+	if stored.TenantID != "tenant-a" || stored.AgentName != "agent-alpha" {
+		t.Fatalf("expected trimmed values in store, got tenant=%q agent=%q", stored.TenantID, stored.AgentName)
+	}
+}
+
 func TestTokenServiceValidateSucceedsWithCorrectRawToken(t *testing.T) {
 	store := newInMemoryTokenStore()
 	svc := NewTokenService(store)
