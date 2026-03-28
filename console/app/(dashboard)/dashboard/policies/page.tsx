@@ -1309,6 +1309,9 @@ export default function PoliciesPage() {
                         ? 'Add rules to define how tool calls are handled.'
                         : 'Rules are evaluated in order. The first matching rule applies.'}
                     </p>
+                    {formRules.length > 1 ? (
+                      <p className="mt-1 text-xs text-muted-foreground">Only the first rule starts expanded to keep long policy sets scannable.</p>
+                    ) : null}
                   </div>
                   <Button
                     variant="outline"
