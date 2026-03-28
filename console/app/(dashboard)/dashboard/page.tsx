@@ -659,6 +659,7 @@ export default function DashboardPage() {
                     size="sm"
                     className="min-h-11 shrink-0 px-3 text-xs"
                     disabled={!localAddress || isDashboardLoading}
+                    title={!localAddress || isDashboardLoading ? 'Address becomes available after server connection details load.' : undefined}
                     onClick={() => void copyConnectionAddress('Local address', localAddress)}
                   >
                     <Copy className="mr-1 h-3.5 w-3.5" aria-hidden="true" />
@@ -684,6 +685,7 @@ export default function DashboardPage() {
                     size="sm"
                     className="min-h-11 shrink-0 px-3 text-xs"
                     disabled={!remoteAddress || isDashboardLoading}
+                    title={!remoteAddress || isDashboardLoading ? 'Address becomes available after server connection details load.' : undefined}
                     onClick={() => void copyConnectionAddress('Remote address', remoteAddress)}
                   >
                     <Copy className="mr-1 h-3.5 w-3.5" aria-hidden="true" />
