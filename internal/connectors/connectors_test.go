@@ -2,6 +2,7 @@ package connectors
 
 import (
 	"context"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -87,6 +88,100 @@ func TestManagerLoginDeviceFlowAndList(t *testing.T) {
 	}
 	if strings.Contains(stored.AccessToken, "access-1") {
 		t.Fatal("access token should be encrypted at rest")
+	}
+}
+
+func TestCompleteLoginDoesNotDeleteNewerPendingLogin(t *testing.T) {
+	ctx := context.Background()
+	store := newMemConnectorStore()
+	manager := NewManager(store)
+	t.Setenv("KIMBAP_CONNECTOR_ENCRYPTION_KEY", "connector-test-key")
+
+	var mu sync.Mutex
+	deviceCalls := 0
+	firstTokenSeen := make(chan struct{}, 1)
+	allowFirstToken := make(chan struct{})
+	var allowFirstTokenOnce sync.Once
+	releaseFirstToken := func() {
+		allowFirstTokenOnce.Do(func() { close(allowFirstToken) })
+	}
+	t.Cleanup(releaseFirstToken)
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/device":
+			mu.Lock()
+			deviceCalls++
+			deviceCode := fmt.Sprintf("dev-%d", deviceCalls)
+			mu.Unlock()
+			_, _ = fmt.Fprintf(w, `{"device_code":%q,"verification_uri":"https://verify.example","user_code":"CODE-%d","expires_in":600,"interval":1}`, deviceCode, deviceCalls)
+		case "/token":
+			if err := r.ParseForm(); err != nil {
+				t.Fatalf("parse form: %v", err)
+			}
+			deviceCode := r.Form.Get("device_code")
+			if deviceCode == "dev-1" {
+				select {
+				case firstTokenSeen <- struct{}{}:
+				default:
+				}
+				<-allowFirstToken
+			}
+			_, _ = fmt.Fprintf(w, `{"access_token":%q,"refresh_token":"refresh","expires_in":3600,"token_type":"Bearer"}`, "access-"+deviceCode)
+		default:
+			w.WriteHeader(http.StatusNotFound)
+		}
+	}))
+	defer server.Close()
+
+	manager.RegisterConfig(ConnectorConfig{
+		Name:      "mailbox",
+		Provider:  "mailbox",
+		ClientID:  "client-id",
+		TokenURL:  server.URL + "/token",
+		DeviceURL: server.URL + "/device",
+	})
+
+	firstFlow, err := manager.Login(ctx, "tenant-1", "mailbox")
+	if err != nil {
+		t.Fatalf("first login: %v", err)
+	}
+	if firstFlow.DeviceCode != "dev-1" {
+		t.Fatalf("first device code = %q, want dev-1", firstFlow.DeviceCode)
+	}
+
+	firstDone := make(chan error, 1)
+	go func() {
+		firstDone <- manager.CompleteLogin(ctx, "tenant-1", "mailbox", "")
+	}()
+
+	select {
+	case <-firstTokenSeen:
+	case <-time.After(2 * time.Second):
+		t.Fatal("first complete login never reached token polling")
+	}
+
+	secondFlow, err := manager.Login(ctx, "tenant-1", "mailbox")
+	if err != nil {
+		t.Fatalf("second login: %v", err)
+	}
+	if secondFlow.DeviceCode != "dev-2" {
+		t.Fatalf("second device code = %q, want dev-2", secondFlow.DeviceCode)
+	}
+
+	releaseFirstToken()
+
+	select {
+	case err := <-firstDone:
+		if err != nil {
+			t.Fatalf("first complete login: %v", err)
+		}
+	case <-time.After(2 * time.Second):
+		t.Fatal("first complete login did not finish")
+	}
+
+	if err := manager.CompleteLogin(ctx, "tenant-1", "mailbox", secondFlow.DeviceCode); err != nil {
+		t.Fatalf("second complete login should still succeed with newer pending login: %v", err)
 	}
 }
 

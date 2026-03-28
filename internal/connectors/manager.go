@@ -96,9 +96,10 @@ func (m *Manager) CompleteLogin(ctx context.Context, tenantID, name string, code
 	if err != nil {
 		return err
 	}
+	pendingKey := m.pendingKey(tenantID, name)
 
 	m.mu.RLock()
-	pending, hasPending := m.pending[m.pendingKey(tenantID, name)]
+	pending, hasPending := m.pending[pendingKey]
 	m.mu.RUnlock()
 
 	deviceCode := strings.TrimSpace(code)
@@ -110,7 +111,9 @@ func (m *Manager) CompleteLogin(ctx context.Context, tenantID, name string, code
 		}
 		if !pending.expiresAt.IsZero() && time.Now().After(pending.expiresAt) {
 			m.mu.Lock()
-			delete(m.pending, m.pendingKey(tenantID, name))
+			if cur, ok := m.pending[pendingKey]; ok && cur.deviceCode == pending.deviceCode {
+				delete(m.pending, pendingKey)
+			}
 			m.mu.Unlock()
 			return errors.New("pending login has expired")
 		}
@@ -127,7 +130,9 @@ func (m *Manager) CompleteLogin(ctx context.Context, tenantID, name string, code
 		}
 		if !pending.expiresAt.IsZero() && time.Now().After(pending.expiresAt) {
 			m.mu.Lock()
-			delete(m.pending, m.pendingKey(tenantID, name))
+			if cur, ok := m.pending[pendingKey]; ok && cur.deviceCode == pending.deviceCode {
+				delete(m.pending, pendingKey)
+			}
 			m.mu.Unlock()
 			return errors.New("pending login has expired")
 		}
@@ -178,8 +183,8 @@ func (m *Manager) CompleteLogin(ctx context.Context, tenantID, name string, code
 	}
 
 	m.mu.Lock()
-	if cur, ok := m.pending[m.pendingKey(tenantID, name)]; ok && cur.deviceCode == deviceCode {
-		delete(m.pending, m.pendingKey(tenantID, name))
+	if cur, ok := m.pending[pendingKey]; ok && cur.deviceCode == deviceCode {
+		delete(m.pending, pendingKey)
 	}
 	m.mu.Unlock()
 
