@@ -362,7 +362,7 @@ func (a *HTTPAdapter) executeSingle(ctx context.Context, req AdapterRequest) (*A
 			code := mapHTTPError(resp.StatusCode, req.Action.ErrorMapping)
 			return nil, actions.NewExecutionError(
 				code,
-				readErrorMessage(respBody),
+				errorMessage(respBody, resp.StatusCode, req.Action.ErrorMapping),
 				resp.StatusCode,
 				resp.StatusCode == http.StatusTooManyRequests || resp.StatusCode >= 500,
 				map[string]any{"status": resp.StatusCode},
@@ -385,7 +385,7 @@ func (a *HTTPAdapter) executeSingle(ctx context.Context, req AdapterRequest) (*A
 	}
 
 	code := mapHTTPError(lastStatus, req.Action.ErrorMapping)
-	return nil, actions.NewExecutionError(code, readErrorMessage(lastBody), lastStatus, lastStatus == 429 || lastStatus >= 500, nil)
+	return nil, actions.NewExecutionError(code, errorMessage(lastBody, lastStatus, req.Action.ErrorMapping), lastStatus, lastStatus == 429 || lastStatus >= 500, nil)
 }
 
 func resolveURL(baseURL, tmpl string, values map[string]any) (string, error) {
@@ -773,12 +773,7 @@ func extractSegment(value any, segment string) (any, bool) {
 	return current, true
 }
 
-func mapHTTPError(status int, custom map[int]string) string {
-	if custom != nil {
-		if code, ok := custom[status]; ok && code != "" {
-			return code
-		}
-	}
+func mapHTTPError(status int, _ map[int]string) string {
 	switch status {
 	case http.StatusUnauthorized:
 		return actions.ErrUnauthenticated
@@ -792,6 +787,15 @@ func mapHTTPError(status int, custom map[int]string) string {
 		}
 		return actions.ErrValidationFailed
 	}
+}
+
+func errorMessage(respBody []byte, status int, custom map[int]string) string {
+	if custom != nil {
+		if msg, ok := custom[status]; ok && msg != "" {
+			return msg
+		}
+	}
+	return readErrorMessage(respBody)
 }
 
 func shouldRetry(status int, cfg actions.RetryConfig) bool {
