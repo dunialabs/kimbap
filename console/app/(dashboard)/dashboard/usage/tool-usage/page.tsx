@@ -1027,47 +1027,97 @@ function ToolUsagePageContent() {
                   )}
                 </div>
               ) : (
-                <div className="overflow-x-auto">
-                <Table className="min-w-[980px]">
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead scope="col">Time</TableHead>
-                      <TableHead scope="col">Tool</TableHead>
-                      <TableHead scope="col">Action</TableHead>
-                      <TableHead scope="col">User</TableHead>
-                      <TableHead scope="col">Status</TableHead>
-                      <TableHead scope="col">Error / Details</TableHead>
-                      <TableHead scope="col" className="text-right">Latency</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
+                <>
+                  <div className="space-y-3 md:hidden">
                     {actionLogs.map((log) => (
-                      <TableRow key={log.logId}>
-                        <TableCell>{formatDateTime(log.timestamp * 1000, { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit', second: '2-digit' })}</TableCell>
-                        <TableCell>{log.toolName}</TableCell>
-                        <TableCell className="font-mono text-xs">{getActionLabel(log.actionType)}</TableCell>
-                        <TableCell>{log.userName}</TableCell>
-                         <TableCell>
-                           <span className={log.status === 1 ? 'text-green-600 dark:text-green-400 text-sm' : 'text-red-600 dark:text-red-400 text-sm'}>
-                             {log.status === 1 ? 'Success' : 'Failed'}
-                           </span>
-                         </TableCell>
-                        <TableCell className="max-w-[360px]">
+                      <div key={log.logId} className="rounded-lg border border-border/60 p-4 shadow-sm">
+                        <div className="flex items-start justify-between gap-3">
+                          <div className="min-w-0 space-y-1">
+                            <p className="text-sm font-medium leading-5">{log.toolName}</p>
+                            <p className="font-mono text-xs text-muted-foreground">{getActionLabel(log.actionType)}</p>
+                          </div>
+                          <Badge
+                            variant="outline"
+                            className={log.status === 1
+                              ? 'border-green-200 bg-green-50 text-green-700 dark:border-green-800 dark:bg-green-950/20 dark:text-green-300'
+                              : 'border-red-200 bg-red-50 text-red-700 dark:border-red-800 dark:bg-red-950/20 dark:text-red-300'}
+                          >
+                            {log.status === 1 ? 'Success' : 'Failed'}
+                          </Badge>
+                        </div>
+
+                        <div className="mt-4 grid grid-cols-1 gap-3 text-sm sm:grid-cols-2">
+                          <div>
+                            <p className="text-xs text-muted-foreground">Time</p>
+                            <p className="mt-1">{formatDateTime(log.timestamp * 1000, { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit', second: '2-digit' })}</p>
+                          </div>
+                          <div>
+                            <p className="text-xs text-muted-foreground">User</p>
+                            <p className="mt-1 break-all">{log.userName}</p>
+                          </div>
+                          <div>
+                            <p className="text-xs text-muted-foreground">Latency</p>
+                            <p className="mt-1">{formatResponseTime(log.responseTime)}</p>
+                          </div>
+                        </div>
+
+                        <div className="mt-4">
+                          <p className="text-xs text-muted-foreground">Error / Details</p>
                           {log.status === 2 && log.errorMessage ? (
-                            <div className="text-xs text-red-600 dark:text-red-400 whitespace-pre-wrap break-words">{log.errorMessage}</div>
+                            <p className="mt-1 whitespace-pre-wrap break-words text-sm text-red-600 dark:text-red-400">{log.errorMessage}</p>
                           ) : (
-                            <details>
-                              <summary className="inline-flex min-h-11 items-center cursor-pointer rounded-sm text-xs text-muted-foreground transition-colors duration-200 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2">View details</summary>
-                              <pre className="mt-1 max-h-24 overflow-auto whitespace-pre-wrap break-words rounded bg-muted p-2 text-xs">{formatNullableText(log.details)}</pre>
+                            <details className="mt-1">
+                              <summary className="inline-flex min-h-11 items-center cursor-pointer rounded-sm text-sm text-muted-foreground transition-colors duration-200 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2">View details</summary>
+                              <pre className="mt-2 max-h-32 overflow-auto whitespace-pre-wrap break-words rounded bg-muted p-2 text-xs">{formatNullableText(log.details)}</pre>
                             </details>
                           )}
-                        </TableCell>
-                        <TableCell className="text-right">{formatResponseTime(log.responseTime)}</TableCell>
-                      </TableRow>
+                        </div>
+                      </div>
                     ))}
-                  </TableBody>
-                </Table>
-                </div>
+                  </div>
+
+                  <div className="hidden overflow-x-auto md:block">
+                    <Table className="min-w-[980px]">
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead scope="col">Time</TableHead>
+                          <TableHead scope="col">Tool</TableHead>
+                          <TableHead scope="col">Action</TableHead>
+                          <TableHead scope="col">User</TableHead>
+                          <TableHead scope="col">Status</TableHead>
+                          <TableHead scope="col">Error / Details</TableHead>
+                          <TableHead scope="col" className="text-right">Latency</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {actionLogs.map((log) => (
+                          <TableRow key={log.logId}>
+                            <TableCell>{formatDateTime(log.timestamp * 1000, { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit', second: '2-digit' })}</TableCell>
+                            <TableCell>{log.toolName}</TableCell>
+                            <TableCell className="font-mono text-xs">{getActionLabel(log.actionType)}</TableCell>
+                            <TableCell>{log.userName}</TableCell>
+                            <TableCell>
+                              <span className={log.status === 1 ? 'text-green-600 dark:text-green-400 text-sm' : 'text-red-600 dark:text-red-400 text-sm'}>
+                                {log.status === 1 ? 'Success' : 'Failed'}
+                              </span>
+                            </TableCell>
+                            <TableCell className="max-w-[360px]">
+                              {log.status === 2 && log.errorMessage ? (
+                                <div className="text-xs text-red-600 dark:text-red-400 whitespace-pre-wrap break-words">{log.errorMessage}</div>
+                              ) : (
+                                <details>
+                                  <summary className="inline-flex min-h-11 items-center cursor-pointer rounded-sm text-xs text-muted-foreground transition-colors duration-200 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2">View details</summary>
+                                  <pre className="mt-1 max-h-24 overflow-auto whitespace-pre-wrap break-words rounded bg-muted p-2 text-xs">{formatNullableText(log.details)}</pre>
+                                </details>
+                              )}
+                            </TableCell>
+                            <TableCell className="text-right">{formatResponseTime(log.responseTime)}</TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </div>
+                </>
               )}
               {!actionLoading && !actionLogsError ? (
                 <div className="mt-3 flex flex-col gap-3 text-sm text-muted-foreground sm:flex-row sm:items-center sm:justify-between">
