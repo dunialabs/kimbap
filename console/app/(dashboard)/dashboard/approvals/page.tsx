@@ -623,25 +623,28 @@ export default function ApprovalsPage() {
               </div>
               <div className="grid grid-cols-1 gap-3 sm:grid-cols-[minmax(0,140px)_minmax(0,180px)_auto]">
                 <div className="space-y-1.5">
-                  <Label htmlFor="approvals-status-filter" className="text-xs">Status</Label>
+                  <Label htmlFor="approvals-status-filter" className="text-xs">Request status</Label>
                   <Select
                     value={statusFilter}
                     onValueChange={(v) => setStatusFilter(v as StatusFilter)}
                   >
                     <SelectTrigger id="approvals-status-filter" className="h-11 text-sm">
-                      <SelectValue placeholder="Status" />
+                      <SelectValue placeholder="All request states" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="all">All Statuses</SelectItem>
-                      <SelectItem value="PENDING">Pending</SelectItem>
-                      <SelectItem value="APPROVED">Approved</SelectItem>
+                      <SelectItem value="all">All request states</SelectItem>
+                      <SelectItem value="PENDING">Pending review</SelectItem>
+                      <SelectItem value="APPROVED">Approved, awaiting execution</SelectItem>
                       <SelectItem value="REJECTED">Rejected</SelectItem>
-                      <SelectItem value="EXPIRED">Expired</SelectItem>
-                      <SelectItem value="EXECUTING">Executing</SelectItem>
-                      <SelectItem value="EXECUTED">Executed</SelectItem>
-                      <SelectItem value="FAILED">Failed</SelectItem>
+                      <SelectItem value="EXPIRED">Expired before review</SelectItem>
+                      <SelectItem value="EXECUTING">Executing now</SelectItem>
+                      <SelectItem value="EXECUTED">Completed successfully</SelectItem>
+                      <SelectItem value="FAILED">Execution failed</SelectItem>
                     </SelectContent>
                   </Select>
+                  <p className="text-xs text-muted-foreground">
+                    Pending review is the default queue. Execution states appear after a request has already been approved.
+                  </p>
                 </div>
                  <div className="space-y-1.5">
                     <Label htmlFor="approvals-user-filter" className="text-xs">User ID</Label>

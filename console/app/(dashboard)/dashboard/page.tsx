@@ -887,6 +887,7 @@ export default function DashboardPage() {
                     <Link
                       key={`${activity.action}-${formatNullableText(activity.time)}`}
                       href="/dashboard/logs?timeRange=30d"
+                      aria-label={`Open logs for ${activity.action}, ${statusMeta.label}, ${formatNullableText(activity.time)}`}
                       className="-mx-2 flex items-center gap-3 rounded-md px-2 py-3 transition-colors duration-200 hover:bg-muted/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2"
                     >
                       <div className="flex-shrink-0">
