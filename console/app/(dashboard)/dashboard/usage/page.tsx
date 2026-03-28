@@ -516,11 +516,11 @@ function UsagePageContent() {
         </CardHeader>
         <CardContent>
           {loading || displayTopTools.length === 0 ? (
-            <div className="flex items-center justify-center py-8">
+            <div className="flex items-center justify-center py-8" role={loading ? 'status' : undefined} aria-live={loading ? 'polite' : undefined}>
               {loading ? (
                 <LoadingListPlaceholder label="Loading top tool activity..." />
               ) : topToolsError ? (
-                <div className="text-center">
+                <div className="text-center" role="alert">
                   <p className="text-sm text-red-600 dark:text-red-400">{topToolsError}</p>
                   <Button variant="outline" size="sm" className="mt-2" onClick={handleRefresh}>Retry</Button>
                 </div>
@@ -567,7 +567,7 @@ function UsagePageContent() {
           </CardHeader>
           <CardContent>
             {loading || displayActiveTokens.length === 0 ? (
-              <div className="flex items-center justify-center py-8">
+            <div className="flex items-center justify-center py-8" role={loading ? 'status' : undefined} aria-live={loading ? 'polite' : undefined}>
                 {loading ? (
                   <LoadingListPlaceholder label="Loading active token activity..." />
                 ) : activeTokensError ? (
@@ -618,7 +618,7 @@ function UsagePageContent() {
           </CardHeader>
           <CardContent>
             {loading || displayRecentActivity.length === 0 ? (
-              <div className="flex items-center justify-center py-8">
+            <div className="flex items-center justify-center py-8" role={loading ? 'status' : undefined} aria-live={loading ? 'polite' : undefined}>
                 {loading ? (
                   <LoadingListPlaceholder label="Loading recent usage events..." />
                 ) : recentActivityError ? (
