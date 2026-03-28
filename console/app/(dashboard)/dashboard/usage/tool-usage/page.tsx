@@ -774,8 +774,9 @@ function ToolUsagePageContent() {
                   )}
                 </div>
               ) : (
-                <ResponsiveContainer width="100%" height={300}>
-                  <BarChart data={displayToolUsageData}>
+                <div role="img" aria-label="Bar chart showing average response time by tool">
+                  <ResponsiveContainer width="100%" height={300}>
+                    <BarChart data={displayToolUsageData}>
                     <CartesianGrid stroke={chartGridColor} strokeDasharray="3 3" />
                     <XAxis dataKey="toolName" stroke={chartAxisColor} tick={{ fill: chartAxisColor }} tickFormatter={(value) => value.length > 12 ? value.slice(0, 12) + '…' : value} />
                     <YAxis stroke={chartAxisColor} tick={{ fill: chartAxisColor }} />
@@ -785,8 +786,9 @@ function ToolUsagePageContent() {
                       itemStyle={{ color: chartTextColor }}
                     />
                     <Bar dataKey="averageResponseTime" name="Average Response Time (ms)" fill="#8884d8" />
-                  </BarChart>
-                </ResponsiveContainer>
+                    </BarChart>
+                  </ResponsiveContainer>
+                </div>
               )}
             </CardContent>
           </Card>
@@ -814,8 +816,9 @@ function ToolUsagePageContent() {
                   )}
                 </div>
               ) : (
-                <ResponsiveContainer width="100%" height={300}>
-                  <BarChart data={displayToolUsageData}>
+                <div role="img" aria-label="Bar chart comparing successful and failed requests by tool">
+                  <ResponsiveContainer width="100%" height={300}>
+                    <BarChart data={displayToolUsageData}>
                     <CartesianGrid stroke={chartGridColor} strokeDasharray="3 3" />
                     <XAxis dataKey="toolName" stroke={chartAxisColor} tick={{ fill: chartAxisColor }} tickFormatter={(value) => value.length > 12 ? value.slice(0, 12) + '…' : value} />
                     <YAxis stroke={chartAxisColor} tick={{ fill: chartAxisColor }} />
@@ -827,8 +830,9 @@ function ToolUsagePageContent() {
                     <Legend wrapperStyle={{ color: chartTextColor }} />
                     <Bar dataKey="successfulRequests" fill="#00C49F" name="Successful" />
                     <Bar dataKey="failedRequests" fill="#FF8042" name="Failed" />
-                  </BarChart>
-                </ResponsiveContainer>
+                    </BarChart>
+                  </ResponsiveContainer>
+                </div>
               )}
             </CardContent>
           </Card>
@@ -1001,7 +1005,7 @@ function ToolUsagePageContent() {
                     {actionLogType !== 'all' ? (
                       <Badge variant="outline" className="text-xs">Action: {getActionLabel(Number(actionLogType))}</Badge>
                     ) : null}
-                    <Button variant="ghost" size="sm" className="min-h-11 px-3 text-xs" onClick={clearActionFilters}>Reset filters</Button>
+                    <Button variant="ghost" size="sm" className="min-h-11 px-3 text-xs" onClick={clearActionFilters} aria-label="Reset action log filters to show all tools, statuses, and actions">Reset filters</Button>
                   </div>
                 ) : (
                   <p className="text-xs text-muted-foreground">Showing all tools, all outcomes, and all actions.</p>
@@ -1072,8 +1076,8 @@ function ToolUsagePageContent() {
                             <p className="mt-1 whitespace-pre-wrap break-words text-sm text-red-600 dark:text-red-400">{log.errorMessage}</p>
                           ) : (
                             <details className="mt-1">
-                              <summary className="inline-flex min-h-11 items-center cursor-pointer rounded-sm text-sm text-muted-foreground transition-colors duration-200 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2">View details</summary>
-                              <pre className="mt-2 max-h-32 overflow-auto whitespace-pre-wrap break-words rounded bg-muted p-2 text-xs">{formatNullableText(log.details)}</pre>
+                              <summary className="inline-flex min-h-11 items-center cursor-pointer rounded-sm text-sm text-muted-foreground transition-colors duration-200 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2">View request details</summary>
+                              <pre className="mt-2 max-h-32 overflow-auto whitespace-pre-wrap break-words rounded bg-muted p-2 text-xs leading-relaxed">{formatNullableText(log.details)}</pre>
                             </details>
                           )}
                         </div>

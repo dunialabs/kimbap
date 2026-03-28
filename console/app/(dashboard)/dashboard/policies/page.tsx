@@ -1426,14 +1426,24 @@ export default function PoliciesPage() {
         <AlertDialogContent className="max-w-md">
           <AlertDialogHeader>
              <AlertDialogTitle>Delete policy</AlertDialogTitle>
-             <AlertDialogDescription>
-               {deleteTarget && (
-                 <span className="font-medium text-foreground">
-                   {generatePolicyTitle(deserializeRules(deleteTarget.dsl?.rules || []))}
-                 </span>
-               )}
-               {deleteTarget ? ' will be permanently deleted. This action cannot be undone.' : 'Are you sure you want to delete this policy? This action cannot be undone.'}
-             </AlertDialogDescription>
+              <AlertDialogDescription asChild>
+                <div>
+                  {deleteTarget && (
+                    <span>
+                      <span className="font-medium text-foreground">
+                        {generatePolicyTitle(deserializeRules(deleteTarget.dsl?.rules || []))}
+                      </span>
+                      {deleteTarget.status === 'active' && (
+                        <span className="ml-1.5 inline-flex items-center rounded-full border border-emerald-200 bg-emerald-50 px-1.5 py-0.5 text-[11px] font-medium text-emerald-700 dark:border-emerald-900 dark:bg-emerald-950/20 dark:text-emerald-300">Active</span>
+                      )}
+                    </span>
+                  )}
+                  {deleteTarget ? ' will be permanently deleted. This action cannot be undone.' : 'Are you sure you want to delete this policy? This action cannot be undone.'}
+                  {deleteTarget?.status === 'active' && (
+                    <p className="mt-2 text-amber-700 dark:text-amber-400 text-xs">This policy is currently active and enforcing rules. Deleting it will immediately stop enforcement.</p>
+                  )}
+                </div>
+              </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel className="min-h-11" disabled={deleting}>Cancel</AlertDialogCancel>
