@@ -299,7 +299,7 @@ export function AuthLoginDialog({
                 <button
                   type="button"
                   onClick={() => void handleSendVerificationCode()}
-                  className="rounded-sm text-sm font-medium text-blue-600 transition-colors duration-200 hover:text-blue-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 dark:text-blue-400 dark:hover:text-blue-300"
+                  className="inline-flex min-h-11 items-center rounded-sm px-2 text-sm font-medium text-blue-600 transition-colors duration-200 hover:text-blue-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 dark:text-blue-400 dark:hover:text-blue-300"
                   disabled={isSendingCode || isVerifyingCode}
                 >
                   Resend code
