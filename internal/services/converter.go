@@ -245,7 +245,7 @@ func mapAuth(auth ServiceAuth) actions.AuthRequirement {
 		req.Optional = true
 	case "header":
 		req.Type = actions.AuthTypeHeader
-		req.HeaderName = auth.HeaderName
+		req.HeaderName = strings.TrimSpace(auth.HeaderName)
 	case "bearer":
 		req.Type = actions.AuthTypeBearer
 		req.Prefix = "Bearer"
@@ -253,10 +253,10 @@ func mapAuth(auth ServiceAuth) actions.AuthRequirement {
 		req.Type = actions.AuthTypeBasic
 	case "query":
 		req.Type = actions.AuthTypeQuery
-		req.QueryName = auth.QueryParam
+		req.QueryName = strings.TrimSpace(auth.QueryParam)
 	case "body":
 		req.Type = actions.AuthTypeBody
-		req.BodyField = auth.BodyField
+		req.BodyField = strings.TrimSpace(auth.BodyField)
 	default:
 		req.Type = actions.AuthTypeNone
 		req.Optional = true
@@ -282,14 +282,15 @@ func buildInputSchema(args []ActionArg, pathParams map[string]string) *actions.S
 	requiredSet := make(map[string]struct{})
 
 	for _, arg := range args {
-		properties[arg.Name] = &actions.Schema{
-			Type: strings.ToLower(arg.Type),
+		name := strings.TrimSpace(arg.Name)
+		properties[name] = &actions.Schema{
+			Type: strings.ToLower(strings.TrimSpace(arg.Type)),
 			Enum: arg.Enum,
 		}
 		if arg.Required {
-			if _, ok := requiredSet[arg.Name]; !ok {
-				required = append(required, arg.Name)
-				requiredSet[arg.Name] = struct{}{}
+			if _, ok := requiredSet[name]; !ok {
+				required = append(required, name)
+				requiredSet[name] = struct{}{}
 			}
 		}
 	}
@@ -323,7 +324,7 @@ func collectDefaults(args []ActionArg) map[string]any {
 		if !isArgDefaultTypeCompatible(arg.Default, arg.Type) {
 			continue
 		}
-		defaults[arg.Name] = arg.Default
+		defaults[strings.TrimSpace(arg.Name)] = arg.Default
 	}
 	if len(defaults) == 0 {
 		return nil

@@ -93,6 +93,12 @@ func LoadCA(dataDir string) (*CAConfig, error) {
 	if _, err := tls.X509KeyPair(certPEM, keyPEM); err != nil {
 		return nil, fmt.Errorf("CA cert and key do not match: %w", err)
 	}
+	if _, err := parseCACertificate(certPEM); err != nil {
+		return nil, err
+	}
+	if _, err := parseCAPrivateKey(keyPEM); err != nil {
+		return nil, err
+	}
 
 	return &CAConfig{CertPEM: certPEM, KeyPEM: keyPEM, CertPath: certPath, KeyPath: keyPath}, nil
 }
@@ -161,12 +167,24 @@ func parseCAPrivateKey(keyPEM []byte) (*rsa.PrivateKey, error) {
 	if block == nil {
 		return nil, errors.New("invalid CA key PEM")
 	}
-	if block.Type != "RSA PRIVATE KEY" {
+	switch block.Type {
+	case "RSA PRIVATE KEY":
+		key, err := x509.ParsePKCS1PrivateKey(block.Bytes)
+		if err != nil {
+			return nil, fmt.Errorf("parse CA key: %w", err)
+		}
+		return key, nil
+	case "PRIVATE KEY":
+		parsed, err := x509.ParsePKCS8PrivateKey(block.Bytes)
+		if err != nil {
+			return nil, fmt.Errorf("parse CA key: %w", err)
+		}
+		rsaKey, ok := parsed.(*rsa.PrivateKey)
+		if !ok {
+			return nil, fmt.Errorf("unsupported key type: expected RSA, got %T", parsed)
+		}
+		return rsaKey, nil
+	default:
 		return nil, fmt.Errorf("unsupported key type %q", block.Type)
 	}
-	key, err := x509.ParsePKCS1PrivateKey(block.Bytes)
-	if err != nil {
-		return nil, fmt.Errorf("parse CA key: %w", err)
-	}
-	return key, nil
 }
