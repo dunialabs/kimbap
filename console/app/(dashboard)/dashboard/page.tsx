@@ -400,7 +400,7 @@ export default function DashboardPage() {
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          <span className="relative flex h-3 w-3">
+          <span className="relative flex h-3 w-3" aria-hidden="true">
             {serverInfo?.status === 1 ? (
               <>
             <span className="absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75 motion-safe:animate-ping"></span>
@@ -420,6 +420,7 @@ export default function DashboardPage() {
           >
             {serverInfo?.status === 1 ? 'Running' : 'Stopped'}
           </Badge>
+          <span className="sr-only">Server status: {serverInfo?.status === 1 ? 'Running' : 'Stopped'}</span>
         </div>
       </div>
       <div className="space-y-6">

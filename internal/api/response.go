@@ -29,13 +29,11 @@ type ErrorBody struct {
 
 // writeSuccess writes a canonical success response with the unified envelope.
 func writeSuccess(w http.ResponseWriter, r *http.Request, status int, data any) {
-	env := Envelope{
+	writeEnvelopeJSON(w, status, Envelope{
 		Success:   true,
 		Data:      data,
 		RequestID: requestIDFromContext(r.Context()),
-	}
-	w.WriteHeader(status)
-	_ = json.NewEncoder(w).Encode(env)
+	})
 }
 
 // writeEnvelopeError writes a canonical error response with the unified envelope.
@@ -58,7 +56,7 @@ func writeEnvelopeError(w http.ResponseWriter, r *http.Request, execErr *actions
 	} else {
 		details = execErr.Details
 	}
-	env := Envelope{
+	writeEnvelopeJSON(w, status, Envelope{
 		Success: false,
 		Error: &ErrorBody{
 			Code:      execErr.Code,
@@ -67,7 +65,27 @@ func writeEnvelopeError(w http.ResponseWriter, r *http.Request, execErr *actions
 			Details:   details,
 		},
 		RequestID: requestIDFromContext(r.Context()),
+	})
+}
+
+func writeEnvelopeJSON(w http.ResponseWriter, status int, env Envelope) {
+	payload, err := json.Marshal(env)
+	if err != nil {
+		fallback, _ := json.Marshal(Envelope{
+			Success: false,
+			Error: &ErrorBody{
+				Code:      actions.ErrDownstreamUnavailable,
+				Message:   "internal server error",
+				Retryable: false,
+			},
+			RequestID: env.RequestID,
+		})
+		w.WriteHeader(http.StatusInternalServerError)
+		_, _ = w.Write(append(fallback, '
+'))
+		return
 	}
 	w.WriteHeader(status)
-	_ = json.NewEncoder(w).Encode(env)
+	_, _ = w.Write(append(payload, '
+'))
 }
