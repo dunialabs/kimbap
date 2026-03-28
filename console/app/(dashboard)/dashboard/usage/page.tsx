@@ -414,7 +414,7 @@ function UsagePageContent() {
                 ? '—'
                 : overviewSummary?.avgResponseTime == null
                 ? (loadError ? 'Unavailable' : '—')
-                : `${formatDisplayNumber(Math.round(overviewSummary.avgResponseTime))}ms`}
+                : formatResponseTime(overviewSummary.avgResponseTime)}
             </div>
             <p className="text-xs text-muted-foreground">
               {!loading && overviewSummary && overviewSummary.responseTimeChange !== undefined ? (
