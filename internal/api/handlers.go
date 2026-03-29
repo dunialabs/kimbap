@@ -1,7 +1,6 @@
 package api
 
 import (
-	"bytes"
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
@@ -10,6 +9,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"os"
 	"strconv"
 	"strings"
 	"time"
@@ -524,7 +524,7 @@ func (s *Server) handleListApprovals(w http.ResponseWriter, r *http.Request) {
 	writeSuccess(w, r, http.StatusOK, items)
 }
 
-func (s *Server) requirePendingApproval(w http.ResponseWriter, r *http.Request, id, tenantID string) (*store.ApprovalRecord, bool) {
+func (s *Server) requirePendingApproval(w http.ResponseWriter, r *http.Request, id, tenantID string, allowApproved bool) (*store.ApprovalRecord, bool) {
 	existing, err := s.store.GetApproval(r.Context(), id)
 	if err != nil {
 		status := http.StatusInternalServerError
@@ -586,8 +586,11 @@ func (s *Server) requirePendingApproval(w http.ResponseWriter, r *http.Request, 
 		return nil, false
 	}
 	if existing.Status != "pending" {
+		if allowApproved && existing.Status == "approved" {
+			return existing, true
+		}
 		writeEnvelopeError(w, r, actions.NewExecutionError(actions.ErrValidationFailed, "approval already resolved", http.StatusConflict, false, nil))
-		return nil, false
+		return existing, false
 	}
 	return existing, true
 }
@@ -599,31 +602,38 @@ func (s *Server) handleApprove(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	existing, pending := s.requirePendingApproval(w, r, id, tenantID)
-	if !pending {
+	existing, approvable := s.requirePendingApproval(w, r, id, tenantID, true)
+	if !approvable {
 		return
 	}
+	alreadyApproved := existing.Status == "approved"
 
-	if err := s.store.UpdateApprovalStatus(r.Context(), id, "approved", principal.ID, "approved via api"); err != nil {
-		writeEnvelopeError(w, r, mapApprovalError(err))
-		return
-	}
-	if s.webhookDispatcher != nil {
-		s.webhookDispatcher.EmitForTenant(tenantID, webhooks.EventApprovalApproved, map[string]any{
-			"approval_id": id,
-			"tenant_id":   tenantID,
-			"request_id":  existing.RequestID,
-			"agent_name":  existing.AgentName,
-			"service":     existing.Service,
-			"action":      existing.Action,
-			"resolved_by": principal.ID,
-			"status":      "approved",
-		})
+	if !alreadyApproved {
+		if err := s.store.UpdateApprovalStatus(r.Context(), id, "approved", principal.ID, "approved via api"); err != nil {
+			writeEnvelopeError(w, r, mapApprovalError(err))
+			return
+		}
+		if s.webhookDispatcher != nil {
+			s.webhookDispatcher.EmitForTenant(tenantID, webhooks.EventApprovalApproved, map[string]any{
+				"approval_id": id,
+				"tenant_id":   tenantID,
+				"request_id":  existing.RequestID,
+				"agent_name":  existing.AgentName,
+				"service":     existing.Service,
+				"action":      existing.Action,
+				"resolved_by": principal.ID,
+				"status":      "approved",
+			})
+		}
 	}
 
 	var execResult *actions.ExecutionResult
 	if s.runtime != nil {
 		result := s.runtime.ResumeApproved(r.Context(), id)
+		if alreadyApproved && result.Error != nil && result.Error.Code == actions.ErrActionNotFound {
+			writeEnvelopeError(w, r, actions.NewExecutionError(actions.ErrValidationFailed, "approval already resolved", http.StatusConflict, false, nil))
+			return
+		}
 		execResult = &result
 	}
 
@@ -659,7 +669,7 @@ func (s *Server) handleDeny(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	existing, pending := s.requirePendingApproval(w, r, id, tenantID)
+	existing, pending := s.requirePendingApproval(w, r, id, tenantID, false)
 	if !pending {
 		return
 	}
@@ -793,14 +803,27 @@ func (s *Server) handleExportAudit(w http.ResponseWriter, r *http.Request) {
 		From:      from,
 		To:        to,
 	}
-	var buf bytes.Buffer
-	if err := s.store.ExportAuditEvents(r.Context(), exportFilter, format, &buf); err != nil {
+	tmp, err := os.CreateTemp("", "kimbap-audit-export-*")
+	if err != nil {
+		writeEnvelopeError(w, r, actions.NewExecutionError(actions.ErrDownstreamUnavailable, "export failed", http.StatusInternalServerError, false, nil))
+		return
+	}
+	tmpPath := tmp.Name()
+	defer func() {
+		_ = tmp.Close()
+		_ = os.Remove(tmpPath)
+	}()
+	if err := s.store.ExportAuditEvents(r.Context(), exportFilter, format, tmp); err != nil {
+		writeEnvelopeError(w, r, actions.NewExecutionError(actions.ErrDownstreamUnavailable, "export failed", http.StatusInternalServerError, false, nil))
+		return
+	}
+	if _, err := tmp.Seek(0, io.SeekStart); err != nil {
 		writeEnvelopeError(w, r, actions.NewExecutionError(actions.ErrDownstreamUnavailable, "export failed", http.StatusInternalServerError, false, nil))
 		return
 	}
 	w.Header().Set("Content-Type", contentType)
 	w.WriteHeader(http.StatusOK)
-	_, _ = io.Copy(w, &buf)
+	_, _ = io.Copy(w, tmp)
 }
 
 const maxAPIRequestBodyBytes int64 = 4 << 20

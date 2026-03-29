@@ -251,7 +251,16 @@ func (r *Runtime) ResumeApproved(ctx context.Context, approvalRequestID string) 
 		}
 	}
 
-	return r.executeFromCredentialsWithState(ctx, *held, nil, startedAt, "require_approval", approvalRequestID)
+	res := r.executeFromCredentialsWithState(ctx, *held, nil, startedAt, "require_approval", approvalRequestID)
+	if res.Error != nil && res.Error.Retryable {
+		if holdErr := r.HeldExecutionStore.Hold(ctx, approvalRequestID, *held); holdErr != nil {
+			if res.Meta == nil {
+				res.Meta = map[string]any{}
+			}
+			res.Meta["resume_retry_hold_error"] = holdErr.Error()
+		}
+	}
+	return res
 }
 
 func (r *Runtime) execute(ctx context.Context, req actions.ExecutionRequest, trace *TraceCollector) actions.ExecutionResult {

@@ -226,7 +226,7 @@ func TestServerAcceptsTrailingWhitespaceAfterJSONPayload(t *testing.T) {
 	}
 }
 
-func TestServerApproveAlreadyResolvedReturnsConflict(t *testing.T) {
+func TestServerApproveAlreadyResolvedWithoutRuntimeIsIdempotent(t *testing.T) {
 	ts, rawBootstrap, st := newTestAPIServerWithStore(t)
 
 	approval := &store.ApprovalRecord{
@@ -264,8 +264,8 @@ func TestServerApproveAlreadyResolvedReturnsConflict(t *testing.T) {
 		t.Fatalf("second approve request: %v", err)
 	}
 	defer secondResp.Body.Close()
-	if secondResp.StatusCode != http.StatusConflict {
-		t.Fatalf("expected second approve=409, got %d", secondResp.StatusCode)
+	if secondResp.StatusCode != http.StatusOK {
+		t.Fatalf("expected second approve=200, got %d", secondResp.StatusCode)
 	}
 }
 

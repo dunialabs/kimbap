@@ -61,11 +61,14 @@ func newServeCommand() *cobra.Command {
 			if err != nil {
 				return err
 			}
+			defer closeVaultStoreIfPossible(vaultStore)
 
 			var rt *runtime.Runtime
-			rt, buildErr := buildServeRuntime(cfg, st, vaultStore)
+			rt, runtimeCleanup, buildErr := buildServeRuntime(cfg, st, vaultStore)
 			if buildErr != nil {
 				_, _ = fmt.Fprintln(os.Stderr, "warning: runtime unavailable, action execution disabled:", buildErr)
+			} else {
+				defer runtimeCleanup()
 			}
 
 			enableConsole := withConsole || cfg.Console.Enabled
@@ -119,9 +122,9 @@ func (e *storeApprovalExpirer) ExpireStale(ctx context.Context) (int, error) {
 	return e.st.ExpirePendingApprovals(ctx)
 }
 
-func buildServeRuntime(cfg *config.KimbapConfig, st *store.SQLStore, vaultStore vault.Store) (*runtime.Runtime, error) {
+func buildServeRuntime(cfg *config.KimbapConfig, st *store.SQLStore, vaultStore vault.Store) (*runtime.Runtime, func(), error) {
 	if cfg == nil {
-		return nil, fmt.Errorf("config is required")
+		return nil, nil, fmt.Errorf("config is required")
 	}
 
 	var writers []audit.Writer
@@ -189,9 +192,15 @@ func buildServeRuntime(cfg *config.KimbapConfig, st *store.SQLStore, vaultStore 
 			_ = auditCloser.Close()
 		}
 		closeConnectorStoreIfPossible(connStore)
-		return nil, err
+		return nil, nil, err
 	}
-	return rt, nil
+	cleanup := func() {
+		if auditCloser != nil {
+			_ = auditCloser.Close()
+		}
+		closeConnectorStoreIfPossible(connStore)
+	}
+	return rt, cleanup, nil
 }
 
 type storeAuditWriter struct {

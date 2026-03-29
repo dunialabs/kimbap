@@ -66,10 +66,11 @@ func newProxyCommand() *cobra.Command {
 				proxy.WithAgentToken(strings.TrimSpace(agentToken)),
 				proxy.WithTenantID(defaultTenantID()),
 			}
-			rt, buildErr := buildRuntimeFromConfig(cfg)
+			rt, runtimeCleanup, buildErr := buildRuntimeFromConfigWithCleanup(cfg)
 			if buildErr != nil {
 				return fmt.Errorf("runtime required for proxy mode (policy/credential enforcement): %w", buildErr)
 			}
+			defer runtimeCleanup()
 			proxyOpts = append(proxyOpts, proxy.WithRuntime(rt))
 
 			server := proxy.NewProxyServer(listenAddr, ca, proxyOpts...)

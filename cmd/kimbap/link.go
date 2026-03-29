@@ -462,10 +462,11 @@ var linkInitVaultStore = initVaultStore
 func defaultRunVerificationAction(ctx context.Context, cfg *config.KimbapConfig, action *actions.ActionDefinition, tenantID string) string {
 	verifyCtx, cancel := context.WithTimeout(ctx, 10*time.Second)
 	defer cancel()
-	rt, err := buildRuntimeFromConfig(cfg)
+	rt, runtimeCleanup, err := buildRuntimeFromConfigWithCleanup(cfg)
 	if err != nil {
 		return "✓ Stored (verification skipped)"
 	}
+	defer runtimeCleanup()
 	result := rt.Execute(verifyCtx, actions.ExecutionRequest{
 		RequestID: "verify_" + uuid.NewString(),
 		TenantID:  tenantID,

@@ -149,13 +149,14 @@ Discover available actions:
 				return nil
 			}
 
-			rt, buildErr := buildRuntimeFromConfig(cfg)
+			rt, runtimeCleanup, buildErr := buildRuntimeFromConfigWithCleanup(cfg)
 			if buildErr != nil {
 				_, _ = fmt.Fprintf(os.Stderr, "warning: %s, showing dry-run preview\n", unavailableMessage(componentRuntime, buildErr))
 				preview := buildDryRunPreview(cfg, req)
 				_ = printOutput(preview)
 				return unavailableError(componentRuntime, buildErr)
 			}
+			defer runtimeCleanup()
 
 			var result actions.ExecutionResult
 			if isTrace() {

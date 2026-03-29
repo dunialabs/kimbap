@@ -83,10 +83,11 @@ func newRunCommand() *cobra.Command {
 			r := runner.NewRunner(runCfg)
 
 			if proxyEnabled {
-				rt, err := buildRuntimeFromConfig(cfg)
+				rt, runtimeCleanup, err := buildRuntimeFromConfigWithCleanup(cfg)
 				if err != nil {
 					return fmt.Errorf("build runtime: %w", err)
 				}
+				defer runtimeCleanup()
 
 				ca, err := proxy.GenerateCA(resolvedCADir)
 				if err != nil {

@@ -51,10 +51,11 @@ func newDaemonCommand() *cobra.Command {
 				return err
 			}
 
-			rt, err := buildRuntimeFromConfig(cfg)
+			rt, runtimeCleanup, err := buildRuntimeFromConfigWithCleanup(cfg)
 			if err != nil {
 				return fmt.Errorf("build runtime: %w", err)
 			}
+			defer runtimeCleanup()
 
 			socketPath := daemonSocketPath(cfg.DataDir)
 			if err := os.MkdirAll(filepath.Dir(socketPath), 0o700); err != nil {

@@ -245,7 +245,6 @@ func TestRuntimeExecuteApprovalRequired(t *testing.T) {
 	}
 }
 
-
 func TestRuntimeExecuteApprovalRequiredNoHeldStore(t *testing.T) {
 	rt := Runtime{
 		PolicyEvaluator: mockPolicyEvaluator{decision: &PolicyDecision{Decision: "require_approval"}},
@@ -575,6 +574,64 @@ func TestRuntimeResumeApprovedPassesSessionAndClassificationToPolicy(t *testing.
 	}
 	if evaluator.lastReq.Classification == nil || evaluator.lastReq.Classification.Service != "github" {
 		t.Fatalf("policy request missing classification context: %+v", evaluator.lastReq.Classification)
+	}
+}
+
+func TestRuntimeResumeApprovedRetryableFailureReholdsExecution(t *testing.T) {
+	store := &mockHeldExecutionStore{held: map[string]actions.ExecutionRequest{}}
+	store.held["apr-retry"] = baseRequest(actions.ActionDefinition{
+		Name:    "github.issues.create",
+		Adapter: actions.AdapterConfig{Type: "http", URLTemplate: "https://example.com"},
+	})
+
+	rt := Runtime{
+		HeldExecutionStore: store,
+		Adapters: map[string]adapters.Adapter{
+			"http": mockAdapter{kind: "http", err: actions.NewExecutionError(actions.ErrDownstreamUnavailable, "temporary downstream error", 502, true, nil)},
+		},
+	}
+
+	res := rt.ResumeApproved(context.Background(), "apr-retry")
+	if res.Status != actions.StatusError {
+		t.Fatalf("expected error status, got %s", res.Status)
+	}
+	if res.Error == nil || !res.Error.Retryable {
+		t.Fatalf("expected retryable execution error, got %+v", res.Error)
+	}
+	if store.holdCalls != 1 {
+		t.Fatalf("expected held store Hold once for retryable failure, got %d", store.holdCalls)
+	}
+	if _, ok := store.held["apr-retry"]; !ok {
+		t.Fatal("expected held request to be re-stored for retryable failure")
+	}
+}
+
+func TestRuntimeResumeApprovedNonRetryableFailureDoesNotReholdExecution(t *testing.T) {
+	store := &mockHeldExecutionStore{held: map[string]actions.ExecutionRequest{}}
+	store.held["apr-noretry"] = baseRequest(actions.ActionDefinition{
+		Name:    "github.issues.create",
+		Adapter: actions.AdapterConfig{Type: "http", URLTemplate: "https://example.com"},
+	})
+
+	rt := Runtime{
+		HeldExecutionStore: store,
+		Adapters: map[string]adapters.Adapter{
+			"http": mockAdapter{kind: "http", err: actions.NewExecutionError(actions.ErrValidationFailed, "invalid input", 400, false, nil)},
+		},
+	}
+
+	res := rt.ResumeApproved(context.Background(), "apr-noretry")
+	if res.Status != actions.StatusError {
+		t.Fatalf("expected error status, got %s", res.Status)
+	}
+	if res.Error == nil || res.Error.Retryable {
+		t.Fatalf("expected non-retryable execution error, got %+v", res.Error)
+	}
+	if store.holdCalls != 0 {
+		t.Fatalf("expected held store Hold not called for non-retryable failure, got %d", store.holdCalls)
+	}
+	if _, ok := store.held["apr-noretry"]; ok {
+		t.Fatal("expected held request to remain consumed after non-retryable failure")
 	}
 }
 

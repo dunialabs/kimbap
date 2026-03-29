@@ -10,6 +10,7 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/dunialabs/kimbap/internal/actions"
@@ -574,15 +575,24 @@ func contextBackground() context.Context {
 }
 
 func buildRuntimeFromConfig(cfg *config.KimbapConfig) (*runtime.Runtime, error) {
-	if cfg == nil {
-		return nil, fmt.Errorf("config is required to build runtime")
-	}
-	vaultStore, err := initVaultStoreForBuild(cfg)
+	rt, _, err := buildRuntimeFromConfigWithCleanup(cfg)
 	if err != nil {
 		return nil, err
 	}
+	return rt, nil
+}
+
+func buildRuntimeFromConfigWithCleanup(cfg *config.KimbapConfig) (*runtime.Runtime, func(), error) {
+	if cfg == nil {
+		return nil, nil, fmt.Errorf("config is required to build runtime")
+	}
+	vaultStore, err := initVaultStoreForBuild(cfg)
+	if err != nil {
+		return nil, nil, err
+	}
 
 	var auditWriter runtime.AuditWriter
+	var auditCloser interface{ Close() error }
 	auditPath := strings.TrimSpace(cfg.Audit.Path)
 	if auditPath != "" {
 		jw, jwErr := audit.NewJSONLWriter(auditPath)
@@ -590,6 +600,7 @@ func buildRuntimeFromConfig(cfg *config.KimbapConfig) (*runtime.Runtime, error) 
 			_, _ = fmt.Fprintf(os.Stderr, "warning: audit writer init failed (%v), audit events will not be recorded\n", jwErr)
 		} else {
 			auditWriter = app.NewAuditWriterAdapter(jw)
+			auditCloser = jw
 		}
 	}
 
@@ -640,14 +651,30 @@ func buildRuntimeFromConfig(cfg *config.KimbapConfig) (*runtime.Runtime, error) 
 		HeldStore:        runtimeStoreForCleanup,
 	})
 	if buildErr != nil {
+		if auditCloser != nil {
+			_ = auditCloser.Close()
+		}
 		closeVaultStoreForBuild(vaultStore)
 		if runtimeStoreForCleanup != nil {
 			closeRuntimeStoreForBuild(runtimeStoreForCleanup)
 		}
 		closeConnectorStoreForBuild(connStore)
-		return nil, buildErr
+		return nil, nil, buildErr
 	}
-	return rt, nil
+	var cleanupOnce sync.Once
+	cleanup := func() {
+		cleanupOnce.Do(func() {
+			if auditCloser != nil {
+				_ = auditCloser.Close()
+			}
+			closeVaultStoreForBuild(vaultStore)
+			if runtimeStoreForCleanup != nil {
+				closeRuntimeStoreForBuild(runtimeStoreForCleanup)
+			}
+			closeConnectorStoreForBuild(connStore)
+		})
+	}
+	return rt, cleanup, nil
 }
 
 // buildNotifierFromConfig constructs an approval notifier from the kimbap configuration.
