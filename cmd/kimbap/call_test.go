@@ -56,6 +56,9 @@ func TestCallOutputTextMode_Success(t *testing.T) {
 	if strings.HasPrefix(trimmed, "{") {
 		t.Fatalf("expected human-readable text output, got raw json blob: %q", output)
 	}
+	if !strings.HasPrefix(trimmed, "✓") {
+		t.Fatalf("expected output to start with checkmark, got %q", output)
+	}
 	if !strings.Contains(output, "all good") {
 		t.Fatalf("expected output to contain meaningful content, got %q", output)
 	}

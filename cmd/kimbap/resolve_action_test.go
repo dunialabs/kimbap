@@ -63,6 +63,9 @@ func TestResolveActionByName_AllServicesDisabled_SuggestsList(t *testing.T) {
 	if !strings.Contains(err.Error(), "no enabled services") {
 		t.Fatalf("expected no-enabled-services message, got %q", err.Error())
 	}
+	if !strings.Contains(err.Error(), "kimbap service list") {
+		t.Fatalf("expected 'kimbap service list' guidance in error, got %q", err.Error())
+	}
 	if strings.Contains(err.Error(), "kimbap init") {
 		t.Fatalf("disabled-services path should not suggest init, got %q", err.Error())
 	}

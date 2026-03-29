@@ -42,7 +42,7 @@ This creates a real note in Apple Notes. Delete it afterward if you like.
 # Or try read-only: kimbap call apple-notes.list-notes
 ```
 
-> **On Linux?** Starter services include Wikipedia, weather, and public data APIs instead of macOS-native apps.
+> **On Linux?** macOS-native apps won't work, but cross-platform services are available.
 > Try: `kimbap call open-meteo.get-forecast --latitude 37.5 --longitude 127.0`
 
 ---
