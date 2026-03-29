@@ -258,15 +258,24 @@ func classifyVaultInitError(err error) string {
 }
 
 func renderPreflightReport(report preflightReport) string {
+	useColor := isColorStdout()
 	var b strings.Builder
 	b.WriteString("Action: ")
 	b.WriteString(report.Action)
 	b.WriteString("\n")
 	b.WriteString("Verdict: ")
 	if report.Verdict == "ready" {
-		b.WriteString("READY")
+		verdict := "READY"
+		if useColor {
+			verdict = "\x1b[32m" + verdict + "\x1b[0m"
+		}
+		b.WriteString(verdict)
 	} else {
-		b.WriteString("NOT READY")
+		verdict := "NOT READY"
+		if useColor {
+			verdict = "\x1b[31m" + verdict + "\x1b[0m"
+		}
+		b.WriteString(verdict)
 	}
 	b.WriteString("\n")
 
@@ -285,8 +294,14 @@ func renderPreflightReport(report preflightReport) string {
 		switch strings.ToLower(strings.TrimSpace(check.Status)) {
 		case "pass":
 			symbol = "✓"
+			if useColor {
+				symbol = "\x1b[32m" + symbol + "\x1b[0m"
+			}
 		case "fail":
 			symbol = "✗"
+			if useColor {
+				symbol = "\x1b[31m" + symbol + "\x1b[0m"
+			}
 		case "skip":
 			symbol = "-"
 		}
