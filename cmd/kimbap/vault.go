@@ -5,7 +5,6 @@ import (
 	"io"
 	"os"
 	"strings"
-	"time"
 
 	"github.com/dunialabs/kimbap/internal/vault"
 	"github.com/spf13/cobra"
@@ -116,10 +115,10 @@ func newVaultGetCommand() *cobra.Command {
 				}
 				fmt.Printf("Name:       %s\n", rec.Name)
 				fmt.Printf("Type:       %s\n", rec.Type)
-				fmt.Printf("Updated:    %s\n", rec.UpdatedAt.Format(time.RFC3339))
+				fmt.Printf("Updated:    %s\n", rec.UpdatedAt.Format("2006-01-02 15:04"))
 				lastUsed := "-"
 				if rec.LastUsedAt != nil {
-					lastUsed = rec.LastUsedAt.Format(time.RFC3339)
+					lastUsed = rec.LastUsedAt.Format("2006-01-02 15:04")
 				}
 				fmt.Printf("Last Used:  %s\n", lastUsed)
 				fmt.Printf("Version:    %d\n", rec.CurrentVersion)
@@ -188,12 +187,12 @@ func newVaultListCommand() *cobra.Command {
 			for _, rec := range records {
 				lastUsed := "-"
 				if rec.LastUsedAt != nil {
-					lastUsed = rec.LastUsedAt.Format(time.RFC3339)
+					lastUsed = rec.LastUsedAt.Format("2006-01-02 15:04")
 				}
 				_, _ = fmt.Fprintf(cmd.OutOrStdout(), "%-28s %-16s %-24s %s\n",
 					rec.Name,
 					string(rec.Type),
-					rec.UpdatedAt.Format(time.RFC3339),
+					rec.UpdatedAt.Format("2006-01-02 15:04"),
 					lastUsed,
 				)
 			}
