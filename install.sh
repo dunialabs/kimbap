@@ -196,8 +196,9 @@ main() {
     answer="${answer:-Y}"
     case "$answer" in
       [Yy]*)
-        info "Running: kimbap init --mode dev"
-        "${INSTALL_PATH}/kimbap" init --mode dev </dev/tty
+        # Quickstart: dev mode with all official services (macOS gets Apple Notes etc, Linux gets data APIs)
+        info "Running: kimbap init --mode dev --services all"
+        "${INSTALL_PATH}/kimbap" init --mode dev --services all </dev/tty
         ;;
       [Nn]*)
         info "Skipped. Run when ready:"
