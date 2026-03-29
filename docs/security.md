@@ -32,6 +32,8 @@ The input secret and the derived AES keys never leave process memory and are not
 
 ## OAuth & Token Brokerage
 
+Use `kimbap link <service>` as the primary entry point for connecting services to kimbap.
+
 Kimbap Core handles OAuth credentials for downstream services:
 
 - **Downstream connector OAuth credentials (third-party providers).** Used to call external APIs on behalf of the agent. Kimbap Core stores these encrypted at rest (including refresh tokens where applicable), refreshes access tokens server-side, and injects only the access token into the execution context for the duration of the call.

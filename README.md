@@ -165,21 +165,13 @@ All modes share the same policy, credentials, and audit pipeline.
 
 ### Execution modes
 
-Integration modes (call/run/proxy/serve) and execution modes (dev/embedded/connected) are independent axes:
+`kimbap init --mode` controls the security profile of the local runtime:
 
-| | dev | embedded | connected |
-|---|---|---|---|
-| **call** | ✓ | ✓ | ✓ |
-| **run** | ✓ | ✓ | ✓ |
-| **proxy** | ✓ | ✓ | ✓ |
-| **serve** | ✓ | ✓ | ✓ |
-
-**Execution modes:**
 - `dev` — relaxed security, auto-generated vault key. For local development only.
 - `embedded` — policy-enforced, vault key from `KIMBAP_MASTER_KEY_HEX`. Default for production.
-- `connected` — delegates to a running `kimbap serve` instance over HTTP.
+- `connected` — routes execution through a running `kimbap serve` REST server.
 
-For 95% of use cases: use `kimbap call` (integration) with `embedded` mode (execution).
+For most use cases: use `kimbap call` with `--mode embedded`.
 
 ### Production setup
 
@@ -194,7 +186,7 @@ kimbap init --services all
 kimbap serve --console
 ```
 
-Opens the operations console at `http://localhost:8080/console`. Shows audit logs, pending approvals, and service health. Disabled by default — enable with `--console` flag or `console.enabled: true` in config.
+Opens the operations console at `http://localhost:8080/console`. Shows audit logs, pending approvals, and service health. Disabled by default.
 
 ### Documentation
 

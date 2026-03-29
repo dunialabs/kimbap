@@ -171,6 +171,8 @@ kimbap service export-agent-skill stripe > ./skills/stripe.md
 
 ## Credential management
 
+`kimbap link <service>` is the recommended way to connect a service. It handles both API key storage and OAuth flows. Use `vault set` and `auth connect` for advanced or scripted scenarios.
+
 ### kimbap vault set \<key\>
 
 Store a secret in the encrypted vault. Secrets are never accepted as inline CLI arguments to avoid shell history exposure.
