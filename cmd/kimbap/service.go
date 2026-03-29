@@ -607,6 +607,13 @@ func printServiceVerifyResultText(result services.VerifyResult, includeSignature
 	if result.Verified {
 		status = "VERIFIED"
 	}
+	if isColorStdout() {
+		if result.Verified {
+			status = "\x1b[32m" + status + "\x1b[0m"
+		} else {
+			status = "\x1b[31m" + status + "\x1b[0m"
+		}
+	}
 
 	locked := "unlocked"
 	if result.Locked {
