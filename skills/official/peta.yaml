@@ -1,0 +1,415 @@
+name: peta
+version: 1.0.0
+description: Peta Core admin and user API wrapper using action-based requests for /admin and /user
+base_url: http://localhost:3002
+auth:
+  type: bearer
+  credential_ref: peta.token
+triggers:
+  task_verbs: [list, create, update, delete, approve, reject, start, stop, configure, unconfigure, inspect, count]
+  objects: [users, servers, policies, approvals, proxy, ip-whitelist, capabilities, sessions]
+  instead_of:
+    - manually building raw action payloads for peta admin and user endpoints
+  exclusions:
+    - non-peta console workflows
+gotchas:
+  - symptom: Requests to /api/external or REST-style resource paths return 404
+    likely_cause: Peta uses unified action endpoints (/admin and /user)
+    recovery: Send POST with { action, data } to /admin or /user
+    severity: high
+  - symptom: success=false with INVALID_REQUEST
+    likely_cause: Invalid or missing numeric action code
+    recovery: Use the action numbers defined in peta-core docs
+    severity: high
+recipes:
+  - name: Inspect owner and inventory
+    description: Confirm owner, user list, and server list quickly
+    steps:
+      - Call get-owner
+      - Call list-users
+      - Call list-servers
+  - name: Process pending approvals
+    description: Review and decide tool approval requests
+    steps:
+      - Call count-pending-approvals
+      - Call list-approval-requests
+      - Call decide-approval-request
+actions:
+  get-owner:
+    method: POST
+    path: /admin
+    description: Get owner information (action 1016)
+    args: []
+    request:
+      body:
+        action: 1016
+        data: {}
+    response:
+      type: object
+    risk:
+      level: low
+    idempotent: true
+  list-users:
+    method: POST
+    path: /admin
+    description: List users (action 1011)
+    args:
+      - name: userId
+        type: string
+        required: false
+      - name: role
+        type: integer
+        required: false
+      - name: excludeRole
+        type: integer
+        required: false
+      - name: proxyId
+        type: integer
+        required: false
+    request:
+      body:
+        action: 1011
+        data:
+          userId: "{userId}"
+          role: "{role}"
+          excludeRole: "{excludeRole}"
+          proxyId: "{proxyId}"
+    response:
+      type: object
+    risk:
+      level: low
+    idempotent: true
+  create-user:
+    method: POST
+    path: /admin
+    description: Create a user (action 1010)
+    args:
+      - name: userId
+        type: string
+        required: true
+      - name: encryptedToken
+        type: string
+        required: true
+      - name: role
+        type: integer
+        required: false
+      - name: status
+        type: integer
+        required: false
+      - name: name
+        type: string
+        required: false
+      - name: notes
+        type: string
+        required: false
+      - name: permissions
+        type: object
+        required: false
+      - name: expiresAt
+        type: integer
+        required: false
+      - name: ratelimit
+        type: integer
+        required: false
+      - name: proxyId
+        type: integer
+        required: false
+    request:
+      body:
+        action: 1010
+        data:
+          userId: "{userId}"
+          encryptedToken: "{encryptedToken}"
+          role: "{role}"
+          status: "{status}"
+          name: "{name}"
+          notes: "{notes}"
+          permissions: "{permissions}"
+          expiresAt: "{expiresAt}"
+          ratelimit: "{ratelimit}"
+          proxyId: "{proxyId}"
+    response:
+      type: object
+    risk:
+      level: high
+    idempotent: false
+  list-servers:
+    method: POST
+    path: /admin
+    description: List servers (action 2011)
+    args:
+      - name: serverId
+        type: string
+        required: false
+      - name: proxyId
+        type: integer
+        required: false
+      - name: enabled
+        type: boolean
+        required: false
+    request:
+      body:
+        action: 2011
+        data:
+          serverId: "{serverId}"
+          proxyId: "{proxyId}"
+          enabled: "{enabled}"
+    response:
+      type: object
+    risk:
+      level: low
+    idempotent: true
+  start-server:
+    method: POST
+    path: /admin
+    description: Start a server (action 2001)
+    args:
+      - name: targetId
+        type: string
+        required: true
+    request:
+      body:
+        action: 2001
+        data:
+          targetId: "{targetId}"
+    response:
+      type: object
+    risk:
+      level: high
+    idempotent: false
+  stop-server:
+    method: POST
+    path: /admin
+    description: Stop a server (action 2002)
+    args:
+      - name: targetId
+        type: string
+        required: true
+    request:
+      body:
+        action: 2002
+        data:
+          targetId: "{targetId}"
+    response:
+      type: object
+    risk:
+      level: high
+    idempotent: false
+  list-policy-sets:
+    method: POST
+    path: /admin
+    description: List policy sets (action 9102)
+    args:
+      - name: serverId
+        type: string
+        required: false
+    request:
+      body:
+        action: 9102
+        data:
+          serverId: "{serverId}"
+    response:
+      type: object
+    risk:
+      level: low
+    idempotent: true
+  list-approval-requests:
+    method: POST
+    path: /admin
+    description: List approval requests (action 9201)
+    args:
+      - name: status
+        type: string
+        required: false
+      - name: userId
+        type: string
+        required: false
+      - name: serverId
+        type: string
+        required: false
+      - name: toolName
+        type: string
+        required: false
+    request:
+      body:
+        action: 9201
+        data:
+          status: "{status}"
+          userId: "{userId}"
+          serverId: "{serverId}"
+          toolName: "{toolName}"
+    response:
+      type: object
+    risk:
+      level: low
+    idempotent: true
+  decide-approval-request:
+    method: POST
+    path: /admin
+    description: Approve or reject an approval request (action 9203)
+    args:
+      - name: approvalId
+        type: string
+        required: true
+      - name: decision
+        type: string
+        required: true
+        enum: [APPROVED, REJECTED]
+      - name: reason
+        type: string
+        required: false
+    request:
+      body:
+        action: 9203
+        data:
+          approvalId: "{approvalId}"
+          decision: "{decision}"
+          reason: "{reason}"
+    response:
+      type: object
+    risk:
+      level: high
+    idempotent: false
+  count-pending-approvals:
+    method: POST
+    path: /admin
+    description: Count pending approvals (action 9204)
+    args: []
+    request:
+      body:
+        action: 9204
+        data: {}
+    response:
+      type: object
+    risk:
+      level: low
+    idempotent: true
+  get-ip-whitelist:
+    method: POST
+    path: /admin
+    description: Get current IP whitelist (action 4002)
+    args: []
+    request:
+      body:
+        action: 4002
+        data: {}
+    response:
+      type: object
+    risk:
+      level: low
+    idempotent: true
+  update-ip-whitelist:
+    method: POST
+    path: /admin
+    description: Replace full IP whitelist (action 4001)
+    args:
+      - name: whitelist
+        type: array
+        required: true
+    request:
+      body:
+        action: 4001
+        data:
+          whitelist: "{whitelist}"
+    response:
+      type: object
+    risk:
+      level: high
+    idempotent: false
+  get-capabilities:
+    method: POST
+    path: /user
+    description: Get authenticated user capabilities (action 1001)
+    args: []
+    request:
+      body:
+        action: 1001
+        data: {}
+    response:
+      type: object
+    risk:
+      level: low
+    idempotent: true
+  set-capabilities:
+    method: POST
+    path: /user
+    description: Set authenticated user capabilities (action 1002)
+    args:
+      - name: capabilities
+        type: object
+        required: true
+    request:
+      body:
+        action: 1002
+        data: "{capabilities}"
+    response:
+      type: object
+    risk:
+      level: medium
+    idempotent: false
+  configure-server:
+    method: POST
+    path: /user
+    description: Configure a user server instance (action 2001)
+    args:
+      - name: serverId
+        type: string
+        required: true
+      - name: authConf
+        type: array
+        required: false
+      - name: remoteAuth
+        type: object
+        required: false
+      - name: restfulApiAuth
+        type: object
+        required: false
+      - name: stdioEnv
+        type: object
+        required: false
+    request:
+      body:
+        action: 2001
+        data:
+          serverId: "{serverId}"
+          authConf: "{authConf}"
+          remoteAuth: "{remoteAuth}"
+          restfulApiAuth: "{restfulApiAuth}"
+          stdioEnv: "{stdioEnv}"
+    response:
+      type: object
+    risk:
+      level: high
+    idempotent: false
+  unconfigure-server:
+    method: POST
+    path: /user
+    description: Unconfigure a user server instance (action 2002)
+    args:
+      - name: serverId
+        type: string
+        required: true
+    request:
+      body:
+        action: 2002
+        data:
+          serverId: "{serverId}"
+    response:
+      type: object
+    risk:
+      level: high
+    idempotent: true
+  get-online-sessions:
+    method: POST
+    path: /user
+    description: Get online sessions for authenticated user (action 3001)
+    args: []
+    request:
+      body:
+        action: 3001
+        data: {}
+    response:
+      type: array
+    risk:
+      level: low
+    idempotent: true
