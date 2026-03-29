@@ -16,6 +16,7 @@ import (
 	"github.com/dunialabs/kimbap/internal/vault"
 	"github.com/google/uuid"
 	"github.com/spf13/cobra"
+	"golang.org/x/term"
 )
 
 type linkServiceInfo struct {
@@ -454,6 +455,12 @@ func hasRequiredSchemaProperties(schema *actions.Schema) bool {
 
 var runVerificationAction = defaultRunVerificationAction
 
+var (
+	linkInitVaultStore     = initVaultStore
+	linkReadPassword       = term.ReadPassword
+	linkIsInteractiveStdin = isInteractiveStdin
+)
+
 func defaultRunVerificationAction(ctx context.Context, cfg *config.KimbapConfig, action *actions.ActionDefinition, tenantID string) string {
 	verifyCtx, cancel := context.WithTimeout(ctx, 10*time.Second)
 	defer cancel()
@@ -508,7 +515,7 @@ func linkHandleKeyBasedService(cfg *config.KimbapConfig, info linkServiceInfo, s
 		return fmt.Errorf("service %q requires %q auth but has no credential_ref", info.Service, info.AuthType)
 	}
 
-	vs, err := initVaultStore(cfg)
+	vs, err := linkInitVaultStore(cfg)
 	if err != nil {
 		return err
 	}
@@ -569,6 +576,24 @@ func linkHandleKeyBasedService(cfg *config.KimbapConfig, info linkServiceInfo, s
 	default:
 		authLabel = "a credential"
 	}
+
+	if linkIsInteractiveStdin() {
+		_, _ = fmt.Fprintf(os.Stderr, "Enter %s for %s: ", authLabel, info.Service)
+		credential, readErr := linkReadPassword(int(os.Stdin.Fd()))
+		if readErr != nil {
+			return fmt.Errorf("read credential: %w", readErr)
+		}
+		_, _ = fmt.Fprintln(os.Stderr)
+		if err := linkStoreCredentialPayload(vs, tenantID, credentialRef, info, credential); err != nil {
+			return err
+		}
+		if !noVerify {
+			msg := verifyLinkedService(contextBackground(), cfg, info.Service, tenantID)
+			_, _ = fmt.Fprintln(os.Stderr, msg)
+		}
+		return nil
+	}
+
 	instructions := fmt.Sprintf(
 		"%s requires %s.\n\nSet it with:\n  printf '%%s' \"YOUR_CREDENTIAL\" | kimbap link %s --stdin\n\nOr store from a file:\n  kimbap link %s --file /path/to/key.txt",
 		info.Service,
@@ -603,6 +628,10 @@ func linkStoreCredentialFromInput(vs vault.Store, tenantID, credentialRef string
 	if err != nil {
 		return err
 	}
+	return linkStoreCredentialPayload(vs, tenantID, credentialRef, info, payload)
+}
+
+func linkStoreCredentialPayload(vs vault.Store, tenantID, credentialRef string, info linkServiceInfo, payload []byte) error {
 	payload = bytes.TrimSpace(payload)
 	if len(payload) == 0 {
 		return fmt.Errorf("credential value is empty after trimming whitespace")

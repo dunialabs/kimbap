@@ -2,12 +2,14 @@ package main
 
 import (
 	"context"
+	"io"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
 
 	"github.com/dunialabs/kimbap/internal/actions"
+	"github.com/dunialabs/kimbap/internal/config"
 	"github.com/dunialabs/kimbap/internal/vault"
 )
 
@@ -206,5 +208,83 @@ func TestLinkCommandHasStdinAndFileFlags(t *testing.T) {
 	}
 	if cmd.Flags().Lookup("file") == nil {
 		t.Fatal("expected --file flag on link command")
+	}
+}
+
+func TestLinkInteractivePrompt_NonTTY_PrintsInstructions(t *testing.T) {
+	resetOptsForTest(t)
+
+	stdinR, stdinW, err := os.Pipe()
+	if err != nil {
+		t.Fatalf("create stdin pipe: %v", err)
+	}
+	defer stdinR.Close()
+	defer stdinW.Close()
+
+	oldStdin := os.Stdin
+	os.Stdin = stdinR
+	t.Cleanup(func() { os.Stdin = oldStdin })
+
+	stdoutR, stdoutW, err := os.Pipe()
+	if err != nil {
+		t.Fatalf("create stdout pipe: %v", err)
+	}
+	defer stdoutR.Close()
+
+	oldStdout := os.Stdout
+	os.Stdout = stdoutW
+	t.Cleanup(func() { os.Stdout = oldStdout })
+
+	stderrR, stderrW, err := os.Pipe()
+	if err != nil {
+		t.Fatalf("create stderr pipe: %v", err)
+	}
+	defer stderrR.Close()
+
+	oldStderr := os.Stderr
+	os.Stderr = stderrW
+	t.Cleanup(func() { os.Stderr = oldStderr })
+
+	mock := &mockLinkVaultStore{}
+	oldInitVaultStore := linkInitVaultStore
+	linkInitVaultStore = func(_ *config.KimbapConfig) (vault.Store, error) {
+		return mock, nil
+	}
+	t.Cleanup(func() { linkInitVaultStore = oldInitVaultStore })
+
+	info := linkServiceInfo{
+		Service:       "github",
+		AuthType:      actions.AuthTypeAPIKey,
+		CredentialRef: "github.api_key",
+	}
+
+	err = linkHandleKeyBasedService(nil, info, false, "default", false, "", true)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	_ = stdoutW.Close()
+	_ = stderrW.Close()
+
+	stdoutBytes, readErr := io.ReadAll(stdoutR)
+	if readErr != nil {
+		t.Fatalf("read stdout: %v", readErr)
+	}
+	stderrBytes, readErr := io.ReadAll(stderrR)
+	if readErr != nil {
+		t.Fatalf("read stderr: %v", readErr)
+	}
+
+	stdout := string(stdoutBytes)
+	stderr := string(stderrBytes)
+
+	if !strings.Contains(stdout, "Set it with:") {
+		t.Fatalf("expected non-TTY instructions in stdout, got: %q", stdout)
+	}
+	if strings.Contains(stderr, "Enter ") {
+		t.Fatalf("expected no interactive prompt in non-TTY mode, got stderr: %q", stderr)
+	}
+	if mock.upsertCalled {
+		t.Fatal("expected no credential storage when only instructions are printed")
 	}
 }
