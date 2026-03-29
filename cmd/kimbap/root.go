@@ -316,6 +316,13 @@ func outputAsJSON() bool {
 	return strings.EqualFold(strings.TrimSpace(opts.format), "json")
 }
 
+func successCheck() string {
+	if isColorStdout() {
+		return "\x1b[32m✓\x1b[0m"
+	}
+	return "✓"
+}
+
 func isColorStdout() bool {
 	if v, ok := os.LookupEnv("NO_COLOR"); ok && v != "" {
 		return false

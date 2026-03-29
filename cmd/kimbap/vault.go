@@ -76,7 +76,7 @@ func newVaultSetCommand() *cobra.Command {
 			if outputAsJSON() {
 				return printOutput(rec)
 			}
-			return printOutput(fmt.Sprintf("✓ %s stored (%s)", rec.Name, rec.Type))
+			return printOutput(fmt.Sprintf(successCheck()+" %s stored (%s)", rec.Name, rec.Type))
 		},
 	}
 	cmd.Flags().StringVar(&filePath, "file", "", "read secret from file path")
@@ -233,7 +233,7 @@ func newVaultRotateCommand() *cobra.Command {
 			if outputAsJSON() {
 				return printOutput(rec)
 			}
-			return printOutput(fmt.Sprintf("✓ %s rotated (version %d)", rec.Name, rec.CurrentVersion))
+			return printOutput(fmt.Sprintf(successCheck()+" %s rotated (version %d)", rec.Name, rec.CurrentVersion))
 		},
 	}
 	cmd.Flags().StringVar(&filePath, "file", "", "read new secret from file path")
@@ -275,7 +275,7 @@ func newVaultDeleteCommand() *cobra.Command {
 			if outputAsJSON() {
 				return printOutput(map[string]any{"deleted": true, "name": name})
 			}
-			return printOutput(fmt.Sprintf("✓ %s deleted", name))
+			return printOutput(fmt.Sprintf(successCheck()+" %s deleted", name))
 		},
 	}
 	cmd.Flags().BoolVar(&force, "force", false, "confirm intent to permanently delete the secret")

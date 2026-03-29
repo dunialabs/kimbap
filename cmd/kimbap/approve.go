@@ -155,7 +155,7 @@ func newApproveDenyCommand() *cobra.Command {
 						"reason":      reason,
 					})
 				}
-				return printOutput(fmt.Sprintf("✓ %s denied", args[0]))
+				return printOutput(fmt.Sprintf(successCheck()+" %s denied", args[0]))
 			})
 			if err != nil {
 				if isRuntimeStoreUnavailable(err) {
@@ -206,7 +206,7 @@ func runApproveAccept(requestID string) error {
 				"resolved_by": "cli",
 			})
 		}
-		_, _ = fmt.Fprintf(os.Stdout, "✓ %s approved\n", requestID)
+		_, _ = fmt.Fprintf(os.Stdout, successCheck()+" %s approved\n", requestID)
 		_, _ = fmt.Fprintln(os.Stdout, "Hint: Approval recorded.")
 		return nil
 	})

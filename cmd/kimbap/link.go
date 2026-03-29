@@ -149,7 +149,7 @@ func newLinkCommand() *cobra.Command {
 					}
 					switch status {
 					case string(connectors.StatusConnected):
-						return printOutput(fmt.Sprintf("✓ %s is connected via OAuth (%s)", info.Service, connectorName))
+						return printOutput(fmt.Sprintf(successCheck()+" %s is connected via OAuth (%s)", info.Service, connectorName))
 					case "not_connected":
 						return printOutput(fmt.Sprintf("%s is not connected via OAuth (%s)", info.Service, connectorName))
 					default:
@@ -473,7 +473,7 @@ func defaultRunVerificationAction(ctx context.Context, cfg *config.KimbapConfig,
 	defer cancel()
 	rt, runtimeCleanup, err := buildRuntimeFromConfigWithCleanup(cfg)
 	if err != nil {
-		return "✓ Stored (verification skipped)"
+		return successCheck()+" Stored (verification skipped)"
 	}
 	defer runtimeCleanup()
 	result := rt.Execute(verifyCtx, actions.ExecutionRequest{
@@ -485,7 +485,7 @@ func defaultRunVerificationAction(ctx context.Context, cfg *config.KimbapConfig,
 		Mode:      actions.ModeCall,
 	})
 	if result.Status == actions.StatusSuccess {
-		return fmt.Sprintf("✓ Verified — %s returned successfully", action.Name)
+		return fmt.Sprintf(successCheck()+" Verified — %s returned successfully", action.Name)
 	}
 	errMsg := "unknown error"
 	if result.Error != nil {
@@ -500,11 +500,11 @@ func defaultRunVerificationAction(ctx context.Context, cfg *config.KimbapConfig,
 func verifyLinkedService(ctx context.Context, cfg *config.KimbapConfig, serviceName, tenantID string) string {
 	defs, err := loadInstalledActions(cfg)
 	if err != nil {
-		return "✓ Stored (verification skipped)"
+		return successCheck()+" Stored (verification skipped)"
 	}
 	action := findVerificationAction(defs, serviceName)
 	if action == nil {
-		return "✓ Stored (no low-risk action available for automatic verification)"
+		return successCheck()+" Stored (no low-risk action available for automatic verification)"
 	}
 	return runVerificationAction(ctx, cfg, action, tenantID)
 }
@@ -550,7 +550,7 @@ func linkHandleKeyBasedService(cfg *config.KimbapConfig, info linkServiceInfo, s
 				"credential_ref": credentialRef,
 			})
 		}
-		return printOutput(fmt.Sprintf("✓ %s is already connected (credential: %s)", info.Service, credentialRef))
+		return printOutput(fmt.Sprintf(successCheck()+" %s is already connected (credential: %s)", info.Service, credentialRef))
 	}
 
 	if err != nil && !errors.Is(err, vault.ErrSecretNotFound) {
@@ -656,7 +656,7 @@ func linkStoreCredentialPayload(vs vault.Store, tenantID, credentialRef string, 
 			"credential_ref": credentialRef,
 		})
 	}
-	return printOutput(fmt.Sprintf("✓ %s is connected (credential: %s)", info.Service, credentialRef))
+	return printOutput(fmt.Sprintf(successCheck()+" %s is connected (credential: %s)", info.Service, credentialRef))
 }
 
 func linkAuthTypeToSecretType(authType actions.AuthType) vault.SecretType {

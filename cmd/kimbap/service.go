@@ -88,7 +88,7 @@ func newServiceInstallCommand() *cobra.Command {
 				status = "disabled"
 			}
 			maybePrintAgentSyncHint(opts.format)
-			return printOutput(fmt.Sprintf("✓ %s (%s) installed [%s]", installed.Manifest.Name, installed.Manifest.Version, status))
+			return printOutput(fmt.Sprintf(successCheck()+" %s (%s) installed [%s]", installed.Manifest.Name, installed.Manifest.Version, status))
 		},
 	}
 	cmd.Flags().BoolVar(&force, "force", false, "overwrite existing service if already installed")
@@ -228,7 +228,7 @@ func newServiceEnableCommand() *cobra.Command {
 				return printOutput(map[string]any{"enabled": true, "name": name})
 			}
 			maybePrintAgentSyncHint(opts.format)
-			return printOutput(fmt.Sprintf("✓ %s enabled", name))
+			return printOutput(fmt.Sprintf(successCheck()+" %s enabled", name))
 		},
 	}
 	return cmd
@@ -265,7 +265,7 @@ func newServiceDisableCommand() *cobra.Command {
 				return printOutput(map[string]any{"enabled": false, "name": name})
 			}
 			maybePrintAgentSyncHint(opts.format)
-			return printOutput(fmt.Sprintf("✓ %s disabled", name))
+			return printOutput(fmt.Sprintf(successCheck()+" %s disabled", name))
 		},
 	}
 	return cmd
@@ -302,7 +302,7 @@ func newServiceRemoveCommand() *cobra.Command {
 				return printOutput(map[string]any{"removed": true, "name": name})
 			}
 			maybePrintAgentSyncHint(opts.format)
-			return printOutput(fmt.Sprintf("✓ %s removed", name))
+			return printOutput(fmt.Sprintf(successCheck()+" %s removed", name))
 		},
 	}
 	return cmd
@@ -352,7 +352,7 @@ func newServiceUpdateCommand() *cobra.Command {
 					})
 				}
 				maybePrintAgentSyncHint(opts.format)
-				return printOutput(fmt.Sprintf("✓ %s (%s) already up to date", installed.Manifest.Name, installed.Manifest.Version))
+				return printOutput(fmt.Sprintf(successCheck()+" %s (%s) already up to date", installed.Manifest.Name, installed.Manifest.Version))
 			}
 
 			updated, installErr := installer.InstallWithForceAndActivation(manifest, newSource, true, installed.Enabled)
@@ -370,7 +370,7 @@ func newServiceUpdateCommand() *cobra.Command {
 				})
 			}
 			maybePrintAgentSyncHint(opts.format)
-			return printOutput(fmt.Sprintf("✓ %s updated to %s", updated.Manifest.Name, updated.Manifest.Version))
+			return printOutput(fmt.Sprintf(successCheck()+" %s updated to %s", updated.Manifest.Name, updated.Manifest.Version))
 		},
 	}
 	cmd.Flags().BoolVar(&force, "force", false, "force update even if version is unchanged")
@@ -466,7 +466,7 @@ func newServiceValidateCommand() *cobra.Command {
 			if outputAsJSON() {
 				return printOutput(map[string]any{"valid": true, "name": manifest.Name, "version": manifest.Version})
 			}
-			return printOutput(fmt.Sprintf("✓ %s (%s) is valid", manifest.Name, manifest.Version))
+			return printOutput(fmt.Sprintf(successCheck()+" %s (%s) is valid", manifest.Name, manifest.Version))
 		},
 	}
 	return cmd
@@ -592,7 +592,7 @@ func newServiceSignCommand() *cobra.Command {
 			if outputAsJSON() {
 				return printOutput(map[string]any{"signed": true})
 			}
-			return printOutput("✓ lockfile signed")
+			return printOutput(successCheck()+" lockfile signed")
 		},
 	}
 
@@ -724,7 +724,7 @@ func newServiceExportAgentSkillCommand() *cobra.Command {
 					if outputAsJSON() {
 						return printOutput(map[string]any{"exported": true, "pack": true, "files": writtenFiles})
 					}
-					return printOutput(fmt.Sprintf("✓ %s exported (%d files)", installed.Manifest.Name, len(writtenFiles)))
+					return printOutput(fmt.Sprintf(successCheck()+" %s exported (%d files)", installed.Manifest.Name, len(writtenFiles)))
 				}
 				content, legacyErr := services.GenerateAgentSkillMD(&installed.Manifest, services.WithSource(installed.Source))
 				if legacyErr != nil {
@@ -737,7 +737,7 @@ func newServiceExportAgentSkillCommand() *cobra.Command {
 				if outputAsJSON() {
 					return printOutput(map[string]any{"exported": true, "path": outPath})
 				}
-				return printOutput(fmt.Sprintf("✓ %s exported to %s", installed.Manifest.Name, outPath))
+				return printOutput(fmt.Sprintf(successCheck()+" %s exported to %s", installed.Manifest.Name, outPath))
 			}
 
 			content, err := services.GenerateAgentSkillMD(&installed.Manifest, services.WithSource(installed.Source))
@@ -752,7 +752,7 @@ func newServiceExportAgentSkillCommand() *cobra.Command {
 				if outputAsJSON() {
 					return printOutput(map[string]any{"exported": true, "path": outputPath})
 				}
-				return printOutput(fmt.Sprintf("✓ %s exported to %s", installed.Manifest.Name, outputPath))
+				return printOutput(fmt.Sprintf(successCheck()+" %s exported to %s", installed.Manifest.Name, outputPath))
 			}
 
 			fmt.Print(content)
