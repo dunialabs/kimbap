@@ -1,4 +1,4 @@
-.PHONY: build run dev test clean deps lint vet install build-census
+.PHONY: build run dev test clean deps lint vet install build-census review-init review-validate
 
 VERSION ?= 1.1.0
 LDFLAGS ?= -X github.com/dunialabs/kimbap/internal/config.version=$(VERSION)
@@ -39,3 +39,10 @@ install: build
 
 build-census:
 	bash ./scripts/build_exclusion_census.sh
+
+review-init:
+	FORCE="$(FORCE)" bash ./scripts/console-review-init.sh "$(ARTIFACT_DIR)"
+
+review-validate:
+	@if [ -z "$(REPORT)" ]; then echo "Usage: make review-validate REPORT=artifacts/console-review/R001/report.yaml"; exit 1; fi
+	python3 ./scripts/console-review-validate.py "$(REPORT)"

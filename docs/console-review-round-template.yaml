@@ -1,0 +1,54 @@
+round: R001
+status: queued
+
+app:
+  launch_command: "kimbap serve --console --port 8080"
+  url: "http://localhost:8080/console"
+  launched_at: ""
+
+coverage:
+  required_view_order:
+    - dashboard
+    - actions
+    - approvals
+    - audit
+    - services
+  known_views_inspected: []
+  discovered_substates: []
+  blocked_states: []
+
+screenshots: []
+
+findings: []
+
+wording_changes: []
+
+changes:
+  files_changed: []
+  files_unchanged: []
+
+verification:
+  commands: []
+  diagnostics: ""
+  tests: []
+  build: []
+  browser_recheck: []
+
+oracle_review:
+  status: pending
+  issues_found: []
+  reruns: 0
+
+regression_spot_check:
+  changed_views: []
+  untouched_views_checked: []
+  result: pending
+
+round_result:
+  type: pending
+  summary: ""
+
+next_round:
+  id: R002
+  status: queued
+  carry_forward_focus: []
