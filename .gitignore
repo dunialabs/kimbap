@@ -31,6 +31,16 @@ coverage.txt
 tmp/
 temp/
 
+# Local DB artifacts
+*.db
+*.db-wal
+*.db-shm
+*.sqlite
+*.sqlite3
+*.sqlite-wal
+*.sqlite-shm
+*.sqlite-journal
+
 # Agent / AI workspace
 .sisyphus/
 .openchrome/
