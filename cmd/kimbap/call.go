@@ -189,16 +189,6 @@ func printCallResult(result actions.ExecutionResult) error {
 			_, _ = fmt.Fprintln(os.Stdout, "✓ Done")
 			return nil
 		}
-
-		if len(result.Output) == 1 {
-			for _, value := range result.Output {
-				if s, ok := value.(string); ok {
-					_, _ = fmt.Fprintf(os.Stdout, "✓ %s\n", s)
-					return nil
-				}
-			}
-		}
-
 		encoded, err := json.MarshalIndent(result.Output, "", "  ")
 		if err != nil {
 			_, _ = fmt.Fprintln(os.Stdout, "✓ Done")
