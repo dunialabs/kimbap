@@ -59,14 +59,31 @@ func collectStatusSummary(cfg *config.KimbapConfig) statusSummary {
 	}
 }
 
+func statusHealthColor(val, good string, warn []string) string {
+	if !isColorStdout() {
+		return val
+	}
+	if val == good {
+		return "[32m" + val + "[0m"
+	}
+	for _, w := range warn {
+		if val == w {
+			return "[33m" + val + "[0m"
+		}
+	}
+	return "[31m" + val + "[0m"
+}
+
 func renderStatusSummary(summary statusSummary) string {
+	vault := statusHealthColor(summary.Vault, "ready", []string{"locked", "not initialized"})
+	policy := statusHealthColor(summary.Policy, "loaded", []string{"not configured"})
 	return strings.Join([]string{
 		fmt.Sprintf("%-14s%s", "Mode:", summary.Mode),
-		fmt.Sprintf("%-14s%s", "Vault:", summary.Vault),
+		fmt.Sprintf("%-14s%s", "Vault:", vault),
 		fmt.Sprintf("%-14s%d enabled", "Services:", summary.Services),
 		fmt.Sprintf("%-14s%d stored", "Credentials:", summary.Credentials),
 		fmt.Sprintf("%-14s%d configured", "Agents:", summary.Agents),
-		fmt.Sprintf("%-14s%s", "Policy:", summary.Policy),
+		fmt.Sprintf("%-14s%s", "Policy:", policy),
 	}, "\n")
 }
 
