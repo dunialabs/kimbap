@@ -1087,7 +1087,7 @@ func TestGenerateAgentSkillMDIncludesActionLevelCredentials(t *testing.T) {
 	if err != nil {
 		t.Fatalf("GenerateAgentSkillMD: %v", err)
 	}
-	if !strings.Contains(content, "kimbap vault set multi-auth.api_key") {
+	if !strings.Contains(content, "kimbap link multi-auth --stdin") {
 		t.Error("GenerateAgentSkillMD must list action-level credential refs in prerequisites")
 	}
 }
@@ -1889,6 +1889,47 @@ func TestGenerateAgentSkillMDRiskLevelHints(t *testing.T) {
 				t.Errorf("risk=%q: approval hint = %v, want %v\nOutput:\n%s", tc.riskLevel, hasApproval, tc.wantApprovalHint, out)
 			}
 		})
+	}
+}
+
+func TestGenerateAgentSkillMDIncludesIdempotencyKeyGuidanceForNonIdempotentActions(t *testing.T) {
+	nonIdempotent := false
+	idempotent := true
+	manifest := &ServiceManifest{
+		Name:    "github",
+		Version: "1.0.0",
+		BaseURL: "https://api.github.com",
+		Auth:    ServiceAuth{Type: "bearer", CredentialRef: "github.token"},
+		Actions: map[string]ServiceAction{
+			"create-issue": {
+				Method:     "POST",
+				Path:       "/repos/{owner}/{repo}/issues",
+				Risk:       RiskSpec{Level: "medium"},
+				Idempotent: &nonIdempotent,
+			},
+			"get-issue": {
+				Method:     "GET",
+				Path:       "/repos/{owner}/{repo}/issues/{issue_number}",
+				Risk:       RiskSpec{Level: "low"},
+				Idempotent: &idempotent,
+			},
+		},
+	}
+
+	content, err := GenerateAgentSkillMD(manifest)
+	if err != nil {
+		t.Fatalf("GenerateAgentSkillMD: %v", err)
+	}
+
+	if !strings.Contains(content, "⚠️  Non-idempotent: pass --idempotency-key <unique-id> for safe retries.") {
+		t.Fatalf("expected idempotency-key guidance for non-idempotent action, got:\n%s", content)
+	}
+
+	sections := strings.Split(content, "### ")
+	for _, section := range sections {
+		if strings.HasPrefix(section, "github.get-issue") && strings.Contains(section, "--idempotency-key") {
+			t.Fatalf("did not expect idempotency guidance in idempotent action section, got:\n%s", section)
+		}
 	}
 }
 

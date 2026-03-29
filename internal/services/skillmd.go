@@ -77,7 +77,14 @@ func GenerateAgentSkillMD(manifest *ServiceManifest, opts ...SkillMDOption) (str
 	fmt.Fprintf(&sb, "- Service installed: `%s`\n", buildInstallInstruction(manifest.Name, cfg))
 	credRefs := collectCredentialRefs(manifest)
 	for _, ref := range credRefs {
-		fmt.Fprintf(&sb, "- Credential configured: `printf '%%s' \"$SECRET\" | kimbap vault set %s --stdin`\n", ref)
+		serviceName := ref
+		if dot := strings.Index(ref, "."); dot > 0 {
+			serviceName = ref[:dot]
+		}
+		if strings.TrimSpace(serviceName) == "" {
+			serviceName = manifest.Name
+		}
+		fmt.Fprintf(&sb, "- Credential configured: `printf '%%s' \"$SECRET\" | kimbap link %s --stdin`\n", serviceName)
 	}
 	sb.WriteString("\n")
 
@@ -129,6 +136,9 @@ func GenerateAgentSkillMD(manifest *ServiceManifest, opts ...SkillMDOption) (str
 			}
 		}
 		sb.WriteString("\n```\n")
+		if action.Idempotent != nil && !*action.Idempotent {
+			sb.WriteString("\n⚠️  Non-idempotent: pass --idempotency-key <unique-id> for safe retries.\n")
+		}
 		if riskLevel == "" || riskLevel == "unknown" || riskLevel == "medium" || riskLevel == "high" || riskLevel == "critical" {
 			fmt.Fprintf(&sb, "\n> ⚠️ This action is risk level: %s. Use --dry-run --format json first to preview.\n", riskDisplay)
 		}
