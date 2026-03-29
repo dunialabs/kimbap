@@ -185,7 +185,7 @@ func printCallResult(result actions.ExecutionResult) error {
 	}
 
 	if result.Status == actions.StatusSuccess {
-		if result.Output == nil {
+		if len(result.Output) == 0 {
 			_, _ = fmt.Fprintln(os.Stdout, "✓ Done")
 			return nil
 		}

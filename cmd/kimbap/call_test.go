@@ -61,6 +61,31 @@ func TestCallOutputTextMode_Success(t *testing.T) {
 	}
 }
 
+func TestCallOutputTextMode_SuccessNilOutput(t *testing.T) {
+	resetOptsForTest(t)
+	opts.format = "text"
+
+	for _, name := range []string{"nil output", "empty output"} {
+		t.Run(name, func(t *testing.T) {
+			var out map[string]any
+			if name == "empty output" {
+				out = map[string]any{}
+			}
+			result := actions.ExecutionResult{Status: actions.StatusSuccess, Output: out}
+			output, err := captureStdout(t, func() error { return printCallResult(result) })
+			if err != nil {
+				t.Fatalf("printCallResult returned error: %v", err)
+			}
+			if !strings.Contains(output, "✓ Done") {
+				t.Fatalf("expected '✓ Done' for %s, got %q", name, output)
+			}
+			if strings.Contains(output, "{}") {
+				t.Fatalf("expected no raw '{}' for %s, got %q", name, output)
+			}
+		})
+	}
+}
+
 func TestCallOutputTextMode_Error(t *testing.T) {
 	resetOptsForTest(t)
 	opts.format = "text"
