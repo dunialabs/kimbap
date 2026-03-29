@@ -1,101 +1,159 @@
 name: peta
-version: 1.0.0
-description: Peta Core admin and user API wrapper using action-based requests for /admin and /user
-base_url: http://localhost:3002
+version: 2.0.0
+description: PETA Console External REST API for token, tool, approval, policy, cache, and proxy operations
+base_url: http://localhost:3000/api/external
 auth:
   type: bearer
   credential_ref: peta.token
 triggers:
-  task_verbs: [list, create, update, delete, approve, reject, start, stop, configure, unconfigure, inspect, count]
-  objects: [users, servers, policies, approvals, proxy, ip-whitelist, capabilities, sessions]
+  task_verbs: [list, create, update, delete, approve, reject, manage, enable, disable, start, connect, configure, purge, check, initialize]
+  objects: [tokens, policies, approvals, tools, capabilities, proxy, sessions, scopes, templates, cache, ip-whitelist, user-servers, peta-core]
   instead_of:
-    - manually building raw action payloads for peta admin and user endpoints
+    - manually using the PETA Console UI for token, tool, or approval operations
+    - issuing raw curl requests against PETA Console external endpoints
   exclusions:
-    - non-peta console workflows
+    - direct database mutations
+    - workflows unrelated to PETA Console
 gotchas:
-  - symptom: Requests to /api/external or REST-style resource paths return 404
-    likely_cause: Peta uses unified action endpoints (/admin and /user)
-    recovery: Send POST with { action, data } to /admin or /user
+  - symptom: All API calls return 401 or 403
+    likely_cause: Missing/invalid owner token for external API
+    recovery: Set a valid owner token with kimbap vault set peta.token
     severity: high
-  - symptom: success=false with INVALID_REQUEST
-    likely_cause: Invalid or missing numeric action code
-    recovery: Use the action numbers defined in peta-core docs
+  - symptom: init fails with E3007
+    likely_cause: Proxy was already initialized
+    recovery: Reuse existing owner token; do not call init on initialized instances
     severity: high
+  - symptom: enable/disable/start tool fails with E2004
+    likely_cause: Invalid masterPwd
+    recovery: Use the same masterPwd used at init
+    severity: high
+  - symptom: decide-approval fails validation
+    likely_cause: Invalid decision casing
+    recovery: Use exactly APPROVED or REJECTED
+    severity: medium
 recipes:
-  - name: Inspect owner and inventory
-    description: Confirm owner, user list, and server list quickly
+  - name: Bootstrap fresh console
+    description: Initialize proxy, store owner token, verify core connectivity
     steps:
-      - Call get-owner
-      - Call list-users
-      - Call list-servers
+      - Call init with masterPwd
+      - Store returned accessToken in peta.token
+      - Call get-peta-core-status
+      - Call get-proxy
   - name: Process pending approvals
-    description: Review and decide tool approval requests
+    description: Review and decide approval queue
     steps:
       - Call count-pending-approvals
-      - Call list-approval-requests
-      - Call decide-approval-request
+      - Call list-approvals with status=pending
+      - Call get-approval by id
+      - Call decide-approval with APPROVED or REJECTED
 actions:
-  get-owner:
+  init:
     method: POST
-    path: /admin
-    description: Get owner information (action 1016)
+    path: /auth/init
+    description: Initialize PETA Console and create owner token
+    auth:
+      type: none
+    args:
+      - name: masterPwd
+        type: string
+        required: true
+    request:
+      body:
+        masterPwd: "{masterPwd}"
+    response:
+      type: object
+    risk:
+      level: high
+    idempotent: false
+  get-proxy:
+    method: POST
+    path: /proxy
+    description: Get proxy information
     args: []
     request:
-      body:
-        action: 1016
-        data: {}
+      body: {}
     response:
       type: object
     risk:
       level: low
     idempotent: true
-  list-users:
+  update-proxy:
     method: POST
-    path: /admin
-    description: List users (action 1011)
+    path: /proxy/update
+    description: Update proxy name
     args:
-      - name: userId
-        type: string
-        required: false
-      - name: role
-        type: integer
-        required: false
-      - name: excludeRole
-        type: integer
-        required: false
       - name: proxyId
         type: integer
+        required: true
+      - name: proxyName
+        type: string
+        required: true
+    request:
+      body:
+        proxyId: "{proxyId}"
+        proxyName: "{proxyName}"
+    response:
+      type: object
+    risk:
+      level: medium
+    idempotent: false
+  get-peta-core-status:
+    method: POST
+    path: /peta-core/connect
+    description: Get PETA Core connection information
+    args: []
+    request:
+      body: {}
+    response:
+      type: object
+    risk:
+      level: low
+    idempotent: true
+  list-tokens:
+    method: POST
+    path: /tokens
+    description: List tokens with optional namespace/tags filters
+    args:
+      - name: namespace
+        type: string
+        required: false
+      - name: tags
+        type: array
         required: false
     request:
       body:
-        action: 1011
-        data:
-          userId: "{userId}"
-          role: "{role}"
-          excludeRole: "{excludeRole}"
-          proxyId: "{proxyId}"
+        namespace: "{namespace}"
+        tags: "{tags}"
     response:
-      type: object
+      extract: data.tokens
+      type: array
     risk:
       level: low
     idempotent: true
-  create-user:
+  create-token:
     method: POST
-    path: /admin
-    description: Create a user (action 1010)
+    path: /tokens/create
+    description: Create one or more access tokens
     args:
-      - name: userId
+      - name: tokens
+        type: array
+        required: true
+    request:
+      body:
+        tokens: "{tokens}"
+    response:
+      type: object
+    risk:
+      level: high
+    idempotent: false
+  update-token:
+    method: POST
+    path: /tokens/update
+    description: Update token metadata and permissions
+    args:
+      - name: tokenId
         type: string
         required: true
-      - name: encryptedToken
-        type: string
-        required: true
-      - name: role
-        type: integer
-        required: false
-      - name: status
-        type: integer
-        required: false
       - name: name
         type: string
         required: false
@@ -103,124 +161,141 @@ actions:
         type: string
         required: false
       - name: permissions
-        type: object
+        type: array
         required: false
-      - name: expiresAt
-        type: integer
+      - name: namespace
+        type: string
         required: false
-      - name: ratelimit
-        type: integer
-        required: false
-      - name: proxyId
-        type: integer
+      - name: tags
+        type: array
         required: false
     request:
       body:
-        action: 1010
-        data:
-          userId: "{userId}"
-          encryptedToken: "{encryptedToken}"
-          role: "{role}"
-          status: "{status}"
-          name: "{name}"
-          notes: "{notes}"
-          permissions: "{permissions}"
-          expiresAt: "{expiresAt}"
-          ratelimit: "{ratelimit}"
-          proxyId: "{proxyId}"
+        tokenId: "{tokenId}"
+        name: "{name}"
+        notes: "{notes}"
+        permissions: "{permissions}"
+        namespace: "{namespace}"
+        tags: "{tags}"
     response:
       type: object
     risk:
       level: high
     idempotent: false
-  list-servers:
+  delete-token:
     method: POST
-    path: /admin
-    description: List servers (action 2011)
+    path: /tokens/delete
+    description: Delete an access token
     args:
-      - name: serverId
+      - name: tokenId
         type: string
-        required: false
-      - name: proxyId
-        type: integer
-        required: false
+        required: true
+    request:
+      body:
+        tokenId: "{tokenId}"
+    response:
+      type: object
+    risk:
+      level: high
+    idempotent: false
+  list-tools:
+    method: POST
+    path: /tools
+    description: List configured tools
+    args:
       - name: enabled
         type: boolean
         required: false
     request:
       body:
-        action: 2011
-        data:
-          serverId: "{serverId}"
-          proxyId: "{proxyId}"
-          enabled: "{enabled}"
+        enabled: "{enabled}"
+    response:
+      extract: data.tools
+      type: array
+    risk:
+      level: low
+    idempotent: true
+  get-tool:
+    method: POST
+    path: /tools/get
+    description: Get tool details by id
+    args:
+      - name: toolId
+        type: string
+        required: true
+    request:
+      body:
+        toolId: "{toolId}"
     response:
       type: object
     risk:
       level: low
     idempotent: true
-  start-server:
+  start-tool:
     method: POST
-    path: /admin
-    description: Start a server (action 2001)
+    path: /tools/start
+    description: Start a tool
     args:
-      - name: targetId
+      - name: toolId
+        type: string
+        required: true
+      - name: masterPwd
         type: string
         required: true
     request:
       body:
-        action: 2001
-        data:
-          targetId: "{targetId}"
+        toolId: "{toolId}"
+        masterPwd: "{masterPwd}"
     response:
       type: object
     risk:
       level: high
     idempotent: false
-  stop-server:
+  enable-tool:
     method: POST
-    path: /admin
-    description: Stop a server (action 2002)
+    path: /tools/enable
+    description: Enable and start a tool
     args:
-      - name: targetId
+      - name: toolId
+        type: string
+        required: true
+      - name: masterPwd
         type: string
         required: true
     request:
       body:
-        action: 2002
-        data:
-          targetId: "{targetId}"
+        toolId: "{toolId}"
+        masterPwd: "{masterPwd}"
     response:
       type: object
     risk:
       level: high
     idempotent: false
-  list-policy-sets:
+  disable-tool:
     method: POST
-    path: /admin
-    description: List policy sets (action 9102)
+    path: /tools/disable
+    description: Disable and stop a tool
     args:
-      - name: serverId
+      - name: toolId
         type: string
-        required: false
+        required: true
+      - name: masterPwd
+        type: string
+        required: true
     request:
       body:
-        action: 9102
-        data:
-          serverId: "{serverId}"
+        toolId: "{toolId}"
+        masterPwd: "{masterPwd}"
     response:
       type: object
     risk:
-      level: low
-    idempotent: true
-  list-approval-requests:
+      level: high
+    idempotent: false
+  list-approvals:
     method: POST
-    path: /admin
-    description: List approval requests (action 9201)
+    path: /approvals
+    description: List approval requests
     args:
-      - name: status
-        type: string
-        required: false
       - name: userId
         type: string
         required: false
@@ -230,25 +305,51 @@ actions:
       - name: toolName
         type: string
         required: false
+      - name: status
+        type: string
+        required: false
+      - name: page
+        type: integer
+        required: false
+      - name: pageSize
+        type: integer
+        required: false
     request:
       body:
-        action: 9201
-        data:
-          status: "{status}"
-          userId: "{userId}"
-          serverId: "{serverId}"
-          toolName: "{toolName}"
+        userId: "{userId}"
+        serverId: "{serverId}"
+        toolName: "{toolName}"
+        status: "{status}"
+        page: "{page}"
+        pageSize: "{pageSize}"
+    response:
+      extract: data.requests
+      type: array
+    risk:
+      level: low
+    idempotent: true
+  get-approval:
+    method: POST
+    path: /approvals/get
+    description: Get one approval request by id
+    args:
+      - name: id
+        type: string
+        required: true
+    request:
+      body:
+        id: "{id}"
     response:
       type: object
     risk:
       level: low
     idempotent: true
-  decide-approval-request:
+  decide-approval:
     method: POST
-    path: /admin
-    description: Approve or reject an approval request (action 9203)
+    path: /approvals/decide
+    description: Approve or reject an approval request
     args:
-      - name: approvalId
+      - name: id
         type: string
         required: true
       - name: decision
@@ -260,11 +361,9 @@ actions:
         required: false
     request:
       body:
-        action: 9203
-        data:
-          approvalId: "{approvalId}"
-          decision: "{decision}"
-          reason: "{reason}"
+        id: "{id}"
+        decision: "{decision}"
+        reason: "{reason}"
     response:
       type: object
     risk:
@@ -272,144 +371,297 @@ actions:
     idempotent: false
   count-pending-approvals:
     method: POST
-    path: /admin
-    description: Count pending approvals (action 9204)
-    args: []
-    request:
-      body:
-        action: 9204
-        data: {}
-    response:
-      type: object
-    risk:
-      level: low
-    idempotent: true
-  get-ip-whitelist:
-    method: POST
-    path: /admin
-    description: Get current IP whitelist (action 4002)
-    args: []
-    request:
-      body:
-        action: 4002
-        data: {}
-    response:
-      type: object
-    risk:
-      level: low
-    idempotent: true
-  update-ip-whitelist:
-    method: POST
-    path: /admin
-    description: Replace full IP whitelist (action 4001)
+    path: /approvals/count-pending
+    description: Count pending approvals
     args:
-      - name: whitelist
+      - name: userId
+        type: string
+        required: false
+    request:
+      body:
+        userId: "{userId}"
+    response:
+      type: object
+    risk:
+      level: low
+    idempotent: true
+  list-policies:
+    method: POST
+    path: /policies
+    description: List policy sets
+    args:
+      - name: serverId
+        type: string
+        required: false
+    request:
+      body:
+        serverId: "{serverId}"
+    response:
+      extract: data.policySets
+      type: array
+    risk:
+      level: low
+    idempotent: true
+  get-effective-policies:
+    method: POST
+    path: /policies/effective
+    description: Get effective policy sets
+    args:
+      - name: serverId
+        type: string
+        required: false
+    request:
+      body:
+        serverId: "{serverId}"
+    response:
+      type: object
+    risk:
+      level: low
+    idempotent: true
+  list-ip-whitelist:
+    method: POST
+    path: /ip-whitelist
+    description: List IP whitelist entries
+    args: []
+    request:
+      body: {}
+    response:
+      type: object
+    risk:
+      level: low
+    idempotent: true
+  add-ip-whitelist:
+    method: POST
+    path: /ip-whitelist/add
+    description: Add IP ranges to whitelist
+    args:
+      - name: ips
         type: array
         required: true
     request:
       body:
-        action: 4001
-        data:
-          whitelist: "{whitelist}"
-    response:
-      type: object
-    risk:
-      level: high
-    idempotent: false
-  get-capabilities:
-    method: POST
-    path: /user
-    description: Get authenticated user capabilities (action 1001)
-    args: []
-    request:
-      body:
-        action: 1001
-        data: {}
-    response:
-      type: object
-    risk:
-      level: low
-    idempotent: true
-  set-capabilities:
-    method: POST
-    path: /user
-    description: Set authenticated user capabilities (action 1002)
-    args:
-      - name: capabilities
-        type: object
-        required: true
-    request:
-      body:
-        action: 1002
-        data: "{capabilities}"
+        ips: "{ips}"
     response:
       type: object
     risk:
       level: medium
     idempotent: false
-  configure-server:
+  delete-ip-whitelist:
     method: POST
-    path: /user
-    description: Configure a user server instance (action 2001)
+    path: /ip-whitelist/delete
+    description: Remove IP ranges from whitelist
     args:
-      - name: serverId
-        type: string
-        required: true
-      - name: authConf
+      - name: ips
         type: array
-        required: false
-      - name: remoteAuth
-        type: object
-        required: false
-      - name: restfulApiAuth
-        type: object
-        required: false
-      - name: stdioEnv
-        type: object
-        required: false
+        required: true
     request:
       body:
-        action: 2001
-        data:
-          serverId: "{serverId}"
-          authConf: "{authConf}"
-          remoteAuth: "{remoteAuth}"
-          restfulApiAuth: "{restfulApiAuth}"
-          stdioEnv: "{stdioEnv}"
+        ips: "{ips}"
+    response:
+      type: object
+    risk:
+      level: medium
+    idempotent: false
+  allow-all-ips:
+    method: POST
+    path: /ip-whitelist/allow-all
+    description: Allow all IPs
+    args: []
+    request:
+      body: {}
     response:
       type: object
     risk:
       level: high
     idempotent: false
-  unconfigure-server:
+  restrict-all-ips:
     method: POST
-    path: /user
-    description: Unconfigure a user server instance (action 2002)
+    path: /ip-whitelist/restrict
+    description: Remove global allow-all IP entry
+    args: []
+    request:
+      body: {}
+    response:
+      type: object
+    risk:
+      level: medium
+    idempotent: false
+  get-user-capabilities:
+    method: POST
+    path: /user-capabilities
+    description: Get capabilities for a user token
+    args:
+      - name: userId
+        type: string
+        required: true
+    request:
+      body:
+        userId: "{userId}"
+    response:
+      type: object
+    risk:
+      level: low
+    idempotent: true
+  set-user-capabilities:
+    method: POST
+    path: /user-capabilities/set
+    description: Set capabilities for a user token
+    args:
+      - name: userId
+        type: string
+        required: true
+      - name: permissions
+        type: array
+        required: true
+    request:
+      body:
+        userId: "{userId}"
+        permissions: "{permissions}"
+    response:
+      type: object
+    risk:
+      level: high
+    idempotent: false
+  configure-user-server:
+    method: POST
+    path: /user-servers/configure
+    description: Configure user server access
+    args:
+      - name: userId
+        type: string
+        required: true
+      - name: serverId
+        type: string
+        required: true
+    request:
+      body:
+        userId: "{userId}"
+        serverId: "{serverId}"
+    response:
+      type: object
+    risk:
+      level: high
+    idempotent: false
+  unconfigure-user-server:
+    method: POST
+    path: /user-servers/unconfigure
+    description: Remove user server configuration
+    args:
+      - name: userId
+        type: string
+        required: true
+      - name: serverId
+        type: string
+        required: true
+    request:
+      body:
+        userId: "{userId}"
+        serverId: "{serverId}"
+    response:
+      type: object
+    risk:
+      level: high
+    idempotent: true
+  list-sessions:
+    method: POST
+    path: /sessions
+    description: List active sessions
+    args:
+      - name: limit
+        type: integer
+        required: false
+        default: 50
+    request:
+      body:
+        limit: "{limit}"
+    response:
+      extract: data.sessions
+      type: array
+    risk:
+      level: low
+    idempotent: true
+  get-cache-health:
+    method: POST
+    path: /cache/health
+    description: Get result cache health
+    args: []
+    request:
+      body: {}
+    response:
+      type: object
+    risk:
+      level: low
+    idempotent: true
+  get-cache-policy:
+    method: POST
+    path: /cache/policy
+    description: Get cache policy for a server
     args:
       - name: serverId
         type: string
         required: true
     request:
       body:
-        action: 2002
-        data:
-          serverId: "{serverId}"
+        serverId: "{serverId}"
+    response:
+      type: object
+    risk:
+      level: low
+    idempotent: true
+  purge-cache:
+    method: POST
+    path: /cache/purge
+    description: Purge result cache by scope
+    args:
+      - name: scope
+        type: string
+        required: true
+        enum: [global, server, tool, prompt, resource, exact]
+      - name: serverId
+        type: string
+        required: false
+      - name: toolName
+        type: string
+        required: false
+      - name: promptName
+        type: string
+        required: false
+      - name: uri
+        type: string
+        required: false
+      - name: reason
+        type: string
+        required: false
+      - name: operation
+        type: string
+        required: false
+      - name: entityId
+        type: string
+        required: false
+      - name: policy
+        type: object
+        required: false
+      - name: scopeContext
+        type: object
+        required: false
+      - name: requestParams
+        type: object
+        required: false
+    request:
+      body:
+        scope: "{scope}"
+        serverId: "{serverId}"
+        toolName: "{toolName}"
+        promptName: "{promptName}"
+        uri: "{uri}"
+        reason: "{reason}"
+        operation: "{operation}"
+        entityId: "{entityId}"
+        policy: "{policy}"
+        scopeContext: "{scopeContext}"
+        requestParams: "{requestParams}"
     response:
       type: object
     risk:
       level: high
-    idempotent: true
-  get-online-sessions:
-    method: POST
-    path: /user
-    description: Get online sessions for authenticated user (action 3001)
-    args: []
-    request:
-      body:
-        action: 3001
-        data: {}
-    response:
-      type: array
-    risk:
-      level: low
-    idempotent: true
+    idempotent: false

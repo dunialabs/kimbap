@@ -88,7 +88,7 @@ Full schema and examples: **[Service Development Guide](./docs/service-developme
 
 ### SaaS & APIs
 
-GitHub · Slack · Stripe · Notion · Linear · HubSpot · Airtable · Pinecone · Todoist · PostHog · Sentry · SendGrid · Resend · Exa · Brave Search
+GitHub · Slack · Stripe · Notion · Linear · HubSpot · Airtable · Pinecone · Todoist · PostHog · Sentry · SendGrid · Resend · Exa · Brave Search · Peta
 
 ### Communication
 
@@ -185,7 +185,7 @@ kimbap init --services all
 ### Web console
 
 ```bash
-kimbap serve --console
+kimbap serve --console --port 8080
 ```
 
 Opens the operations console at `http://localhost:8080/console`. Shows audit logs, pending approvals, and service health. Disabled by default.
@@ -199,6 +199,7 @@ Opens the operations console at `http://localhost:8080/console`. Shows audit log
 - **[Security & Permissions](./docs/security.md)**
 - **[Deployment & Configuration](./docs/deployment.md)**
 - **[HTTP API Reference](./docs/api/API.md)**
+- **[Console Review Loop (100 rounds)](./docs/console-review-loop.md)**
 
 ---
 
