@@ -60,12 +60,18 @@ func newActionsCommand() *cobra.Command {
 				return printOutput("No actions found.")
 			}
 
+			useColor := isColorStdout()
 			for _, def := range out {
 				desc := def.Description
 				if desc == "" {
 					desc = "-"
 				}
-				fmt.Printf("%-40s %s\n", def.Name, desc)
+				badge := searchRiskBadge(string(def.Risk), useColor)
+				if badge != "" {
+					fmt.Printf("%-40s %s  %s\n", def.Name, desc, badge)
+				} else {
+					fmt.Printf("%-40s %s\n", def.Name, desc)
+				}
 			}
 			return nil
 		},
