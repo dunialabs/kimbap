@@ -64,12 +64,26 @@ func newApproveListCommand() *cobra.Command {
 					return nil
 				}
 				fmt.Printf("%-36s %-16s %-30s %-12s %s\n", "ID", "AGENT", "ACTION", "STATUS", "CREATED")
+				useColor := isColorStdout()
 				for _, item := range items {
-					fmt.Printf("%-36s %-16s %-30s %-12s %s\n",
+					statusCol := fmt.Sprintf("%-12s", item.Status)
+					if useColor {
+						switch item.Status {
+						case "approved":
+							statusCol = "\x1b[32m" + statusCol + "\x1b[0m"
+						case "pending":
+							statusCol = "\x1b[33m" + statusCol + "\x1b[0m"
+						case "denied":
+							statusCol = "\x1b[31m" + statusCol + "\x1b[0m"
+						case "expired":
+							statusCol = "\x1b[2m" + statusCol + "\x1b[0m"
+						}
+					}
+					fmt.Printf("%-36s %-16s %-30s %s %s\n",
 						item.ID,
 						item.AgentName,
 						item.Service+"."+item.Action,
-						item.Status,
+						statusCol,
 						item.CreatedAt.Format("2006-01-02 15:04"),
 					)
 				}
@@ -246,8 +260,10 @@ func openRuntimeStore(cfg *config.KimbapConfig) (*store.SQLStore, error) {
 		if dsn == "" {
 			dsn = filepath.Join(cfg.DataDir, "kimbap.db")
 		}
-		if err := os.MkdirAll(filepath.Dir(dsn), 0o700); err != nil {
-			return nil, fmt.Errorf("create database directory: %w", err)
+		if dir := sqliteDSNDirectory(dsn); dir != "" {
+			if err := os.MkdirAll(dir, 0o700); err != nil {
+				return nil, fmt.Errorf("create database directory: %w", err)
+			}
 		}
 		st, err = store.OpenSQLiteStore(dsn)
 	case "postgres", "postgresql", "pgx":
@@ -266,4 +282,33 @@ func openRuntimeStore(cfg *config.KimbapConfig) (*store.SQLStore, error) {
 		return nil, err
 	}
 	return st, nil
+}
+
+func sqliteDSNDirectory(dsn string) string {
+	trimmed := strings.TrimSpace(dsn)
+	if trimmed == "" || trimmed == ":memory:" {
+		return ""
+	}
+
+	lower := strings.ToLower(trimmed)
+	if strings.HasPrefix(lower, "file:") {
+		pathPart := strings.TrimPrefix(trimmed, "file:")
+		if idx := strings.IndexByte(pathPart, '?'); idx >= 0 {
+			pathPart = pathPart[:idx]
+		}
+		if pathPart == "" || pathPart == ":memory:" {
+			return ""
+		}
+		if strings.HasPrefix(pathPart, "//") {
+			hostPath := strings.TrimPrefix(pathPart, "//")
+			slashIdx := strings.IndexByte(hostPath, '/')
+			if slashIdx < 0 {
+				return ""
+			}
+			pathPart = hostPath[slashIdx:]
+		}
+		return filepath.Dir(pathPart)
+	}
+
+	return filepath.Dir(trimmed)
 }
