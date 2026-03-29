@@ -1046,7 +1046,7 @@ td.mono {
     </div>
     <div class="search-wrap" style="margin-bottom:var(--space-md)">
       <span class="search-icon">⌕</span>
-      <input class="search-input" type="text" id="auditSearch" placeholder="Filter by action, agent or status" aria-label="Filter audit table" autocomplete="off" />
+      <input class="search-input" type="text" id="auditSearch" placeholder="Filter by action, agent, or status" aria-label="Filter audit table" autocomplete="off" />
     </div>
     <div id="auditContent">
       <div class="loading"><div class="spinner"></div></div>
@@ -1066,7 +1066,7 @@ td.mono {
   <div class="view" id="view-services">
     <div class="view-header">
       <h1>Vault</h1>
-      <p>Stored credentials for linked services</p>
+      <p>Saved credentials for linked services</p>
     </div>
     <div id="servicesContent">
       <div class="loading"><div class="spinner"></div></div>
@@ -1182,6 +1182,23 @@ td.mono {
     else if (s === 'denied') cls = 'badge-red';
     else if (s === 'expired') cls = 'badge-amber';
     return '<span class="badge ' + cls + '">' + esc(humanizeLabel(s)) + '</span>';
+  }
+
+  function approvalStatusTitle(status) {
+    var s = String(status || '').toLowerCase();
+    if (s === 'pending') {
+      return 'Status: Pending — choose Approve or Deny to resolve this request.';
+    }
+    if (s === 'approved') {
+      return 'Status: Approved — this request has been accepted.';
+    }
+    if (s === 'denied') {
+      return 'Status: Denied — this request was rejected.';
+    }
+    if (s === 'expired') {
+      return 'Status: Expired — this request timed out before a decision.';
+    }
+    return 'Status: ' + humanizeLabel(status || 'unknown');
   }
 
   window.addEventListener('hashchange', function() {
@@ -1825,7 +1842,7 @@ td.mono {
       html += '<tr>' +
         '<td class="mono">' + esc(fmtTime(ts)) + '</td>' +
         '<td class="mono" style="color:var(--text-primary)">' + esc(actionFull) + '</td>' +
-        '<td>' + esc(agent) + '</td>' +
+        '<td title="' + escAttr(agent) + '">' + esc(agent) + '</td>' +
         '<td>' + statusBadge(status) + '</td>' +
         '<td>' + esc(policyDec) + '</td>' +
         '<td class="mono">' + esc(fmtDuration(dur)) + '</td>' +
@@ -1877,7 +1894,7 @@ td.mono {
 
   var sensitiveKeys = /token|secret|password|api[_-]?key|access[_-]?key|private|credential|auth/i;
 
-  function approvalInputSummary(inputJSON) {
+  function approvalInputSummary(inputJSON, maxValueLen, maxPairs) {
     if (!inputJSON) { return ''; }
     var parsed;
     var v;
@@ -1890,12 +1907,17 @@ td.mono {
       if (sensitiveKeys.test(k)) { continue; }
       v = parsed[k];
       vs = typeof v === 'string' ? v : JSON.stringify(v);
-      if (vs.length > 30) { vs = vs.substring(0, 27) + '...'; }
+      if (maxValueLen > 0 && vs.length > maxValueLen) { vs = vs.substring(0, maxValueLen - 3) + '...'; }
       pairs.push(k + '=' + vs);
     }
     if (!pairs.length) { return ''; }
-    var summary = pairs.slice(0, 4).join(', ');
-    if (pairs.length > 4) { summary += ', ...'; }
+    var summary;
+    if (maxPairs > 0) {
+      summary = pairs.slice(0, maxPairs).join(', ');
+      if (pairs.length > maxPairs) { summary += ', ...'; }
+      return summary;
+    }
+    summary = pairs.join(', ');
     return summary;
   }
 
@@ -1906,8 +1928,8 @@ td.mono {
         '<th>Action</th>' +
         '<th>Agent</th>' +
         '<th>Status</th>' +
-        '<th>Created</th>' +
-        '<th>Expires</th>' +
+        '<th>Created At</th>' +
+        '<th>Expires At</th>' +
         '<th>Time Left</th>' +
         '<th>Decision</th>' +
       '</tr></thead><tbody>';
@@ -1919,27 +1941,50 @@ td.mono {
       var actionFull = service && action ? service + '.' + action : (service || action || '—');
       var agent = getField(item, 'AgentName', 'agent_name') || '—';
       var status = getField(item, 'Status', 'status') || 'pending';
+      var statusTitle = approvalStatusTitle(status);
+      var statusBadgeText = humanizeLabel(status);
       var created = getField(item, 'CreatedAt', 'created_at') || '';
       var expires = getField(item, 'ExpiresAt', 'expires_at') || '';
+      var createdDisplay = fmtTime(created);
+      var expiresDisplay = fmtTime(expires);
+      var timeLeftDisplay = fmtTimeRemaining(expires);
+      var createdTitleAttr = createdDisplay !== '—' ? ' title="Created at ' + escAttr(createdDisplay) + '"' : '';
+      var expiresTitleAttr = expiresDisplay !== '—' ? ' title="Expires at ' + escAttr(expiresDisplay) + '"' : '';
+      var createdAriaAttr = createdDisplay !== '—' ? ' aria-label="Created at ' + escAttr(createdDisplay) + '"' : '';
+      var expiresAriaAttr = expiresDisplay !== '—' ? ' aria-label="Expires at ' + escAttr(expiresDisplay) + '"' : '';
+      var timeLeftTitleAttr = expiresDisplay !== '—' ? ' title="Expires at ' + escAttr(expiresDisplay + ' (' + timeLeftDisplay + ' left)') + '"' : '';
+      var timeLeftAriaAttr = expiresDisplay !== '—'
+        ? ' aria-label="' + escAttr('Time left ' + timeLeftDisplay + ', expires at ' + expiresDisplay) + '"'
+        : '';
       var inputJSON = getField(item, 'InputJSON', 'input_json') || '';
-      var inputSummary = approvalInputSummary(inputJSON);
+      var inputSummary = approvalInputSummary(inputJSON, 30, 4);
+      var inputSummaryFull = approvalInputSummary(inputJSON, 0, 0);
+      var inputSummaryTitleAttr = inputSummaryFull ? ' title="' + escAttr(inputSummaryFull) + '"' : '';
       var busyMode = state.approvalsBusy[id] || '';
       var busy = !!busyMode;
       var approveLabel = busyMode === 'approve' ? 'Approving...' : 'Approve';
       var denyLabel = busyMode === 'deny' ? 'Denying...' : 'Deny';
       var approveAria = (busyMode === 'approve' ? 'Approving' : 'Approve') + ' request ' + (id || 'unknown');
       var denyAria = (busyMode === 'deny' ? 'Denying' : 'Deny') + ' request ' + (id || 'unknown');
+      var actionGroupAria = 'Decision actions for request ' + (id || 'unknown') + ': ' + actionFull + ', status ' + statusBadgeText + ', time left ' + timeLeftDisplay;
+      var idTitleAttr = id ? ' title="' + escAttr(id) + '"' : '';
+      var agentTitleAttr = agent !== '—' ? ' title="' + escAttr(agent) + '"' : '';
+      var actionTooltip = 'Action: ' + actionFull;
+      if (inputSummaryFull) {
+        actionTooltip += '\nInput: ' + inputSummaryFull;
+      }
+      var actionTitleAttr = actionFull !== '—' ? ' title="' + escAttr(actionTooltip) + '"' : '';
       html += '<tr>' +
-        '<td class="mono">' + esc(id || '—') + '</td>' +
-        '<td class="mono" style="color:var(--text-primary)">' + esc(actionFull) +
-          (inputSummary ? '<br><span style="font-size:11px;color:var(--text-muted);font-weight:normal">' + esc(inputSummary) + '</span>' : '') +
+        '<td class="mono"' + idTitleAttr + '>' + esc(id || '—') + '</td>' +
+        '<td class="mono" style="color:var(--text-primary)"' + actionTitleAttr + '>' + esc(actionFull) +
+          (inputSummary ? '<br><span style="font-size:11px;color:var(--text-muted);font-weight:normal"' + inputSummaryTitleAttr + '>' + esc(inputSummary) + '</span>' : '') +
         '</td>' +
-        '<td>' + esc(agent) + '</td>' +
-        '<td>' + approvalStatusBadge(status) + '</td>' +
-        '<td class="mono">' + esc(fmtTime(created)) + '</td>' +
-        '<td class="mono">' + esc(fmtTime(expires)) + '</td>' +
-        '<td class="mono">' + esc(fmtTimeRemaining(expires)) + '</td>' +
-        '<td><div class="row-actions" aria-busy="' + (busy ? 'true' : 'false') + '">' +
+        '<td' + agentTitleAttr + '>' + esc(agent) + '</td>' +
+        '<td title="' + escAttr(statusTitle) + '" aria-label="' + escAttr(statusTitle) + '">' + approvalStatusBadge(status) + '<span class="sr-only"> ' + esc(statusBadgeText) + '</span></td>' +
+        '<td class="mono"' + createdTitleAttr + createdAriaAttr + '>' + esc(createdDisplay) + '</td>' +
+        '<td class="mono"' + expiresTitleAttr + expiresAriaAttr + '>' + esc(expiresDisplay) + '</td>' +
+        '<td class="mono"' + timeLeftTitleAttr + timeLeftAriaAttr + '>' + esc(timeLeftDisplay) + '</td>' +
+        '<td><div class="row-actions" aria-label="' + escAttr(actionGroupAria) + '" aria-busy="' + (busy ? 'true' : 'false') + '">' +
           '<button type="button" class="mini-btn approve" aria-label="' + escAttr(approveAria) + '" title="' + escAttr(approveAria) + '" ' + (busy ? 'disabled ' : '') + 'onclick="resolveApproval(\'' + escAttr(id) + '\',\'approve\')">' + approveLabel + '</button>' +
           '<button type="button" class="mini-btn deny" aria-label="' + escAttr(denyAria) + '" title="' + escAttr(denyAria) + '" ' + (busy ? 'disabled ' : '') + 'onclick="resolveApproval(\'' + escAttr(id) + '\',\'deny\')">' + denyLabel + '</button>' +
         '</div></td>' +
