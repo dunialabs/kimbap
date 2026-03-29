@@ -189,6 +189,8 @@ func newTokenListCommand() *cobra.Command {
 				return nil
 			}
 			fmt.Printf("%-16s %-14s %-20s %-20s %s\n", "HINT", "AGENT", "EXPIRES", "LAST USED", "SCOPES")
+			useColor := isColorStdout()
+			now := time.Now().UTC()
 			for _, tok := range tokens {
 				lastUsed := "-"
 				if tok.LastUsedAt != nil {
@@ -198,10 +200,18 @@ func newTokenListCommand() *cobra.Command {
 				if scopes == "" {
 					scopes = "all"
 				}
-				fmt.Printf("%-16s %-14s %-20s %-20s %s\n",
+				expiresStr := fmt.Sprintf("%-20s", tok.ExpiresAt.UTC().Format("2006-01-02 15:04"))
+				if useColor {
+					if tok.ExpiresAt.Before(now) {
+						expiresStr = "\x1b[31m" + expiresStr + "\x1b[0m"
+					} else if tok.ExpiresAt.Before(now.Add(7 * 24 * time.Hour)) {
+						expiresStr = "\x1b[33m" + expiresStr + "\x1b[0m"
+					}
+				}
+				fmt.Printf("%-16s %-14s %s %-20s %s\n",
 					tok.DisplayHint,
 					tok.AgentName,
-					tok.ExpiresAt.UTC().Format("2006-01-02 15:04"),
+					expiresStr,
 					lastUsed,
 					scopes,
 				)
