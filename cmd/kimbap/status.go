@@ -115,15 +115,24 @@ func countConfiguredAgents() int {
 }
 
 func vaultStatusString(cfg *config.KimbapConfig) string {
-	store, err := initVaultStore(cfg)
+	vaultPath := strings.TrimSpace(cfg.Vault.Path)
+	if vaultPath == "" {
+		return "error"
+	}
+	st, err := os.Stat(vaultPath)
 	if err != nil {
-		msg := strings.ToLower(err.Error())
-		if strings.Contains(msg, "master key") || strings.Contains(msg, "kimbap_master_key_hex") {
-			return "locked"
+		if os.IsNotExist(err) {
+			return "not initialized"
 		}
 		return "error"
 	}
-	closeVaultStoreIfPossible(store)
+	if st.IsDir() {
+		return "error"
+	}
+	_, err = resolveVaultMasterKey(cfg)
+	if err != nil {
+		return "locked"
+	}
 	return "ready"
 }
 

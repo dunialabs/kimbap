@@ -430,11 +430,26 @@ func linkBestOAuthStatus(providerID string, states []connectorStateRow) (string,
 
 func findVerificationAction(defs []actions.ActionDefinition, serviceName string) *actions.ActionDefinition {
 	for i := range defs {
-		if strings.EqualFold(defs[i].Namespace, serviceName) && defs[i].Risk == actions.RiskRead && defs[i].Idempotent {
-			return &defs[i]
+		d := defs[i]
+		if !strings.EqualFold(d.Namespace, serviceName) {
+			continue
 		}
+		if d.Risk != actions.RiskRead || !d.Idempotent {
+			continue
+		}
+		if hasRequiredSchemaProperties(d.InputSchema) {
+			continue
+		}
+		return &d
 	}
 	return nil
+}
+
+func hasRequiredSchemaProperties(schema *actions.Schema) bool {
+	if schema == nil {
+		return false
+	}
+	return len(schema.Required) > 0
 }
 
 var runVerificationAction = defaultRunVerificationAction
