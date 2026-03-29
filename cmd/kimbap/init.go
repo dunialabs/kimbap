@@ -7,6 +7,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"runtime"
 	"sort"
 	"strings"
 
@@ -104,7 +105,7 @@ func newInitCommand() *cobra.Command {
 		},
 	}
 	cmd.Flags().BoolVar(&force, "force", false, "overwrite existing config file")
-	cmd.Flags().StringVar(&servicesRaw, "services", "", "comma-separated official services to install")
+	cmd.Flags().StringVar(&servicesRaw, "services", "", "comma-separated official services to install, all, starter")
 	cmd.Flags().BoolVar(&noServices, "no-services", false, "skip service installation during init")
 	cmd.Flags().BoolVar(&withConsole, "with-console", false, "enable embedded console route in config")
 	cmd.Flags().BoolVar(&withAgents, "with-agents", false, "run agents setup and sync after init")
@@ -203,6 +204,21 @@ type initServiceSelection struct {
 	Reason  string
 }
 
+func starterServiceNames() []string {
+	if runtime.GOOS == "darwin" {
+		return []string{
+			"apple-notes", "apple-calendar", "apple-reminders",
+			"finder", "safari", "contacts",
+			"wikipedia", "open-meteo", "hacker-news",
+		}
+	}
+	return []string{
+		"wikipedia", "open-meteo", "hacker-news",
+		"rest-countries", "exchange-rate",
+		"public-holidays", "nominatim",
+	}
+}
+
 func resolveInitServiceSelectionFromReader(rawServices string, noServices bool, interactive bool, reader io.Reader) (initServiceSelection, error) {
 	if noServices {
 		return initServiceSelection{Skipped: true, Reason: "skipped by --no-services"}, nil
@@ -214,6 +230,10 @@ func resolveInitServiceSelectionFromReader(rawServices string, noServices bool, 
 			return initServiceSelection{}, fmt.Errorf("list official services: %w", listErr)
 		}
 		return initServiceSelection{Names: all}, nil
+	}
+
+	if strings.EqualFold(strings.TrimSpace(rawServices), "starter") {
+		return initServiceSelection{Names: starterServiceNames()}, nil
 	}
 
 	if strings.TrimSpace(rawServices) != "" {
@@ -263,6 +283,10 @@ func resolveInitServiceSelectionFromReader(rawServices string, noServices bool, 
 		return initServiceSelection{Skipped: true, Reason: "user declined"}, nil
 	}
 
+	if strings.EqualFold(trimmed, "starter") {
+		return initServiceSelection{Names: starterServiceNames()}, nil
+	}
+
 	if strings.EqualFold(trimmed, "select") {
 		if printErr := printOfficialServiceCategories(); printErr != nil {
 			return initServiceSelection{}, printErr
@@ -285,6 +309,10 @@ func resolveInitServiceSelectionFromReader(rawServices string, noServices bool, 
 				return initServiceSelection{}, fmt.Errorf("list official services: %w", listErr)
 			}
 			return initServiceSelection{Names: all}, nil
+		}
+
+		if strings.EqualFold(trimmed2, "starter") {
+			return initServiceSelection{Names: starterServiceNames()}, nil
 		}
 
 		selected2 := parseCSV(trimmed2)

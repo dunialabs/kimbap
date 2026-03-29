@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"context"
 	"errors"
 	"fmt"
 	"os"
@@ -13,6 +14,7 @@ import (
 	"github.com/dunialabs/kimbap/internal/config"
 	"github.com/dunialabs/kimbap/internal/connectors"
 	"github.com/dunialabs/kimbap/internal/vault"
+	"github.com/google/uuid"
 	"github.com/spf13/cobra"
 )
 
@@ -39,6 +41,7 @@ func newLinkCommand() *cobra.Command {
 	var statusOnly bool
 	var fromStdin bool
 	var fromFile string
+	var noVerify bool
 
 	cmd := &cobra.Command{
 		Use:   "link <service>",
@@ -170,7 +173,7 @@ func newLinkCommand() *cobra.Command {
 				)
 
 			default:
-				return linkHandleKeyBasedService(cfg, info, statusOnly, connectorTenant(tenant), fromStdin, fromFile)
+				return linkHandleKeyBasedService(cfg, info, statusOnly, connectorTenant(tenant), fromStdin, fromFile, noVerify)
 			}
 		},
 	}
@@ -182,6 +185,7 @@ func newLinkCommand() *cobra.Command {
 	cmd.Flags().BoolVar(&statusOnly, "status", false, "show connection status without connecting")
 	cmd.Flags().BoolVar(&fromStdin, "stdin", false, "read credential value from stdin")
 	cmd.Flags().StringVar(&fromFile, "file", "", "read credential value from file")
+	cmd.Flags().BoolVar(&noVerify, "no-verify", false, "skip post-connection verification")
 
 	cmd.AddCommand(newLinkListCommand())
 	return cmd
@@ -424,7 +428,58 @@ func linkBestOAuthStatus(providerID string, states []connectorStateRow) (string,
 	return defaultName, linkOAuthConnectionStatus(providerID, "", states)
 }
 
-func linkHandleKeyBasedService(cfg *config.KimbapConfig, info linkServiceInfo, statusOnly bool, tenantID string, fromStdin bool, fromFile string) error {
+func findVerificationAction(defs []actions.ActionDefinition, serviceName string) *actions.ActionDefinition {
+	for i := range defs {
+		if strings.EqualFold(defs[i].Namespace, serviceName) && defs[i].Risk == actions.RiskRead && defs[i].Idempotent {
+			return &defs[i]
+		}
+	}
+	return nil
+}
+
+var runVerificationAction = defaultRunVerificationAction
+
+func defaultRunVerificationAction(ctx context.Context, cfg *config.KimbapConfig, action *actions.ActionDefinition, tenantID string) string {
+	verifyCtx, cancel := context.WithTimeout(ctx, 10*time.Second)
+	defer cancel()
+	rt, err := buildRuntimeFromConfig(cfg)
+	if err != nil {
+		return "✓ Stored (verification skipped)"
+	}
+	result := rt.Execute(verifyCtx, actions.ExecutionRequest{
+		RequestID: "verify_" + uuid.NewString(),
+		TenantID:  tenantID,
+		Principal: actions.Principal{ID: "cli", TenantID: tenantID, AgentName: "kimbap-cli", Type: "operator"},
+		Action:    *action,
+		Input:     map[string]any{},
+		Mode:      actions.ModeCall,
+	})
+	if result.Status == actions.StatusSuccess {
+		return fmt.Sprintf("✓ Verified — %s returned successfully", action.Name)
+	}
+	errMsg := "unknown error"
+	if result.Error != nil {
+		errMsg = result.Error.Error()
+		if len(errMsg) > 100 {
+			errMsg = errMsg[:100] + "..."
+		}
+	}
+	return fmt.Sprintf("⚠ Stored but verification failed: %s. The credential may still work.", errMsg)
+}
+
+func verifyLinkedService(ctx context.Context, cfg *config.KimbapConfig, serviceName, tenantID string) string {
+	defs, err := loadInstalledActions(cfg)
+	if err != nil {
+		return "✓ Stored (verification skipped)"
+	}
+	action := findVerificationAction(defs, serviceName)
+	if action == nil {
+		return "✓ Stored (no low-risk action available for automatic verification)"
+	}
+	return runVerificationAction(ctx, cfg, action, tenantID)
+}
+
+func linkHandleKeyBasedService(cfg *config.KimbapConfig, info linkServiceInfo, statusOnly bool, tenantID string, fromStdin bool, fromFile string, noVerify bool) error {
 	credentialRef := strings.TrimSpace(info.CredentialRef)
 	if credentialRef == "" {
 		if outputAsJSON() {
@@ -445,7 +500,14 @@ func linkHandleKeyBasedService(cfg *config.KimbapConfig, info linkServiceInfo, s
 	defer closeVaultStoreIfPossible(vs)
 
 	if fromStdin || fromFile != "" {
-		return linkStoreCredentialFromInput(vs, tenantID, credentialRef, info, fromStdin, fromFile)
+		if err := linkStoreCredentialFromInput(vs, tenantID, credentialRef, info, fromStdin, fromFile); err != nil {
+			return err
+		}
+		if !noVerify {
+			msg := verifyLinkedService(contextBackground(), cfg, info.Service, tenantID)
+			_, _ = fmt.Fprintln(os.Stderr, msg)
+		}
+		return nil
 	}
 
 	exists, err := vs.Exists(contextBackground(), tenantID, credentialRef)

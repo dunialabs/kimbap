@@ -6,6 +6,7 @@ import (
 	"io"
 	"net/url"
 	"os"
+	"sort"
 	"strconv"
 	"strings"
 	"unicode/utf8"
@@ -69,6 +70,16 @@ Special call flags:
 				return err
 			}
 			if showHelp {
+				if actionName != "" {
+					cfg, cfgErr := loadAppConfigReadOnly()
+					if cfgErr == nil {
+						def, resolveErr := resolveActionByName(cfg, actionName)
+						if resolveErr == nil {
+							fmt.Print(formatActionHelp(*def))
+							return nil
+						}
+					}
+				}
 				return cmd.Help()
 			}
 			if actionName == "" {
@@ -155,6 +166,57 @@ Special call flags:
 		},
 	}
 	return cmd
+}
+
+func formatActionHelp(def actions.ActionDefinition) string {
+	var b strings.Builder
+
+	b.WriteString("Action: ")
+	b.WriteString(strings.TrimSpace(def.Name))
+	b.WriteString("\n\nDescription: ")
+	b.WriteString(strings.TrimSpace(def.Description))
+	b.WriteString("\n\nParameters:\n")
+
+	if def.InputSchema == nil || len(def.InputSchema.Properties) == 0 {
+		b.WriteString("  (no input parameters)\n")
+		return b.String()
+	}
+
+	required := make(map[string]bool, len(def.InputSchema.Required))
+	for _, name := range def.InputSchema.Required {
+		required[name] = true
+	}
+
+	propNames := make([]string, 0, len(def.InputSchema.Properties))
+	for name := range def.InputSchema.Properties {
+		propNames = append(propNames, name)
+	}
+	sort.Strings(propNames)
+
+	for _, name := range propNames {
+		prop := def.InputSchema.Properties[name]
+		typeName := "any"
+		if prop != nil {
+			if t := strings.TrimSpace(prop.Type); t != "" {
+				typeName = t
+			}
+		}
+
+		reqMarker := ""
+		if required[name] {
+			reqMarker = "[required]"
+		}
+
+		b.WriteString("  ")
+		b.WriteString(name)
+		b.WriteString("  ")
+		b.WriteString(typeName)
+		b.WriteString("  ")
+		b.WriteString(reqMarker)
+		b.WriteString("  -\n")
+	}
+
+	return b.String()
 }
 
 func buildDryRunPreview(cfg *config.KimbapConfig, req actions.ExecutionRequest) map[string]any {

@@ -2,6 +2,8 @@ package main
 
 import (
 	"database/sql"
+	"encoding/json"
+	"io"
 	"os"
 	"path/filepath"
 	"strings"
@@ -168,6 +170,61 @@ func TestRenderDoctorSummary(t *testing.T) {
 	}
 	if !strings.Contains(got, "! policy file valid") {
 		t.Errorf("expected warn icon for policy, got:\n%s", got)
+	}
+}
+
+func TestDoctorCommandIncludesNewChecks(t *testing.T) {
+	dataDir := t.TempDir()
+	servicesDir := filepath.Join(dataDir, "services")
+	if err := os.MkdirAll(servicesDir, 0o755); err != nil {
+		t.Fatalf("mkdir services dir: %v", err)
+	}
+
+	vaultPath := filepath.Join(dataDir, "vault.db")
+	createTestVaultDB(t, vaultPath)
+
+	explicitPath := filepath.Join(t.TempDir(), "config.yaml")
+	configData := "mode: embedded\n" +
+		"data_dir: " + dataDir + "\n" +
+		"vault:\n  path: " + vaultPath + "\n" +
+		"services:\n  dir: " + servicesDir + "\n"
+	if err := os.WriteFile(explicitPath, []byte(configData), 0o644); err != nil {
+		t.Fatalf("write explicit config: %v", err)
+	}
+
+	prevOpts := opts
+	opts = cliOptions{configPath: explicitPath, format: "json"}
+	t.Cleanup(func() {
+		opts = prevOpts
+	})
+
+	originalStdout := os.Stdout
+	r, w, err := os.Pipe()
+	if err != nil {
+		t.Fatalf("create stdout pipe: %v", err)
+	}
+	os.Stdout = w
+	t.Cleanup(func() {
+		os.Stdout = originalStdout
+	})
+
+	runErr := newDoctorCommand().RunE(nil, nil)
+	_ = w.Close()
+	if runErr != nil {
+		t.Fatalf("doctor command failed: %v", runErr)
+	}
+
+	out, err := io.ReadAll(r)
+	if err != nil {
+		t.Fatalf("read doctor output: %v", err)
+	}
+
+	var checks []map[string]any
+	if err := json.Unmarshal(out, &checks); err != nil {
+		t.Fatalf("unmarshal doctor json output: %v\noutput=%s", err, string(out))
+	}
+	if len(checks) < 8 {
+		t.Fatalf("expected at least 8 checks, got %d", len(checks))
 	}
 }
 

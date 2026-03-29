@@ -38,6 +38,8 @@ func newAgentsSetupCommand() *cobra.Command {
 		dryRun       bool
 		withProfiles bool
 		profileDir   string
+		dir          string
+		noSync       bool
 	)
 
 	cmd := &cobra.Command{
@@ -86,6 +88,37 @@ func newAgentsSetupCommand() *cobra.Command {
 				}
 			}
 
+			if noSync {
+				return nil
+			}
+
+			trimmedDir := strings.TrimSpace(dir)
+			if trimmedDir == "" {
+				trimmedDir = "."
+			}
+			absDir, err := filepath.Abs(trimmedDir)
+			if err != nil {
+				return fmt.Errorf("resolve sync directory: %w", err)
+			}
+			if absDir == "/" {
+				return fmt.Errorf("refusing to sync to root directory")
+			}
+			st, err := os.Stat(absDir)
+			if err != nil {
+				return err
+			}
+			if !st.IsDir() {
+				return fmt.Errorf("sync target is not a directory: %s", absDir)
+			}
+
+			if _, err := runAgentsSync(absDir, agentRaw, "", force, dryRun); err != nil {
+				return err
+			}
+
+			if !outputAsJSON() {
+				fmt.Printf("✓ Services synced to %s\n", absDir)
+			}
+
 			return nil
 		},
 	}
@@ -93,6 +126,8 @@ func newAgentsSetupCommand() *cobra.Command {
 	cmd.Flags().StringVar(&agentRaw, "agent", "", "comma-separated agent kinds")
 	cmd.Flags().BoolVar(&force, "force", false, "overwrite unchanged files")
 	cmd.Flags().BoolVar(&dryRun, "dry-run", false, "show planned changes without writing files")
+	cmd.Flags().StringVar(&dir, "dir", ".", "project directory to sync into")
+	cmd.Flags().BoolVar(&noSync, "no-sync", false, "skip sync after global setup")
 	cmd.Flags().BoolVar(&withProfiles, "with-profiles", false, "also install agent operating profiles into the project directory")
 	cmd.Flags().StringVar(&profileDir, "profile-dir", ".", "target directory for profile installation (used with --with-profiles)")
 

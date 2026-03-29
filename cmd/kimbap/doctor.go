@@ -4,8 +4,10 @@ import (
 	"database/sql"
 	"fmt"
 	"os"
+	"reflect"
 	"strings"
 
+	"github.com/dunialabs/kimbap/internal/agents"
 	"github.com/dunialabs/kimbap/internal/config"
 	"github.com/dunialabs/kimbap/internal/policy"
 	"github.com/spf13/cobra"
@@ -29,7 +31,7 @@ func newDoctorCommand() *cobra.Command {
 				return err
 			}
 
-			checks := make([]doctorCheck, 0, 5)
+			checks := make([]doctorCheck, 0, 8)
 			hasFailure := false
 
 			configCheck := checkConfigFile()
@@ -51,6 +53,18 @@ func newDoctorCommand() *cobra.Command {
 			policyCheck := checkPolicyFile(cfg.Policy.Path)
 			checks = append(checks, policyCheck)
 			hasFailure = hasFailure || policyCheck.Status == "fail"
+
+			agentIntegrationCheck := checkAgentIntegration(cfg)
+			checks = append(checks, agentIntegrationCheck)
+			hasFailure = hasFailure || agentIntegrationCheck.Status == "fail"
+
+			credentialHealthCheck := checkCredentialHealth(cfg)
+			checks = append(checks, credentialHealthCheck)
+			hasFailure = hasFailure || credentialHealthCheck.Status == "fail"
+
+			actionReadinessCheck := checkActionReadiness(cfg)
+			checks = append(checks, actionReadinessCheck)
+			hasFailure = hasFailure || actionReadinessCheck.Status == "fail"
 
 			if outputAsJSON() {
 				if err := printOutput(checks); err != nil {
@@ -169,6 +183,95 @@ func checkPolicyFile(path string) doctorCheck {
 		return doctorCheck{Name: "policy file valid", Status: "fail", Detail: err.Error()}
 	}
 	return doctorCheck{Name: "policy file valid", Status: "ok", Detail: path}
+}
+
+func checkAgentIntegration(_ *config.KimbapConfig) doctorCheck {
+	status, err := agents.GlobalStatus()
+	if err != nil {
+		return doctorCheck{Name: "agent integration", Status: "skip", Detail: err.Error()}
+	}
+	for _, result := range status {
+		if result.AgentSkillPresent || result.InjectPresent {
+			return doctorCheck{Name: "agent integration", Status: "ok", Detail: "agent integration detected"}
+		}
+	}
+	return doctorCheck{Name: "agent integration", Status: "warn", Detail: "no agents configured — run 'kimbap agents setup'"}
+}
+
+func checkCredentialHealth(cfg *config.KimbapConfig) doctorCheck {
+	if strings.TrimSpace(cfg.Vault.Path) == "" {
+		return doctorCheck{Name: "credentials stored", Status: "skip", Detail: "vault path is empty"}
+	}
+	st, err := os.Stat(cfg.Vault.Path)
+	if err != nil {
+		return doctorCheck{Name: "credentials stored", Status: "skip", Detail: err.Error()}
+	}
+	if st.IsDir() {
+		return doctorCheck{Name: "credentials stored", Status: "skip", Detail: "path is not a file"}
+	}
+
+	db, err := sql.Open("sqlite", cfg.Vault.Path)
+	if err != nil {
+		return doctorCheck{Name: "credentials stored", Status: "skip", Detail: err.Error()}
+	}
+	defer db.Close()
+
+	var count int
+	if err := db.QueryRowContext(contextBackground(), "SELECT COUNT(*) FROM secrets").Scan(&count); err != nil {
+		return doctorCheck{Name: "credentials stored", Status: "skip", Detail: err.Error()}
+	}
+	if count == 0 {
+		return doctorCheck{Name: "credentials stored", Status: "warn", Detail: "no credentials stored — run 'kimbap link <service>'"}
+	}
+	return doctorCheck{Name: "credentials stored", Status: "ok", Detail: fmt.Sprintf("%d credential(s) stored", count)}
+}
+
+func checkActionReadiness(cfg *config.KimbapConfig) doctorCheck {
+	installed, err := loadEnabledInstalledServices(cfg)
+	if err != nil {
+		return doctorCheck{Name: "action readiness", Status: "skip", Detail: err.Error()}
+	}
+
+	for _, service := range installed {
+		if countActions(service) > 0 {
+			return doctorCheck{Name: "action readiness", Status: "ok", Detail: "enabled service actions detected"}
+		}
+	}
+
+	return doctorCheck{Name: "action readiness", Status: "warn", Detail: "no services installed — run 'kimbap service install <name>'"}
+}
+
+func countActions(v any) int {
+	return countActionsValue(reflect.ValueOf(v), 0)
+}
+
+func countActionsValue(v reflect.Value, depth int) int {
+	if !v.IsValid() || depth > 4 {
+		return 0
+	}
+	for v.Kind() == reflect.Pointer {
+		if v.IsNil() {
+			return 0
+		}
+		v = v.Elem()
+	}
+
+	switch v.Kind() {
+	case reflect.Map, reflect.Slice, reflect.Array:
+		return v.Len()
+	case reflect.Struct:
+		if f := v.FieldByName("Actions"); f.IsValid() {
+			switch f.Kind() {
+			case reflect.Map, reflect.Slice, reflect.Array:
+				return f.Len()
+			}
+		}
+		if f := v.FieldByName("Manifest"); f.IsValid() {
+			return countActionsValue(f, depth+1)
+		}
+	}
+
+	return 0
 }
 
 func renderDoctorSummary(checks []doctorCheck) string {
