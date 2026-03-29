@@ -193,7 +193,7 @@ func runApproveAccept(requestID string) error {
 			})
 		}
 		_, _ = fmt.Fprintf(os.Stdout, "✓ %s approved\n", requestID)
-		_, _ = fmt.Fprintln(os.Stdout, "Hint: Approval recorded. Check 'kimbap audit' for execution results.")
+		_, _ = fmt.Fprintln(os.Stdout, "Hint: Approval recorded.")
 		return nil
 	})
 	if err != nil {
