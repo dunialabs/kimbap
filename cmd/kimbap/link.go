@@ -75,11 +75,21 @@ func newLinkCommand() *cobra.Command {
 			info, ok := services[lookup]
 			if !ok {
 				names := make([]string, 0, len(services))
-				for key := range services {
-					names = append(names, key)
+				seen := make(map[string]struct{}, len(services))
+				for _, svc := range services {
+					name := strings.TrimSpace(svc.Service)
+					if name == "" {
+						continue
+					}
+					if _, exists := seen[name]; exists {
+						continue
+					}
+					seen[name] = struct{}{}
+					names = append(names, name)
 				}
+				sort.Strings(names)
 				hint := "Run 'kimbap link list' to see available services."
-				if suggestion := didYouMean(lookup, names); suggestion != "" {
+				if suggestion := didYouMean(service, names); suggestion != "" {
 					hint = fmt.Sprintf("Did you mean %q? Run 'kimbap link list' to see available services.", suggestion)
 				}
 				return fmt.Errorf("service %q not found in installed services. %s", service, hint)

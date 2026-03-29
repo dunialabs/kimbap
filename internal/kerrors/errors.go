@@ -101,24 +101,24 @@ func GetExitCode(err error) int {
 
 var ErrConfigNotFound = New(ExitInternal, "E_CONFIG_NOT_FOUND",
 	"config file not found",
-	"Run 'kimbap init' to create a new configuration.")
+	"Run 'kimbap init' to create a new configuration.").WithDocs("https://github.com/dunialabs/kimbap/blob/main/docs/installation.md")
 
 var ErrVaultLocked = New(ExitAuthError, "E_VAULT_LOCKED",
 	"vault is locked",
-	"Set KIMBAP_MASTER_KEY_HEX or run with KIMBAP_DEV=true for development.")
+	"Set KIMBAP_MASTER_KEY_HEX or run with KIMBAP_DEV=true for development.").WithDocs("https://github.com/dunialabs/kimbap/blob/main/docs/security.md")
 
 var ErrServiceNotFound = New(ExitValidation, "E_SERVICE_NOT_FOUND",
 	"service not found",
-	"Run 'kimbap service list' to see installed services.")
+	"Run 'kimbap service list' to see installed services.").WithDocs("https://github.com/dunialabs/kimbap/blob/main/docs/cli-reference.md#service-management")
 
 var ErrActionNotFound = New(ExitValidation, "E_ACTION_NOT_FOUND",
 	"action not found",
-	"Run 'kimbap actions list' to see available actions.")
+	"Run 'kimbap actions list' to see available actions.").WithDocs("https://github.com/dunialabs/kimbap/blob/main/docs/cli-reference.md#action-execution")
 
 var ErrManifestInvalid = New(ExitValidation, "E_MANIFEST_INVALID",
 	"service manifest is invalid",
-	"Run 'kimbap service validate <file>' to see detailed validation errors.")
+	"Run 'kimbap service validate <file>' to see detailed validation errors.").WithDocs("https://github.com/dunialabs/kimbap/blob/main/docs/service-development.md")
 
 var ErrCredentialMissing = New(ExitAuthError, "E_CREDENTIAL_MISSING",
 	"credential not found in vault",
-	"Run 'kimbap link <service>' to connect the service, or 'kimbap vault set <credential-ref>' to store the credential directly.")
+	"Run 'kimbap link <service>' to connect the service, or 'kimbap vault set <credential-ref>' to store the credential directly.").WithDocs("https://github.com/dunialabs/kimbap/blob/main/docs/security.md#vault-encryption-model")

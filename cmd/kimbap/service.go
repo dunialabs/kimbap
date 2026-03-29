@@ -161,13 +161,26 @@ func newServiceEnableCommand() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			if err := installerFromConfig(cfg).Enable(args[0]); err != nil {
+			installer := installerFromConfig(cfg)
+			name := strings.TrimSpace(args[0])
+			if err := installer.Enable(name); err != nil {
+				if errors.Is(err, fs.ErrNotExist) {
+					if installed, listErr := installer.List(); listErr == nil {
+						names := make([]string, len(installed))
+						for i, svc := range installed {
+							names[i] = svc.Manifest.Name
+						}
+						if suggestion := didYouMean(name, names); suggestion != "" {
+							err = fmt.Errorf("%w\n\nDid you mean %q?", err, suggestion)
+						}
+					}
+				}
 				return err
 			}
 			if outputAsJSON() {
-				return printOutput(map[string]any{"enabled": true, "name": args[0]})
+				return printOutput(map[string]any{"enabled": true, "name": name})
 			}
-			return printOutput(fmt.Sprintf("✓ %s enabled", args[0]))
+			return printOutput(fmt.Sprintf("✓ %s enabled", name))
 		},
 	}
 	return cmd
@@ -183,13 +196,26 @@ func newServiceDisableCommand() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			if err := installerFromConfig(cfg).Disable(args[0]); err != nil {
+			installer := installerFromConfig(cfg)
+			name := strings.TrimSpace(args[0])
+			if err := installer.Disable(name); err != nil {
+				if errors.Is(err, fs.ErrNotExist) {
+					if installed, listErr := installer.List(); listErr == nil {
+						names := make([]string, len(installed))
+						for i, svc := range installed {
+							names[i] = svc.Manifest.Name
+						}
+						if suggestion := didYouMean(name, names); suggestion != "" {
+							err = fmt.Errorf("%w\n\nDid you mean %q?", err, suggestion)
+						}
+					}
+				}
 				return err
 			}
 			if outputAsJSON() {
-				return printOutput(map[string]any{"enabled": false, "name": args[0]})
+				return printOutput(map[string]any{"enabled": false, "name": name})
 			}
-			return printOutput(fmt.Sprintf("✓ %s disabled", args[0]))
+			return printOutput(fmt.Sprintf("✓ %s disabled", name))
 		},
 	}
 	return cmd
@@ -205,13 +231,26 @@ func newServiceRemoveCommand() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			if err := installerFromConfig(cfg).Remove(args[0]); err != nil {
+			installer := installerFromConfig(cfg)
+			name := strings.TrimSpace(args[0])
+			if err := installer.Remove(name); err != nil {
+				if errors.Is(err, fs.ErrNotExist) {
+					if installed, listErr := installer.List(); listErr == nil {
+						names := make([]string, len(installed))
+						for i, svc := range installed {
+							names[i] = svc.Manifest.Name
+						}
+						if suggestion := didYouMean(name, names); suggestion != "" {
+							err = fmt.Errorf("%w\n\nDid you mean %q?", err, suggestion)
+						}
+					}
+				}
 				return err
 			}
 			if outputAsJSON() {
-				return printOutput(map[string]any{"removed": true, "name": args[0]})
+				return printOutput(map[string]any{"removed": true, "name": name})
 			}
-			return printOutput(fmt.Sprintf("✓ %s removed", args[0]))
+			return printOutput(fmt.Sprintf("✓ %s removed", name))
 		},
 	}
 	return cmd

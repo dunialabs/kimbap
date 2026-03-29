@@ -33,10 +33,14 @@ Creates `~/.kimbap/` with a config file, encrypted vault, and default policy. In
 macOS native services need no credentials. Try this now:
 
 ```bash
-kimbap call apple-notes.list-notes
+kimbap call apple-notes.create-note --title "Hello from Kimbap" --body "Your first note, created by kimbap."
 ```
 
-Returns your Apple Notes list. macOS may prompt for Automation access on first use.
+This creates a real note in Apple Notes. Delete it afterward if you like.
+
+```bash
+# Or try read-only: kimbap call apple-notes.list-notes
+```
 
 ---
 

@@ -91,7 +91,7 @@ func init() {
 	flags.StringVar(&opts.configPath, "config", "", "config file path")
 	flags.StringVar(&opts.dataDir, "data-dir", "", "data directory (default ~/.kimbap)")
 	flags.StringVar(&opts.logLevel, "log-level", "", "log level (debug, info, warn, error)")
-	flags.StringVar(&opts.mode, "mode", "", "execution mode (embedded, connected)")
+	flags.StringVar(&opts.mode, "mode", "", "execution mode (dev, embedded, connected)")
 	flags.StringVar(&opts.format, "format", "text", "output format (text, json)")
 	flags.BoolVar(&opts.dryRun, "dry-run", false, "validate and preview without executing (returns JSON)")
 	flags.BoolVar(&opts.trace, "trace", false, "print execution pipeline trace to stderr")

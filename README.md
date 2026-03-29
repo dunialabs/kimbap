@@ -34,9 +34,8 @@ kimbap init --mode dev --services all
 **3. Call**
 
 ```bash
-kimbap call apple-notes.create-note \
-  --title "Meeting notes – Dec 15" \
-  --body "Design review done. API v2 ships Friday. Sprint planning Monday."
+# Create a note — no API key needed (macOS)
+kimbap call apple-notes.create-note --title "Hello from Kimbap" --body "Your first kimbap action."
 ```
 
 Open Apple Notes. The note is there. No API key, no server — one command.
