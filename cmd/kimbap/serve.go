@@ -100,7 +100,10 @@ func newServeCommand() *cobra.Command {
 
 			enableConsole := withConsole || cfg.Console.Enabled
 			dispatcher := webhooks.NewDispatcher()
-			cleanupWebhookSink := configureWebhookDispatcherFromStore(runCtx, dispatcher, st)
+			cleanupWebhookSink, err := configureWebhookDispatcherFromStore(runCtx, dispatcher, st)
+			if err != nil {
+				return err
+			}
 			defer cleanupWebhookSink()
 			srv := api.NewServer(listenAddr, st, buildServeServerOptions(rt, vaultStore, dispatcher, enableConsole)...)
 
@@ -146,32 +149,38 @@ func buildServeServerOptions(rt *runtime.Runtime, vaultStore vault.Store, dispat
 	return opts
 }
 
-func configureWebhookDispatcherFromStore(ctx context.Context, dispatcher *webhooks.Dispatcher, st *store.SQLStore) func() {
+func configureWebhookDispatcherFromStore(ctx context.Context, dispatcher *webhooks.Dispatcher, st *store.SQLStore) (func(), error) {
 	if dispatcher == nil || st == nil {
-		return func() {}
+		return func() {}, nil
 	}
 	if ctx == nil {
 		ctx = context.Background()
 	}
 
-	sinkCtx, cancelSink := context.WithCancel(ctx)
-	var sinkGateMu sync.Mutex
-	var sinkWG sync.WaitGroup
-	sinkClosing := false
-
-	if subs, err := st.ListWebhookSubscriptions(ctx, ""); err == nil {
-		for _, sub := range subs {
-			dispatcher.Subscribe(webhookRecordToSubscription(sub))
-		}
+	subs, err := st.ListWebhookSubscriptions(ctx, "")
+	if err != nil {
+		return nil, fmt.Errorf("load webhook subscriptions: %w", err)
+	}
+	for _, sub := range subs {
+		dispatcher.Subscribe(webhookRecordToSubscription(sub))
 	}
 
-	if events, err := st.ListWebhookEvents(ctx, "", 1000); err == nil && len(events) > 0 {
+	events, err := st.ListWebhookEvents(ctx, "", 1000)
+	if err != nil {
+		return nil, fmt.Errorf("load webhook events: %w", err)
+	}
+	if len(events) > 0 {
 		hydrated := make([]webhooks.Event, 0, len(events))
 		for _, rec := range events {
 			hydrated = append(hydrated, webhookEventRecordToEvent(rec))
 		}
 		dispatcher.ReplaceRecentEvents(hydrated)
 	}
+
+	sinkCtx, cancelSink := context.WithCancel(ctx)
+	var sinkGateMu sync.Mutex
+	var sinkWG sync.WaitGroup
+	sinkClosing := false
 
 	persistEvent := func(event webhooks.Event) {
 		persistCtx, cancel := context.WithTimeout(context.Background(), webhookEventPersistTimeout)
@@ -230,7 +239,7 @@ func configureWebhookDispatcherFromStore(ctx context.Context, dispatcher *webhoo
 		select {
 		case eventSinkQueue <- event:
 		case <-t.C:
-			persistEvent(event)
+			_, _ = fmt.Fprintf(os.Stderr, "warning: dropping webhook event persistence due to saturated queue: %s\n", event.ID)
 		case <-sinkCtx.Done():
 			return
 		}
@@ -243,7 +252,7 @@ func configureWebhookDispatcherFromStore(ctx context.Context, dispatcher *webhoo
 		sinkWG.Wait()
 		cancelSink()
 		<-workerDone
-	}
+	}, nil
 }
 
 func webhookRecordToSubscription(rec store.WebhookSubscriptionRecord) webhooks.Subscription {

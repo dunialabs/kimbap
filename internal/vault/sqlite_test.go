@@ -528,6 +528,51 @@ func TestSQLiteStoreRotateDeactivatesOldVersions(t *testing.T) {
 	}
 }
 
+func TestOpenSQLiteStoreAppliesConnectionPragmas(t *testing.T) {
+	masterKey, err := corecrypto.GenerateRandomKey(32)
+	if err != nil {
+		t.Fatalf("generate key: %v", err)
+	}
+	envelope, err := corecrypto.NewEnvelopeService(masterKey)
+	if err != nil {
+		t.Fatalf("new envelope: %v", err)
+	}
+	tenantKey, err := corecrypto.GenerateRandomKey(32)
+	if err != nil {
+		t.Fatalf("generate tenant key: %v", err)
+	}
+	if err := envelope.RotateKey("default", "tenant-a", tenantKey); err != nil {
+		t.Fatalf("configure tenant key: %v", err)
+	}
+
+	store, err := OpenSQLiteStore(filepath.Join(t.TempDir(), "vault-pragmas.sqlite"), envelope)
+	if err != nil {
+		t.Fatalf("open store: %v", err)
+	}
+	t.Cleanup(func() { _ = store.Close() })
+
+	stats := store.db.Stats()
+	if stats.MaxOpenConnections != 1 {
+		t.Fatalf("expected max open connections to be 1, got %d", stats.MaxOpenConnections)
+	}
+
+	var busyTimeout int
+	if err := store.db.QueryRowContext(context.Background(), "PRAGMA busy_timeout").Scan(&busyTimeout); err != nil {
+		t.Fatalf("query busy_timeout pragma: %v", err)
+	}
+	if busyTimeout != 5000 {
+		t.Fatalf("expected busy_timeout=5000, got %d", busyTimeout)
+	}
+
+	var foreignKeys int
+	if err := store.db.QueryRowContext(context.Background(), "PRAGMA foreign_keys").Scan(&foreignKeys); err != nil {
+		t.Fatalf("query foreign_keys pragma: %v", err)
+	}
+	if foreignKeys != 1 {
+		t.Fatalf("expected foreign_keys pragma enabled, got %d", foreignKeys)
+	}
+}
+
 func newTestStore(t *testing.T) *SQLiteStore {
 	t.Helper()
 

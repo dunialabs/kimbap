@@ -56,7 +56,10 @@ func newApproveListCommand() *cobra.Command {
 			err = withRuntimeStore(cfg, func(st *store.SQLStore) error {
 				if s == "" || s == "pending" {
 					dispatcher := webhooks.NewDispatcher()
-					cleanupWebhookSink := configureWebhookDispatcherFromStore(contextBackground(), dispatcher, st)
+					cleanupWebhookSink, cfgErr := configureWebhookDispatcherFromStore(contextBackground(), dispatcher, st)
+					if cfgErr != nil {
+						return cfgErr
+					}
 					defer cleanupWebhookSink()
 					if _, expErr := expirePendingApprovalsWithSideEffects(contextBackground(), st, approvalTenant(tenant), func(approval store.ApprovalRecord) {
 						dispatcher.EmitForTenant(approval.TenantID, webhooks.EventApprovalExpired, map[string]any{
@@ -138,7 +141,7 @@ func newApproveListCommand() *cobra.Command {
 		},
 	}
 	cmd.Flags().StringVar(&tenant, "tenant", "", "tenant id")
-	cmd.Flags().StringVar(&status, "status", "pending", "approval status filter (pending|approved|denied|expired)")
+	cmd.Flags().StringVar(&status, "status", "pending", "approval status filter (pending|approved|denied|expired, default: pending)")
 	return cmd
 }
 
@@ -215,7 +218,7 @@ func newApproveDenyCommand() *cobra.Command {
 func runApproveAccept(requestID string) error {
 	requestID = strings.TrimSpace(requestID)
 	if requestID == "" {
-		return fmt.Errorf("request-id is required")
+		return fmt.Errorf("request-id is required\nRun: kimbap approve accept <request-id>")
 	}
 
 	cfg, err := loadAppConfig()
@@ -323,11 +326,14 @@ func approvalTimeRemaining(expires time.Time) string {
 
 func approvalStatus(raw string) (string, error) {
 	trimmed := strings.ToLower(strings.TrimSpace(raw))
+	if trimmed == "" {
+		return "", fmt.Errorf("--status cannot be blank (valid: pending, approved, denied, expired)\nRun: kimbap approve list --status pending")
+	}
 	switch trimmed {
 	case "pending", "approved", "denied", "expired":
 		return trimmed, nil
 	default:
-		return "", fmt.Errorf("invalid --status %q (valid: pending, approved, denied, expired)", strings.TrimSpace(raw))
+		return "", fmt.Errorf("invalid --status %q (valid: pending, approved, denied, expired)\nRun: kimbap approve list --status pending", strings.TrimSpace(raw))
 	}
 }
 

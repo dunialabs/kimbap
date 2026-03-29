@@ -49,9 +49,12 @@ func OpenSQLiteStore(dsn string, envelope *corecrypto.EnvelopeService) (*SQLiteS
 		return nil, err
 	}
 	db.SetMaxOpenConns(1)
-	if _, err := db.ExecContext(context.Background(), "PRAGMA foreign_keys = ON"); err != nil {
+	if err := applySQLiteConnectionPragmas(context.Background(), db, []string{
+		"PRAGMA busy_timeout = 5000",
+		"PRAGMA foreign_keys = ON",
+	}); err != nil {
 		_ = db.Close()
-		return nil, fmt.Errorf("enable foreign keys: %w", err)
+		return nil, err
 	}
 	store, err := NewSQLiteStore(db, envelope)
 	if err != nil {
@@ -66,6 +69,18 @@ func (s *SQLiteStore) Close() error {
 		return nil
 	}
 	return s.db.Close()
+}
+
+func applySQLiteConnectionPragmas(ctx context.Context, db *sql.DB, pragmas []string) error {
+	if db == nil {
+		return errors.New("database is required")
+	}
+	for _, pragma := range pragmas {
+		if _, err := db.ExecContext(ctx, pragma); err != nil {
+			return fmt.Errorf("apply sqlite pragma %q: %w", pragma, err)
+		}
+	}
+	return nil
 }
 
 func (s *SQLiteStore) Create(ctx context.Context, tenantID string, name string, secretType SecretType, plaintext []byte, labels map[string]string, createdBy string) (*SecretRecord, error) {

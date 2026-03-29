@@ -79,6 +79,19 @@ func TestRunApproveAcceptPreservesDomainErrors(t *testing.T) {
 	}
 }
 
+func TestRunApproveAcceptRequiresRequestIDWithHint(t *testing.T) {
+	err := runApproveAccept("   ")
+	if err == nil {
+		t.Fatal("expected request-id required error")
+	}
+	if !strings.Contains(err.Error(), "request-id is required") {
+		t.Fatalf("expected request-id required message, got %v", err)
+	}
+	if !strings.Contains(err.Error(), "Run: kimbap approve accept <request-id>") {
+		t.Fatalf("expected actionable next-step hint, got %v", err)
+	}
+}
+
 func TestRunApproveAcceptMaterializesExpiredApproval(t *testing.T) {
 	approvalID, cfgPath := seedExpiredApprovalForCLI(t, time.Now().UTC().Add(-1*time.Minute))
 
@@ -212,16 +225,17 @@ func TestRuntimeStoreSQLiteURIDoesNotCreateSchemeDirectoryOnMainAgain(t *testing
 
 func TestApprovalStatusValidation(t *testing.T) {
 	tests := []struct {
-		name    string
-		in      string
-		want    string
-		wantErr bool
+		name            string
+		in              string
+		want            string
+		wantErr         bool
+		wantErrContains string
 	}{
 		{name: "pending", in: "pending", want: "pending"},
 		{name: "uppercase normalized", in: "APPROVED", want: "approved"},
 		{name: "trimmed", in: " denied ", want: "denied"},
-		{name: "blank invalid", in: "   ", wantErr: true},
-		{name: "invalid", in: "in_review", wantErr: true},
+		{name: "blank invalid", in: "   ", wantErr: true, wantErrContains: "--status cannot be blank"},
+		{name: "invalid", in: "in_review", wantErr: true, wantErrContains: "invalid --status"},
 	}
 
 	for _, tc := range tests {
@@ -231,11 +245,14 @@ func TestApprovalStatusValidation(t *testing.T) {
 				if err == nil {
 					t.Fatalf("expected error for %q", tc.in)
 				}
-				if !strings.Contains(err.Error(), "invalid --status") {
-					t.Fatalf("expected invalid status error, got %v", err)
+				if tc.wantErrContains != "" && !strings.Contains(err.Error(), tc.wantErrContains) {
+					t.Fatalf("expected error containing %q, got %v", tc.wantErrContains, err)
 				}
 				if !strings.Contains(err.Error(), "valid: pending, approved, denied, expired") {
 					t.Fatalf("expected allowed-values hint in error, got %v", err)
+				}
+				if !strings.Contains(err.Error(), "Run: kimbap approve list --status pending") {
+					t.Fatalf("expected actionable retry hint, got %v", err)
 				}
 				return
 			}

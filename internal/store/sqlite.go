@@ -46,6 +46,13 @@ func OpenSQLiteStore(dsn string) (*SQLStore, error) {
 	}
 	db.SetMaxOpenConns(1)
 	db.SetMaxIdleConns(1)
+	if err := applySQLiteConnectionPragmas(context.Background(), db, []string{
+		"PRAGMA busy_timeout = 5000",
+		"PRAGMA journal_mode = WAL",
+	}); err != nil {
+		_ = db.Close()
+		return nil, err
+	}
 	st, err := NewSQLiteStore(db)
 	if err != nil {
 		_ = db.Close()
@@ -90,6 +97,18 @@ func openDBWithPing(driverName, dsn, label string) (*sql.DB, error) {
 		return nil, fmt.Errorf("ping %s database: %w", label, err)
 	}
 	return db, nil
+}
+
+func applySQLiteConnectionPragmas(ctx context.Context, db *sql.DB, pragmas []string) error {
+	if db == nil {
+		return errors.New("database is required")
+	}
+	for _, pragma := range pragmas {
+		if _, err := db.ExecContext(ctx, pragma); err != nil {
+			return fmt.Errorf("apply sqlite pragma %q: %w", pragma, err)
+		}
+	}
+	return nil
 }
 
 func (s *SQLStore) Close() error {

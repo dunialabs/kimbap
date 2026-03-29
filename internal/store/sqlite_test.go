@@ -608,6 +608,30 @@ func TestOpenSQLiteStoreSetsSingleConnectionPoolForSQLite(t *testing.T) {
 	}
 }
 
+func TestOpenSQLiteStoreAppliesBusyTimeoutAndWAL(t *testing.T) {
+	st, err := OpenSQLiteStore(filepath.Join(t.TempDir(), "runtime-pragmas.sqlite"))
+	if err != nil {
+		t.Fatalf("open sqlite store: %v", err)
+	}
+	t.Cleanup(func() { _ = st.Close() })
+
+	var busyTimeout int
+	if err := st.db.QueryRowContext(context.Background(), "PRAGMA busy_timeout").Scan(&busyTimeout); err != nil {
+		t.Fatalf("query busy_timeout pragma: %v", err)
+	}
+	if busyTimeout != 5000 {
+		t.Fatalf("expected busy_timeout=5000, got %d", busyTimeout)
+	}
+
+	var journalMode string
+	if err := st.db.QueryRowContext(context.Background(), "PRAGMA journal_mode").Scan(&journalMode); err != nil {
+		t.Fatalf("query journal_mode pragma: %v", err)
+	}
+	if strings.ToLower(journalMode) != "wal" {
+		t.Fatalf("expected journal_mode=wal, got %q", journalMode)
+	}
+}
+
 func TestNeedsServiceTokenBackfillOnlyWhenRowsAreMissing(t *testing.T) {
 	st := newTestSQLiteStore(t)
 	ctx := context.Background()

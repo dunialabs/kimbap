@@ -151,7 +151,10 @@ func TestBuildServeServerOptionsHydratesWebhookDataFromStore(t *testing.T) {
 	}
 
 	dispatcher := webhooks.NewDispatcher()
-	cleanupWebhookSink := configureWebhookDispatcherFromStore(context.Background(), dispatcher, st)
+	cleanupWebhookSink, err := configureWebhookDispatcherFromStore(context.Background(), dispatcher, st)
+	if err != nil {
+		t.Fatalf("configure webhook dispatcher: %v", err)
+	}
 	defer cleanupWebhookSink()
 	server := api.NewServer(":0", st, buildServeServerOptions(nil, nil, dispatcher, false)...)
 	ts := httptest.NewServer(server.Router())
@@ -197,6 +200,26 @@ func TestBuildServeServerOptionsHydratesWebhookDataFromStore(t *testing.T) {
 	events, _ := eventsData["events"].([]any)
 	if len(events) != 1 {
 		t.Fatalf("expected 1 hydrated event, got %d", len(events))
+	}
+}
+
+func TestConfigureWebhookDispatcherFromStoreReturnsErrorOnHydrationFailure(t *testing.T) {
+	st, err := store.OpenSQLiteStore(filepath.Join(t.TempDir(), "serve-hydrate-failure.sqlite"))
+	if err != nil {
+		t.Fatalf("open sqlite store: %v", err)
+	}
+	if err := st.Migrate(context.Background()); err != nil {
+		t.Fatalf("migrate sqlite store: %v", err)
+	}
+	if err := st.Close(); err != nil {
+		t.Fatalf("close sqlite store: %v", err)
+	}
+
+	dispatcher := webhooks.NewDispatcher()
+	cleanup, cfgErr := configureWebhookDispatcherFromStore(context.Background(), dispatcher, st)
+	if cfgErr == nil {
+		cleanup()
+		t.Fatal("expected hydration error")
 	}
 }
 
