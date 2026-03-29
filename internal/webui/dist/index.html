@@ -1817,6 +1817,7 @@ td.mono {
         '<th>Version</th>' +
         '<th>Created</th>' +
         '<th>Updated</th>' +
+        '<th>Last Used</th>' +
       '</tr></thead><tbody>';
 
     items.forEach(function(item) {
@@ -1825,6 +1826,7 @@ td.mono {
       var ver = item.CurrentVersion || item.current_version || item.VersionCount || item.version_count || '—';
       var created = item.CreatedAt || item.created_at || '';
       var updated = item.UpdatedAt || item.updated_at || '';
+      var lastUsed = item.LastUsedAt || item.last_used_at || '';
 
       html += '<tr>' +
         '<td class="mono" style="color:var(--text-primary)">' + esc(name) + '</td>' +
@@ -1832,6 +1834,7 @@ td.mono {
         '<td class="mono">' + esc(ver) + '</td>' +
         '<td class="mono">' + esc(fmtTime(created)) + '</td>' +
         '<td class="mono">' + esc(fmtTime(updated)) + '</td>' +
+        '<td class="mono">' + esc(lastUsed ? fmtTime(lastUsed) : '—') + '</td>' +
       '</tr>';
     });
 
