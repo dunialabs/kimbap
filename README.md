@@ -110,6 +110,8 @@ Microsoft Word · Excel · PowerPoint
 
 Wikipedia · Hacker News · CoinGecko · Open-Meteo (weather, air quality, historical, geocoding) · Financial Datasets · REST Countries · Exchange Rate · Public Holidays · Nominatim · ntfy
 
+If you need a dedicated MCP control plane (gateway, policy, audit), see [dunialabs/peta-core](https://github.com/dunialabs/peta-core).
+
 One command for all of them: `kimbap call <service>.<action>`
 
 ---
