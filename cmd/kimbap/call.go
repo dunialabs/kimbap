@@ -219,6 +219,10 @@ func formatActionHelp(def actions.ActionDefinition) string {
 	b.WriteString(strings.TrimSpace(def.Name))
 	b.WriteString("\n\nDescription: ")
 	b.WriteString(strings.TrimSpace(def.Description))
+	if r := strings.TrimSpace(string(def.Risk)); r != "" {
+		b.WriteString("\nRisk: ")
+		b.WriteString(r)
+	}
 	b.WriteString("\n\nParameters:\n")
 
 	if def.InputSchema == nil || len(def.InputSchema.Properties) == 0 {

@@ -88,8 +88,14 @@ func newSearchCommand() *cobra.Command {
 				return printOutput(results)
 			}
 
+			useColor := isColorStdout()
 			for _, result := range results {
-				fmt.Printf("%-40s %s\n", result.Name, result.Description)
+				badge := searchRiskBadge(string(result.Risk), useColor)
+				if badge != "" {
+					fmt.Printf("%-40s %s  %s\n", result.Name, result.Description, badge)
+				} else {
+					fmt.Printf("%-40s %s\n", result.Name, result.Description)
+				}
 			}
 
 			return nil
@@ -100,6 +106,26 @@ func newSearchCommand() *cobra.Command {
 	cmd.Flags().IntVar(&limit, "limit", 10, "maximum number of results to return")
 
 	return cmd
+}
+
+func searchRiskBadge(risk string, useColor bool) string {
+	switch risk {
+	case "read", "write", "admin", "destructive":
+	default:
+		return ""
+	}
+	badge := "[" + risk + "]"
+	if !useColor {
+		return badge
+	}
+	switch risk {
+	case "admin":
+		return "[33m" + badge + "[0m"
+	case "destructive":
+		return "[31m" + badge + "[0m"
+	default:
+		return "[2m" + badge + "[0m"
+	}
 }
 
 func splitSearchTerms(query string) []string {
