@@ -68,7 +68,8 @@ type ResponseSpec struct {
 }
 
 type RiskSpec struct {
-	Level string `yaml:"level"`
+	Level    string `yaml:"level"`
+	Mutating *bool  `yaml:"mutating,omitempty"`
 }
 
 type RetrySpec struct {

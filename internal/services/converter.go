@@ -52,10 +52,7 @@ func toHTTPDefinitions(svc *ServiceManifest) ([]actions.ActionDefinition, error)
 			retry.RetryOn5xx = has5xx(actionSpec.Retry.RetryOn)
 		}
 
-		idempotent := isIdempotent(actionSpec.Method)
-		if actionSpec.Idempotent != nil {
-			idempotent = *actionSpec.Idempotent
-		}
+		idempotent := resolveIdempotent(actionSpec, isIdempotent(actionSpec.Method))
 
 		definition := actions.ActionDefinition{
 			Name:         svc.Name + "." + key,
@@ -108,10 +105,7 @@ func toAppleScriptDefinitions(svc *ServiceManifest) ([]actions.ActionDefinition,
 	for _, key := range keys {
 		actionSpec := svc.Actions[key]
 
-		idempotent := false
-		if actionSpec.Idempotent != nil {
-			idempotent = *actionSpec.Idempotent
-		}
+		idempotent := resolveIdempotent(actionSpec, false)
 
 		definition := actions.ActionDefinition{
 			Name:         svc.Name + "." + key,
@@ -162,10 +156,7 @@ func toCommandDefinitions(svc *ServiceManifest) ([]actions.ActionDefinition, err
 	for _, key := range keys {
 		actionSpec := svc.Actions[key]
 
-		idempotent := false
-		if actionSpec.Idempotent != nil {
-			idempotent = *actionSpec.Idempotent
-		}
+		idempotent := resolveIdempotent(actionSpec, false)
 
 		definition := actions.ActionDefinition{
 			Name:         svc.Name + "." + key,
@@ -232,6 +223,16 @@ func mapApprovalHint(level string) actions.ApprovalHint {
 	default:
 		return actions.ApprovalRequired
 	}
+}
+
+func resolveIdempotent(actionSpec ServiceAction, fallback bool) bool {
+	if actionSpec.Idempotent != nil {
+		return *actionSpec.Idempotent
+	}
+	if actionSpec.Risk.Mutating != nil {
+		return !*actionSpec.Risk.Mutating
+	}
+	return fallback
 }
 
 func mapAuth(auth ServiceAuth) actions.AuthRequirement {

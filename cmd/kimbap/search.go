@@ -35,7 +35,7 @@ func newSearchCommand() *cobra.Command {
 				return fmt.Errorf("--limit must be non-negative")
 			}
 
-			cfg, err := loadAppConfig()
+			cfg, err := loadAppConfigReadOnly()
 			if err != nil {
 				return err
 			}

@@ -2034,6 +2034,103 @@ func TestToActionDefinitionsHTTPUnsafeMethodsAreNotImplicitlyIdempotent(t *testi
 	}
 }
 
+func TestToActionDefinitionsFallsBackToLegacyRiskMutating(t *testing.T) {
+	mutatingFalse := false
+	manifest := &ServiceManifest{
+		Name:    "legacy-http-service",
+		Version: "1.0.0",
+		BaseURL: "https://api.example.com",
+		Auth:    ServiceAuth{Type: "none"},
+		Actions: map[string]ServiceAction{
+			"list": {
+				Method: "POST",
+				Path:   "/items/list",
+				Risk: RiskSpec{
+					Level:    "low",
+					Mutating: &mutatingFalse,
+				},
+			},
+		},
+	}
+
+	defs, err := ToActionDefinitions(manifest)
+	if err != nil {
+		t.Fatalf("ToActionDefinitions: %v", err)
+	}
+	if len(defs) != 1 {
+		t.Fatalf("expected one action definition, got %d", len(defs))
+	}
+	if !defs[0].Idempotent {
+		t.Fatal("expected risk.mutating=false to imply idempotent=true when idempotent is unset")
+	}
+}
+
+func TestToActionDefinitionsExplicitIdempotentOverridesLegacyMutating(t *testing.T) {
+	mutatingTrue := true
+	idempotentTrue := true
+	manifest := &ServiceManifest{
+		Name:    "legacy-http-service",
+		Version: "1.0.0",
+		BaseURL: "https://api.example.com",
+		Auth:    ServiceAuth{Type: "none"},
+		Actions: map[string]ServiceAction{
+			"list": {
+				Method:     "POST",
+				Path:       "/items/list",
+				Idempotent: &idempotentTrue,
+				Risk: RiskSpec{
+					Level:    "low",
+					Mutating: &mutatingTrue,
+				},
+			},
+		},
+	}
+
+	defs, err := ToActionDefinitions(manifest)
+	if err != nil {
+		t.Fatalf("ToActionDefinitions: %v", err)
+	}
+	if len(defs) != 1 {
+		t.Fatalf("expected one action definition, got %d", len(defs))
+	}
+	if !defs[0].Idempotent {
+		t.Fatal("expected explicit idempotent=true to override legacy risk.mutating=true")
+	}
+}
+
+func TestToActionDefinitionsExplicitIdempotentFalseOverridesLegacyMutating(t *testing.T) {
+	mutatingFalse := false
+	idempotentFalse := false
+	manifest := &ServiceManifest{
+		Name:    "legacy-http-service",
+		Version: "1.0.0",
+		BaseURL: "https://api.example.com",
+		Auth:    ServiceAuth{Type: "none"},
+		Actions: map[string]ServiceAction{
+			"list": {
+				Method:     "GET",
+				Path:       "/items/list",
+				Idempotent: &idempotentFalse,
+				Risk: RiskSpec{
+					Level:    "low",
+					Mutating: &mutatingFalse,
+				},
+			},
+		},
+	}
+
+	defs, err := ToActionDefinitions(manifest)
+	if err != nil {
+		t.Fatalf("ToActionDefinitions: %v", err)
+	}
+	if len(defs) != 1 {
+		t.Fatalf("expected one action definition, got %d", len(defs))
+	}
+	if defs[0].Idempotent {
+		t.Fatal("expected explicit idempotent=false to override legacy risk.mutating=false and method fallback")
+	}
+}
+
 func TestGenerateAgentSkillMDNormalizesAdapterAndAuthTypes(t *testing.T) {
 	manifest := &ServiceManifest{
 		Name:        "apple-notes",

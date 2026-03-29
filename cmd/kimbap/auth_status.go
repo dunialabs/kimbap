@@ -19,12 +19,12 @@ func newAuthListCommand() *cobra.Command {
 		Short: "List OAuth connection states",
 		RunE: func(_ *cobra.Command, _ []string) error {
 			activeTenant := connectorTenant(tenant)
-			cfg, err := loadAppConfig()
+			cfg, err := loadAppConfigReadOnly()
 			if err != nil {
 				return err
 			}
 
-			store, storeErr := openConnectorStore(cfg)
+			store, storeErr := openConnectorStoreReadOnly(cfg)
 			if storeErr != nil {
 				if outputAsJSON() {
 					_ = printOutput(map[string]any{
@@ -106,12 +106,12 @@ func newAuthStatusCommand() *cobra.Command {
 		Args:  cobra.MaximumNArgs(1),
 		RunE: func(_ *cobra.Command, args []string) error {
 			activeTenant := connectorTenant(tenant)
-			cfg, err := loadAppConfig()
+			cfg, err := loadAppConfigReadOnly()
 			if err != nil {
 				return err
 			}
 
-			store, storeErr := openConnectorStore(cfg)
+			store, storeErr := openConnectorStoreReadOnly(cfg)
 			if storeErr != nil {
 				if outputAsJSON() {
 					_ = printOutput(map[string]any{

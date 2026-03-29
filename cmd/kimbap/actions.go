@@ -23,7 +23,7 @@ func newActionsCommand() *cobra.Command {
 		Use:   "list",
 		Short: "List actions from installed services",
 		RunE: func(_ *cobra.Command, _ []string) error {
-			cfg, err := loadAppConfig()
+			cfg, err := loadAppConfigReadOnly()
 			if err != nil {
 				return err
 			}
@@ -78,7 +78,7 @@ func newActionsCommand() *cobra.Command {
 		Short: "Describe one action",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(_ *cobra.Command, args []string) error {
-			cfg, err := loadAppConfig()
+			cfg, err := loadAppConfigReadOnly()
 			if err != nil {
 				return err
 			}
@@ -91,15 +91,11 @@ func newActionsCommand() *cobra.Command {
 			if def.Auth.Type == actions.AuthTypeNone || def.Auth.Optional {
 				credReady = true
 			} else if strings.TrimSpace(def.Auth.CredentialRef) != "" {
-				if vs, vErr := initVaultStore(cfg); vErr == nil {
-					defer closeVaultStoreIfPossible(vs)
-					if raw, gErr := vs.GetValue(contextBackground(), defaultTenantID(), def.Auth.CredentialRef); gErr == nil && len(raw) > 0 {
-						credReady = true
-					} else if gErr != nil {
-						_, _ = fmt.Fprintf(os.Stderr, "warning: credential lookup failed, status unknown: %v\n", gErr)
-					}
-				} else {
-					_, _ = fmt.Fprintf(os.Stderr, "warning: vault unavailable, credential status unknown: %v\n", vErr)
+				credCheck := probeCredentialReadOnly(cfg, strings.TrimSpace(def.Auth.CredentialRef))
+				if credCheck.Status == "pass" {
+					credReady = true
+				} else if !strings.Contains(credCheck.Detail, "credential missing") && !strings.Contains(credCheck.Detail, "vault is locked") {
+					_, _ = fmt.Fprintf(os.Stderr, "warning: vault unavailable, credential status unknown: %s\n", credCheck.Detail)
 				}
 			}
 			approvalRequired := def.ApprovalHint == actions.ApprovalRequired

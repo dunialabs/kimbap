@@ -123,6 +123,48 @@ func openConnectorDB(cfg *config.KimbapConfig) (*sql.DB, string, error) {
 	}
 }
 
+func openConnectorStoreReadOnly(cfg *config.KimbapConfig) (connectors.ConnectorStore, error) {
+	if cfg == nil {
+		return nil, fmt.Errorf("config is required")
+	}
+	driver := strings.ToLower(strings.TrimSpace(cfg.Database.Driver))
+	dsn := strings.TrimSpace(cfg.Database.DSN)
+	switch driver {
+	case "", "sqlite", "sqlite3":
+		if dsn == "" {
+			dsn = filepath.Join(cfg.DataDir, "kimbap.db")
+		}
+		db, err := sql.Open("sqlite", "file:"+dsn+"?mode=ro")
+		if err != nil {
+			return nil, err
+		}
+		pingCtx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+		defer cancel()
+		if err := db.PingContext(pingCtx); err != nil {
+			_ = db.Close()
+			return nil, fmt.Errorf("ping connector sqlite database: %w", err)
+		}
+		return &readOnlySQLConnectorStore{db: db, dialect: "sqlite"}, nil
+	case "postgres", "postgresql", "pgx":
+		if dsn == "" {
+			return nil, fmt.Errorf("database dsn is required for postgres")
+		}
+		db, err := sql.Open("pgx", dsn)
+		if err != nil {
+			return nil, err
+		}
+		pingCtx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+		defer cancel()
+		if err := db.PingContext(pingCtx); err != nil {
+			_ = db.Close()
+			return nil, fmt.Errorf("ping connector postgres database: %w", err)
+		}
+		return &readOnlySQLConnectorStore{db: db, dialect: "postgres"}, nil
+	default:
+		return nil, fmt.Errorf("unsupported database driver %q", cfg.Database.Driver)
+	}
+}
+
 func migrateConnectorTable(ctx context.Context, db *sql.DB, dialect string) error {
 	if db == nil {
 		return fmt.Errorf("database is required")

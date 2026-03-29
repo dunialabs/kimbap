@@ -20,9 +20,17 @@ func TestStatusCommandReturnsLoadErrorForMissingExplicitConfig(t *testing.T) {
 }
 
 func TestStatusCommandIsVisibleByDefault(t *testing.T) {
-	if cmd := newStatusCommand(); cmd.Hidden {
-		t.Fatal("expected status command to be visible")
+	// Verify that the status command is registered as visible in rootCmd (not hidden),
+	// not just that the constructor doesn't set Hidden.
+	for _, cmd := range rootCmd.Commands() {
+		if cmd.Name() == "status" {
+			if cmd.Hidden {
+				t.Fatal("expected registered status command to be visible (not hidden)")
+			}
+			return
+		}
 	}
+	t.Fatal("status command not found in rootCmd")
 }
 
 func TestVaultKeyAvailableReadOnlyRejectsInvalidKimbapDev(t *testing.T) {

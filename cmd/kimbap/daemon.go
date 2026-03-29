@@ -6,6 +6,7 @@ import (
 	"crypto/subtle"
 	"encoding/json"
 	"fmt"
+	"io"
 	"net"
 	"net/http"
 	"os"
@@ -147,6 +148,8 @@ type daemonCallRequest struct {
 	IdempotencyKey string         `json:"idempotency_key,omitempty"`
 }
 
+const maxDaemonCallBodyBytes int64 = 4 << 20
+
 func daemonCallHandler(cfg *config.KimbapConfig, rt *runtime.Runtime) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodPost {
@@ -154,9 +157,8 @@ func daemonCallHandler(cfg *config.KimbapConfig, rt *runtime.Runtime) http.Handl
 			return
 		}
 
-		const maxDaemonCallBody = 4 << 20
 		var req daemonCallRequest
-		if err := json.NewDecoder(http.MaxBytesReader(w, r.Body, maxDaemonCallBody)).Decode(&req); err != nil {
+		if err := decodeDaemonCallJSON(w, r, &req); err != nil {
 			w.Header().Set("Content-Type", "application/json")
 			w.WriteHeader(http.StatusBadRequest)
 			_ = json.NewEncoder(w).Encode(map[string]any{"error": err.Error()})
@@ -210,6 +212,22 @@ func daemonCallHandler(cfg *config.KimbapConfig, rt *runtime.Runtime) http.Handl
 		w.WriteHeader(status)
 		_ = json.NewEncoder(w).Encode(result)
 	}
+}
+
+func decodeDaemonCallJSON(w http.ResponseWriter, r *http.Request, out *daemonCallRequest) error {
+	if r.Body == nil {
+		return fmt.Errorf("request body is required")
+	}
+	dec := json.NewDecoder(http.MaxBytesReader(w, r.Body, maxDaemonCallBodyBytes))
+	dec.DisallowUnknownFields()
+	if err := dec.Decode(out); err != nil {
+		return err
+	}
+	var extra json.RawMessage
+	if err := dec.Decode(&extra); err != io.EOF {
+		return fmt.Errorf("unexpected trailing content after JSON body")
+	}
+	return nil
 }
 
 func daemonSocketPath(dataDir string) string {

@@ -231,11 +231,11 @@ func TestE2EHelpSurface(t *testing.T) {
 
 	commands := extractAvailableCommands(stdout)
 	delete(commands, "help")
-	if len(commands) > 15 {
-		t.Fatalf("expected <=15 visible commands, got %d: %v\nhelp:\n%s", len(commands), sortedKeys(commands), stdout)
+	if len(commands) > 16 {
+		t.Fatalf("expected <=16 visible commands, got %d: %v\nhelp:\n%s", len(commands), sortedKeys(commands), stdout)
 	}
 
-	for _, want := range []string{"call", "init", "link", "auth", "service", "vault"} {
+	for _, want := range []string{"call", "init", "link", "auth", "service", "vault", "status"} {
 		if _, ok := commands[want]; !ok {
 			t.Fatalf("expected visible command %q in help output\nhelp:\n%s", want, stdout)
 		}

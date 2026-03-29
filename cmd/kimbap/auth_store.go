@@ -181,6 +181,72 @@ func (s *sqlConnectorStore) Close() error {
 	return s.db.Close()
 }
 
+type readOnlySQLConnectorStore struct {
+	db      *sql.DB
+	dialect string
+}
+
+func isNoSuchTableErr(err error) bool {
+	if err == nil {
+		return false
+	}
+	msg := strings.ToLower(err.Error())
+	return strings.Contains(msg, "no such table") || strings.Contains(msg, "does not exist")
+}
+
+func (s *readOnlySQLConnectorStore) Get(ctx context.Context, tenantID, name string) (*connectors.ConnectorState, error) {
+	q := `SELECT name, provider, status, account, expires_at, updated_at, last_refresh, scopes_json,
+		access_token, refresh_token, workspace_id, connected_principal, connection_scope, revoked_at, flow_used, last_refresh_error, last_used_at, created_at
+		FROM connector_states WHERE tenant_id = ? AND name = ?`
+	row := s.db.QueryRowContext(ctx, bindQuery(q, s.dialect), tenantID, name)
+	st, err := scanConnectorRow(row, tenantID)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) || isNoSuchTableErr(err) {
+			return nil, nil
+		}
+		return nil, err
+	}
+	return &st, nil
+}
+
+func (s *readOnlySQLConnectorStore) List(ctx context.Context, tenantID string) ([]connectors.ConnectorState, error) {
+	q := `SELECT name, provider, status, account, expires_at, updated_at, last_refresh, scopes_json,
+		access_token, refresh_token, workspace_id, connected_principal, connection_scope, revoked_at, flow_used, last_refresh_error, last_used_at, created_at
+		FROM connector_states WHERE tenant_id = ? ORDER BY name ASC`
+	rows, err := s.db.QueryContext(ctx, bindQuery(q, s.dialect), tenantID)
+	if err != nil {
+		if isNoSuchTableErr(err) {
+			return nil, nil
+		}
+		return nil, err
+	}
+	defer rows.Close()
+	var out []connectors.ConnectorState
+	for rows.Next() {
+		st, scanErr := scanConnectorRow(rows, tenantID)
+		if scanErr != nil {
+			return nil, scanErr
+		}
+		out = append(out, st)
+	}
+	return out, rows.Err()
+}
+
+func (s *readOnlySQLConnectorStore) Save(_ context.Context, _ *connectors.ConnectorState) error {
+	return fmt.Errorf("connector store is read-only")
+}
+
+func (s *readOnlySQLConnectorStore) Delete(_ context.Context, _, _ string) error {
+	return fmt.Errorf("connector store is read-only")
+}
+
+func (s *readOnlySQLConnectorStore) Close() error {
+	if s == nil || s.db == nil {
+		return nil
+	}
+	return s.db.Close()
+}
+
 func connectorProfileFromName(name string) string {
 	trimmed := strings.TrimSpace(name)
 	if trimmed == "" {

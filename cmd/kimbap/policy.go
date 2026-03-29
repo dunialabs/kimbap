@@ -73,7 +73,7 @@ func newPolicyGetCommand() *cobra.Command {
 		Use:   "get",
 		Short: "Show active policy",
 		RunE: func(_ *cobra.Command, _ []string) error {
-			cfg, err := loadAppConfig()
+			cfg, err := loadAppConfigReadOnly()
 			if err != nil {
 				return err
 			}
@@ -104,7 +104,7 @@ func newPolicyEvalCommand() *cobra.Command {
 				return fmt.Errorf("--action is required")
 			}
 
-			cfg, err := loadAppConfig()
+			cfg, err := loadAppConfigReadOnly()
 			if err != nil {
 				return err
 			}

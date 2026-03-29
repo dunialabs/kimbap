@@ -27,6 +27,69 @@ func TestValidateAppleScriptManifest_Valid(t *testing.T) {
 	}
 }
 
+func TestParseManifest_AcceptsLegacyRiskMutatingField(t *testing.T) {
+	manifestYAML := `name: legacy
+version: 1.0.0
+adapter: http
+base_url: https://api.example.com
+auth:
+  type: none
+actions:
+  list:
+    method: GET
+    path: /items
+    request: {}
+    response:
+      extract: ""
+      type: array
+    risk:
+      level: low
+      mutating: false
+`
+
+	m, err := ParseManifest([]byte(manifestYAML))
+	if err != nil {
+		t.Fatalf("expected parse success for legacy risk.mutating, got %v", err)
+	}
+
+	action := m.Actions["list"]
+	if action.Risk.Mutating == nil {
+		t.Fatal("expected risk.mutating to be preserved")
+	}
+	if *action.Risk.Mutating {
+		t.Fatal("expected risk.mutating=false")
+	}
+}
+
+func TestParseManifest_RejectsUnknownRiskFieldWithStrictDecoding(t *testing.T) {
+	manifestYAML := `name: legacy
+version: 1.0.0
+adapter: http
+base_url: https://api.example.com
+auth:
+  type: none
+actions:
+  list:
+    method: GET
+    path: /items
+    request: {}
+    response:
+      extract: ""
+      type: array
+    risk:
+      level: low
+      deprecated_flag: false
+`
+
+	_, err := ParseManifest([]byte(manifestYAML))
+	if err == nil {
+		t.Fatal("expected parse error for unknown risk field")
+	}
+	if !strings.Contains(err.Error(), "deprecated_flag") {
+		t.Fatalf("expected unknown field error to mention deprecated_flag, got %v", err)
+	}
+}
+
 func TestValidateAppleScriptManifest_MissingTargetApp(t *testing.T) {
 	m := validAppleScriptManifest()
 	m.TargetApp = ""

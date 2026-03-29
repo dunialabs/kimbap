@@ -139,7 +139,7 @@ func init() {
 	addGrouped(newPolicyCommand(), "management")
 	addGroupedHidden(newCheckCommand(), "management")
 	addGrouped(newDoctorCommand(), "management")
-	addGroupedHidden(newStatusCommand(), "management")
+	addGrouped(newStatusCommand(), "management")
 	addGrouped(newAuthCommand(), "management")
 
 	// Advanced — specialized integration modes

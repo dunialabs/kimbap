@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 
 	"github.com/dunialabs/kimbap/internal/actions"
@@ -74,6 +75,52 @@ func TestDaemonCallHandlerInvalidJSON(t *testing.T) {
 
 	if rec.Code != http.StatusBadRequest {
 		t.Fatalf("expected 400, got %d", rec.Code)
+	}
+}
+
+func TestDaemonCallHandlerRejectsUnknownFields(t *testing.T) {
+	rt := buildTestRuntime()
+	handler := daemonCallHandler(nil, rt)
+
+	req := httptest.NewRequest(http.MethodPost, "/call", bytes.NewBufferString(`{"action":"test.create","input":{"name":"item"},"unknown":true}`))
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Idempotency-Key", "idem-daemon-unknown")
+	rec := httptest.NewRecorder()
+	handler(rec, req)
+
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("expected 400 for unknown field, got %d", rec.Code)
+	}
+	var payload map[string]any
+	if err := json.NewDecoder(rec.Body).Decode(&payload); err != nil {
+		t.Fatalf("decode response: %v", err)
+	}
+	errMsg, _ := payload["error"].(string)
+	if !strings.Contains(errMsg, "unknown field") {
+		t.Fatalf("expected unknown field error, got %q", errMsg)
+	}
+}
+
+func TestDaemonCallHandlerRejectsTrailingJSON(t *testing.T) {
+	rt := buildTestRuntime()
+	handler := daemonCallHandler(nil, rt)
+
+	req := httptest.NewRequest(http.MethodPost, "/call", bytes.NewBufferString(`{"action":"test.create","input":{"name":"item"}} {}`))
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Idempotency-Key", "idem-daemon-trailing")
+	rec := httptest.NewRecorder()
+	handler(rec, req)
+
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("expected 400 for trailing JSON content, got %d", rec.Code)
+	}
+	var payload map[string]any
+	if err := json.NewDecoder(rec.Body).Decode(&payload); err != nil {
+		t.Fatalf("decode response: %v", err)
+	}
+	errMsg, _ := payload["error"].(string)
+	if !strings.Contains(errMsg, "unexpected trailing content after JSON body") {
+		t.Fatalf("expected trailing-content error, got %q", errMsg)
 	}
 }
 

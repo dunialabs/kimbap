@@ -1,12 +1,16 @@
 package main
 
 import (
+	"database/sql"
 	"fmt"
 	"os"
+	"path/filepath"
+	"strconv"
 	"strings"
 
 	"github.com/dunialabs/kimbap/internal/actions"
 	"github.com/dunialabs/kimbap/internal/config"
+	corecrypto "github.com/dunialabs/kimbap/internal/crypto"
 	"github.com/dunialabs/kimbap/internal/policy"
 	"github.com/spf13/cobra"
 )
@@ -30,7 +34,7 @@ func newCheckCommand() *cobra.Command {
 		Short: "Run local preflight checks for an action",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(_ *cobra.Command, args []string) error {
-			cfg, err := loadAppConfig()
+			cfg, err := loadAppConfigReadOnly()
 			if err != nil {
 				return err
 			}
@@ -67,41 +71,17 @@ func runActionPreflight(cfg *config.KimbapConfig, actionName string) (preflightR
 			Detail: "no credential required",
 		})
 	} else {
-		vs, vaultErr := initVaultStore(cfg)
-		if vaultErr != nil {
-			reason := classifyVaultInitError(vaultErr)
-			if reason == "vault_locked" {
-				report.Blockers = append(report.Blockers, "vault_locked")
-				report.Checks = append(report.Checks, preflightCheck{
-					Name:   "credential",
-					Status: "fail",
-					Detail: "vault is locked; set KIMBAP_MASTER_KEY_HEX",
-				})
-			} else {
-				report.Blockers = append(report.Blockers, "vault_error")
-				report.Checks = append(report.Checks, preflightCheck{
-					Name:   "credential",
-					Status: "fail",
-					Detail: "vault is unavailable; fix vault/config and retry",
-				})
-			}
+		credCheck := probeCredentialReadOnly(cfg, strings.TrimSpace(def.Auth.CredentialRef))
+		report.Checks = append(report.Checks, credCheck)
+		if credCheck.Status == "fail" {
 			credentialBlocked = true
-		} else {
-			closeVaultStoreIfPossible(vs)
-			if isCredentialReady(cfg, actions.ExecutionRequest{Action: *def}) {
-				report.Checks = append(report.Checks, preflightCheck{
-					Name:   "credential",
-					Status: "pass",
-					Detail: fmt.Sprintf("credential ref %q is available", strings.TrimSpace(def.Auth.CredentialRef)),
-				})
-			} else {
+			switch {
+			case strings.Contains(credCheck.Detail, "vault is locked"):
+				report.Blockers = append(report.Blockers, "vault_locked")
+			case strings.Contains(credCheck.Detail, "credential missing"):
 				report.Blockers = append(report.Blockers, "credential_missing")
-				report.Checks = append(report.Checks, preflightCheck{
-					Name:   "credential",
-					Status: "fail",
-					Detail: "credential missing; run 'kimbap link <service>'",
-				})
-				credentialBlocked = true
+			default:
+				report.Blockers = append(report.Blockers, "vault_error")
 			}
 		}
 	}
@@ -142,7 +122,7 @@ func runActionPreflight(cfg *config.KimbapConfig, actionName string) (preflightR
 			Service:  service,
 			Action:   action,
 			Risk:     def.Risk.DocVocab(),
-			Mutating: def.Risk != actions.RiskRead,
+			Mutating: !def.Idempotent,
 			Args:     map[string]any{},
 		})
 		if evalErr != nil {
@@ -178,6 +158,95 @@ func runActionPreflight(cfg *config.KimbapConfig, actionName string) (preflightR
 		report.Verdict = "not_ready"
 	}
 	return report, nil
+}
+
+func probeCredentialReadOnly(cfg *config.KimbapConfig, credentialRef string) preflightCheck {
+	vaultPath := strings.TrimSpace(cfg.Vault.Path)
+	if vaultPath == "" {
+		return preflightCheck{Name: "credential", Status: "fail", Detail: "vault is unavailable; fix vault/config and retry"}
+	}
+	masterKey, err := resolveVaultMasterKeyReadOnly(cfg)
+	if err != nil {
+		if classifyVaultInitError(err) == "vault_locked" {
+			return preflightCheck{Name: "credential", Status: "fail", Detail: "vault is locked; set KIMBAP_MASTER_KEY_HEX"}
+		}
+		return preflightCheck{Name: "credential", Status: "fail", Detail: "vault is unavailable; fix vault/config and retry"}
+	}
+	if _, err := os.Stat(vaultPath); err != nil {
+		if os.IsNotExist(err) {
+			return preflightCheck{Name: "credential", Status: "fail", Detail: "vault is unavailable; fix vault/config and retry"}
+		}
+		return preflightCheck{Name: "credential", Status: "fail", Detail: "vault is unavailable; fix vault/config and retry"}
+	}
+	db, err := sql.Open("sqlite", "file:"+vaultPath+"?mode=ro&immutable=1")
+	if err != nil {
+		return preflightCheck{Name: "credential", Status: "fail", Detail: "vault is unavailable; fix vault/config and retry"}
+	}
+	defer db.Close()
+
+	var envelope corecrypto.EncryptedEnvelope
+	queryErr := db.QueryRowContext(contextBackground(), `
+		SELECT sv.ciphertext, sv.nonce, sv.salt, sv.key_id, sv.algorithm, sv.wrapped_dek, sv.dek_nonce
+		FROM secrets s
+		JOIN secret_versions sv ON sv.secret_id = s.id AND sv.version = s.current_version
+		WHERE s.tenant_id = ? AND s.name = ?
+		LIMIT 1
+	`, defaultTenantID(), credentialRef).Scan(
+		&envelope.Ciphertext,
+		&envelope.Nonce,
+		&envelope.Salt,
+		&envelope.KeyID,
+		&envelope.Algorithm,
+		&envelope.WrappedDEK,
+		&envelope.DEKNonce,
+	)
+	if queryErr == sql.ErrNoRows {
+		return preflightCheck{Name: "credential", Status: "fail", Detail: "credential missing; run 'kimbap link <service>'"}
+	}
+	if queryErr != nil {
+		return preflightCheck{Name: "credential", Status: "fail", Detail: "vault is unavailable; fix vault/config and retry"}
+	}
+
+	envelopeService, err := corecrypto.NewEnvelopeService(masterKey)
+	if err != nil {
+		return preflightCheck{Name: "credential", Status: "fail", Detail: "vault is unavailable; fix vault/config and retry"}
+	}
+	if _, err := envelopeService.Decrypt(&envelope); err != nil {
+		return preflightCheck{Name: "credential", Status: "fail", Detail: "vault is unavailable; fix vault/config and retry"}
+	}
+
+	return preflightCheck{Name: "credential", Status: "pass", Detail: fmt.Sprintf("credential ref %q is available", credentialRef)}
+}
+
+func resolveVaultMasterKeyReadOnly(cfg *config.KimbapConfig) ([]byte, error) {
+	if decoded, err, present := decodeMasterKeyHexEnv(); present {
+		if err != nil {
+			return nil, err
+		}
+		return decoded, nil
+	}
+
+	devEnabled := strings.EqualFold(strings.TrimSpace(cfg.Mode), "dev")
+	if !devEnabled {
+		if rawDev, ok := os.LookupEnv("KIMBAP_DEV"); ok {
+			parsed, err := strconv.ParseBool(strings.TrimSpace(rawDev))
+			if err != nil {
+				return nil, err
+			}
+			devEnabled = parsed
+		}
+	}
+
+	if !devEnabled {
+		return nil, fmt.Errorf("vault master key is required: set KIMBAP_MASTER_KEY_HEX or enable dev mode (--mode dev or KIMBAP_DEV=true)")
+	}
+
+	devKeyPath := filepath.Join(cfg.DataDir, ".dev-master-key")
+	key, err := readPersistedDevMasterKey(devKeyPath)
+	if err != nil {
+		return nil, fmt.Errorf("read dev master key %s: %w", devKeyPath, err)
+	}
+	return key, nil
 }
 
 func classifyVaultInitError(err error) string {

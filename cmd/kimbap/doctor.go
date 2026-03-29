@@ -4,7 +4,6 @@ import (
 	"database/sql"
 	"fmt"
 	"os"
-	"reflect"
 	"strings"
 
 	"github.com/dunialabs/kimbap/internal/agents"
@@ -233,45 +232,12 @@ func checkActionReadiness(cfg *config.KimbapConfig) doctorCheck {
 	}
 
 	for _, service := range installed {
-		if countActions(service) > 0 {
+		if len(service.Manifest.Actions) > 0 {
 			return doctorCheck{Name: "action readiness", Status: "ok", Detail: "enabled service actions detected"}
 		}
 	}
 
 	return doctorCheck{Name: "action readiness", Status: "warn", Detail: "no services installed — run 'kimbap service install <name>'"}
-}
-
-func countActions(v any) int {
-	return countActionsValue(reflect.ValueOf(v), 0)
-}
-
-func countActionsValue(v reflect.Value, depth int) int {
-	if !v.IsValid() || depth > 4 {
-		return 0
-	}
-	for v.Kind() == reflect.Pointer {
-		if v.IsNil() {
-			return 0
-		}
-		v = v.Elem()
-	}
-
-	switch v.Kind() {
-	case reflect.Map, reflect.Slice, reflect.Array:
-		return v.Len()
-	case reflect.Struct:
-		if f := v.FieldByName("Actions"); f.IsValid() {
-			switch f.Kind() {
-			case reflect.Map, reflect.Slice, reflect.Array:
-				return f.Len()
-			}
-		}
-		if f := v.FieldByName("Manifest"); f.IsValid() {
-			return countActionsValue(f, depth+1)
-		}
-	}
-
-	return 0
 }
 
 func renderDoctorSummary(checks []doctorCheck) string {
