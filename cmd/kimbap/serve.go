@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"net"
 	"os"
 	"os/signal"
 	"strings"
@@ -24,6 +25,20 @@ import (
 	"github.com/dunialabs/kimbap/internal/webhooks"
 	"github.com/spf13/cobra"
 )
+
+func consoleDisplayURL(addr string) string {
+	if addr == "" {
+		return "http://localhost:8080/console"
+	}
+	host, port, err := net.SplitHostPort(addr)
+	if err != nil {
+		return "http://localhost:8080/console"
+	}
+	if host == "" || host == "0.0.0.0" || host == "::" {
+		host = "localhost"
+	}
+	return "http://" + net.JoinHostPort(host, port) + "/console"
+}
 
 func newServeCommand() *cobra.Command {
 	var (
@@ -82,6 +97,10 @@ func newServeCommand() *cobra.Command {
 
 			bgWorker.Start(runCtx)
 			defer bgWorker.Stop()
+
+			if enableConsole {
+				_, _ = fmt.Fprintf(os.Stdout, "Console: %s\n", consoleDisplayURL(listenAddr))
+			}
 
 			if err := srv.Start(runCtx); err != nil {
 				return fmt.Errorf("start api server: %w", err)
