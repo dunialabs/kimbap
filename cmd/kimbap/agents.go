@@ -147,7 +147,7 @@ func newAgentsSetupCommand() *cobra.Command {
 			}
 
 			if !outputAsJSON() && hasWrittenServices && !dryRun {
-				fmt.Printf("✓ Services synced to %s\n", absDir)
+				fmt.Printf(successCheck()+" Services synced to %s\n", absDir)
 			}
 
 			return nil
@@ -221,7 +221,7 @@ func newAgentsUninstallGlobalCommand() *cobra.Command {
 					} else if !r.AgentSkillRemoved && !r.InjectRemoved {
 						fmt.Printf("  - %-16s nothing to remove\n", r.Agent)
 					} else {
-						fmt.Printf("  ✓ %-16s removed\n", r.Agent)
+						fmt.Printf("  "+successCheck()+" %-16s removed\n", r.Agent)
 					}
 				}
 			}

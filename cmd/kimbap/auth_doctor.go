@@ -88,6 +88,16 @@ func newAuthDoctorCommand() *cobra.Command {
 					case "skip":
 						icon = "-"
 					}
+					if isColorStdout() {
+						switch c.Status {
+						case "ok":
+							icon = "\x1b[32m" + icon + "\x1b[0m"
+						case "warn":
+							icon = "\x1b[33m" + icon + "\x1b[0m"
+						case "fail":
+							icon = "\x1b[31m" + icon + "\x1b[0m"
+						}
+					}
 					_, _ = fmt.Fprintf(os.Stdout, "  %s %-35s %s\n", icon, c.Name, c.Detail)
 				}
 				if hasFailure {

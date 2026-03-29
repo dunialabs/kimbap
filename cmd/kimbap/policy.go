@@ -61,7 +61,7 @@ func newPolicySetCommand() *cobra.Command {
 					"version":     doc.Version,
 				})
 			}
-			return printOutput(fmt.Sprintf("✓ policy loaded (%d rules, version %s)", len(doc.Rules), doc.Version))
+			return printOutput(fmt.Sprintf(successCheck()+" policy loaded (%d rules, version %s)", len(doc.Rules), doc.Version))
 		},
 	}
 	cmd.Flags().StringVar(&filePath, "file", "", "policy file path")
