@@ -44,8 +44,7 @@ func TestAgentsSetupNoAgentsDetected_JSON(t *testing.T) {
 		t.Fatalf("agents setup --format json failed: %v", err)
 	}
 
-	trimmed := strings.TrimSpace(output)
-	if trimmed != "[]" && trimmed != "null" {
+	if strings.TrimSpace(output) != "[]" {
 		t.Fatalf("expected empty JSON array for zero agents, got: %q", output)
 	}
 }
