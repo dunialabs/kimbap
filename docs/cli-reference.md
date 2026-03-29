@@ -267,13 +267,17 @@ kimbap auth list
 
 ---
 
-### kimbap auth status \<provider\>
+### kimbap auth status [provider]
 
-Show connector health and token state for a single provider.
+Show connector health and token state.
+
+- With a `provider` argument: show one provider.
+- Without a `provider` argument: show all providers.
 
 **Syntax:**
 
-```
+```bash
+kimbap auth status
 kimbap auth status <provider>
 ```
 
@@ -453,7 +457,7 @@ kimbap approve accept req_01HX...
 
 ### kimbap audit tail
 
-Stream recent audit log entries to stdout. Error messages in audit records are capped at 256 characters.
+Show a recent snapshot of audit log entries (non-streaming). Error messages in audit records are capped at 256 characters.
 
 **Example:**
 
@@ -465,13 +469,21 @@ kimbap audit tail
 
 ### kimbap audit export
 
-Export all audit records as newline-delimited JSON.
+Export audit records for a required date range as newline-delimited JSON (or CSV).
+
+**Syntax:**
+
+```bash
+kimbap audit export --from <date> --to <date> [--format jsonl|csv]
+```
+
+Accepted date formats for `--from` / `--to`: `RFC3339` or `YYYY-MM-DD`.
 
 **Example:**
 
 ```bash
-kimbap audit export
-kimbap audit export > audit-$(date +%Y%m%d).jsonl
+kimbap audit export --from 2026-03-01 --to 2026-03-31
+kimbap audit export --from 2026-03-01 --to 2026-03-31 --format csv > audit-202603.csv
 ```
 
 ---
@@ -503,7 +515,7 @@ Start an HTTP/HTTPS proxy that intercepts outbound requests, classifies them aga
 
 Route matching uses specificity-based priority: exact paths take precedence over parameterized paths, which take precedence over wildcard patterns.
 
-Default listen address is `127.0.0.1:7788` (configurable via `ProxyAddr` in config).
+Default listen address is `127.0.0.1:7788` (configurable via `proxy_addr` in config, or `KIMBAP_PROXY_ADDR`).
 
 **Example:**
 
@@ -528,7 +540,8 @@ Start a persistent HTTP server that exposes the action runtime over a local HTTP
 
 | Flag | Default | Description |
 |---|---|---|
-| `--port` | `8080` | Port to listen on |
+| `--addr` | config/default | API listen address override (e.g. `127.0.0.1:8080`) |
+| `--port` | `0` (disabled) | Port override; when omitted, address comes from config/default |
 | `--console` | disabled | Enable the embedded operations console at `/console` |
 
 The `/console` route is disabled by default. Enable it via `--console` flag or by setting `console.enabled: true` in `~/.kimbap/config.yaml`. Do not expose this endpoint on a network interface in production.
@@ -537,6 +550,7 @@ The `/console` route is disabled by default. Enable it via `--console` flag or b
 
 ```bash
 kimbap serve
+kimbap serve --addr 127.0.0.1:8080
 kimbap serve --port 9000 --console
 ```
 
@@ -558,12 +572,17 @@ kimbap daemon
 
 ### kimbap agents setup
 
-Install global Kimbap discovery hints for detected AI agent environments. Writes marker files that tell AI agents this workspace has Kimbap installed.
+Install global Kimbap discovery hints for detected AI agent environments.
+
+- Default: installs global hints and runs service sync into the target project directory.
+- Use `--no-sync` to skip the sync step.
+- With `--with-profiles`: also installs project-level operating rules files.
 
 **Example:**
 
 ```bash
 kimbap agents setup
+kimbap agents setup --with-profiles
 ```
 
 ---
@@ -594,7 +613,7 @@ kimbap agents status
 
 ### kimbap agents setup --with-profiles
 
-Install global discovery hints **and** agent operating profiles. Writes a `KIMBAP_OPERATING_RULES.md` file into each detected agent's config directory.
+Install global discovery hints **and** agent operating profiles. Writes a `KIMBAP_OPERATING_RULES.md` file into the target project directory (default `.`) under agent-specific subfolders.
 
 **Profiles installed per agent:**
 

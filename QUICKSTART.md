@@ -75,7 +75,9 @@ The same pattern works for any service: `kimbap link <service>`.
 kimbap agents setup
 ```
 
-Auto-detects installed agents (Claude Code, OpenCode, Cursor, Codex) and writes operating rules into the current project directory so the agent discovers kimbap automatically.
+Auto-detects installed agents and sets up kimbap discovery for them.
+
+Need profile/rules customization? See the Installation Guide for advanced setup options.
 
 ---
 

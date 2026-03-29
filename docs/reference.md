@@ -2,7 +2,7 @@
 
 ## CLI Quick Reference
 
-The complete CLI reference is in [commands.md](./commands.md).
+The complete CLI reference is in [cli-reference.md](./cli-reference.md).
 
 ## Core Concepts
 
