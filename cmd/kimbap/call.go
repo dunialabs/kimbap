@@ -208,10 +208,6 @@ func printCallResult(result actions.ExecutionResult) error {
 		return nil
 	}
 
-	if result.Error != nil {
-		_, _ = fmt.Fprintf(os.Stderr, "Error: %s\n", result.Error.Message)
-	}
-
 	if result.Status == actions.StatusApprovalRequired {
 		approvalID, _ := result.Meta["approval_request_id"].(string)
 		approvalID = strings.TrimSpace(approvalID)

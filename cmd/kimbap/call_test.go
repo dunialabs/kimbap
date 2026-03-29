@@ -74,8 +74,8 @@ func TestCallOutputTextMode_Error(t *testing.T) {
 	if err != nil {
 		t.Fatalf("printCallResult returned error: %v", err)
 	}
-	if !strings.Contains(stderr, "Error: permission denied") {
-		t.Fatalf("expected printed error message, got %q", stderr)
+	if stderr != "" {
+		t.Fatalf("printCallResult should not print errors in text mode (Cobra handles it), got %q", stderr)
 	}
 }
 

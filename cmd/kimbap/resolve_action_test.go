@@ -18,11 +18,53 @@ func TestResolveActionByName_NoServicesInstalled_SuggestsInit(t *testing.T) {
 		t.Fatal("expected error when no services are installed")
 	}
 
-	if !strings.Contains(err.Error(), "No services installed") {
+	if !strings.Contains(err.Error(), "no services installed") {
 		t.Fatalf("expected no-services message, got %q", err.Error())
 	}
 	if !strings.Contains(err.Error(), "kimbap init --mode dev --services all") {
 		t.Fatalf("expected init guidance in error, got %q", err.Error())
+	}
+}
+
+func TestResolveActionByName_AllServicesDisabled_SuggestsList(t *testing.T) {
+	servicesDir := t.TempDir()
+	cfg := config.DefaultConfig()
+	cfg.Services.Dir = servicesDir
+
+	manifest := &services.ServiceManifest{
+		Name:    "demo",
+		Version: "1.0.0",
+		Adapter: "http",
+		BaseURL: "https://example.com",
+		Auth:    services.ServiceAuth{Type: string(actions.AuthTypeNone)},
+		Actions: map[string]services.ServiceAction{
+			"noop": {
+				Method:      "GET",
+				Path:        "/noop",
+				Description: "noop",
+				Risk:        services.RiskSpec{Level: "low"},
+				Response:    services.ResponseSpec{Type: "object"},
+			},
+		},
+	}
+
+	installer := services.NewLocalInstaller(servicesDir)
+	if _, err := installer.Install(manifest, "local"); err != nil {
+		t.Fatalf("install service: %v", err)
+	}
+	if err := installer.Disable("demo"); err != nil {
+		t.Fatalf("disable service: %v", err)
+	}
+
+	_, err := resolveActionByName(cfg, "demo.noop")
+	if err == nil {
+		t.Fatal("expected error when all services disabled")
+	}
+	if !strings.Contains(err.Error(), "no enabled services") {
+		t.Fatalf("expected no-enabled-services message, got %q", err.Error())
+	}
+	if strings.Contains(err.Error(), "kimbap init") {
+		t.Fatalf("disabled-services path should not suggest init, got %q", err.Error())
 	}
 }
 
