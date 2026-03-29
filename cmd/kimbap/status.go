@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"fmt"
 	"os"
+	"path/filepath"
 	"strings"
 
 	"github.com/dunialabs/kimbap/internal/agents"
@@ -129,11 +130,28 @@ func vaultStatusString(cfg *config.KimbapConfig) string {
 	if st.IsDir() {
 		return "error"
 	}
-	_, err = resolveVaultMasterKey(cfg)
-	if err != nil {
-		return "locked"
+	if vaultKeyAvailableReadOnly(cfg) {
+		return "ready"
 	}
-	return "ready"
+	return "locked"
+}
+
+func vaultKeyAvailableReadOnly(cfg *config.KimbapConfig) bool {
+	if strings.TrimSpace(os.Getenv("KIMBAP_MASTER_KEY_HEX")) != "" {
+		return true
+	}
+	devEnabled := strings.EqualFold(strings.TrimSpace(cfg.Mode), "dev")
+	if !devEnabled {
+		if rawDev := strings.TrimSpace(os.Getenv("KIMBAP_DEV")); rawDev != "" {
+			devEnabled = rawDev == "1" || strings.EqualFold(rawDev, "true")
+		}
+	}
+	if !devEnabled {
+		return false
+	}
+	devKeyPath := filepath.Join(cfg.DataDir, ".dev-master-key")
+	_, err := os.Stat(devKeyPath)
+	return err == nil
 }
 
 func policyStatusString(cfg *config.KimbapConfig) string {
