@@ -120,8 +120,24 @@ func newActionsCommand() *cobra.Command {
 			fmt.Printf("HTTP: %s %s\n", strings.ToUpper(def.Verb), def.Resource)
 			fmt.Printf("Risk: %s\n", def.Risk)
 			fmt.Printf("Auth: %s (%s)\n", def.Auth.Type, def.Auth.CredentialRef)
-			fmt.Printf("Credential Ready: %v\n", credReady)
-			fmt.Printf("Approval Required: %v\n", approvalRequired)
+			credReadyStr := "false"
+			if credReady {
+				credReadyStr = "true"
+				if isColorStdout() {
+					credReadyStr = "\x1b[32m" + credReadyStr + "\x1b[0m"
+				}
+			} else if isColorStdout() {
+				credReadyStr = "\x1b[31m" + credReadyStr + "\x1b[0m"
+			}
+			approvalStr := "false"
+			if approvalRequired {
+				approvalStr = "true"
+				if isColorStdout() {
+					approvalStr = "\x1b[33m" + approvalStr + "\x1b[0m"
+				}
+			}
+			fmt.Printf("Credential Ready: %s\n", credReadyStr)
+			fmt.Printf("Approval Required: %s\n", approvalStr)
 
 			if def.InputSchema != nil && len(def.InputSchema.Properties) > 0 {
 				fmt.Println("Params:")
