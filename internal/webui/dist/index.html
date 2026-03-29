@@ -848,15 +848,15 @@ td.mono {
       <button type="button" class="nav-tab" data-view="actions">Actions</button>
       <button type="button" class="nav-tab" data-view="approvals">Approvals</button>
       <button type="button" class="nav-tab" data-view="audit">Audit</button>
-      <button type="button" class="nav-tab" data-view="services">Vault &amp; Services</button>
+      <button type="button" class="nav-tab" data-view="services">Vault</button>
     </nav>
 
     <div class="auth-area">
       <div class="auth-status" id="authStatus">
         <div class="auth-dot" id="authDot"></div>
-        <span id="authLabel">Token not set</span>
+        <span id="authLabel">Access token not set</span>
       </div>
-      <button type="button" class="auth-btn" id="authBtn" style="display:none" onclick="clearToken()">Clear token</button>
+      <button type="button" class="auth-btn" id="authBtn" style="display:none" onclick="clearToken()">Clear access token</button>
     </div>
   </div>
 </header>
@@ -868,11 +868,11 @@ td.mono {
       <div class="section-header">
         <div>
           <h1>Dashboard</h1>
-          <p>Health, action count, and runtime version</p>
+          <p>Track runtime health, installed actions, and version.</p>
         </div>
         <div class="refresh-info">
           <div class="refresh-dot"></div>
-          <span>Updates every 30s</span>
+          <span>Auto-refresh every 30s</span>
         </div>
       </div>
     </div>
@@ -897,6 +897,13 @@ td.mono {
           <div class="spinner" style="width:20px;height:20px"></div>
         </div>
         <div class="card-sub" id="dashVersionSub"></div>
+      </div>
+      <div class="card" style="cursor:pointer" onclick="switchView('approvals')" title="View pending approvals">
+        <div class="card-title">Pending Approvals</div>
+        <div class="card-value" id="dashApprovals">
+          <div class="spinner" style="width:20px;height:20px"></div>
+        </div>
+        <div class="card-sub" id="dashApprovalsSub"></div>
       </div>
     </div>
     <div class="quick-links">
@@ -948,7 +955,7 @@ td.mono {
 
   <div class="view" id="view-services">
     <div class="view-header">
-      <h1>Vault &amp; Services</h1>
+      <h1>Vault</h1>
       <p>Stored credentials for linked services</p>
     </div>
     <div id="servicesContent">
@@ -1076,7 +1083,7 @@ td.mono {
       btn.style.display = '';
     } else {
       dot.classList.remove('connected');
-      label.textContent = 'Token not set';
+      label.textContent = 'Access token not set';
       btn.style.display = 'none';
     }
   }
@@ -1176,12 +1183,12 @@ td.mono {
     var inputId = 'tokenInput_' + viewId;
     return '<div class="auth-gate">' +
       '<div class="auth-gate-icon">🔒</div>' +
-      '<h2>Access token required</h2>' +
-      '<p>Paste a kimbap access token to open this view.<br>' +
+      '<h2>Sign in to continue</h2>' +
+      '<p>Enter a kimbap access token to open this view.<br>' +
       'Create one with <code>kimbap token create</code>, then paste it here.</p>' +
       '<div class="token-input-group">' +
         '<input class="token-input" type="password" id="' + inputId + '" placeholder="ktk_..." autocomplete="off" />' +
-        '<button class="connect-btn" onclick="saveToken(\'' + inputId + '\')">Use token</button>' +
+        '<button class="connect-btn" onclick="saveToken(\'' + inputId + '\')">Save token</button>' +
       '</div>' +
     '</div>';
   }
@@ -1225,7 +1232,7 @@ td.mono {
         sub.textContent = isOk ? 'API is responding normally' : 'Open /v1/health for details';
       } else {
         el.innerHTML = '<span class="stat-unhealthy">ERROR</span>';
-        sub.textContent = "Couldn't read the health response";
+        sub.textContent = 'Unable to read health response.';
       }
 
       // Version
@@ -1279,6 +1286,29 @@ td.mono {
       document.getElementById('dashActions').textContent = '—';
       document.getElementById('dashActionsSub').textContent = "Unable to load actions";
     });
+
+    // Pending approvals count
+    if (state.token) {
+      api('/approvals?status=pending', { auth: true }).then(function(r) {
+        var el = document.getElementById('dashApprovals');
+        var sub = document.getElementById('dashApprovalsSub');
+        if (r.status === 401 || r.status === 403) {
+          el.textContent = '—';
+          sub.textContent = 'Token lacks approvals scope';
+          return;
+        }
+        var items = (r.body && r.body.data) ? r.body.data : [];
+        var count = Array.isArray(items) ? items.length : 0;
+        el.textContent = count;
+        sub.textContent = count === 0 ? 'No pending approvals' : (count === 1 ? '1 action awaiting review' : count + ' actions awaiting review');
+      }).catch(function() {
+        document.getElementById('dashApprovals').textContent = '—';
+        document.getElementById('dashApprovalsSub').textContent = 'Unable to load';
+      });
+    } else {
+      document.getElementById('dashApprovals').textContent = '—';
+      document.getElementById('dashApprovalsSub').textContent = 'Token required';
+    }
   }
 
   function startDashboardRefresh() {
@@ -1309,7 +1339,7 @@ td.mono {
           '<p>Install a service, or run <code>kimbap init --mode dev --services all</code> to add sample actions.</p></div>';
       }
     }).catch(function() {
-      container.innerHTML = errorBannerHTML('Couldn't reach the server. Make sure kimbap serve is running on port 8080.');
+      container.innerHTML = errorBannerHTML('Cannot reach the server. Ensure kimbap serve --console is running on port 8080.');
     });
   }
 
@@ -1333,7 +1363,7 @@ td.mono {
     });
 
     if (filtered.length === 0) {
-      container.innerHTML = '<div class="empty-state"><h3>No actions match your search</h3>' +
+      container.innerHTML = '<div class="empty-state"><h3>No actions match this search</h3>' +
         '<p>Try a different name, service, or keyword.</p></div>';
       return;
     }
@@ -1398,12 +1428,12 @@ td.mono {
         if (cached) {
           renderActionDetail(cached);
         } else {
-          detailEl.innerHTML = errorBannerHTML("This action isn't available in this runtime.");
+          detailEl.innerHTML = errorBannerHTML('This action is not available in this runtime.');
           document.getElementById('actionList').style.display = '';
         }
       }
     }).catch(function() {
-      detailEl.innerHTML = errorBannerHTML('Couldn't reach the server. Make sure kimbap serve is running on port 8080.');
+      detailEl.innerHTML = errorBannerHTML('Cannot reach the server. Ensure kimbap serve --console is running on port 8080.');
       document.getElementById('actionList').style.display = '';
     });
   };
@@ -1437,7 +1467,7 @@ td.mono {
       '<div class="action-detail-header">' +
         '<h3>' + esc(name) + '</h3>' +
         '<button class="copy-cmd-btn" onclick="copyCmd(this,&apos;kimbap call ' + escAttr(name) + '&apos;)">Copy command</button> ' +
-        '<button class="back-btn" onclick="hideActionDetail()">← Back to list</button>' +
+        '<button class="back-btn" onclick="hideActionDetail()">← Back to actions</button>' +
       '</div>' +
       (displayName && displayName.trim().toLowerCase() !== rawDesc.trim().toLowerCase() && displayName.trim().toLowerCase() !== name.trim().toLowerCase() ? '<p style="color:var(--text-secondary);margin-bottom:var(--space-md)">' + esc(displayName) + '</p>' : '') +
       '<p style="color:var(--text-secondary);margin-bottom:var(--space-md)">' + esc(desc) + '</p>' +
@@ -1502,12 +1532,12 @@ td.mono {
     api('/audit?limit=100', { auth: true }).then(function(r) {
       var errMsg, items;
       if (r.status === 401 || r.status === 403) {
-        state.errors.audit = "This token was rejected. Paste a new one to keep going.";
+        state.errors.audit = 'This token cannot access this view. Paste a different token and try again.';
         container.innerHTML = errorBannerHTML(state.errors.audit) + authGateHTML('audit');
         return;
       }
       if (!r.body.success) {
-        errMsg = (r.body.error && r.body.error.message) || "Couldn't load recent audit history";
+        errMsg = (r.body.error && r.body.error.message) || 'Unable to load audit history.';
         container.innerHTML = errorBannerHTML(errMsg);
         return;
       }
@@ -1522,7 +1552,7 @@ td.mono {
       state.auditItems = items;
       renderAuditTable(items, container);
     }).catch(function() {
-      container.innerHTML = errorBannerHTML('Couldn't reach the server. Make sure kimbap serve is running on port 8080.');
+      container.innerHTML = errorBannerHTML('Cannot reach the server. Ensure kimbap serve --console is running on port 8080.');
     });
   }
 
@@ -1544,8 +1574,8 @@ td.mono {
         '<th>Action</th>' +
         '<th>Agent</th>' +
         '<th>Status</th>' +
-        '<th>Policy Result</th>' +
-        '<th>Run Time</th>' +
+        '<th>Policy Decision</th>' +
+        '<th>Duration</th>' +
       '</tr></thead><tbody>';
 
     items.forEach(function(ev) {
@@ -1586,12 +1616,12 @@ td.mono {
       var errMsg;
       var items;
       if (r.status === 401 || r.status === 403) {
-        errMsg = "This token cannot access approvals. Paste a token with approvals permissions.";
+        errMsg = 'This token cannot access approvals. Paste a token with approval permissions.';
         container.innerHTML = errorBannerHTML(errMsg) + authGateHTML('approvals');
         return;
       }
       if (!r.body.success) {
-        errMsg = (r.body.error && r.body.error.message) || "Couldn't load pending approvals";
+        errMsg = (r.body.error && r.body.error.message) || 'Unable to load pending approvals.';
         container.innerHTML = errorBannerHTML(errMsg);
         return;
       }
@@ -1601,13 +1631,13 @@ td.mono {
         container.innerHTML = '<div class="empty-state">' +
           '<div class="empty-state-icon">✅</div>' +
           '<h3>No pending approvals</h3>' +
-          '<p>Approval-gated actions will appear here when policy requires review.</p></div>';
+          '<p>Approval-required actions appear here when policy requires review.</p></div>';
         return;
       }
       state.approvals = items;
       renderApprovalsTable(items, container);
     }).catch(function() {
-      container.innerHTML = errorBannerHTML('Couldn't reach the server. Make sure kimbap serve is running on port 8080.');
+      container.innerHTML = errorBannerHTML('Cannot reach the server. Ensure kimbap serve --console is running on port 8080.');
     });
   }
 
@@ -1666,7 +1696,7 @@ td.mono {
 
     api('/approvals/' + encodeURIComponent(id) + ':' + verb, { auth: true, method: 'POST' }).then(function(r) {
       if (r.status === 401 || r.status === 403) {
-        container.innerHTML = errorBannerHTML("This token cannot modify approvals. Paste a token with approvals permissions.") + authGateHTML('approvals');
+        container.innerHTML = errorBannerHTML('This token cannot modify approvals. Paste a token with approval permissions.') + authGateHTML('approvals');
         return;
       }
       if (r.status === 409 || r.status === 410) {
@@ -1676,13 +1706,13 @@ td.mono {
         return;
       }
       if (!r.body.success) {
-        errMsg = (r.body.error && r.body.error.message) || ("Couldn't " + verb + ' this approval');
+        errMsg = (r.body.error && r.body.error.message) || ('Unable to ' + verb + ' this approval.');
         container.innerHTML = errorBannerHTML(errMsg);
         return;
       }
       loadApprovals();
     }).catch(function() {
-      container.innerHTML = errorBannerHTML('Couldn't reach the server. Make sure kimbap serve is running on port 8080.');
+      container.innerHTML = errorBannerHTML('Cannot reach the server. Ensure kimbap serve --console is running on port 8080.');
     }).finally(function() {
       delete state.approvalsBusy[id];
     });
@@ -1701,12 +1731,12 @@ td.mono {
     api('/vault', { auth: true }).then(function(r) {
       var errMsg, data, items;
       if (r.status === 401 || r.status === 403) {
-        state.errors.services = "This token was rejected. Paste a new one to keep going.";
+        state.errors.services = 'This token cannot access this view. Paste a different token and try again.';
         container.innerHTML = errorBannerHTML(state.errors.services) + authGateHTML('services');
         return;
       }
       if (!r.body.success) {
-        errMsg = (r.body.error && r.body.error.message) || "Couldn't load saved credentials";
+        errMsg = (r.body.error && r.body.error.message) || 'Unable to load saved credentials.';
         container.innerHTML = errorBannerHTML(errMsg);
         return;
       }
@@ -1723,13 +1753,13 @@ td.mono {
         container.innerHTML = '<div class="empty-state">' +
           '<div class="empty-state-icon">🔐</div>' +
           '<h3>No credentials saved</h3>' +
-          '<p>Add one with <code>kimbap vault set</code>, then connect it with <code>kimbap link</code>.</p></div>';
+          '<p>Save a credential with <code>kimbap vault set</code>, then link it to a service with <code>kimbap link</code>.</p></div>';
         return;
       }
 
       renderVaultTable(items, container);
     }).catch(function() {
-      container.innerHTML = errorBannerHTML('Couldn't reach the server. Make sure kimbap serve is running on port 8080.');
+      container.innerHTML = errorBannerHTML('Cannot reach the server. Ensure kimbap serve --console is running on port 8080.');
     });
   }
 
