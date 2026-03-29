@@ -381,6 +381,9 @@ func resolveActionByName(cfg *config.KimbapConfig, name string) (*actions.Action
 	if err != nil {
 		return nil, err
 	}
+	if len(defs) == 0 {
+		return nil, fmt.Errorf("No services installed. Run 'kimbap init --mode dev --services all' to get started.")
+	}
 	for i := range defs {
 		if defs[i].Name == resolved {
 			return &defs[i], nil
