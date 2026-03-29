@@ -189,16 +189,20 @@ func printCallResult(result actions.ExecutionResult) error {
 	}
 
 	if result.Status == actions.StatusSuccess {
+		checkmark := "✓"
+		if isColorStdout() {
+			checkmark = "\x1b[32m✓\x1b[0m"
+		}
 		if len(result.Output) == 0 {
-			_, _ = fmt.Fprintln(os.Stdout, "✓ Done")
+			_, _ = fmt.Fprintln(os.Stdout, checkmark+" Done")
 			return nil
 		}
 		encoded, err := json.MarshalIndent(result.Output, "", "  ")
 		if err != nil {
-			_, _ = fmt.Fprintln(os.Stdout, "✓ Done")
+			_, _ = fmt.Fprintln(os.Stdout, checkmark+" Done")
 			return nil
 		}
-		_, _ = fmt.Fprintf(os.Stdout, "✓ %s\n", string(encoded))
+		_, _ = fmt.Fprintf(os.Stdout, "%s %s\n", checkmark, string(encoded))
 		return nil
 	}
 
