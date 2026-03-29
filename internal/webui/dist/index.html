@@ -868,11 +868,11 @@ td.mono {
       <div class="section-header">
         <div>
           <h1>Dashboard</h1>
-          <p>Live runtime health, actions, and version</p>
+          <p>Health, action count, and runtime version</p>
         </div>
         <div class="refresh-info">
           <div class="refresh-dot"></div>
-          <span>Auto-refresh every 30s</span>
+          <span>Updates every 30s</span>
         </div>
       </div>
     </div>
@@ -908,13 +908,13 @@ td.mono {
   <div class="view" id="view-actions">
     <div class="view-header">
       <h1>Actions</h1>
-      <p>Browse installed actions in this runtime</p>
+      <p>Browse every action available in this runtime</p>
     </div>
     <div id="actionDetail"></div>
     <div id="actionList">
       <div class="search-wrap">
         <span class="search-icon">⌕</span>
-        <input class="search-input" type="text" id="actionSearch" placeholder="Search actions, services, or keywords" autocomplete="off" />
+        <input class="search-input" type="text" id="actionSearch" placeholder="Search actions" autocomplete="off" />
       </div>
       <div id="actionItems">
         <div class="loading"><div class="spinner"></div></div>
@@ -925,7 +925,7 @@ td.mono {
   <div class="view" id="view-audit">
     <div class="view-header">
       <h1>Audit</h1>
-      <p>Recent action runs in this runtime</p>
+      <p>Recent execution history for this runtime</p>
     </div>
     <div id="auditContent">
       <div class="loading"><div class="spinner"></div></div>
@@ -934,8 +934,8 @@ td.mono {
 
   <div class="view" id="view-approvals">
     <div class="view-header">
-      <h1>Approvals</h1>
-      <p>Review pending requests and decide in one place</p>
+      <h1>Pending Approvals</h1>
+      <p>Resolve approval-gated actions without leaving the console</p>
     </div>
     <div id="approvalsContent">
       <div class="loading"><div class="spinner"></div></div>
@@ -945,7 +945,7 @@ td.mono {
   <div class="view" id="view-services">
     <div class="view-header">
       <h1>Vault &amp; Services</h1>
-      <p>Saved credentials for linked services</p>
+      <p>Stored credentials for linked services</p>
     </div>
     <div id="servicesContent">
       <div class="loading"><div class="spinner"></div></div>
@@ -1039,15 +1039,22 @@ td.mono {
     return 'dashboard';
   }
 
+  function humanizeLabel(value) {
+    if (value === null || value === undefined || value === '') return '—';
+    return String(value)
+      .replace(/_/g, ' ')
+      .replace(/\b\w/g, function(ch) { return ch.toUpperCase(); });
+  }
+
   function approvalStatusBadge(status) {
-    if (!status) return '<span class="badge badge-muted">unknown</span>';
+    if (!status) return '<span class="badge badge-muted">Unknown</span>';
     var s = String(status).toLowerCase();
     var cls = 'badge-muted';
     if (s === 'pending') cls = 'badge-blue';
     else if (s === 'approved') cls = 'badge-green';
     else if (s === 'denied') cls = 'badge-red';
     else if (s === 'expired') cls = 'badge-amber';
-    return '<span class="badge ' + cls + '">' + esc(s) + '</span>';
+    return '<span class="badge ' + cls + '">' + esc(humanizeLabel(s)) + '</span>';
   }
 
   window.addEventListener('hashchange', function() {
@@ -1061,7 +1068,7 @@ td.mono {
     var btn = document.getElementById('authBtn');
     if (state.token) {
       dot.classList.add('connected');
-      label.textContent = 'Token saved';
+      label.textContent = 'Access token saved';
       btn.style.display = '';
     } else {
       dot.classList.remove('connected');
@@ -1102,13 +1109,13 @@ td.mono {
   }
 
   function riskBadge(level) {
-    if (!level) return '<span class="badge badge-muted">unknown</span>';
+    if (!level) return '<span class="badge badge-muted">Unknown</span>';
     var l = String(level).toLowerCase();
     var cls = 'badge-muted';
     if (l === 'read' || l === 'low') cls = 'badge-green';
     else if (l === 'write' || l === 'medium') cls = 'badge-amber';
     else if (l === 'admin' || l === 'high' || l === 'destructive' || l === 'critical') cls = 'badge-red';
-    return '<span class="badge ' + cls + '">' + esc(l) + '</span>';
+    return '<span class="badge ' + cls + '">' + esc(humanizeLabel(l)) + '</span>';
   }
 
   function statusBadge(status) {
@@ -1119,8 +1126,7 @@ td.mono {
     else if (s === 'error' || s === 'failed') cls = 'badge-red';
     else if (s === 'timeout' || s === 'cancelled') cls = 'badge-amber';
     else if (s === 'approval_required') cls = 'badge-blue';
-    var label = s.replace(/_/g, ' ');
-    return '<span class="badge ' + cls + '">' + esc(label) + '</span>';
+    return '<span class="badge ' + cls + '">' + esc(humanizeLabel(s)) + '</span>';
   }
 
   function fmtTime(ts) {
@@ -1166,12 +1172,12 @@ td.mono {
     var inputId = 'tokenInput_' + viewId;
     return '<div class="auth-gate">' +
       '<div class="auth-gate-icon">🔒</div>' +
-      '<h2>Token required</h2>' +
+      '<h2>Access token required</h2>' +
       '<p>Paste a kimbap access token to open this view.<br>' +
-      'Create one with <code>kimbap token create</code>, then save it here.</p>' +
+      'Create one with <code>kimbap token create</code>, then paste it here.</p>' +
       '<div class="token-input-group">' +
         '<input class="token-input" type="password" id="' + inputId + '" placeholder="ktk_..." autocomplete="off" />' +
-        '<button class="connect-btn" onclick="saveToken(\'' + inputId + '\')">Save token</button>' +
+        '<button class="connect-btn" onclick="saveToken(\'' + inputId + '\')">Use token</button>' +
       '</div>' +
     '</div>';
   }
@@ -1212,7 +1218,7 @@ td.mono {
         isOk = s === 'ok' || s === 'healthy';
         el.innerHTML = '<span class="' + (isOk ? 'stat-healthy' : 'stat-unhealthy') + '">' +
           esc(s.toUpperCase()) + '</span>';
-        sub.textContent = isOk ? 'API responding normally' : 'Open /v1/health for details';
+        sub.textContent = isOk ? 'API is responding normally' : 'Open /v1/health for details';
       } else {
         el.innerHTML = '<span class="stat-unhealthy">ERROR</span>';
         sub.textContent = "Couldn't read the health response";
@@ -1223,14 +1229,14 @@ td.mono {
       var verSub = document.getElementById('dashVersionSub');
       if (r.body.success && r.body.data && r.body.data.version) {
         ver.textContent = r.body.data.version;
-        verSub.textContent = 'Current runtime build';
+        verSub.textContent = 'Running kimbap server';
       } else {
         ver.textContent = '—';
         verSub.textContent = 'Version unavailable';
       }
     }).catch(function() {
       document.getElementById('dashHealth').innerHTML = '<span class="stat-unhealthy">OFFLINE</span>';
-      document.getElementById('dashHealthSub').textContent = 'Could not reach the server. Check that kimbap serve is running.';
+      document.getElementById('dashHealthSub').textContent = 'Make sure kimbap serve is running on port 8080.';
       document.getElementById('dashVersion').textContent = '—';
       document.getElementById('dashVersionSub').textContent = 'Server offline';
     });
@@ -1256,18 +1262,18 @@ td.mono {
         });
         svcCount = Object.keys(serviceSet).length;
         if (svcCount > 0) {
-          sub.textContent = 'From ' + svcCount + (svcCount === 1 ? ' service' : ' services');
+          sub.textContent = 'Across ' + svcCount + (svcCount === 1 ? ' service' : ' services');
         } else {
           sub.textContent = r.body.data.length === 1 ? '1 action installed' : r.body.data.length + ' actions installed';
         }
         state.actions = r.body.data;
       } else {
         el.textContent = '0';
-        sub.textContent = 'No actions available';
+        sub.textContent = 'No actions installed';
       }
     }).catch(function() {
       document.getElementById('dashActions').textContent = '—';
-      document.getElementById('dashActionsSub').textContent = "Couldn't load actions";
+      document.getElementById('dashActionsSub').textContent = "Unable to load actions";
     });
   }
 
@@ -1296,10 +1302,10 @@ td.mono {
         container.innerHTML = '<div class="empty-state">' +
           '<div class="empty-state-icon">📦</div>' +
           '<h3>No actions installed</h3>' +
-          '<p>Install a service, or run <code>kimbap init --mode dev --services all</code> to add bundled examples.</p></div>';
+          '<p>Install a service, or run <code>kimbap init --mode dev --services all</code> to add sample actions.</p></div>';
       }
     }).catch(function() {
-      container.innerHTML = errorBannerHTML('Could not reach the server. Check that kimbap serve is running.');
+      container.innerHTML = errorBannerHTML('Couldn't reach the server. Make sure kimbap serve is running on port 8080.');
     });
   }
 
@@ -1309,7 +1315,7 @@ td.mono {
       container.innerHTML = '<div class="empty-state">' +
         '<div class="empty-state-icon">📦</div>' +
         '<h3>No actions installed</h3>' +
-        '<p>Install a service, or run <code>kimbap init --mode dev --services all</code> to add bundled examples.</p></div>';
+        '<p>Install a service, or run <code>kimbap init --mode dev --services all</code> to add sample actions.</p></div>';
       return;
     }
 
@@ -1324,7 +1330,7 @@ td.mono {
 
     if (filtered.length === 0) {
       container.innerHTML = '<div class="empty-state"><h3>No actions match your search</h3>' +
-        '<p>Try another action name, service, or keyword.</p></div>';
+        '<p>Try a different name, service, or keyword.</p></div>';
       return;
     }
 
@@ -1343,8 +1349,8 @@ td.mono {
           (desc ? '<div class="action-desc">' + esc(desc) + '</div>' : '') +
           '<div class="action-meta">' +
             riskBadge(risk) +
-            '<span class="badge badge-muted">' + esc(String(authType).replace(/_/g, ' ')) + '</span>' +
-            (idempotent ? '<span class="badge badge-blue">retry safe</span>' : '') +
+            '<span class="badge badge-muted">' + esc(humanizeLabel(authType)) + '</span>' +
+            (idempotent ? '<span class="badge badge-blue">idempotent</span>' : '') +
           '</div>' +
         '</div>' +
       '</div>';
@@ -1362,7 +1368,7 @@ td.mono {
   window.showActionDetail = function(name) {
     var parts = name.split('.');
     if (parts.length < 2) {
-      document.getElementById('actionDetail').innerHTML = errorBannerHTML('Could not open this action.');
+      document.getElementById('actionDetail').innerHTML = errorBannerHTML("Action not found in this runtime.");
       return;
     }
     var service = parts[0];
@@ -1388,7 +1394,7 @@ td.mono {
         }
       }
     }).catch(function() {
-      detailEl.innerHTML = errorBannerHTML('Could not reach the server. Check that kimbap serve is running.');
+      detailEl.innerHTML = errorBannerHTML('Couldn't reach the server. Make sure kimbap serve is running on port 8080.');
       document.getElementById('actionList').style.display = '';
     });
   };
@@ -1431,11 +1437,11 @@ td.mono {
         detailField('Resource', resource) +
         detailField('Version', version !== undefined ? version : '—') +
         detailField('Risk', risk, riskBadge(risk)) +
-        detailField('Authentication', String(authType).replace(/_/g, ' ')) +
-        detailField('Credential Ref', credRef) +
+        detailField('Authentication', humanizeLabel(authType)) +
+        detailField('Credential', credRef) +
         detailField('Safe to retry', idempotent === true ? 'Yes' : (idempotent === false ? 'No' : '—')) +
-        detailField('Approval Policy', String(approvalHint).replace(/_/g, ' ')) +
-        detailField('Transport', String(adapterType).replace(/_/g, ' ')) +
+        detailField('Approval Policy', humanizeLabel(approvalHint)) +
+        detailField('Adapter', humanizeLabel(adapterType)) +
         (method ? detailField('HTTP Method', method.toUpperCase()) : '') +
         (baseUrl ? detailField('Base URL', baseUrl) : '') +
         (urlTemplate ? detailField('URL Template', urlTemplate) : '') +
@@ -1445,7 +1451,7 @@ td.mono {
       schemaDisplay = (typeof inputSchema === 'object' && inputSchema !== null)
         ? pruneNulls(inputSchema) : inputSchema;
       html += '<div style="margin-top:var(--space-lg)">' +
-        '<div class="detail-label" style="margin-bottom:var(--space-sm)">Input schema</div>' +
+        '<div class="detail-label" style="margin-bottom:var(--space-sm)">Request schema</div>' +
         '<div class="schema-preview">' + esc(JSON.stringify(schemaDisplay, null, 2)) + '</div></div>';
     }
 
@@ -1478,12 +1484,12 @@ td.mono {
     api('/audit?limit=100', { auth: true }).then(function(r) {
       var errMsg, items;
       if (r.status === 401 || r.status === 403) {
-        state.errors.audit = "This token can't open this view. Try another token.";
+        state.errors.audit = "This token was rejected. Paste a new one to keep going.";
         container.innerHTML = errorBannerHTML(state.errors.audit) + authGateHTML('audit');
         return;
       }
       if (!r.body.success) {
-        errMsg = (r.body.error && r.body.error.message) || "Couldn't load audit history";
+        errMsg = (r.body.error && r.body.error.message) || "Couldn't load recent audit history";
         container.innerHTML = errorBannerHTML(errMsg);
         return;
       }
@@ -1491,13 +1497,13 @@ td.mono {
       if (!Array.isArray(items) || items.length === 0) {
         container.innerHTML = '<div class="empty-state">' +
           '<div class="empty-state-icon">📋</div>' +
-          '<h3>No runs yet</h3>' +
-          '<p>Run an action to populate this log.</p></div>';
+          '<h3>No audit activity yet</h3>' +
+          '<p>Run an action to see it in this log.</p></div>';
         return;
       }
       renderAuditTable(items, container);
     }).catch(function() {
-      container.innerHTML = errorBannerHTML('Could not reach the server. Check that kimbap serve is running.');
+      container.innerHTML = errorBannerHTML('Couldn't reach the server. Make sure kimbap serve is running on port 8080.');
     });
   }
 
@@ -1509,7 +1515,7 @@ td.mono {
         '<th>Agent</th>' +
         '<th>Status</th>' +
         '<th>Policy Result</th>' +
-        '<th>Duration</th>' +
+        '<th>Run Time</th>' +
       '</tr></thead><tbody>';
 
     items.forEach(function(ev) {
@@ -1550,12 +1556,12 @@ td.mono {
       var errMsg;
       var items;
       if (r.status === 401 || r.status === 403) {
-        errMsg = "This token can't open approvals. Use a token with approvals access.";
+        errMsg = "This token cannot access approvals. Paste a token with approvals permissions.";
         container.innerHTML = errorBannerHTML(errMsg) + authGateHTML('approvals');
         return;
       }
       if (!r.body.success) {
-        errMsg = (r.body.error && r.body.error.message) || "Couldn't load approvals";
+        errMsg = (r.body.error && r.body.error.message) || "Couldn't load pending approvals";
         container.innerHTML = errorBannerHTML(errMsg);
         return;
       }
@@ -1565,13 +1571,13 @@ td.mono {
         container.innerHTML = '<div class="empty-state">' +
           '<div class="empty-state-icon">✅</div>' +
           '<h3>No pending approvals</h3>' +
-          '<p>Approval requests show up here when a policy needs review.</p></div>';
+          '<p>Approval-gated actions will appear here when policy requires review.</p></div>';
         return;
       }
       state.approvals = items;
       renderApprovalsTable(items, container);
     }).catch(function() {
-      container.innerHTML = errorBannerHTML('Could not reach the server. Check that kimbap serve is running.');
+      container.innerHTML = errorBannerHTML('Couldn't reach the server. Make sure kimbap serve is running on port 8080.');
     });
   }
 
@@ -1585,7 +1591,7 @@ td.mono {
         '<th>Created</th>' +
         '<th>Expires</th>' +
         '<th>Time Left</th>' +
-        '<th>Review</th>' +
+        '<th>Decision</th>' +
       '</tr></thead><tbody>';
 
     items.forEach(function(item) {
@@ -1630,23 +1636,23 @@ td.mono {
 
     api('/approvals/' + encodeURIComponent(id) + ':' + verb, { auth: true, method: 'POST' }).then(function(r) {
       if (r.status === 401 || r.status === 403) {
-        container.innerHTML = errorBannerHTML("This token can't change approvals. Use a token with approvals access.") + authGateHTML('approvals');
+        container.innerHTML = errorBannerHTML("This token cannot modify approvals. Paste a token with approvals permissions.") + authGateHTML('approvals');
         return;
       }
       if (r.status === 409 || r.status === 410) {
-        errMsg = r.status === 409 ? 'This request was already resolved.' : 'This request expired before you responded.';
+        errMsg = r.status === 409 ? 'This approval was already resolved.' : 'This approval expired before you responded.';
         container.innerHTML = errorBannerHTML(errMsg);
         loadApprovals();
         return;
       }
       if (!r.body.success) {
-        errMsg = (r.body.error && r.body.error.message) || ("Couldn't " + verb + ' this request');
+        errMsg = (r.body.error && r.body.error.message) || ("Couldn't " + verb + ' this approval');
         container.innerHTML = errorBannerHTML(errMsg);
         return;
       }
       loadApprovals();
     }).catch(function() {
-      container.innerHTML = errorBannerHTML('Could not reach the server. Check that kimbap serve is running.');
+      container.innerHTML = errorBannerHTML('Couldn't reach the server. Make sure kimbap serve is running on port 8080.');
     }).finally(function() {
       delete state.approvalsBusy[id];
     });
@@ -1665,7 +1671,7 @@ td.mono {
     api('/vault', { auth: true }).then(function(r) {
       var errMsg, data, items;
       if (r.status === 401 || r.status === 403) {
-        state.errors.services = "This token can't open this view. Try another token.";
+        state.errors.services = "This token was rejected. Paste a new one to keep going.";
         container.innerHTML = errorBannerHTML(state.errors.services) + authGateHTML('services');
         return;
       }
@@ -1686,14 +1692,14 @@ td.mono {
       if (items.length === 0) {
         container.innerHTML = '<div class="empty-state">' +
           '<div class="empty-state-icon">🔐</div>' +
-          '<h3>No saved credentials</h3>' +
-          '<p>Save one with <code>kimbap vault set</code>, then connect it with <code>kimbap link</code>.</p></div>';
+          '<h3>No credentials saved</h3>' +
+          '<p>Add one with <code>kimbap vault set</code>, then connect it with <code>kimbap link</code>.</p></div>';
         return;
       }
 
       renderVaultTable(items, container);
     }).catch(function() {
-      container.innerHTML = errorBannerHTML('Could not reach the server. Check that kimbap serve is running.');
+      container.innerHTML = errorBannerHTML('Couldn't reach the server. Make sure kimbap serve is running on port 8080.');
     });
   }
 
@@ -1702,7 +1708,7 @@ td.mono {
       '<thead><tr>' +
         '<th>Name</th>' +
         '<th>Type</th>' +
-        '<th>Current Version</th>' +
+        '<th>Version</th>' +
         '<th>Created</th>' +
         '<th>Updated</th>' +
       '</tr></thead><tbody>';
@@ -1735,7 +1741,7 @@ td.mono {
     else if (t === 'api_key') cls = 'badge-blue';
     else if (t === 'oauth_client' || t === 'oauth2') cls = 'badge-amber';
     else if (t === 'password' || t === 'certificate') cls = 'badge-red';
-    return '<span class="badge ' + cls + '">' + esc(t.replace(/_/g, ' ')) + '</span>';
+    return '<span class="badge ' + cls + '">' + esc(humanizeLabel(t)) + '</span>';
   }
 
   // ── View loader ──
