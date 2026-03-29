@@ -1,7 +1,9 @@
 package main
 
 import (
+	"io"
 	"os"
+	"strings"
 	"testing"
 
 	"github.com/dunialabs/kimbap/internal/actions"
@@ -13,6 +15,68 @@ func resetOptsForTest(t *testing.T) {
 	prev := opts
 	t.Cleanup(func() { opts = prev })
 	opts = cliOptions{}
+}
+
+func captureStderr(t *testing.T, fn func() error) (string, error) {
+	t.Helper()
+	old := os.Stderr
+	r, w, err := os.Pipe()
+	if err != nil {
+		t.Fatalf("create stderr pipe: %v", err)
+	}
+	os.Stderr = w
+
+	runErr := fn()
+	_ = w.Close()
+	os.Stderr = old
+
+	out, readErr := io.ReadAll(r)
+	_ = r.Close()
+	if readErr != nil {
+		t.Fatalf("read captured stderr: %v", readErr)
+	}
+	return string(out), runErr
+}
+
+func TestCallOutputTextMode_Success(t *testing.T) {
+	resetOptsForTest(t)
+	opts.format = "text"
+
+	result := actions.ExecutionResult{
+		Status: actions.StatusSuccess,
+		Output: map[string]any{"message": "all good"},
+	}
+
+	output, err := captureStdout(t, func() error { return printCallResult(result) })
+	if err != nil {
+		t.Fatalf("printCallResult returned error: %v", err)
+	}
+
+	trimmed := strings.TrimSpace(output)
+	if strings.HasPrefix(trimmed, "{") {
+		t.Fatalf("expected human-readable text output, got raw json blob: %q", output)
+	}
+	if !strings.Contains(output, "all good") {
+		t.Fatalf("expected output to contain meaningful content, got %q", output)
+	}
+}
+
+func TestCallOutputTextMode_Error(t *testing.T) {
+	resetOptsForTest(t)
+	opts.format = "text"
+
+	result := actions.ExecutionResult{
+		Status: actions.StatusError,
+		Error:  &actions.ExecutionError{Message: "permission denied"},
+	}
+
+	stderr, err := captureStderr(t, func() error { return printCallResult(result) })
+	if err != nil {
+		t.Fatalf("printCallResult returned error: %v", err)
+	}
+	if !strings.Contains(stderr, "Error: permission denied") {
+		t.Fatalf("expected printed error message, got %q", stderr)
+	}
 }
 
 func TestParseJSONInputInline(t *testing.T) {

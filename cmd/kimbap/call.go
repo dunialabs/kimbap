@@ -156,7 +156,7 @@ Special call flags:
 			} else {
 				result = rt.Execute(contextBackground(), req)
 			}
-			if err := printOutput(result); err != nil {
+			if err := printCallResult(result); err != nil {
 				return err
 			}
 			if result.Status != actions.StatusSuccess && result.Error != nil {
@@ -166,6 +166,42 @@ Special call flags:
 		},
 	}
 	return cmd
+}
+
+func printCallResult(result actions.ExecutionResult) error {
+	if outputAsJSON() {
+		return printOutput(result)
+	}
+
+	if result.Status == actions.StatusSuccess {
+		if result.Output == nil {
+			_, _ = fmt.Fprintln(os.Stdout, "✓ Done")
+			return nil
+		}
+
+		if len(result.Output) == 1 {
+			for _, value := range result.Output {
+				if s, ok := value.(string); ok {
+					_, _ = fmt.Fprintf(os.Stdout, "✓ %s\n", s)
+					return nil
+				}
+			}
+		}
+
+		encoded, err := json.MarshalIndent(result.Output, "", "  ")
+		if err != nil {
+			_, _ = fmt.Fprintln(os.Stdout, "✓ Done")
+			return nil
+		}
+		_, _ = fmt.Fprintf(os.Stdout, "✓ %s\n", string(encoded))
+		return nil
+	}
+
+	if result.Error != nil {
+		_, _ = fmt.Fprintf(os.Stderr, "Error: %s\n", result.Error.Message)
+	}
+
+	return nil
 }
 
 func formatActionHelp(def actions.ActionDefinition) string {
