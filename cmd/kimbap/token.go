@@ -181,7 +181,32 @@ func newTokenListCommand() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			return printOutput(tokens)
+			if outputAsJSON() {
+				return printOutput(tokens)
+			}
+			if len(tokens) == 0 {
+				_, _ = fmt.Fprintln(os.Stdout, "No tokens found.")
+				return nil
+			}
+			fmt.Printf("%-16s %-14s %-20s %-20s %s\n", "HINT", "AGENT", "EXPIRES", "LAST USED", "SCOPES")
+			for _, tok := range tokens {
+				lastUsed := "-"
+				if tok.LastUsedAt != nil {
+					lastUsed = tok.LastUsedAt.UTC().Format("2006-01-02 15:04")
+				}
+				scopes := strings.Join(tok.Scopes, ",")
+				if scopes == "" {
+					scopes = "all"
+				}
+				fmt.Printf("%-16s %-14s %-20s %-20s %s\n",
+					tok.DisplayHint,
+					tok.AgentName,
+					tok.ExpiresAt.UTC().Format("2006-01-02 15:04"),
+					lastUsed,
+					scopes,
+				)
+			}
+			return nil
 		},
 	}
 	cmd.Flags().StringVar(&tenant, "tenant", "", "tenant id")
