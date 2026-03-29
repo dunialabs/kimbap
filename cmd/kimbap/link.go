@@ -311,6 +311,18 @@ func newLinkListCommand() *cobra.Command {
 					linkDefaultDash(row.Connector),
 				)
 			}
+			connected := 0
+			for _, row := range rows {
+				if row.Status == "connected" {
+					connected++
+				}
+			}
+			notConnected := len(rows) - connected
+			if notConnected > 0 {
+				_, _ = fmt.Fprintf(c.OutOrStdout(), "\n%d connected · %d not connected\n", connected, notConnected)
+			} else {
+				_, _ = fmt.Fprintf(c.OutOrStdout(), "\nAll %d services connected\n", connected)
+			}
 			return nil
 		},
 	}
