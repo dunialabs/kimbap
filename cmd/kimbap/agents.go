@@ -132,7 +132,7 @@ func newAgentsSetupCommand() *cobra.Command {
 				}
 			}
 
-			if !outputAsJSON() && hasWrittenServices {
+			if !outputAsJSON() && hasWrittenServices && !dryRun {
 				fmt.Printf("✓ Services synced to %s\n", absDir)
 			}
 

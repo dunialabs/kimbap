@@ -383,7 +383,10 @@ func resolveActionByName(cfg *config.KimbapConfig, name string) (*actions.Action
 	}
 	if len(defs) == 0 {
 		allInstalled, listErr := installerFromConfig(cfg).List()
-		if listErr == nil && len(allInstalled) > 0 {
+		if listErr != nil {
+			return nil, listErr
+		}
+		if len(allInstalled) > 0 {
 			return nil, fmt.Errorf("no enabled services found — run 'kimbap service list' to see installed services")
 		}
 		return nil, fmt.Errorf("no services installed — run 'kimbap init --mode dev --services all' to get started")
