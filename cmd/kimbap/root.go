@@ -315,6 +315,17 @@ func outputAsJSON() bool {
 	return strings.EqualFold(strings.TrimSpace(opts.format), "json")
 }
 
+func isColorStdout() bool {
+	if v, ok := os.LookupEnv("NO_COLOR"); ok && v != "" {
+		return false
+	}
+	fi, err := os.Stdout.Stat()
+	if err != nil {
+		return false
+	}
+	return fi.Mode()&os.ModeCharDevice != 0
+}
+
 func isDryRun() bool {
 	return opts.dryRun
 }

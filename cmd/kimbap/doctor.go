@@ -261,6 +261,7 @@ func renderDoctorSummary(checks []doctorCheck) string {
 	b := strings.Builder{}
 	b.WriteString("Kimbap runtime diagnostics\n")
 	_, _ = fmt.Fprintf(&b, "  passed: %d  skipped: %d  warnings: %d  failed: %d\n\n", passed, skipped, warnings, failed)
+	useColor := isColorStdout()
 	for _, c := range checks {
 		icon := "✓"
 		switch c.Status {
@@ -270,6 +271,16 @@ func renderDoctorSummary(checks []doctorCheck) string {
 			icon = "!"
 		case "fail":
 			icon = "✗"
+		}
+		if useColor {
+			switch c.Status {
+			case "ok":
+				icon = "[32m" + icon + "[0m"
+			case "warn":
+				icon = "[33m" + icon + "[0m"
+			case "fail":
+				icon = "[31m" + icon + "[0m"
+			}
 		}
 		_, _ = fmt.Fprintf(&b, "  %s %-25s %s\n", icon, c.Name, c.Detail)
 	}
