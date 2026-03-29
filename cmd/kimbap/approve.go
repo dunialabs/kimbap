@@ -56,7 +56,8 @@ func newApproveListCommand() *cobra.Command {
 			err = withRuntimeStore(cfg, func(st *store.SQLStore) error {
 				if s == "" || s == "pending" {
 					dispatcher := webhooks.NewDispatcher()
-					configureWebhookDispatcherFromStore(contextBackground(), dispatcher, st)
+					cleanupWebhookSink := configureWebhookDispatcherFromStore(contextBackground(), dispatcher, st)
+					defer cleanupWebhookSink()
 					if _, expErr := expirePendingApprovalsWithSideEffects(contextBackground(), st, approvalTenant(tenant), func(approval store.ApprovalRecord) {
 						dispatcher.EmitForTenant(approval.TenantID, webhooks.EventApprovalExpired, map[string]any{
 							"approval_id": approval.ID,

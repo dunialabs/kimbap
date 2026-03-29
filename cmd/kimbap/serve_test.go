@@ -151,7 +151,8 @@ func TestBuildServeServerOptionsHydratesWebhookDataFromStore(t *testing.T) {
 	}
 
 	dispatcher := webhooks.NewDispatcher()
-	configureWebhookDispatcherFromStore(context.Background(), dispatcher, st)
+	cleanupWebhookSink := configureWebhookDispatcherFromStore(context.Background(), dispatcher, st)
+	defer cleanupWebhookSink()
 	server := api.NewServer(":0", st, buildServeServerOptions(nil, nil, dispatcher, false)...)
 	ts := httptest.NewServer(server.Router())
 	defer ts.Close()

@@ -8,6 +8,7 @@ import (
 	"os"
 	"os/signal"
 	"strings"
+	"sync"
 	"syscall"
 	"time"
 
@@ -64,6 +65,9 @@ func newServeCommand() *cobra.Command {
 				return err
 			}
 
+			runCtx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
+			defer stop()
+
 			st, err := openRuntimeStore(cfg)
 			if err != nil {
 				return err
@@ -96,14 +100,12 @@ func newServeCommand() *cobra.Command {
 
 			enableConsole := withConsole || cfg.Console.Enabled
 			dispatcher := webhooks.NewDispatcher()
-			configureWebhookDispatcherFromStore(context.Background(), dispatcher, st)
+			cleanupWebhookSink := configureWebhookDispatcherFromStore(runCtx, dispatcher, st)
+			defer cleanupWebhookSink()
 			srv := api.NewServer(listenAddr, st, buildServeServerOptions(rt, vaultStore, dispatcher, enableConsole)...)
 
 			logger := observability.NewLogger(cfg.LogLevel, cfg.LogFormat)
 			bgWorker := jobs.NewWorker(time.Minute, &storeApprovalExpirer{st: st, dispatcher: dispatcher}, logger)
-
-			runCtx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
-			defer stop()
 
 			bgWorker.Start(runCtx)
 			defer bgWorker.Stop()
@@ -144,10 +146,18 @@ func buildServeServerOptions(rt *runtime.Runtime, vaultStore vault.Store, dispat
 	return opts
 }
 
-func configureWebhookDispatcherFromStore(ctx context.Context, dispatcher *webhooks.Dispatcher, st *store.SQLStore) {
+func configureWebhookDispatcherFromStore(ctx context.Context, dispatcher *webhooks.Dispatcher, st *store.SQLStore) func() {
 	if dispatcher == nil || st == nil {
-		return
+		return func() {}
 	}
+	if ctx == nil {
+		ctx = context.Background()
+	}
+
+	sinkCtx, cancelSink := context.WithCancel(ctx)
+	var sinkGateMu sync.Mutex
+	var sinkWG sync.WaitGroup
+	sinkClosing := false
 
 	if subs, err := st.ListWebhookSubscriptions(ctx, ""); err == nil {
 		for _, sub := range subs {
@@ -163,30 +173,77 @@ func configureWebhookDispatcherFromStore(ctx context.Context, dispatcher *webhoo
 		dispatcher.ReplaceRecentEvents(hydrated)
 	}
 
+	persistEvent := func(event webhooks.Event) {
+		persistCtx, cancel := context.WithTimeout(context.Background(), webhookEventPersistTimeout)
+		err := st.WriteWebhookEvent(persistCtx, webhookEventToRecord(event))
+		cancel()
+		if err != nil {
+			_, _ = fmt.Fprintf(os.Stderr, "warning: persist webhook event failed: %v\n", err)
+		}
+	}
+
 	eventSinkQueue := make(chan webhooks.Event, webhookEventPersistQueueSize)
+	workerDone := make(chan struct{})
 	go func() {
-		for event := range eventSinkQueue {
-			persistCtx, cancel := context.WithTimeout(context.Background(), webhookEventPersistTimeout)
-			err := st.WriteWebhookEvent(persistCtx, webhookEventToRecord(event))
-			cancel()
-			if err != nil {
-				_, _ = fmt.Fprintf(os.Stderr, "warning: persist webhook event failed: %v\n", err)
+		defer close(workerDone)
+		for {
+			select {
+			case event := <-eventSinkQueue:
+				persistEvent(event)
+			case <-sinkCtx.Done():
+				for {
+					select {
+					case event := <-eventSinkQueue:
+						persistEvent(event)
+					default:
+						return
+					}
+				}
 			}
 		}
 	}()
 
 	dispatcher.SetEventSink(func(event webhooks.Event) {
+		sinkGateMu.Lock()
+		if sinkClosing {
+			sinkGateMu.Unlock()
+			return
+		}
+		sinkWG.Add(1)
+		sinkGateMu.Unlock()
+		defer sinkWG.Done()
+
+		select {
+		case <-sinkCtx.Done():
+			return
+		default:
+		}
+
 		select {
 		case eventSinkQueue <- event:
-		case <-time.After(webhookEventPersistEnqueueWait):
-			persistCtx, cancel := context.WithTimeout(context.Background(), webhookEventPersistTimeout)
-			err := st.WriteWebhookEvent(persistCtx, webhookEventToRecord(event))
-			cancel()
-			if err != nil {
-				_, _ = fmt.Fprintf(os.Stderr, "warning: persist webhook event failed: %v\n", err)
-			}
+			return
+		default:
+		}
+
+		t := time.NewTimer(webhookEventPersistEnqueueWait)
+		defer t.Stop()
+		select {
+		case eventSinkQueue <- event:
+		case <-t.C:
+			persistEvent(event)
+		case <-sinkCtx.Done():
+			return
 		}
 	})
+
+	return func() {
+		sinkGateMu.Lock()
+		sinkClosing = true
+		sinkGateMu.Unlock()
+		sinkWG.Wait()
+		cancelSink()
+		<-workerDone
+	}
 }
 
 func webhookRecordToSubscription(rec store.WebhookSubscriptionRecord) webhooks.Subscription {
