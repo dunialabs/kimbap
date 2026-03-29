@@ -1,0 +1,77 @@
+round: R068
+status: closed
+
+app:
+  launch_command: "kimbap serve --console --port 8080"
+  url: "http://localhost:8080/console"
+  launched_at: "2026-03-30T05:55:00Z"
+
+coverage:
+  required_view_order:
+    - dashboard
+    - actions
+    - approvals
+    - audit
+    - services
+  known_views_inspected:
+    - dashboard
+    - actions
+    - approvals
+    - audit
+    - services
+  discovered_substates:
+    - "STATE01|view=approvals|state=auth_gate|reachable=yes|evidence=SS03"
+    - "STATE02|view=audit|state=auth_gate|reachable=yes|evidence=SS04"
+    - "STATE03|view=services|state=auth_gate|reachable=yes|evidence=SS05"
+  blocked_states:
+    - "BLOCK01|view=approvals|state=pending_items_table|reason=missing approvals scope token|evidence=SS03"
+    - "BLOCK02|view=audit|state=audit_history_table|reason=missing audit scope token|evidence=SS04"
+    - "BLOCK03|view=services|state=vault_keys_table|reason=missing vault scope token|evidence=SS05"
+
+screenshots:
+  - "SS01|view=dashboard|state=baseline|phase=before|path=artifacts/console-review/R068/screens/01-dashboard-baseline-before.png"
+  - "SS02|view=actions|state=baseline|phase=before|path=artifacts/console-review/R068/screens/02-actions-baseline-before.png"
+  - "SS03|view=approvals|state=baseline|phase=before|path=artifacts/console-review/R068/screens/03-approvals-baseline-before.png"
+  - "SS04|view=audit|state=baseline|phase=before|path=artifacts/console-review/R068/screens/04-audit-baseline-before.png"
+  - "SS05|view=services|state=baseline|phase=before|path=artifacts/console-review/R068/screens/05-services-baseline-before.png"
+
+findings: []
+
+wording_changes: []
+
+changes:
+  files_changed: []
+  files_unchanged: []
+
+verification:
+  commands:
+    - "V01|kind=browser_sweep|cmd=openchrome five-view sweep|result=pass"
+    - "V02|kind=report_validate|cmd=make review-validate REPORT=artifacts/console-review/R068/report.yaml|result=pass"
+  diagnostics: "n/a-no-code-change"
+  tests: []
+  build: []
+  browser_recheck:
+    - "BR01|after=no_code_change|views=dashboard,actions,approvals,audit,services|result=pass|evidence=SS01-SS05"
+
+oracle_review:
+  status: pass
+  issues_found:
+    - "OR01|after=no_code_change|result=pass|scope=round-evidence|note=no additional fix identified"
+  reruns: 0
+
+regression_spot_check:
+  changed_views: []
+  untouched_views_checked:
+    - dashboard
+    - approvals
+  result: pass
+
+round_result:
+  type: no_op
+  summary: "Full five-view inspection completed with no additional wording/UI issues requiring code changes."
+
+next_round:
+  id: R069
+  status: queued
+  carry_forward_focus:
+    - "CF01|view=actions|focus=review action detail copy when authenticated data is available"
