@@ -68,6 +68,7 @@ type Dispatcher struct {
 	events        []Event
 	maxEvents     int
 	deliverySem   chan struct{}
+	eventSink     func(Event)
 }
 
 func NewDispatcher() *Dispatcher {
@@ -238,9 +239,14 @@ func (d *Dispatcher) EmitForTenant(tenantID string, eventType EventType, data an
 	if len(d.events) > d.maxEvents {
 		d.events = d.events[len(d.events)-d.maxEvents:]
 	}
+	eventSink := d.eventSink
 	subs := make([]Subscription, len(d.subscriptions))
 	copy(subs, d.subscriptions)
 	d.mu.Unlock()
+
+	if eventSink != nil {
+		eventSink(event)
+	}
 
 	for _, sub := range subs {
 		if !sub.Active || !matchesEvent(sub.Events, eventType) {
@@ -259,6 +265,26 @@ func (d *Dispatcher) EmitForTenant(tenantID string, eventType EventType, data an
 			log.Warn().Str("subscriptionId", sub.ID).Str("eventId", event.ID).Msg("webhook delivery dropped: concurrency limit reached")
 		}
 	}
+}
+
+func (d *Dispatcher) SetEventSink(sink func(Event)) {
+	d.mu.Lock()
+	defer d.mu.Unlock()
+	d.eventSink = sink
+}
+
+func (d *Dispatcher) ReplaceRecentEvents(events []Event) {
+	d.mu.Lock()
+	defer d.mu.Unlock()
+	if len(events) == 0 {
+		d.events = nil
+		return
+	}
+	if len(events) > d.maxEvents {
+		events = events[len(events)-d.maxEvents:]
+	}
+	d.events = make([]Event, len(events))
+	copy(d.events, events)
 }
 
 func (d *Dispatcher) RecentEvents(limit int) []Event {

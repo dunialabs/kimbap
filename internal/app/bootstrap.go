@@ -634,6 +634,7 @@ func (a *auditWriterAdapter) Write(ctx context.Context, event runtimepkg.AuditEv
 		AgentName:      event.AgentName,
 		Service:        service,
 		Action:         action,
+		Input:          event.Input,
 		Mode:           string(event.Mode),
 		Status:         mapAuditStatus(event),
 		PolicyDecision: event.PolicyDecision,

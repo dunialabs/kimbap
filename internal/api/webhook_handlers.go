@@ -1,6 +1,8 @@
 package api
 
 import (
+	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"net"
@@ -10,10 +12,25 @@ import (
 	"strings"
 
 	"github.com/dunialabs/kimbap/internal/actions"
+	"github.com/dunialabs/kimbap/internal/store"
 	"github.com/dunialabs/kimbap/internal/webhooks"
 	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
 )
+
+type webhookPersistenceStore interface {
+	UpsertWebhookSubscription(ctx context.Context, sub *store.WebhookSubscriptionRecord) error
+	DeleteWebhookSubscription(ctx context.Context, id string, tenantID string) error
+	ListWebhookEvents(ctx context.Context, tenantID string, limit int) ([]store.WebhookEventRecord, error)
+}
+
+func (s *Server) webhookPersistenceStore() webhookPersistenceStore {
+	if s == nil || s.store == nil {
+		return nil
+	}
+	persist, _ := s.store.(webhookPersistenceStore)
+	return persist
+}
 
 func (s *Server) registerWebhookRoutes(r chi.Router) {
 	if s.webhookDispatcher == nil {
@@ -67,6 +84,25 @@ func (s *Server) handleCreateWebhook(w http.ResponseWriter, r *http.Request) {
 		sub.ID = "wh_" + uuid.NewString()
 	}
 	sub.TenantID = tenantID
+	if persist := s.webhookPersistenceStore(); persist != nil {
+		eventsJSON := "[]"
+		if len(sub.Events) > 0 {
+			if b, err := json.Marshal(sub.Events); err == nil {
+				eventsJSON = string(b)
+			}
+		}
+		if err := persist.UpsertWebhookSubscription(r.Context(), &store.WebhookSubscriptionRecord{
+			ID:         sub.ID,
+			TenantID:   sub.TenantID,
+			URL:        sub.URL,
+			Secret:     sub.Secret,
+			EventsJSON: eventsJSON,
+			Active:     true,
+		}); err != nil {
+			writeEnvelopeError(w, r, actions.NewExecutionError(actions.ErrDownstreamUnavailable, "internal server error", http.StatusInternalServerError, false, nil))
+			return
+		}
+	}
 	s.webhookDispatcher.Subscribe(sub)
 	writeSuccess(w, r, http.StatusCreated, map[string]any{"webhook": map[string]string{"id": sub.ID}})
 }
@@ -77,6 +113,12 @@ func (s *Server) handleDeleteWebhook(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	id := chi.URLParam(r, "id")
+	if persist := s.webhookPersistenceStore(); persist != nil {
+		if err := persist.DeleteWebhookSubscription(r.Context(), id, tenantID); err != nil {
+			writeEnvelopeError(w, r, actions.NewExecutionError(actions.ErrDownstreamUnavailable, "internal server error", http.StatusInternalServerError, false, nil))
+			return
+		}
+	}
 	s.webhookDispatcher.UnsubscribeByTenant(id, tenantID)
 	writeSuccess(w, r, http.StatusOK, map[string]any{"deleted": true})
 }
@@ -101,6 +143,27 @@ func (s *Server) handleListRecentEvents(w http.ResponseWriter, r *http.Request) 
 		limit = parsed
 	}
 	events := s.webhookDispatcher.RecentEventsByTenant(tenantID, limit)
+	if persist := s.webhookPersistenceStore(); persist != nil {
+		recs, err := persist.ListWebhookEvents(r.Context(), tenantID, limit)
+		if err != nil {
+			writeEnvelopeError(w, r, actions.NewExecutionError(actions.ErrDownstreamUnavailable, "internal server error", http.StatusInternalServerError, false, nil))
+			return
+		}
+		events = make([]webhooks.Event, 0, len(recs))
+		for _, rec := range recs {
+			payload := map[string]any{}
+			if strings.TrimSpace(rec.DataJSON) != "" {
+				_ = json.Unmarshal([]byte(rec.DataJSON), &payload)
+			}
+			events = append(events, webhooks.Event{
+				ID:        rec.ID,
+				Type:      webhooks.EventType(rec.Type),
+				TenantID:  rec.TenantID,
+				Timestamp: rec.Timestamp,
+				Data:      payload,
+			})
+		}
+	}
 	writeSuccess(w, r, http.StatusOK, map[string]any{"events": events})
 }
 
@@ -114,8 +177,8 @@ func validateWebhookURL(rawURL string) error {
 	if err != nil {
 		return fmt.Errorf("invalid URL: %w", err)
 	}
-	if u.Scheme != "https" && u.Scheme != "http" {
-		return fmt.Errorf("url scheme must be http or https, got %q", u.Scheme)
+	if u.Scheme != "https" {
+		return fmt.Errorf("url scheme must be https, got %q", u.Scheme)
 	}
 	host := u.Hostname()
 	if host == "" {

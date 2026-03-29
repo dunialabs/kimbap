@@ -26,18 +26,22 @@ import (
 	"github.com/spf13/cobra"
 )
 
-func consoleDisplayURL(addr string) string {
+func serverDisplayURL(addr string) string {
 	if addr == "" {
-		return "http://localhost:8080/console"
+		return "http://localhost:8080"
 	}
 	host, port, err := net.SplitHostPort(addr)
 	if err != nil {
-		return "http://localhost:8080/console"
+		return "http://localhost:8080"
 	}
 	if host == "" || host == "0.0.0.0" || host == "::" {
 		host = "localhost"
 	}
-	return "http://" + net.JoinHostPort(host, port) + "/console"
+	return "http://" + net.JoinHostPort(host, port)
+}
+
+func consoleDisplayURL(addr string) string {
+	return serverDisplayURL(addr) + "/console"
 }
 
 func newServeCommand() *cobra.Command {
@@ -87,10 +91,12 @@ func newServeCommand() *cobra.Command {
 			}
 
 			enableConsole := withConsole || cfg.Console.Enabled
-			srv := api.NewServer(listenAddr, st, buildServeServerOptions(rt, vaultStore, enableConsole)...)
+			dispatcher := webhooks.NewDispatcher()
+			configureWebhookDispatcherFromStore(context.Background(), dispatcher, st)
+			srv := api.NewServer(listenAddr, st, buildServeServerOptions(rt, vaultStore, dispatcher, enableConsole)...)
 
 			logger := observability.NewLogger(cfg.LogLevel, cfg.LogFormat)
-			bgWorker := jobs.NewWorker(time.Minute, &storeApprovalExpirer{st: st}, logger)
+			bgWorker := jobs.NewWorker(time.Minute, &storeApprovalExpirer{st: st, dispatcher: dispatcher}, logger)
 
 			runCtx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 			defer stop()
@@ -98,6 +104,7 @@ func newServeCommand() *cobra.Command {
 			bgWorker.Start(runCtx)
 			defer bgWorker.Stop()
 
+			_, _ = fmt.Fprintf(os.Stdout, "Starting on %s\n", serverDisplayURL(listenAddr))
 			if enableConsole {
 				_, _ = fmt.Fprintf(os.Stdout, "Console: %s\n", consoleDisplayURL(listenAddr))
 			}
@@ -116,8 +123,11 @@ func newServeCommand() *cobra.Command {
 	return cmd
 }
 
-func buildServeServerOptions(rt *runtime.Runtime, vaultStore vault.Store, enableConsole bool) []api.ServerOption {
-	opts := []api.ServerOption{api.WithWebhookDispatcher(webhooks.NewDispatcher())}
+func buildServeServerOptions(rt *runtime.Runtime, vaultStore vault.Store, dispatcher *webhooks.Dispatcher, enableConsole bool) []api.ServerOption {
+	if dispatcher == nil {
+		dispatcher = webhooks.NewDispatcher()
+	}
+	opts := []api.ServerOption{api.WithWebhookDispatcher(dispatcher)}
 	if enableConsole {
 		opts = append(opts, api.WithConsole())
 	}
@@ -130,15 +140,107 @@ func buildServeServerOptions(rt *runtime.Runtime, vaultStore vault.Store, enable
 	return opts
 }
 
+func configureWebhookDispatcherFromStore(ctx context.Context, dispatcher *webhooks.Dispatcher, st *store.SQLStore) {
+	if dispatcher == nil || st == nil {
+		return
+	}
+
+	if subs, err := st.ListWebhookSubscriptions(ctx, ""); err == nil {
+		for _, sub := range subs {
+			dispatcher.Subscribe(webhookRecordToSubscription(sub))
+		}
+	}
+
+	if events, err := st.ListWebhookEvents(ctx, "", 1000); err == nil && len(events) > 0 {
+		hydrated := make([]webhooks.Event, 0, len(events))
+		for _, rec := range events {
+			hydrated = append(hydrated, webhookEventRecordToEvent(rec))
+		}
+		dispatcher.ReplaceRecentEvents(hydrated)
+	}
+
+	dispatcher.SetEventSink(func(event webhooks.Event) {
+		if err := st.WriteWebhookEvent(context.Background(), webhookEventToRecord(event)); err != nil {
+			_, _ = fmt.Fprintf(os.Stderr, "warning: persist webhook event failed: %v\n", err)
+		}
+	})
+}
+
+func webhookRecordToSubscription(rec store.WebhookSubscriptionRecord) webhooks.Subscription {
+	return webhooks.Subscription{
+		ID:       rec.ID,
+		URL:      rec.URL,
+		Secret:   rec.Secret,
+		Events:   parseWebhookEventTypes(rec.EventsJSON),
+		TenantID: rec.TenantID,
+		Active:   rec.Active,
+	}
+}
+
+func parseWebhookEventTypes(raw string) []webhooks.EventType {
+	if strings.TrimSpace(raw) == "" {
+		return nil
+	}
+	var events []webhooks.EventType
+	if err := json.Unmarshal([]byte(raw), &events); err != nil {
+		return nil
+	}
+	return events
+}
+
+func webhookEventRecordToEvent(rec store.WebhookEventRecord) webhooks.Event {
+	var data map[string]any
+	if strings.TrimSpace(rec.DataJSON) != "" {
+		_ = json.Unmarshal([]byte(rec.DataJSON), &data)
+	}
+	return webhooks.Event{
+		ID:        rec.ID,
+		Type:      webhooks.EventType(rec.Type),
+		TenantID:  rec.TenantID,
+		Timestamp: rec.Timestamp,
+		Data:      data,
+	}
+}
+
+func webhookEventToRecord(event webhooks.Event) *store.WebhookEventRecord {
+	dataJSON := "{}"
+	if event.Data != nil {
+		if b, err := json.Marshal(event.Data); err == nil {
+			dataJSON = string(b)
+		}
+	}
+	return &store.WebhookEventRecord{
+		ID:        event.ID,
+		TenantID:  event.TenantID,
+		Type:      string(event.Type),
+		Timestamp: event.Timestamp,
+		DataJSON:  dataJSON,
+	}
+}
+
 type storeApprovalExpirer struct {
-	st *store.SQLStore
+	st         *store.SQLStore
+	dispatcher *webhooks.Dispatcher
 }
 
 func (e *storeApprovalExpirer) ExpireStale(ctx context.Context) (int, error) {
 	if e == nil || e.st == nil {
 		return 0, nil
 	}
-	return e.st.ExpirePendingApprovals(ctx)
+	return expirePendingApprovalsWithSideEffects(ctx, e.st, "", func(approval store.ApprovalRecord) {
+		if e.dispatcher == nil {
+			return
+		}
+		e.dispatcher.EmitForTenant(approval.TenantID, webhooks.EventApprovalExpired, map[string]any{
+			"approval_id": approval.ID,
+			"tenant_id":   approval.TenantID,
+			"request_id":  approval.RequestID,
+			"agent_name":  approval.AgentName,
+			"service":     approval.Service,
+			"action":      approval.Action,
+			"status":      "expired",
+		})
+	})
 }
 
 func buildServeRuntime(cfg *config.KimbapConfig, st *store.SQLStore, vaultStore vault.Store) (*runtime.Runtime, func(), error) {
@@ -309,6 +411,7 @@ func (a *storeApprovalStoreAdapter) Get(ctx context.Context, id string) (*approv
 		AgentName:  rec.AgentName,
 		Service:    rec.Service,
 		Action:     rec.Action,
+		Input:      parseApprovalInputJSON(rec.InputJSON),
 		Status:     approvals.ApprovalStatus(rec.Status),
 		CreatedAt:  rec.CreatedAt,
 		ExpiresAt:  rec.ExpiresAt,
@@ -332,7 +435,21 @@ func (a *storeApprovalStoreAdapter) ListPending(ctx context.Context, tenantID st
 	}
 	out := make([]approvals.ApprovalRequest, len(recs))
 	for i, r := range recs {
-		out[i] = approvals.ApprovalRequest{ID: r.ID, TenantID: r.TenantID, RequestID: r.RequestID, AgentName: r.AgentName, Service: r.Service, Action: r.Action, Status: approvals.ApprovalStatus(r.Status)}
+		out[i] = approvals.ApprovalRequest{
+			ID:         r.ID,
+			TenantID:   r.TenantID,
+			RequestID:  r.RequestID,
+			AgentName:  r.AgentName,
+			Service:    r.Service,
+			Action:     r.Action,
+			Input:      parseApprovalInputJSON(r.InputJSON),
+			Status:     approvals.ApprovalStatus(r.Status),
+			CreatedAt:  r.CreatedAt,
+			ExpiresAt:  r.ExpiresAt,
+			ResolvedAt: r.ResolvedAt,
+			ResolvedBy: r.ResolvedBy,
+			DenyReason: r.Reason,
+		}
 	}
 	return out, nil
 }
@@ -348,11 +465,36 @@ func (a *storeApprovalStoreAdapter) ListAll(ctx context.Context, tenantID string
 	}
 	out := make([]approvals.ApprovalRequest, len(recs))
 	for i, r := range recs {
-		out[i] = approvals.ApprovalRequest{ID: r.ID, TenantID: r.TenantID, RequestID: r.RequestID, AgentName: r.AgentName, Service: r.Service, Action: r.Action, Status: approvals.ApprovalStatus(r.Status)}
+		out[i] = approvals.ApprovalRequest{
+			ID:         r.ID,
+			TenantID:   r.TenantID,
+			RequestID:  r.RequestID,
+			AgentName:  r.AgentName,
+			Service:    r.Service,
+			Action:     r.Action,
+			Input:      parseApprovalInputJSON(r.InputJSON),
+			Status:     approvals.ApprovalStatus(r.Status),
+			CreatedAt:  r.CreatedAt,
+			ExpiresAt:  r.ExpiresAt,
+			ResolvedAt: r.ResolvedAt,
+			ResolvedBy: r.ResolvedBy,
+			DenyReason: r.Reason,
+		}
 	}
 	return out, nil
 }
 
 func (a *storeApprovalStoreAdapter) ExpireOld(ctx context.Context) (int, error) {
-	return a.st.ExpirePendingApprovals(ctx)
+	return expirePendingApprovalsWithSideEffects(ctx, a.st, "", nil)
+}
+
+func parseApprovalInputJSON(raw string) map[string]any {
+	if strings.TrimSpace(raw) == "" {
+		return nil
+	}
+	var input map[string]any
+	if err := json.Unmarshal([]byte(raw), &input); err != nil {
+		return nil
+	}
+	return input
 }

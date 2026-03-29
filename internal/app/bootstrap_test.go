@@ -11,6 +11,7 @@ import (
 
 	"github.com/dunialabs/kimbap/internal/actions"
 	"github.com/dunialabs/kimbap/internal/approvals"
+	"github.com/dunialabs/kimbap/internal/audit"
 	"github.com/dunialabs/kimbap/internal/config"
 	"github.com/dunialabs/kimbap/internal/connectors"
 	runtimepkg "github.com/dunialabs/kimbap/internal/runtime"
@@ -314,6 +315,29 @@ func TestApprovalManagerAdapterSplitsServiceAndAction(t *testing.T) {
 	}
 }
 
+func TestAuditWriterAdapterPreservesInputPayload(t *testing.T) {
+	capture := &captureAuditWriter{}
+	adapter := NewAuditWriterAdapter(capture)
+
+	err := adapter.Write(context.Background(), runtimepkg.AuditEvent{
+		RequestID:  "req-1",
+		ActionName: "github.issues.create",
+		Input:      map[string]any{"title": "hello"},
+		Mode:       actions.ModeServe,
+		Status:     actions.StatusSuccess,
+		Timestamp:  time.Now().UTC(),
+	})
+	if err != nil {
+		t.Fatalf("write audit event: %v", err)
+	}
+	if capture.last == nil {
+		t.Fatal("expected captured audit event")
+	}
+	if capture.last.Input == nil || capture.last.Input["title"] != "hello" {
+		t.Fatalf("expected input payload preserved, got %+v", capture.last.Input)
+	}
+}
+
 func TestVaultCredentialResolverTreatsNotFoundAsSoftMiss(t *testing.T) {
 	store := &bootstrapVaultStore{getValueErr: vault.ErrSecretNotFound}
 	resolver := &vaultCredentialResolver{store: store}
@@ -489,6 +513,18 @@ func (s *bootstrapMemConnectorStore) key(tenantID, name string) string {
 type captureApprovalStore struct {
 	last *approvals.ApprovalRequest
 }
+
+type captureAuditWriter struct {
+	last *audit.AuditEvent
+}
+
+func (w *captureAuditWriter) Write(_ context.Context, event audit.AuditEvent) error {
+	copyEvent := event
+	w.last = &copyEvent
+	return nil
+}
+
+func (w *captureAuditWriter) Close() error { return nil }
 
 type bootstrapVaultStore struct {
 	value          []byte

@@ -120,7 +120,7 @@ func (s *Server) handleExecuteAction(w http.ResponseWriter, r *http.Request) {
 		},
 		Action: actions.ActionDefinition{Name: chi.URLParam(r, "service") + "." + chi.URLParam(r, "action")},
 		Input:  body.Input,
-		Mode:   actions.ModeCall,
+		Mode:   actions.ModeServe,
 	}
 	result := s.runtime.Execute(r.Context(), req)
 	if result.Error != nil {
@@ -512,7 +512,7 @@ func (s *Server) handleListApprovals(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	status := strings.TrimSpace(r.URL.Query().Get("status"))
-	if _, err := s.store.ExpirePendingApprovals(r.Context()); err != nil {
+	if err := s.expireTenantPendingApprovals(r.Context(), tenantID); err != nil {
 		writeEnvelopeError(w, r, actions.NewExecutionError(actions.ErrDownstreamUnavailable, "internal server error", http.StatusInternalServerError, false, nil))
 		return
 	}
@@ -522,6 +522,39 @@ func (s *Server) handleListApprovals(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeSuccess(w, r, http.StatusOK, items)
+}
+
+func (s *Server) expireTenantPendingApprovals(ctx context.Context, tenantID string) error {
+	pending, err := s.store.ListApprovals(ctx, tenantID, "pending")
+	if err != nil {
+		return err
+	}
+	now := time.Now().UTC()
+	for _, approval := range pending {
+		if approval.ExpiresAt.After(now) {
+			continue
+		}
+		expired, expireErr := s.store.ExpireApproval(ctx, approval.ID)
+		if expireErr != nil {
+			return expireErr
+		}
+		if !expired {
+			continue
+		}
+		s.removeHeldExecution(ctx, approval.ID)
+		if s.webhookDispatcher != nil {
+			s.webhookDispatcher.EmitForTenant(tenantID, webhooks.EventApprovalExpired, map[string]any{
+				"approval_id": approval.ID,
+				"tenant_id":   tenantID,
+				"request_id":  approval.RequestID,
+				"agent_name":  approval.AgentName,
+				"service":     approval.Service,
+				"action":      approval.Action,
+				"status":      "expired",
+			})
+		}
+	}
+	return nil
 }
 
 func (s *Server) requirePendingApproval(w http.ResponseWriter, r *http.Request, id, tenantID string, allowApproved bool) (*store.ApprovalRecord, bool) {

@@ -337,6 +337,70 @@ func TestSQLiteStoreTenantIsolation(t *testing.T) {
 	}
 }
 
+func TestSQLiteStoreWebhookSubscriptionPersistence(t *testing.T) {
+	st := newTestSQLiteStore(t)
+	ctx := context.Background()
+
+	err := st.UpsertWebhookSubscription(ctx, &WebhookSubscriptionRecord{
+		ID:         "wh_1",
+		TenantID:   "tenant-a",
+		URL:        "https://example.com/hook",
+		Secret:     "secret",
+		EventsJSON: `["approval.requested"]`,
+		Active:     true,
+	})
+	if err != nil {
+		t.Fatalf("upsert webhook subscription: %v", err)
+	}
+
+	subs, err := st.ListWebhookSubscriptions(ctx, "tenant-a")
+	if err != nil {
+		t.Fatalf("list webhook subscriptions: %v", err)
+	}
+	if len(subs) != 1 {
+		t.Fatalf("expected 1 subscription, got %d", len(subs))
+	}
+	if subs[0].URL != "https://example.com/hook" {
+		t.Fatalf("unexpected subscription URL: %s", subs[0].URL)
+	}
+
+	if err := st.DeleteWebhookSubscription(ctx, "wh_1", "tenant-a"); err != nil {
+		t.Fatalf("delete webhook subscription: %v", err)
+	}
+
+	deleted, err := st.ListWebhookSubscriptions(ctx, "tenant-a")
+	if err != nil {
+		t.Fatalf("list webhook subscriptions after delete: %v", err)
+	}
+	if len(deleted) != 0 {
+		t.Fatalf("expected no subscriptions after delete, got %d", len(deleted))
+	}
+}
+
+func TestSQLiteStoreWebhookEventPersistenceAndOrdering(t *testing.T) {
+	st := newTestSQLiteStore(t)
+	ctx := context.Background()
+	now := time.Now().UTC()
+
+	if err := st.WriteWebhookEvent(ctx, &WebhookEventRecord{ID: "evt_1", TenantID: "tenant-a", Type: "approval.requested", Timestamp: now.Add(-time.Minute), DataJSON: `{"a":1}`}); err != nil {
+		t.Fatalf("write webhook event 1: %v", err)
+	}
+	if err := st.WriteWebhookEvent(ctx, &WebhookEventRecord{ID: "evt_2", TenantID: "tenant-a", Type: "approval.expired", Timestamp: now, DataJSON: `{"b":2}`}); err != nil {
+		t.Fatalf("write webhook event 2: %v", err)
+	}
+
+	events, err := st.ListWebhookEvents(ctx, "tenant-a", 10)
+	if err != nil {
+		t.Fatalf("list webhook events: %v", err)
+	}
+	if len(events) != 2 {
+		t.Fatalf("expected 2 events, got %d", len(events))
+	}
+	if events[0].ID != "evt_1" || events[1].ID != "evt_2" {
+		t.Fatalf("expected chronological ordering [evt_1, evt_2], got [%s, %s]", events[0].ID, events[1].ID)
+	}
+}
+
 func newTestSQLiteStore(t *testing.T) *SQLStore {
 	t.Helper()
 

@@ -238,6 +238,9 @@ func formatActionHelp(def actions.ActionDefinition) string {
 
 	if def.InputSchema == nil || len(def.InputSchema.Properties) == 0 {
 		b.WriteString("  (no input parameters)\n")
+		b.WriteString("\nUsage:\n  kimbap call ")
+		b.WriteString(strings.TrimSpace(def.Name))
+		b.WriteString("\n")
 		return b.String()
 	}
 
@@ -252,6 +255,7 @@ func formatActionHelp(def actions.ActionDefinition) string {
 	}
 	sort.Strings(propNames)
 
+	var requiredParams, optionalParams []string
 	for _, name := range propNames {
 		prop := def.InputSchema.Properties[name]
 		typeName := "any"
@@ -261,19 +265,45 @@ func formatActionHelp(def actions.ActionDefinition) string {
 			}
 		}
 
-		reqMarker := ""
-		if required[name] {
-			reqMarker = "[required]"
+		enumStr := ""
+		if prop != nil && len(prop.Enum) > 0 && len(prop.Enum) <= 8 {
+			parts := make([]string, len(prop.Enum))
+			for i, v := range prop.Enum {
+				parts[i] = fmt.Sprintf("%v", v)
+			}
+			enumStr = "  (one of: " + strings.Join(parts, ", ") + ")"
 		}
 
-		b.WriteString("  ")
-		b.WriteString(name)
-		b.WriteString("  ")
-		b.WriteString(typeName)
-		b.WriteString("  ")
-		b.WriteString(reqMarker)
-		b.WriteString("  -\n")
+		if required[name] {
+			b.WriteString("  ")
+			b.WriteString(name)
+			b.WriteString("  ")
+			b.WriteString(typeName)
+			b.WriteString(enumStr)
+			b.WriteString("  [required]\n")
+			requiredParams = append(requiredParams, fmt.Sprintf("--%s <%s>", name, typeName))
+		} else {
+			b.WriteString("  ")
+			b.WriteString(name)
+			b.WriteString("  ")
+			b.WriteString(typeName)
+			b.WriteString(enumStr)
+			b.WriteString("\n")
+			optionalParams = append(optionalParams, fmt.Sprintf("[--%s <%s>]", name, typeName))
+		}
 	}
+
+	b.WriteString("\nUsage:\n  kimbap call ")
+	b.WriteString(strings.TrimSpace(def.Name))
+	for _, p := range requiredParams {
+		b.WriteString(" ")
+		b.WriteString(p)
+	}
+	for _, p := range optionalParams {
+		b.WriteString(" ")
+		b.WriteString(p)
+	}
+	b.WriteString("\n")
 
 	return b.String()
 }

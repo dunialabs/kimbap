@@ -152,7 +152,15 @@ func newActionsCommand() *cobra.Command {
 					if slices.Contains(def.InputSchema.Required, key) {
 						required = "required"
 					}
-					fmt.Printf("  - %s: %s (%s)\n", key, s.Type, required)
+					enumStr := ""
+					if s != nil && len(s.Enum) > 0 && len(s.Enum) <= 8 {
+						parts := make([]string, len(s.Enum))
+						for i, v := range s.Enum {
+							parts[i] = fmt.Sprintf("%v", v)
+						}
+						enumStr = ", one of: " + strings.Join(parts, ", ")
+					}
+					fmt.Printf("  - %s: %s (%s%s)\n", key, s.Type, required, enumStr)
 				}
 
 				var requiredParts, optionalParts []string

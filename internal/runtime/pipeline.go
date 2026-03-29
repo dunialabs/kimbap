@@ -45,6 +45,7 @@ type AuditEvent struct {
 	PrincipalID     string
 	AgentName       string
 	ActionName      string
+	Input           map[string]any
 	Mode            actions.ExecutionMode
 	Status          actions.ExecutionStatus
 	HTTPStatus      int
@@ -729,6 +730,7 @@ func (r *Runtime) writeAudit(ctx context.Context, req actions.ExecutionRequest, 
 		PrincipalID:    req.Principal.ID,
 		AgentName:      req.Principal.AgentName,
 		ActionName:     req.Action.Name,
+		Input:          cloneInputMap(req.Input),
 		Mode:           req.Mode,
 		Status:         result.Status,
 		HTTPStatus:     result.HTTPStatus,
@@ -756,6 +758,17 @@ func (r *Runtime) writeAudit(ctx context.Context, req actions.ExecutionRequest, 
 		_, _ = fmt.Fprintf(os.Stderr, "warning: audit write failed for request %s: %v\n", req.RequestID, err)
 	}
 	return nil
+}
+
+func cloneInputMap(input map[string]any) map[string]any {
+	if input == nil {
+		return nil
+	}
+	cloned, ok := deepCloneValue(input).(map[string]any)
+	if !ok {
+		return nil
+	}
+	return cloned
 }
 
 func withTimeout(ctx context.Context, timeout time.Duration) (context.Context, context.CancelFunc) {

@@ -963,6 +963,38 @@ func TestHandleExecuteActionRequiresExplicitIdempotencyKey(t *testing.T) {
 	}
 }
 
+func TestHandleExecuteActionUsesServeModeForPolicyEvaluation(t *testing.T) {
+	policyCapture := &captureExecuteModePolicyEvaluator{}
+	server := &Server{runtime: &runtimepkg.Runtime{PolicyEvaluator: policyCapture}}
+
+	body := strings.NewReader(`{"input": {"name":"item"}}`)
+	req := httptest.NewRequest(http.MethodPost, "/v1/actions/github/issues.create:execute", body)
+	req.Header.Set("Idempotency-Key", "idem-serve-mode")
+	req = req.WithContext(context.WithValue(req.Context(), contextKeyPrincipal, &auth.Principal{
+		ID:        "agent-1",
+		TenantID:  "tenant-a",
+		AgentName: "agent-a",
+		Scopes:    []string{"*"},
+	}))
+	req = req.WithContext(context.WithValue(req.Context(), contextKeyTenant, "tenant-a"))
+	req = req.WithContext(context.WithValue(req.Context(), contextKeyRequestID, "req-serve-mode"))
+
+	rctx := chi.NewRouteContext()
+	rctx.URLParams.Add("service", "github")
+	rctx.URLParams.Add("action", "issues.create")
+	req = req.WithContext(context.WithValue(req.Context(), chi.RouteCtxKey, rctx))
+
+	rr := httptest.NewRecorder()
+	server.handleExecuteAction(rr, req)
+
+	if !policyCapture.called {
+		t.Fatal("expected policy evaluator to be called")
+	}
+	if policyCapture.lastMode != actions.ModeServe {
+		t.Fatalf("expected execution mode %q, got %q", actions.ModeServe, policyCapture.lastMode)
+	}
+}
+
 func TestHandleListTokensRequiresTenantContext(t *testing.T) {
 	server := &Server{}
 	req := httptest.NewRequest(http.MethodGet, "/v1/tokens", nil)
@@ -1158,6 +1190,81 @@ func TestCreateWebhookRejectsInactiveReservedEventType(t *testing.T) {
 	if resp.StatusCode != http.StatusBadRequest {
 		b, _ := io.ReadAll(resp.Body)
 		t.Fatalf("expected 400, got %d body=%s", resp.StatusCode, string(b))
+	}
+}
+
+func TestCreateWebhookRejectsHTTPURL(t *testing.T) {
+	ts, rawBootstrap, st := newTestAPIServerWithStore(t)
+	server := NewServer(":0", st, WithWebhookDispatcher(webhooks.NewDispatcher()))
+	ts.Close()
+	ts = httptest.NewServer(server.Router())
+	t.Cleanup(func() { ts.Close() })
+
+	body := `{"url":"http://example.com/hook"}`
+	req, _ := http.NewRequest(http.MethodPost, ts.URL+"/v1/webhooks", strings.NewReader(body))
+	req.Header.Set("Authorization", "Bearer "+rawBootstrap)
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatalf("create webhook request: %v", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusBadRequest {
+		b, _ := io.ReadAll(resp.Body)
+		t.Fatalf("expected 400, got %d body=%s", resp.StatusCode, string(b))
+	}
+}
+
+func TestServerListPendingApprovalsSweepRemovesHeldAndEmitsExpiredEvent(t *testing.T) {
+	ts, rawBootstrap, st := newTestAPIServerWithStore(t)
+	dispatcher := webhooks.NewDispatcher()
+	held := &recordingHeldExecutionStore{held: map[string]actions.ExecutionRequest{"apr_pending_stale_cleanup": {RequestID: "req_pending_stale_cleanup"}}}
+	server := NewServer(":0", st, WithRuntime(&runtimepkg.Runtime{HeldExecutionStore: held}), WithWebhookDispatcher(dispatcher))
+	ts.Close()
+	ts = httptest.NewServer(server.Router())
+	t.Cleanup(func() { ts.Close() })
+
+	stale := &store.ApprovalRecord{
+		ID:        "apr_pending_stale_cleanup",
+		TenantID:  "tenant-a",
+		RequestID: "req_pending_stale_cleanup",
+		AgentName: "agent-a",
+		Service:   "github",
+		Action:    "issues.create",
+		Status:    "pending",
+		CreatedAt: time.Now().UTC().Add(-20 * time.Minute),
+		ExpiresAt: time.Now().UTC().Add(-10 * time.Minute),
+	}
+	if err := st.CreateApproval(context.Background(), stale); err != nil {
+		t.Fatalf("create stale approval: %v", err)
+	}
+
+	req, _ := http.NewRequest(http.MethodGet, ts.URL+"/v1/approvals?status=pending", nil)
+	req.Header.Set("Authorization", "Bearer "+rawBootstrap)
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatalf("list approvals request: %v", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		b, _ := io.ReadAll(resp.Body)
+		t.Fatalf("expected 200, got %d body=%s", resp.StatusCode, string(b))
+	}
+	if held.removeCalls == 0 {
+		t.Fatal("expected stale held execution to be removed during expiry sweep")
+	}
+	if _, ok := held.held[stale.ID]; ok {
+		t.Fatal("expected held execution entry to be removed")
+	}
+	events := dispatcher.RecentEventsByTenant("tenant-a", 10)
+	if len(events) == 0 {
+		t.Fatal("expected approval expired webhook event")
+	}
+	if events[len(events)-1].Type != webhooks.EventApprovalExpired {
+		t.Fatalf("expected last event %q, got %q", webhooks.EventApprovalExpired, events[len(events)-1].Type)
 	}
 }
 
@@ -1683,6 +1790,17 @@ type staticApprovalManager struct {
 	requestID string
 }
 
+type captureExecuteModePolicyEvaluator struct {
+	called   bool
+	lastMode actions.ExecutionMode
+}
+
+func (m *captureExecuteModePolicyEvaluator) Evaluate(_ context.Context, req runtimepkg.PolicyRequest) (*runtimepkg.PolicyDecision, error) {
+	m.called = true
+	m.lastMode = req.Mode
+	return &runtimepkg.PolicyDecision{Decision: "allow"}, nil
+}
+
 func (m staticApprovalManager) CreateRequest(context.Context, runtimepkg.ApprovalRequest) (*runtimepkg.ApprovalResult, error) {
 	return &runtimepkg.ApprovalResult{Approved: false, RequestID: m.requestID}, nil
 }
@@ -1712,6 +1830,34 @@ func (testHeldExecutionStore) Resume(_ context.Context, _ string) (*actions.Exec
 	return nil, nil
 }
 func (testHeldExecutionStore) Remove(_ context.Context, _ string) error {
+	return nil
+}
+
+type recordingHeldExecutionStore struct {
+	held        map[string]actions.ExecutionRequest
+	removeCalls int
+}
+
+func (s *recordingHeldExecutionStore) Hold(_ context.Context, approvalRequestID string, req actions.ExecutionRequest) error {
+	if s.held == nil {
+		s.held = map[string]actions.ExecutionRequest{}
+	}
+	s.held[approvalRequestID] = req
+	return nil
+}
+
+func (s *recordingHeldExecutionStore) Resume(_ context.Context, approvalRequestID string) (*actions.ExecutionRequest, error) {
+	req, ok := s.held[approvalRequestID]
+	if !ok {
+		return nil, nil
+	}
+	delete(s.held, approvalRequestID)
+	return &req, nil
+}
+
+func (s *recordingHeldExecutionStore) Remove(_ context.Context, approvalRequestID string) error {
+	s.removeCalls++
+	delete(s.held, approvalRequestID)
 	return nil
 }
 

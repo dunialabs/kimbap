@@ -52,6 +52,25 @@ type ApprovalRecord struct {
 	Reason     string     `json:"reason,omitempty"`
 }
 
+type WebhookSubscriptionRecord struct {
+	ID         string    `json:"id"`
+	TenantID   string    `json:"tenant_id"`
+	URL        string    `json:"url"`
+	Secret     string    `json:"secret,omitempty"`
+	EventsJSON string    `json:"events_json"`
+	Active     bool      `json:"active"`
+	CreatedAt  time.Time `json:"created_at"`
+	UpdatedAt  time.Time `json:"updated_at"`
+}
+
+type WebhookEventRecord struct {
+	ID        string    `json:"id"`
+	TenantID  string    `json:"tenant_id"`
+	Type      string    `json:"type"`
+	Timestamp time.Time `json:"timestamp"`
+	DataJSON  string    `json:"data_json"`
+}
+
 type AuditFilter struct {
 	TenantID  string
 	AgentName string

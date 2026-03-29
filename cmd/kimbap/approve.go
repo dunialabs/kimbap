@@ -11,6 +11,7 @@ import (
 
 	"github.com/dunialabs/kimbap/internal/config"
 	"github.com/dunialabs/kimbap/internal/store"
+	"github.com/dunialabs/kimbap/internal/webhooks"
 	"github.com/spf13/cobra"
 )
 
@@ -50,7 +51,19 @@ func newApproveListCommand() *cobra.Command {
 			err = withRuntimeStore(cfg, func(st *store.SQLStore) error {
 				s := approvalStatus(status)
 				if s == "" || s == "pending" {
-					if _, expErr := st.ExpirePendingApprovals(contextBackground()); expErr != nil {
+					dispatcher := webhooks.NewDispatcher()
+					configureWebhookDispatcherFromStore(contextBackground(), dispatcher, st)
+					if _, expErr := expirePendingApprovalsWithSideEffects(contextBackground(), st, approvalTenant(tenant), func(approval store.ApprovalRecord) {
+						dispatcher.EmitForTenant(approval.TenantID, webhooks.EventApprovalExpired, map[string]any{
+							"approval_id": approval.ID,
+							"tenant_id":   approval.TenantID,
+							"request_id":  approval.RequestID,
+							"agent_name":  approval.AgentName,
+							"service":     approval.Service,
+							"action":      approval.Action,
+							"status":      "expired",
+						})
+					}); expErr != nil {
 						_, _ = fmt.Fprintf(os.Stderr, "warning: approval expiry sweep failed: %v\n", expErr)
 					}
 				}
@@ -204,6 +217,9 @@ func runApproveAccept(requestID string) error {
 		return err
 	}
 	err = withRuntimeStore(cfg, func(st *store.SQLStore) error {
+		// Pre-read approval record for best-effort retry hint. Non-fatal if it fails.
+		rec, lookupErr := st.GetApproval(contextBackground(), requestID)
+
 		if err := st.UpdateApprovalStatus(contextBackground(), requestID, "approved", "cli", ""); err != nil {
 			if errors.Is(err, store.ErrApprovalExpired) {
 				_, _ = st.ExpireApproval(contextBackground(), requestID)
@@ -219,7 +235,9 @@ func runApproveAccept(requestID string) error {
 			})
 		}
 		_, _ = fmt.Fprintf(os.Stdout, successCheck()+" %s approved\n", requestID)
-		_, _ = fmt.Fprintln(os.Stdout, "Hint: Approval recorded.")
+		if lookupErr == nil && rec != nil && rec.Service != "" && rec.Action != "" {
+			_, _ = fmt.Fprintf(os.Stdout, "Retry: kimbap call %s.%s\n", rec.Service, rec.Action)
+		}
 		return nil
 	})
 	if err != nil {
@@ -267,7 +285,6 @@ func approvalTimeRemaining(expires time.Time) string {
 	m := int(remaining.Minutes()) % 60
 	return fmt.Sprintf("%dh%dm", h, m)
 }
-
 
 func approvalStatus(raw string) string {
 	return strings.TrimSpace(raw)

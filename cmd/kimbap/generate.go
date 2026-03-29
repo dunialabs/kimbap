@@ -282,12 +282,15 @@ func writeGeneratedOutput(content, outputPath, language string, totalActions int
 		return fmt.Errorf("write generated snippet: %w", err)
 	}
 
-	return printOutput(map[string]any{
-		"generated": true,
-		"language":  language,
-		"path":      outputPath,
-		"actions":   totalActions,
-	})
+	if outputAsJSON() {
+		return printOutput(map[string]any{
+			"generated": true,
+			"language":  language,
+			"path":      outputPath,
+			"actions":   totalActions,
+		})
+	}
+	return printOutput(fmt.Sprintf(successCheck()+" Generated %s (%d actions)", outputPath, totalActions))
 }
 
 func sortedNamespaces(grouped map[string][]actions.ActionDefinition) []string {

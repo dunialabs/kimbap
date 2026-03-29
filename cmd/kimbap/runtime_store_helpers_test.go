@@ -124,8 +124,11 @@ func TestApproveAcceptPrintsNextStep(t *testing.T) {
 	if !strings.Contains(output, "✓ "+approvalID+" approved") {
 		t.Fatalf("expected approval success line, got %q", output)
 	}
-	if !strings.Contains(output, "Hint: Approval recorded.") {
-		t.Fatalf("expected follow-up hint, got %q", output)
+	if !strings.Contains(output, "Retry: kimbap call github.issues.create") {
+		t.Fatalf("expected retry hint, got %q", output)
+	}
+	if strings.Contains(output, "Hint: Approval recorded.") {
+		t.Fatalf("expected old hint removed, got %q", output)
 	}
 }
 

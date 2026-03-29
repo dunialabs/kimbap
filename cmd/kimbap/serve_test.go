@@ -2,14 +2,21 @@ package main
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
+	"encoding/json"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/dunialabs/kimbap/internal/api"
+	"github.com/dunialabs/kimbap/internal/approvals"
 	"github.com/dunialabs/kimbap/internal/store"
+	"github.com/dunialabs/kimbap/internal/webhooks"
 )
 
 func TestBuildServeServerOptionsEnablesWebhookRoutes(t *testing.T) {
@@ -37,7 +44,7 @@ func TestBuildServeServerOptionsEnablesWebhookRoutes(t *testing.T) {
 		t.Fatalf("migrate sqlite store: %v", err)
 	}
 
-	withDispatcher := api.NewServer(":0", st, buildServeServerOptions(nil, nil, false)...)
+	withDispatcher := api.NewServer(":0", st, buildServeServerOptions(nil, nil, nil, false)...)
 	withTS := httptest.NewServer(withDispatcher.Router())
 	defer withTS.Close()
 
@@ -52,7 +59,7 @@ func TestBuildServeServerOptionsEnablesWebhookRoutes(t *testing.T) {
 }
 
 func TestBuildServeServerOptionsDisablesConsoleByDefault(t *testing.T) {
-	server := api.NewServer(":0", nil, buildServeServerOptions(nil, nil, false)...)
+	server := api.NewServer(":0", nil, buildServeServerOptions(nil, nil, nil, false)...)
 	ts := httptest.NewServer(server.Router())
 	defer ts.Close()
 
@@ -67,7 +74,7 @@ func TestBuildServeServerOptionsDisablesConsoleByDefault(t *testing.T) {
 }
 
 func TestBuildServeServerOptionsEnablesConsoleWhenRequested(t *testing.T) {
-	server := api.NewServer(":0", nil, buildServeServerOptions(nil, nil, true)...)
+	server := api.NewServer(":0", nil, buildServeServerOptions(nil, nil, nil, true)...)
 	ts := httptest.NewServer(server.Router())
 	defer ts.Close()
 
@@ -85,7 +92,7 @@ func TestBuildServeServerOptionsEnablesConsoleWhenRequested(t *testing.T) {
 }
 
 func TestBuildServeServerOptionsEnablesConsoleDeepLinkWithDot(t *testing.T) {
-	server := api.NewServer(":0", nil, buildServeServerOptions(nil, nil, true)...)
+	server := api.NewServer(":0", nil, buildServeServerOptions(nil, nil, nil, true)...)
 	ts := httptest.NewServer(server.Router())
 	defer ts.Close()
 
@@ -105,5 +112,153 @@ func TestBuildServeServerOptionsEnablesConsoleDeepLinkWithDot(t *testing.T) {
 	}
 	if contentType := resp.Header.Get("Content-Type"); !strings.Contains(contentType, "text/html") {
 		t.Fatalf("expected text/html content type for console deep link, got %q", contentType)
+	}
+}
+
+func TestBuildServeServerOptionsHydratesWebhookDataFromStore(t *testing.T) {
+	st, err := store.OpenSQLiteStore(filepath.Join(t.TempDir(), "serve-hydrate.sqlite"))
+	if err != nil {
+		t.Fatalf("open sqlite store: %v", err)
+	}
+	t.Cleanup(func() { _ = st.Close() })
+	if err := st.Migrate(context.Background()); err != nil {
+		t.Fatalf("migrate sqlite store: %v", err)
+	}
+
+	if err := st.UpsertWebhookSubscription(context.Background(), &store.WebhookSubscriptionRecord{
+		ID:         "wh_hydrated",
+		TenantID:   "tenant-a",
+		URL:        "https://example.com/hook",
+		Secret:     "secret",
+		EventsJSON: `[]`,
+		Active:     true,
+	}); err != nil {
+		t.Fatalf("upsert webhook subscription: %v", err)
+	}
+	if err := st.WriteWebhookEvent(context.Background(), &store.WebhookEventRecord{
+		ID:        "evt_hydrated",
+		TenantID:  "tenant-a",
+		Type:      "approval.expired",
+		Timestamp: time.Now().UTC(),
+		DataJSON:  `{"approval_id":"apr_1"}`,
+	}); err != nil {
+		t.Fatalf("write webhook event: %v", err)
+	}
+
+	rawToken := "ktk_hydrate_bootstrap"
+	if err := st.CreateToken(context.Background(), newBootstrapTokenRecordForServeTest("tenant-a", "bootstrap-agent", rawToken)); err != nil {
+		t.Fatalf("seed bootstrap token: %v", err)
+	}
+
+	dispatcher := webhooks.NewDispatcher()
+	configureWebhookDispatcherFromStore(context.Background(), dispatcher, st)
+	server := api.NewServer(":0", st, buildServeServerOptions(nil, nil, dispatcher, false)...)
+	ts := httptest.NewServer(server.Router())
+	defer ts.Close()
+
+	reqWebhooks, _ := http.NewRequest(http.MethodGet, ts.URL+"/v1/webhooks", nil)
+	reqWebhooks.Header.Set("Authorization", "Bearer "+rawToken)
+	respWebhooks, err := http.DefaultClient.Do(reqWebhooks)
+	if err != nil {
+		t.Fatalf("list webhooks request: %v", err)
+	}
+	defer respWebhooks.Body.Close()
+	if respWebhooks.StatusCode != http.StatusOK {
+		b, _ := io.ReadAll(respWebhooks.Body)
+		t.Fatalf("expected 200, got %d body=%s", respWebhooks.StatusCode, string(b))
+	}
+	var webhooksPayload map[string]any
+	if err := json.NewDecoder(respWebhooks.Body).Decode(&webhooksPayload); err != nil {
+		t.Fatalf("decode webhooks payload: %v", err)
+	}
+	data, _ := webhooksPayload["data"].(map[string]any)
+	items, _ := data["webhooks"].([]any)
+	if len(items) != 1 {
+		t.Fatalf("expected 1 hydrated webhook, got %d", len(items))
+	}
+
+	reqEvents, _ := http.NewRequest(http.MethodGet, ts.URL+"/v1/webhooks/events", nil)
+	reqEvents.Header.Set("Authorization", "Bearer "+rawToken)
+	respEvents, err := http.DefaultClient.Do(reqEvents)
+	if err != nil {
+		t.Fatalf("list webhook events request: %v", err)
+	}
+	defer respEvents.Body.Close()
+	if respEvents.StatusCode != http.StatusOK {
+		b, _ := io.ReadAll(respEvents.Body)
+		t.Fatalf("expected 200, got %d body=%s", respEvents.StatusCode, string(b))
+	}
+	var eventsPayload map[string]any
+	if err := json.NewDecoder(respEvents.Body).Decode(&eventsPayload); err != nil {
+		t.Fatalf("decode events payload: %v", err)
+	}
+	eventsData, _ := eventsPayload["data"].(map[string]any)
+	events, _ := eventsData["events"].([]any)
+	if len(events) != 1 {
+		t.Fatalf("expected 1 hydrated event, got %d", len(events))
+	}
+}
+
+func TestStoreApprovalStoreAdapterPreservesInputRoundTrip(t *testing.T) {
+	st, err := store.OpenSQLiteStore(filepath.Join(t.TempDir(), "serve-approval-adapter.sqlite"))
+	if err != nil {
+		t.Fatalf("open sqlite store: %v", err)
+	}
+	t.Cleanup(func() { _ = st.Close() })
+	if err := st.Migrate(context.Background()); err != nil {
+		t.Fatalf("migrate sqlite store: %v", err)
+	}
+
+	adapter := &storeApprovalStoreAdapter{st: st}
+	now := time.Now().UTC()
+	input := map[string]any{"title": "hello", "nested": map[string]any{"count": 1}}
+	if err := adapter.Create(context.Background(), &approvals.ApprovalRequest{
+		ID:        "apr_roundtrip",
+		TenantID:  "tenant-a",
+		RequestID: "req_roundtrip",
+		AgentName: "agent-a",
+		Service:   "github",
+		Action:    "issues.create",
+		Input:     input,
+		Status:    approvals.StatusPending,
+		CreatedAt: now,
+		ExpiresAt: now.Add(time.Hour),
+	}); err != nil {
+		t.Fatalf("create approval: %v", err)
+	}
+
+	got, err := adapter.Get(context.Background(), "apr_roundtrip")
+	if err != nil {
+		t.Fatalf("get approval: %v", err)
+	}
+	if got.Input == nil || got.Input["title"] != "hello" {
+		t.Fatalf("expected input payload to round-trip, got %+v", got.Input)
+	}
+	items, err := adapter.ListPending(context.Background(), "tenant-a")
+	if err != nil {
+		t.Fatalf("list pending approvals: %v", err)
+	}
+	if len(items) != 1 {
+		t.Fatalf("expected 1 item, got %d", len(items))
+	}
+	if items[0].Input == nil || items[0].Input["title"] != "hello" {
+		t.Fatalf("expected list input payload to round-trip, got %+v", items[0].Input)
+	}
+}
+
+func newBootstrapTokenRecordForServeTest(tenantID string, agentName string, rawToken string) *store.TokenRecord {
+	now := time.Now().UTC()
+	sum := sha256.Sum256([]byte(rawToken))
+	hintStart := max(len(rawToken)-4, 0)
+	return &store.TokenRecord{
+		ID:          "st_bootstrap_serve_test",
+		TenantID:    tenantID,
+		AgentName:   agentName,
+		TokenHash:   hex.EncodeToString(sum[:]),
+		DisplayHint: rawToken[hintStart:],
+		Scopes:      `["*"]`,
+		CreatedAt:   now,
+		ExpiresAt:   now.Add(24 * time.Hour),
+		CreatedBy:   "bootstrap",
 	}
 }

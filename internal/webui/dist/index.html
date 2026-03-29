@@ -884,7 +884,7 @@ td.mono {
         </div>
         <div class="card-sub" id="dashHealthSub"></div>
       </div>
-      <div class="card">
+      <div class="card" style="cursor:pointer" onclick="switchView('actions')" title="Browse installed actions">
         <div class="card-title">Installed Actions</div>
         <div class="card-value" id="dashActions">
           <div class="spinner" style="width:20px;height:20px"></div>
@@ -1185,7 +1185,7 @@ td.mono {
       '<div class="auth-gate-icon">🔒</div>' +
       '<h2>Sign in to continue</h2>' +
       '<p>Enter a kimbap access token to open this view.<br>' +
-      'Create one with <code>kimbap token create</code>, then paste it here.</p>' +
+      'Create one with <code>kimbap token create --agent console</code>, then paste it here.</p>' +
       '<div class="token-input-group">' +
         '<input class="token-input" type="password" id="' + inputId + '" placeholder="ktk_..." autocomplete="off" />' +
         '<button class="connect-btn" onclick="saveToken(\'' + inputId + '\')">Save token</button>' +
@@ -1438,6 +1438,26 @@ td.mono {
     });
   };
 
+  function buildCopyCmd(name, inputSchema) {
+    if (!inputSchema) { return 'kimbap call ' + name; }
+    var requiredKeys = getField(inputSchema, 'Required', 'required') || [];
+    var properties = getField(inputSchema, 'Properties', 'properties') || {};
+    if (!requiredKeys.length) { return 'kimbap call ' + name; }
+    var hasComplex = false;
+    for (var i = 0; i < requiredKeys.length; i++) {
+      var prop = properties[requiredKeys[i]];
+      var t = prop ? (getField(prop, 'Type', 'type') || '') : '';
+      if (t === 'object' || t === 'array') { hasComplex = true; break; }
+    }
+    if (hasComplex) { return 'kimbap call ' + name + ' --json @payload.json'; }
+    var parts = ['kimbap call', name];
+    for (var j = 0; j < requiredKeys.length; j++) {
+      parts.push('--' + requiredKeys[j]);
+      parts.push('"REQUIRED"');
+    }
+    return parts.join(' ');
+  }
+
   function renderActionDetail(a) {
     var detailEl = document.getElementById('actionDetail');
     var name = getField(a, 'Name', 'name') || 'unnamed';
@@ -1466,7 +1486,7 @@ td.mono {
     var html = '<div class="action-detail">' +
       '<div class="action-detail-header">' +
         '<h3>' + esc(name) + '</h3>' +
-        '<button class="copy-cmd-btn" onclick="copyCmd(this,&apos;kimbap call ' + escAttr(name) + '&apos;)">Copy command</button> ' +
+        '<button class="copy-cmd-btn" onclick="copyCmd(this,&apos;' + escAttr(buildCopyCmd(name, inputSchema)) + '&apos;)">Copy command</button> ' +
         '<button class="back-btn" onclick="hideActionDetail()">← Back to actions</button>' +
       '</div>' +
       (displayName && displayName.trim().toLowerCase() !== rawDesc.trim().toLowerCase() && displayName.trim().toLowerCase() !== name.trim().toLowerCase() ? '<p style="color:var(--text-secondary);margin-bottom:var(--space-md)">' + esc(displayName) + '</p>' : '') +
@@ -1641,6 +1661,28 @@ td.mono {
     });
   }
 
+  var sensitiveKeys = /token|secret|password|api[_-]?key|access[_-]?key|private|credential|auth/i;
+
+  function approvalInputSummary(inputJSON) {
+    if (!inputJSON) { return ''; }
+    var parsed;
+    try { parsed = JSON.parse(inputJSON); } catch(e) { return ''; }
+    if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) { return ''; }
+    var pairs = [];
+    for (var k in parsed) {
+      if (!parsed.hasOwnProperty(k)) { continue; }
+      if (sensitiveKeys.test(k)) { continue; }
+      var v = parsed[k];
+      var vs = typeof v === 'string' ? v : JSON.stringify(v);
+      if (vs.length > 30) { vs = vs.substring(0, 27) + '...'; }
+      pairs.push(k + '=' + vs);
+    }
+    if (!pairs.length) { return ''; }
+    var summary = pairs.slice(0, 4).join(', ');
+    if (pairs.length > 4) { summary += ', ...'; }
+    return summary;
+  }
+
   function renderApprovalsTable(items, container) {
     var html = '<div class="table-wrap"><table>' +
       '<thead><tr>' +
@@ -1663,10 +1705,14 @@ td.mono {
       var status = getField(item, 'Status', 'status') || 'pending';
       var created = getField(item, 'CreatedAt', 'created_at') || '';
       var expires = getField(item, 'ExpiresAt', 'expires_at') || '';
+      var inputJSON = getField(item, 'InputJSON', 'input_json') || '';
+      var inputSummary = approvalInputSummary(inputJSON);
       var busy = !!state.approvalsBusy[id];
       html += '<tr>' +
         '<td class="mono">' + esc(id || '—') + '</td>' +
-        '<td class="mono" style="color:var(--text-primary)">' + esc(actionFull) + '</td>' +
+        '<td class="mono" style="color:var(--text-primary)">' + esc(actionFull) +
+          (inputSummary ? '<br><span style="font-size:11px;color:var(--text-muted);font-weight:normal">' + esc(inputSummary) + '</span>' : '') +
+        '</td>' +
         '<td>' + esc(agent) + '</td>' +
         '<td>' + approvalStatusBadge(status) + '</td>' +
         '<td class="mono">' + esc(fmtTime(created)) + '</td>' +

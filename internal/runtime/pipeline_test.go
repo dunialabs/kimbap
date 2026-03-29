@@ -196,6 +196,34 @@ func TestRuntimeExecuteSuccess(t *testing.T) {
 	}
 }
 
+func TestRuntimeExecuteAuditIncludesInputPayload(t *testing.T) {
+	audit := &mockAuditWriter{}
+	rt := Runtime{
+		AuditWriter: audit,
+		Adapters: map[string]adapters.Adapter{
+			"http": mockAdapter{kind: "http", result: &adapters.AdapterResult{Output: map[string]any{"ok": true}, HTTPStatus: 200}},
+		},
+	}
+
+	req := baseRequest(actions.ActionDefinition{
+		Name:        "github.issues.create",
+		InputSchema: &actions.Schema{Type: "object", Properties: map[string]*actions.Schema{"title": {Type: "string"}}},
+		Adapter:     actions.AdapterConfig{Type: "http", URLTemplate: "https://example.com"},
+	})
+	req.Input = map[string]any{"title": "hello"}
+
+	res := rt.Execute(context.Background(), req)
+	if res.Status != actions.StatusSuccess {
+		t.Fatalf("expected success, got %s", res.Status)
+	}
+	if len(audit.events) != 1 {
+		t.Fatalf("expected one audit event, got %d", len(audit.events))
+	}
+	if audit.events[0].Input == nil || audit.events[0].Input["title"] != "hello" {
+		t.Fatalf("expected input payload in audit event, got %+v", audit.events[0].Input)
+	}
+}
+
 func TestRuntimeExecuteRoutesAppleScriptAdapter(t *testing.T) {
 	rt := Runtime{
 		Adapters: map[string]adapters.Adapter{
