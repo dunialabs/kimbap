@@ -115,10 +115,10 @@ func newAuditExportCommand() *cobra.Command {
 		Short: "Export audit events",
 		RunE: func(_ *cobra.Command, _ []string) error {
 			if strings.TrimSpace(from) == "" {
-				return fmt.Errorf("--from is required")
+				return fmt.Errorf("--from is required\nRun: kimbap audit export --from <date> --to <date>")
 			}
 			if strings.TrimSpace(to) == "" {
-				return fmt.Errorf("--to is required")
+				return fmt.Errorf("--to is required\nRun: kimbap audit export --from %s --to <date>", strings.TrimSpace(from))
 			}
 
 			fromTime, err := parseAuditTime(from)

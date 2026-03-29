@@ -30,7 +30,7 @@ func newPolicySetCommand() *cobra.Command {
 		Short: "Load active policy from YAML file",
 		RunE: func(_ *cobra.Command, _ []string) error {
 			if strings.TrimSpace(filePath) == "" {
-				return fmt.Errorf("--file is required")
+				return fmt.Errorf("--file is required\nRun: kimbap policy set --file <path>")
 			}
 
 			cfg, err := loadAppConfig()
@@ -98,10 +98,10 @@ func newPolicyEvalCommand() *cobra.Command {
 		Short: "Dry-run policy evaluation",
 		RunE: func(_ *cobra.Command, _ []string) error {
 			if strings.TrimSpace(agent) == "" {
-				return fmt.Errorf("--agent is required")
+				return fmt.Errorf("--agent is required\nRun: kimbap policy eval --agent <name> --action <service.action>")
 			}
 			if strings.TrimSpace(action) == "" {
-				return fmt.Errorf("--action is required")
+				return fmt.Errorf("--action is required\nRun: kimbap policy eval --agent %s --action <service.action>", strings.TrimSpace(agent))
 			}
 
 			cfg, err := loadAppConfigReadOnly()
