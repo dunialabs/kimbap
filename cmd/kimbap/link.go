@@ -5,6 +5,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io"
 	"os"
 	"sort"
 	"strings"
@@ -289,13 +290,14 @@ func newLinkListCommand() *cobra.Command {
 				"CREDENTIAL_REF",
 				"CONNECTOR",
 			)
+			useColor := isColorWriter(c.OutOrStdout())
 			for _, row := range rows {
 				_, _ = fmt.Fprintf(
 					c.OutOrStdout(),
-					"%-18s %-10s %-14s %-24s %s\n",
+					"%-18s %-10s %s %-24s %s\n",
 					row.Service,
 					row.AuthType,
-					row.Status,
+					linkColorStatus(row.Status, 14, useColor),
 					linkDefaultDash(row.CredentialRef),
 					linkDefaultDash(row.Connector),
 				)
@@ -658,6 +660,34 @@ func linkAuthTypeToSecretType(authType actions.AuthType) vault.SecretType {
 	default:
 		return vault.SecretTypeAPIKey
 	}
+}
+
+func isColorWriter(w io.Writer) bool {
+	if v, ok := os.LookupEnv("NO_COLOR"); ok && v != "" {
+		return false
+	}
+	f, ok := w.(*os.File)
+	if !ok {
+		return false
+	}
+	return term.IsTerminal(int(f.Fd()))
+}
+
+func linkColorStatus(status string, visibleWidth int, useColor bool) string {
+	padded := fmt.Sprintf("%-*s", visibleWidth, status)
+	if !useColor {
+		return padded
+	}
+	var prefix string
+	switch status {
+	case "connected":
+		prefix = "[32m"
+	case "not_connected":
+		prefix = "[31m"
+	default:
+		prefix = "[33m"
+	}
+	return prefix + padded + "[0m"
 }
 
 func linkDefaultDash(v string) string {
