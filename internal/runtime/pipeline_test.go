@@ -70,12 +70,23 @@ func (m *mockAuditWriter) Write(ctx context.Context, event AuditEvent) error {
 }
 
 type mockApprovalManager struct {
-	result *ApprovalResult
-	err    error
+	result              *ApprovalResult
+	err                 error
+	cancelErr           error
+	cancelCalls         int
+	lastCancelledID     string
+	lastCancelledReason string
 }
 
-func (m mockApprovalManager) CreateRequest(ctx context.Context, req ApprovalRequest) (*ApprovalResult, error) {
+func (m *mockApprovalManager) CreateRequest(ctx context.Context, req ApprovalRequest) (*ApprovalResult, error) {
 	return m.result, m.err
+}
+
+func (m *mockApprovalManager) CancelRequest(ctx context.Context, approvalRequestID string, reason string) error {
+	m.cancelCalls++
+	m.lastCancelledID = approvalRequestID
+	m.lastCancelledReason = reason
+	return m.cancelErr
 }
 
 type mockPrincipalVerifier struct {
@@ -227,7 +238,7 @@ func TestRuntimeExecutePolicyDenial(t *testing.T) {
 func TestRuntimeExecuteApprovalRequired(t *testing.T) {
 	rt := Runtime{
 		PolicyEvaluator:    mockPolicyEvaluator{decision: &PolicyDecision{Decision: "require_approval"}},
-		ApprovalManager:    mockApprovalManager{result: &ApprovalResult{Approved: false, RequestID: "apr-1"}},
+		ApprovalManager:    &mockApprovalManager{result: &ApprovalResult{Approved: false, RequestID: "apr-1"}},
 		HeldExecutionStore: &mockHeldExecutionStore{held: map[string]actions.ExecutionRequest{}},
 		Adapters:           map[string]adapters.Adapter{"http": mockAdapter{kind: "http"}},
 	}
@@ -248,7 +259,7 @@ func TestRuntimeExecuteApprovalRequired(t *testing.T) {
 func TestRuntimeExecuteApprovalRequiredNoHeldStore(t *testing.T) {
 	rt := Runtime{
 		PolicyEvaluator: mockPolicyEvaluator{decision: &PolicyDecision{Decision: "require_approval"}},
-		ApprovalManager: mockApprovalManager{result: &ApprovalResult{Approved: false, RequestID: "apr-1"}},
+		ApprovalManager: &mockApprovalManager{result: &ApprovalResult{Approved: false, RequestID: "apr-1"}},
 		Adapters:        map[string]adapters.Adapter{"http": mockAdapter{kind: "http"}},
 	}
 
@@ -476,7 +487,7 @@ func TestRuntimeExecuteAuditRequiredFailClosed(t *testing.T) {
 func TestRuntimeApprovalHoldAndResume(t *testing.T) {
 	store := &mockHeldExecutionStore{held: map[string]actions.ExecutionRequest{}}
 	rt := Runtime{
-		ApprovalManager:    mockApprovalManager{result: &ApprovalResult{Approved: false, RequestID: "apr-42"}},
+		ApprovalManager:    &mockApprovalManager{result: &ApprovalResult{Approved: false, RequestID: "apr-42"}},
 		HeldExecutionStore: store,
 		Adapters: map[string]adapters.Adapter{
 			"http": mockAdapter{kind: "http", result: &adapters.AdapterResult{Output: map[string]any{"resumed": true}, HTTPStatus: 200}},
