@@ -117,6 +117,11 @@ func init() {
 		cmd.GroupID = groupID
 		rootCmd.AddCommand(cmd)
 	}
+	addGroupedHidden := func(cmd *cobra.Command, groupID string) {
+		cmd.GroupID = groupID
+		cmd.Hidden = true
+		rootCmd.AddCommand(cmd)
+	}
 
 	// Core — day-to-day workflow
 	addGrouped(newCallCommand(), "core")
@@ -132,7 +137,9 @@ func init() {
 	// Management — credentials, policy, diagnostics
 	addGrouped(newVaultCommand(), "management")
 	addGrouped(newPolicyCommand(), "management")
+	addGroupedHidden(newCheckCommand(), "management")
 	addGrouped(newDoctorCommand(), "management")
+	addGrouped(newStatusCommand(), "management")
 	addGrouped(newAuthCommand(), "management")
 
 	// Advanced — specialized integration modes

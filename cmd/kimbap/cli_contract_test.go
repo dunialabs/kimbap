@@ -9,7 +9,7 @@ import (
 func TestRootCommandIncludesCoreFamilies(t *testing.T) {
 	expected := []string{
 		"call", "actions", "search", "vault", "token", "policy",
-		"doctor", "init", "service", "connector", "auth", "link",
+		"check", "doctor", "status", "init", "service", "connector", "auth", "link",
 		"approve", "audit", "run", "daemon", "profile", "agents",
 		"alias", "completion",
 	}
