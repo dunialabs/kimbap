@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"os"
 	"strings"
-	"time"
 
 	"github.com/dunialabs/kimbap/internal/connectors"
 	"github.com/spf13/cobra"
@@ -262,13 +261,13 @@ func newAuthStatusCommand() *cobra.Command {
 					_, _ = fmt.Fprintln(os.Stdout, "Last refresh result: success")
 				}
 				if state.LastRefresh != nil {
-					_, _ = fmt.Fprintf(os.Stdout, "Last refresh:        %s\n", state.LastRefresh.Format(time.RFC3339))
+					_, _ = fmt.Fprintf(os.Stdout, "Last refresh:        %s\n", state.LastRefresh.Format("2006-01-02 15:04"))
 				}
 				if state.LastUsedAt != nil {
-					_, _ = fmt.Fprintf(os.Stdout, "Last used:           %s\n", state.LastUsedAt.Format(time.RFC3339))
+					_, _ = fmt.Fprintf(os.Stdout, "Last used:           %s\n", state.LastUsedAt.Format("2006-01-02 15:04"))
 				}
 				if state.RevokedAt != nil {
-					_, _ = fmt.Fprintf(os.Stdout, "Revocation state:    revoked at %s\n", state.RevokedAt.Format(time.RFC3339))
+					_, _ = fmt.Fprintf(os.Stdout, "Revocation state:    revoked at %s\n", state.RevokedAt.Format("2006-01-02 15:04"))
 				} else {
 					_, _ = fmt.Fprintln(os.Stdout, "Revocation state:    active")
 				}

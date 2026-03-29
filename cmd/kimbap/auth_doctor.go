@@ -172,11 +172,11 @@ func checkAuthTokenState(cfg *config.KimbapConfig, tenantID, providerID, profile
 	expiry := doctorCheck{Name: "token expiry status", Status: "ok", Detail: "token expiry not recorded"}
 	if state.ExpiresAt != nil {
 		if time.Now().After(*state.ExpiresAt) {
-			expiry = doctorCheck{Name: "token expiry status", Status: "fail", Detail: fmt.Sprintf("token expired at %s", state.ExpiresAt.Format(time.RFC3339))}
+			expiry = doctorCheck{Name: "token expiry status", Status: "fail", Detail: fmt.Sprintf("token expired at %s", state.ExpiresAt.Format("2006-01-02 15:04"))}
 		} else if time.Until(*state.ExpiresAt) <= 10*time.Minute {
-			expiry = doctorCheck{Name: "token expiry status", Status: "warn", Detail: fmt.Sprintf("token expires soon at %s", state.ExpiresAt.Format(time.RFC3339))}
+			expiry = doctorCheck{Name: "token expiry status", Status: "warn", Detail: fmt.Sprintf("token expires soon at %s", state.ExpiresAt.Format("2006-01-02 15:04"))}
 		} else {
-			expiry = doctorCheck{Name: "token expiry status", Status: "ok", Detail: fmt.Sprintf("token valid until %s", state.ExpiresAt.Format(time.RFC3339))}
+			expiry = doctorCheck{Name: "token expiry status", Status: "ok", Detail: fmt.Sprintf("token valid until %s", state.ExpiresAt.Format("2006-01-02 15:04"))}
 		}
 	}
 
@@ -184,7 +184,7 @@ func checkAuthTokenState(cfg *config.KimbapConfig, tenantID, providerID, profile
 	if strings.TrimSpace(state.LastRefreshError) != "" {
 		refreshAvailability = doctorCheck{Name: "refresh health", Status: "fail", Detail: fmt.Sprintf("last refresh failed: %s", state.LastRefreshError)}
 	} else if state.LastRefresh != nil {
-		refreshAvailability = doctorCheck{Name: "refresh health", Status: "ok", Detail: fmt.Sprintf("last refresh at %s", state.LastRefresh.Format(time.RFC3339))}
+		refreshAvailability = doctorCheck{Name: "refresh health", Status: "ok", Detail: fmt.Sprintf("last refresh at %s", state.LastRefresh.Format("2006-01-02 15:04"))}
 	}
 	if cs == connectors.StatusReconnectRequired || cs == connectors.StatusRevoked || cs == connectors.StatusRefreshFailed {
 		refreshAvailability = doctorCheck{Name: "refresh health", Status: "fail", Detail: "connection requires reauthentication"}
