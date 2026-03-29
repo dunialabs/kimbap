@@ -739,8 +739,16 @@ func renderInitSummary(configPath string, checks []doctorCheck) string {
 	b := strings.Builder{}
 	b.WriteString("Kimbap initialization summary\n")
 	_, _ = fmt.Fprintf(&b, "  config: %s\n", configPath)
-	_, _ = fmt.Fprintf(&b, "  created: %d  skipped: %d  warnings: %d  failed: %d\n\n", created, skipped, warnings, failed)
 	useColor := isColorStdout()
+	warnStr := fmt.Sprintf("%d", warnings)
+	failStr := fmt.Sprintf("%d", failed)
+	if useColor && warnings > 0 {
+		warnStr = "\x1b[33m" + warnStr + "\x1b[0m"
+	}
+	if useColor && failed > 0 {
+		failStr = "\x1b[31m" + failStr + "\x1b[0m"
+	}
+	_, _ = fmt.Fprintf(&b, "  created: %d  skipped: %d  warnings: %s  failed: %s\n\n", created, skipped, warnStr, failStr)
 	for _, c := range checks {
 		icon := "✓"
 		switch c.Status {
