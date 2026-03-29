@@ -455,11 +455,7 @@ func hasRequiredSchemaProperties(schema *actions.Schema) bool {
 
 var runVerificationAction = defaultRunVerificationAction
 
-var (
-	linkInitVaultStore     = initVaultStore
-	linkReadPassword       = term.ReadPassword
-	linkIsInteractiveStdin = isInteractiveStdin
-)
+var linkInitVaultStore = initVaultStore
 
 func defaultRunVerificationAction(ctx context.Context, cfg *config.KimbapConfig, action *actions.ActionDefinition, tenantID string) string {
 	verifyCtx, cancel := context.WithTimeout(ctx, 10*time.Second)
@@ -577,9 +573,9 @@ func linkHandleKeyBasedService(cfg *config.KimbapConfig, info linkServiceInfo, s
 		authLabel = "a credential"
 	}
 
-	if linkIsInteractiveStdin() {
+	if isInteractiveStdin() {
 		_, _ = fmt.Fprintf(os.Stderr, "Enter %s for %s: ", authLabel, info.Service)
-		credential, readErr := linkReadPassword(int(os.Stdin.Fd()))
+		credential, readErr := term.ReadPassword(int(os.Stdin.Fd()))
 		if readErr != nil {
 			return fmt.Errorf("read credential: %w", readErr)
 		}

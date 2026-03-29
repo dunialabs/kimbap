@@ -17,7 +17,6 @@ import (
 	"time"
 
 	"github.com/dunialabs/kimbap/internal/agents"
-	"github.com/dunialabs/kimbap/internal/config"
 	"github.com/dunialabs/kimbap/internal/registry"
 	"github.com/dunialabs/kimbap/internal/services"
 	"github.com/dunialabs/kimbap/skills"
@@ -81,14 +80,14 @@ func newServiceInstallCommand() *cobra.Command {
 				return err
 			}
 			if outputAsJSON() {
-				maybePrintAgentSyncHint(cfg, opts.format)
+				maybePrintAgentSyncHint(opts.format)
 				return printOutput(installed)
 			}
 			status := "enabled"
 			if !installed.Enabled {
 				status = "disabled"
 			}
-			maybePrintAgentSyncHint(cfg, opts.format)
+			maybePrintAgentSyncHint(opts.format)
 			return printOutput(fmt.Sprintf("✓ %s (%s) installed [%s]", installed.Manifest.Name, installed.Manifest.Version, status))
 		},
 	}
@@ -182,10 +181,10 @@ func newServiceEnableCommand() *cobra.Command {
 				return err
 			}
 			if outputAsJSON() {
-				maybePrintAgentSyncHint(cfg, opts.format)
+				maybePrintAgentSyncHint(opts.format)
 				return printOutput(map[string]any{"enabled": true, "name": name})
 			}
-			maybePrintAgentSyncHint(cfg, opts.format)
+			maybePrintAgentSyncHint(opts.format)
 			return printOutput(fmt.Sprintf("✓ %s enabled", name))
 		},
 	}
@@ -219,10 +218,10 @@ func newServiceDisableCommand() *cobra.Command {
 				return err
 			}
 			if outputAsJSON() {
-				maybePrintAgentSyncHint(cfg, opts.format)
+				maybePrintAgentSyncHint(opts.format)
 				return printOutput(map[string]any{"enabled": false, "name": name})
 			}
-			maybePrintAgentSyncHint(cfg, opts.format)
+			maybePrintAgentSyncHint(opts.format)
 			return printOutput(fmt.Sprintf("✓ %s disabled", name))
 		},
 	}
@@ -256,10 +255,10 @@ func newServiceRemoveCommand() *cobra.Command {
 				return err
 			}
 			if outputAsJSON() {
-				maybePrintAgentSyncHint(cfg, opts.format)
+				maybePrintAgentSyncHint(opts.format)
 				return printOutput(map[string]any{"removed": true, "name": name})
 			}
-			maybePrintAgentSyncHint(cfg, opts.format)
+			maybePrintAgentSyncHint(opts.format)
 			return printOutput(fmt.Sprintf("✓ %s removed", name))
 		},
 	}
@@ -300,7 +299,7 @@ func newServiceUpdateCommand() *cobra.Command {
 
 			if !force && strings.TrimSpace(manifest.Version) == strings.TrimSpace(installed.Manifest.Version) {
 				if outputAsJSON() {
-					maybePrintAgentSyncHint(cfg, opts.format)
+					maybePrintAgentSyncHint(opts.format)
 					return printOutput(map[string]any{
 						"updated": false,
 						"name":    installed.Manifest.Name,
@@ -309,7 +308,7 @@ func newServiceUpdateCommand() *cobra.Command {
 						"message": "already up to date (use --force to reinstall)",
 					})
 				}
-				maybePrintAgentSyncHint(cfg, opts.format)
+				maybePrintAgentSyncHint(opts.format)
 				return printOutput(fmt.Sprintf("✓ %s (%s) already up to date", installed.Manifest.Name, installed.Manifest.Version))
 			}
 
@@ -319,7 +318,7 @@ func newServiceUpdateCommand() *cobra.Command {
 			}
 
 			if outputAsJSON() {
-				maybePrintAgentSyncHint(cfg, opts.format)
+				maybePrintAgentSyncHint(opts.format)
 				return printOutput(map[string]any{
 					"updated": true,
 					"name":    updated.Manifest.Name,
@@ -327,7 +326,7 @@ func newServiceUpdateCommand() *cobra.Command {
 					"source":  updated.Source,
 				})
 			}
-			maybePrintAgentSyncHint(cfg, opts.format)
+			maybePrintAgentSyncHint(opts.format)
 			return printOutput(fmt.Sprintf("✓ %s updated to %s", updated.Manifest.Name, updated.Manifest.Version))
 		},
 	}
@@ -964,8 +963,7 @@ func parseServiceManifestURL(serviceURL string) (*services.ServiceManifest, erro
 	return manifest, nil
 }
 
-func maybePrintAgentSyncHint(cfg *config.KimbapConfig, format string) {
-	_ = cfg
+func maybePrintAgentSyncHint(format string) {
 	if strings.EqualFold(strings.TrimSpace(format), "json") {
 		return
 	}
