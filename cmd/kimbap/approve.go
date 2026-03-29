@@ -137,7 +137,7 @@ func newApproveListCommand() *cobra.Command {
 		},
 	}
 	cmd.Flags().StringVar(&tenant, "tenant", "", "tenant id")
-	cmd.Flags().StringVar(&status, "status", "pending", "approval status filter")
+	cmd.Flags().StringVar(&status, "status", "pending", "approval status filter (pending|approved|denied|expired)")
 	return cmd
 }
 

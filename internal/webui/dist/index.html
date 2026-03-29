@@ -1332,7 +1332,7 @@ td.mono {
       'Create one with <code>kimbap token create --agent console</code>, then paste it here.</p>' +
       '<form class="token-input-group" novalidate onsubmit="return saveToken(\'' + inputId + '\')">' +
         '<label class="sr-only" for="' + inputId + '">Access token</label>' +
-        '<input class="token-input" type="password" id="' + inputId + '" placeholder="ktk_..." aria-label="Access token" aria-describedby="' + errorId + '" oninput="clearTokenError(\'' + inputId + '\')" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" required' + invalidAttr + ' />' +
+        '<input class="token-input" type="password" id="' + inputId + '" placeholder="ktk_..." aria-label="Access token" aria-required="true" aria-describedby="' + errorId + '" oninput="clearTokenError(\'' + inputId + '\')" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" required' + invalidAttr + ' />' +
         '<button type="submit" class="connect-btn">Save token</button>' +
       '</form>' +
       '<div id="' + errorId + '" class="token-error" aria-live="polite">' + esc(errorMsg) + '</div>' +
@@ -1939,9 +1939,9 @@ td.mono {
         '<td class="mono">' + esc(fmtTime(created)) + '</td>' +
         '<td class="mono">' + esc(fmtTime(expires)) + '</td>' +
         '<td class="mono">' + esc(fmtTimeRemaining(expires)) + '</td>' +
-        '<td><div class="row-actions">' +
-          '<button type="button" class="mini-btn approve" aria-label="' + escAttr(approveAria) + '" ' + (busy ? 'disabled ' : '') + 'onclick="resolveApproval(\'' + escAttr(id) + '\',\'approve\')">' + approveLabel + '</button>' +
-          '<button type="button" class="mini-btn deny" aria-label="' + escAttr(denyAria) + '" ' + (busy ? 'disabled ' : '') + 'onclick="resolveApproval(\'' + escAttr(id) + '\',\'deny\')">' + denyLabel + '</button>' +
+        '<td><div class="row-actions" aria-busy="' + (busy ? 'true' : 'false') + '">' +
+          '<button type="button" class="mini-btn approve" aria-label="' + escAttr(approveAria) + '" title="' + escAttr(approveAria) + '" ' + (busy ? 'disabled ' : '') + 'onclick="resolveApproval(\'' + escAttr(id) + '\',\'approve\')">' + approveLabel + '</button>' +
+          '<button type="button" class="mini-btn deny" aria-label="' + escAttr(denyAria) + '" title="' + escAttr(denyAria) + '" ' + (busy ? 'disabled ' : '') + 'onclick="resolveApproval(\'' + escAttr(id) + '\',\'deny\')">' + denyLabel + '</button>' +
         '</div></td>' +
       '</tr>';
     });
