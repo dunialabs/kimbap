@@ -927,6 +927,10 @@ td.mono {
       <h1>Audit</h1>
       <p>Recent execution history for this runtime</p>
     </div>
+    <div class="search-wrap" style="margin-bottom:var(--space-md)">
+      <span class="search-icon">⌕</span>
+      <input class="search-input" type="text" id="auditSearch" placeholder="Filter by action, agent or status" autocomplete="off" />
+    </div>
     <div id="auditContent">
       <div class="loading"><div class="spinner"></div></div>
     </div>
@@ -1365,6 +1369,11 @@ td.mono {
     if (state.actions) renderActionList(state.actions);
   });
 
+  document.getElementById('auditSearch').addEventListener('input', function() {
+    var container = document.getElementById('auditContent');
+    if (state.auditItems) renderAuditTable(state.auditItems, container);
+  });
+
   window.showActionDetail = function(name) {
     var parts = name.split('.');
     if (parts.length < 2) {
@@ -1510,6 +1519,7 @@ td.mono {
           '<p>Run an action to see it in this log.</p></div>';
         return;
       }
+      state.auditItems = items;
       renderAuditTable(items, container);
     }).catch(function() {
       container.innerHTML = errorBannerHTML('Couldn't reach the server. Make sure kimbap serve is running on port 8080.');
@@ -1517,6 +1527,17 @@ td.mono {
   }
 
   function renderAuditTable(items, container) {
+    var filter = (document.getElementById('auditSearch') ? document.getElementById('auditSearch').value || '' : '').toLowerCase();
+    if (filter) {
+      items = items.filter(function(ev) {
+        var svc = ev.service || ev.Service || '';
+        var act = ev.action || ev.Action || '';
+        var actionFull = (svc + '.' + act).toLowerCase();
+        var agent = (ev.agent_name || ev.AgentName || '').toLowerCase();
+        var status = (ev.status || ev.Status || '').toLowerCase();
+        return actionFull.indexOf(filter) !== -1 || agent.indexOf(filter) !== -1 || status.indexOf(filter) !== -1;
+      });
+    }
     var html = '<div class="table-wrap"><table>' +
       '<thead><tr>' +
         '<th>Timestamp</th>' +
