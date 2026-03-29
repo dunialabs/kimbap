@@ -61,12 +61,40 @@ func newAuditTailCommand() *cobra.Command {
 				selected[i], selected[j] = selected[j], selected[i]
 			}
 
-			return printOutput(map[string]any{
-				"path":    cfg.Audit.Path,
-				"count":   len(selected),
-				"filters": map[string]any{"agent": strings.TrimSpace(agent), "service": strings.TrimSpace(service), "limit": limit},
-				"events":  selected,
-			})
+			if outputAsJSON() {
+				return printOutput(map[string]any{
+					"path":    cfg.Audit.Path,
+					"count":   len(selected),
+					"filters": map[string]any{"agent": strings.TrimSpace(agent), "service": strings.TrimSpace(service), "limit": limit},
+					"events":  selected,
+				})
+			}
+			if len(selected) == 0 {
+				fmt.Println("No audit events.")
+				return nil
+			}
+			useColor := isColorStdout()
+			for _, e := range selected {
+				statusStr := fmt.Sprintf("%-18s", string(e.Status))
+				if useColor {
+					switch e.Status {
+					case audit.AuditStatusSuccess:
+						statusStr = "[32m" + statusStr + "[0m"
+					case audit.AuditStatusApprovalRequired:
+						statusStr = "[33m" + statusStr + "[0m"
+					default:
+						statusStr = "[31m" + statusStr + "[0m"
+					}
+				}
+				fmt.Printf("%-34s %-14s %s %4dms  %s\n",
+					e.Service+"."+e.Action,
+					e.AgentName,
+					statusStr,
+					e.DurationMS,
+					e.Timestamp.Format("2006-01-02 15:04:05"),
+				)
+			}
+			return nil
 		},
 	}
 	cmd.Flags().StringVar(&agent, "agent", "", "filter by agent name")
