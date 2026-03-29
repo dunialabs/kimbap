@@ -139,7 +139,31 @@ func newPolicyEvalCommand() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			return printOutput(res)
+			if outputAsJSON() {
+				return printOutput(res)
+			}
+			decision := strings.ToUpper(string(res.Decision))
+			if res.Decision == "require_approval" {
+				decision = "REQUIRE APPROVAL"
+			}
+			if isColorStdout() {
+				switch res.Decision {
+				case "allow":
+					decision = "\x1b[32m" + decision + "\x1b[0m"
+				case "deny":
+					decision = "\x1b[31m" + decision + "\x1b[0m"
+				case "require_approval":
+					decision = "\x1b[33m" + decision + "\x1b[0m"
+				}
+			}
+			fmt.Printf("Decision:  %s\n", decision)
+			if strings.TrimSpace(res.Reason) != "" {
+				fmt.Printf("Reason:    %s\n", res.Reason)
+			}
+			if res.MatchedRule != nil && strings.TrimSpace(res.MatchedRule.ID) != "" {
+				fmt.Printf("Rule:      %s\n", res.MatchedRule.ID)
+			}
+			return nil
 		},
 	}
 	cmd.Flags().StringVar(&agent, "agent", "", "agent name")
