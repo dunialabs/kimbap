@@ -74,6 +74,7 @@ func newAuditTailCommand() *cobra.Command {
 				return nil
 			}
 			useColor := isColorStdout()
+			fmt.Printf("%-34s %-14s %-20s %7s  %s\n", "ACTION", "AGENT", "STATUS", "DURATION", "TIMESTAMP")
 			for _, e := range selected {
 				statusStr := fmt.Sprintf("%-18s", string(e.Status))
 				if useColor {
