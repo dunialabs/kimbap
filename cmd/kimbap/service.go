@@ -443,8 +443,15 @@ func newServiceOutdatedCommand() *cobra.Command {
 			}
 
 			fmt.Printf("%-30s %-12s %-12s %s\n", "SERVICE", "INSTALLED", "LATEST", "SOURCE")
+			useColor := isColorStdout()
 			for _, e := range entries {
-				fmt.Printf("%-30s %-12s %-12s %s\n", e.Name, e.InstalledVersion, e.LatestVersion, e.Source)
+				instVer := fmt.Sprintf("%-12s", e.InstalledVersion)
+				latestVer := fmt.Sprintf("%-12s", e.LatestVersion)
+				if useColor {
+					instVer = "\x1b[33m" + instVer + "\x1b[0m"
+					latestVer = "\x1b[32m" + latestVer + "\x1b[0m"
+				}
+				fmt.Printf("%-30s %s %s %s\n", e.Name, instVer, latestVer, e.Source)
 			}
 			fmt.Printf("\nRun 'kimbap service update <name>' to update a service.\n")
 			return nil
