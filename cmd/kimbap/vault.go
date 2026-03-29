@@ -255,7 +255,7 @@ func newVaultDeleteCommand() *cobra.Command {
 			if !force {
 				_, _ = fmt.Fprintf(os.Stderr, "⚠  This will permanently delete secret %q and all its versions.\n", name)
 				_, _ = fmt.Fprintln(os.Stderr, "   Add --force to confirm deletion.")
-				return fmt.Errorf("--force is required to delete a secret")
+				return fmt.Errorf("--force is required to delete a secret\nRun: kimbap vault delete %s --force", name)
 			}
 
 			cfg, err := loadAppConfig()
