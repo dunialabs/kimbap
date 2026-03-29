@@ -15,29 +15,12 @@
 
 ---
 
-## How it works
-
-```
-agent → kimbap → policy → approval → credentials → execute → audit
-```
-
-Every action goes through the same pipeline. Credentials live in an encrypted vault and are injected at execution time. They never enter the agent process — not in env vars, not in prompts, not in logs.
-
-| Without kimbap | With kimbap |
-|---|---|
-| API keys passed via env vars — leak into logs and prompts | Encrypted vault injects credentials at execution time |
-| Every service has different auth | One manifest format for REST APIs, CLI tools, and macOS apps |
-| Agents run dangerous actions unchecked | Policies and approvals enforced on every action |
-| No record of what the agent did | Audit trail on every action, automatically |
-
----
-
 ## Try it now
 
 **1. Install**
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/dunialabs/kimbap/main/install.sh | bash
+curl -fsSL https://kimbap.sh/install.sh | bash
 ```
 
 Or with Homebrew: `brew install kimbap`
@@ -51,35 +34,12 @@ kimbap init --mode dev --services all
 **3. Call**
 
 ```bash
-# Send a Slack message
-kimbap call slack.send-message --channel general --text "deployed v2.1"
-
-# List Stripe charges
-kimbap call stripe.list-charges --limit 5
-
-# Search notes — no API key needed (macOS)
-kimbap call apple-notes.search-notes --query "meeting"
+kimbap call apple-notes.create-note \
+  --title "Meeting notes – Dec 15" \
+  --body "Design review done. API v2 ships Friday. Sprint planning Monday."
 ```
 
-Agent calls `kimbap call <service>.<action>`. That's it.
-
----
-
-## Add a service
-
-**1. Connect**
-
-```bash
-printf '%s' "$GITHUB_TOKEN" | kimbap link github --stdin
-```
-
-**2. Call**
-
-```bash
-kimbap call github.list-repos --sort updated
-```
-
-`kimbap link` works for both API keys (`--stdin`/`--file`) and OAuth services (Slack, Notion, Zoom, and more).
+Open Apple Notes. The note is there. No API key, no server — one command.
 
 ---
 
@@ -89,7 +49,9 @@ kimbap call github.list-repos --sort updated
 kimbap agents setup
 ```
 
-Auto-detects and configures Claude Code, OpenCode, Codex, Cursor, and any agent that can run a CLI command.
+Detects installed agents, generates SKILL.md per service, and installs them into each agent's config.
+
+Works with Claude Code, OpenCode, Codex, Cursor, and any agent that can run a CLI command.
 
 ---
 
@@ -153,6 +115,42 @@ One command for all of them: `kimbap call <service>.<action>`
 
 ---
 
+## How it works
+
+```
+call → policy → execute
+```
+
+Every action goes through the same pipeline. Policy is checked before execution. Credentials are injected at execution time — they never enter the agent process.
+
+| Without kimbap | With kimbap |
+|---|---|
+| Build an MCP server per service | One YAML manifest. No server needed |
+| API keys passed via env vars — leak into logs and prompts | Encrypted vault injects credentials at execution time |
+| Every service has different auth | One manifest format for REST APIs, CLI tools, and macOS apps |
+| Agents run dangerous actions unchecked | Policies and approvals enforced on every action |
+| No record of what the agent did | Audit trail on every action, automatically |
+
+---
+
+## Link a service
+
+**1. Connect**
+
+```bash
+printf '%s' "$GITHUB_TOKEN" | kimbap link github --stdin
+```
+
+**2. Call**
+
+```bash
+kimbap call github.list-repos --sort updated
+```
+
+`kimbap link` works for both API keys (`--stdin`/`--file`) and OAuth services (Slack, Notion, Zoom, and more).
+
+---
+
 ## Advanced
 
 ### Integration modes
@@ -166,12 +164,38 @@ One command for all of them: `kimbap call <service>.<action>`
 
 All modes share the same policy, credentials, and audit pipeline.
 
+### Execution modes
+
+Integration modes (call/run/proxy/serve) and execution modes (dev/embedded/connected) are independent axes:
+
+| | dev | embedded | connected |
+|---|---|---|---|
+| **call** | ✓ | ✓ | ✓ |
+| **run** | ✓ | ✓ | ✓ |
+| **proxy** | ✓ | ✓ | ✓ |
+| **serve** | ✓ | ✓ | ✓ |
+
+**Execution modes:**
+- `dev` — relaxed security, auto-generated vault key. For local development only.
+- `embedded` — policy-enforced, vault key from `KIMBAP_MASTER_KEY_HEX`. Default for production.
+- `connected` — delegates to a running `kimbap serve` instance over HTTP.
+
+For 95% of use cases: use `kimbap call` (integration) with `embedded` mode (execution).
+
 ### Production setup
 
 ```bash
 export KIMBAP_MASTER_KEY_HEX="$(openssl rand -hex 32)"
 kimbap init --services all
 ```
+
+### Web console
+
+```bash
+kimbap serve --console
+```
+
+Opens the operations console at `http://localhost:8080/console`. Shows audit logs, pending approvals, and service health. Disabled by default — enable with `--console` flag or `console.enabled: true` in config.
 
 ### Documentation
 
