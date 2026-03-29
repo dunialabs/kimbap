@@ -163,6 +163,22 @@ func TestApproveDenyMaterializesExpiredApproval(t *testing.T) {
 	}
 }
 
+func TestApproveDenyRequiresReasonWithNextStepHint(t *testing.T) {
+	cmd := newApproveDenyCommand()
+	cmd.SetArgs([]string{"apr-123"})
+
+	err := cmd.Execute()
+	if err == nil {
+		t.Fatal("expected deny command to require --reason")
+	}
+	if !strings.Contains(err.Error(), "--reason is required") {
+		t.Fatalf("expected required reason error, got %v", err)
+	}
+	if !strings.Contains(err.Error(), "Run: kimbap approve deny apr-123 --reason \"<why>\"") {
+		t.Fatalf("expected actionable next-step hint, got %v", err)
+	}
+}
+
 func TestRuntimeStoreSQLiteURIDoesNotCreateSchemeDirectoryOnMainAgain(t *testing.T) {
 	prevWD, err := os.Getwd()
 	if err != nil {

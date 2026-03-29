@@ -158,7 +158,7 @@ func newApproveDenyCommand() *cobra.Command {
 		Args:  cobra.ExactArgs(1),
 		RunE: func(_ *cobra.Command, args []string) error {
 			if strings.TrimSpace(reason) == "" {
-				return fmt.Errorf("--reason is required")
+				return fmt.Errorf("--reason is required\nRun: kimbap approve deny %s --reason \"<why>\"", args[0])
 			}
 
 			cfg, err := loadAppConfig()

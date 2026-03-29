@@ -6,6 +6,7 @@
 <title>Kimbap Console</title>
 <style>
 :root {
+  color-scheme: dark light;
   --bg-base: #0a0c10;
   --bg-surface: #11141c;
   --bg-elevated: #181c28;
@@ -25,6 +26,7 @@
   --accent-blue: #5b8def;
   --accent-blue-dim: rgba(91, 141, 239, 0.12);
   --accent-cyan: #22d3ee;
+  --text-on-accent: #08120f;
   --font-mono: 'SF Mono', 'Cascadia Code', 'Fira Code', 'Consolas', 'Liberation Mono', Menlo, monospace;
   --font-sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
   --space-2xs: 2px;
@@ -45,6 +47,56 @@
 }
 
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+button,
+input {
+  font: inherit;
+}
+
+button {
+  appearance: none;
+  -webkit-appearance: none;
+}
+
+:focus-visible {
+  outline: 2px solid var(--accent-blue);
+  outline-offset: 2px;
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+@media (prefers-color-scheme: light) {
+  :root {
+    --bg-base: #f3f6fb;
+    --bg-surface: #ffffff;
+    --bg-elevated: #e9eef7;
+    --bg-hover: #f6f8fc;
+    --border: #d6ddea;
+    --border-subtle: #e6ebf4;
+    --border-focus: #8a9ec7;
+    --text-primary: #182235;
+    --text-secondary: #4f5d73;
+    --text-muted: #748199;
+    --accent-green: #0b7a57;
+    --accent-amber: #8c5300;
+    --accent-red: #a32335;
+    --accent-blue: #2f5fc4;
+    --accent-green-dim: rgba(0, 214, 143, 0.14);
+    --accent-amber-dim: rgba(245, 166, 35, 0.16);
+    --accent-red-dim: rgba(255, 77, 94, 0.14);
+    --accent-blue-dim: rgba(91, 141, 239, 0.14);
+  }
+}
 
 body {
   min-height: 100vh;
@@ -238,6 +290,14 @@ body {
   border-color: var(--border-focus);
 }
 
+.card-button {
+  width: 100%;
+  display: block;
+  text-align: left;
+  color: inherit;
+  cursor: pointer;
+}
+
 .card-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
@@ -338,6 +398,11 @@ body {
   border-color: var(--accent-blue);
 }
 
+.search-input:focus-visible {
+  outline: 2px solid var(--accent-blue);
+  outline-offset: 1px;
+}
+
 .search-icon {
   position: absolute;
   left: 12px;
@@ -400,6 +465,7 @@ td.mono {
 
 /* ── Action list items ── */
 .action-item {
+  width: 100%;
   background: var(--bg-surface);
   border: 1px solid var(--border);
   border-radius: var(--radius-md);
@@ -409,6 +475,8 @@ td.mono {
   display: flex;
   align-items: flex-start;
   gap: var(--space-md);
+  text-align: left;
+  color: inherit;
 }
 
 .action-item:hover {
@@ -580,13 +648,30 @@ td.mono {
   border-color: var(--accent-blue);
 }
 
+.token-input:focus-visible {
+  outline: 2px solid var(--accent-blue);
+  outline-offset: 1px;
+}
+
+.token-input[aria-invalid='true'] {
+  border-color: var(--accent-red);
+}
+
+.token-error {
+  margin-top: var(--space-xs);
+  font-size: 12px;
+  color: var(--accent-red);
+  text-align: left;
+  min-height: 1.2em;
+}
+
 .connect-btn {
   padding: var(--space-sm) var(--space-lg);
   font-size: 13px;
   font-weight: 600;
   font-family: var(--font-sans);
   background: var(--accent-green);
-  color: var(--bg-base);
+  color: var(--text-on-accent);
   border: none;
   border-radius: var(--radius-sm);
   cursor: pointer;
@@ -717,12 +802,37 @@ td.mono {
 
 /* ── Responsive ── */
 @media (max-width: 768px) {
-  .header-inner { padding: 0 var(--space-md); gap: var(--space-sm); }
+  .header-inner {
+    padding: var(--space-sm) var(--space-md);
+    gap: var(--space-sm);
+    height: auto;
+    min-height: 56px;
+    flex-wrap: wrap;
+  }
   .brand-badge { display: none; }
-  .nav-tab { padding: var(--space-sm) var(--space-sm); font-size: 12px; }
+  .nav-tabs {
+    order: 3;
+    width: 100%;
+    justify-content: flex-start;
+    overflow-x: auto;
+    padding-bottom: var(--space-2xs);
+  }
+  .nav-tab {
+    flex: 0 0 auto;
+    padding: var(--space-sm) var(--space-sm);
+    font-size: 12px;
+  }
+  .nav-tab.active::after { bottom: 2px; }
+  .auth-area { margin-left: auto; }
   .main { padding: var(--space-md); }
   .card-grid { grid-template-columns: 1fr; }
-  .auth-status span { display: none; }
+  .auth-status span {
+    display: inline;
+    max-width: 92px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
   .token-input-group { flex-direction: column; }
   .section-title { font-size: 17px; }
 }
@@ -843,8 +953,8 @@ td.mono {
       <span class="brand-badge">Console</span>
     </a>
 
-    <nav class="nav-tabs" id="nav">
-      <button type="button" class="nav-tab active" data-view="dashboard">Dashboard</button>
+    <nav class="nav-tabs" id="nav" aria-label="Console sections">
+      <button type="button" class="nav-tab active" data-view="dashboard" aria-current="page">Dashboard</button>
       <button type="button" class="nav-tab" data-view="actions">Actions</button>
       <button type="button" class="nav-tab" data-view="approvals">Approvals</button>
       <button type="button" class="nav-tab" data-view="audit">Audit</button>
@@ -852,7 +962,7 @@ td.mono {
     </nav>
 
     <div class="auth-area">
-      <div class="auth-status" id="authStatus">
+      <div class="auth-status" id="authStatus" aria-live="polite">
         <div class="auth-dot" id="authDot"></div>
         <span id="authLabel">Access token not set</span>
       </div>
@@ -884,13 +994,13 @@ td.mono {
         </div>
         <div class="card-sub" id="dashHealthSub"></div>
       </div>
-      <div class="card" style="cursor:pointer" onclick="switchView('actions')" title="Browse installed actions">
+      <button type="button" class="card card-button" onclick="switchView('actions')" title="Browse installed actions">
         <div class="card-title">Installed Actions</div>
         <div class="card-value" id="dashActions">
           <div class="spinner" style="width:20px;height:20px"></div>
         </div>
         <div class="card-sub" id="dashActionsSub"></div>
-      </div>
+      </button>
       <div class="card">
         <div class="card-title">Runtime Version</div>
         <div class="card-value" id="dashVersion">
@@ -898,13 +1008,13 @@ td.mono {
         </div>
         <div class="card-sub" id="dashVersionSub"></div>
       </div>
-      <div class="card" style="cursor:pointer" onclick="switchView('approvals')" title="View pending approvals">
+      <button type="button" class="card card-button" onclick="switchView('approvals')" title="View pending approvals">
         <div class="card-title">Pending Approvals</div>
         <div class="card-value" id="dashApprovals">
           <div class="spinner" style="width:20px;height:20px"></div>
         </div>
         <div class="card-sub" id="dashApprovalsSub"></div>
-      </div>
+      </button>
     </div>
     <div class="quick-links">
       <a href="/v1/health" target="_blank" rel="noreferrer" class="quick-link">/v1/health</a>
@@ -921,7 +1031,7 @@ td.mono {
     <div id="actionList">
       <div class="search-wrap">
         <span class="search-icon">⌕</span>
-        <input class="search-input" type="text" id="actionSearch" placeholder="Search actions" autocomplete="off" />
+        <input class="search-input" type="text" id="actionSearch" placeholder="Search actions" aria-label="Search actions" autocomplete="off" />
       </div>
       <div id="actionItems">
         <div class="loading"><div class="spinner"></div></div>
@@ -936,7 +1046,7 @@ td.mono {
     </div>
     <div class="search-wrap" style="margin-bottom:var(--space-md)">
       <span class="search-icon">⌕</span>
-      <input class="search-input" type="text" id="auditSearch" placeholder="Filter by action, agent or status" autocomplete="off" />
+      <input class="search-input" type="text" id="auditSearch" placeholder="Filter by action, agent or status" aria-label="Filter audit table" autocomplete="off" />
     </div>
     <div id="auditContent">
       <div class="loading"><div class="spinner"></div></div>
@@ -1026,7 +1136,13 @@ td.mono {
     if (state.view === name) return;
     state.view = name;
     tabs.forEach(function(t) {
-      t.classList.toggle('active', t.dataset.view === name);
+      var isActive = t.dataset.view === name;
+      t.classList.toggle('active', isActive);
+      if (isActive) {
+        t.setAttribute('aria-current', 'page');
+      } else {
+        t.removeAttribute('aria-current');
+      }
     });
     views.forEach(function(v) {
       v.classList.toggle('active', v.id === 'view-' + name);
@@ -1088,14 +1204,39 @@ td.mono {
     }
   }
 
+  function setTokenError(inputId, msg) {
+    var el = document.getElementById(inputId);
+    var errorEl = document.getElementById(inputId + '_error');
+    if (errorEl) errorEl.textContent = msg || '';
+    if (!el) return;
+    if (msg) {
+      el.setAttribute('aria-invalid', 'true');
+      return;
+    }
+    el.removeAttribute('aria-invalid');
+  }
+
+  window.clearTokenError = function(inputId) {
+    setTokenError(inputId, '');
+  };
+
   window.saveToken = function(inputId) {
     var el = document.getElementById(inputId);
     var val = el ? el.value.trim() : '';
-    if (!val) return;
+    if (!val) {
+      setTokenError(inputId, 'Enter an access token.');
+      if (el) {
+        el.focus();
+      }
+      return false;
+    }
+    setTokenError(inputId, '');
     state.token = val;
     localStorage.setItem('kimbap_console_token', val);
+    if (el) el.value = '';
     updateAuthUI();
     loadViewData(state.view);
+    return false;
   };
 
   window.clearToken = function() {
@@ -1179,17 +1320,22 @@ td.mono {
     return days + 'd left';
   }
 
-  function authGateHTML(viewId) {
+  function authGateHTML(viewId, inlineError) {
     var inputId = 'tokenInput_' + viewId;
+    var errorId = inputId + '_error';
+    var errorMsg = inlineError || '';
+    var invalidAttr = errorMsg ? ' aria-invalid="true"' : '';
     return '<div class="auth-gate">' +
       '<div class="auth-gate-icon">🔒</div>' +
       '<h2>Sign in to continue</h2>' +
       '<p>Enter a kimbap access token to open this view.<br>' +
       'Create one with <code>kimbap token create --agent console</code>, then paste it here.</p>' +
-      '<div class="token-input-group">' +
-        '<input class="token-input" type="password" id="' + inputId + '" placeholder="ktk_..." autocomplete="off" />' +
-        '<button class="connect-btn" onclick="saveToken(\'' + inputId + '\')">Save token</button>' +
-      '</div>' +
+      '<form class="token-input-group" onsubmit="return saveToken(\'' + inputId + '\')">' +
+        '<label class="sr-only" for="' + inputId + '">Access token</label>' +
+        '<input class="token-input" type="password" id="' + inputId + '" placeholder="ktk_..." aria-label="Access token" aria-describedby="' + errorId + '" oninput="clearTokenError(\'' + inputId + '\')" autocomplete="off"' + invalidAttr + ' />' +
+        '<button type="submit" class="connect-btn">Save token</button>' +
+      '</form>' +
+      '<div id="' + errorId + '" class="token-error" aria-live="polite">' + esc(errorMsg) + '</div>' +
     '</div>';
   }
 
@@ -1377,7 +1523,7 @@ td.mono {
       var authType = getField(auth, 'Type', 'type') || 'none';
       var idempotent = getField(a, 'Idempotent', 'idempotent');
 
-      html += '<div class="action-item" data-action="' + escAttr(name) + '">' +
+      html += '<button type="button" class="action-item" data-action="' + escAttr(name) + '">' +
         '<div class="action-body">' +
           '<div class="action-name">' + esc(name) + '</div>' +
           (desc ? '<div class="action-desc">' + esc(desc) + '</div>' : '') +
@@ -1387,7 +1533,7 @@ td.mono {
             (idempotent ? '<span class="badge badge-blue">idempotent</span>' : '') +
           '</div>' +
         '</div>' +
-      '</div>';
+      '</button>';
     });
     container.innerHTML = html;
     container.querySelectorAll('.action-item[data-action]').forEach(function(el) {
@@ -1442,16 +1588,21 @@ td.mono {
     if (!inputSchema) { return 'kimbap call ' + name; }
     var requiredKeys = getField(inputSchema, 'Required', 'required') || [];
     var properties = getField(inputSchema, 'Properties', 'properties') || {};
+    var prop;
+    var t;
+    var parts;
+    var i;
+    var j;
     if (!requiredKeys.length) { return 'kimbap call ' + name; }
     var hasComplex = false;
-    for (var i = 0; i < requiredKeys.length; i++) {
-      var prop = properties[requiredKeys[i]];
-      var t = prop ? (getField(prop, 'Type', 'type') || '') : '';
+    for (i = 0; i < requiredKeys.length; i++) {
+      prop = properties[requiredKeys[i]];
+      t = prop ? (getField(prop, 'Type', 'type') || '') : '';
       if (t === 'object' || t === 'array') { hasComplex = true; break; }
     }
     if (hasComplex) { return 'kimbap call ' + name + ' --json @payload.json'; }
-    var parts = ['kimbap call', name];
-    for (var j = 0; j < requiredKeys.length; j++) {
+    parts = ['kimbap call', name];
+    for (j = 0; j < requiredKeys.length; j++) {
       parts.push('--' + requiredKeys[j]);
       parts.push('"REQUIRED"');
     }
@@ -1486,8 +1637,8 @@ td.mono {
     var html = '<div class="action-detail">' +
       '<div class="action-detail-header">' +
         '<h3>' + esc(name) + '</h3>' +
-        '<button class="copy-cmd-btn" onclick="copyCmd(this,&apos;' + escAttr(buildCopyCmd(name, inputSchema)) + '&apos;)">Copy command</button> ' +
-        '<button class="back-btn" onclick="hideActionDetail()">← Back to actions</button>' +
+        '<button type="button" class="copy-cmd-btn" onclick="copyCmd(this,&apos;' + escAttr(buildCopyCmd(name, inputSchema)) + '&apos;)">Copy command</button> ' +
+        '<button type="button" class="back-btn" onclick="hideActionDetail()">← Back to actions</button>' +
       '</div>' +
       (displayName && displayName.trim().toLowerCase() !== rawDesc.trim().toLowerCase() && displayName.trim().toLowerCase() !== name.trim().toLowerCase() ? '<p style="color:var(--text-secondary);margin-bottom:var(--space-md)">' + esc(displayName) + '</p>' : '') +
       '<p style="color:var(--text-secondary);margin-bottom:var(--space-md)">' + esc(desc) + '</p>' +
@@ -1526,12 +1677,53 @@ td.mono {
     '</div>';
   }
 
+  function flashButtonText(btn, text) {
+    var orig = btn.textContent;
+    btn.textContent = text;
+    setTimeout(function() { btn.textContent = orig; }, 1500);
+  }
+
+  function fallbackCopyText(cmd) {
+    var ta = document.createElement('textarea');
+    var ok = false;
+    ta.value = cmd;
+    ta.setAttribute('readonly', 'readonly');
+    ta.style.position = 'fixed';
+    ta.style.top = '-1000px';
+    ta.style.left = '-1000px';
+    document.body.appendChild(ta);
+    ta.select();
+    ta.setSelectionRange(0, ta.value.length);
+    try {
+      ok = document.execCommand('copy');
+    } catch (_) {
+      ok = false;
+    }
+    document.body.removeChild(ta);
+    return ok;
+  }
+
   window.copyCmd = function(btn, cmd) {
-    navigator.clipboard.writeText(cmd).then(function() {
-      var orig = btn.textContent;
-      btn.textContent = 'Copied!';
-      setTimeout(function() { btn.textContent = orig; }, 1500);
-    });
+    function failover() {
+      if (fallbackCopyText(cmd)) {
+        flashButtonText(btn, 'Copied!');
+        return;
+      }
+      flashButtonText(btn, 'Copy failed');
+    }
+    try {
+      if (!navigator.clipboard || typeof navigator.clipboard.writeText !== 'function') {
+        failover();
+        return;
+      }
+      navigator.clipboard.writeText(cmd).then(function() {
+        flashButtonText(btn, 'Copied!');
+      }).catch(function() {
+        failover();
+      });
+    } catch (_) {
+      failover();
+    }
   };
 
   window.hideActionDetail = function() {
@@ -1553,7 +1745,7 @@ td.mono {
       var errMsg, items;
       if (r.status === 401 || r.status === 403) {
         state.errors.audit = 'This token cannot access this view. Paste a different token and try again.';
-        container.innerHTML = errorBannerHTML(state.errors.audit) + authGateHTML('audit');
+        container.innerHTML = authGateHTML('audit', state.errors.audit);
         return;
       }
       if (!r.body.success) {
@@ -1637,7 +1829,7 @@ td.mono {
       var items;
       if (r.status === 401 || r.status === 403) {
         errMsg = 'This token cannot access approvals. Paste a token with approval permissions.';
-        container.innerHTML = errorBannerHTML(errMsg) + authGateHTML('approvals');
+        container.innerHTML = authGateHTML('approvals', errMsg);
         return;
       }
       if (!r.body.success) {
@@ -1666,14 +1858,16 @@ td.mono {
   function approvalInputSummary(inputJSON) {
     if (!inputJSON) { return ''; }
     var parsed;
+    var v;
+    var vs;
     try { parsed = JSON.parse(inputJSON); } catch(e) { return ''; }
     if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) { return ''; }
     var pairs = [];
     for (var k in parsed) {
       if (!parsed.hasOwnProperty(k)) { continue; }
       if (sensitiveKeys.test(k)) { continue; }
-      var v = parsed[k];
-      var vs = typeof v === 'string' ? v : JSON.stringify(v);
+      v = parsed[k];
+      vs = typeof v === 'string' ? v : JSON.stringify(v);
       if (vs.length > 30) { vs = vs.substring(0, 27) + '...'; }
       pairs.push(k + '=' + vs);
     }
@@ -1707,7 +1901,10 @@ td.mono {
       var expires = getField(item, 'ExpiresAt', 'expires_at') || '';
       var inputJSON = getField(item, 'InputJSON', 'input_json') || '';
       var inputSummary = approvalInputSummary(inputJSON);
-      var busy = !!state.approvalsBusy[id];
+      var busyMode = state.approvalsBusy[id] || '';
+      var busy = !!busyMode;
+      var approveLabel = busyMode === 'approve' ? 'Approving...' : 'Approve';
+      var denyLabel = busyMode === 'deny' ? 'Denying...' : 'Deny';
       html += '<tr>' +
         '<td class="mono">' + esc(id || '—') + '</td>' +
         '<td class="mono" style="color:var(--text-primary)">' + esc(actionFull) +
@@ -1719,8 +1916,8 @@ td.mono {
         '<td class="mono">' + esc(fmtTime(expires)) + '</td>' +
         '<td class="mono">' + esc(fmtTimeRemaining(expires)) + '</td>' +
         '<td><div class="row-actions">' +
-          '<button class="mini-btn approve" ' + (busy ? 'disabled ' : '') + 'onclick="resolveApproval(\'' + escAttr(id) + '\',\'approve\')">Approve</button>' +
-          '<button class="mini-btn deny" ' + (busy ? 'disabled ' : '') + 'onclick="resolveApproval(\'' + escAttr(id) + '\',\'deny\')">Deny</button>' +
+          '<button type="button" class="mini-btn approve" ' + (busy ? 'disabled ' : '') + 'onclick="resolveApproval(\'' + escAttr(id) + '\',\'approve\')">' + approveLabel + '</button>' +
+          '<button type="button" class="mini-btn deny" ' + (busy ? 'disabled ' : '') + 'onclick="resolveApproval(\'' + escAttr(id) + '\',\'deny\')">' + denyLabel + '</button>' +
         '</div></td>' +
       '</tr>';
     });
@@ -1735,14 +1932,14 @@ td.mono {
     var errMsg;
     if (!id || state.approvalsBusy[id]) return;
 
-    state.approvalsBusy[id] = true;
+    state.approvalsBusy[id] = mode;
     if (state.approvals) {
       renderApprovalsTable(state.approvals, container);
     }
 
     api('/approvals/' + encodeURIComponent(id) + ':' + verb, { auth: true, method: 'POST' }).then(function(r) {
       if (r.status === 401 || r.status === 403) {
-        container.innerHTML = errorBannerHTML('This token cannot modify approvals. Paste a token with approval permissions.') + authGateHTML('approvals');
+      container.innerHTML = authGateHTML('approvals', 'This token cannot modify approvals. Paste a token with approval permissions.');
         return;
       }
       if (r.status === 409 || r.status === 410) {
@@ -1778,7 +1975,7 @@ td.mono {
       var errMsg, data, items;
       if (r.status === 401 || r.status === 403) {
         state.errors.services = 'This token cannot access this view. Paste a different token and try again.';
-        container.innerHTML = errorBannerHTML(state.errors.services) + authGateHTML('services');
+        container.innerHTML = authGateHTML('services', state.errors.services);
         return;
       }
       if (!r.body.success) {
