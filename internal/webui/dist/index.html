@@ -1827,6 +1827,8 @@ td.mono {
       var created = item.CreatedAt || item.created_at || '';
       var updated = item.UpdatedAt || item.updated_at || '';
       var lastUsed = item.LastUsedAt || item.last_used_at || '';
+      var lastUsedDisplay = lastUsed ? fmtTime(lastUsed) : '—';
+      var lastUsedColor = vaultLastUsedColor(lastUsed);
 
       html += '<tr>' +
         '<td class="mono" style="color:var(--text-primary)">' + esc(name) + '</td>' +
@@ -1834,12 +1836,32 @@ td.mono {
         '<td class="mono">' + esc(ver) + '</td>' +
         '<td class="mono">' + esc(fmtTime(created)) + '</td>' +
         '<td class="mono">' + esc(fmtTime(updated)) + '</td>' +
-        '<td class="mono">' + esc(lastUsed ? fmtTime(lastUsed) : '—') + '</td>' +
+        '<td class="mono" style="color:' + lastUsedColor + '">' + esc(lastUsedDisplay) + '</td>' +
       '</tr>';
     });
 
     html += '</tbody></table></div>';
     container.innerHTML = html;
+  }
+
+  function vaultLastUsedColor(lastUsed) {
+    if (!lastUsed) {
+      return 'var(--text-muted)';
+    }
+    var parsed = Date.parse(lastUsed);
+    if (Number.isNaN(parsed)) {
+      return 'var(--text-secondary)';
+    }
+    var ageMs = Date.now() - parsed;
+    var staleWarningMs = 30 * 24 * 60 * 60 * 1000;
+    var staleCriticalMs = 90 * 24 * 60 * 60 * 1000;
+    if (ageMs >= staleCriticalMs) {
+      return 'var(--accent-red)';
+    }
+    if (ageMs >= staleWarningMs) {
+      return 'var(--accent-amber)';
+    }
+    return 'var(--text-secondary)';
   }
 
   function typeBadge(type) {
