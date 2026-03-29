@@ -1168,9 +1168,9 @@ td.mono {
       '<div class="auth-gate-icon">🔒</div>' +
       '<h2>Token required</h2>' +
       '<p>Paste a kimbap access token to open this view.<br>' +
-      'Create one with <code>kimbap token create</code>, then paste it here.</p>' +
+      'Create one with <code>kimbap token create</code>, then save it here.</p>' +
       '<div class="token-input-group">' +
-        '<input class="token-input" type="password" id="' + inputId + '" placeholder="Paste ktk_..." autocomplete="off" />' +
+        '<input class="token-input" type="password" id="' + inputId + '" placeholder="ktk_..." autocomplete="off" />' +
         '<button class="connect-btn" onclick="saveToken(\'' + inputId + '\')">Save token</button>' +
       '</div>' +
     '</div>';
@@ -1295,7 +1295,7 @@ td.mono {
       } else {
         container.innerHTML = '<div class="empty-state">' +
           '<div class="empty-state-icon">📦</div>' +
-          '<h3>No actions available</h3>' +
+          '<h3>No actions installed</h3>' +
           '<p>Install a service, or run <code>kimbap init --mode dev --services all</code> to add bundled examples.</p></div>';
       }
     }).catch(function() {
@@ -1508,7 +1508,7 @@ td.mono {
         '<th>Action</th>' +
         '<th>Agent</th>' +
         '<th>Status</th>' +
-        '<th>Policy</th>' +
+        '<th>Policy Result</th>' +
         '<th>Duration</th>' +
       '</tr></thead><tbody>';
 
