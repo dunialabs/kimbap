@@ -169,7 +169,11 @@ Discover available actions:
 				result = rt.Execute(contextBackground(), req)
 			}
 			if result.Status == actions.StatusApprovalRequired && !outputAsJSON() {
-				_, _ = fmt.Fprintf(os.Stderr, "! Approval required for: %s\n", actionName)
+				warning := "!"
+				if isColorStdout() {
+					warning = "\x1b[33m!\x1b[0m"
+				}
+				_, _ = fmt.Fprintf(os.Stderr, "%s Approval required for: %s\n", warning, actionName)
 			}
 			if err := printCallResult(result); err != nil {
 				return err
