@@ -512,8 +512,8 @@ kimbap service remove my-service
 1. Write a YAML manifest following this guide.
 2. Run `kimbap service validate my-service.yaml` and fix all errors.
 3. Install locally with `kimbap service install my-service.yaml` and test at least one action with `kimbap call`.
-4. Place the manifest in `skills/official/` using the service name as the filename (e.g. `skills/official/github.yaml`).
+4. Place the manifest in `services/catalog/` using the service name as the filename (e.g. `services/catalog/github.yaml`).
 5. Open a pull request. The PR description should note which adapter type is used, what credentials are required, and what you tested.
-6. See `CONTRIBUTING.md` for code style standards, review process, and required fields for official services.
+6. See `CONTRIBUTING.md` for code style standards, review process, and required fields for catalog services.
 
-Official services are expected to include `triggers`, at least one `recipe`, and at least one `gotcha` entry where relevant failure modes exist.
+Catalog services are expected to include `triggers`, at least one `recipe`, and at least one `gotcha` entry where relevant failure modes exist.

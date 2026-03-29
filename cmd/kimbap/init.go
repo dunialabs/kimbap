@@ -15,7 +15,7 @@ import (
 	"github.com/dunialabs/kimbap/internal/config"
 	"github.com/dunialabs/kimbap/internal/policy"
 	"github.com/dunialabs/kimbap/internal/services"
-	"github.com/dunialabs/kimbap/skills"
+	"github.com/dunialabs/kimbap/services"
 	"github.com/spf13/cobra"
 	"gopkg.in/yaml.v3"
 )
@@ -105,7 +105,7 @@ func newInitCommand() *cobra.Command {
 		},
 	}
 	cmd.Flags().BoolVar(&force, "force", false, "overwrite existing config file")
-	cmd.Flags().StringVar(&servicesRaw, "services", "", "comma-separated official services to install, all, starter")
+	cmd.Flags().StringVar(&servicesRaw, "services", "", "comma-separated catalog services to install, all, starter")
 	cmd.Flags().BoolVar(&noServices, "no-services", false, "skip service installation during init")
 	cmd.Flags().BoolVar(&withConsole, "with-console", false, "enable embedded console route in config")
 	cmd.Flags().BoolVar(&withAgents, "with-agents", false, "run agents setup and sync after init")
@@ -225,9 +225,9 @@ func resolveInitServiceSelectionFromReader(rawServices string, noServices bool, 
 	}
 
 	if strings.EqualFold(strings.TrimSpace(rawServices), "all") {
-		all, listErr := skills.List()
+		all, listErr := catalog.List()
 		if listErr != nil {
-			return initServiceSelection{}, fmt.Errorf("list official services: %w", listErr)
+			return initServiceSelection{}, fmt.Errorf("list catalog services: %w", listErr)
 		}
 		return initServiceSelection{Names: all}, nil
 	}
@@ -241,7 +241,7 @@ func resolveInitServiceSelectionFromReader(rawServices string, noServices bool, 
 		if len(selected) == 0 {
 			return initServiceSelection{}, fmt.Errorf("invalid --services value: %q", rawServices)
 		}
-		normalized, err := normalizeSelectedOfficialServices(selected)
+		normalized, err := normalizeSelectedCatalogServices(selected)
 		if err != nil {
 			return initServiceSelection{}, err
 		}
@@ -253,10 +253,10 @@ func resolveInitServiceSelectionFromReader(rawServices string, noServices bool, 
 	}
 
 	serviceCount := 0
-	if all, err := skills.List(); err == nil {
+	if all, err := catalog.List(); err == nil {
 		serviceCount = len(all)
 	}
-	_, _ = fmt.Fprintf(os.Stderr, "Install all %d official services? [Y/n/select]: ", serviceCount)
+	_, _ = fmt.Fprintf(os.Stderr, "Install all %d catalog services? [Y/n/select]: ", serviceCount)
 
 	br := bufio.NewReader(reader)
 
@@ -272,9 +272,9 @@ func resolveInitServiceSelectionFromReader(rawServices string, noServices bool, 
 	}
 
 	if trimmed == "" || strings.EqualFold(trimmed, "y") || strings.EqualFold(trimmed, "yes") {
-		all, listErr := skills.List()
+		all, listErr := catalog.List()
 		if listErr != nil {
-			return initServiceSelection{}, fmt.Errorf("list official services: %w", listErr)
+			return initServiceSelection{}, fmt.Errorf("list catalog services: %w", listErr)
 		}
 		return initServiceSelection{Names: all}, nil
 	}
@@ -288,7 +288,7 @@ func resolveInitServiceSelectionFromReader(rawServices string, noServices bool, 
 	}
 
 	if strings.EqualFold(trimmed, "select") {
-		if printErr := printOfficialServiceCategories(); printErr != nil {
+		if printErr := printCatalogServiceCategories(); printErr != nil {
 			return initServiceSelection{}, printErr
 		}
 		_, _ = fmt.Fprint(os.Stderr, "Enter comma-separated names, or 'all': ")
@@ -304,9 +304,9 @@ func resolveInitServiceSelectionFromReader(rawServices string, noServices bool, 
 		}
 
 		if strings.EqualFold(trimmed2, "all") {
-			all, listErr := skills.List()
+			all, listErr := catalog.List()
 			if listErr != nil {
-				return initServiceSelection{}, fmt.Errorf("list official services: %w", listErr)
+				return initServiceSelection{}, fmt.Errorf("list catalog services: %w", listErr)
 			}
 			return initServiceSelection{Names: all}, nil
 		}
@@ -316,7 +316,7 @@ func resolveInitServiceSelectionFromReader(rawServices string, noServices bool, 
 		}
 
 		selected2 := parseCSV(trimmed2)
-		normalized2, normalizeErr2 := normalizeSelectedOfficialServices(selected2)
+		normalized2, normalizeErr2 := normalizeSelectedCatalogServices(selected2)
 		if normalizeErr2 != nil {
 			return initServiceSelection{}, normalizeErr2
 		}
@@ -327,7 +327,7 @@ func resolveInitServiceSelectionFromReader(rawServices string, noServices bool, 
 	}
 
 	selected := parseCSV(trimmed)
-	normalized, normalizeErr := normalizeSelectedOfficialServices(selected)
+	normalized, normalizeErr := normalizeSelectedCatalogServices(selected)
 	if normalizeErr != nil {
 		return initServiceSelection{}, normalizeErr
 	}
@@ -351,13 +351,13 @@ func isInteractiveStdin() bool {
 
 func installInitServices(cfg *config.KimbapConfig, selection initServiceSelection, hasFailure bool) doctorCheck {
 	if hasFailure {
-		return doctorCheck{Name: "official services installed", Status: "skip", Detail: "skipped due to previous init failures"}
+		return doctorCheck{Name: "catalog services installed", Status: "skip", Detail: "skipped due to previous init failures"}
 	}
 	if selection.Skipped {
-		return doctorCheck{Name: "official services installed", Status: "skip", Detail: selection.Reason}
+		return doctorCheck{Name: "catalog services installed", Status: "skip", Detail: selection.Reason}
 	}
 	if len(selection.Names) == 0 {
-		return doctorCheck{Name: "official services installed", Status: "skip", Detail: "no services selected"}
+		return doctorCheck{Name: "catalog services installed", Status: "skip", Detail: "no services selected"}
 	}
 
 	installer := installerFromConfig(cfg)
@@ -367,7 +367,7 @@ func installInitServices(cfg *config.KimbapConfig, selection initServiceSelectio
 	failed := make([]string, 0)
 
 	for _, name := range selection.Names {
-		data, getErr := skills.Get(name)
+		data, getErr := catalog.Get(name)
 		if getErr != nil {
 			failed = append(failed, fmt.Sprintf("%s (load: %v)", name, getErr))
 			continue
@@ -379,7 +379,7 @@ func installInitServices(cfg *config.KimbapConfig, selection initServiceSelectio
 			continue
 		}
 
-		if _, installErr := installer.InstallWithForceAndActivation(manifest, "official:"+name, false, true); installErr != nil {
+		if _, installErr := installer.InstallWithForceAndActivation(manifest, "registry:"+name, false, true); installErr != nil {
 			if errors.Is(installErr, services.ErrServiceAlreadyInstalled) {
 				existing, getErr := installer.Get(name)
 				if getErr == nil && existing.Enabled {
@@ -401,18 +401,18 @@ func installInitServices(cfg *config.KimbapConfig, selection initServiceSelectio
 
 	detail := fmt.Sprintf("installed: %d, enabled: %d, unchanged: %d", installed, enabled, skipped)
 	if len(failed) > 0 {
-		return doctorCheck{Name: "official services installed", Status: "fail", Detail: fmt.Sprintf("%s, failed: %s", detail, strings.Join(failed, "; "))}
+		return doctorCheck{Name: "catalog services installed", Status: "fail", Detail: fmt.Sprintf("%s, failed: %s", detail, strings.Join(failed, "; "))}
 	}
 	if installed == 0 && enabled == 0 {
-		return doctorCheck{Name: "official services installed", Status: "skip", Detail: detail}
+		return doctorCheck{Name: "catalog services installed", Status: "skip", Detail: detail}
 	}
-	return doctorCheck{Name: "official services installed", Status: "ok", Detail: detail}
+	return doctorCheck{Name: "catalog services installed", Status: "ok", Detail: detail}
 }
 
-func normalizeSelectedOfficialServices(names []string) ([]string, error) {
-	available, err := skills.List()
+func normalizeSelectedCatalogServices(names []string) ([]string, error) {
+	available, err := catalog.List()
 	if err != nil {
-		return nil, fmt.Errorf("list official services: %w", err)
+		return nil, fmt.Errorf("list catalog services: %w", err)
 	}
 	valid := make(map[string]struct{}, len(available))
 	for _, name := range available {
@@ -427,7 +427,7 @@ func normalizeSelectedOfficialServices(names []string) ([]string, error) {
 			continue
 		}
 		if _, ok := valid[normalized]; !ok {
-			return nil, fmt.Errorf("unknown official service %q", normalized)
+			return nil, fmt.Errorf("unknown catalog service %q", normalized)
 		}
 		if _, ok := seen[normalized]; ok {
 			continue
@@ -438,7 +438,7 @@ func normalizeSelectedOfficialServices(names []string) ([]string, error) {
 	return out, nil
 }
 
-func printOfficialServiceCategories() error {
+func printCatalogServiceCategories() error {
 	categories := map[string][]string{
 		"SaaS & APIs":   {"github", "slack", "stripe", "notion", "linear", "hubspot", "airtable", "pinecone", "todoist", "posthog", "sentry", "sendgrid", "resend", "exa", "brave-search"},
 		"Communication": {"telegram", "whatsapp", "wechat", "zoom", "apple-mail", "messages"},
@@ -449,16 +449,16 @@ func printOfficialServiceCategories() error {
 	}
 
 	order := []string{"SaaS & APIs", "Communication", "Local apps", "macOS native", "Office", "Data"}
-	known, err := skills.List()
+	known, err := catalog.List()
 	if err != nil {
-		return fmt.Errorf("list official services: %w", err)
+		return fmt.Errorf("list catalog services: %w", err)
 	}
 	knownSet := make(map[string]struct{}, len(known))
 	for _, name := range known {
 		knownSet[name] = struct{}{}
 	}
 
-	_, _ = fmt.Fprintln(os.Stderr, "Official services:")
+	_, _ = fmt.Fprintln(os.Stderr, "Catalog services:")
 	for _, category := range order {
 		names := categories[category]
 		filtered := make([]string, 0, len(names))

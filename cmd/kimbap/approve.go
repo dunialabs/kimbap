@@ -42,8 +42,13 @@ func newApproveListCommand() *cobra.Command {
 		status string
 	)
 	cmd := &cobra.Command{
-		Use:   "list [--tenant <id>] [--status pending]",
+		Use:   "list [--tenant <id>] [--status <pending|approved|denied|expired>]",
 		Short: "List approval requests",
+		Example: strings.Join([]string{
+			"kimbap approve list",
+			"kimbap approve list --status approved",
+			"kimbap approve list --tenant team-a --status pending",
+		}, "\n"),
 		RunE: func(_ *cobra.Command, _ []string) error {
 			s, statusErr := approvalStatus(status)
 			if statusErr != nil {
@@ -83,12 +88,13 @@ func newApproveListCommand() *cobra.Command {
 					return printOutput(items)
 				}
 				if len(items) == 0 {
-					fmt.Println("No approval requests found.")
+					fmt.Println(approvalNoRequestsMessage(s))
 					return nil
 				}
-				fmt.Printf("%-36s %-16s %-30s %-12s %-12s %s\n", "ID", "AGENT", "ACTION", "STATUS", "EXPIRES", "CREATED")
+				fmt.Printf("%-3s %-36s %-16s %-30s %-12s %-12s %s\n", "#", "ID", "AGENT", "ACTION", "STATUS", "TIME LEFT", "CREATED AT")
+				fmt.Println()
 				useColor := isColorStdout()
-				for _, item := range items {
+				for i, item := range items {
 					statusCol := fmt.Sprintf("%-12s", item.Status)
 					if useColor {
 						switch item.Status {
@@ -111,7 +117,8 @@ func newApproveListCommand() *cobra.Command {
 							expiresStr = "\x1b[33m" + expiresStr + "\x1b[0m"
 						}
 					}
-					fmt.Printf("%-36s %-16s %-30s %s %s %s\n",
+					fmt.Printf("%-3d %-36s %-16s %-30s %s %s %s\n",
+						i+1,
 						item.ID,
 						item.AgentName,
 						item.Service+"."+item.Action,
@@ -150,7 +157,11 @@ func newApproveAcceptCommand() *cobra.Command {
 		Use:     "accept <request-id>",
 		Aliases: []string{"approve"},
 		Short:   "Approve a pending request",
-		Args:    cobra.ExactArgs(1),
+		Example: strings.Join([]string{
+			"kimbap approve accept req-123",
+			"kimbap approve list --status pending",
+		}, "\n"),
+		Args: cobra.ExactArgs(1),
 		RunE: func(_ *cobra.Command, args []string) error {
 			return runApproveAccept(args[0])
 		},
@@ -163,10 +174,14 @@ func newApproveDenyCommand() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "deny <request-id> --reason <text>",
 		Short: "Deny a pending request with reason",
-		Args:  cobra.ExactArgs(1),
+		Example: strings.Join([]string{
+			"kimbap approve deny req-123 --reason \"outside policy scope\"",
+			"kimbap approve deny req-123 --reason \"missing required context\"",
+		}, "\n"),
+		Args: cobra.ExactArgs(1),
 		RunE: func(_ *cobra.Command, args []string) error {
 			if strings.TrimSpace(reason) == "" {
-				return fmt.Errorf("--reason is required\nRun: kimbap approve deny %s --reason \"<why>\"", args[0])
+				return fmt.Errorf("--reason is required\nRun: kimbap approve list --status pending\nThen run: kimbap approve deny %s --reason \"<why>\"", args[0])
 			}
 
 			cfg, err := loadAppConfig()
@@ -218,7 +233,7 @@ func newApproveDenyCommand() *cobra.Command {
 func runApproveAccept(requestID string) error {
 	requestID = strings.TrimSpace(requestID)
 	if requestID == "" {
-		return fmt.Errorf("request-id is required\nRun: kimbap approve accept <request-id>")
+		return fmt.Errorf("request-id is required\nRun: kimbap approve list --status pending\nThen run: kimbap approve accept <request-id>")
 	}
 
 	cfg, err := loadAppConfig()
@@ -307,34 +322,55 @@ func approvalTenant(raw string) string {
 }
 
 func approvalTimeRemaining(expires time.Time) string {
-	remaining := time.Until(expires)
+	return approvalTimeRemainingAt(expires, time.Now())
+}
+
+func approvalTimeRemainingAt(expires time.Time, now time.Time) string {
+	remaining := expires.Sub(now)
 	if remaining <= 0 {
 		return "expired"
 	}
-	if remaining < time.Hour {
-		m := int(remaining.Minutes())
-		s := int(remaining.Seconds()) % 60
+	totalSeconds := int(remaining.Seconds())
+	if totalSeconds < 3600 {
+		m := totalSeconds / 60
+		s := totalSeconds % 60
 		if m == 0 {
 			return fmt.Sprintf("%ds", s)
 		}
 		return fmt.Sprintf("%dm%ds", m, s)
 	}
-	h := int(remaining.Hours())
-	m := int(remaining.Minutes()) % 60
+	if totalSeconds >= (24*3600)-1 {
+		if totalSeconds < 24*3600 {
+			return "1d0h"
+		}
+		totalHours := totalSeconds / 3600
+		d := totalHours / 24
+		h := totalHours % 24
+		return fmt.Sprintf("%dd%dh", d, h)
+	}
+	h := totalSeconds / 3600
+	m := (totalSeconds % 3600) / 60
 	return fmt.Sprintf("%dh%dm", h, m)
 }
 
 func approvalStatus(raw string) (string, error) {
 	trimmed := strings.ToLower(strings.TrimSpace(raw))
 	if trimmed == "" {
-		return "", fmt.Errorf("--status cannot be blank (valid: pending, approved, denied, expired)\nRun: kimbap approve list --status pending")
+		return "", fmt.Errorf("--status cannot be blank (valid: pending, approved, denied, expired)\nRun: kimbap approve list\nOr:  kimbap approve list --status pending")
 	}
 	switch trimmed {
 	case "pending", "approved", "denied", "expired":
 		return trimmed, nil
 	default:
-		return "", fmt.Errorf("invalid --status %q (valid: pending, approved, denied, expired)\nRun: kimbap approve list --status pending", strings.TrimSpace(raw))
+		return "", fmt.Errorf("invalid --status %q (valid: pending, approved, denied, expired)\nRun: kimbap approve list --status pending\nExample: kimbap approve list --status approved\nTry one of: approved, denied, expired", strings.TrimSpace(raw))
 	}
+}
+
+func approvalNoRequestsMessage(status string) string {
+	if strings.TrimSpace(status) == "pending" {
+		return "No pending approval requests.\nTip: Run kimbap approve list --status approved\nTip: Run kimbap approve list --status denied"
+	}
+	return fmt.Sprintf("No approval requests found for status %q.\nTip: Run kimbap approve list --status pending to review pending decisions.", strings.TrimSpace(status))
 }
 
 func openRuntimeStore(cfg *config.KimbapConfig) (*store.SQLStore, error) {

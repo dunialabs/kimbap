@@ -724,7 +724,7 @@ func TestConvertAppleScriptManifest(t *testing.T) {
 }
 
 func TestInstallAppleNotesSkill(t *testing.T) {
-	manifest, err := ParseManifestFile("../../skills/official/apple-notes.yaml")
+	manifest, err := ParseManifestFile("../../services/catalog/apple-notes.yaml")
 	if err != nil {
 		t.Fatalf("parse: %v", err)
 	}

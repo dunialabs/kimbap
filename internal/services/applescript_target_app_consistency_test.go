@@ -16,11 +16,11 @@ func TestOfficialAppleScriptCommandsMatchManifestTargetApp(t *testing.T) {
 		t.Fatal("failed to resolve current test file path")
 	}
 	repoRoot := filepath.Join(filepath.Dir(file), "..", "..")
-	skillsDir := filepath.Join(repoRoot, "skills", "official")
+	catalogDir := filepath.Join(repoRoot, "services", "catalog")
 
-	entries, err := os.ReadDir(skillsDir)
+	entries, err := os.ReadDir(catalogDir)
 	if err != nil {
-		t.Fatalf("read skills/official: %v", err)
+		t.Fatalf("read services/catalog: %v", err)
 	}
 
 	commands := map[string]adaptercommands.Command{}
@@ -66,7 +66,7 @@ func TestOfficialAppleScriptCommandsMatchManifestTargetApp(t *testing.T) {
 		if entry.IsDir() || (!strings.HasSuffix(entry.Name(), ".yaml") && !strings.HasSuffix(entry.Name(), ".yml")) {
 			continue
 		}
-		path := filepath.Join(skillsDir, entry.Name())
+		path := filepath.Join(catalogDir, entry.Name())
 		data, readErr := os.ReadFile(path)
 		if readErr != nil {
 			t.Fatalf("read %s: %v", entry.Name(), readErr)

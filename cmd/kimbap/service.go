@@ -16,7 +16,7 @@ import (
 	"github.com/dunialabs/kimbap/internal/agents"
 	"github.com/dunialabs/kimbap/internal/registry"
 	"github.com/dunialabs/kimbap/internal/services"
-	"github.com/dunialabs/kimbap/skills"
+	"github.com/dunialabs/kimbap/services"
 	"github.com/spf13/cobra"
 )
 
@@ -48,7 +48,7 @@ func newServiceInstallCommand() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "install <name|path-to-yaml|url> [--force]",
 		Short: "Install a service manifest",
-		Example: `  # Install an official service by name
+		Example: `  # Install a catalog service by name
   kimbap service install github
 
   # Install from a local YAML file
@@ -110,9 +110,9 @@ func newServiceListCommand() *cobra.Command {
 			}
 
 			if available {
-				official, listErr := skills.List()
+				catalogNames, listErr := catalog.List()
 				if listErr != nil {
-					return fmt.Errorf("list official services: %w", listErr)
+					return fmt.Errorf("list catalog services: %w", listErr)
 				}
 
 				installedByName := make(map[string]services.InstalledService, len(installed))
@@ -120,11 +120,11 @@ func newServiceListCommand() *cobra.Command {
 					installedByName[svc.Manifest.Name] = svc
 				}
 
-				rows := make([]map[string]any, 0, len(official))
-				for _, name := range official {
+				rows := make([]map[string]any, 0, len(catalogNames))
+				for _, name := range catalogNames {
 					row := map[string]any{
 						"name":      name,
-						"official":  true,
+						"catalog":   true,
 						"installed": false,
 						"enabled":   false,
 						"status":    "not-installed",
@@ -189,7 +189,7 @@ func newServiceListCommand() *cobra.Command {
 			return nil
 		},
 	}
-	cmd.Flags().BoolVar(&available, "available", false, "list all official services with installed/enabled status")
+	cmd.Flags().BoolVar(&available, "available", false, "list all catalog services with installed/enabled status")
 	return cmd
 }
 
@@ -376,8 +376,8 @@ func newServiceUpdateCommand() *cobra.Command {
 func newServiceOutdatedCommand() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "outdated",
-		Short: "List outdated services from official catalog",
-		Long:  "Lists installed services from the official catalog when installed version differs from the embedded official catalog version.",
+		Short: "List outdated services from the service catalog",
+		Long:  "Lists installed services from the registry when installed version differs from the service catalog version.",
 		RunE: func(_ *cobra.Command, _ []string) error {
 			cfg, err := loadAppConfig()
 			if err != nil {
@@ -390,7 +390,7 @@ func newServiceOutdatedCommand() *cobra.Command {
 				return err
 			}
 
-			official := registry.NewEmbeddedRegistry()
+			embeddedCatalog := registry.NewEmbeddedRegistry()
 
 			type outdatedEntry struct {
 				Name             string `json:"name"`
@@ -402,18 +402,22 @@ func newServiceOutdatedCommand() *cobra.Command {
 			entries := make([]outdatedEntry, 0)
 			for _, svc := range installed {
 				source := strings.TrimSpace(svc.Source)
-				if !strings.HasPrefix(source, "official:") {
+				if !strings.HasPrefix(source, "registry:") {
 					continue
 				}
 
-				officialName := strings.TrimSpace(strings.TrimPrefix(source, "official:"))
-				if officialName == "" {
-					officialName = svc.Manifest.Name
+				registryName := strings.TrimSpace(strings.TrimPrefix(source, "registry:"))
+				if registryName == "" {
+					registryName = svc.Manifest.Name
 				}
 
-				manifest, _, resolveErr := official.Resolve(contextBackground(), officialName)
+				manifest, _, resolveErr := embeddedCatalog.Resolve(contextBackground(), registryName)
 				if resolveErr != nil {
-					_, _ = fmt.Fprintf(os.Stderr, "warning: failed to resolve %q from catalog: %v\n", officialName, resolveErr)
+					var notFound *registry.ErrNotFound
+					if errors.As(resolveErr, &notFound) {
+						continue
+					}
+					_, _ = fmt.Fprintf(os.Stderr, "warning: failed to resolve %q from catalog: %v\n", registryName, resolveErr)
 					continue
 				}
 
@@ -434,7 +438,7 @@ func newServiceOutdatedCommand() *cobra.Command {
 			}
 
 			if len(entries) == 0 {
-				fmt.Println("No outdated official services found.")
+				fmt.Println("No outdated catalog services found.")
 				return nil
 			}
 
@@ -838,7 +842,7 @@ func resolveServiceInstallSource(arg string) (*services.ServiceManifest, string,
 
 	if stat, err := os.Stat(trimmed); err == nil {
 		if stat.IsDir() {
-			return nil, "", fmt.Errorf("service source %q is a directory. Pass a YAML file path, URL, or official service name", trimmed)
+			return nil, "", fmt.Errorf("service source %q is a directory. Pass a YAML file path, URL, or catalog service name", trimmed)
 		}
 		absPath, absErr := filepath.Abs(trimmed)
 		if absErr != nil {
@@ -857,48 +861,48 @@ func resolveServiceInstallSource(arg string) (*services.ServiceManifest, string,
 		return nil, "", err
 	}
 
-	data, err := skills.Get(trimmed)
+	data, err := catalog.Get(trimmed)
 	if err == nil {
 		manifest, parseErr := services.ParseManifest(data)
 		if parseErr != nil {
-			return nil, "", fmt.Errorf("parse official service %q: %w", trimmed, parseErr)
+			return nil, "", fmt.Errorf("parse catalog service %q: %w", trimmed, parseErr)
 		}
-		return manifest, "official:" + trimmed, nil
+		return manifest, "registry:" + trimmed, nil
 	}
 	if !errors.Is(err, fs.ErrNotExist) {
-		return nil, "", fmt.Errorf("load official service %q: %w", trimmed, err)
+		return nil, "", fmt.Errorf("load catalog service %q: %w", trimmed, err)
 	}
 
 	cfg, cfgErr := loadAppConfig()
 	if cfgErr == nil {
-		officialURL := strings.TrimSpace(cfg.Services.Official)
-		if officialURL != "" && officialURL != "https://services.kimbap.ai" {
-			remoteReg := registry.NewRemoteRegistry("official", officialURL)
+		registryURL := strings.TrimSpace(cfg.Services.RegistryURL)
+		if registryURL != "" && registryURL != "https://services.kimbap.ai" {
+			remoteReg := registry.NewRemoteRegistry("registry", registryURL)
 			ctx, cancel := context.WithTimeout(contextBackground(), 30*time.Second)
 			defer cancel()
-			manifest, source, resolveErr := remoteReg.Resolve(ctx, trimmed)
+			manifest, _, resolveErr := remoteReg.Resolve(ctx, trimmed)
 			if resolveErr == nil {
-				return manifest, source, nil
+				return manifest, "registry:" + trimmed, nil
 			}
 			var notFound *registry.ErrNotFound
 			if !errors.As(resolveErr, &notFound) {
-				return nil, "", fmt.Errorf("load official service %q from %s: %w", trimmed, officialURL, resolveErr)
+				return nil, "", fmt.Errorf("load registry service %q from %s: %w", trimmed, registryURL, resolveErr)
 			}
 		}
 	}
 
-	officialNames, _ := skills.List()
-	hint := "Run 'kimbap service list --available' to see all official services."
-	if suggestion := didYouMean(trimmed, officialNames); suggestion != "" {
-		hint = fmt.Sprintf("Did you mean %q? Run 'kimbap service list --available' to see all official services.", suggestion)
+	catalogNames, _ := catalog.List()
+	hint := "Run 'kimbap service list --available' to see all catalog services."
+	if suggestion := didYouMean(trimmed, catalogNames); suggestion != "" {
+		hint = fmt.Sprintf("Did you mean %q? Run 'kimbap service list --available' to see all catalog services.", suggestion)
 	}
-	return nil, "", fmt.Errorf("service %q not found in official catalog. %s", trimmed, hint)
+	return nil, "", fmt.Errorf("service %q not found in service catalog. %s", trimmed, hint)
 }
 
 func sourceToInstallArg(source string) string {
 	trimmed := strings.TrimSpace(source)
-	if strings.HasPrefix(trimmed, "official:") {
-		return strings.TrimPrefix(trimmed, "official:")
+	if strings.HasPrefix(trimmed, "registry:") {
+		return strings.TrimPrefix(trimmed, "registry:")
 	}
 	if strings.HasPrefix(trimmed, "remote:") {
 		return strings.TrimPrefix(trimmed, "remote:")

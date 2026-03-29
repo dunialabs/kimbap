@@ -13,7 +13,7 @@ type TokenExchangeConfig struct {
 }
 
 // ProviderManifest is the declarative YAML definition for an OAuth provider.
-// Stored in internal/connectors/providers/official/*.yaml.
+// Stored in internal/connectors/providers/embedded/*.yaml.
 // This is SEPARATE from SkillManifest — do not merge.
 type ProviderManifest struct {
 	ID                   string            `yaml:"id"                            json:"id"`

@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/dunialabs/kimbap/skills"
+	"github.com/dunialabs/kimbap/services"
 )
 
 func TestBuildInitConfigRebasesPolicyPathWithDataDir(t *testing.T) {
@@ -272,7 +272,7 @@ func TestResolveInitServiceSelectionFromReader(t *testing.T) {
 		{name: "services all with whitespace", rawServices: " all ", wantAll: true},
 		{name: "services csv returns normalized", rawServices: "github,slack", wantNames: []string{"github", "slack"}},
 		{name: "services csv with whitespace", rawServices: "github , slack", wantNames: []string{"github", "slack"}},
-		{name: "services invalid errors", rawServices: "nonexistent-service-xyz", wantErr: true, wantErrContains: "unknown official service"},
+		{name: "services invalid errors", rawServices: "nonexistent-service-xyz", wantErr: true, wantErrContains: "unknown catalog service"},
 		{name: "services comma-only errors", rawServices: ",,,", wantErr: true, wantErrContains: "invalid --services value"},
 		{name: "non-interactive empty skips", rawServices: "", interactive: false, wantSkipped: true},
 		{name: "interactive enter installs all", rawServices: "", interactive: true, input: "\n", wantAll: true},
@@ -288,7 +288,7 @@ func TestResolveInitServiceSelectionFromReader(t *testing.T) {
 		{name: "interactive select then all", rawServices: "", interactive: true, input: "select\nall\n", wantAll: true},
 		{name: "interactive select then empty skips", rawServices: "", interactive: true, input: "select\n\n", wantSkipped: true},
 		{name: "interactive select then EOF skips", rawServices: "", interactive: true, input: "select\n", wantSkipped: true},
-		{name: "interactive invalid service errors", rawServices: "", interactive: true, input: "nonexistent-service-xyz\n", wantErr: true, wantErrContains: "unknown official service"},
+		{name: "interactive invalid service errors", rawServices: "", interactive: true, input: "nonexistent-service-xyz\n", wantErr: true, wantErrContains: "unknown catalog service"},
 	}
 
 	for _, tc := range tests {
@@ -314,12 +314,12 @@ func TestResolveInitServiceSelectionFromReader(t *testing.T) {
 			}
 
 			if tc.wantAll {
-				allServices, listErr := skills.List()
+				allServices, listErr := catalog.List()
 				if listErr != nil {
-					t.Fatalf("skills.List() error: %v", listErr)
+					t.Fatalf("catalog.List() error: %v", listErr)
 				}
 				if len(result.Names) != len(allServices) {
-					t.Fatalf("expected %d official services, got %d", len(allServices), len(result.Names))
+					t.Fatalf("expected %d catalog services, got %d", len(allServices), len(result.Names))
 				}
 				for i, want := range allServices {
 					if result.Names[i] != want {

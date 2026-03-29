@@ -24,7 +24,7 @@ brew install kimbap
 kimbap init --mode dev --services all
 ```
 
-Creates `~/.kimbap/` with a config file, encrypted vault, and default policy. Installs all built-in service manifests. Dev mode auto-generates a vault key stored locally, so no extra setup is needed.
+Creates `~/.kimbap/` with a config file, encrypted vault, and default policy. Installs all catalog service manifests. Dev mode auto-generates a vault key stored locally, so no extra setup is needed.
 
 ---
 

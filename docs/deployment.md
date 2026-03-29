@@ -89,6 +89,12 @@ All configuration is set via environment variables or `~/.kimbap/config.yaml`.
 | --------------- | -------- | ------- | --------------------------------------------------------- |
 | `KIMBAP_DATA_DIR` |        | `~/.kimbap` | Directory for SQLite database, vault, and audit logs. |
 
+#### Service Catalog
+
+| Name                         | Required | Default                    | Description                                                                 |
+| ---------------------------- | -------- | -------------------------- | --------------------------------------------------------------------------- |
+| `KIMBAP_SERVICES_REGISTRY_URL` |          | `https://services.kimbap.ai` | Base HTTPS URL used as non-default remote fallback for registry-backed catalog service resolution by name. |
+
 #### Security
 
 | Name                   | Required          | Default | Description                                                              |

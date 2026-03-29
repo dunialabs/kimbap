@@ -1,4 +1,4 @@
-package skills_test
+package catalog_test
 
 import (
 	"errors"
@@ -7,16 +7,16 @@ import (
 	"testing"
 
 	"github.com/dunialabs/kimbap/internal/services"
-	"github.com/dunialabs/kimbap/skills"
+	catalog "github.com/dunialabs/kimbap/services"
 )
 
-func TestListReturnsSortedUniqueOfficialNames(t *testing.T) {
-	names, err := skills.List()
+func TestListReturnsSortedUniqueCatalogNames(t *testing.T) {
+	names, err := catalog.List()
 	if err != nil {
 		t.Fatalf("List() error = %v", err)
 	}
 	if len(names) == 0 {
-		t.Fatal("expected at least one official service")
+		t.Fatal("expected at least one catalog service")
 	}
 	if !sort.StringsAreSorted(names) {
 		t.Fatalf("List() must return sorted names, got: %v", names)
@@ -35,14 +35,14 @@ func TestListReturnsSortedUniqueOfficialNames(t *testing.T) {
 }
 
 func TestGetLoadsAndParsesAllListedServices(t *testing.T) {
-	names, err := skills.List()
+	names, err := catalog.List()
 	if err != nil {
 		t.Fatalf("List() error = %v", err)
 	}
 
 	for _, name := range names {
 		t.Run(name, func(t *testing.T) {
-			data, getErr := skills.Get(name)
+			data, getErr := catalog.Get(name)
 			if getErr != nil {
 				t.Fatalf("Get(%q) error = %v", name, getErr)
 			}
@@ -67,10 +67,10 @@ func TestGetLoadsAndParsesAllListedServices(t *testing.T) {
 }
 
 func TestGetRejectsBlankAndUnknownNames(t *testing.T) {
-	if _, err := skills.Get("   "); !errors.Is(err, fs.ErrNotExist) {
+	if _, err := catalog.Get("   "); !errors.Is(err, fs.ErrNotExist) {
 		t.Fatalf("Get(blank) error = %v, want fs.ErrNotExist", err)
 	}
-	if _, err := skills.Get("definitely-not-a-real-service"); !errors.Is(err, fs.ErrNotExist) {
+	if _, err := catalog.Get("definitely-not-a-real-service"); !errors.Is(err, fs.ErrNotExist) {
 		t.Fatalf("Get(unknown) error = %v, want fs.ErrNotExist", err)
 	}
 }

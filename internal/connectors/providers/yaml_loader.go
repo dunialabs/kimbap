@@ -53,7 +53,7 @@ func LoadProvider(id string, fsys fs.FS) (connectors.ProviderDefinition, error) 
 		return connectors.ProviderDefinition{}, fmt.Errorf("provider %q: %w", id, fs.ErrNotExist)
 	}
 
-	providerPath := filepath.ToSlash(filepath.Join("official", normalized+".yaml"))
+	providerPath := filepath.ToSlash(filepath.Join("embedded", normalized+".yaml"))
 	data, err := fs.ReadFile(fsys, providerPath)
 	if err != nil {
 		if errors.Is(err, fs.ErrNotExist) {
@@ -73,11 +73,11 @@ func LoadProvider(id string, fsys fs.FS) (connectors.ProviderDefinition, error) 
 }
 
 // LoadAllProviders loads all provider definitions from the given fs.FS.
-// Only YAML files in the official/ directory are loaded; _placeholder.yaml is skipped.
+// Only YAML files in the embedded/ directory are loaded; _placeholder.yaml is skipped.
 func LoadAllProviders(fsys fs.FS) ([]connectors.ProviderDefinition, error) {
 	merged := map[string]connectors.ProviderDefinition{}
 
-	entries, err := fs.ReadDir(fsys, "official")
+	entries, err := fs.ReadDir(fsys, "embedded")
 	if err != nil && !errors.Is(err, fs.ErrNotExist) {
 		return nil, fmt.Errorf("read providers directory: %w", err)
 	}
@@ -92,7 +92,7 @@ func LoadAllProviders(fsys fs.FS) ([]connectors.ProviderDefinition, error) {
 			continue
 		}
 
-		path := filepath.ToSlash(filepath.Join("official", name))
+		path := filepath.ToSlash(filepath.Join("embedded", name))
 		data, readErr := fs.ReadFile(fsys, path)
 		if readErr != nil {
 			return nil, fmt.Errorf("read provider YAML %q: %w", path, readErr)

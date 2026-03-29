@@ -1174,14 +1174,14 @@ td.mono {
   }
 
   function approvalStatusBadge(status) {
-    if (!status) return '<span class="badge badge-muted">Unknown</span>';
+    if (!status) return '<span class="badge badge-muted" aria-hidden="true">Unknown</span>';
     var s = String(status).toLowerCase();
     var cls = 'badge-muted';
     if (s === 'pending') cls = 'badge-blue';
     else if (s === 'approved') cls = 'badge-green';
     else if (s === 'denied') cls = 'badge-red';
     else if (s === 'expired') cls = 'badge-amber';
-    return '<span class="badge ' + cls + '">' + esc(humanizeLabel(s)) + '</span>';
+    return '<span class="badge ' + cls + '" aria-hidden="true">' + esc(humanizeLabel(s)) + '</span>';
   }
 
   function approvalStatusTitle(status) {
@@ -1894,6 +1894,31 @@ td.mono {
 
   var sensitiveKeys = /token|secret|password|api[_-]?key|access[_-]?key|private|credential|auth/i;
 
+  function redactSensitiveDeep(value) {
+    var i;
+    var key;
+    var arr;
+    var out;
+    if (!value || typeof value !== 'object') { return value; }
+    if (Array.isArray(value)) {
+      arr = [];
+      for (i = 0; i < value.length; i++) {
+        arr.push(redactSensitiveDeep(value[i]));
+      }
+      return arr;
+    }
+    out = {};
+    for (key in value) {
+      if (!value.hasOwnProperty(key)) { continue; }
+      if (sensitiveKeys.test(key)) {
+        out[key] = '[REDACTED]';
+        continue;
+      }
+      out[key] = redactSensitiveDeep(value[key]);
+    }
+    return out;
+  }
+
   function approvalInputSummary(inputJSON, maxValueLen, maxPairs) {
     if (!inputJSON) { return ''; }
     var parsed;
@@ -1906,7 +1931,11 @@ td.mono {
       if (!parsed.hasOwnProperty(k)) { continue; }
       if (sensitiveKeys.test(k)) { continue; }
       v = parsed[k];
-      vs = typeof v === 'string' ? v : JSON.stringify(v);
+      if (v && typeof v === 'object') {
+        vs = JSON.stringify(redactSensitiveDeep(v));
+      } else {
+        vs = typeof v === 'string' ? v : JSON.stringify(v);
+      }
       if (maxValueLen > 0 && vs.length > maxValueLen) { vs = vs.substring(0, maxValueLen - 3) + '...'; }
       pairs.push(k + '=' + vs);
     }
@@ -1953,38 +1982,50 @@ td.mono {
       var createdAriaAttr = createdDisplay !== '—' ? ' aria-label="Created at ' + escAttr(createdDisplay) + '"' : '';
       var expiresAriaAttr = expiresDisplay !== '—' ? ' aria-label="Expires at ' + escAttr(expiresDisplay) + '"' : '';
       var timeLeftTitleAttr = expiresDisplay !== '—' ? ' title="Expires at ' + escAttr(expiresDisplay + ' (' + timeLeftDisplay + ' left)') + '"' : '';
-      var timeLeftAriaAttr = expiresDisplay !== '—'
-        ? ' aria-label="' + escAttr('Time left ' + timeLeftDisplay + ', expires at ' + expiresDisplay) + '"'
-        : '';
+      var timeLeftAriaText = expiresDisplay !== '—'
+        ? 'Time left ' + timeLeftDisplay + ', expires at ' + expiresDisplay
+        : 'Time left unknown';
+      var timeLeftAriaAttr = ' aria-label="' + escAttr(timeLeftAriaText) + '"';
       var inputJSON = getField(item, 'InputJSON', 'input_json') || '';
       var inputSummary = approvalInputSummary(inputJSON, 30, 4);
       var inputSummaryFull = approvalInputSummary(inputJSON, 0, 0);
       var inputSummaryTitleAttr = inputSummaryFull ? ' title="' + escAttr(inputSummaryFull) + '"' : '';
+      var inputSummaryAriaAttr = inputSummaryFull ? ' aria-label="' + escAttr('Input summary: ' + inputSummaryFull) + '"' : '';
       var busyMode = state.approvalsBusy[id] || '';
       var busy = !!busyMode;
       var approveLabel = busyMode === 'approve' ? 'Approving...' : 'Approve';
       var denyLabel = busyMode === 'deny' ? 'Denying...' : 'Deny';
-      var approveAria = (busyMode === 'approve' ? 'Approving' : 'Approve') + ' request ' + (id || 'unknown');
-      var denyAria = (busyMode === 'deny' ? 'Denying' : 'Deny') + ' request ' + (id || 'unknown');
-      var actionGroupAria = 'Decision actions for request ' + (id || 'unknown') + ': ' + actionFull + ', status ' + statusBadgeText + ', time left ' + timeLeftDisplay;
+      var approveAria = (busyMode === 'approve' ? 'Approving' : 'Approve') + ' request ' + (id || 'unknown') + ' for action ' + actionFull;
+      var denyAria = (busyMode === 'deny' ? 'Denying' : 'Deny') + ' request ' + (id || 'unknown') + ' for action ' + actionFull;
+      var actionLabelForAria = actionFull !== '—' ? actionFull : 'unknown action';
+      var statusLabelForAria = statusBadgeText !== '—' ? statusBadgeText : 'unknown status';
+      var timeLeftLabelForAria = timeLeftDisplay !== '—' ? timeLeftDisplay : 'unknown';
+      var actionGroupAria = 'Decision actions for request ' + (id || 'unknown') + ': ' + actionLabelForAria + ', status ' + statusLabelForAria + ', time left ' + timeLeftLabelForAria;
       var idTitleAttr = id ? ' title="' + escAttr(id) + '"' : '';
+      var idAriaAttr = id ? ' aria-label="Request ID ' + escAttr(id) + '"' : '';
       var agentTitleAttr = agent !== '—' ? ' title="' + escAttr(agent) + '"' : '';
+      var agentAriaAttr = agent !== '—' ? ' aria-label="Agent ' + escAttr(agent) + '"' : '';
       var actionTooltip = 'Action: ' + actionFull;
       if (inputSummaryFull) {
         actionTooltip += '\nInput: ' + inputSummaryFull;
       }
       var actionTitleAttr = actionFull !== '—' ? ' title="' + escAttr(actionTooltip) + '"' : '';
+      var actionAria = 'Action ' + actionFull;
+      if (inputSummaryFull) {
+        actionAria += '. Input summary: ' + inputSummaryFull;
+      }
+      var actionAriaAttr = actionFull !== '—' ? ' aria-label="' + escAttr(actionAria) + '"' : '';
       html += '<tr>' +
-        '<td class="mono"' + idTitleAttr + '>' + esc(id || '—') + '</td>' +
-        '<td class="mono" style="color:var(--text-primary)"' + actionTitleAttr + '>' + esc(actionFull) +
-          (inputSummary ? '<br><span style="font-size:11px;color:var(--text-muted);font-weight:normal"' + inputSummaryTitleAttr + '>' + esc(inputSummary) + '</span>' : '') +
+        '<td class="mono"' + idTitleAttr + idAriaAttr + '>' + esc(id || '—') + '</td>' +
+        '<td class="mono" style="color:var(--text-primary)"' + actionTitleAttr + actionAriaAttr + '>' + esc(actionFull) +
+          (inputSummary ? '<br><span style="font-size:11px;color:var(--text-muted);font-weight:normal"' + inputSummaryTitleAttr + inputSummaryAriaAttr + '>' + esc(inputSummary) + '</span>' : '') +
         '</td>' +
-        '<td' + agentTitleAttr + '>' + esc(agent) + '</td>' +
+        '<td' + agentTitleAttr + agentAriaAttr + '>' + esc(agent) + '</td>' +
         '<td title="' + escAttr(statusTitle) + '" aria-label="' + escAttr(statusTitle) + '">' + approvalStatusBadge(status) + '<span class="sr-only"> ' + esc(statusBadgeText) + '</span></td>' +
         '<td class="mono"' + createdTitleAttr + createdAriaAttr + '>' + esc(createdDisplay) + '</td>' +
         '<td class="mono"' + expiresTitleAttr + expiresAriaAttr + '>' + esc(expiresDisplay) + '</td>' +
         '<td class="mono"' + timeLeftTitleAttr + timeLeftAriaAttr + '>' + esc(timeLeftDisplay) + '</td>' +
-        '<td><div class="row-actions" aria-label="' + escAttr(actionGroupAria) + '" aria-busy="' + (busy ? 'true' : 'false') + '">' +
+        '<td><div class="row-actions" role="group" aria-label="' + escAttr(actionGroupAria) + '" aria-busy="' + (busy ? 'true' : 'false') + '">' +
           '<button type="button" class="mini-btn approve" aria-label="' + escAttr(approveAria) + '" title="' + escAttr(approveAria) + '" ' + (busy ? 'disabled ' : '') + 'onclick="resolveApproval(\'' + escAttr(id) + '\',\'approve\')">' + approveLabel + '</button>' +
           '<button type="button" class="mini-btn deny" aria-label="' + escAttr(denyAria) + '" title="' + escAttr(denyAria) + '" ' + (busy ? 'disabled ' : '') + 'onclick="resolveApproval(\'' + escAttr(id) + '\',\'deny\')">' + denyLabel + '</button>' +
         '</div></td>' +

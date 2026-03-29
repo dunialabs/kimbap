@@ -11,7 +11,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/dunialabs/kimbap/skills"
+	"github.com/dunialabs/kimbap/services"
 )
 
 const validHTTPManifestYAML = `name: test-service
@@ -32,8 +32,8 @@ actions:
 `
 
 func TestErrNotFoundErrorMessage(t *testing.T) {
-	errWithRegistry := (&ErrNotFound{Name: "github", Registry: "official"}).Error()
-	if errWithRegistry != `service "github" not found in registry "official"` {
+	errWithRegistry := (&ErrNotFound{Name: "github", Registry: "catalog"}).Error()
+	if errWithRegistry != `service "github" not found in registry "catalog"` {
 		t.Fatalf("unexpected error message: %q", errWithRegistry)
 	}
 
@@ -163,7 +163,7 @@ func TestEmbeddedRegistryResolveAndList(t *testing.T) {
 		t.Fatalf("List() error = %v", err)
 	}
 	if len(names) == 0 {
-		t.Fatal("expected embedded registry to list official services")
+		t.Fatal("expected embedded registry to list catalog services")
 	}
 
 	known := names[0]
@@ -174,8 +174,8 @@ func TestEmbeddedRegistryResolveAndList(t *testing.T) {
 	if manifest.Name != known {
 		t.Fatalf("manifest name = %q, want %q", manifest.Name, known)
 	}
-	if source != "official:"+known {
-		t.Fatalf("source = %q, want official:%s", source, known)
+	if source != "registry:"+known {
+		t.Fatalf("source = %q, want registry:%s", source, known)
 	}
 
 	_, _, err = registry.Resolve(context.Background(), "definitely-not-a-real-service")
@@ -184,7 +184,7 @@ func TestEmbeddedRegistryResolveAndList(t *testing.T) {
 		t.Fatalf("expected ErrNotFound from embedded registry, got %v", err)
 	}
 
-	if _, err := skills.Get(known); err != nil {
-		t.Fatalf("skills.Get(%q) should succeed for listed embedded service: %v", known, err)
+	if _, err := catalog.Get(known); err != nil {
+		t.Fatalf("catalog.Get(%q) should succeed for listed embedded service: %v", known, err)
 	}
 }

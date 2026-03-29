@@ -14,7 +14,7 @@ triggers:
   instead_of:
     - building direct unofficial WeChat automation scripts
   exclusions:
-    - official enterprise WeChat API integrations
+    - enterprise WeChat API integrations
 gotchas:
   - symptom: commands intermittently fail or session is revoked
     likely_cause: WeChat frequently blocks unofficial API access patterns

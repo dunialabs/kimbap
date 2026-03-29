@@ -3,7 +3,7 @@ package services
 import "testing"
 
 func TestInstallAppleNotesService(t *testing.T) {
-	manifest, err := ParseManifestFile("../../skills/official/apple-notes.yaml")
+	manifest, err := ParseManifestFile("../../services/catalog/apple-notes.yaml")
 	if err != nil {
 		t.Fatalf("parse: %v", err)
 	}
@@ -25,7 +25,7 @@ func TestInstallAppleNotesService(t *testing.T) {
 }
 
 func TestInstallAppleCalendarService(t *testing.T) {
-	manifest, err := ParseManifestFile("../../skills/official/apple-calendar.yaml")
+	manifest, err := ParseManifestFile("../../services/catalog/apple-calendar.yaml")
 	if err != nil {
 		t.Fatalf("parse: %v", err)
 	}
@@ -47,7 +47,7 @@ func TestInstallAppleCalendarService(t *testing.T) {
 }
 
 func TestInstallAppleRemindersService(t *testing.T) {
-	manifest, err := ParseManifestFile("../../skills/official/apple-reminders.yaml")
+	manifest, err := ParseManifestFile("../../services/catalog/apple-reminders.yaml")
 	if err != nil {
 		t.Fatalf("parse: %v", err)
 	}
@@ -69,7 +69,7 @@ func TestInstallAppleRemindersService(t *testing.T) {
 }
 
 func TestInstallAppleMailService(t *testing.T) {
-	manifest, err := ParseManifestFile("../../skills/official/apple-mail.yaml")
+	manifest, err := ParseManifestFile("../../services/catalog/apple-mail.yaml")
 	if err != nil {
 		t.Fatalf("parse: %v", err)
 	}

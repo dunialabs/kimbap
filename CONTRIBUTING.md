@@ -94,7 +94,7 @@ If you find a bug or have a feature request:
 
 ### Adding a new service integration
 
-Create a YAML file in `skills/official/`. Three adapter types are supported.
+Create a YAML file in `services/catalog/`. Three adapter types are supported.
 
 **HTTP (REST API — default)**
 
@@ -170,11 +170,11 @@ actions:
 
 ### Adding a New Provider
 
-Providers define OAuth endpoints and authentication configuration for external services. They are stored as YAML files in `internal/connectors/providers/official/`.
+Providers define OAuth endpoints and authentication configuration for external services. They are stored as YAML files in `internal/connectors/providers/embedded/`.
 
 #### Steps
 
-1. Copy `internal/connectors/providers/official/TEMPLATE.yaml` to `{provider-id}.yaml`
+1. Copy `internal/connectors/providers/embedded/TEMPLATE.yaml` to `{provider-id}.yaml`
 2. Fill in all required fields (see template comments)
 3. Choose the appropriate `auth_lanes`:
    - `public-client` — embeds `client_id` in the binary (device/PKCE flows only; no secret)

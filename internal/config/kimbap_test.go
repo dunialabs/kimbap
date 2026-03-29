@@ -357,7 +357,7 @@ func TestLoadKimbapConfigAppliesServicesEnvOverrides(t *testing.T) {
 	home := t.TempDir()
 	t.Setenv("HOME", home)
 	t.Setenv("KIMBAP_SERVICES_DIR", "/tmp/custom-services")
-	t.Setenv("KIMBAP_SERVICES_OFFICIAL", "https://services.example.com")
+	t.Setenv("KIMBAP_SERVICES_REGISTRY_URL", "https://services.example.com")
 	t.Setenv("KIMBAP_SERVICES_VERIFY", "strict")
 	t.Setenv("KIMBAP_SERVICES_SIGNATURE_POLICY", "required")
 
@@ -369,8 +369,8 @@ func TestLoadKimbapConfigAppliesServicesEnvOverrides(t *testing.T) {
 	if cfg.Services.Dir != "/tmp/custom-services" {
 		t.Fatalf("expected services dir override, got %q", cfg.Services.Dir)
 	}
-	if cfg.Services.Official != "https://services.example.com" {
-		t.Fatalf("expected services official override, got %q", cfg.Services.Official)
+	if cfg.Services.RegistryURL != "https://services.example.com" {
+		t.Fatalf("expected services registry_url override, got %q", cfg.Services.RegistryURL)
 	}
 	if cfg.Services.Verify != "strict" {
 		t.Fatalf("expected services verify override, got %q", cfg.Services.Verify)

@@ -93,7 +93,7 @@ kimbap actions describe github.create-issue
 
 ### kimbap service install \<file|name\>
 
-Install a service manifest. Accepts a path to a local YAML file or a built-in service name from the official registry.
+Install a service manifest. Accepts a path to a local YAML file or a catalog service name from the service catalog.
 
 **Syntax:**
 
@@ -709,7 +709,7 @@ In dev mode (`--mode dev`), a vault master key is auto-generated. In production,
 | Flag | Description |
 |---|---|
 | `--mode <mode>` | Runtime mode: `dev`, `embedded`, or `connected` |
-| `--services <list>` | Comma-separated official service names to install, or `all` |
+| `--services <list>` | Comma-separated catalog service names to install, or `all` |
 | `--no-services` | Skip service installation entirely |
 | `--with-console` | Enable the `/console` route in the generated config |
 | `--with-agents` | Run `agents setup` and `agents sync` after init |

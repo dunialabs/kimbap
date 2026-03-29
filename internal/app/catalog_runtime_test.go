@@ -9,39 +9,39 @@ import (
 	"github.com/dunialabs/kimbap/internal/config"
 	runtimepkg "github.com/dunialabs/kimbap/internal/runtime"
 	"github.com/dunialabs/kimbap/internal/services"
-	"github.com/dunialabs/kimbap/skills"
+	"github.com/dunialabs/kimbap/services"
 )
 
-func TestBuildRuntimeRegistersAllOfficialCatalogActions(t *testing.T) {
+func TestBuildRuntimeRegistersAllCatalogActions(t *testing.T) {
 	ctx := context.Background()
 	servicesDir := t.TempDir()
 	installer := services.NewLocalInstaller(servicesDir)
 
-	official, err := skills.List()
+	catalogNames, err := catalog.List()
 	if err != nil {
-		t.Fatalf("list official skills: %v", err)
+		t.Fatalf("list catalog services: %v", err)
 	}
-	if len(official) < 50 {
-		t.Fatalf("expected at least 50 official skills, got %d", len(official))
+	if len(catalogNames) < 50 {
+		t.Fatalf("expected at least 50 catalog services, got %d", len(catalogNames))
 	}
 
 	expected := map[string]struct{}{}
-	for _, name := range official {
-		data, getErr := skills.Get(name)
+	for _, name := range catalogNames {
+		data, getErr := catalog.Get(name)
 		if getErr != nil {
-			t.Fatalf("get official skill %q: %v", name, getErr)
+			t.Fatalf("get catalog service %q: %v", name, getErr)
 		}
 		manifest, parseErr := services.ParseManifest(data)
 		if parseErr != nil {
-			t.Fatalf("parse official skill %q: %v", name, parseErr)
+			t.Fatalf("parse catalog service %q: %v", name, parseErr)
 		}
-		if _, installErr := installer.Install(manifest, "official:"+name); installErr != nil {
-			t.Fatalf("install official skill %q: %v", name, installErr)
+		if _, installErr := installer.Install(manifest, "registry:"+name); installErr != nil {
+			t.Fatalf("install catalog service %q: %v", name, installErr)
 		}
 		for actionKey := range manifest.Actions {
 			actionName := manifest.Name + "." + actionKey
 			if _, exists := expected[actionName]; exists {
-				t.Fatalf("duplicate action name in official catalog: %q", actionName)
+				t.Fatalf("duplicate action name in catalog: %q", actionName)
 			}
 			expected[actionName] = struct{}{}
 		}

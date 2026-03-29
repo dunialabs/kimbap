@@ -87,7 +87,10 @@ func TestRunApproveAcceptRequiresRequestIDWithHint(t *testing.T) {
 	if !strings.Contains(err.Error(), "request-id is required") {
 		t.Fatalf("expected request-id required message, got %v", err)
 	}
-	if !strings.Contains(err.Error(), "Run: kimbap approve accept <request-id>") {
+	if !strings.Contains(err.Error(), "Run: kimbap approve list --status pending") {
+		t.Fatalf("expected actionable discovery hint, got %v", err)
+	}
+	if !strings.Contains(err.Error(), "Then run: kimbap approve accept <request-id>") {
 		t.Fatalf("expected actionable next-step hint, got %v", err)
 	}
 }
@@ -187,7 +190,10 @@ func TestApproveDenyRequiresReasonWithNextStepHint(t *testing.T) {
 	if !strings.Contains(err.Error(), "--reason is required") {
 		t.Fatalf("expected required reason error, got %v", err)
 	}
-	if !strings.Contains(err.Error(), "Run: kimbap approve deny apr-123 --reason \"<why>\"") {
+	if !strings.Contains(err.Error(), "Run: kimbap approve list --status pending") {
+		t.Fatalf("expected discovery hint, got %v", err)
+	}
+	if !strings.Contains(err.Error(), "Then run: kimbap approve deny apr-123 --reason \"<why>\"") {
 		t.Fatalf("expected actionable next-step hint, got %v", err)
 	}
 }
@@ -251,8 +257,19 @@ func TestApprovalStatusValidation(t *testing.T) {
 				if !strings.Contains(err.Error(), "valid: pending, approved, denied, expired") {
 					t.Fatalf("expected allowed-values hint in error, got %v", err)
 				}
-				if !strings.Contains(err.Error(), "Run: kimbap approve list --status pending") {
+				if tc.name == "blank invalid" {
+					if !strings.Contains(err.Error(), "Run: kimbap approve list") {
+						t.Fatalf("expected blank-status default command hint, got %v", err)
+					}
+					if !strings.Contains(err.Error(), "Or:  kimbap approve list --status pending") {
+						t.Fatalf("expected blank-status pending command hint, got %v", err)
+					}
+				} else if !strings.Contains(err.Error(), "Run: kimbap approve list --status pending") {
 					t.Fatalf("expected actionable retry hint, got %v", err)
+				} else if !strings.Contains(err.Error(), "Example: kimbap approve list --status approved") {
+					t.Fatalf("expected copyable alternate-status example, got %v", err)
+				} else if !strings.Contains(err.Error(), "Try one of: approved, denied, expired") {
+					t.Fatalf("expected invalid-status options hint, got %v", err)
 				}
 				return
 			}
@@ -263,6 +280,50 @@ func TestApprovalStatusValidation(t *testing.T) {
 				t.Fatalf("expected %q, got %q", tc.want, got)
 			}
 		})
+	}
+}
+
+func TestApprovalNoRequestsMessage(t *testing.T) {
+	pending := approvalNoRequestsMessage("pending")
+	if !strings.Contains(pending, "No pending approval requests.") {
+		t.Fatalf("unexpected pending message: %q", pending)
+	}
+	if !strings.Contains(pending, "Tip: Run kimbap approve list --status approved") {
+		t.Fatalf("expected approved status tip, got %q", pending)
+	}
+	if !strings.Contains(pending, "Tip: Run kimbap approve list --status denied") {
+		t.Fatalf("expected denied status tip, got %q", pending)
+	}
+	got := approvalNoRequestsMessage("approved")
+	if !strings.Contains(got, `No approval requests found for status "approved".`) {
+		t.Fatalf("expected status-specific message, got %q", got)
+	}
+	if !strings.Contains(got, "Tip: Run kimbap approve list --status pending to review pending decisions.") {
+		t.Fatalf("expected actionable tip, got %q", got)
+	}
+}
+
+func TestApprovalTimeRemainingLongDurationUsesDays(t *testing.T) {
+	now := time.Date(2026, 3, 30, 10, 0, 0, 0, time.UTC)
+	got := approvalTimeRemainingAt(now.Add(49*time.Hour), now)
+	if got != "2d1h" {
+		t.Fatalf("expected exact day+hour format, got %q", got)
+	}
+}
+
+func TestApprovalTimeRemainingNearDayBoundaryUsesDayFormat(t *testing.T) {
+	now := time.Date(2026, 3, 30, 10, 0, 0, 0, time.UTC)
+	got := approvalTimeRemainingAt(now.Add(24*time.Hour-time.Second), now)
+	if got != "1d0h" {
+		t.Fatalf("expected boundary to round up to day format, got %q", got)
+	}
+}
+
+func TestApprovalTimeRemainingLongDurationDoesNotOverstateHours(t *testing.T) {
+	now := time.Date(2026, 3, 30, 10, 0, 0, 0, time.UTC)
+	got := approvalTimeRemainingAt(now.Add(25*time.Hour+time.Second), now)
+	if got != "1d1h" {
+		t.Fatalf("expected floor-hour day format for long duration, got %q", got)
 	}
 }
 

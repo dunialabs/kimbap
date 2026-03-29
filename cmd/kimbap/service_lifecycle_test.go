@@ -9,7 +9,7 @@ import (
 	"testing"
 
 	"github.com/dunialabs/kimbap/internal/services"
-	"github.com/dunialabs/kimbap/skills"
+	"github.com/dunialabs/kimbap/services"
 )
 
 func writeServiceCLIConfig(t *testing.T, dataDir, servicesDir string) string {
@@ -54,14 +54,14 @@ func captureStdout(t *testing.T, fn func() error) (string, error) {
 	return string(out), runErr
 }
 
-func pickOfficialServiceName(t *testing.T) string {
+func pickCatalogServiceName(t *testing.T) string {
 	t.Helper()
-	names, err := skills.List()
+	names, err := catalog.List()
 	if err != nil {
-		t.Fatalf("skills.List() error: %v", err)
+		t.Fatalf("catalog.List() error: %v", err)
 	}
 	if len(names) == 0 {
-		t.Fatal("no official services available")
+		t.Fatal("no catalog services available")
 	}
 	return names[0]
 }
@@ -101,7 +101,7 @@ func TestServiceCLIInstallEnableDisableLifecycle(t *testing.T) {
 	dataDir := t.TempDir()
 	servicesDir := filepath.Join(dataDir, "services")
 	configPath := writeServiceCLIConfig(t, dataDir, servicesDir)
-	serviceName := pickOfficialServiceName(t)
+	serviceName := pickCatalogServiceName(t)
 
 	withServiceCLIOpts(t, configPath, func() {
 		installCmd := newServiceInstallCommand()
@@ -156,7 +156,7 @@ func TestServiceCLIListAvailableReflectsInstalledAndEnabledStatus(t *testing.T) 
 	dataDir := t.TempDir()
 	servicesDir := filepath.Join(dataDir, "services")
 	configPath := writeServiceCLIConfig(t, dataDir, servicesDir)
-	serviceName := pickOfficialServiceName(t)
+	serviceName := pickCatalogServiceName(t)
 
 	withServiceCLIOpts(t, configPath, func() {
 		installCmd := newServiceInstallCommand()
@@ -300,28 +300,28 @@ func TestServiceCLIRemoveDeletesInstalledManifest(t *testing.T) {
 	})
 }
 
-func TestServiceCLIUpdateOfficialNoOp(t *testing.T) {
+func TestServiceCLIUpdateRegistryNoOp(t *testing.T) {
 	dataDir := t.TempDir()
 	servicesDir := filepath.Join(dataDir, "services")
 	configPath := writeServiceCLIConfig(t, dataDir, servicesDir)
-	serviceName := pickOfficialServiceName(t)
+	serviceName := pickCatalogServiceName(t)
 
 	withServiceCLIOpts(t, configPath, func() {
 		installCmd := newServiceInstallCommand()
 		installCmd.SetArgs([]string{serviceName})
 		if _, err := captureStdout(t, installCmd.Execute); err != nil {
-			t.Fatalf("service install official failed: %v", err)
+			t.Fatalf("service install catalog failed: %v", err)
 		}
 
 		updateCmd := newServiceUpdateCommand()
 		updateCmd.SetArgs([]string{serviceName})
 		output, err := captureStdout(t, updateCmd.Execute)
 		if err != nil {
-			t.Fatalf("service update official no-op failed: %v", err)
+			t.Fatalf("service update registry no-op failed: %v", err)
 		}
 		payload := decodeJSONObject(t, output)
 		if updated, _ := payload["updated"].(bool); updated {
-			t.Fatalf("expected official no-op update to return updated=false, got payload: %+v", payload)
+			t.Fatalf("expected registry no-op update to return updated=false, got payload: %+v", payload)
 		}
 	})
 }

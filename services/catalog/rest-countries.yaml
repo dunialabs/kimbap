@@ -13,7 +13,7 @@ triggers:
     - unrelated actions outside country and region metadata lookup
 gotchas:
   - symptom: Name-based search misses obvious country intent
-    likely_cause: Query term is too vague or does not match official naming
+    likely_cause: Query term is too vague or does not match canonical naming
     recovery: Use more specific names such as United States instead of America
     severity: common
   - symptom: Code-based lookup fails for valid-looking values

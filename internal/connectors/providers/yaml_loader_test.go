@@ -23,7 +23,7 @@ token_exchange:
 
 func TestLoadProvider_YAMLPrecedence(t *testing.T) {
 	testFS := fstest.MapFS{
-		"official/github.yaml": {Data: githubYAML},
+		"embedded/github.yaml": {Data: githubYAML},
 	}
 
 	def, err := providers.LoadProvider("github", testFS)
@@ -60,7 +60,7 @@ func TestLoadProvider_GitHubRemoved(t *testing.T) {
 
 func TestLoadAllProviders_YAMLWins(t *testing.T) {
 	testFS := fstest.MapFS{
-		"official/github.yaml": {Data: githubYAML},
+		"embedded/github.yaml": {Data: githubYAML},
 	}
 
 	providersList, err := providers.LoadAllProviders(testFS)

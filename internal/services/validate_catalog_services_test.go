@@ -8,16 +8,16 @@ import (
 	"testing"
 )
 
-func TestAllOfficialSkillsValidate(t *testing.T) {
+func TestAllCatalogServicesValidate(t *testing.T) {
 	_, file, _, ok := runtime.Caller(0)
 	if !ok {
 		t.Fatal("failed to resolve current test file path")
 	}
 	repoRoot := filepath.Join(filepath.Dir(file), "..", "..")
-	skillsDir := filepath.Join(repoRoot, "skills", "official")
-	entries, err := os.ReadDir(skillsDir)
+	catalogDir := filepath.Join(repoRoot, "services", "catalog")
+	entries, err := os.ReadDir(catalogDir)
 	if err != nil {
-		t.Fatalf("read skills/official: %v", err)
+		t.Fatalf("read services/catalog: %v", err)
 	}
 
 	yamlCount := 0
@@ -27,7 +27,7 @@ func TestAllOfficialSkillsValidate(t *testing.T) {
 		}
 		yamlCount++
 		t.Run(entry.Name(), func(t *testing.T) {
-			path := filepath.Join(skillsDir, entry.Name())
+			path := filepath.Join(catalogDir, entry.Name())
 			data, err := os.ReadFile(path)
 			if err != nil {
 				t.Fatalf("read file: %v", err)
@@ -46,21 +46,21 @@ func TestAllOfficialSkillsValidate(t *testing.T) {
 	}
 
 	if yamlCount == 0 {
-		t.Fatal("no YAML files found in skills/official/")
+		t.Fatal("no YAML files found in services/catalog/")
 	}
-	t.Logf("validated %d skill manifests", yamlCount)
+	t.Logf("validated %d catalog service manifests", yamlCount)
 }
 
-func TestAllOfficialSkillsHavePackMetadata(t *testing.T) {
+func TestAllCatalogServicesHavePackMetadata(t *testing.T) {
 	_, file, _, ok := runtime.Caller(0)
 	if !ok {
 		t.Fatal("failed to resolve current test file path")
 	}
 	repoRoot := filepath.Join(filepath.Dir(file), "..", "..")
-	skillsDir := filepath.Join(repoRoot, "skills", "official")
-	entries, err := os.ReadDir(skillsDir)
+	catalogDir := filepath.Join(repoRoot, "services", "catalog")
+	entries, err := os.ReadDir(catalogDir)
 	if err != nil {
-		t.Fatalf("read skills/official: %v", err)
+		t.Fatalf("read services/catalog: %v", err)
 	}
 
 	for _, entry := range entries {
@@ -68,7 +68,7 @@ func TestAllOfficialSkillsHavePackMetadata(t *testing.T) {
 			continue
 		}
 		t.Run(entry.Name(), func(t *testing.T) {
-			path := filepath.Join(skillsDir, entry.Name())
+			path := filepath.Join(catalogDir, entry.Name())
 			data, err := os.ReadFile(path)
 			if err != nil {
 				t.Fatalf("read file: %v", err)

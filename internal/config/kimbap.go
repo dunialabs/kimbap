@@ -55,7 +55,7 @@ type PolicyConfig struct {
 
 type ServicesConfig struct {
 	Dir             string `yaml:"dir"`
-	Official        string `yaml:"official"`
+	RegistryURL     string `yaml:"registry_url"`
 	Verify          string `yaml:"verify"`
 	SignaturePolicy string `yaml:"signature_policy"`
 }
@@ -129,7 +129,7 @@ func DefaultConfig() *KimbapConfig {
 		Policy: PolicyConfig{Path: filepath.Join(dataDir, "policy.yaml")},
 		Services: ServicesConfig{
 			Dir:             filepath.Join(dataDir, "services"),
-			Official:        "https://services.kimbap.ai",
+			RegistryURL:     "https://services.kimbap.ai",
 			Verify:          "warn",
 			SignaturePolicy: "optional",
 		},
@@ -334,7 +334,7 @@ func warnUnknownConfigKeys(raw map[string]any, path string) {
 		"auth":          {"token_ttl": true, "session_ttl": true, "server_url": true},
 		"audit":         {"sink": true, "path": true},
 		"policy":        {"path": true},
-		"services":      {"dir": true, "official": true, "verify": true, "signature_policy": true},
+		"services":      {"dir": true, "registry_url": true, "verify": true, "signature_policy": true},
 		"database":      {"driver": true, "dsn": true},
 		"notifications": {"slack": true, "telegram": true, "email": true, "webhook": true},
 	}
@@ -422,7 +422,7 @@ func applyKimbapEnv(cfg *KimbapConfig) {
 	setIfNotEmpty(&cfg.Policy.Path, os.Getenv("KIMBAP_POLICY_PATH"))
 
 	setIfNotEmpty(&cfg.Services.Dir, os.Getenv("KIMBAP_SERVICES_DIR"))
-	setIfNotEmpty(&cfg.Services.Official, os.Getenv("KIMBAP_SERVICES_OFFICIAL"))
+	setIfNotEmpty(&cfg.Services.RegistryURL, os.Getenv("KIMBAP_SERVICES_REGISTRY_URL"))
 	setIfNotEmpty(&cfg.Services.Verify, os.Getenv("KIMBAP_SERVICES_VERIFY"))
 	setIfNotEmpty(&cfg.Services.SignaturePolicy, os.Getenv("KIMBAP_SERVICES_SIGNATURE_POLICY"))
 
@@ -490,7 +490,7 @@ func mergeConfig(dst, src *KimbapConfig) {
 	setIfNotEmpty(&dst.Policy.Path, src.Policy.Path)
 
 	setIfNotEmpty(&dst.Services.Dir, src.Services.Dir)
-	setIfNotEmpty(&dst.Services.Official, src.Services.Official)
+	setIfNotEmpty(&dst.Services.RegistryURL, src.Services.RegistryURL)
 	setIfNotEmpty(&dst.Services.Verify, src.Services.Verify)
 	setIfNotEmpty(&dst.Services.SignaturePolicy, src.Services.SignaturePolicy)
 

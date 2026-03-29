@@ -21,7 +21,7 @@ func WithSource(source string) SkillMDOption {
 func buildInstallInstruction(name string, cfg skillMDConfig) string {
 	source := strings.TrimSpace(cfg.Source)
 	switch {
-	case strings.HasPrefix(source, "official:"):
+	case strings.HasPrefix(source, "registry:"):
 		return fmt.Sprintf("kimbap service install %s", name)
 	case strings.HasPrefix(source, "remote:"):
 		trimmed := strings.TrimSpace(strings.TrimPrefix(source, "remote:"))

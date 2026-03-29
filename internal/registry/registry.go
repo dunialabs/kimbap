@@ -11,7 +11,7 @@ type Registry interface {
 	// Name returns a human-readable name for this registry.
 	Name() string
 	// Resolve fetches the manifest for the named service and returns it along
-	// with the canonical source string (e.g. "official:github", "remote:https://...").
+	// with the canonical source string (e.g. "registry:github", "remote:https://...").
 	Resolve(ctx context.Context, name string) (*services.ServiceManifest, string, error)
 	// List returns all service names available from this registry.
 	List(ctx context.Context) ([]string, error)

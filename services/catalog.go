@@ -1,4 +1,4 @@
-package skills
+package catalog
 
 import (
 	"embed"
@@ -8,11 +8,11 @@ import (
 	"strings"
 )
 
-//go:embed official/*.yaml
-var officialFS embed.FS
+//go:embed catalog/*.yaml
+var embeddedCatalogFS embed.FS
 
 func List() ([]string, error) {
-	entries, err := fs.ReadDir(officialFS, "official")
+	entries, err := fs.ReadDir(embeddedCatalogFS, "catalog")
 	if err != nil {
 		return nil, err
 	}
@@ -32,5 +32,5 @@ func Get(name string) ([]byte, error) {
 	if normalized == "" {
 		return nil, fs.ErrNotExist
 	}
-	return fs.ReadFile(officialFS, "official/"+normalized+".yaml")
+	return fs.ReadFile(embeddedCatalogFS, "catalog/"+normalized+".yaml")
 }

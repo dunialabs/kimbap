@@ -42,7 +42,7 @@ func resolveOAuthCreds(cfg *config.KimbapConfig, providerID string) *connectors.
 }
 
 func loadProviderManifestForConnect(providerID string) *connectors.ProviderManifest {
-	path := "official/" + strings.ToLower(strings.TrimSpace(providerID)) + ".yaml"
+	path := "embedded/" + strings.ToLower(strings.TrimSpace(providerID)) + ".yaml"
 	data, err := realProviders.EmbeddedProviders.ReadFile(path)
 	if err != nil {
 		return nil
