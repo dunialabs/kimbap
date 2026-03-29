@@ -493,7 +493,8 @@ td.mono {
   font-family: var(--font-mono);
   font-size: 13px;
   color: var(--text-primary);
-  word-break: break-all;
+  overflow-wrap: break-word;
+  word-break: break-word;
 }
 
 .back-btn {
@@ -785,7 +786,8 @@ td.mono {
   font-size: 12px;
   color: var(--text-secondary);
   white-space: pre-wrap;
-  word-break: break-all;
+  overflow-wrap: break-word;
+  word-break: break-word;
   max-height: 300px;
   overflow-y: auto;
 }
@@ -805,7 +807,7 @@ td.mono {
       <button type="button" class="nav-tab active" data-view="dashboard">Dashboard</button>
       <button type="button" class="nav-tab" data-view="actions">Actions</button>
       <button type="button" class="nav-tab" data-view="audit">Audit</button>
-      <button type="button" class="nav-tab" data-view="services">Services</button>
+      <button type="button" class="nav-tab" data-view="services">Vault &amp; Services</button>
     </nav>
 
     <div class="auth-area">
@@ -825,11 +827,11 @@ td.mono {
       <div class="section-header">
         <div>
           <h1>Dashboard</h1>
-          <p>Runtime overview and system health</p>
+          <p>System overview and health status</p>
         </div>
         <div class="refresh-info">
           <div class="refresh-dot"></div>
-          <span>Auto-refresh 30s</span>
+          <span>Refreshes every 30s</span>
         </div>
       </div>
     </div>
@@ -865,7 +867,7 @@ td.mono {
   <div class="view" id="view-actions">
     <div class="view-header">
       <h1>Actions</h1>
-      <p>All installed actions available in this runtime</p>
+      <p>All available actions in your Kimbap instance</p>
     </div>
     <div id="actionDetail"></div>
     <div id="actionList">
@@ -882,7 +884,7 @@ td.mono {
   <div class="view" id="view-audit">
     <div class="view-header">
       <h1>Audit Log</h1>
-      <p>Execution audit trail for all actions</p>
+      <p>Complete log of all action executions</p>
     </div>
     <div id="auditContent">
       <div class="loading"><div class="spinner"></div></div>
@@ -927,7 +929,9 @@ td.mono {
     }
     return fetch('/v1' + path, { headers: headers })
       .then(function(res) {
-        return res.json().then(function(body) {
+        return res.text().then(function(raw) {
+          var body = {};
+          try { if (raw) body = JSON.parse(raw); } catch(e) { /* non-JSON response */ }
           return { status: res.status, body: body };
         });
       });
@@ -1072,8 +1076,8 @@ td.mono {
     return '<div class="auth-gate">' +
       '<div class="auth-gate-icon">🔒</div>' +
       '<h2>Authentication Required</h2>' +
-      '<p>This view requires a Bearer token to access protected API endpoints.<br>' +
-      'Run <code>kimbap token create</code> to generate a token, then paste it below.</p>' +
+      '<p>This view requires an access token.<br>' +
+      'Run <code>kimbap token create</code> to generate one, then paste it below.</p>' +
       '<div class="token-input-group">' +
         '<input class="token-input" type="password" id="' + inputId + '" placeholder="ktk_..." autocomplete="off" />' +
         '<button class="connect-btn" onclick="saveToken(\'' + inputId + '\')">Connect</button>' +
@@ -1083,6 +1087,26 @@ td.mono {
 
   function errorBannerHTML(msg) {
     return '<div class="error-banner">⚠ ' + esc(msg) + '</div>';
+  }
+
+  function pruneNulls(obj) {
+    if (Array.isArray(obj)) {
+      return obj.map(function(v) {
+        return (v !== null && typeof v === 'object') ? pruneNulls(v) : v;
+      });
+    }
+    var out = {};
+    for (var k in obj) {
+      if (!obj.hasOwnProperty(k)) continue;
+      var v = obj[k];
+      if (v === null) continue;
+      if (typeof v === 'object' && !Array.isArray(v)) {
+        out[k] = pruneNulls(v);
+      } else {
+        out[k] = v;
+      }
+    }
+    return out;
   }
 
   // ── Dashboard ──
@@ -1107,7 +1131,7 @@ td.mono {
       var verSub = document.getElementById('dashVersionSub');
       if (r.body.success && r.body.data && r.body.data.version) {
         ver.textContent = r.body.data.version;
-        verSub.textContent = 'kimbap server';
+        verSub.textContent = 'Kimbap Server';
       } else {
         ver.textContent = '—';
         verSub.textContent = 'Version not available';
@@ -1116,7 +1140,7 @@ td.mono {
       document.getElementById('dashHealth').innerHTML = '<span class="stat-unhealthy">OFFLINE</span>';
       document.getElementById('dashHealthSub').textContent = 'Cannot connect to server';
       document.getElementById('dashVersion').textContent = '—';
-      document.getElementById('dashVersionSub').textContent = '';
+      document.getElementById('dashVersionSub').textContent = 'Server unreachable';
     });
 
     // Actions count
@@ -1125,7 +1149,22 @@ td.mono {
       var sub = document.getElementById('dashActionsSub');
       if (r.body.success && Array.isArray(r.body.data)) {
         el.textContent = r.body.data.length;
-        sub.textContent = r.body.data.length === 1 ? '1 action installed' : r.body.data.length + ' actions installed';
+        var serviceSet = {};
+        r.body.data.forEach(function(a) {
+          var ns = (getField(a, 'Namespace', 'namespace') || '').trim().toLowerCase();
+          if (!ns) {
+            var n = getField(a, 'Name', 'name') || '';
+            var dotIdx = n.indexOf('.');
+            if (dotIdx > 0) ns = n.substring(0, dotIdx).trim().toLowerCase();
+          }
+          if (ns) serviceSet[ns] = true;
+        });
+        var svcCount = Object.keys(serviceSet).length;
+        if (svcCount > 0) {
+          sub.textContent = 'Across ' + svcCount + (svcCount === 1 ? ' service' : ' services');
+        } else {
+          sub.textContent = r.body.data.length === 1 ? '1 action installed' : r.body.data.length + ' actions installed';
+        }
         state.actions = r.body.data;
       } else {
         el.textContent = '0';
@@ -1161,7 +1200,7 @@ td.mono {
       } else {
         container.innerHTML = '<div class="empty-state">' +
           '<div class="empty-state-icon">📦</div>' +
-          '<h3>No actions available</h3>' +
+          '<h3>No actions installed</h3>' +
           '<p>Run <code>kimbap init --mode dev --services all</code> to get started.</p></div>';
       }
     }).catch(function() {
@@ -1257,13 +1296,15 @@ td.mono {
   function renderActionDetail(a) {
     var detailEl = document.getElementById('actionDetail');
     var name = getField(a, 'Name', 'name') || 'unnamed';
-    var desc = getField(a, 'Description', 'description') || '—';
+    var rawDesc = getField(a, 'Description', 'description') || '';
+    var desc = rawDesc || '—';
     var risk = getField(a, 'Risk', 'risk') || 'unknown';
     var ns = getField(a, 'Namespace', 'namespace') || '—';
     var verb = getField(a, 'Verb', 'verb') || '—';
     var resource = getField(a, 'Resource', 'resource') || '—';
     var version = getField(a, 'Version', 'version');
-    var displayName = getField(a, 'DisplayName', 'display_name') || '';
+    var rawDisplayName = getField(a, 'DisplayName', 'display_name') || '';
+    var displayName = rawDisplayName;
     var idempotent = getField(a, 'Idempotent', 'idempotent');
     var approvalHint = getField(a, 'ApprovalHint', 'approval_hint') || 'none';
     var auth = a.Auth || a.auth || {};
@@ -1281,11 +1322,11 @@ td.mono {
         '<h3>' + esc(name) + '</h3>' +
         '<button class="back-btn" onclick="hideActionDetail()">← Back to list</button>' +
       '</div>' +
-      (displayName ? '<p style="color:var(--text-secondary);margin-bottom:var(--space-md)">' + esc(displayName) + '</p>' : '') +
+      (displayName && displayName.trim().toLowerCase() !== rawDesc.trim().toLowerCase() ? '<p style="color:var(--text-secondary);margin-bottom:var(--space-md)">' + esc(displayName) + '</p>' : '') +
       '<p style="color:var(--text-secondary);margin-bottom:var(--space-md)">' + esc(desc) + '</p>' +
       '<div class="detail-grid">' +
         detailField('Namespace', ns) +
-        detailField('Verb', verb) +
+        detailField('Verb', verb !== '—' ? verb.toUpperCase() : verb) +
         detailField('Resource', resource) +
         detailField('Version', version !== undefined ? version : '—') +
         detailField('Risk', risk, riskBadge(risk)) +
@@ -1300,9 +1341,11 @@ td.mono {
       '</div>';
 
     if (inputSchema) {
+      var schemaDisplay = (typeof inputSchema === 'object' && inputSchema !== null)
+        ? pruneNulls(inputSchema) : inputSchema;
       html += '<div style="margin-top:var(--space-lg)">' +
         '<div class="detail-label" style="margin-bottom:var(--space-sm)">Input Schema</div>' +
-        '<div class="schema-preview">' + esc(JSON.stringify(inputSchema, null, 2)) + '</div></div>';
+        '<div class="schema-preview">' + esc(JSON.stringify(schemaDisplay, null, 2)) + '</div></div>';
     }
 
     html += '</div>';
@@ -1334,7 +1377,7 @@ td.mono {
     api('/audit?limit=100', { auth: true }).then(function(r) {
       var errMsg, items;
       if (r.status === 401 || r.status === 403) {
-        state.errors.audit = 'Token expired or invalid. Please re-authenticate.';
+        state.errors.audit = 'Token expired or invalid. Please reconnect.';
         container.innerHTML = errorBannerHTML(state.errors.audit) + authGateHTML('audit');
         return;
       }
@@ -1405,7 +1448,7 @@ td.mono {
     api('/vault', { auth: true }).then(function(r) {
       var errMsg, data, items;
       if (r.status === 401 || r.status === 403) {
-        state.errors.services = 'Token expired or invalid. Please re-authenticate.';
+        state.errors.services = 'Token expired or invalid. Please reconnect.';
         container.innerHTML = errorBannerHTML(state.errors.services) + authGateHTML('services');
         return;
       }
