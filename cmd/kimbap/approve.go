@@ -7,6 +7,8 @@ import (
 	"path/filepath"
 	"strings"
 
+	"time"
+
 	"github.com/dunialabs/kimbap/internal/config"
 	"github.com/dunialabs/kimbap/internal/store"
 	"github.com/spf13/cobra"
@@ -63,7 +65,7 @@ func newApproveListCommand() *cobra.Command {
 					fmt.Println("No approval requests found.")
 					return nil
 				}
-				fmt.Printf("%-36s %-16s %-30s %-12s %s\n", "ID", "AGENT", "ACTION", "STATUS", "CREATED")
+				fmt.Printf("%-36s %-16s %-30s %-12s %-12s %s\n", "ID", "AGENT", "ACTION", "STATUS", "EXPIRES", "CREATED")
 				useColor := isColorStdout()
 				for _, item := range items {
 					statusCol := fmt.Sprintf("%-12s", item.Status)
@@ -79,11 +81,21 @@ func newApproveListCommand() *cobra.Command {
 							statusCol = "\x1b[2m" + statusCol + "\x1b[0m"
 						}
 					}
-					fmt.Printf("%-36s %-16s %-30s %s %s\n",
+					expiresStr := fmt.Sprintf("%-12s", approvalTimeRemaining(item.ExpiresAt))
+					if useColor {
+						remaining := time.Until(item.ExpiresAt)
+						if remaining <= 0 {
+							expiresStr = "\x1b[31m" + expiresStr + "\x1b[0m"
+						} else if remaining < 10*time.Minute {
+							expiresStr = "\x1b[33m" + expiresStr + "\x1b[0m"
+						}
+					}
+					fmt.Printf("%-36s %-16s %-30s %s %s %s\n",
 						item.ID,
 						item.AgentName,
 						item.Service+"."+item.Action,
 						statusCol,
+						expiresStr,
 						item.CreatedAt.Format("2006-01-02 15:04"),
 					)
 				}
@@ -237,6 +249,25 @@ func approvalTenant(raw string) string {
 	}
 	return trimmed
 }
+
+func approvalTimeRemaining(expires time.Time) string {
+	remaining := time.Until(expires)
+	if remaining <= 0 {
+		return "expired"
+	}
+	if remaining < time.Hour {
+		m := int(remaining.Minutes())
+		s := int(remaining.Seconds()) % 60
+		if m == 0 {
+			return fmt.Sprintf("%ds", s)
+		}
+		return fmt.Sprintf("%dm%ds", m, s)
+	}
+	h := int(remaining.Hours())
+	m := int(remaining.Minutes()) % 60
+	return fmt.Sprintf("%dh%dm", h, m)
+}
+
 
 func approvalStatus(raw string) string {
 	return strings.TrimSpace(raw)
