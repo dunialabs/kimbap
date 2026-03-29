@@ -69,6 +69,8 @@ actions:
     method: POST
     path: /proxy
     description: Get proxy information
+    auth:
+      type: none
     args: []
     request:
       body: {}
@@ -660,6 +662,463 @@ actions:
         policy: "{policy}"
         scopeContext: "{scopeContext}"
         requestParams: "{requestParams}"
+    response:
+      type: object
+    risk:
+      level: high
+    idempotent: false
+  get-token:
+    method: POST
+    path: /tokens/get
+    description: Get one token by tokenId
+    args:
+      - name: tokenId
+        type: string
+        required: true
+    request:
+      body:
+        tokenId: "{tokenId}"
+    response:
+      type: object
+    risk:
+      level: low
+    idempotent: true
+  batch-update-tokens:
+    method: POST
+    path: /tokens/batch-update
+    description: Batch update token namespace, tags, and permissions
+    args:
+      - name: tokenIds
+        type: array
+        required: true
+      - name: namespace
+        type: string
+        required: false
+      - name: tags
+        type: array
+        required: false
+      - name: tagsMode
+        type: string
+        required: false
+        enum: [replace, add, remove, clear]
+      - name: permissions
+        type: array
+        required: false
+      - name: permissionsMode
+        type: string
+        required: false
+        enum: [replace, merge]
+    request:
+      body:
+        tokenIds: "{tokenIds}"
+        namespace: "{namespace}"
+        tags: "{tags}"
+        tagsMode: "{tagsMode}"
+        permissions: "{permissions}"
+        permissionsMode: "{permissionsMode}"
+    response:
+      type: object
+    risk:
+      level: high
+    idempotent: false
+  get-policy:
+    method: POST
+    path: /policies/get
+    description: Get one policy set by id
+    args:
+      - name: id
+        type: string
+        required: true
+    request:
+      body:
+        id: "{id}"
+    response:
+      type: object
+    risk:
+      level: low
+    idempotent: true
+  create-policy:
+    method: POST
+    path: /policies/create
+    description: Create a policy set
+    args:
+      - name: dsl
+        type: object
+        required: true
+      - name: serverId
+        type: string
+        required: false
+    request:
+      body:
+        dsl: "{dsl}"
+        serverId: "{serverId}"
+    response:
+      type: object
+    risk:
+      level: high
+    idempotent: false
+  update-policy:
+    method: POST
+    path: /policies/update
+    description: Update policy dsl or status
+    args:
+      - name: id
+        type: string
+        required: true
+      - name: dsl
+        type: object
+        required: false
+      - name: status
+        type: string
+        required: false
+        enum: [active, archived]
+    request:
+      body:
+        id: "{id}"
+        dsl: "{dsl}"
+        status: "{status}"
+    response:
+      type: object
+    risk:
+      level: high
+    idempotent: false
+  delete-policy:
+    method: POST
+    path: /policies/delete
+    description: Delete a policy set by id
+    args:
+      - name: id
+        type: string
+        required: true
+    request:
+      body:
+        id: "{id}"
+    response:
+      type: object
+    risk:
+      level: high
+    idempotent: false
+  list-scopes:
+    method: POST
+    path: /scopes
+    description: List permission scopes for tools/functions/resources
+    args: []
+    request:
+      body: {}
+    response:
+      extract: data.scopes
+      type: array
+    risk:
+      level: low
+    idempotent: true
+  list-templates:
+    method: POST
+    path: /templates
+    description: List available tool templates
+    args: []
+    request:
+      body: {}
+    response:
+      extract: data.templates
+      type: array
+    risk:
+      level: low
+    idempotent: true
+  delete-tool:
+    method: POST
+    path: /tools/delete
+    description: Delete a tool by toolId
+    args:
+      - name: toolId
+        type: string
+        required: true
+    request:
+      body:
+        toolId: "{toolId}"
+    response:
+      type: object
+    risk:
+      level: high
+    idempotent: false
+  connect-all-tools:
+    method: POST
+    path: /tools/connect-all
+    description: Connect all configured tools
+    args: []
+    request:
+      body: {}
+    response:
+      type: object
+    risk:
+      level: medium
+    idempotent: false
+  create-basic-mcp-tool:
+    method: POST
+    path: /tools/basic-mcp
+    description: Create a template-based MCP tool
+    args:
+      - name: toolTmplId
+        type: string
+        required: true
+      - name: mcpJsonConf
+        type: object
+        required: true
+      - name: allowUserInput
+        type: boolean
+        required: false
+      - name: lazyStartEnabled
+        type: boolean
+        required: false
+      - name: publicAccess
+        type: boolean
+        required: false
+    request:
+      body:
+        toolTmplId: "{toolTmplId}"
+        mcpJsonConf: "{mcpJsonConf}"
+        allowUserInput: "{allowUserInput}"
+        lazyStartEnabled: "{lazyStartEnabled}"
+        publicAccess: "{publicAccess}"
+    response:
+      type: object
+    risk:
+      level: high
+    idempotent: false
+  update-basic-mcp-tool:
+    method: POST
+    path: /tools/basic-mcp/update
+    description: Update a basic MCP tool
+    args:
+      - name: toolId
+        type: string
+        required: true
+      - name: mcpJsonConf
+        type: object
+        required: false
+      - name: functions
+        type: array
+        required: false
+      - name: resources
+        type: array
+        required: false
+      - name: lazyStartEnabled
+        type: boolean
+        required: false
+      - name: publicAccess
+        type: boolean
+        required: false
+    request:
+      body:
+        toolId: "{toolId}"
+        mcpJsonConf: "{mcpJsonConf}"
+        functions: "{functions}"
+        resources: "{resources}"
+        lazyStartEnabled: "{lazyStartEnabled}"
+        publicAccess: "{publicAccess}"
+    response:
+      type: object
+    risk:
+      level: high
+    idempotent: false
+  create-custom-mcp-tool:
+    method: POST
+    path: /tools/custom-mcp
+    description: Create a custom MCP tool (remote or stdio)
+    args:
+      - name: customRemoteConfig
+        type: object
+        required: false
+      - name: stdioConfig
+        type: object
+        required: false
+      - name: allowUserInput
+        type: boolean
+        required: false
+      - name: lazyStartEnabled
+        type: boolean
+        required: false
+      - name: publicAccess
+        type: boolean
+        required: false
+    request:
+      body:
+        customRemoteConfig: "{customRemoteConfig}"
+        stdioConfig: "{stdioConfig}"
+        allowUserInput: "{allowUserInput}"
+        lazyStartEnabled: "{lazyStartEnabled}"
+        publicAccess: "{publicAccess}"
+    response:
+      type: object
+    risk:
+      level: high
+    idempotent: false
+  update-custom-mcp-tool:
+    method: POST
+    path: /tools/custom-mcp/update
+    description: Update a custom MCP tool
+    args:
+      - name: toolId
+        type: string
+        required: true
+      - name: customRemoteConfig
+        type: object
+        required: false
+      - name: stdioConfig
+        type: object
+        required: false
+      - name: functions
+        type: array
+        required: false
+      - name: resources
+        type: array
+        required: false
+      - name: lazyStartEnabled
+        type: boolean
+        required: false
+      - name: publicAccess
+        type: boolean
+        required: false
+    request:
+      body:
+        toolId: "{toolId}"
+        customRemoteConfig: "{customRemoteConfig}"
+        stdioConfig: "{stdioConfig}"
+        functions: "{functions}"
+        resources: "{resources}"
+        lazyStartEnabled: "{lazyStartEnabled}"
+        publicAccess: "{publicAccess}"
+    response:
+      type: object
+    risk:
+      level: high
+    idempotent: false
+  create-rest-api-tool:
+    method: POST
+    path: /tools/rest-api
+    description: Create a REST API tool
+    args:
+      - name: restApiConfig
+        type: object
+        required: true
+      - name: allowUserInput
+        type: boolean
+        required: false
+      - name: lazyStartEnabled
+        type: boolean
+        required: false
+      - name: publicAccess
+        type: boolean
+        required: false
+    request:
+      body:
+        restApiConfig: "{restApiConfig}"
+        allowUserInput: "{allowUserInput}"
+        lazyStartEnabled: "{lazyStartEnabled}"
+        publicAccess: "{publicAccess}"
+    response:
+      type: object
+    risk:
+      level: high
+    idempotent: false
+  update-rest-api-tool:
+    method: POST
+    path: /tools/rest-api/update
+    description: Update a REST API tool
+    args:
+      - name: toolId
+        type: string
+        required: true
+      - name: restApiConfig
+        type: object
+        required: false
+      - name: functions
+        type: array
+        required: false
+      - name: resources
+        type: array
+        required: false
+      - name: lazyStartEnabled
+        type: boolean
+        required: false
+      - name: publicAccess
+        type: boolean
+        required: false
+    request:
+      body:
+        toolId: "{toolId}"
+        restApiConfig: "{restApiConfig}"
+        functions: "{functions}"
+        resources: "{resources}"
+        lazyStartEnabled: "{lazyStartEnabled}"
+        publicAccess: "{publicAccess}"
+    response:
+      type: object
+    risk:
+      level: high
+    idempotent: false
+  create-skills-tool:
+    method: POST
+    path: /tools/skills
+    description: Create a skills MCP tool
+    args:
+      - name: serverName
+        type: string
+        required: false
+      - name: allowUserInput
+        type: boolean
+        required: false
+      - name: lazyStartEnabled
+        type: boolean
+        required: false
+      - name: publicAccess
+        type: boolean
+        required: false
+    request:
+      body:
+        serverName: "{serverName}"
+        allowUserInput: "{allowUserInput}"
+        lazyStartEnabled: "{lazyStartEnabled}"
+        publicAccess: "{publicAccess}"
+    response:
+      type: object
+    risk:
+      level: high
+    idempotent: false
+  update-skills-tool:
+    method: POST
+    path: /tools/skills/update
+    description: Update a skills MCP tool
+    args:
+      - name: toolId
+        type: string
+        required: true
+      - name: authConfig
+        type: object
+        required: false
+      - name: functions
+        type: array
+        required: false
+      - name: resources
+        type: array
+        required: false
+      - name: lazyStartEnabled
+        type: boolean
+        required: false
+      - name: publicAccess
+        type: boolean
+        required: false
+      - name: allowUserInput
+        type: boolean
+        required: false
+    request:
+      body:
+        toolId: "{toolId}"
+        authConfig: "{authConfig}"
+        functions: "{functions}"
+        resources: "{resources}"
+        lazyStartEnabled: "{lazyStartEnabled}"
+        publicAccess: "{publicAccess}"
+        allowUserInput: "{allowUserInput}"
     response:
       type: object
     risk:
