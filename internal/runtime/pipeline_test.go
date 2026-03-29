@@ -77,6 +77,7 @@ type mockApprovalManager struct {
 	cancelCalls         int
 	lastCancelledID     string
 	lastCancelledReason string
+	lastCancelCtxErr    error
 }
 
 func (m *mockApprovalManager) CreateRequest(ctx context.Context, req ApprovalRequest) (*ApprovalResult, error) {
@@ -87,6 +88,7 @@ func (m *mockApprovalManager) CancelRequest(ctx context.Context, approvalRequest
 	m.cancelCalls++
 	m.lastCancelledID = approvalRequestID
 	m.lastCancelledReason = reason
+	m.lastCancelCtxErr = ctx.Err()
 	return m.cancelErr
 }
 
@@ -704,6 +706,24 @@ func TestRuntimeExecuteApprovalHoldFailureCancelsApprovalRequest(t *testing.T) {
 	}
 	if !strings.Contains(approvalManager.lastCancelledReason, "auto-cancel after hold failure") {
 		t.Fatalf("expected auto-cancel reason, got %q", approvalManager.lastCancelledReason)
+	}
+}
+
+func TestRuntimeExecuteApprovalHoldFailureCancelsApprovalWithCanceledContext(t *testing.T) {
+	approvalManager := &mockApprovalManager{}
+	rt := Runtime{ApprovalManager: approvalManager}
+
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+
+	if err := rt.cancelApprovalOnHoldFailure(ctx, "apr-cancel-canceled-ctx", errors.New("disk full")); err != nil {
+		t.Fatalf("cancel approval on hold failure: %v", err)
+	}
+	if approvalManager.cancelCalls != 1 {
+		t.Fatalf("expected cancel request to be called once, got %d", approvalManager.cancelCalls)
+	}
+	if approvalManager.lastCancelCtxErr != nil {
+		t.Fatalf("expected cancel compensation context to ignore parent cancellation, got %v", approvalManager.lastCancelCtxErr)
 	}
 }
 

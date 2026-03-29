@@ -627,7 +627,9 @@ func (r *Runtime) cancelApprovalOnHoldFailure(ctx context.Context, approvalReque
 	if holdErr != nil {
 		reason = fmt.Sprintf("auto-cancel after hold failure: %v", holdErr)
 	}
-	return r.ApprovalManager.CancelRequest(ctx, approvalRequestID, reason)
+	cancelCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), auditWriteTimeout)
+	defer cancel()
+	return r.ApprovalManager.CancelRequest(cancelCtx, approvalRequestID, reason)
 }
 
 func (r *Runtime) getAdapter(adapterType string) (adapters.Adapter, *actions.ExecutionError) {

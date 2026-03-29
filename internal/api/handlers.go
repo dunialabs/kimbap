@@ -393,11 +393,11 @@ func (s *Server) handleGetPolicy(w http.ResponseWriter, r *http.Request) {
 	}
 	doc, err := s.store.GetPolicy(r.Context(), tenantID)
 	if err != nil {
-		status := http.StatusInternalServerError
 		if errors.Is(err, store.ErrNotFound) {
-			status = http.StatusNotFound
+			writeEnvelopeError(w, r, actions.NewExecutionError(actions.ErrResourceNotFound, sanitizeErrMsg(err, http.StatusNotFound), http.StatusNotFound, false, nil))
+		} else {
+			writeEnvelopeError(w, r, actions.NewExecutionError(actions.ErrDownstreamUnavailable, "internal server error", http.StatusInternalServerError, false, nil))
 		}
-		writeEnvelopeError(w, r, actions.NewExecutionError(actions.ErrResourceNotFound, sanitizeErrMsg(err, status), status, false, nil))
 		return
 	}
 	writeSuccess(w, r, http.StatusOK, map[string]any{"tenant_id": tenantID, "document": string(doc)})
@@ -460,11 +460,11 @@ func (s *Server) handleEvalPolicy(w http.ResponseWriter, r *http.Request) {
 	}
 	docBytes, err := s.store.GetPolicy(r.Context(), tenantID)
 	if err != nil {
-		status := http.StatusInternalServerError
 		if errors.Is(err, store.ErrNotFound) {
-			status = http.StatusNotFound
+			writeEnvelopeError(w, r, actions.NewExecutionError(actions.ErrResourceNotFound, sanitizeErrMsg(err, http.StatusNotFound), http.StatusNotFound, false, nil))
+		} else {
+			writeEnvelopeError(w, r, actions.NewExecutionError(actions.ErrDownstreamUnavailable, "internal server error", http.StatusInternalServerError, false, nil))
 		}
-		writeEnvelopeError(w, r, actions.NewExecutionError(actions.ErrResourceNotFound, sanitizeErrMsg(err, status), status, false, nil))
 		return
 	}
 	doc, err := policy.ParseDocument(docBytes)
@@ -535,11 +535,11 @@ func (s *Server) expireTenantPendingApprovals(ctx context.Context, tenantID stri
 func (s *Server) requirePendingApproval(w http.ResponseWriter, r *http.Request, id, tenantID string, allowApproved bool) (*store.ApprovalRecord, bool) {
 	existing, err := s.store.GetApproval(r.Context(), id)
 	if err != nil {
-		status := http.StatusInternalServerError
 		if errors.Is(err, store.ErrNotFound) {
-			status = http.StatusNotFound
+			writeEnvelopeError(w, r, actions.NewExecutionError(actions.ErrResourceNotFound, sanitizeErrMsg(err, http.StatusNotFound), http.StatusNotFound, false, nil))
+		} else {
+			writeEnvelopeError(w, r, actions.NewExecutionError(actions.ErrDownstreamUnavailable, "internal server error", http.StatusInternalServerError, false, nil))
 		}
-		writeEnvelopeError(w, r, actions.NewExecutionError(actions.ErrResourceNotFound, sanitizeErrMsg(err, status), status, false, nil))
 		return nil, false
 	}
 	if existing.TenantID != tenantID {

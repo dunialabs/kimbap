@@ -1621,6 +1621,110 @@ func TestServerTokenNotFoundParityMissingVsCrossTenant(t *testing.T) {
 	}
 }
 
+func TestServerGetPolicyNonNotFoundReturnsDownstreamUnavailable(t *testing.T) {
+	baseStore, err := store.OpenSQLiteStore(filepath.Join(t.TempDir(), "api-policy-get-error.sqlite"))
+	if err != nil {
+		t.Fatalf("open sqlite store: %v", err)
+	}
+	if err := baseStore.Migrate(context.Background()); err != nil {
+		t.Fatalf("migrate store: %v", err)
+	}
+	wrapped := &forcedPolicyStore{Store: baseStore, forcedTenantID: "tenant-a", forcedGetErr: errors.New("db unavailable")}
+
+	ts, rawBootstrap := newTestAPIServerFromStore(t, wrapped)
+	req, _ := http.NewRequest(http.MethodGet, ts.URL+"/v1/policies", nil)
+	req.Header.Set("Authorization", "Bearer "+rawBootstrap)
+
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatalf("get policy request: %v", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusInternalServerError {
+		b, _ := io.ReadAll(resp.Body)
+		t.Fatalf("expected 500, got %d body=%s", resp.StatusCode, string(b))
+	}
+	var payload map[string]any
+	if err := json.NewDecoder(resp.Body).Decode(&payload); err != nil {
+		t.Fatalf("decode payload: %v", err)
+	}
+	errBody, _ := payload["error"].(map[string]any)
+	if errBody["code"] != actions.ErrDownstreamUnavailable {
+		t.Fatalf("expected %s, got %v", actions.ErrDownstreamUnavailable, errBody["code"])
+	}
+}
+
+func TestServerEvalPolicyNonNotFoundReturnsDownstreamUnavailable(t *testing.T) {
+	baseStore, err := store.OpenSQLiteStore(filepath.Join(t.TempDir(), "api-policy-eval-error.sqlite"))
+	if err != nil {
+		t.Fatalf("open sqlite store: %v", err)
+	}
+	if err := baseStore.Migrate(context.Background()); err != nil {
+		t.Fatalf("migrate store: %v", err)
+	}
+	wrapped := &forcedPolicyStore{Store: baseStore, forcedTenantID: "tenant-a", forcedGetErr: errors.New("db unavailable")}
+
+	ts, rawBootstrap := newTestAPIServerFromStore(t, wrapped)
+	body := strings.NewReader(`{"agent_name":"agent-a","service":"github","action":"issues.create","risk":"medium","mutating":true,"args":{}}`)
+	req, _ := http.NewRequest(http.MethodPost, ts.URL+"/v1/policies:evaluate", body)
+	req.Header.Set("Authorization", "Bearer "+rawBootstrap)
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatalf("evaluate policy request: %v", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusInternalServerError {
+		b, _ := io.ReadAll(resp.Body)
+		t.Fatalf("expected 500, got %d body=%s", resp.StatusCode, string(b))
+	}
+	var payload map[string]any
+	if err := json.NewDecoder(resp.Body).Decode(&payload); err != nil {
+		t.Fatalf("decode payload: %v", err)
+	}
+	errBody, _ := payload["error"].(map[string]any)
+	if errBody["code"] != actions.ErrDownstreamUnavailable {
+		t.Fatalf("expected %s, got %v", actions.ErrDownstreamUnavailable, errBody["code"])
+	}
+}
+
+func TestServerApproveApprovalLookupFailureReturnsDownstreamUnavailable(t *testing.T) {
+	baseStore, err := store.OpenSQLiteStore(filepath.Join(t.TempDir(), "api-approval-get-error.sqlite"))
+	if err != nil {
+		t.Fatalf("open sqlite store: %v", err)
+	}
+	if err := baseStore.Migrate(context.Background()); err != nil {
+		t.Fatalf("migrate store: %v", err)
+	}
+	wrapped := &forcedApprovalStore{Store: baseStore, forcedGetID: "apr_store_error", forcedGetErr: errors.New("db unavailable")}
+
+	ts, rawBootstrap := newTestAPIServerFromStore(t, wrapped)
+	req, _ := http.NewRequest(http.MethodPost, ts.URL+"/v1/approvals/apr_store_error:approve", nil)
+	req.Header.Set("Authorization", "Bearer "+rawBootstrap)
+
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatalf("approve request: %v", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusInternalServerError {
+		b, _ := io.ReadAll(resp.Body)
+		t.Fatalf("expected 500, got %d body=%s", resp.StatusCode, string(b))
+	}
+	var payload map[string]any
+	if err := json.NewDecoder(resp.Body).Decode(&payload); err != nil {
+		t.Fatalf("decode payload: %v", err)
+	}
+	errBody, _ := payload["error"].(map[string]any)
+	if errBody["code"] != actions.ErrDownstreamUnavailable {
+		t.Fatalf("expected %s, got %v", actions.ErrDownstreamUnavailable, errBody["code"])
+	}
+}
+
 func TestNewHTTPServerTimeoutDefaults(t *testing.T) {
 	h := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
@@ -1643,6 +1747,7 @@ func newTestAPIServer(t *testing.T) (*httptest.Server, string) {
 type forcedApprovalStore struct {
 	store.Store
 	forcedGetID     string
+	forcedGetErr    error
 	forcedGetRecord *store.ApprovalRecord
 	forcedUpdateID  string
 	forcedUpdateErr error
@@ -1651,11 +1756,27 @@ type forcedApprovalStore struct {
 }
 
 func (s *forcedApprovalStore) GetApproval(ctx context.Context, id string) (*store.ApprovalRecord, error) {
+	if s.forcedGetErr != nil && id == s.forcedGetID {
+		return nil, s.forcedGetErr
+	}
 	if s.forcedGetRecord != nil && id == s.forcedGetID {
 		rec := *s.forcedGetRecord
 		return &rec, nil
 	}
 	return s.Store.GetApproval(ctx, id)
+}
+
+type forcedPolicyStore struct {
+	store.Store
+	forcedTenantID string
+	forcedGetErr   error
+}
+
+func (s *forcedPolicyStore) GetPolicy(ctx context.Context, tenantID string) ([]byte, error) {
+	if s.forcedGetErr != nil && tenantID == s.forcedTenantID {
+		return nil, s.forcedGetErr
+	}
+	return s.Store.GetPolicy(ctx, tenantID)
 }
 
 func (s *forcedApprovalStore) UpdateApprovalStatus(ctx context.Context, id string, status string, resolvedBy string, reason string) error {
