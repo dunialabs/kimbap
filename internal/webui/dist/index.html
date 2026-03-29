@@ -1239,7 +1239,7 @@ td.mono {
       var risk = getField(a, 'Risk', 'risk') || '';
       var auth = a.Auth || a.auth || {};
       var authType = getField(auth, 'Type', 'type') || 'none';
-      var idempotent = getField(a, 'Safe to retry', 'idempotent');
+      var idempotent = getField(a, 'Idempotent', 'idempotent');
 
       html += '<div class="action-item" data-action="' + escAttr(name) + '">' +
         '<div class="action-body">' +
@@ -1305,7 +1305,7 @@ td.mono {
     var version = getField(a, 'Version', 'version');
     var rawDisplayName = getField(a, 'DisplayName', 'display_name') || '';
     var displayName = rawDisplayName;
-    var idempotent = getField(a, 'Safe to retry', 'idempotent');
+    var idempotent = getField(a, 'Idempotent', 'idempotent');
     var approvalHint = getField(a, 'ApprovalHint', 'approval_hint') || 'none';
     var auth = a.Auth || a.auth || {};
     var authType = getField(auth, 'Type', 'type') || 'none';
