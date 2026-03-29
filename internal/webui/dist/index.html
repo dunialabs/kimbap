@@ -1168,7 +1168,7 @@ td.mono {
       '<div class="auth-gate-icon">🔒</div>' +
       '<h2>Token required</h2>' +
       '<p>Paste a kimbap access token to open this view.<br>' +
-      'Create one with <code>kimbap token create</code>, then save it here.</p>' +
+      'Create one with <code>kimbap token create</code>, then paste it here.</p>' +
       '<div class="token-input-group">' +
         '<input class="token-input" type="password" id="' + inputId + '" placeholder="Paste ktk_..." autocomplete="off" />' +
         '<button class="connect-btn" onclick="saveToken(\'' + inputId + '\')">Save token</button>' +
@@ -1263,7 +1263,7 @@ td.mono {
         state.actions = r.body.data;
       } else {
         el.textContent = '0';
-        sub.textContent = 'No actions installed';
+        sub.textContent = 'No actions available';
       }
     }).catch(function() {
       document.getElementById('dashActions').textContent = '—';
@@ -1295,8 +1295,8 @@ td.mono {
       } else {
         container.innerHTML = '<div class="empty-state">' +
           '<div class="empty-state-icon">📦</div>' +
-          '<h3>No actions installed</h3>' +
-          '<p>Install a service, or run <code>kimbap init --mode dev --services all</code> to load sample actions.</p></div>';
+          '<h3>No actions available</h3>' +
+          '<p>Install a service, or run <code>kimbap init --mode dev --services all</code> to add bundled examples.</p></div>';
       }
     }).catch(function() {
       container.innerHTML = errorBannerHTML('Could not reach the server. Check that kimbap serve is running.');
@@ -1309,7 +1309,7 @@ td.mono {
       container.innerHTML = '<div class="empty-state">' +
         '<div class="empty-state-icon">📦</div>' +
         '<h3>No actions installed</h3>' +
-        '<p>Install a service, or run <code>kimbap init --mode dev --services all</code> to install all bundled services.</p></div>';
+        '<p>Install a service, or run <code>kimbap init --mode dev --services all</code> to add bundled examples.</p></div>';
       return;
     }
 
@@ -1508,7 +1508,7 @@ td.mono {
         '<th>Action</th>' +
         '<th>Agent</th>' +
         '<th>Status</th>' +
-        '<th>Policy Result</th>' +
+        '<th>Policy</th>' +
         '<th>Duration</th>' +
       '</tr></thead><tbody>';
 
@@ -1702,7 +1702,7 @@ td.mono {
       '<thead><tr>' +
         '<th>Name</th>' +
         '<th>Type</th>' +
-        '<th>Version</th>' +
+        '<th>Current Version</th>' +
         '<th>Created</th>' +
         '<th>Updated</th>' +
       '</tr></thead><tbody>';
