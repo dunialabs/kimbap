@@ -102,11 +102,14 @@ func TestCallOutputTextMode_ApprovalRequiredPrintsHint(t *testing.T) {
 
 func TestCallHelpContainsReservedFlags(t *testing.T) {
 	long := newCallCommand().Long
-	if !strings.Contains(long, "Reserved flags") {
-		t.Fatalf("expected call help to include reserved flags section, got %q", long)
+	if !strings.Contains(long, "Globally consumed flags") {
+		t.Fatalf("expected call help to include globally consumed flags section, got %q", long)
 	}
 	if !strings.Contains(long, "--idempotency-key") {
 		t.Fatalf("expected call help to include --idempotency-key, got %q", long)
+	}
+	if !strings.Contains(long, "--format") {
+		t.Fatalf("expected call help to mention --format behavior, got %q", long)
 	}
 }
 

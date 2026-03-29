@@ -32,9 +32,12 @@ Special call flags:
   --format json            emit JSON output (place before action name)
   --json <object|-|@file>  merge JSON object into action input
 
-Reserved flags (consumed globally, cannot be used as action parameters):
-  --format, --json, --config, --data-dir, --log-level, --mode,
+Globally consumed flags (cannot be used as action parameter names):
+  --json, --config, --data-dir, --log-level, --mode,
   --idempotency-key, --dry-run, --trace, --no-splash
+
+  --format is consumed globally only when placed BEFORE the action name;
+  after the action name it is passed through as an action input parameter.
 
 Discover available actions:
   kimbap search <query>    Search actions by keyword
