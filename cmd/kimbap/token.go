@@ -10,6 +10,8 @@ import (
 	"strings"
 	"time"
 
+	"os"
+
 	"github.com/dunialabs/kimbap/internal/auth"
 	"github.com/dunialabs/kimbap/internal/config"
 	"github.com/dunialabs/kimbap/internal/store"
@@ -69,15 +71,33 @@ func newTokenCreateCommand() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			return printOutput(map[string]any{
-				"token_id":   tok.ID,
-				"tenant_id":  tok.TenantID,
-				"agent":      tok.AgentName,
-				"expires_at": tok.ExpiresAt,
-				"scopes":     tok.Scopes,
-				"raw_token":  raw,
-				"note":       "Raw token is shown once. Store it securely.",
-			})
+			if outputAsJSON() {
+				return printOutput(map[string]any{
+					"token_id":   tok.ID,
+					"tenant_id":  tok.TenantID,
+					"agent":      tok.AgentName,
+					"expires_at": tok.ExpiresAt,
+					"scopes":     tok.Scopes,
+					"raw_token":  raw,
+					"note":       "Raw token is shown once. Store it securely.",
+				})
+			}
+			scopes := strings.Join(tok.Scopes, ", ")
+			if scopes == "" {
+				scopes = "all"
+			}
+			warning := "!"
+			if isColorStdout() {
+				warning = "\x1b[33m!\x1b[0m"
+			}
+			_, _ = fmt.Fprintf(os.Stdout, "%s\n\n  Agent:    %s\n  Expires:  %s\n  Scopes:   %s\n\n%s Store this token securely — it will not be shown again.\n",
+				raw,
+				tok.AgentName,
+				tok.ExpiresAt.UTC().Format("2006-01-02 15:04 UTC"),
+				scopes,
+				warning,
+			)
+			return nil
 		},
 	}
 	cmd.Flags().StringVar(&agent, "agent", "", "agent name")
