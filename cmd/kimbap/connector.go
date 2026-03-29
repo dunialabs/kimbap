@@ -134,7 +134,7 @@ func openConnectorStoreReadOnly(cfg *config.KimbapConfig) (connectors.ConnectorS
 		if dsn == "" {
 			dsn = filepath.Join(cfg.DataDir, "kimbap.db")
 		}
-		db, err := sql.Open("sqlite", "file:"+dsn+"?mode=ro")
+		db, err := sql.Open("sqlite", sqliteReadOnlyDSN(dsn))
 		if err != nil {
 			return nil, err
 		}
@@ -163,6 +163,20 @@ func openConnectorStoreReadOnly(cfg *config.KimbapConfig) (connectors.ConnectorS
 	default:
 		return nil, fmt.Errorf("unsupported database driver %q", cfg.Database.Driver)
 	}
+}
+
+func sqliteReadOnlyDSN(dsn string) string {
+	trimmed := strings.TrimSpace(dsn)
+	if strings.HasPrefix(strings.ToLower(trimmed), "file:") {
+		if strings.Contains(strings.ToLower(trimmed), "mode=ro") {
+			return trimmed
+		}
+		if strings.Contains(trimmed, "?") {
+			return trimmed + "&mode=ro"
+		}
+		return trimmed + "?mode=ro"
+	}
+	return "file:" + trimmed + "?mode=ro"
 }
 
 func migrateConnectorTable(ctx context.Context, db *sql.DB, dialect string) error {

@@ -3,7 +3,6 @@ package api
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"net"
 	"net/http"
@@ -58,12 +57,7 @@ func (s *Server) handleCreateWebhook(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var sub webhooks.Subscription
-	if err := decodeJSON(r, &sub); err != nil {
-		status := http.StatusBadRequest
-		if errors.Is(err, errRequestBodyTooLarge) {
-			status = http.StatusRequestEntityTooLarge
-		}
-		writeEnvelopeError(w, r, actions.NewExecutionError(actions.ErrValidationFailed, err.Error(), status, false, nil))
+	if !decodeJSONOrWriteError(w, r, &sub) {
 		return
 	}
 	if sub.URL == "" {

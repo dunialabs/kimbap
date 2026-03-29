@@ -8,6 +8,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/dunialabs/kimbap/internal/config"
 	"github.com/dunialabs/kimbap/internal/connectors"
 
 	_ "modernc.org/sqlite"
@@ -102,4 +103,34 @@ func TestSQLConnectorStoreRoundTripAndIdempotentMigration(t *testing.T) {
 	if afterDelete != nil {
 		t.Fatal("expected no state after delete")
 	}
+}
+
+func TestConnectorReadOnlyStoreSupportsSQLiteURIDSNOnMainAgain(t *testing.T) {
+	dbPath := filepath.Join(t.TempDir(), "connector.db")
+	db, err := sql.Open("sqlite", dbPath)
+	if err != nil {
+		t.Fatalf("open sqlite: %v", err)
+	}
+	if _, err := db.Exec(`CREATE TABLE IF NOT EXISTS smoke(id INTEGER PRIMARY KEY)`); err != nil {
+		t.Fatalf("seed sqlite file: %v", err)
+	}
+	if err := db.Close(); err != nil {
+		t.Fatalf("close sqlite: %v", err)
+	}
+
+	cfg := config.DefaultConfig()
+	cfg.Database.Driver = "sqlite"
+	cfg.Database.DSN = "file:" + dbPath + "?cache=shared"
+
+	connectorStore, err := openConnectorStoreReadOnly(cfg)
+	if err != nil {
+		t.Fatalf("open read-only connector store with sqlite URI dsn: %v", err)
+	}
+	closer, ok := connectorStore.(interface{ Close() error })
+	if !ok {
+		t.Fatalf("expected read-only connector store to implement Close")
+	}
+	t.Cleanup(func() {
+		_ = closer.Close()
+	})
 }

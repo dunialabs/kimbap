@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"net/http"
+	"strings"
 	"testing"
 	"time"
 
@@ -671,6 +672,38 @@ func TestRuntimeResumeApprovedNonRetryableFailureDoesNotReholdExecution(t *testi
 	}
 	if _, ok := store.held["apr-noretry"]; ok {
 		t.Fatal("expected held request to remain consumed after non-retryable failure")
+	}
+}
+
+func TestRuntimeExecuteApprovalHoldFailureCancelsApprovalRequest(t *testing.T) {
+	approvalManager := &mockApprovalManager{result: &ApprovalResult{Approved: false, RequestID: "apr-cancel"}}
+	store := &mockHeldExecutionStore{held: map[string]actions.ExecutionRequest{}, holdErr: errors.New("disk full")}
+	rt := Runtime{
+		PolicyEvaluator:    mockPolicyEvaluator{decision: &PolicyDecision{Decision: "require_approval"}},
+		ApprovalManager:    approvalManager,
+		HeldExecutionStore: store,
+		Adapters:           map[string]adapters.Adapter{"http": mockAdapter{kind: "http"}},
+	}
+
+	res := rt.Execute(context.Background(), baseRequest(actions.ActionDefinition{
+		Name:    "github.issues.create",
+		Adapter: actions.AdapterConfig{Type: "http", URLTemplate: "https://example.com"},
+	}))
+
+	if res.Status != actions.StatusError {
+		t.Fatalf("expected error status, got %s", res.Status)
+	}
+	if res.Error == nil || res.Error.Code != actions.ErrDownstreamUnavailable {
+		t.Fatalf("expected downstream unavailable error, got %+v", res.Error)
+	}
+	if approvalManager.cancelCalls != 1 {
+		t.Fatalf("expected cancel request to be called once, got %d", approvalManager.cancelCalls)
+	}
+	if approvalManager.lastCancelledID != "apr-cancel" {
+		t.Fatalf("expected canceled approval id apr-cancel, got %q", approvalManager.lastCancelledID)
+	}
+	if !strings.Contains(approvalManager.lastCancelledReason, "auto-cancel after hold failure") {
+		t.Fatalf("expected auto-cancel reason, got %q", approvalManager.lastCancelledReason)
 	}
 }
 

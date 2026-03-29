@@ -96,6 +96,7 @@ type ApprovalResult struct {
 
 type ApprovalManager interface {
 	CreateRequest(ctx context.Context, req ApprovalRequest) (*ApprovalResult, error)
+	CancelRequest(ctx context.Context, approvalRequestID string, reason string) error
 }
 
 // PrincipalVerifier validates that a principal is authentic.
@@ -400,6 +401,12 @@ func (r *Runtime) execute(ctx context.Context, req actions.ExecutionRequest, tra
 				}
 				if holdErr := r.HeldExecutionStore.Hold(ctx, approvalRes.RequestID, req); holdErr != nil {
 					holdFailErr := actions.NewExecutionError(actions.ErrDownstreamUnavailable, fmt.Sprintf("failed to hold execution for approval: %v", holdErr), 500, false, nil)
+					if cancelErr := r.cancelApprovalOnHoldFailure(ctx, approvalRes.RequestID, holdErr); cancelErr != nil {
+						if holdFailErr.Details == nil {
+							holdFailErr.Details = map[string]any{}
+						}
+						holdFailErr.Details["approval_cancel_error"] = cancelErr.Error()
+					}
 					trace.Record("hold_execution", "error", holdFailErr.Error())
 					return r.finalizeWithError(ctx, &result, req, holdFailErr, startedAt, "require_approval", approvalRes.RequestID)
 				}
@@ -610,6 +617,17 @@ func (r *Runtime) requestApproval(ctx context.Context, req actions.ExecutionRequ
 		return nil, actions.NewExecutionError(actions.ErrDownstreamUnavailable, "approval response missing", 500, false, nil)
 	}
 	return approvalResult, nil
+}
+
+func (r *Runtime) cancelApprovalOnHoldFailure(ctx context.Context, approvalRequestID string, holdErr error) error {
+	if r == nil || r.ApprovalManager == nil || strings.TrimSpace(approvalRequestID) == "" {
+		return nil
+	}
+	reason := "auto-cancel after hold failure"
+	if holdErr != nil {
+		reason = fmt.Sprintf("auto-cancel after hold failure: %v", holdErr)
+	}
+	return r.ApprovalManager.CancelRequest(ctx, approvalRequestID, reason)
 }
 
 func (r *Runtime) getAdapter(adapterType string) (adapters.Adapter, *actions.ExecutionError) {

@@ -163,6 +163,37 @@ func TestApproveDenyMaterializesExpiredApproval(t *testing.T) {
 	}
 }
 
+func TestRuntimeStoreSQLiteURIDoesNotCreateSchemeDirectoryOnMainAgain(t *testing.T) {
+	prevWD, err := os.Getwd()
+	if err != nil {
+		t.Fatalf("get cwd: %v", err)
+	}
+	workDir := t.TempDir()
+	if err := os.Chdir(workDir); err != nil {
+		t.Fatalf("chdir work dir: %v", err)
+	}
+	t.Cleanup(func() {
+		_ = os.Chdir(prevWD)
+	})
+
+	dbPath := filepath.Join(t.TempDir(), "db", "kimbap.db")
+	cfg := config.DefaultConfig()
+	cfg.Database.Driver = "sqlite"
+	cfg.Database.DSN = "file:" + dbPath + "?cache=shared"
+
+	st, err := openRuntimeStore(cfg)
+	if err != nil {
+		t.Fatalf("open runtime store with sqlite URI dsn: %v", err)
+	}
+	t.Cleanup(func() {
+		_ = st.Close()
+	})
+
+	if _, statErr := os.Stat(filepath.Join(workDir, "file:")); !errors.Is(statErr, os.ErrNotExist) {
+		t.Fatalf("expected no scheme directory in cwd, got stat err=%v", statErr)
+	}
+}
+
 func seedExpiredApprovalForCLI(t *testing.T, expiresAt time.Time) (string, string) {
 	t.Helper()
 	dataDir := t.TempDir()

@@ -141,7 +141,11 @@ type servicesActionRegistry struct {
 	mu               sync.RWMutex
 	cachedDefs       []actions.ActionDefinition
 	cacheFingerprint string
+	cacheCheckedAt   time.Time
+	probeInterval    time.Duration
 }
+
+const defaultFingerprintProbeInterval = 500 * time.Millisecond
 
 func (r *servicesActionRegistry) Lookup(_ context.Context, name string) (*actions.ActionDefinition, error) {
 	name = strings.TrimSpace(name)
@@ -219,18 +223,28 @@ func (r *servicesActionRegistry) loadDefinitions() ([]actions.ActionDefinition, 
 	if r == nil || r.installer == nil {
 		return nil, fmt.Errorf("services installer is not initialized")
 	}
-	fp := r.computeFingerprint()
+	probeInterval := r.probeInterval
+	if probeInterval <= 0 {
+		probeInterval = defaultFingerprintProbeInterval
+	}
+	now := time.Now()
 	r.mu.RLock()
-	if fp != "" && fp == r.cacheFingerprint && r.cachedDefs != nil {
+	if r.cachedDefs != nil && !r.cacheCheckedAt.IsZero() && now.Sub(r.cacheCheckedAt) < probeInterval {
 		defs := r.cachedDefs
 		r.mu.RUnlock()
 		return defs, nil
 	}
 	r.mu.RUnlock()
 
+	fp := r.computeFingerprint()
+
 	r.mu.Lock()
 	defer r.mu.Unlock()
+	if r.cachedDefs != nil && !r.cacheCheckedAt.IsZero() && time.Since(r.cacheCheckedAt) < probeInterval {
+		return r.cachedDefs, nil
+	}
 	if fp != "" && fp == r.cacheFingerprint && r.cachedDefs != nil {
+		r.cacheCheckedAt = time.Now()
 		return r.cachedDefs, nil
 	}
 	defs, err := r.loadDefinitionsUncached()
@@ -239,6 +253,7 @@ func (r *servicesActionRegistry) loadDefinitions() ([]actions.ActionDefinition, 
 	}
 	r.cachedDefs = defs
 	r.cacheFingerprint = fp
+	r.cacheCheckedAt = time.Now()
 	return defs, nil
 }
 
@@ -732,4 +747,19 @@ func (a *ApprovalManagerAdapter) CreateRequest(ctx context.Context, req runtimep
 			"status":      "pending",
 		},
 	}, nil
+}
+
+func (a *ApprovalManagerAdapter) CancelRequest(ctx context.Context, approvalRequestID string, reason string) error {
+	if a == nil || a.mgr == nil {
+		return fmt.Errorf("approval manager unavailable")
+	}
+	approvalRequestID = strings.TrimSpace(approvalRequestID)
+	if approvalRequestID == "" {
+		return fmt.Errorf("approval request id is required")
+	}
+	reason = strings.TrimSpace(reason)
+	if reason == "" {
+		reason = "cancelled by runtime"
+	}
+	return a.mgr.Deny(ctx, approvalRequestID, "system", reason)
 }

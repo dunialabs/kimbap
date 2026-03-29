@@ -6,6 +6,7 @@ import (
 	"os"
 	"path/filepath"
 	goruntime "runtime"
+	"strings"
 	"testing"
 	"time"
 
@@ -187,6 +188,58 @@ actions:
 	}
 }
 
+func TestServicesActionRegistryProbeIntervalReturnsCachedDefinitions(t *testing.T) {
+	servicesDir := t.TempDir()
+	const manifest = `name: cached-skill
+version: 1.0.0
+description: cached skill
+base_url: https://api.example.com
+auth:
+  type: header
+  header_name: Authorization
+  credential_ref: test.token
+actions:
+  ping:
+    method: GET
+    path: /ping
+    idempotent: true
+    risk:
+      level: low
+`
+	manifestPath := filepath.Join(servicesDir, "cached-skill.yaml")
+	if err := os.WriteFile(manifestPath, []byte(manifest), 0o644); err != nil {
+		t.Fatalf("write service manifest: %v", err)
+	}
+
+	registry := &servicesActionRegistry{
+		installer:       services.NewLocalInstaller(servicesDir),
+		verifyMode:      "off",
+		signaturePolicy: "optional",
+		servicesDir:     servicesDir,
+		probeInterval:   time.Hour,
+	}
+
+	first, err := registry.loadDefinitions()
+	if err != nil {
+		t.Fatalf("load definitions first call: %v", err)
+	}
+	if len(first) != 1 || first[0].Name != "cached-skill.ping" {
+		t.Fatalf("unexpected first definitions: %+v", first)
+	}
+
+	if err := os.Remove(manifestPath); err != nil {
+		t.Fatalf("remove manifest: %v", err)
+	}
+
+	second, err := registry.loadDefinitions()
+	if err != nil {
+		t.Fatalf("load definitions second call: %v", err)
+	}
+	if len(second) != 1 || second[0].Name != "cached-skill.ping" {
+		t.Fatalf("expected cached definitions despite manifest deletion, got %+v", second)
+	}
+}
+
 func TestBuildRuntimeWithRequiredSignatureSkipsUnsignedUnlockedService(t *testing.T) {
 	servicesDir := t.TempDir()
 	const manifest = `name: test-skill
@@ -312,6 +365,84 @@ func TestApprovalManagerAdapterSplitsServiceAndAction(t *testing.T) {
 	}
 	if store.last.Action != "issues.create" {
 		t.Fatalf("expected action issues.create, got %q", store.last.Action)
+	}
+}
+
+func TestApprovalManagerAdapterCancelRequestDeniesWithSystemPrincipal(t *testing.T) {
+	store := &captureApprovalStore{}
+	mgr := approvals.NewApprovalManager(store, nil, time.Minute)
+	adapter := NewApprovalManagerAdapter(mgr)
+
+	res, err := adapter.CreateRequest(context.Background(), runtimepkg.ApprovalRequest{
+		TenantID:  "tenant-a",
+		RequestID: "req-cancel",
+		Principal: actions.Principal{AgentName: "agent-a"},
+		Action:    actions.ActionDefinition{Name: "github.issues.create"},
+	})
+	if err != nil {
+		t.Fatalf("CreateRequest: %v", err)
+	}
+	if res == nil || strings.TrimSpace(res.RequestID) == "" {
+		t.Fatalf("expected approval request id, got %+v", res)
+	}
+
+	if err := adapter.CancelRequest(context.Background(), res.RequestID, "hold failed"); err != nil {
+		t.Fatalf("CancelRequest: %v", err)
+	}
+
+	req, err := store.Get(context.Background(), res.RequestID)
+	if err != nil {
+		t.Fatalf("Get approval: %v", err)
+	}
+	if req == nil {
+		t.Fatal("expected approval request after cancel")
+	}
+	if req.Status != approvals.StatusDenied {
+		t.Fatalf("expected denied status after cancel, got %q", req.Status)
+	}
+	if req.ResolvedBy != "system" {
+		t.Fatalf("expected resolved_by system, got %q", req.ResolvedBy)
+	}
+	if req.DenyReason != "hold failed" {
+		t.Fatalf("expected deny reason 'hold failed', got %q", req.DenyReason)
+	}
+}
+
+func TestMemoryHeldExecutionStoreCopiesNestedPayload(t *testing.T) {
+	ctx := context.Background()
+	store := NewMemoryHeldExecutionStore()
+	nested := map[string]any{"count": 1}
+	tags := []string{"alpha", "beta"}
+	req := actions.ExecutionRequest{
+		RequestID: "req-held",
+		TenantID:  "tenant-a",
+		Input: map[string]any{
+			"nested": nested,
+			"tags":   tags,
+		},
+	}
+
+	if err := store.Hold(ctx, "apr-held", req); err != nil {
+		t.Fatalf("hold execution: %v", err)
+	}
+
+	nested["count"] = 2
+	tags[0] = "changed"
+
+	resumed, err := store.Resume(ctx, "apr-held")
+	if err != nil {
+		t.Fatalf("resume held execution: %v", err)
+	}
+	if resumed == nil {
+		t.Fatal("expected resumed held execution")
+	}
+	storedNested, ok := resumed.Input["nested"].(map[string]any)
+	if !ok || storedNested["count"] != float64(1) {
+		t.Fatalf("expected nested payload copy, got %#v", resumed.Input["nested"])
+	}
+	storedTags, ok := resumed.Input["tags"].([]any)
+	if !ok || len(storedTags) != 2 || storedTags[0] != "alpha" {
+		t.Fatalf("expected tags payload copy, got %#v", resumed.Input["tags"])
 	}
 }
 
@@ -511,7 +642,8 @@ func (s *bootstrapMemConnectorStore) key(tenantID, name string) string {
 }
 
 type captureApprovalStore struct {
-	last *approvals.ApprovalRequest
+	last  *approvals.ApprovalRequest
+	items map[string]approvals.ApprovalRequest
 }
 
 type captureAuditWriter struct {
@@ -580,14 +712,35 @@ func (s *bootstrapVaultStore) Exists(context.Context, string, string) (bool, err
 func (s *captureApprovalStore) Create(_ context.Context, req *approvals.ApprovalRequest) error {
 	copyReq := *req
 	s.last = &copyReq
+	if s.items == nil {
+		s.items = make(map[string]approvals.ApprovalRequest)
+	}
+	s.items[copyReq.ID] = copyReq
 	return nil
 }
 
-func (s *captureApprovalStore) Get(context.Context, string) (*approvals.ApprovalRequest, error) {
-	return nil, nil
+func (s *captureApprovalStore) Get(_ context.Context, id string) (*approvals.ApprovalRequest, error) {
+	if s.items == nil {
+		return nil, nil
+	}
+	req, ok := s.items[id]
+	if !ok {
+		return nil, nil
+	}
+	copyReq := req
+	return &copyReq, nil
 }
 
-func (s *captureApprovalStore) Update(context.Context, *approvals.ApprovalRequest) error {
+func (s *captureApprovalStore) Update(_ context.Context, req *approvals.ApprovalRequest) error {
+	if req == nil {
+		return nil
+	}
+	copyReq := *req
+	s.last = &copyReq
+	if s.items == nil {
+		s.items = make(map[string]approvals.ApprovalRequest)
+	}
+	s.items[copyReq.ID] = copyReq
 	return nil
 }
 

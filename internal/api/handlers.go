@@ -93,12 +93,7 @@ func (s *Server) handleExecuteAction(w http.ResponseWriter, r *http.Request) {
 	var body struct {
 		Input map[string]any `json:"input"`
 	}
-	if err := decodeJSON(r, &body); err != nil {
-		status := http.StatusBadRequest
-		if errors.Is(err, errRequestBodyTooLarge) {
-			status = http.StatusRequestEntityTooLarge
-		}
-		writeEnvelopeError(w, r, actions.NewExecutionError(actions.ErrValidationFailed, err.Error(), status, false, nil))
+	if !decodeJSONOrWriteError(w, r, &body) {
 		return
 	}
 	principal, tenantID, ok := requirePrincipalWithTenantContext(w, r)
@@ -136,12 +131,7 @@ func (s *Server) handleValidateAction(w http.ResponseWriter, r *http.Request) {
 		Schema *actions.Schema `json:"schema"`
 		Input  map[string]any  `json:"input"`
 	}
-	if err := decodeJSON(r, &body); err != nil {
-		status := http.StatusBadRequest
-		if errors.Is(err, errRequestBodyTooLarge) {
-			status = http.StatusRequestEntityTooLarge
-		}
-		writeEnvelopeError(w, r, actions.NewExecutionError(actions.ErrValidationFailed, err.Error(), status, false, nil))
+	if !decodeJSONOrWriteError(w, r, &body) {
 		return
 	}
 	if verr := actions.ValidateInput(body.Schema, body.Input); verr != nil {
@@ -196,12 +186,7 @@ func (s *Server) handleCreateToken(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var req createTokenRequest
-	if err := decodeJSON(r, &req); err != nil {
-		status := http.StatusBadRequest
-		if errors.Is(err, errRequestBodyTooLarge) {
-			status = http.StatusRequestEntityTooLarge
-		}
-		writeEnvelopeError(w, r, actions.NewExecutionError(actions.ErrValidationFailed, err.Error(), status, false, nil))
+	if !decodeJSONOrWriteError(w, r, &req) {
 		return
 	}
 	if strings.TrimSpace(req.AgentName) == "" {
@@ -349,14 +334,14 @@ func (s *Server) requireTokenForTenant(w http.ResponseWriter, r *http.Request, t
 	tok, err := s.store.GetToken(r.Context(), tokenID)
 	if err != nil {
 		if errors.Is(err, store.ErrNotFound) {
-			writeEnvelopeError(w, r, actions.NewExecutionError(actions.ErrActionNotFound, "token not found", http.StatusNotFound, false, nil))
+			writeEnvelopeError(w, r, actions.NewExecutionError(actions.ErrResourceNotFound, "token not found", http.StatusNotFound, false, nil))
 			return nil, false
 		}
 		writeEnvelopeError(w, r, actions.NewExecutionError(actions.ErrDownstreamUnavailable, "internal server error", http.StatusInternalServerError, false, nil))
 		return nil, false
 	}
 	if strings.TrimSpace(tok.TenantID) != strings.TrimSpace(tenantID) {
-		writeEnvelopeError(w, r, actions.NewExecutionError(actions.ErrActionNotFound, "token not found", http.StatusNotFound, false, nil))
+		writeEnvelopeError(w, r, actions.NewExecutionError(actions.ErrResourceNotFound, "token not found", http.StatusNotFound, false, nil))
 		return nil, false
 	}
 	return tok, true
@@ -412,7 +397,7 @@ func (s *Server) handleGetPolicy(w http.ResponseWriter, r *http.Request) {
 		if errors.Is(err, store.ErrNotFound) {
 			status = http.StatusNotFound
 		}
-		writeEnvelopeError(w, r, actions.NewExecutionError(actions.ErrActionNotFound, sanitizeErrMsg(err, status), status, false, nil))
+		writeEnvelopeError(w, r, actions.NewExecutionError(actions.ErrResourceNotFound, sanitizeErrMsg(err, status), status, false, nil))
 		return
 	}
 	writeSuccess(w, r, http.StatusOK, map[string]any{"tenant_id": tenantID, "document": string(doc)})
@@ -422,12 +407,7 @@ func (s *Server) handleSetPolicy(w http.ResponseWriter, r *http.Request) {
 	var body struct {
 		Document string `json:"document"`
 	}
-	if err := decodeJSON(r, &body); err != nil {
-		status := http.StatusBadRequest
-		if errors.Is(err, errRequestBodyTooLarge) {
-			status = http.StatusRequestEntityTooLarge
-		}
-		writeEnvelopeError(w, r, actions.NewExecutionError(actions.ErrValidationFailed, err.Error(), status, false, nil))
+	if !decodeJSONOrWriteError(w, r, &body) {
 		return
 	}
 	tenantID, ok := requireTenantContext(w, r)
@@ -471,12 +451,7 @@ func (s *Server) handleEvalPolicy(w http.ResponseWriter, r *http.Request) {
 		Mutating  bool           `json:"mutating"`
 		Args      map[string]any `json:"args"`
 	}
-	if err := decodeJSON(r, &body); err != nil {
-		status := http.StatusBadRequest
-		if errors.Is(err, errRequestBodyTooLarge) {
-			status = http.StatusRequestEntityTooLarge
-		}
-		writeEnvelopeError(w, r, actions.NewExecutionError(actions.ErrValidationFailed, err.Error(), status, false, nil))
+	if !decodeJSONOrWriteError(w, r, &body) {
 		return
 	}
 	tenantID, ok := requireTenantContext(w, r)
@@ -489,7 +464,7 @@ func (s *Server) handleEvalPolicy(w http.ResponseWriter, r *http.Request) {
 		if errors.Is(err, store.ErrNotFound) {
 			status = http.StatusNotFound
 		}
-		writeEnvelopeError(w, r, actions.NewExecutionError(actions.ErrActionNotFound, sanitizeErrMsg(err, status), status, false, nil))
+		writeEnvelopeError(w, r, actions.NewExecutionError(actions.ErrResourceNotFound, sanitizeErrMsg(err, status), status, false, nil))
 		return
 	}
 	doc, err := policy.ParseDocument(docBytes)
@@ -564,11 +539,11 @@ func (s *Server) requirePendingApproval(w http.ResponseWriter, r *http.Request, 
 		if errors.Is(err, store.ErrNotFound) {
 			status = http.StatusNotFound
 		}
-		writeEnvelopeError(w, r, actions.NewExecutionError(actions.ErrActionNotFound, sanitizeErrMsg(err, status), status, false, nil))
+		writeEnvelopeError(w, r, actions.NewExecutionError(actions.ErrResourceNotFound, sanitizeErrMsg(err, status), status, false, nil))
 		return nil, false
 	}
 	if existing.TenantID != tenantID {
-		writeEnvelopeError(w, r, actions.NewExecutionError(actions.ErrActionNotFound, "approval not found", http.StatusNotFound, false, nil))
+		writeEnvelopeError(w, r, actions.NewExecutionError(actions.ErrResourceNotFound, "approval not found", http.StatusNotFound, false, nil))
 		return nil, false
 	}
 	now := time.Now().UTC()
@@ -587,14 +562,14 @@ func (s *Server) requirePendingApproval(w http.ResponseWriter, r *http.Request, 
 			refreshed, getErr := s.store.GetApproval(r.Context(), id)
 			if getErr != nil {
 				if errors.Is(getErr, store.ErrNotFound) {
-					writeEnvelopeError(w, r, actions.NewExecutionError(actions.ErrActionNotFound, "approval not found", http.StatusNotFound, false, nil))
+					writeEnvelopeError(w, r, actions.NewExecutionError(actions.ErrResourceNotFound, "approval not found", http.StatusNotFound, false, nil))
 				} else {
 					writeEnvelopeError(w, r, actions.NewExecutionError(actions.ErrDownstreamUnavailable, "internal server error", http.StatusInternalServerError, false, nil))
 				}
 				return nil, false
 			}
 			if refreshed == nil {
-				writeEnvelopeError(w, r, actions.NewExecutionError(actions.ErrActionNotFound, "approval not found", http.StatusNotFound, false, nil))
+				writeEnvelopeError(w, r, actions.NewExecutionError(actions.ErrResourceNotFound, "approval not found", http.StatusNotFound, false, nil))
 				return nil, false
 			}
 			if refreshed.Status != "expired" {
@@ -899,6 +874,18 @@ func decodeJSON(r *http.Request, out any) error {
 	return nil
 }
 
+func decodeJSONOrWriteError(w http.ResponseWriter, r *http.Request, out any) bool {
+	if err := decodeJSON(r, out); err != nil {
+		status := http.StatusBadRequest
+		if errors.Is(err, errRequestBodyTooLarge) {
+			status = http.StatusRequestEntityTooLarge
+		}
+		writeEnvelopeError(w, r, actions.NewExecutionError(actions.ErrValidationFailed, err.Error(), status, false, nil))
+		return false
+	}
+	return true
+}
+
 func parseRFC3339Ptr(v string) (*time.Time, error) {
 	v = strings.TrimSpace(v)
 	if v == "" {
@@ -1054,7 +1041,7 @@ func mapApprovalError(err error) *actions.ExecutionError {
 	case errors.Is(err, approvals.ErrDuplicateVote):
 		return actions.NewExecutionError(actions.ErrValidationFailed, "approver has already voted", http.StatusConflict, false, nil)
 	case errors.Is(err, approvals.ErrNotFound), errors.Is(err, store.ErrNotFound):
-		return actions.NewExecutionError(actions.ErrActionNotFound, "approval not found", http.StatusNotFound, false, nil)
+		return actions.NewExecutionError(actions.ErrResourceNotFound, "approval not found", http.StatusNotFound, false, nil)
 	default:
 		return actions.NewExecutionError(actions.ErrDownstreamUnavailable, "internal server error", http.StatusInternalServerError, false, nil)
 	}

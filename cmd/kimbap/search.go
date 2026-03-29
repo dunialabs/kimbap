@@ -119,12 +119,12 @@ func searchRiskBadge(risk string, useColor bool) string {
 		return badge
 	}
 	switch risk {
-	case "admin":
-		return "[33m" + badge + "[0m"
+	case "write", "admin":
+		return "\x1b[33m" + badge + "\x1b[0m"
 	case "destructive":
-		return "[31m" + badge + "[0m"
+		return "\x1b[31m" + badge + "\x1b[0m"
 	default:
-		return "[2m" + badge + "[0m"
+		return "\x1b[2m" + badge + "\x1b[0m"
 	}
 }
 

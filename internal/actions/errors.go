@@ -16,6 +16,7 @@ const (
 	ErrApprovalRequired      = "ERR_APPROVAL_REQUIRED"
 	ErrApprovalTimeout       = "ERR_APPROVAL_TIMEOUT"
 	ErrActionNotFound        = "ERR_ACTION_NOT_FOUND"
+	ErrResourceNotFound      = "ERR_RESOURCE_NOT_FOUND"
 	ErrClassificationFailed  = "ERR_CLASSIFICATION_FAILED"
 	ErrServiceInvalid        = "ERR_SERVICE_INVALID"
 	ErrConnectorNotLoggedIn  = "ERR_CONNECTOR_NOT_LOGGED_IN"
