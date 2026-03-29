@@ -144,10 +144,53 @@ func newServiceListCommand() *cobra.Command {
 					}
 					rows = append(rows, row)
 				}
-				return printOutput(rows)
+				if outputAsJSON() {
+					return printOutput(rows)
+				}
+				useColor := isColorStdout()
+				fmt.Printf("%-20s %s\n", "NAME", "STATUS")
+				for _, r := range rows {
+					name, _ := r["name"].(string)
+					status, _ := r["status"].(string)
+					statusCol := fmt.Sprintf("%-14s", status)
+					if useColor {
+						switch status {
+						case "enabled":
+							statusCol = "\x1b[32m" + statusCol + "\x1b[0m"
+						case "disabled":
+							statusCol = "\x1b[2m" + statusCol + "\x1b[0m"
+						}
+					}
+					fmt.Printf("%-20s %s\n", name, statusCol)
+				}
+				return nil
 			}
 
-			return printOutput(installed)
+			if outputAsJSON() {
+				return printOutput(installed)
+			}
+			if len(installed) == 0 {
+				fmt.Println("No services installed.")
+				return nil
+			}
+			useColor := isColorStdout()
+			fmt.Printf("%-20s %-10s %-9s %s\n", "NAME", "VERSION", "ACTIONS", "STATUS")
+			for _, svc := range installed {
+				statusStr := "disabled"
+				if svc.Enabled {
+					statusStr = "enabled"
+				}
+				statusCol := fmt.Sprintf("%-8s", statusStr)
+				if useColor {
+					if svc.Enabled {
+						statusCol = "\x1b[32m" + statusCol + "\x1b[0m"
+					} else {
+						statusCol = "\x1b[2m" + statusCol + "\x1b[0m"
+					}
+				}
+				fmt.Printf("%-20s %-10s %-9d %s\n", svc.Manifest.Name, svc.Manifest.Version, len(svc.Manifest.Actions), statusCol)
+			}
+			return nil
 		},
 	}
 	cmd.Flags().BoolVar(&available, "available", false, "list all official services with installed/enabled status")
