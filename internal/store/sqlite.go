@@ -44,6 +44,8 @@ func OpenSQLiteStore(dsn string) (*SQLStore, error) {
 	if err != nil {
 		return nil, err
 	}
+	db.SetMaxOpenConns(1)
+	db.SetMaxIdleConns(1)
 	st, err := NewSQLiteStore(db)
 	if err != nil {
 		_ = db.Close()
@@ -156,6 +158,8 @@ func (s *SQLStore) Migrate(ctx context.Context) error {
 			action TEXT NOT NULL,
 			status TEXT NOT NULL,
 			input_json TEXT NOT NULL,
+			required_approvals INTEGER NOT NULL DEFAULT 1,
+			votes_json TEXT NOT NULL DEFAULT '[]',
 			created_at TIMESTAMP NOT NULL,
 			expires_at TIMESTAMP NOT NULL,
 			resolved_at TIMESTAMP NULL,
@@ -209,6 +213,31 @@ func (s *SQLStore) Migrate(ctx context.Context) error {
 		}
 	}
 
+	for _, q := range queries {
+		if _, err := s.db.ExecContext(ctx, s.bind(q)); err != nil {
+			return err
+		}
+	}
+
+	for _, q := range []string{
+		`ALTER TABLE approvals ADD COLUMN required_approvals INTEGER NOT NULL DEFAULT 1`,
+		`ALTER TABLE approvals ADD COLUMN votes_json TEXT NOT NULL DEFAULT '[]'`,
+	} {
+		if _, err := s.db.ExecContext(ctx, s.bind(q)); err != nil {
+			if !isColumnAlreadyExistsError(err) {
+				return err
+			}
+		}
+	}
+
+	needsBackfill, err := s.needsServiceTokenBackfill(ctx)
+	if err != nil {
+		return err
+	}
+	if !needsBackfill {
+		return nil
+	}
+
 	backfillServiceTokens := `INSERT INTO service_tokens (id, tenant_id, agent_name, token_hash, display_hint, scopes, created_at, expires_at, last_used_at, revoked_at, created_by)
 		SELECT id, tenant_id, agent_name, token_hash, display_hint, scopes, created_at, expires_at, last_used_at, revoked_at, created_by
 		FROM tokens
@@ -218,14 +247,27 @@ func (s *SQLStore) Migrate(ctx context.Context) error {
 			SELECT id, tenant_id, agent_name, token_hash, display_hint, scopes, created_at, expires_at, last_used_at, revoked_at, created_by
 			FROM tokens`
 	}
-	queries = append(queries, backfillServiceTokens)
-
-	for _, q := range queries {
-		if _, err := s.db.ExecContext(ctx, s.bind(q)); err != nil {
-			return err
-		}
+	if _, err := s.db.ExecContext(ctx, s.bind(backfillServiceTokens)); err != nil {
+		return err
 	}
 	return nil
+}
+
+func (s *SQLStore) needsServiceTokenBackfill(ctx context.Context) (bool, error) {
+	var hasMissing bool
+	err := s.db.QueryRowContext(ctx, s.bind(`
+		SELECT EXISTS (
+			SELECT 1
+			FROM tokens t
+			LEFT JOIN service_tokens st ON st.id = t.id
+			WHERE st.id IS NULL
+			LIMIT 1
+		)
+	`)).Scan(&hasMissing)
+	if err != nil {
+		return false, err
+	}
+	return hasMissing, nil
 }
 
 func (s *SQLStore) CreateToken(ctx context.Context, token *TokenRecord) error {
@@ -537,12 +579,18 @@ func (s *SQLStore) CreateApproval(ctx context.Context, req *ApprovalRecord) erro
 	if req.Status == "" {
 		req.Status = "pending"
 	}
+	if req.RequiredApprovals <= 0 {
+		req.RequiredApprovals = 1
+	}
+	if strings.TrimSpace(req.VotesJSON) == "" {
+		req.VotesJSON = "[]"
+	}
 	_, err := s.db.ExecContext(ctx, s.bind(`
 		INSERT INTO approvals (
 			id, tenant_id, request_id, agent_name, service, action,
-			status, input_json, created_at, expires_at, resolved_at,
+			status, input_json, required_approvals, votes_json, created_at, expires_at, resolved_at,
 			resolved_by, reason
-		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 	`),
 		req.ID,
 		req.TenantID,
@@ -552,6 +600,8 @@ func (s *SQLStore) CreateApproval(ctx context.Context, req *ApprovalRecord) erro
 		req.Action,
 		req.Status,
 		req.InputJSON,
+		req.RequiredApprovals,
+		req.VotesJSON,
 		req.CreatedAt,
 		req.ExpiresAt,
 		req.ResolvedAt,
@@ -565,7 +615,7 @@ func (s *SQLStore) GetApproval(ctx context.Context, id string) (*ApprovalRecord,
 	id = strings.TrimSpace(id)
 	row := s.db.QueryRowContext(ctx, s.bind(`
 		SELECT id, tenant_id, request_id, agent_name, service, action,
-			status, input_json, created_at, expires_at, resolved_at,
+			status, input_json, required_approvals, votes_json, created_at, expires_at, resolved_at,
 			resolved_by, reason
 		FROM approvals WHERE id = ?
 	`), id)
@@ -618,6 +668,39 @@ func (s *SQLStore) UpdateApprovalStatus(ctx context.Context, id string, status s
 	return nil
 }
 
+func (s *SQLStore) UpdateApproval(ctx context.Context, req *ApprovalRecord) error {
+	if req == nil {
+		return errors.New("approval is required")
+	}
+	req.ID = strings.TrimSpace(req.ID)
+	if req.ID == "" {
+		return ErrNotFound
+	}
+	req.Status = strings.TrimSpace(req.Status)
+	if req.Status == "" {
+		req.Status = "pending"
+	}
+	if req.RequiredApprovals <= 0 {
+		req.RequiredApprovals = 1
+	}
+	if strings.TrimSpace(req.VotesJSON) == "" {
+		req.VotesJSON = "[]"
+	}
+
+	res, err := s.db.ExecContext(ctx, s.bind(`
+		UPDATE approvals
+		SET status = ?, resolved_at = ?, resolved_by = ?, reason = ?, required_approvals = ?, votes_json = ?
+		WHERE id = ?
+	`), req.Status, req.ResolvedAt, req.ResolvedBy, req.Reason, req.RequiredApprovals, req.VotesJSON, req.ID)
+	if err != nil {
+		return err
+	}
+	if affectedRows(res) == 0 {
+		return ErrNotFound
+	}
+	return nil
+}
+
 func (s *SQLStore) ListApprovals(ctx context.Context, tenantID string, status string) ([]ApprovalRecord, error) {
 	tenantID = strings.TrimSpace(tenantID)
 	if tenantID == "" {
@@ -625,7 +708,7 @@ func (s *SQLStore) ListApprovals(ctx context.Context, tenantID string, status st
 	}
 	query := `
 		SELECT id, tenant_id, request_id, agent_name, service, action,
-			status, input_json, created_at, expires_at, resolved_at,
+			status, input_json, required_approvals, votes_json, created_at, expires_at, resolved_at,
 			resolved_by, reason
 		FROM approvals
 		WHERE tenant_id = ?`
@@ -670,7 +753,7 @@ func (s *SQLStore) ListExpiredPendingApprovals(ctx context.Context, tenantID str
 	now := time.Now().UTC()
 	query := `
 		SELECT id, tenant_id, request_id, agent_name, service, action,
-			status, input_json, created_at, expires_at, resolved_at,
+			status, input_json, required_approvals, votes_json, created_at, expires_at, resolved_at,
 			resolved_by, reason
 		FROM approvals
 		WHERE status = 'pending' AND expires_at <= ?`
@@ -991,6 +1074,8 @@ func scanApproval(scanner interface{ Scan(dest ...any) error }) (*ApprovalRecord
 		&rec.Action,
 		&rec.Status,
 		&rec.InputJSON,
+		&rec.RequiredApprovals,
+		&rec.VotesJSON,
 		&rec.CreatedAt,
 		&rec.ExpiresAt,
 		&resolved,
@@ -1016,6 +1101,14 @@ func affectedRows(res sql.Result) int64 {
 		return 0
 	}
 	return rows
+}
+
+func isColumnAlreadyExistsError(err error) bool {
+	if err == nil {
+		return false
+	}
+	msg := strings.ToLower(err.Error())
+	return strings.Contains(msg, "duplicate column") || strings.Contains(msg, "already exists")
 }
 
 func (s *SQLStore) HoldExecution(ctx context.Context, approvalRequestID string, requestJSON []byte) error {

@@ -459,3 +459,15 @@ func TestServiceCLIInstalledFileParsesAsValidManifest(t *testing.T) {
 		}
 	})
 }
+
+func TestServiceGenerateRejectsInsecureHTTPURL(t *testing.T) {
+	cmd := newServiceGenerateCommand()
+	cmd.SetArgs([]string{"--openapi", "http://example.com/openapi.yaml"})
+	_, err := captureStdout(t, cmd.Execute)
+	if err == nil {
+		t.Fatal("expected insecure OpenAPI URL to be rejected")
+	}
+	if !strings.Contains(err.Error(), "insecure URL") {
+		t.Fatalf("unexpected error: %v", err)
+	}
+}

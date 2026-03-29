@@ -1,10 +1,10 @@
 package main
 
 import (
-	"bufio"
 	"encoding/csv"
 	"encoding/json"
 	"fmt"
+	"io"
 	"os"
 	"strings"
 	"time"
@@ -43,22 +43,20 @@ func newAuditTailCommand() *cobra.Command {
 				return fmt.Errorf("--limit must be greater than 0")
 			}
 
-			events, err := readAuditEvents(cfg.Audit.Path)
-			if err != nil {
-				return err
-			}
-
 			selected := make([]audit.AuditEvent, 0, limit)
-			for i := len(events) - 1; i >= 0 && len(selected) < limit; i-- {
-				e := events[i]
+			if err := forEachAuditEvent(cfg.Audit.Path, func(e audit.AuditEvent) error {
 				if !auditEventMatches(e, agent, service) {
-					continue
+					return nil
 				}
-				selected = append(selected, e)
-			}
-
-			for i, j := 0, len(selected)-1; i < j; i, j = i+1, j-1 {
-				selected[i], selected[j] = selected[j], selected[i]
+				if len(selected) < limit {
+					selected = append(selected, e)
+					return nil
+				}
+				copy(selected, selected[1:])
+				selected[limit-1] = e
+				return nil
+			}); err != nil {
+				return err
 			}
 
 			if outputAsJSON() {
@@ -139,29 +137,19 @@ func newAuditExportCommand() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			events, err := readAuditEvents(cfg.Audit.Path)
-			if err != nil {
-				return err
-			}
-
-			filtered := make([]audit.AuditEvent, 0, len(events))
-			for _, e := range events {
-				if e.Timestamp.Before(fromTime) || e.Timestamp.After(toTime) {
-					continue
-				}
-				if !auditEventMatches(e, agent, service) {
-					continue
-				}
-				filtered = append(filtered, e)
-			}
-
 			switch strings.ToLower(strings.TrimSpace(format)) {
 			case "", "jsonl", "json":
 				enc := json.NewEncoder(os.Stdout)
-				for i := range filtered {
-					if err := enc.Encode(filtered[i]); err != nil {
-						return err
+				if err := forEachAuditEvent(cfg.Audit.Path, func(e audit.AuditEvent) error {
+					if e.Timestamp.Before(fromTime) || e.Timestamp.After(toTime) {
+						return nil
 					}
+					if !auditEventMatches(e, agent, service) {
+						return nil
+					}
+					return enc.Encode(e)
+				}); err != nil {
+					return err
 				}
 				return nil
 			case "csv":
@@ -170,8 +158,13 @@ func newAuditExportCommand() *cobra.Command {
 				if err := writer.Write(headers); err != nil {
 					return err
 				}
-				for i := range filtered {
-					e := filtered[i]
+				if err := forEachAuditEvent(cfg.Audit.Path, func(e audit.AuditEvent) error {
+					if e.Timestamp.Before(fromTime) || e.Timestamp.After(toTime) {
+						return nil
+					}
+					if !auditEventMatches(e, agent, service) {
+						return nil
+					}
 					errorCode := ""
 					errorMessage := ""
 					if e.Error != nil {
@@ -195,9 +188,9 @@ func newAuditExportCommand() *cobra.Command {
 						errorCode,
 						errorMessage,
 					}
-					if err := writer.Write(row); err != nil {
-						return err
-					}
+					return writer.Write(row)
+				}); err != nil {
+					return err
 				}
 				writer.Flush()
 				return writer.Error()
@@ -214,39 +207,37 @@ func newAuditExportCommand() *cobra.Command {
 	return cmd
 }
 
-func readAuditEvents(path string) ([]audit.AuditEvent, error) {
+func forEachAuditEvent(path string, handle func(audit.AuditEvent) error) error {
 	if strings.TrimSpace(path) == "" {
-		return nil, fmt.Errorf("audit path is required")
+		return fmt.Errorf("audit path is required")
+	}
+	if handle == nil {
+		return nil
 	}
 
 	file, err := os.Open(path)
 	if err != nil {
 		if os.IsNotExist(err) {
-			return []audit.AuditEvent{}, nil
+			return nil
 		}
-		return nil, err
+		return err
 	}
 	defer file.Close()
 
-	out := make([]audit.AuditEvent, 0)
-	scanner := bufio.NewScanner(file)
-	scanner.Buffer(make([]byte, 4<<20), 4<<20)
-	for scanner.Scan() {
-		line := strings.TrimSpace(scanner.Text())
-		if line == "" {
-			continue
-		}
+	decoder := json.NewDecoder(file)
+	for {
 		var event audit.AuditEvent
-		if err := json.Unmarshal([]byte(line), &event); err != nil {
-			return nil, fmt.Errorf("parse audit line: %w", err)
+		if err := decoder.Decode(&event); err != nil {
+			if err == io.EOF {
+				break
+			}
+			return fmt.Errorf("parse audit event: %w", err)
 		}
-		out = append(out, event)
+		if err := handle(event); err != nil {
+			return err
+		}
 	}
-	if err := scanner.Err(); err != nil {
-		return nil, err
-	}
-
-	return out, nil
+	return nil
 }
 
 func auditEventMatches(event audit.AuditEvent, agent string, service string) bool {

@@ -111,7 +111,7 @@ func newDaemonCommand() *cobra.Command {
 				}()
 			})
 
-			server := &http.Server{Handler: daemonAuthMiddleware(daemonToken, mux)}
+			server := newDaemonHTTPServer(daemonAuthMiddleware(daemonToken, mux))
 
 			ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 			defer stop()
@@ -141,6 +141,16 @@ func newDaemonCommand() *cobra.Command {
 	cmd.Flags().StringVar(&daemonTokenFile, "token-file", "", "read daemon auth token from file (recommended over --token)")
 
 	return cmd
+}
+
+func newDaemonHTTPServer(handler http.Handler) *http.Server {
+	return &http.Server{
+		Handler:           handler,
+		ReadHeaderTimeout: 5 * time.Second,
+		ReadTimeout:       60 * time.Second,
+		WriteTimeout:      120 * time.Second,
+		IdleTimeout:       60 * time.Second,
+	}
 }
 
 type daemonCallRequest struct {

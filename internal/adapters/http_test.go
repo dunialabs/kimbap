@@ -7,6 +7,7 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"strconv"
 	"testing"
 	"time"
 
@@ -264,6 +265,69 @@ func TestPaginationUsesMaxPages(t *testing.T) {
 	pages, _ := pagination["pages"].(int)
 	if pages != 2 {
 		t.Fatalf("expected 2 pages (MaxPages cap), got %d", pages)
+	}
+}
+
+func TestPaginationCapsRequestedPageLimit(t *testing.T) {
+	seenLimit := ""
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		seenLimit = r.URL.Query().Get("limit")
+		_ = json.NewEncoder(w).Encode(map[string]any{"items": []any{}})
+	}))
+	defer server.Close()
+
+	adapter := NewHTTPAdapter(nil)
+	_, err := adapter.Execute(context.Background(), AdapterRequest{
+		Action: actions.ActionDefinition{
+			Adapter: actions.AdapterConfig{
+				Type:        "http",
+				Method:      "GET",
+				BaseURL:     server.URL,
+				URLTemplate: "/items",
+				Query: map[string]string{
+					"limit":  "{limit}",
+					"offset": "{offset}",
+				},
+			},
+			Pagination: &actions.PaginationConfig{Style: "offset", MaxPages: 1, LimitParam: "limit", OffsetParam: "offset"},
+		},
+		Input: map[string]any{"limit": hardMaxPaginationPageLimit + 100},
+	})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if seenLimit != strconv.Itoa(hardMaxPaginationPageLimit) {
+		t.Fatalf("expected limit query capped to %d, got %q", hardMaxPaginationPageLimit, seenLimit)
+	}
+}
+
+func TestPaginationFailsWhenTotalItemsExceedHardCap(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		items := make([]any, 0, hardMaxPaginationPageLimit)
+		for i := 0; i < hardMaxPaginationPageLimit; i++ {
+			items = append(items, map[string]any{"id": i})
+		}
+		_ = json.NewEncoder(w).Encode(map[string]any{"items": items})
+	}))
+	defer server.Close()
+
+	adapter := NewHTTPAdapter(nil)
+	_, err := adapter.Execute(context.Background(), AdapterRequest{
+		Action: actions.ActionDefinition{
+			Adapter:    actions.AdapterConfig{Type: "http", Method: "GET", BaseURL: server.URL, URLTemplate: "/items"},
+			Pagination: &actions.PaginationConfig{Style: "offset", MaxPages: 6, LimitParam: "limit", OffsetParam: "offset"},
+		},
+		Input: map[string]any{"limit": hardMaxPaginationPageLimit},
+	})
+	if err == nil {
+		t.Fatal("expected error when total paginated items exceed hard cap")
+	}
+	execErr := actions.AsExecutionError(err)
+	if execErr == nil {
+		t.Fatalf("expected execution error, got %v", err)
+	}
+	if execErr.HTTPStatus != http.StatusBadGateway {
+		t.Fatalf("expected 502, got %d", execErr.HTTPStatus)
 	}
 }
 

@@ -128,7 +128,7 @@ func RunBrowserFlow(ctx context.Context, cfg BrowserFlowConfig, output io.Writer
 	serverErrCh := make(chan error, 1)
 	var once sync.Once
 
-	server := &http.Server{Handler: http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	server := newLoopbackCallbackServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path != callbackPath {
 			http.NotFound(w, r)
 			return
@@ -181,7 +181,7 @@ func RunBrowserFlow(ctx context.Context, cfg BrowserFlowConfig, output io.Writer
 		once.Do(func() {
 			resultCh <- callbackPayload{code: code, state: cbState}
 		})
-	})}
+	}))
 
 	go func() {
 		if serveErr := server.Serve(listener); serveErr != nil && !errors.Is(serveErr, http.ErrServerClosed) {
@@ -226,6 +226,16 @@ func RunBrowserFlow(ctx context.Context, cfg BrowserFlowConfig, output io.Writer
 	}
 
 	return result, nil
+}
+
+func newLoopbackCallbackServer(handler http.Handler) *http.Server {
+	return &http.Server{
+		Handler:           handler,
+		ReadHeaderTimeout: 5 * time.Second,
+		ReadTimeout:       30 * time.Second,
+		WriteTimeout:      30 * time.Second,
+		IdleTimeout:       30 * time.Second,
+	}
 }
 
 func buildAuthorizationURL(cfg BrowserFlowConfig, redirectURI, state, challenge string) (string, error) {

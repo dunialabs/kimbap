@@ -1330,9 +1330,9 @@ td.mono {
       '<h2>Sign in to continue</h2>' +
       '<p>Enter a kimbap access token to open this view.<br>' +
       'Create one with <code>kimbap token create --agent console</code>, then paste it here.</p>' +
-      '<form class="token-input-group" onsubmit="return saveToken(\'' + inputId + '\')">' +
+      '<form class="token-input-group" novalidate onsubmit="return saveToken(\'' + inputId + '\')">' +
         '<label class="sr-only" for="' + inputId + '">Access token</label>' +
-        '<input class="token-input" type="password" id="' + inputId + '" placeholder="ktk_..." aria-label="Access token" aria-describedby="' + errorId + '" oninput="clearTokenError(\'' + inputId + '\')" autocomplete="off"' + invalidAttr + ' />' +
+        '<input class="token-input" type="password" id="' + inputId + '" placeholder="ktk_..." aria-label="Access token" aria-describedby="' + errorId + '" oninput="clearTokenError(\'' + inputId + '\')" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" required' + invalidAttr + ' />' +
         '<button type="submit" class="connect-btn">Save token</button>' +
       '</form>' +
       '<div id="' + errorId + '" class="token-error" aria-live="polite">' + esc(errorMsg) + '</div>' +
@@ -1686,6 +1686,18 @@ td.mono {
   function fallbackCopyText(cmd) {
     var ta = document.createElement('textarea');
     var ok = false;
+    var active = document.activeElement;
+    var canRestoreSelection = false;
+    var prevStart = 0;
+    var prevEnd = 0;
+    var activeTag = active && active.tagName ? String(active.tagName).toLowerCase() : '';
+    if (active && (activeTag === 'input' || activeTag === 'textarea')) {
+      if (typeof active.selectionStart === 'number' && typeof active.selectionEnd === 'number') {
+        canRestoreSelection = true;
+        prevStart = active.selectionStart;
+        prevEnd = active.selectionEnd;
+      }
+    }
     ta.value = cmd;
     ta.setAttribute('readonly', 'readonly');
     ta.style.position = 'fixed';
@@ -1700,6 +1712,16 @@ td.mono {
       ok = false;
     }
     document.body.removeChild(ta);
+    if (active && typeof active.focus === 'function') {
+      active.focus();
+      if (canRestoreSelection && typeof active.setSelectionRange === 'function') {
+        try {
+          active.setSelectionRange(prevStart, prevEnd);
+        } catch (_) {
+          // Ignore selection restore failures (e.g., unsupported input types).
+        }
+      }
+    }
     return ok;
   }
 
@@ -1905,6 +1927,8 @@ td.mono {
       var busy = !!busyMode;
       var approveLabel = busyMode === 'approve' ? 'Approving...' : 'Approve';
       var denyLabel = busyMode === 'deny' ? 'Denying...' : 'Deny';
+      var approveAria = (busyMode === 'approve' ? 'Approving' : 'Approve') + ' request ' + (id || 'unknown');
+      var denyAria = (busyMode === 'deny' ? 'Denying' : 'Deny') + ' request ' + (id || 'unknown');
       html += '<tr>' +
         '<td class="mono">' + esc(id || '—') + '</td>' +
         '<td class="mono" style="color:var(--text-primary)">' + esc(actionFull) +
@@ -1916,8 +1940,8 @@ td.mono {
         '<td class="mono">' + esc(fmtTime(expires)) + '</td>' +
         '<td class="mono">' + esc(fmtTimeRemaining(expires)) + '</td>' +
         '<td><div class="row-actions">' +
-          '<button type="button" class="mini-btn approve" ' + (busy ? 'disabled ' : '') + 'onclick="resolveApproval(\'' + escAttr(id) + '\',\'approve\')">' + approveLabel + '</button>' +
-          '<button type="button" class="mini-btn deny" ' + (busy ? 'disabled ' : '') + 'onclick="resolveApproval(\'' + escAttr(id) + '\',\'deny\')">' + denyLabel + '</button>' +
+          '<button type="button" class="mini-btn approve" aria-label="' + escAttr(approveAria) + '" ' + (busy ? 'disabled ' : '') + 'onclick="resolveApproval(\'' + escAttr(id) + '\',\'approve\')">' + approveLabel + '</button>' +
+          '<button type="button" class="mini-btn deny" aria-label="' + escAttr(denyAria) + '" ' + (busy ? 'disabled ' : '') + 'onclick="resolveApproval(\'' + escAttr(id) + '\',\'deny\')">' + denyLabel + '</button>' +
         '</div></td>' +
       '</tr>';
     });

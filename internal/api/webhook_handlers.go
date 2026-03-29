@@ -7,6 +7,7 @@ import (
 	"net"
 	"net/http"
 	"net/url"
+	"sort"
 	"strconv"
 	"strings"
 
@@ -70,7 +71,7 @@ func (s *Server) handleCreateWebhook(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
-	if err := validateWebhookURL(sub.URL); err != nil {
+	if err := validateWebhookURL(r.Context(), sub.URL); err != nil {
 		writeEnvelopeError(w, r, actions.NewExecutionError(actions.ErrValidationFailed, err.Error(), http.StatusBadRequest, false, nil))
 		return
 	}
@@ -143,13 +144,14 @@ func (s *Server) handleListRecentEvents(w http.ResponseWriter, r *http.Request) 
 			writeEnvelopeError(w, r, actions.NewExecutionError(actions.ErrDownstreamUnavailable, "internal server error", http.StatusInternalServerError, false, nil))
 			return
 		}
-		events = make([]webhooks.Event, 0, len(recs))
+		merged := make([]webhooks.Event, 0, len(events)+len(recs))
+		merged = append(merged, events...)
 		for _, rec := range recs {
 			payload := map[string]any{}
 			if strings.TrimSpace(rec.DataJSON) != "" {
 				_ = json.Unmarshal([]byte(rec.DataJSON), &payload)
 			}
-			events = append(events, webhooks.Event{
+			merged = append(merged, webhooks.Event{
 				ID:        rec.ID,
 				Type:      webhooks.EventType(rec.Type),
 				TenantID:  rec.TenantID,
@@ -157,8 +159,36 @@ func (s *Server) handleListRecentEvents(w http.ResponseWriter, r *http.Request) 
 				Data:      payload,
 			})
 		}
+		events = dedupeAndTrimWebhookEvents(merged, limit)
 	}
 	writeSuccess(w, r, http.StatusOK, map[string]any{"events": events})
+}
+
+func dedupeAndTrimWebhookEvents(items []webhooks.Event, limit int) []webhooks.Event {
+	if len(items) == 0 {
+		return nil
+	}
+	byID := make(map[string]webhooks.Event, len(items))
+	for _, item := range items {
+		existing, exists := byID[item.ID]
+		if !exists || item.Timestamp.After(existing.Timestamp) {
+			byID[item.ID] = item
+		}
+	}
+	combined := make([]webhooks.Event, 0, len(byID))
+	for _, item := range byID {
+		combined = append(combined, item)
+	}
+	sort.SliceStable(combined, func(i, j int) bool {
+		if combined[i].Timestamp.Equal(combined[j].Timestamp) {
+			return combined[i].ID < combined[j].ID
+		}
+		return combined[i].Timestamp.Before(combined[j].Timestamp)
+	})
+	if limit <= 0 || len(combined) <= limit {
+		return combined
+	}
+	return combined[len(combined)-limit:]
 }
 
 // validateWebhookURL validates the URL format and rejects known private/loopback
@@ -166,7 +196,10 @@ func (s *Server) handleListRecentEvents(w http.ResponseWriter, r *http.Request) 
 // mitigation is enforced separately by the webhook dispatcher, which resolves
 // the hostname and dials the resolved IP via a custom DialContext, rejecting
 // private or loopback addresses before connecting.
-func validateWebhookURL(rawURL string) error {
+func validateWebhookURL(ctx context.Context, rawURL string) error {
+	if ctx == nil {
+		ctx = context.Background()
+	}
 	u, err := url.Parse(rawURL)
 	if err != nil {
 		return fmt.Errorf("invalid URL: %w", err)
@@ -178,13 +211,13 @@ func validateWebhookURL(rawURL string) error {
 	if host == "" {
 		return fmt.Errorf("url must have a host")
 	}
-	if isPrivateHost(host) {
+	if isPrivateHost(ctx, host) {
 		return fmt.Errorf("webhook url must not target private/loopback addresses")
 	}
 	return nil
 }
 
-func isPrivateHost(host string) bool {
+func isPrivateHost(ctx context.Context, host string) bool {
 	lower := strings.ToLower(host)
 	if lower == "localhost" || lower == "127.0.0.1" || lower == "::1" || lower == "0.0.0.0" || lower == "::" {
 		return true
@@ -193,12 +226,13 @@ func isPrivateHost(host string) bool {
 	if ip != nil {
 		return isPrivateIP(ip)
 	}
-	resolved, err := net.LookupIP(host)
+	resolver := net.Resolver{}
+	resolved, err := resolver.LookupIPAddr(ctx, host)
 	if err != nil || len(resolved) == 0 {
 		return false
 	}
 	for _, addr := range resolved {
-		if isPrivateIP(addr) {
+		if isPrivateIP(addr.IP) {
 			return true
 		}
 	}

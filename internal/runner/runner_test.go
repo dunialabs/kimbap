@@ -164,6 +164,57 @@ func TestRunnerInjectsCACertEnvVarsForAllRuntimes(t *testing.T) {
 	}
 }
 
+func TestRunnerKeepsSystemCABundleEnvWhenMergedBundleUnavailable(t *testing.T) {
+	certDir := t.TempDir()
+	certPath := filepath.Join(certDir, "ca.crt")
+	if err := os.WriteFile(certPath, []byte("fake-cert"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	original := buildMergedCABundle
+	buildMergedCABundle = func(string) (string, func(), error) {
+		return "", nil, errors.New("merge failed")
+	}
+	defer func() { buildMergedCABundle = original }()
+
+	outFile := filepath.Join(t.TempDir(), "caenv-fallback.txt")
+	r := NewRunner(RunConfig{
+		Command:    []string{"sh", "-c", `printf '%s\n%s\n%s\n%s\n%s\n%s' "$SSL_CERT_FILE" "$NODE_EXTRA_CA_CERTS" "$REQUESTS_CA_BUNDLE" "$CURL_CA_BUNDLE" "$GIT_SSL_CAINFO" "$GRPC_DEFAULT_SSL_ROOTS_FILE_PATH" > "$OUT"`},
+		ProxyAddr:  "127.0.0.1:19091",
+		CACertPath: certPath,
+		Env: map[string]string{
+			"OUT":                              outFile,
+			"SSL_CERT_FILE":                    "/system/ssl.pem",
+			"REQUESTS_CA_BUNDLE":               "/system/requests.pem",
+			"CURL_CA_BUNDLE":                   "/system/curl.pem",
+			"GIT_SSL_CAINFO":                   "/system/git.pem",
+			"GRPC_DEFAULT_SSL_ROOTS_FILE_PATH": "/system/grpc.pem",
+		},
+	})
+
+	if err := r.Start(context.Background()); err != nil {
+		t.Fatalf("runner start failed: %v", err)
+	}
+
+	data, err := os.ReadFile(outFile)
+	if err != nil {
+		t.Fatalf("read output: %v", err)
+	}
+	lines := strings.Split(strings.TrimSpace(string(data)), "\n")
+	if len(lines) != 6 {
+		t.Fatalf("expected 6 lines, got %d: %q", len(lines), string(data))
+	}
+	if lines[0] != "/system/ssl.pem" {
+		t.Fatalf("SSL_CERT_FILE should keep system bundle, got %q", lines[0])
+	}
+	if lines[1] != certPath {
+		t.Fatalf("NODE_EXTRA_CA_CERTS should point to proxy cert, got %q", lines[1])
+	}
+	if lines[2] != "/system/requests.pem" || lines[3] != "/system/curl.pem" || lines[4] != "/system/git.pem" || lines[5] != "/system/grpc.pem" {
+		t.Fatalf("expected system CA vars preserved, got %q", string(data))
+	}
+}
+
 func TestStripEnvKeysRemovesAllDuplicateCAOverrides(t *testing.T) {
 	env := []string{
 		"A=1",

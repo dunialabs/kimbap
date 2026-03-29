@@ -140,6 +140,7 @@ type servicesActionRegistry struct {
 	servicesDir      string
 	mu               sync.RWMutex
 	cachedDefs       []actions.ActionDefinition
+	cachedByName     map[string]actions.ActionDefinition
 	cacheFingerprint string
 	cacheCheckedAt   time.Time
 	probeInterval    time.Duration
@@ -156,6 +157,17 @@ func (r *servicesActionRegistry) Lookup(_ context.Context, name string) (*action
 	if err != nil {
 		return nil, err
 	}
+
+	r.mu.RLock()
+	if byName := r.cachedByName; byName != nil {
+		if def, ok := byName[name]; ok {
+			r.mu.RUnlock()
+			copyDef := def
+			return &copyDef, nil
+		}
+	}
+	r.mu.RUnlock()
+
 	for i := range defs {
 		if defs[i].Name == name {
 			return &defs[i], nil
@@ -251,7 +263,12 @@ func (r *servicesActionRegistry) loadDefinitions() ([]actions.ActionDefinition, 
 	if err != nil {
 		return nil, err
 	}
+	byName := make(map[string]actions.ActionDefinition, len(defs))
+	for i := range defs {
+		byName[defs[i].Name] = defs[i]
+	}
 	r.cachedDefs = defs
+	r.cachedByName = byName
 	r.cacheFingerprint = fp
 	r.cacheCheckedAt = time.Now()
 	return defs, nil
@@ -389,6 +406,8 @@ func (a *policyEvaluatorAdapter) Evaluate(ctx context.Context, req runtimepkg.Po
 type cachedPolicyEntry struct {
 	eval        *policyEvaluatorAdapter
 	fingerprint [32]byte
+	missing     bool
+	checkedAt   time.Time
 }
 
 type storePolicyEvaluator struct {
@@ -399,7 +418,28 @@ type storePolicyEvaluator struct {
 	cache map[string]cachedPolicyEntry
 }
 
+const policyStoreProbeInterval = 500 * time.Millisecond
+
 func (e *storePolicyEvaluator) Evaluate(ctx context.Context, req runtimepkg.PolicyRequest) (*runtimepkg.PolicyDecision, error) {
+	now := time.Now()
+	e.mu.Lock()
+	if entry, ok := e.cache[req.TenantID]; ok && now.Sub(entry.checkedAt) < policyStoreProbeInterval {
+		if entry.missing {
+			e.mu.Unlock()
+			if e.fallback != nil {
+				return e.fallback.Evaluate(ctx, req)
+			}
+			return nil, nil
+		}
+		eval := entry.eval
+		e.mu.Unlock()
+		if eval != nil {
+			return eval.Evaluate(ctx, req)
+		}
+		return nil, nil
+	}
+	e.mu.Unlock()
+
 	data, err := e.policyStore.GetPolicy(ctx, req.TenantID)
 	if err == nil && len(data) > 0 {
 		fp := sha256.Sum256(data)
@@ -409,6 +449,8 @@ func (e *storePolicyEvaluator) Evaluate(ctx context.Context, req runtimepkg.Poli
 			e.cache = make(map[string]cachedPolicyEntry)
 		}
 		if entry, ok := e.cache[req.TenantID]; ok && entry.fingerprint == fp {
+			entry.checkedAt = now
+			e.cache[req.TenantID] = entry
 			eval := entry.eval
 			e.mu.Unlock()
 			return eval.Evaluate(ctx, req)
@@ -421,6 +463,7 @@ func (e *storePolicyEvaluator) Evaluate(ctx context.Context, req runtimepkg.Poli
 		newEntry := cachedPolicyEntry{
 			eval:        &policyEvaluatorAdapter{evaluator: policy.NewEvaluator(doc)},
 			fingerprint: fp,
+			checkedAt:   now,
 		}
 		e.cache[req.TenantID] = newEntry
 		eval := newEntry.eval
@@ -429,6 +472,14 @@ func (e *storePolicyEvaluator) Evaluate(ctx context.Context, req runtimepkg.Poli
 	}
 	if err != nil && !errors.Is(err, store.ErrNotFound) {
 		return nil, fmt.Errorf("load tenant policy: %w", err)
+	}
+	if errors.Is(err, store.ErrNotFound) {
+		e.mu.Lock()
+		if e.cache == nil {
+			e.cache = make(map[string]cachedPolicyEntry)
+		}
+		e.cache[req.TenantID] = cachedPolicyEntry{missing: true, checkedAt: now}
+		e.mu.Unlock()
 	}
 	if e.fallback != nil {
 		return e.fallback.Evaluate(ctx, req)

@@ -9,6 +9,7 @@ import (
 
 	"time"
 
+	"github.com/dunialabs/kimbap/internal/approvals"
 	"github.com/dunialabs/kimbap/internal/config"
 	"github.com/dunialabs/kimbap/internal/store"
 	"github.com/dunialabs/kimbap/internal/webhooks"
@@ -44,12 +45,15 @@ func newApproveListCommand() *cobra.Command {
 		Use:   "list [--tenant <id>] [--status pending]",
 		Short: "List approval requests",
 		RunE: func(_ *cobra.Command, _ []string) error {
+			s, statusErr := approvalStatus(status)
+			if statusErr != nil {
+				return statusErr
+			}
 			cfg, err := loadAppConfig()
 			if err != nil {
 				return err
 			}
 			err = withRuntimeStore(cfg, func(st *store.SQLStore) error {
-				s := approvalStatus(status)
 				if s == "" || s == "pending" {
 					dispatcher := webhooks.NewDispatcher()
 					configureWebhookDispatcherFromStore(contextBackground(), dispatcher, st)
@@ -121,7 +125,7 @@ func newApproveListCommand() *cobra.Command {
 							"would_execute": true,
 							"operation":     "approve.list",
 							"tenant_id":     approvalTenant(tenant),
-							"status":        approvalStatus(status),
+							"status":        s,
 							"note":          unavailableMessage(componentApprovalStore, err),
 						})
 					}
@@ -166,8 +170,9 @@ func newApproveDenyCommand() *cobra.Command {
 				return err
 			}
 			err = withRuntimeStore(cfg, func(st *store.SQLStore) error {
-				if err := st.UpdateApprovalStatus(contextBackground(), args[0], "denied", "cli", reason); err != nil {
-					if errors.Is(err, store.ErrApprovalExpired) {
+				manager := approvals.NewApprovalManager(&storeApprovalStoreAdapter{st: st}, nil, 0)
+				if err := manager.Deny(contextBackground(), args[0], "cli", reason); err != nil {
+					if errors.Is(err, store.ErrApprovalExpired) || errors.Is(err, approvals.ErrExpired) {
 						_, _ = st.ExpireApproval(contextBackground(), args[0])
 					}
 					return fmt.Errorf("deny failed: %w", err)
@@ -217,25 +222,44 @@ func runApproveAccept(requestID string) error {
 		return err
 	}
 	err = withRuntimeStore(cfg, func(st *store.SQLStore) error {
-		// Pre-read approval record for best-effort retry hint. Non-fatal if it fails.
+		manager := approvals.NewApprovalManager(&storeApprovalStoreAdapter{st: st}, nil, 0)
 		rec, lookupErr := st.GetApproval(contextBackground(), requestID)
-
-		if err := st.UpdateApprovalStatus(contextBackground(), requestID, "approved", "cli", ""); err != nil {
-			if errors.Is(err, store.ErrApprovalExpired) {
+		if err := manager.Approve(contextBackground(), requestID, "cli"); err != nil {
+			if errors.Is(err, store.ErrApprovalExpired) || errors.Is(err, approvals.ErrExpired) {
 				_, _ = st.ExpireApproval(contextBackground(), requestID)
 			}
 			return fmt.Errorf("approve failed: %w", err)
 		}
+		updated, err := manager.Get(contextBackground(), requestID)
+		if err != nil {
+			return fmt.Errorf("approve fetch failed: %w", err)
+		}
+		approved := updated != nil && updated.Status == approvals.StatusApproved
 
 		if outputAsJSON() {
-			return printOutput(map[string]any{
+			payload := map[string]any{
 				"request_id":  requestID,
-				"status":      "approved",
 				"resolved_by": "cli",
-			})
+				"approved":    approved,
+			}
+			if approved {
+				payload["status"] = "approved"
+			} else {
+				payload["status"] = "pending"
+				payload["pending"] = true
+				if updated != nil {
+					payload["required_approvals"] = max(1, updated.RequiredApprovals)
+					payload["current_approvals"] = approvalApprovedVoteCount(updated.Votes)
+				}
+			}
+			return printOutput(payload)
 		}
-		_, _ = fmt.Fprintf(os.Stdout, successCheck()+" %s approved\n", requestID)
-		if lookupErr == nil && rec != nil && rec.Service != "" && rec.Action != "" {
+		if approved {
+			_, _ = fmt.Fprintf(os.Stdout, successCheck()+" %s approved\n", requestID)
+		} else {
+			_, _ = fmt.Fprintf(os.Stdout, successCheck()+" %s vote recorded (pending additional approvals)\n", requestID)
+		}
+		if approved && lookupErr == nil && rec != nil && rec.Service != "" && rec.Action != "" {
 			_, _ = fmt.Fprintf(os.Stdout, "Retry: kimbap call %s.%s\n", rec.Service, rec.Action)
 		}
 		return nil
@@ -258,6 +282,16 @@ func runApproveAccept(requestID string) error {
 	}
 
 	return nil
+}
+
+func approvalApprovedVoteCount(votes []approvals.ApprovalVote) int {
+	count := 0
+	for _, vote := range votes {
+		if vote.Decision == approvals.StatusApproved {
+			count++
+		}
+	}
+	return count
 }
 
 func approvalTenant(raw string) string {
@@ -286,8 +320,14 @@ func approvalTimeRemaining(expires time.Time) string {
 	return fmt.Sprintf("%dh%dm", h, m)
 }
 
-func approvalStatus(raw string) string {
-	return strings.TrimSpace(raw)
+func approvalStatus(raw string) (string, error) {
+	trimmed := strings.ToLower(strings.TrimSpace(raw))
+	switch trimmed {
+	case "pending", "approved", "denied", "expired":
+		return trimmed, nil
+	default:
+		return "", fmt.Errorf("invalid --status %q (valid: pending, approved, denied, expired)", strings.TrimSpace(raw))
+	}
 }
 
 func openRuntimeStore(cfg *config.KimbapConfig) (*store.SQLStore, error) {

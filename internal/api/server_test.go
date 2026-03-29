@@ -727,6 +727,100 @@ func TestServerListPendingApprovalsExpiresStaleBeforeResponse(t *testing.T) {
 	}
 }
 
+func TestServerApproveRequiresMultipleVotesWhenConfigured(t *testing.T) {
+	ts, rawBootstrap, stAny := newTestAPIServerWithStore(t)
+	st, ok := stAny.(*store.SQLStore)
+	if !ok {
+		t.Fatalf("expected *store.SQLStore, got %T", stAny)
+	}
+
+	approvalID := "apr_multi_vote"
+	if err := st.CreateApproval(context.Background(), &store.ApprovalRecord{
+		ID:                approvalID,
+		TenantID:          "tenant-a",
+		RequestID:         "req_multi_vote",
+		AgentName:         "agent-a",
+		Service:           "github",
+		Action:            "issues.create",
+		Status:            "pending",
+		InputJSON:         `{}`,
+		RequiredApprovals: 2,
+		VotesJSON:         `[]`,
+		CreatedAt:         time.Now().UTC(),
+		ExpiresAt:         time.Now().UTC().Add(10 * time.Minute),
+	}); err != nil {
+		t.Fatalf("create approval: %v", err)
+	}
+
+	rawApprover2 := "ktk_second_approver_for_tests"
+	if err := st.CreateToken(context.Background(), newBootstrapTokenRecord("tenant-a", "approver-2", rawApprover2)); err != nil {
+		t.Fatalf("seed second approver token: %v", err)
+	}
+
+	firstReq, _ := http.NewRequest(http.MethodPost, ts.URL+"/v1/approvals/"+approvalID+":approve", nil)
+	firstReq.Header.Set("Authorization", "Bearer "+rawBootstrap)
+	firstResp, err := http.DefaultClient.Do(firstReq)
+	if err != nil {
+		t.Fatalf("first approve request: %v", err)
+	}
+	defer firstResp.Body.Close()
+	if firstResp.StatusCode != http.StatusOK {
+		b, _ := io.ReadAll(firstResp.Body)
+		t.Fatalf("expected first approve status 200, got %d body=%s", firstResp.StatusCode, string(b))
+	}
+	var firstPayload map[string]any
+	if err := json.NewDecoder(firstResp.Body).Decode(&firstPayload); err != nil {
+		t.Fatalf("decode first payload: %v", err)
+	}
+	firstData, _ := firstPayload["data"].(map[string]any)
+	if approved, _ := firstData["approved"].(bool); approved {
+		t.Fatalf("expected first vote not to fully approve, payload=%+v", firstData)
+	}
+
+	intermediate, err := st.GetApproval(context.Background(), approvalID)
+	if err != nil {
+		t.Fatalf("get intermediate approval: %v", err)
+	}
+	if intermediate.Status != "pending" {
+		t.Fatalf("expected intermediate status pending, got %q", intermediate.Status)
+	}
+
+	secondReq, _ := http.NewRequest(http.MethodPost, ts.URL+"/v1/approvals/"+approvalID+":approve", nil)
+	secondReq.Header.Set("Authorization", "Bearer "+rawApprover2)
+	secondResp, err := http.DefaultClient.Do(secondReq)
+	if err != nil {
+		t.Fatalf("second approve request: %v", err)
+	}
+	defer secondResp.Body.Close()
+	if secondResp.StatusCode != http.StatusOK {
+		b, _ := io.ReadAll(secondResp.Body)
+		t.Fatalf("expected second approve status 200, got %d body=%s", secondResp.StatusCode, string(b))
+	}
+	var secondPayload map[string]any
+	if err := json.NewDecoder(secondResp.Body).Decode(&secondPayload); err != nil {
+		t.Fatalf("decode second payload: %v", err)
+	}
+	secondData, _ := secondPayload["data"].(map[string]any)
+	if approved, _ := secondData["approved"].(bool); !approved {
+		t.Fatalf("expected second vote to approve, payload=%+v", secondData)
+	}
+
+	finalRecord, err := st.GetApproval(context.Background(), approvalID)
+	if err != nil {
+		t.Fatalf("get final approval: %v", err)
+	}
+	if finalRecord.Status != "approved" {
+		t.Fatalf("expected final status approved, got %q", finalRecord.Status)
+	}
+	var votes []map[string]any
+	if err := json.Unmarshal([]byte(finalRecord.VotesJSON), &votes); err != nil {
+		t.Fatalf("decode votes json: %v", err)
+	}
+	if len(votes) != 2 {
+		t.Fatalf("expected 2 votes persisted, got %d (%s)", len(votes), finalRecord.VotesJSON)
+	}
+}
+
 func TestServerTokensCreateAndList(t *testing.T) {
 	ts, rawBootstrap := newTestAPIServer(t)
 
@@ -1784,6 +1878,19 @@ func (s *forcedApprovalStore) UpdateApprovalStatus(ctx context.Context, id strin
 		return s.forcedUpdateErr
 	}
 	return s.Store.UpdateApprovalStatus(ctx, id, status, resolvedBy, reason)
+}
+
+func (s *forcedApprovalStore) UpdateApproval(ctx context.Context, req *store.ApprovalRecord) error {
+	if req != nil && s.forcedUpdateErr != nil && req.ID == s.forcedUpdateID {
+		return s.forcedUpdateErr
+	}
+	updater, ok := s.Store.(interface {
+		UpdateApproval(context.Context, *store.ApprovalRecord) error
+	})
+	if !ok {
+		return errors.New("update approval unsupported")
+	}
+	return updater.UpdateApproval(ctx, req)
 }
 
 func (s *forcedApprovalStore) ExpireApproval(ctx context.Context, id string) (bool, error) {

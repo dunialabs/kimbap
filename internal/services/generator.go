@@ -4,16 +4,13 @@ import (
 	"encoding/json"
 	"fmt"
 	"hash/fnv"
-	"io"
 	"maps"
-	"net/http"
 	"net/url"
 	"os"
 	"regexp"
 	"sort"
 	"strconv"
 	"strings"
-	"time"
 
 	"gopkg.in/yaml.v3"
 )
@@ -83,98 +80,6 @@ func GenerateFromOpenAPIFile(path string) (*ServiceManifest, error) {
 		return nil, fmt.Errorf("read OpenAPI file: %w", err)
 	}
 	return GenerateFromOpenAPI(data)
-}
-
-const maxOpenAPISpecBytes int64 = 10 << 20
-
-func GenerateFromOpenAPIURL(rawURL string) (*ServiceManifest, error) {
-	client := &http.Client{
-		Timeout: 30 * time.Second,
-		CheckRedirect: func(req *http.Request, via []*http.Request) error {
-			if req.URL.Scheme != "https" {
-				return fmt.Errorf("redirect to non-https URL %q rejected", req.URL)
-			}
-			return nil
-		},
-	}
-
-	req, err := http.NewRequest(http.MethodGet, rawURL, nil)
-	if err != nil {
-		return nil, fmt.Errorf("create OpenAPI request: %w", err)
-	}
-
-	resp, err := client.Do(req)
-	if err != nil {
-		return nil, fmt.Errorf("fetch OpenAPI URL: %w", err)
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		return nil, fmt.Errorf("fetch OpenAPI URL: unexpected status %d", resp.StatusCode)
-	}
-
-	body, err := io.ReadAll(io.LimitReader(resp.Body, maxOpenAPISpecBytes+1))
-	if err != nil {
-		return nil, fmt.Errorf("read OpenAPI response: %w", err)
-	}
-	if int64(len(body)) > maxOpenAPISpecBytes {
-		return nil, fmt.Errorf("OpenAPI spec exceeds maximum size of %d bytes", maxOpenAPISpecBytes)
-	}
-
-	body = resolveServerURL(body, resp.Request.URL.String())
-
-	return GenerateFromOpenAPI(body)
-}
-
-func resolveServerURL(specBytes []byte, fetchedURL string) []byte {
-	root, err := parseOpenAPIRoot(specBytes)
-	if err != nil {
-		return specBytes
-	}
-
-	servers := anySliceAt(root, "servers")
-	if len(servers) == 0 {
-		return specBytes
-	}
-
-	firstServer, ok := servers[0].(map[string]any)
-	if !ok {
-		return specBytes
-	}
-
-	rawServerURL := strings.TrimSpace(stringAt(firstServer, "url"))
-	if rawServerURL == "" {
-		return specBytes
-	}
-
-	parsedServerURL, err := url.Parse(rawServerURL)
-	if err != nil || parsedServerURL.IsAbs() {
-		return specBytes
-	}
-
-	parsedFetchedURL, err := url.Parse(strings.TrimSpace(fetchedURL))
-	if err != nil || parsedFetchedURL.Scheme == "" || parsedFetchedURL.Host == "" {
-		return specBytes
-	}
-
-	resolvedServerURL := parsedFetchedURL.ResolveReference(parsedServerURL)
-	if resolvedServerURL.Scheme == "" || resolvedServerURL.Host == "" {
-		return specBytes
-	}
-
-	firstServer["url"] = resolvedServerURL.String()
-
-	var out []byte
-	if json.Valid(specBytes) {
-		out, err = json.Marshal(root)
-	} else {
-		out, err = yaml.Marshal(root)
-	}
-	if err != nil {
-		return specBytes
-	}
-
-	return out
 }
 
 type openAPIRefResolver struct {

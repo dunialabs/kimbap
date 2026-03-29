@@ -213,16 +213,17 @@ func TestStoreApprovalStoreAdapterPreservesInputRoundTrip(t *testing.T) {
 	now := time.Now().UTC()
 	input := map[string]any{"title": "hello", "nested": map[string]any{"count": 1}}
 	if err := adapter.Create(context.Background(), &approvals.ApprovalRequest{
-		ID:        "apr_roundtrip",
-		TenantID:  "tenant-a",
-		RequestID: "req_roundtrip",
-		AgentName: "agent-a",
-		Service:   "github",
-		Action:    "issues.create",
-		Input:     input,
-		Status:    approvals.StatusPending,
-		CreatedAt: now,
-		ExpiresAt: now.Add(time.Hour),
+		ID:                "apr_roundtrip",
+		TenantID:          "tenant-a",
+		RequestID:         "req_roundtrip",
+		AgentName:         "agent-a",
+		Service:           "github",
+		Action:            "issues.create",
+		Input:             input,
+		Status:            approvals.StatusPending,
+		RequiredApprovals: 2,
+		CreatedAt:         now,
+		ExpiresAt:         now.Add(time.Hour),
 	}); err != nil {
 		t.Fatalf("create approval: %v", err)
 	}
@@ -234,6 +235,24 @@ func TestStoreApprovalStoreAdapterPreservesInputRoundTrip(t *testing.T) {
 	if got.Input == nil || got.Input["title"] != "hello" {
 		t.Fatalf("expected input payload to round-trip, got %+v", got.Input)
 	}
+	if got.RequiredApprovals != 2 {
+		t.Fatalf("expected required approvals 2, got %d", got.RequiredApprovals)
+	}
+
+	nowVote := time.Now().UTC()
+	got.Votes = []approvals.ApprovalVote{{ApproverID: "approver-1", Decision: approvals.StatusApproved, VotedAt: nowVote}}
+	if err := adapter.Update(context.Background(), got); err != nil {
+		t.Fatalf("update approval with vote: %v", err)
+	}
+
+	updated, err := adapter.Get(context.Background(), "apr_roundtrip")
+	if err != nil {
+		t.Fatalf("get updated approval: %v", err)
+	}
+	if len(updated.Votes) != 1 || updated.Votes[0].ApproverID != "approver-1" {
+		t.Fatalf("expected votes to persist, got %+v", updated.Votes)
+	}
+
 	items, err := adapter.ListPending(context.Background(), "tenant-a")
 	if err != nil {
 		t.Fatalf("list pending approvals: %v", err)
@@ -243,6 +262,44 @@ func TestStoreApprovalStoreAdapterPreservesInputRoundTrip(t *testing.T) {
 	}
 	if items[0].Input == nil || items[0].Input["title"] != "hello" {
 		t.Fatalf("expected list input payload to round-trip, got %+v", items[0].Input)
+	}
+	if items[0].RequiredApprovals != 2 {
+		t.Fatalf("expected list required approvals 2, got %d", items[0].RequiredApprovals)
+	}
+}
+
+func TestStoreApprovalStoreAdapterListAllRespectsFilter(t *testing.T) {
+	st, err := store.OpenSQLiteStore(filepath.Join(t.TempDir(), "serve-approval-list-filter.sqlite"))
+	if err != nil {
+		t.Fatalf("open sqlite store: %v", err)
+	}
+	t.Cleanup(func() { _ = st.Close() })
+	if err := st.Migrate(context.Background()); err != nil {
+		t.Fatalf("migrate sqlite store: %v", err)
+	}
+
+	adapter := &storeApprovalStoreAdapter{st: st}
+	now := time.Now().UTC()
+	seed := []*approvals.ApprovalRequest{
+		{ID: "apr_1", TenantID: "tenant-a", RequestID: "req_1", AgentName: "agent-a", Service: "github", Action: "issues.create", Status: approvals.StatusPending, CreatedAt: now, ExpiresAt: now.Add(time.Hour)},
+		{ID: "apr_2", TenantID: "tenant-a", RequestID: "req_2", AgentName: "agent-b", Service: "slack", Action: "chat.post", Status: approvals.StatusPending, CreatedAt: now, ExpiresAt: now.Add(time.Hour)},
+		{ID: "apr_3", TenantID: "tenant-a", RequestID: "req_3", AgentName: "agent-a", Service: "github", Action: "repos.list", Status: approvals.StatusPending, CreatedAt: now, ExpiresAt: now.Add(time.Hour)},
+	}
+	for _, item := range seed {
+		if err := adapter.Create(context.Background(), item); err != nil {
+			t.Fatalf("create approval %s: %v", item.ID, err)
+		}
+	}
+
+	items, err := adapter.ListAll(context.Background(), "tenant-a", approvals.ApprovalFilter{AgentName: "agent-a", Service: "github", Limit: 1})
+	if err != nil {
+		t.Fatalf("list all approvals: %v", err)
+	}
+	if len(items) != 1 {
+		t.Fatalf("expected filtered+limited list of 1, got %d", len(items))
+	}
+	if items[0].AgentName != "agent-a" || items[0].Service != "github" {
+		t.Fatalf("unexpected filtered item: %+v", items[0])
 	}
 }
 

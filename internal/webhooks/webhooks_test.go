@@ -375,6 +375,68 @@ func TestDispatcherDeliversApprovalEvent(t *testing.T) {
 	}
 }
 
+func TestEmitForTenantWaitsBrieflyForDeliverySlot(t *testing.T) {
+	called := make(chan struct{}, 1)
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		called <- struct{}{}
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer server.Close()
+
+	d := newTestDispatcher()
+	d.Subscribe(Subscription{ID: "s-wait", URL: server.URL, TenantID: "tenant-a"})
+
+	for i := 0; i < cap(d.deliverySem); i++ {
+		d.deliverySem <- struct{}{}
+	}
+	go func() {
+		time.Sleep(50 * time.Millisecond)
+		<-d.deliverySem
+	}()
+
+	d.EmitForTenant("tenant-a", EventPolicyUpdated, map[string]any{"id": "p1"})
+
+	select {
+	case <-called:
+	case <-time.After(2 * time.Second):
+		t.Fatal("expected delivery after slot becomes available")
+	}
+
+	for len(d.deliverySem) > 0 {
+		<-d.deliverySem
+	}
+}
+
+func TestEmitForTenantBlocksUntilDeliverySlotAvailable(t *testing.T) {
+	called := make(chan struct{}, 1)
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		called <- struct{}{}
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer server.Close()
+
+	d := newTestDispatcher()
+	d.Subscribe(Subscription{ID: "s-drop", URL: server.URL, TenantID: "tenant-a"})
+
+	for i := 0; i < cap(d.deliverySem); i++ {
+		d.deliverySem <- struct{}{}
+	}
+	go func() {
+		time.Sleep(120 * time.Millisecond)
+		for len(d.deliverySem) > 0 {
+			<-d.deliverySem
+		}
+	}()
+
+	d.EmitForTenant("tenant-a", EventPolicyUpdated, map[string]any{"id": "p2"})
+
+	select {
+	case <-called:
+	case <-time.After(2 * time.Second):
+		t.Fatal("expected event delivery once a slot is available")
+	}
+}
+
 func TestApprovalEventFilteredBySubscription(t *testing.T) {
 	policyReceived := make(chan struct{}, 1)
 	approvalReceived := make(chan struct{}, 1)

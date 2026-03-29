@@ -6,10 +6,7 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
-	"io"
 	"io/fs"
-	"net/http"
-	"net/url"
 	"os"
 	"path/filepath"
 	"sort"
@@ -21,7 +18,6 @@ import (
 	"github.com/dunialabs/kimbap/internal/services"
 	"github.com/dunialabs/kimbap/skills"
 	"github.com/spf13/cobra"
-	"gopkg.in/yaml.v3"
 )
 
 func newServiceCommand() *cobra.Command {
@@ -599,7 +595,7 @@ func newServiceSignCommand() *cobra.Command {
 			if outputAsJSON() {
 				return printOutput(map[string]any{"signed": true})
 			}
-			return printOutput(successCheck()+" lockfile signed")
+			return printOutput(successCheck() + " lockfile signed")
 		},
 	}
 
@@ -637,52 +633,6 @@ func printServiceVerifyResultText(result services.VerifyResult, includeSignature
 	}
 
 	_, _ = fmt.Fprintln(os.Stdout, line)
-}
-
-func newServiceGenerateCommand() *cobra.Command {
-	var openapiSource string
-	var outputPath string
-
-	cmd := &cobra.Command{
-		Use:   "generate --openapi <path-or-url> [--output file.yaml]",
-		Short: "Generate a service manifest from OpenAPI 3.x",
-		RunE: func(_ *cobra.Command, _ []string) error {
-			var (
-				manifest *services.ServiceManifest
-				err      error
-			)
-
-			if isServiceHTTPURL(openapiSource) {
-				manifest, err = services.GenerateFromOpenAPIURL(openapiSource)
-			} else {
-				manifest, err = services.GenerateFromOpenAPIFile(openapiSource)
-			}
-			if err != nil {
-				return err
-			}
-
-			encoded, err := yaml.Marshal(manifest)
-			if err != nil {
-				return fmt.Errorf("marshal generated manifest as YAML: %w", err)
-			}
-
-			if strings.TrimSpace(outputPath) == "" {
-				fmt.Print(string(encoded))
-				return nil
-			}
-
-			if err := os.WriteFile(outputPath, encoded, 0o644); err != nil {
-				return fmt.Errorf("write generated manifest file: %w", err)
-			}
-			return nil
-		},
-	}
-
-	cmd.Flags().StringVar(&openapiSource, "openapi", "", "OpenAPI 3.x spec path or URL")
-	cmd.Flags().StringVar(&outputPath, "output", "", "Output file path (defaults to stdout)")
-	_ = cmd.MarkFlagRequired("openapi")
-
-	return cmd
 }
 
 func newServiceExportAgentSkillCommand() *cobra.Command {
@@ -851,14 +801,6 @@ func validateExportPackFileName(name string) error {
 	return nil
 }
 
-func isServiceHTTPURL(value string) bool {
-	parsed, err := url.Parse(strings.TrimSpace(value))
-	if err != nil {
-		return false
-	}
-	return parsed.Scheme == "http" || parsed.Scheme == "https"
-}
-
 func resolveServiceInstallSource(arg string) (*services.ServiceManifest, string, error) {
 	trimmed := strings.TrimSpace(arg)
 	if trimmed == "" {
@@ -973,51 +915,6 @@ func sourceToInstallArg(source string) string {
 		return "github:" + strings.Trim(base, "/") + "/" + strings.TrimSpace(serviceName)
 	}
 	return trimmed
-}
-
-func parseServiceManifestURL(serviceURL string) (*services.ServiceManifest, error) {
-	ctx, cancel := context.WithTimeout(contextBackground(), 30*time.Second)
-	defer cancel()
-
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, serviceURL, nil)
-	if err != nil {
-		return nil, fmt.Errorf("build request for %q: %w", serviceURL, err)
-	}
-
-	client := &http.Client{
-		Timeout: 30 * time.Second,
-		CheckRedirect: func(r *http.Request, via []*http.Request) error {
-			if r.URL.Scheme != "https" {
-				return fmt.Errorf("redirect to non-https URL %q rejected", r.URL)
-			}
-			return nil
-		},
-	}
-	resp, err := client.Do(req)
-	if err != nil {
-		return nil, fmt.Errorf("fetch service manifest from %q: %w", serviceURL, err)
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("fetch service manifest from %q: got HTTP %d. Check the URL or use a local file path", serviceURL, resp.StatusCode)
-	}
-
-	const maxManifestBytes = 1 << 20 // 1MB
-	body, err := io.ReadAll(io.LimitReader(resp.Body, maxManifestBytes+1))
-	if err != nil {
-		return nil, fmt.Errorf("read service manifest from %q: %w", serviceURL, err)
-	}
-	if int64(len(body)) > maxManifestBytes {
-		return nil, fmt.Errorf("service manifest from %q exceeds %d bytes", serviceURL, maxManifestBytes)
-	}
-
-	manifest, err := services.ParseManifest(body)
-	if err != nil {
-		return nil, fmt.Errorf("parse service manifest from %q: %w", serviceURL, err)
-	}
-
-	return manifest, nil
 }
 
 func maybePrintAgentSyncHint(format string) {

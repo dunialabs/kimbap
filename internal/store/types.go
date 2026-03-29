@@ -37,19 +37,21 @@ type AuditRecord struct {
 }
 
 type ApprovalRecord struct {
-	ID         string     `json:"id"`
-	TenantID   string     `json:"tenant_id"`
-	RequestID  string     `json:"request_id"`
-	AgentName  string     `json:"agent_name"`
-	Service    string     `json:"service"`
-	Action     string     `json:"action"`
-	Status     string     `json:"status"`
-	InputJSON  string     `json:"input_json,omitempty"`
-	CreatedAt  time.Time  `json:"created_at"`
-	ExpiresAt  time.Time  `json:"expires_at"`
-	ResolvedAt *time.Time `json:"resolved_at,omitempty"`
-	ResolvedBy string     `json:"resolved_by,omitempty"`
-	Reason     string     `json:"reason,omitempty"`
+	ID                string     `json:"id"`
+	TenantID          string     `json:"tenant_id"`
+	RequestID         string     `json:"request_id"`
+	AgentName         string     `json:"agent_name"`
+	Service           string     `json:"service"`
+	Action            string     `json:"action"`
+	Status            string     `json:"status"`
+	InputJSON         string     `json:"input_json,omitempty"`
+	RequiredApprovals int        `json:"required_approvals"`
+	VotesJSON         string     `json:"votes_json,omitempty"`
+	CreatedAt         time.Time  `json:"created_at"`
+	ExpiresAt         time.Time  `json:"expires_at"`
+	ResolvedAt        *time.Time `json:"resolved_at,omitempty"`
+	ResolvedBy        string     `json:"resolved_by,omitempty"`
+	Reason            string     `json:"reason,omitempty"`
 }
 
 type WebhookSubscriptionRecord struct {

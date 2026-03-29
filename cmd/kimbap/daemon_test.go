@@ -8,6 +8,7 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/dunialabs/kimbap/internal/actions"
 	"github.com/dunialabs/kimbap/internal/adapters"
@@ -209,6 +210,22 @@ func TestDaemonAuthMiddlewareValidToken(t *testing.T) {
 
 	if rec.Code != http.StatusOK {
 		t.Fatalf("expected 200 with valid token, got %d", rec.Code)
+	}
+}
+
+func TestNewDaemonHTTPServerSetsTimeouts(t *testing.T) {
+	srv := newDaemonHTTPServer(http.HandlerFunc(func(http.ResponseWriter, *http.Request) {}))
+	if srv.ReadHeaderTimeout != 5*time.Second {
+		t.Fatalf("expected read header timeout 5s, got %s", srv.ReadHeaderTimeout)
+	}
+	if srv.ReadTimeout != 60*time.Second {
+		t.Fatalf("expected read timeout 60s, got %s", srv.ReadTimeout)
+	}
+	if srv.WriteTimeout != 120*time.Second {
+		t.Fatalf("expected write timeout 120s, got %s", srv.WriteTimeout)
+	}
+	if srv.IdleTimeout != 60*time.Second {
+		t.Fatalf("expected idle timeout 60s, got %s", srv.IdleTimeout)
 	}
 }
 

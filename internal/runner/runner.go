@@ -88,34 +88,31 @@ func (r *Runner) Start(ctx context.Context) error {
 	cmd.Dir = strings.TrimSpace(r.config.WorkDir)
 	env := buildEnv(os.Environ(), r.config.Env, proxyAddr, r.config.AgentToken)
 	if proxyAddr != "" && strings.TrimSpace(r.config.CACertPath) != "" {
-		env = stripEnvKeys(env,
-			"SSL_CERT_FILE",
-			"NODE_EXTRA_CA_CERTS",
-			"REQUESTS_CA_BUNDLE",
-			"CURL_CA_BUNDLE",
-			"GIT_SSL_CAINFO",
-			"GRPC_DEFAULT_SSL_ROOTS_FILE_PATH",
-		)
-
 		certPath := strings.TrimSpace(r.config.CACertPath)
+		env = stripEnvKeys(env, "NODE_EXTRA_CA_CERTS")
 		env = append(env, "NODE_EXTRA_CA_CERTS="+certPath)
 
 		mergedBundlePath, cleanupMergedBundle, _ := buildMergedCABundle(certPath)
 		if cleanupMergedBundle != nil {
 			defer cleanupMergedBundle()
 		}
-		effectiveBundlePath := mergedBundlePath
-		if effectiveBundlePath == "" {
-			effectiveBundlePath = certPath
-		}
-		for _, key := range []string{
-			"SSL_CERT_FILE",
-			"REQUESTS_CA_BUNDLE",
-			"CURL_CA_BUNDLE",
-			"GIT_SSL_CAINFO",
-			"GRPC_DEFAULT_SSL_ROOTS_FILE_PATH",
-		} {
-			env = append(env, key+"="+effectiveBundlePath)
+		if mergedBundlePath != "" {
+			env = stripEnvKeys(env,
+				"SSL_CERT_FILE",
+				"REQUESTS_CA_BUNDLE",
+				"CURL_CA_BUNDLE",
+				"GIT_SSL_CAINFO",
+				"GRPC_DEFAULT_SSL_ROOTS_FILE_PATH",
+			)
+			for _, key := range []string{
+				"SSL_CERT_FILE",
+				"REQUESTS_CA_BUNDLE",
+				"CURL_CA_BUNDLE",
+				"GIT_SSL_CAINFO",
+				"GRPC_DEFAULT_SSL_ROOTS_FILE_PATH",
+			} {
+				env = append(env, key+"="+mergedBundlePath)
+			}
 		}
 	}
 	cmd.Env = env

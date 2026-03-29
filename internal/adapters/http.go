@@ -53,6 +53,8 @@ func (a *HTTPAdapter) Validate(def actions.ActionDefinition) error {
 
 const defaultMaxPaginationPages = 10
 const hardMaxPaginationPages = 100
+const hardMaxPaginationPageLimit = 1000
+const hardMaxPaginationTotalItems = 5000
 
 func (a *HTTPAdapter) Execute(ctx context.Context, req AdapterRequest) (*AdapterResult, error) {
 	if req.Action.Pagination != nil {
@@ -137,6 +139,10 @@ func (a *HTTPAdapter) executeWithPagination(ctx context.Context, req AdapterRequ
 				}
 			}
 		}
+		if limit > hardMaxPaginationPageLimit {
+			limit = hardMaxPaginationPageLimit
+			pageInput[limitParam] = limit
+		}
 
 		style := strings.ToLower(strings.TrimSpace(pageCfg.Style))
 		switch style {
@@ -174,6 +180,15 @@ func (a *HTTPAdapter) executeWithPagination(ctx context.Context, req AdapterRequ
 			}, nil
 		}
 		allItems = append(allItems, pageItems...)
+		if len(allItems) > hardMaxPaginationTotalItems {
+			return nil, actions.NewExecutionError(
+				actions.ErrDownstreamUnavailable,
+				fmt.Sprintf("paginated response exceeded %d total items", hardMaxPaginationTotalItems),
+				http.StatusBadGateway,
+				false,
+				map[string]any{"max_total_items": hardMaxPaginationTotalItems},
+			)
+		}
 
 		switch style {
 		case "cursor":

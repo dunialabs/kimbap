@@ -26,6 +26,10 @@ import (
 	"github.com/spf13/cobra"
 )
 
+const webhookEventPersistTimeout = 2 * time.Second
+const webhookEventPersistQueueSize = 256
+const webhookEventPersistEnqueueWait = 250 * time.Millisecond
+
 func serverDisplayURL(addr string) string {
 	if addr == "" {
 		return "http://localhost:8080"
@@ -159,9 +163,28 @@ func configureWebhookDispatcherFromStore(ctx context.Context, dispatcher *webhoo
 		dispatcher.ReplaceRecentEvents(hydrated)
 	}
 
+	eventSinkQueue := make(chan webhooks.Event, webhookEventPersistQueueSize)
+	go func() {
+		for event := range eventSinkQueue {
+			persistCtx, cancel := context.WithTimeout(context.Background(), webhookEventPersistTimeout)
+			err := st.WriteWebhookEvent(persistCtx, webhookEventToRecord(event))
+			cancel()
+			if err != nil {
+				_, _ = fmt.Fprintf(os.Stderr, "warning: persist webhook event failed: %v\n", err)
+			}
+		}
+	}()
+
 	dispatcher.SetEventSink(func(event webhooks.Event) {
-		if err := st.WriteWebhookEvent(context.Background(), webhookEventToRecord(event)); err != nil {
-			_, _ = fmt.Fprintf(os.Stderr, "warning: persist webhook event failed: %v\n", err)
+		select {
+		case eventSinkQueue <- event:
+		case <-time.After(webhookEventPersistEnqueueWait):
+			persistCtx, cancel := context.WithTimeout(context.Background(), webhookEventPersistTimeout)
+			err := st.WriteWebhookEvent(persistCtx, webhookEventToRecord(event))
+			cancel()
+			if err != nil {
+				_, _ = fmt.Fprintf(os.Stderr, "warning: persist webhook event failed: %v\n", err)
+			}
 		}
 	})
 }
@@ -370,131 +393,3 @@ func (w *storeAuditWriter) Write(ctx context.Context, event audit.AuditEvent) er
 }
 
 func (w *storeAuditWriter) Close() error { return nil }
-
-type storeApprovalStoreAdapter struct {
-	st *store.SQLStore
-}
-
-func (a *storeApprovalStoreAdapter) Create(ctx context.Context, req *approvals.ApprovalRequest) error {
-	if a.st == nil {
-		return fmt.Errorf("store unavailable")
-	}
-	inputJSON := "{}"
-	if req.Input != nil {
-		if b, err := json.Marshal(req.Input); err == nil {
-			inputJSON = string(b)
-		}
-	}
-	return a.st.CreateApproval(ctx, &store.ApprovalRecord{
-		ID:        req.ID,
-		TenantID:  req.TenantID,
-		RequestID: req.RequestID,
-		AgentName: req.AgentName,
-		Service:   req.Service,
-		Action:    req.Action,
-		Status:    string(req.Status),
-		InputJSON: inputJSON,
-		CreatedAt: req.CreatedAt,
-		ExpiresAt: req.ExpiresAt,
-	})
-}
-
-func (a *storeApprovalStoreAdapter) Get(ctx context.Context, id string) (*approvals.ApprovalRequest, error) {
-	rec, err := a.st.GetApproval(ctx, id)
-	if err != nil {
-		return nil, err
-	}
-	result := &approvals.ApprovalRequest{
-		ID:         rec.ID,
-		TenantID:   rec.TenantID,
-		RequestID:  rec.RequestID,
-		AgentName:  rec.AgentName,
-		Service:    rec.Service,
-		Action:     rec.Action,
-		Input:      parseApprovalInputJSON(rec.InputJSON),
-		Status:     approvals.ApprovalStatus(rec.Status),
-		CreatedAt:  rec.CreatedAt,
-		ExpiresAt:  rec.ExpiresAt,
-		ResolvedBy: rec.ResolvedBy,
-		DenyReason: rec.Reason,
-	}
-	if rec.ResolvedAt != nil {
-		result.ResolvedAt = rec.ResolvedAt
-	}
-	return result, nil
-}
-
-func (a *storeApprovalStoreAdapter) Update(ctx context.Context, req *approvals.ApprovalRequest) error {
-	return a.st.UpdateApprovalStatus(ctx, req.ID, string(req.Status), req.ResolvedBy, req.DenyReason)
-}
-
-func (a *storeApprovalStoreAdapter) ListPending(ctx context.Context, tenantID string) ([]approvals.ApprovalRequest, error) {
-	recs, err := a.st.ListApprovals(ctx, tenantID, "pending")
-	if err != nil {
-		return nil, err
-	}
-	out := make([]approvals.ApprovalRequest, len(recs))
-	for i, r := range recs {
-		out[i] = approvals.ApprovalRequest{
-			ID:         r.ID,
-			TenantID:   r.TenantID,
-			RequestID:  r.RequestID,
-			AgentName:  r.AgentName,
-			Service:    r.Service,
-			Action:     r.Action,
-			Input:      parseApprovalInputJSON(r.InputJSON),
-			Status:     approvals.ApprovalStatus(r.Status),
-			CreatedAt:  r.CreatedAt,
-			ExpiresAt:  r.ExpiresAt,
-			ResolvedAt: r.ResolvedAt,
-			ResolvedBy: r.ResolvedBy,
-			DenyReason: r.Reason,
-		}
-	}
-	return out, nil
-}
-
-func (a *storeApprovalStoreAdapter) ListAll(ctx context.Context, tenantID string, filter approvals.ApprovalFilter) ([]approvals.ApprovalRequest, error) {
-	status := ""
-	if filter.Status != nil {
-		status = string(*filter.Status)
-	}
-	recs, err := a.st.ListApprovals(ctx, tenantID, status)
-	if err != nil {
-		return nil, err
-	}
-	out := make([]approvals.ApprovalRequest, len(recs))
-	for i, r := range recs {
-		out[i] = approvals.ApprovalRequest{
-			ID:         r.ID,
-			TenantID:   r.TenantID,
-			RequestID:  r.RequestID,
-			AgentName:  r.AgentName,
-			Service:    r.Service,
-			Action:     r.Action,
-			Input:      parseApprovalInputJSON(r.InputJSON),
-			Status:     approvals.ApprovalStatus(r.Status),
-			CreatedAt:  r.CreatedAt,
-			ExpiresAt:  r.ExpiresAt,
-			ResolvedAt: r.ResolvedAt,
-			ResolvedBy: r.ResolvedBy,
-			DenyReason: r.Reason,
-		}
-	}
-	return out, nil
-}
-
-func (a *storeApprovalStoreAdapter) ExpireOld(ctx context.Context) (int, error) {
-	return expirePendingApprovalsWithSideEffects(ctx, a.st, "", nil)
-}
-
-func parseApprovalInputJSON(raw string) map[string]any {
-	if strings.TrimSpace(raw) == "" {
-		return nil
-	}
-	var input map[string]any
-	if err := json.Unmarshal([]byte(raw), &input); err != nil {
-		return nil
-	}
-	return input
-}

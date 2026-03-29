@@ -146,6 +146,22 @@ func TestExchangeAuthorizationCode_SuccessAndRequestFields(t *testing.T) {
 	}
 }
 
+func TestNewLoopbackCallbackServerSetsTimeouts(t *testing.T) {
+	srv := newLoopbackCallbackServer(http.HandlerFunc(func(http.ResponseWriter, *http.Request) {}))
+	if srv.ReadHeaderTimeout != 5*time.Second {
+		t.Fatalf("expected read header timeout 5s, got %s", srv.ReadHeaderTimeout)
+	}
+	if srv.ReadTimeout != 30*time.Second {
+		t.Fatalf("expected read timeout 30s, got %s", srv.ReadTimeout)
+	}
+	if srv.WriteTimeout != 30*time.Second {
+		t.Fatalf("expected write timeout 30s, got %s", srv.WriteTimeout)
+	}
+	if srv.IdleTimeout != 30*time.Second {
+		t.Fatalf("expected idle timeout 30s, got %s", srv.IdleTimeout)
+	}
+}
+
 func TestExchangeAuthorizationCode_UsesBasicAuthWhenConfigured(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if got := r.Header.Get("Authorization"); !strings.HasPrefix(got, "Basic ") {

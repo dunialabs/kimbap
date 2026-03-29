@@ -255,15 +255,11 @@ func (d *Dispatcher) EmitForTenant(tenantID string, eventType EventType, data an
 		if sub.TenantID != "" && sub.TenantID != event.TenantID {
 			continue
 		}
-		select {
-		case d.deliverySem <- struct{}{}:
-			go func(s Subscription) {
-				defer func() { <-d.deliverySem }()
-				d.deliver(s, event)
-			}(sub)
-		default:
-			log.Warn().Str("subscriptionId", sub.ID).Str("eventId", event.ID).Msg("webhook delivery dropped: concurrency limit reached")
-		}
+		d.deliverySem <- struct{}{}
+		go func(s Subscription) {
+			defer func() { <-d.deliverySem }()
+			d.deliver(s, event)
+		}(sub)
 	}
 }
 

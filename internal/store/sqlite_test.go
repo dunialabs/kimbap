@@ -192,16 +192,18 @@ func TestSQLiteStoreApprovalCreateAndUpdateStatus(t *testing.T) {
 	ctx := context.Background()
 
 	req := &ApprovalRecord{
-		ID:        "apr-1",
-		TenantID:  "tenant-a",
-		RequestID: "req-1",
-		AgentName: "agent-a",
-		Service:   "github",
-		Action:    "issues.create",
-		Status:    "pending",
-		InputJSON: `{"title":"hello"}`,
-		CreatedAt: time.Now().UTC(),
-		ExpiresAt: time.Now().UTC().Add(time.Hour),
+		ID:                "apr-1",
+		TenantID:          "tenant-a",
+		RequestID:         "req-1",
+		AgentName:         "agent-a",
+		Service:           "github",
+		Action:            "issues.create",
+		Status:            "pending",
+		InputJSON:         `{"title":"hello"}`,
+		RequiredApprovals: 2,
+		VotesJSON:         `[{"ApproverID":"alice","Decision":"approved"}]`,
+		CreatedAt:         time.Now().UTC(),
+		ExpiresAt:         time.Now().UTC().Add(time.Hour),
 	}
 	if err := st.CreateApproval(ctx, req); err != nil {
 		t.Fatalf("create approval: %v", err)
@@ -221,6 +223,12 @@ func TestSQLiteStoreApprovalCreateAndUpdateStatus(t *testing.T) {
 	if got.ResolvedAt == nil {
 		t.Fatal("expected resolved_at")
 	}
+	if got.RequiredApprovals != 2 {
+		t.Fatalf("expected required approvals 2, got %d", got.RequiredApprovals)
+	}
+	if got.VotesJSON == "" {
+		t.Fatal("expected votes_json to be persisted")
+	}
 
 	list, err := st.ListApprovals(ctx, "tenant-a", "approved")
 	if err != nil {
@@ -228,6 +236,54 @@ func TestSQLiteStoreApprovalCreateAndUpdateStatus(t *testing.T) {
 	}
 	if len(list) != 1 {
 		t.Fatalf("expected 1 approval, got %d", len(list))
+	}
+}
+
+func TestSQLiteStoreUpdateApprovalPersistsVotesAndThreshold(t *testing.T) {
+	st := newTestSQLiteStore(t)
+	ctx := context.Background()
+	now := time.Now().UTC()
+
+	req := &ApprovalRecord{
+		ID:                "apr-update-full",
+		TenantID:          "tenant-a",
+		RequestID:         "req-update-full",
+		AgentName:         "agent-a",
+		Service:           "github",
+		Action:            "issues.create",
+		Status:            "pending",
+		InputJSON:         `{}`,
+		RequiredApprovals: 2,
+		VotesJSON:         `[]`,
+		CreatedAt:         now,
+		ExpiresAt:         now.Add(10 * time.Minute),
+	}
+	if err := st.CreateApproval(ctx, req); err != nil {
+		t.Fatalf("create approval: %v", err)
+	}
+
+	resolvedAt := now.Add(time.Minute)
+	if err := st.UpdateApproval(ctx, &ApprovalRecord{
+		ID:                req.ID,
+		Status:            "pending",
+		ResolvedAt:        &resolvedAt,
+		ResolvedBy:        "operator-1",
+		Reason:            "vote recorded",
+		RequiredApprovals: 3,
+		VotesJSON:         `[{"ApproverID":"bob","Decision":"approved"}]`,
+	}); err != nil {
+		t.Fatalf("update approval: %v", err)
+	}
+
+	got, err := st.GetApproval(ctx, req.ID)
+	if err != nil {
+		t.Fatalf("get approval: %v", err)
+	}
+	if got.RequiredApprovals != 3 {
+		t.Fatalf("expected required approvals 3, got %d", got.RequiredApprovals)
+	}
+	if got.VotesJSON == "[]" || got.VotesJSON == "" {
+		t.Fatalf("expected persisted votes json, got %q", got.VotesJSON)
 	}
 }
 
@@ -536,5 +592,59 @@ func TestMigrateBackfillsLegacyTokensIntoServiceTokensIdempotently(t *testing.T)
 	}
 	if count != 1 {
 		t.Fatalf("expected exactly one backfilled service_token row, got %d", count)
+	}
+}
+
+func TestOpenSQLiteStoreSetsSingleConnectionPoolForSQLite(t *testing.T) {
+	st, err := OpenSQLiteStore(filepath.Join(t.TempDir(), "runtime.sqlite"))
+	if err != nil {
+		t.Fatalf("open sqlite store: %v", err)
+	}
+	t.Cleanup(func() { _ = st.Close() })
+
+	stats := st.db.Stats()
+	if stats.MaxOpenConnections != 1 {
+		t.Fatalf("expected max open connections to be 1, got %d", stats.MaxOpenConnections)
+	}
+}
+
+func TestNeedsServiceTokenBackfillOnlyWhenRowsAreMissing(t *testing.T) {
+	st := newTestSQLiteStore(t)
+	ctx := context.Background()
+	now := time.Now().UTC()
+
+	missing, err := st.needsServiceTokenBackfill(ctx)
+	if err != nil {
+		t.Fatalf("check backfill requirement (empty tables): %v", err)
+	}
+	if missing {
+		t.Fatal("expected no backfill required when legacy table is empty")
+	}
+
+	if _, err := st.db.ExecContext(ctx, `
+		INSERT INTO tokens (id, tenant_id, agent_name, token_hash, display_hint, scopes, created_at, expires_at, last_used_at, revoked_at, created_by)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+	`, "legacy_token_2", "tenant-a", "legacy-agent", "legacy-hash-2", "yyyy", "[]", now, now.Add(time.Hour), nil, nil, "tester"); err != nil {
+		t.Fatalf("seed missing legacy token row: %v", err)
+	}
+
+	missing, err = st.needsServiceTokenBackfill(ctx)
+	if err != nil {
+		t.Fatalf("check backfill requirement (missing row): %v", err)
+	}
+	if !missing {
+		t.Fatal("expected backfill required when service token row is missing")
+	}
+
+	if err := st.Migrate(ctx); err != nil {
+		t.Fatalf("migrate to backfill service token row: %v", err)
+	}
+
+	missing, err = st.needsServiceTokenBackfill(ctx)
+	if err != nil {
+		t.Fatalf("check backfill requirement (after migrate): %v", err)
+	}
+	if missing {
+		t.Fatal("expected no backfill required after migration")
 	}
 }

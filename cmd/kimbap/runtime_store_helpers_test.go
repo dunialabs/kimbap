@@ -92,7 +92,7 @@ func TestRunApproveAcceptMaterializesExpiredApproval(t *testing.T) {
 	if err == nil {
 		t.Fatal("expected approve failure for expired request")
 	}
-	if !strings.Contains(err.Error(), "approval has expired") {
+	if !strings.Contains(err.Error(), "approval") || !strings.Contains(err.Error(), "expired") {
 		t.Fatalf("expected expired approval error, got %v", err)
 	}
 
@@ -147,7 +147,7 @@ func TestApproveDenyMaterializesExpiredApproval(t *testing.T) {
 	if err == nil {
 		t.Fatal("expected deny failure for expired request")
 	}
-	if !strings.Contains(err.Error(), "approval has expired") {
+	if !strings.Contains(err.Error(), "approval") || !strings.Contains(err.Error(), "expired") {
 		t.Fatalf("expected expired approval error, got %v", err)
 	}
 
@@ -207,6 +207,45 @@ func TestRuntimeStoreSQLiteURIDoesNotCreateSchemeDirectoryOnMainAgain(t *testing
 
 	if _, statErr := os.Stat(filepath.Join(workDir, "file:")); !errors.Is(statErr, os.ErrNotExist) {
 		t.Fatalf("expected no scheme directory in cwd, got stat err=%v", statErr)
+	}
+}
+
+func TestApprovalStatusValidation(t *testing.T) {
+	tests := []struct {
+		name    string
+		in      string
+		want    string
+		wantErr bool
+	}{
+		{name: "pending", in: "pending", want: "pending"},
+		{name: "uppercase normalized", in: "APPROVED", want: "approved"},
+		{name: "trimmed", in: " denied ", want: "denied"},
+		{name: "blank invalid", in: "   ", wantErr: true},
+		{name: "invalid", in: "in_review", wantErr: true},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			got, err := approvalStatus(tc.in)
+			if tc.wantErr {
+				if err == nil {
+					t.Fatalf("expected error for %q", tc.in)
+				}
+				if !strings.Contains(err.Error(), "invalid --status") {
+					t.Fatalf("expected invalid status error, got %v", err)
+				}
+				if !strings.Contains(err.Error(), "valid: pending, approved, denied, expired") {
+					t.Fatalf("expected allowed-values hint in error, got %v", err)
+				}
+				return
+			}
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+			if got != tc.want {
+				t.Fatalf("expected %q, got %q", tc.want, got)
+			}
+		})
 	}
 }
 
