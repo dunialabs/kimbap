@@ -1687,6 +1687,10 @@ func (m staticApprovalManager) CreateRequest(context.Context, runtimepkg.Approva
 	return &runtimepkg.ApprovalResult{Approved: false, RequestID: m.requestID}, nil
 }
 
+func (m staticApprovalManager) CancelRequest(context.Context, string, string) error {
+	return nil
+}
+
 type noopHeldExecutionStore struct{}
 
 func (noopHeldExecutionStore) Hold(_ context.Context, _ string, _ actions.ExecutionRequest) error {
