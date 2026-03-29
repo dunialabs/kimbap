@@ -168,6 +168,9 @@ Discover available actions:
 			} else {
 				result = rt.Execute(contextBackground(), req)
 			}
+			if result.Status == actions.StatusApprovalRequired && !outputAsJSON() {
+				_, _ = fmt.Fprintf(os.Stderr, "! Approval required for: %s\n", actionName)
+			}
 			if err := printCallResult(result); err != nil {
 				return err
 			}
