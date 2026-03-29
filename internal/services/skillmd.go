@@ -78,7 +78,7 @@ func GenerateAgentSkillMD(manifest *ServiceManifest, opts ...SkillMDOption) (str
 	primaryRef := manifest.Auth.CredentialRef
 	credRefs := collectCredentialRefs(manifest)
 	for _, ref := range credRefs {
-		if ref == primaryRef || primaryRef == "" {
+		if ref == primaryRef && primaryRef != "" {
 			fmt.Fprintf(&sb, "- Credential configured: `printf '%%s' \"$SECRET\" | kimbap link %s --stdin`\n", manifest.Name)
 		} else {
 			fmt.Fprintf(&sb, "- Credential configured: `printf '%%s' \"$SECRET\" | kimbap vault set %s --stdin`\n", ref)

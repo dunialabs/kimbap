@@ -1087,8 +1087,11 @@ func TestGenerateAgentSkillMDIncludesActionLevelCredentials(t *testing.T) {
 	if err != nil {
 		t.Fatalf("GenerateAgentSkillMD: %v", err)
 	}
-	if !strings.Contains(content, "kimbap link multi-auth --stdin") {
-		t.Error("GenerateAgentSkillMD must list action-level credential refs in prerequisites")
+	if !strings.Contains(content, "kimbap vault set multi-auth.api_key --stdin") {
+		t.Error("GenerateAgentSkillMD must use vault set for action-level credentials when service has no primary credential ref")
+	}
+	if strings.Contains(content, "kimbap link multi-auth") {
+		t.Error("GenerateAgentSkillMD must not use kimbap link for auth.type=none services")
 	}
 }
 
