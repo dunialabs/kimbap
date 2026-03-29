@@ -69,13 +69,27 @@ func newAgentsSetupCommand() *cobra.Command {
 					return err
 				}
 			} else {
+				useColor := isColorStdout()
 				for _, r := range results {
+					var icon string
 					if r.Error != "" {
-						fmt.Printf("  ✗ %-16s %s\n", r.Agent, r.Error)
+						icon = "✗"
+						if useColor {
+							icon = "\x1b[31m" + icon + "\x1b[0m"
+						}
+						fmt.Printf("  %s %-16s %s\n", icon, r.Agent, r.Error)
 					} else if r.Skipped {
-						fmt.Printf("  - %-16s skipped\n", r.Agent)
+						icon = "-"
+						if useColor {
+							icon = "\x1b[2m" + icon + "\x1b[0m"
+						}
+						fmt.Printf("  %s %-16s skipped\n", icon, r.Agent)
 					} else {
-						fmt.Printf("  ✓ %-16s skill written\n", r.Agent)
+						icon = "✓"
+						if useColor {
+							icon = "\x1b[32m" + icon + "\x1b[0m"
+						}
+						fmt.Printf("  %s %-16s skill written\n", icon, r.Agent)
 					}
 				}
 			}
@@ -304,12 +318,22 @@ func newAgentsStatusCommand() *cobra.Command {
 				return printOutput(combined)
 			}
 
+			useColorAgents := isColorStdout()
 			if len(combined.Global) > 0 {
 				fmt.Println("Global:")
 				for _, r := range combined.Global {
 					icon := "✗"
 					if r.Detected {
 						icon = "✓"
+					}
+					if useColorAgents {
+						if !r.Detected {
+							icon = "\x1b[2m" + icon + "\x1b[0m"
+						} else if r.AgentSkillPresent && r.InjectPresent {
+							icon = "\x1b[32m" + icon + "\x1b[0m"
+						} else {
+							icon = "\x1b[33m" + icon + "\x1b[0m"
+						}
 					}
 					skill := "absent"
 					if r.AgentSkillPresent {
@@ -329,6 +353,15 @@ func newAgentsStatusCommand() *cobra.Command {
 					icon := "✗"
 					if r.Detected {
 						icon = "✓"
+					}
+					if useColorAgents {
+						if !r.Detected {
+							icon = "\x1b[2m" + icon + "\x1b[0m"
+						} else if len(r.SyncedServices) > 0 {
+							icon = "\x1b[32m" + icon + "\x1b[0m"
+						} else {
+							icon = "\x1b[33m" + icon + "\x1b[0m"
+						}
 					}
 					synced := "-"
 					if len(r.SyncedServices) > 0 {
