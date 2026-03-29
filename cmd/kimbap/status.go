@@ -77,12 +77,26 @@ func statusHealthColor(val, good string, warn []string) string {
 func renderStatusSummary(summary statusSummary) string {
 	vault := statusHealthColor(summary.Vault, "ready", []string{"locked", "not initialized"})
 	policy := statusHealthColor(summary.Policy, "loaded", []string{"not configured"})
+	servicesStr := fmt.Sprintf("%d enabled", summary.Services)
+	credStr := fmt.Sprintf("%d stored", summary.Credentials)
+	agentsStr := fmt.Sprintf("%d configured", summary.Agents)
+	if isColorStdout() {
+		if summary.Services == 0 {
+			servicesStr = "\x1b[33m" + servicesStr + "\x1b[0m"
+		}
+		if summary.Credentials == 0 {
+			credStr = "\x1b[33m" + credStr + "\x1b[0m"
+		}
+		if summary.Agents == 0 {
+			agentsStr = "\x1b[33m" + agentsStr + "\x1b[0m"
+		}
+	}
 	return strings.Join([]string{
 		fmt.Sprintf("%-14s%s", "Mode:", summary.Mode),
 		fmt.Sprintf("%-14s%s", "Vault:", vault),
-		fmt.Sprintf("%-14s%d enabled", "Services:", summary.Services),
-		fmt.Sprintf("%-14s%d stored", "Credentials:", summary.Credentials),
-		fmt.Sprintf("%-14s%d configured", "Agents:", summary.Agents),
+		fmt.Sprintf("%-14s%s", "Services:", servicesStr),
+		fmt.Sprintf("%-14s%s", "Credentials:", credStr),
+		fmt.Sprintf("%-14s%s", "Agents:", agentsStr),
 		fmt.Sprintf("%-14s%s", "Policy:", policy),
 	}, "\n")
 }
