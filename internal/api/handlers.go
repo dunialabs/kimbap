@@ -9,7 +9,6 @@ import (
 	"fmt"
 	"io"
 	"net/http"
-	"os"
 	"strconv"
 	"strings"
 	"time"
@@ -386,6 +385,19 @@ func requireTenantContext(w http.ResponseWriter, r *http.Request) (string, bool)
 	return tenantID, true
 }
 
+type tenantPolicyCacheInvalidator interface {
+	InvalidateTenantPolicyCache(tenantID string)
+}
+
+func (s *Server) invalidateTenantPolicyCache(tenantID string) {
+	if s == nil || s.runtime == nil || s.runtime.PolicyEvaluator == nil {
+		return
+	}
+	if invalidator, ok := s.runtime.PolicyEvaluator.(tenantPolicyCacheInvalidator); ok {
+		invalidator.InvalidateTenantPolicyCache(tenantID)
+	}
+}
+
 func (s *Server) handleGetPolicy(w http.ResponseWriter, r *http.Request) {
 	tenantID, ok := requireTenantContext(w, r)
 	if !ok {
@@ -434,6 +446,7 @@ func (s *Server) handleSetPolicy(w http.ResponseWriter, r *http.Request) {
 		writeEnvelopeError(w, r, actions.NewExecutionError(actions.ErrDownstreamUnavailable, "internal server error", http.StatusInternalServerError, false, nil))
 		return
 	}
+	s.invalidateTenantPolicyCache(tenantID)
 	if s.webhookDispatcher != nil {
 		s.webhookDispatcher.EmitForTenant(tenantID, policyEvent, map[string]any{
 			"tenant_id": tenantID,
@@ -590,27 +603,32 @@ func (s *Server) handleExportAudit(w http.ResponseWriter, r *http.Request) {
 		From:      from,
 		To:        to,
 	}
-	tmp, err := os.CreateTemp("", "kimbap-audit-export-*")
-	if err != nil {
-		writeEnvelopeError(w, r, actions.NewExecutionError(actions.ErrDownstreamUnavailable, "export failed", http.StatusInternalServerError, false, nil))
-		return
-	}
-	tmpPath := tmp.Name()
-	defer func() {
-		_ = tmp.Close()
-		_ = os.Remove(tmpPath)
-	}()
-	if err := s.store.ExportAuditEvents(r.Context(), exportFilter, format, tmp); err != nil {
-		writeEnvelopeError(w, r, actions.NewExecutionError(actions.ErrDownstreamUnavailable, "export failed", http.StatusInternalServerError, false, nil))
-		return
-	}
-	if _, err := tmp.Seek(0, io.SeekStart); err != nil {
-		writeEnvelopeError(w, r, actions.NewExecutionError(actions.ErrDownstreamUnavailable, "export failed", http.StatusInternalServerError, false, nil))
-		return
-	}
 	w.Header().Set("Content-Type", contentType)
-	w.WriteHeader(http.StatusOK)
-	_, _ = io.Copy(w, tmp)
+	stream := &lazyStatusWriter{w: w, statusCode: http.StatusOK}
+	if err := s.store.ExportAuditEvents(r.Context(), exportFilter, format, stream); err != nil {
+		if stream.wrote {
+			return
+		}
+		writeEnvelopeError(w, r, actions.NewExecutionError(actions.ErrDownstreamUnavailable, "export failed", http.StatusInternalServerError, false, nil))
+		return
+	}
+	if !stream.wrote {
+		w.WriteHeader(http.StatusOK)
+	}
+}
+
+type lazyStatusWriter struct {
+	w          http.ResponseWriter
+	statusCode int
+	wrote      bool
+}
+
+func (w *lazyStatusWriter) Write(p []byte) (int, error) {
+	if !w.wrote {
+		w.w.WriteHeader(w.statusCode)
+		w.wrote = true
+	}
+	return w.w.Write(p)
 }
 
 const maxAPIRequestBodyBytes int64 = 4 << 20

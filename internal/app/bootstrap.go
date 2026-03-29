@@ -142,11 +142,18 @@ type servicesActionRegistry struct {
 	cachedDefs       []actions.ActionDefinition
 	cachedByName     map[string]actions.ActionDefinition
 	cacheFingerprint string
-	cacheCheckedAt   time.Time
-	probeInterval    time.Duration
 }
 
-const defaultFingerprintProbeInterval = 500 * time.Millisecond
+func (r *servicesActionRegistry) InvalidateActionDefinitionCache() {
+	if r == nil {
+		return
+	}
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	r.cachedDefs = nil
+	r.cachedByName = nil
+	r.cacheFingerprint = ""
+}
 
 func (r *servicesActionRegistry) Lookup(_ context.Context, name string) (*actions.ActionDefinition, error) {
 	name = strings.TrimSpace(name)
@@ -235,28 +242,11 @@ func (r *servicesActionRegistry) loadDefinitions() ([]actions.ActionDefinition, 
 	if r == nil || r.installer == nil {
 		return nil, fmt.Errorf("services installer is not initialized")
 	}
-	probeInterval := r.probeInterval
-	if probeInterval <= 0 {
-		probeInterval = defaultFingerprintProbeInterval
-	}
-	now := time.Now()
-	r.mu.RLock()
-	if r.cachedDefs != nil && !r.cacheCheckedAt.IsZero() && now.Sub(r.cacheCheckedAt) < probeInterval {
-		defs := r.cachedDefs
-		r.mu.RUnlock()
-		return defs, nil
-	}
-	r.mu.RUnlock()
-
 	fp := r.computeFingerprint()
 
 	r.mu.Lock()
 	defer r.mu.Unlock()
-	if r.cachedDefs != nil && !r.cacheCheckedAt.IsZero() && time.Since(r.cacheCheckedAt) < probeInterval {
-		return r.cachedDefs, nil
-	}
 	if fp != "" && fp == r.cacheFingerprint && r.cachedDefs != nil {
-		r.cacheCheckedAt = time.Now()
 		return r.cachedDefs, nil
 	}
 	defs, err := r.loadDefinitionsUncached()
@@ -270,7 +260,6 @@ func (r *servicesActionRegistry) loadDefinitions() ([]actions.ActionDefinition, 
 	r.cachedDefs = defs
 	r.cachedByName = byName
 	r.cacheFingerprint = fp
-	r.cacheCheckedAt = time.Now()
 	return defs, nil
 }
 
@@ -416,6 +405,22 @@ type storePolicyEvaluator struct {
 
 	mu    sync.Mutex
 	cache map[string]cachedPolicyEntry
+}
+
+func (e *storePolicyEvaluator) InvalidateTenantPolicyCache(tenantID string) {
+	if e == nil {
+		return
+	}
+	tenantID = strings.TrimSpace(tenantID)
+	if tenantID == "" {
+		return
+	}
+	e.mu.Lock()
+	defer e.mu.Unlock()
+	if e.cache == nil {
+		return
+	}
+	delete(e.cache, tenantID)
 }
 
 const policyStoreProbeInterval = 500 * time.Millisecond

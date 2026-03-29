@@ -375,7 +375,7 @@ func TestDispatcherDeliversApprovalEvent(t *testing.T) {
 	}
 }
 
-func TestEmitForTenantWaitsBrieflyForDeliverySlot(t *testing.T) {
+func TestEmitForTenantReturnsImmediatelyWhenDeliverySlotsAreFull(t *testing.T) {
 	called := make(chan struct{}, 1)
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		called <- struct{}{}
@@ -394,7 +394,11 @@ func TestEmitForTenantWaitsBrieflyForDeliverySlot(t *testing.T) {
 		<-d.deliverySem
 	}()
 
+	start := time.Now()
 	d.EmitForTenant("tenant-a", EventPolicyUpdated, map[string]any{"id": "p1"})
+	if elapsed := time.Since(start); elapsed > 30*time.Millisecond {
+		t.Fatalf("expected emit to return quickly, took %s", elapsed)
+	}
 
 	select {
 	case <-called:
@@ -407,7 +411,7 @@ func TestEmitForTenantWaitsBrieflyForDeliverySlot(t *testing.T) {
 	}
 }
 
-func TestEmitForTenantBlocksUntilDeliverySlotAvailable(t *testing.T) {
+func TestEmitForTenantDoesNotBlockUntilDeliverySlotAvailable(t *testing.T) {
 	called := make(chan struct{}, 1)
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		called <- struct{}{}
@@ -428,7 +432,11 @@ func TestEmitForTenantBlocksUntilDeliverySlotAvailable(t *testing.T) {
 		}
 	}()
 
+	start := time.Now()
 	d.EmitForTenant("tenant-a", EventPolicyUpdated, map[string]any{"id": "p2"})
+	if elapsed := time.Since(start); elapsed > 30*time.Millisecond {
+		t.Fatalf("expected emit not to block, took %s", elapsed)
+	}
 
 	select {
 	case <-called:

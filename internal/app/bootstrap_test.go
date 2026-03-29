@@ -188,7 +188,7 @@ actions:
 	}
 }
 
-func TestServicesActionRegistryProbeIntervalReturnsCachedDefinitions(t *testing.T) {
+func TestServicesActionRegistryRefreshesDefinitionsImmediatelyAfterManifestChange(t *testing.T) {
 	servicesDir := t.TempDir()
 	const manifest = `name: cached-skill
 version: 1.0.0
@@ -216,7 +216,6 @@ actions:
 		verifyMode:      "off",
 		signaturePolicy: "optional",
 		servicesDir:     servicesDir,
-		probeInterval:   time.Hour,
 	}
 
 	first, err := registry.loadDefinitions()
@@ -235,8 +234,8 @@ actions:
 	if err != nil {
 		t.Fatalf("load definitions second call: %v", err)
 	}
-	if len(second) != 1 || second[0].Name != "cached-skill.ping" {
-		t.Fatalf("expected cached definitions despite manifest deletion, got %+v", second)
+	if len(second) != 0 {
+		t.Fatalf("expected no definitions after manifest deletion, got %+v", second)
 	}
 }
 

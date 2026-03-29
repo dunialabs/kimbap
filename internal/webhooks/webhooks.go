@@ -71,6 +71,21 @@ type Dispatcher struct {
 	eventSink     func(Event)
 }
 
+var privateCIDRs = func() []*net.IPNet {
+	nets := make([]*net.IPNet, 0, 6)
+	for _, cidr := range []string{
+		"10.0.0.0/8", "172.16.0.0/12", "192.168.0.0/16",
+		"100.64.0.0/10", "169.254.0.0/16", "fc00::/7",
+	} {
+		_, network, err := net.ParseCIDR(cidr)
+		if err != nil {
+			continue
+		}
+		nets = append(nets, network)
+	}
+	return nets
+}()
+
 func NewDispatcher() *Dispatcher {
 	transport := &http.Transport{
 		DialContext: func(ctx context.Context, network, addr string) (net.Conn, error) {
@@ -87,7 +102,7 @@ func NewDispatcher() *Dispatcher {
 			}
 			var lastErr error
 			for _, ip := range ips {
-				if isPrivateIPAddr(ip) {
+				if IsPrivateIP(ip) {
 					continue
 				}
 				conn, dialErr := (&net.Dialer{}).DialContext(ctx, network, net.JoinHostPort(ip.String(), port))
@@ -120,21 +135,17 @@ func newDispatcher(client *http.Client) *Dispatcher {
 	}
 }
 
-func isPrivateIPAddr(ip net.IP) bool {
+func IsPrivateIP(ip net.IP) bool {
 	if ip == nil {
 		return true
+	}
+	if v4 := ip.To4(); v4 != nil {
+		ip = v4
 	}
 	if ip.IsLoopback() || ip.IsUnspecified() || ip.IsLinkLocalUnicast() || ip.IsLinkLocalMulticast() {
 		return true
 	}
-	for _, cidr := range []string{
-		"10.0.0.0/8", "172.16.0.0/12", "192.168.0.0/16",
-		"100.64.0.0/10", "169.254.0.0/16", "fc00::/7",
-	} {
-		_, network, err := net.ParseCIDR(cidr)
-		if err != nil {
-			continue
-		}
+	for _, network := range privateCIDRs {
 		if network.Contains(ip) {
 			return true
 		}
@@ -255,8 +266,8 @@ func (d *Dispatcher) EmitForTenant(tenantID string, eventType EventType, data an
 		if sub.TenantID != "" && sub.TenantID != event.TenantID {
 			continue
 		}
-		d.deliverySem <- struct{}{}
 		go func(s Subscription) {
+			d.deliverySem <- struct{}{}
 			defer func() { <-d.deliverySem }()
 			d.deliver(s, event)
 		}(sub)

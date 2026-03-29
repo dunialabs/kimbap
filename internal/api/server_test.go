@@ -1785,6 +1785,104 @@ func TestServerEvalPolicyNonNotFoundReturnsDownstreamUnavailable(t *testing.T) {
 	}
 }
 
+func TestServerExportAuditStreamsOnSuccess(t *testing.T) {
+	baseStore, err := store.OpenSQLiteStore(filepath.Join(t.TempDir(), "api-audit-export-stream.sqlite"))
+	if err != nil {
+		t.Fatalf("open sqlite store: %v", err)
+	}
+	if err := baseStore.Migrate(context.Background()); err != nil {
+		t.Fatalf("migrate store: %v", err)
+	}
+	wrapped := &forcedAuditExportStore{Store: baseStore, exportFn: func(w io.Writer) error {
+		_, err := io.WriteString(w, `{"request_id":"req_stream"}`+"\n")
+		return err
+	}}
+
+	ts, rawBootstrap := newTestAPIServerFromStore(t, wrapped)
+
+	req, _ := http.NewRequest(http.MethodGet, ts.URL+"/v1/audit/export?format=jsonl", nil)
+	req.Header.Set("Authorization", "Bearer "+rawBootstrap)
+
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatalf("export audit request: %v", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		b, _ := io.ReadAll(resp.Body)
+		t.Fatalf("expected 200, got %d body=%s", resp.StatusCode, string(b))
+	}
+	if got := resp.Header.Get("Content-Type"); !strings.Contains(got, "application/x-ndjson") {
+		t.Fatalf("expected ndjson content type, got %q", got)
+	}
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		t.Fatalf("read response body: %v", err)
+	}
+	if !strings.Contains(string(body), `"request_id":"req_stream"`) {
+		t.Fatalf("expected streamed audit payload, got %q", string(body))
+	}
+}
+
+func TestServerExportAuditFailureReturnsErrorEnvelope(t *testing.T) {
+	baseStore, err := store.OpenSQLiteStore(filepath.Join(t.TempDir(), "api-audit-export-error.sqlite"))
+	if err != nil {
+		t.Fatalf("open sqlite store: %v", err)
+	}
+	if err := baseStore.Migrate(context.Background()); err != nil {
+		t.Fatalf("migrate store: %v", err)
+	}
+	wrapped := &forcedAuditExportStore{Store: baseStore, forcedExportErr: errors.New("db unavailable")}
+
+	ts, rawBootstrap := newTestAPIServerFromStore(t, wrapped)
+	req, _ := http.NewRequest(http.MethodGet, ts.URL+"/v1/audit/export?format=csv", nil)
+	req.Header.Set("Authorization", "Bearer "+rawBootstrap)
+
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatalf("export audit request: %v", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusInternalServerError {
+		b, _ := io.ReadAll(resp.Body)
+		t.Fatalf("expected 500, got %d body=%s", resp.StatusCode, string(b))
+	}
+	var payload map[string]any
+	if err := json.NewDecoder(resp.Body).Decode(&payload); err != nil {
+		t.Fatalf("decode payload: %v", err)
+	}
+	errBody, _ := payload["error"].(map[string]any)
+	if errBody["code"] != actions.ErrDownstreamUnavailable {
+		t.Fatalf("expected %s, got %v", actions.ErrDownstreamUnavailable, errBody["code"])
+	}
+}
+
+func TestHandleSetPolicyInvalidatesRuntimePolicyCache(t *testing.T) {
+	_, _, st := newTestAPIServerWithStore(t)
+	policyEval := &capturePolicyCacheInvalidator{}
+	server := NewServer(":0", st, WithRuntime(&runtimepkg.Runtime{PolicyEvaluator: policyEval}))
+
+	body := strings.NewReader(`{"document":"version: \"1.0.0\"\nrules:\n  - id: allow-all\n    priority: 1\n    match:\n      actions: [\"*\"]\n    decision: allow\n"}`)
+	req := httptest.NewRequest(http.MethodPut, "/v1/policies", body)
+	req.Header.Set("Content-Type", "application/json")
+	req = req.WithContext(context.WithValue(req.Context(), contextKeyTenant, "tenant-a"))
+	rr := httptest.NewRecorder()
+
+	server.handleSetPolicy(rr, req)
+
+	if rr.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d", rr.Code)
+	}
+	if policyEval.calls != 1 {
+		t.Fatalf("expected one invalidation call, got %d", policyEval.calls)
+	}
+	if policyEval.lastTenant != "tenant-a" {
+		t.Fatalf("expected tenant-a invalidation, got %q", policyEval.lastTenant)
+	}
+}
+
 func TestServerApproveApprovalLookupFailureReturnsDownstreamUnavailable(t *testing.T) {
 	baseStore, err := store.OpenSQLiteStore(filepath.Join(t.TempDir(), "api-approval-get-error.sqlite"))
 	if err != nil {
@@ -1847,6 +1945,22 @@ type forcedApprovalStore struct {
 	forcedUpdateErr error
 	forcedExpireID  string
 	forcedExpireErr error
+}
+
+type forcedAuditExportStore struct {
+	store.Store
+	forcedExportErr error
+	exportFn        func(io.Writer) error
+}
+
+func (s *forcedAuditExportStore) ExportAuditEvents(_ context.Context, _ store.AuditFilter, _ string, w io.Writer) error {
+	if s.forcedExportErr != nil {
+		return s.forcedExportErr
+	}
+	if s.exportFn != nil {
+		return s.exportFn(w)
+	}
+	return nil
 }
 
 func (s *forcedApprovalStore) GetApproval(ctx context.Context, id string) (*store.ApprovalRecord, error) {
@@ -2021,6 +2135,20 @@ type staticApprovalManager struct {
 type captureExecuteModePolicyEvaluator struct {
 	called   bool
 	lastMode actions.ExecutionMode
+}
+
+type capturePolicyCacheInvalidator struct {
+	calls      int
+	lastTenant string
+}
+
+func (m *capturePolicyCacheInvalidator) Evaluate(context.Context, runtimepkg.PolicyRequest) (*runtimepkg.PolicyDecision, error) {
+	return &runtimepkg.PolicyDecision{Decision: "allow"}, nil
+}
+
+func (m *capturePolicyCacheInvalidator) InvalidateTenantPolicyCache(tenantID string) {
+	m.calls++
+	m.lastTenant = tenantID
 }
 
 func (m *captureExecuteModePolicyEvaluator) Evaluate(_ context.Context, req runtimepkg.PolicyRequest) (*runtimepkg.PolicyDecision, error) {

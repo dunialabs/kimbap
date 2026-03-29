@@ -51,9 +51,13 @@ func FetchUserInfo(ctx context.Context, endpoint, accessToken string) (*UserInfo
 		return nil, fmt.Errorf("userinfo endpoint returned HTTP %d", res.StatusCode)
 	}
 
-	body, err := io.ReadAll(io.LimitReader(res.Body, 1<<20))
+	const maxUserInfoResponseBytes = 1 << 20
+	body, err := io.ReadAll(io.LimitReader(res.Body, maxUserInfoResponseBytes+1))
 	if err != nil {
 		return nil, err
+	}
+	if len(body) > maxUserInfoResponseBytes {
+		return nil, fmt.Errorf("userinfo response exceeded %d bytes", maxUserInfoResponseBytes)
 	}
 
 	var raw map[string]any

@@ -224,7 +224,7 @@ func isPrivateHost(ctx context.Context, host string) bool {
 	}
 	ip := net.ParseIP(host)
 	if ip != nil {
-		return isPrivateIP(ip)
+		return webhooks.IsPrivateIP(ip)
 	}
 	resolver := net.Resolver{}
 	resolved, err := resolver.LookupIPAddr(ctx, host)
@@ -232,32 +232,7 @@ func isPrivateHost(ctx context.Context, host string) bool {
 		return false
 	}
 	for _, addr := range resolved {
-		if isPrivateIP(addr.IP) {
-			return true
-		}
-	}
-	return false
-}
-
-var registrationPrivateCIDRs = func() []*net.IPNet {
-	var nets []*net.IPNet
-	for _, cidr := range []string{"10.0.0.0/8", "172.16.0.0/12", "192.168.0.0/16", "100.64.0.0/10", "169.254.0.0/16", "fc00::/7"} {
-		if _, n, err := net.ParseCIDR(cidr); err == nil {
-			nets = append(nets, n)
-		}
-	}
-	return nets
-}()
-
-func isPrivateIP(ip net.IP) bool {
-	if v4 := ip.To4(); v4 != nil {
-		ip = v4
-	}
-	if ip.IsLoopback() || ip.IsLinkLocalUnicast() || ip.IsLinkLocalMulticast() || ip.IsUnspecified() {
-		return true
-	}
-	for _, n := range registrationPrivateCIDRs {
-		if n.Contains(ip) {
+		if webhooks.IsPrivateIP(addr.IP) {
 			return true
 		}
 	}
