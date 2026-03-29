@@ -281,6 +281,15 @@ func newLinkListCommand() *cobra.Command {
 				return printOutput("No services found.")
 			}
 
+			sort.SliceStable(rows, func(i, j int) bool {
+				si := linkStatusSortWeight(rows[i].Status)
+				sj := linkStatusSortWeight(rows[j].Status)
+				if si != sj {
+					return si < sj
+				}
+				return rows[i].Service < rows[j].Service
+			})
+
 			_, _ = fmt.Fprintf(
 				c.OutOrStdout(),
 				"%-18s %-10s %-14s %-24s %s\n",
@@ -660,6 +669,17 @@ func linkAuthTypeToSecretType(authType actions.AuthType) vault.SecretType {
 		return vault.SecretTypeAPIKey
 	default:
 		return vault.SecretTypeAPIKey
+	}
+}
+
+func linkStatusSortWeight(status string) int {
+	switch status {
+	case "not_connected":
+		return 0
+	case "unknown":
+		return 1
+	default:
+		return 2
 	}
 }
 
