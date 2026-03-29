@@ -497,7 +497,7 @@ td.mono {
   word-break: break-word;
 }
 
-.back-btn {
+.copy-cmd-btn, .back-btn {
   font-size: 12px;
   font-weight: 500;
   font-family: var(--font-sans);
@@ -510,7 +510,7 @@ td.mono {
   transition: all var(--transition-fast);
 }
 
-.back-btn:hover {
+.copy-cmd-btn:hover, .back-btn:hover {
   border-color: var(--border-focus);
   color: var(--text-primary);
 }
@@ -1427,6 +1427,7 @@ td.mono {
     var html = '<div class="action-detail">' +
       '<div class="action-detail-header">' +
         '<h3>' + esc(name) + '</h3>' +
+        '<button class="copy-cmd-btn" onclick="copyCmd(this,&apos;kimbap call ' + escAttr(name) + '&apos;)">Copy command</button> ' +
         '<button class="back-btn" onclick="hideActionDetail()">← Back to list</button>' +
       '</div>' +
       (displayName && displayName.trim().toLowerCase() !== rawDesc.trim().toLowerCase() && displayName.trim().toLowerCase() !== name.trim().toLowerCase() ? '<p style="color:var(--text-secondary);margin-bottom:var(--space-md)">' + esc(displayName) + '</p>' : '') +
@@ -1465,6 +1466,14 @@ td.mono {
       '<div class="detail-value">' + (valueHtml || esc(value)) + '</div>' +
     '</div>';
   }
+
+  window.copyCmd = function(btn, cmd) {
+    navigator.clipboard.writeText(cmd).then(function() {
+      var orig = btn.textContent;
+      btn.textContent = 'Copied!';
+      setTimeout(function() { btn.textContent = orig; }, 1500);
+    });
+  };
 
   window.hideActionDetail = function() {
     document.getElementById('actionDetail').innerHTML = '';
