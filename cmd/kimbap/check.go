@@ -69,8 +69,8 @@ func runActionPreflight(cfg *config.KimbapConfig, actionName string) (preflightR
 	} else {
 		vs, vaultErr := initVaultStore(cfg)
 		if vaultErr != nil {
-			lowerErr := strings.ToLower(vaultErr.Error())
-			if strings.Contains(lowerErr, "master key") {
+			reason := classifyVaultInitError(vaultErr)
+			if reason == "vault_locked" {
 				report.Blockers = append(report.Blockers, "vault_locked")
 				report.Checks = append(report.Checks, preflightCheck{
 					Name:   "credential",
@@ -78,11 +78,11 @@ func runActionPreflight(cfg *config.KimbapConfig, actionName string) (preflightR
 					Detail: "vault is locked; set KIMBAP_MASTER_KEY_HEX",
 				})
 			} else {
-				report.Blockers = append(report.Blockers, "credential_missing")
+				report.Blockers = append(report.Blockers, "vault_error")
 				report.Checks = append(report.Checks, preflightCheck{
 					Name:   "credential",
 					Status: "fail",
-					Detail: "credential missing; run 'kimbap link <service>'",
+					Detail: "vault is unavailable; fix vault/config and retry",
 				})
 			}
 			credentialBlocked = true
@@ -178,6 +178,14 @@ func runActionPreflight(cfg *config.KimbapConfig, actionName string) (preflightR
 		report.Verdict = "not_ready"
 	}
 	return report, nil
+}
+
+func classifyVaultInitError(err error) string {
+	lowerErr := strings.ToLower(strings.TrimSpace(err.Error()))
+	if strings.Contains(lowerErr, "vault master key is required") {
+		return "vault_locked"
+	}
+	return "vault_error"
 }
 
 func renderPreflightReport(report preflightReport) string {

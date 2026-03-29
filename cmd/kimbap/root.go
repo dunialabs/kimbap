@@ -139,7 +139,7 @@ func init() {
 	addGrouped(newPolicyCommand(), "management")
 	addGroupedHidden(newCheckCommand(), "management")
 	addGrouped(newDoctorCommand(), "management")
-	addGrouped(newStatusCommand(), "management")
+	addGroupedHidden(newStatusCommand(), "management")
 	addGrouped(newAuthCommand(), "management")
 
 	// Advanced — specialized integration modes
@@ -247,7 +247,10 @@ func modeFromRaw(raw string) splash.Mode {
 }
 
 func vaultStatusFromRaw(mode string) string {
-	if strings.TrimSpace(os.Getenv("KIMBAP_MASTER_KEY_HEX")) != "" {
+	if _, err, present := decodeMasterKeyHexEnv(); present {
+		if err != nil {
+			return "error"
+		}
 		return "ready"
 	}
 	devEnabled := strings.EqualFold(strings.TrimSpace(mode), "dev")
@@ -442,14 +445,9 @@ func initVaultStore(cfg *config.KimbapConfig) (vault.Store, error) {
 }
 
 func resolveVaultMasterKey(cfg *config.KimbapConfig) ([]byte, error) {
-	hexKey := strings.TrimSpace(os.Getenv("KIMBAP_MASTER_KEY_HEX"))
-	if hexKey != "" {
-		decoded, err := hex.DecodeString(hexKey)
+	if decoded, err, present := decodeMasterKeyHexEnv(); present {
 		if err != nil {
-			return nil, fmt.Errorf("decode KIMBAP_MASTER_KEY_HEX: %w", err)
-		}
-		if len(decoded) != 32 {
-			return nil, fmt.Errorf("KIMBAP_MASTER_KEY_HEX must decode to 32 bytes")
+			return nil, err
 		}
 		return decoded, nil
 	}
@@ -501,6 +499,21 @@ func resolveVaultMasterKey(cfg *config.KimbapConfig) ([]byte, error) {
 		return nil, fmt.Errorf("write dev master key: %w", writeErr)
 	}
 	return key, nil
+}
+
+func decodeMasterKeyHexEnv() ([]byte, error, bool) {
+	hexKey := strings.TrimSpace(os.Getenv("KIMBAP_MASTER_KEY_HEX"))
+	if hexKey == "" {
+		return nil, nil, false
+	}
+	decoded, err := hex.DecodeString(hexKey)
+	if err != nil {
+		return nil, fmt.Errorf("decode KIMBAP_MASTER_KEY_HEX: %w", err), true
+	}
+	if len(decoded) != 32 {
+		return nil, fmt.Errorf("KIMBAP_MASTER_KEY_HEX must decode to 32 bytes"), true
+	}
+	return decoded, nil, true
 }
 
 func readPersistedDevMasterKey(path string) ([]byte, error) {

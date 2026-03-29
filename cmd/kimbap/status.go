@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 
 	"github.com/dunialabs/kimbap/internal/agents"
@@ -28,7 +29,7 @@ func newStatusCommand() *cobra.Command {
 		RunE: func(_ *cobra.Command, _ []string) error {
 			cfg, err := loadAppConfigReadOnly()
 			if err != nil {
-				return printOutput("kimbap is not initialized — run 'kimbap init'")
+				return err
 			}
 			summary := collectStatusSummary(cfg)
 			if outputAsJSON() {
@@ -36,9 +37,6 @@ func newStatusCommand() *cobra.Command {
 			}
 			return printOutput(renderStatusSummary(summary))
 		},
-	}
-	if strings.HasPrefix(binaryName(), "kimbap-e2e-") {
-		cmd.Hidden = true
 	}
 	return cmd
 }
@@ -120,6 +118,13 @@ func vaultStatusString(cfg *config.KimbapConfig) string {
 	if vaultPath == "" {
 		return "error"
 	}
+	available, err := vaultKeyAvailableReadOnly(cfg)
+	if err != nil {
+		return "error"
+	}
+	if available {
+		return "ready"
+	}
 	st, err := os.Stat(vaultPath)
 	if err != nil {
 		if os.IsNotExist(err) {
@@ -130,28 +135,32 @@ func vaultStatusString(cfg *config.KimbapConfig) string {
 	if st.IsDir() {
 		return "error"
 	}
-	if vaultKeyAvailableReadOnly(cfg) {
-		return "ready"
-	}
 	return "locked"
 }
 
-func vaultKeyAvailableReadOnly(cfg *config.KimbapConfig) bool {
-	if strings.TrimSpace(os.Getenv("KIMBAP_MASTER_KEY_HEX")) != "" {
-		return true
+func vaultKeyAvailableReadOnly(cfg *config.KimbapConfig) (bool, error) {
+	if _, err, present := decodeMasterKeyHexEnv(); present {
+		if err != nil {
+			return false, err
+		}
+		return true, nil
 	}
 	devEnabled := strings.EqualFold(strings.TrimSpace(cfg.Mode), "dev")
 	if !devEnabled {
-		if rawDev := strings.TrimSpace(os.Getenv("KIMBAP_DEV")); rawDev != "" {
-			devEnabled = rawDev == "1" || strings.EqualFold(rawDev, "true")
+		if rawDev, ok := os.LookupEnv("KIMBAP_DEV"); ok {
+			parsed, err := strconv.ParseBool(strings.TrimSpace(rawDev))
+			if err != nil {
+				return false, err
+			}
+			devEnabled = parsed
 		}
 	}
 	if !devEnabled {
-		return false
+		return false, nil
 	}
 	devKeyPath := filepath.Join(cfg.DataDir, ".dev-master-key")
 	_, err := os.Stat(devKeyPath)
-	return err == nil
+	return err == nil, nil
 }
 
 func policyStatusString(cfg *config.KimbapConfig) string {

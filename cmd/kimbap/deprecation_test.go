@@ -59,39 +59,9 @@ func TestHelpSurfaceCommandCount(t *testing.T) {
 		t.Fatalf("--help failed: %v", err)
 	}
 
-	visibleCommands := countVisibleCommands(out.String())
-	if visibleCommands > 15 {
-		t.Fatalf("expected help surface to show at most 15 commands, got %d", visibleCommands)
+	visibleCommands := extractAvailableCommands(out.String())
+	delete(visibleCommands, "help")
+	if len(visibleCommands) > 15 {
+		t.Fatalf("expected help surface to show at most 15 commands, got %d", len(visibleCommands))
 	}
-}
-
-func countVisibleCommands(helpOutput string) int {
-	lines := strings.Split(helpOutput, "\n")
-	inAvailableCommands := false
-	count := 0
-
-	for _, line := range lines {
-		trimmed := strings.TrimSpace(line)
-		switch {
-		case trimmed == "Available Commands:":
-			inAvailableCommands = true
-			continue
-		case inAvailableCommands && trimmed == "":
-			inAvailableCommands = false
-			continue
-		}
-
-		if !inAvailableCommands {
-			continue
-		}
-
-		if strings.HasPrefix(line, "  ") {
-			fields := strings.Fields(line)
-			if len(fields) > 0 && fields[0] != "help" {
-				count++
-			}
-		}
-	}
-
-	return count
 }
