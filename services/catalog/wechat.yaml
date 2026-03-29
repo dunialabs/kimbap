@@ -3,7 +3,7 @@ version: 0.1.0
 description: "WeChat messaging via wechaty CLI harness (experimental: QR-code session, may be unstable)"
 adapter: command
 command_spec:
-  executable: cli-anything-wechat
+  executable: wechat
   json_flag: "--json"
   timeout: "60s"
 auth:

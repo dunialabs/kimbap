@@ -131,7 +131,7 @@ adapter: command
 auth:
   type: none                      # none | bearer (injects as KIMBAP_CREDENTIAL_<REF>)
 command_spec:
-  executable: cli-anything-tool   # must be on PATH or absolute
+  executable: tool                # must be on PATH or absolute
   json_flag: "--json"             # flag that makes the CLI emit JSON to stdout
   timeout: "60s"                  # optional per-service timeout
   env_inject:                     # optional extra env vars for the subprocess

@@ -3,7 +3,7 @@ version: 1.0.0
 description: WhatsApp messaging via whatsapp-web.js CLI harness (QR-code session, no app registration required)
 adapter: command
 command_spec:
-  executable: cli-anything-whatsapp
+  executable: whatsapp
   json_flag: "--json"
   timeout: "60s"
 auth:

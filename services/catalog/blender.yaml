@@ -1,9 +1,9 @@
 name: blender
 version: 1.0.0
-description: 3D scene creation, modeling, and rendering via CLI-Anything Blender harness
+description: 3D scene creation, modeling, and rendering via Blender CLI harness
 adapter: command
 command_spec:
-  executable: cli-anything-blender
+  executable: blender
   json_flag: "--json"
   timeout: "300s"
 auth:

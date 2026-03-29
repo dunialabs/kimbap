@@ -1,9 +1,9 @@
 name: mermaid
 version: 1.0.0
-description: Mermaid diagram creation and rendering via CLI-Anything Mermaid harness
+description: Mermaid diagram creation and rendering via Mermaid CLI harness
 adapter: command
 command_spec:
-  executable: cli-anything-mermaid
+  executable: mermaid
   json_flag: "--json"
   timeout: "30s"
 auth:

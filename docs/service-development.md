@@ -170,10 +170,10 @@ The command adapter runs a local executable for each action. It's suited for CLI
 ```yaml
 name: blender
 version: 1.0.0
-description: 3D scene creation, modeling, and rendering via CLI-Anything Blender harness
+description: 3D scene creation, modeling, and rendering via Blender CLI harness
 adapter: command
 command_spec:
-  executable: cli-anything-blender
+  executable: blender
   json_flag: "--json"
   timeout: "300s"
 auth:
@@ -229,7 +229,7 @@ actions:
 - `timeout` (optional): a duration string like `"30s"` or `"5m"`. Defaults to the global runtime timeout if omitted.
 - `env_inject` (optional): a map of environment variables to inject at invocation time. Values are passed through literally.
 
-**`command`** on each action is the subcommand string passed to the executable. For the example above, `kimbap call blender.render` would run something equivalent to `cli-anything-blender render execute --json --project ... --output ...`.
+**`command`** on each action is the subcommand string passed to the executable. For the example above, `kimbap call blender.render` would run something equivalent to `blender render execute --json --project ... --output ...`.
 
 Actions under the command adapter do not have `method` or `path` fields. The `args` block still works the same way.
 

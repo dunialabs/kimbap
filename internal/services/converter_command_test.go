@@ -19,8 +19,8 @@ func TestToActionDefinitions_CommandAdapterConfig(t *testing.T) {
 	if def.Adapter.Type != "command" {
 		t.Fatalf("adapter.type = %q, want command", def.Adapter.Type)
 	}
-	if def.Adapter.ExecutablePath != "cli-anything-mermaid" {
-		t.Fatalf("adapter.executable_path = %q, want cli-anything-mermaid", def.Adapter.ExecutablePath)
+	if def.Adapter.ExecutablePath != "mermaid" {
+		t.Fatalf("adapter.executable_path = %q, want mermaid", def.Adapter.ExecutablePath)
 	}
 	if def.Adapter.Command != "diagram create" {
 		t.Fatalf("adapter.command = %q, want diagram create", def.Adapter.Command)

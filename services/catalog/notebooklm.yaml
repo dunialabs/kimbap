@@ -3,7 +3,7 @@ version: 0.1.0
 description: "NotebookLM AI research assistant via CLI harness (experimental: requires local notebooklm-py session)"
 adapter: command
 command_spec:
-  executable: cli-anything-notebooklm
+  executable: notebooklm
   json_flag: "--json"
   timeout: "120s"
 auth:

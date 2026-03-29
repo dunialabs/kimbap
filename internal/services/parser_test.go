@@ -433,7 +433,7 @@ func validCommandManifest() *ServiceManifest {
 		Adapter: "command",
 		Auth:    ServiceAuth{Type: "bearer", CredentialRef: "diagram.token"},
 		CommandSpec: &CommandSpec{
-			Executable: "cli-anything-mermaid",
+			Executable: "mermaid",
 			JSONFlag:   "--json",
 			Timeout:    "30s",
 			EnvInject:  map[string]string{"MERMAID_ENV": "dev"},
