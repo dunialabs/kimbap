@@ -56,6 +56,14 @@ func newAgentsSetupCommand() *cobra.Command {
 				return err
 			}
 
+			if len(results) == 0 {
+				if outputAsJSON() {
+					return printOutput(map[string]any{"agents_found": 0, "message": "no agents detected"})
+				}
+				fmt.Println("No AI agents detected. Install Claude Code, OpenCode, Cursor, or Codex, then re-run 'kimbap agents setup'.")
+				return nil
+			}
+
 			if outputAsJSON() {
 				if err := printOutput(results); err != nil {
 					return err
@@ -111,11 +119,20 @@ func newAgentsSetupCommand() *cobra.Command {
 				return fmt.Errorf("sync target is not a directory: %s", absDir)
 			}
 
-			if _, err := runAgentsSync(absDir, agentRaw, "", force, dryRun); err != nil {
+			syncResult, err := runAgentsSync(absDir, agentRaw, "", force, dryRun)
+			if err != nil {
 				return err
 			}
 
-			if !outputAsJSON() {
+			hasWrittenServices := false
+			for _, r := range syncResult.SyncResults {
+				if len(r.Written) > 0 {
+					hasWrittenServices = true
+					break
+				}
+			}
+
+			if !outputAsJSON() && hasWrittenServices {
 				fmt.Printf("✓ Services synced to %s\n", absDir)
 			}
 
