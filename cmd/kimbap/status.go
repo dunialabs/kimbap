@@ -89,7 +89,7 @@ func countStoredCredentials(cfg *config.KimbapConfig) (int, error) {
 	if err != nil || st.IsDir() {
 		return 0, fmt.Errorf("vault not accessible")
 	}
-	db, err := sql.Open("sqlite", vaultPath)
+	db, err := sql.Open("sqlite", vaultPath+"?mode=ro")
 	if err != nil {
 		return 0, err
 	}
