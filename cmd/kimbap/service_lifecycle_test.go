@@ -399,6 +399,40 @@ func TestServiceCLIInstallRejectsInsecureHTTPURL(t *testing.T) {
 	})
 }
 
+func TestServiceInstallPrintsSyncHint(t *testing.T) {
+	dataDir := t.TempDir()
+	servicesDir := filepath.Join(dataDir, "services")
+	configPath := writeServiceCLIConfig(t, dataDir, servicesDir)
+
+	homeDir := t.TempDir()
+	t.Setenv("HOME", homeDir)
+	t.Setenv("XDG_CONFIG_HOME", filepath.Join(homeDir, ".config"))
+	agentSkillPath := filepath.Join(homeDir, ".claude", "skills", "kimbap", "SKILL.md")
+	if err := os.MkdirAll(filepath.Dir(agentSkillPath), 0o755); err != nil {
+		t.Fatalf("create agent skills dir: %v", err)
+	}
+	if err := os.WriteFile(agentSkillPath, []byte("# kimbap\n"), 0o644); err != nil {
+		t.Fatalf("write agent skill file: %v", err)
+	}
+
+	manifestPath := filepath.Join(t.TempDir(), "local-hint.yaml")
+	writeLocalManifest(t, manifestPath, "local-hint", "1.0.0")
+
+	prev := opts
+	opts = cliOptions{configPath: configPath, format: "text", noSplash: true}
+	t.Cleanup(func() { opts = prev })
+
+	installCmd := newServiceInstallCommand()
+	installCmd.SetArgs([]string{manifestPath})
+	stderr, err := captureStderr(t, installCmd.Execute)
+	if err != nil {
+		t.Fatalf("service install failed: %v", err)
+	}
+	if !strings.Contains(stderr, "Hint: Run 'kimbap agents sync' to update your AI agents with this change.") {
+		t.Fatalf("expected sync hint in stderr, got %q", stderr)
+	}
+}
+
 func TestServiceCLIInstalledFileParsesAsValidManifest(t *testing.T) {
 	dataDir := t.TempDir()
 	servicesDir := filepath.Join(dataDir, "services")

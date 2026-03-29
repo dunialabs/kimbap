@@ -30,7 +30,15 @@ Special call flags:
   --dry-run                validate and preview without executing
   --trace                  print execution trace to stderr
   --format json            emit JSON output (place before action name)
-  --json <object|-|@file>  merge JSON object into action input`,
+  --json <object|-|@file>  merge JSON object into action input
+
+Reserved flags (consumed globally, cannot be used as action parameters):
+  --format, --json, --config, --data-dir, --log-level, --mode,
+  --idempotency-key, --dry-run, --trace, --no-splash
+
+Discover available actions:
+  kimbap search <query>    Search actions by keyword
+  kimbap actions list      List all installed actions`,
 		Example: `  # Send a Slack message
   kimbap call slack.send-message --channel general --text "deployed v2.1"
 
@@ -199,6 +207,16 @@ func printCallResult(result actions.ExecutionResult) error {
 
 	if result.Error != nil {
 		_, _ = fmt.Fprintf(os.Stderr, "Error: %s\n", result.Error.Message)
+	}
+
+	if result.Status == actions.StatusApprovalRequired {
+		approvalID, _ := result.Meta["approval_request_id"].(string)
+		approvalID = strings.TrimSpace(approvalID)
+		if approvalID != "" {
+			_, _ = fmt.Fprintf(os.Stderr, "Run: kimbap approve accept %s\n", approvalID)
+		} else {
+			_, _ = fmt.Fprintln(os.Stderr, "Run: kimbap approve accept <approval_request_id>")
+		}
 	}
 
 	return nil

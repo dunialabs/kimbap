@@ -192,7 +192,9 @@ func runApproveAccept(requestID string) error {
 				"resolved_by": "cli",
 			})
 		}
-		return printOutput(fmt.Sprintf("✓ %s approved", requestID))
+		_, _ = fmt.Fprintf(os.Stdout, "✓ %s approved\n", requestID)
+		_, _ = fmt.Fprintln(os.Stdout, "Hint: The held action will now execute. Check 'kimbap audit' for results.")
+		return nil
 	})
 	if err != nil {
 		if isRuntimeStoreUnavailable(err) {

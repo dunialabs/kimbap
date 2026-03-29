@@ -79,6 +79,37 @@ func TestCallOutputTextMode_Error(t *testing.T) {
 	}
 }
 
+func TestCallOutputTextMode_ApprovalRequiredPrintsHint(t *testing.T) {
+	resetOptsForTest(t)
+	opts.format = "text"
+
+	result := actions.ExecutionResult{
+		Status: actions.StatusApprovalRequired,
+		Error:  &actions.ExecutionError{Message: "approval required"},
+		Meta: map[string]any{
+			"approval_request_id": "apr_123",
+		},
+	}
+
+	stderr, err := captureStderr(t, func() error { return printCallResult(result) })
+	if err != nil {
+		t.Fatalf("printCallResult returned error: %v", err)
+	}
+	if !strings.Contains(stderr, "Run: kimbap approve accept apr_123") {
+		t.Fatalf("expected approval next-step hint, got %q", stderr)
+	}
+}
+
+func TestCallHelpContainsReservedFlags(t *testing.T) {
+	long := newCallCommand().Long
+	if !strings.Contains(long, "Reserved flags") {
+		t.Fatalf("expected call help to include reserved flags section, got %q", long)
+	}
+	if !strings.Contains(long, "--idempotency-key") {
+		t.Fatalf("expected call help to include --idempotency-key, got %q", long)
+	}
+}
+
 func TestParseJSONInputInline(t *testing.T) {
 	result, err := parseJSONInput(`{"name": "test", "count": 42}`)
 	if err != nil {

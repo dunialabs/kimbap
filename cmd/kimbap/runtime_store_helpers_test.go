@@ -108,6 +108,27 @@ func TestRunApproveAcceptMaterializesExpiredApproval(t *testing.T) {
 	}
 }
 
+func TestApproveAcceptPrintsNextStep(t *testing.T) {
+	approvalID, cfgPath := seedPendingApprovalForCLI(t, time.Now().UTC().Add(5*time.Minute))
+
+	prevOpts := opts
+	opts = cliOptions{configPath: cfgPath, format: "text"}
+	t.Cleanup(func() {
+		opts = prevOpts
+	})
+
+	output, err := captureStdout(t, func() error { return runApproveAccept(approvalID) })
+	if err != nil {
+		t.Fatalf("runApproveAccept failed: %v", err)
+	}
+	if !strings.Contains(output, "✓ "+approvalID+" approved") {
+		t.Fatalf("expected approval success line, got %q", output)
+	}
+	if !strings.Contains(output, "Hint: The held action will now execute. Check 'kimbap audit' for results.") {
+		t.Fatalf("expected follow-up hint, got %q", output)
+	}
+}
+
 func TestApproveDenyMaterializesExpiredApproval(t *testing.T) {
 	approvalID, cfgPath := seedExpiredApprovalForCLI(t, time.Now().UTC().Add(-1*time.Minute))
 
@@ -173,6 +194,49 @@ func seedExpiredApprovalForCLI(t *testing.T, expiresAt time.Time) (string, strin
 		Status:    "pending",
 		InputJSON: `{}`,
 		CreatedAt: expiresAt.Add(-10 * time.Minute),
+		ExpiresAt: expiresAt,
+	}
+	if err := st.CreateApproval(context.Background(), req); err != nil {
+		t.Fatalf("create approval: %v", err)
+	}
+
+	return req.ID, cfgPath
+}
+
+func seedPendingApprovalForCLI(t *testing.T, expiresAt time.Time) (string, string) {
+	t.Helper()
+	dataDir := t.TempDir()
+	dbPath := filepath.Join(dataDir, "kimbap.db")
+	cfgPath := filepath.Join(t.TempDir(), "config.yaml")
+	cfgRaw := "data_dir: " + dataDir + "\n" +
+		"database:\n" +
+		"  driver: sqlite\n" +
+		"  dsn: " + dbPath + "\n"
+	if err := os.WriteFile(cfgPath, []byte(cfgRaw), 0o644); err != nil {
+		t.Fatalf("write config: %v", err)
+	}
+
+	st, err := store.OpenSQLiteStore(dbPath)
+	if err != nil {
+		t.Fatalf("open runtime store: %v", err)
+	}
+	t.Cleanup(func() {
+		_ = st.Close()
+	})
+	if err := st.Migrate(context.Background()); err != nil {
+		t.Fatalf("migrate runtime store: %v", err)
+	}
+
+	req := &store.ApprovalRecord{
+		ID:        "apr-pending-cli",
+		TenantID:  defaultTenantID(),
+		RequestID: "req-pending-cli",
+		AgentName: "agent-a",
+		Service:   "github",
+		Action:    "issues.create",
+		Status:    "pending",
+		InputJSON: `{}`,
+		CreatedAt: time.Now().UTC().Add(-1 * time.Minute),
 		ExpiresAt: expiresAt,
 	}
 	if err := st.CreateApproval(context.Background(), req); err != nil {

@@ -969,10 +969,6 @@ func maybePrintAgentSyncHint(cfg *config.KimbapConfig, format string) {
 	if strings.EqualFold(strings.TrimSpace(format), "json") {
 		return
 	}
-	stat, err := os.Stderr.Stat()
-	if err != nil || (stat.Mode()&os.ModeCharDevice) == 0 {
-		return
-	}
 	results, err := agents.GlobalStatus()
 	if err != nil || len(results) == 0 {
 		return
