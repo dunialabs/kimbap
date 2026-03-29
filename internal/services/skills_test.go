@@ -1095,6 +1095,37 @@ func TestGenerateAgentSkillMDIncludesActionLevelCredentials(t *testing.T) {
 	}
 }
 
+func TestGenerateAgentSkillMDNoneAuthTypeWithStrayCredentialRef(t *testing.T) {
+	manifest := &ServiceManifest{
+		Name:    "stray-ref",
+		Version: "1.0.0",
+		BaseURL: "https://api.example.com",
+		Auth:    ServiceAuth{Type: "none", CredentialRef: "stray-ref.api_key"},
+		Actions: map[string]ServiceAction{
+			"search": {
+				Method: "GET",
+				Path:   "/search",
+				Auth: &ServiceAuth{
+					Type:          "bearer",
+					CredentialRef: "stray-ref.api_key",
+				},
+				Risk: RiskSpec{Level: "low"},
+			},
+		},
+	}
+
+	content, err := GenerateAgentSkillMD(manifest)
+	if err != nil {
+		t.Fatalf("GenerateAgentSkillMD: %v", err)
+	}
+	if !strings.Contains(content, "kimbap vault set stray-ref.api_key --stdin") {
+		t.Error("GenerateAgentSkillMD must use vault set when top-level auth.type=none, even if credential_ref is set")
+	}
+	if strings.Contains(content, "kimbap link stray-ref") {
+		t.Error("GenerateAgentSkillMD must not use kimbap link when top-level auth.type=none")
+	}
+}
+
 func TestSignAndVerifyRoundtrip(t *testing.T) {
 	manifest, err := ParseManifest([]byte(braveSearchFixture))
 	if err != nil {

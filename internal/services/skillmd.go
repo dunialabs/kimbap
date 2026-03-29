@@ -75,7 +75,10 @@ func GenerateAgentSkillMD(manifest *ServiceManifest, opts ...SkillMDOption) (str
 	sb.WriteString("## Prerequisites\n\n")
 	sb.WriteString("- Kimbap CLI installed and in PATH\n")
 	fmt.Fprintf(&sb, "- Service installed: `%s`\n", buildInstallInstruction(manifest.Name, cfg))
-	primaryRef := manifest.Auth.CredentialRef
+	primaryRef := ""
+	if normalizedAuthType(manifest.Auth.Type) != "none" {
+		primaryRef = manifest.Auth.CredentialRef
+	}
 	credRefs := collectCredentialRefs(manifest)
 	for _, ref := range credRefs {
 		if ref == primaryRef && primaryRef != "" {
