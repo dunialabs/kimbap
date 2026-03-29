@@ -44,15 +44,8 @@ func TestAgentsSetupNoAgentsDetected_JSON(t *testing.T) {
 		t.Fatalf("agents setup --format json failed: %v", err)
 	}
 
-	decoded := decodeJSONObject(t, output)
-	agentsFound, ok := decoded["agents_found"].(float64)
-	if !ok {
-		t.Fatalf("expected agents_found in JSON output, got: %#v", decoded)
-	}
-	if agentsFound != 0 {
-		t.Fatalf("expected agents_found=0, got %v", agentsFound)
-	}
-	if decoded["message"] != "no agents detected" {
-		t.Fatalf("expected no-agents message, got: %#v", decoded["message"])
+	trimmed := strings.TrimSpace(output)
+	if trimmed != "[]" && trimmed != "null" {
+		t.Fatalf("expected empty JSON array for zero agents, got: %q", output)
 	}
 }

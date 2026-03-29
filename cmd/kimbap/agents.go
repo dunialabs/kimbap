@@ -58,7 +58,7 @@ func newAgentsSetupCommand() *cobra.Command {
 
 			if len(results) == 0 {
 				if outputAsJSON() {
-					return printOutput(map[string]any{"agents_found": 0, "message": "no agents detected"})
+					return printOutput(results)
 				}
 				fmt.Println("No AI agents detected. Install Claude Code, OpenCode, Cursor, or Codex, then re-run 'kimbap agents setup'.")
 				return nil
