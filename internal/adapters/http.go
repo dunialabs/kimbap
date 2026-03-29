@@ -249,7 +249,7 @@ func (a *HTTPAdapter) executeSingle(ctx context.Context, req AdapterRequest) (*A
 		return nil, actions.NewExecutionError(actions.ErrValidationFailed, err.Error(), http.StatusBadRequest, false, nil)
 	}
 
-	payload := cloneAnyMap(req.Input)
+	payload := filterInputBySchema(req.Input, req.Action.InputSchema)
 	if payload == nil {
 		payload = map[string]any{}
 	}
@@ -531,6 +531,22 @@ func buildBody(method string, payload map[string]any, requestBodyTemplate string
 		}
 		return json.Marshal(payload)
 	}
+}
+
+func filterInputBySchema(input map[string]any, schema *actions.Schema) map[string]any {
+	if input == nil {
+		return nil
+	}
+	if schema == nil || schema.Properties == nil {
+		return cloneAnyMap(input)
+	}
+	out := make(map[string]any, len(schema.Properties))
+	for key := range schema.Properties {
+		if value, ok := input[key]; ok {
+			out[key] = value
+		}
+	}
+	return out
 }
 
 func resolveBodyTemplate(tmpl string, input map[string]any) ([]byte, error) {

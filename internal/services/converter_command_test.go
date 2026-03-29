@@ -35,3 +35,31 @@ func TestToActionDefinitions_CommandAdapterConfig(t *testing.T) {
 		t.Fatalf("adapter.env_inject[MERMAID_ENV] = %q, want dev", got)
 	}
 }
+
+func TestToActionDefinitions_HTTPInputSchemaStrictWithPaginationControl(t *testing.T) {
+	manifest := validHTTPManifest()
+	action := manifest.Actions["get_item"]
+	action.Pagination = &PageSpec{Type: "cursor", NextPath: "next_cursor"}
+	manifest.Actions["get_item"] = action
+
+	defs, err := ToActionDefinitions(manifest)
+	if err != nil {
+		t.Fatalf("ToActionDefinitions() error = %v", err)
+	}
+	if len(defs) != 1 {
+		t.Fatalf("len(defs) = %d, want 1", len(defs))
+	}
+	schema := defs[0].InputSchema
+	if schema == nil {
+		t.Fatal("expected input schema")
+	}
+	if schema.AdditionalProperties {
+		t.Fatal("expected strict schema with AdditionalProperties=false")
+	}
+	if _, ok := schema.Properties["item_id"]; !ok {
+		t.Fatal("expected item_id to be in input schema properties")
+	}
+	if _, ok := schema.Properties["_max_pages"]; !ok {
+		t.Fatal("expected _max_pages pagination control in input schema properties")
+	}
+}

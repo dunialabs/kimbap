@@ -115,6 +115,42 @@ func TestCommandAdapterExecute_InvalidJSONFallsBackToRaw(t *testing.T) {
 	}
 }
 
+func TestCommandAdapterExecute_DoesNotForwardUndeclaredInputFields(t *testing.T) {
+	a := NewCommandAdapter(nil, 5*time.Second)
+
+	res, err := a.Execute(context.Background(), AdapterRequest{
+		Action: actions.ActionDefinition{
+			InputSchema: &actions.Schema{Properties: map[string]*actions.Schema{
+				"title": {Type: "string"},
+			}},
+			Adapter: actions.AdapterConfig{
+				ExecutablePath: os.Args[0],
+				Command:        "-test.run=TestCommandAdapterHelperProcess -- subcmd create",
+				EnvInject:      map[string]string{"GO_WANT_HELPER_PROCESS": "1"},
+			},
+		},
+		Input: map[string]any{"title": "diagram", "inject": "--danger"},
+	})
+
+	if err != nil {
+		t.Fatalf("Execute() error = %v, want nil", err)
+	}
+	argsAny, ok := res.Output["args"].([]any)
+	if !ok {
+		t.Fatalf("output[args] type = %T, want []any", res.Output["args"])
+	}
+	joined := ""
+	for _, item := range argsAny {
+		joined += " " + fmt.Sprintf("%v", item)
+	}
+	if strings.Contains(joined, "--inject") {
+		t.Fatalf("expected undeclared input not to be forwarded, got %v", argsAny)
+	}
+	if !strings.Contains(joined, "--title") {
+		t.Fatalf("expected declared input to be forwarded, got %v", argsAny)
+	}
+}
+
 func TestCommandAdapterExecute_AllowlistRejected(t *testing.T) {
 	a := NewCommandAdapter([]string{"/bin/echo"}, time.Second)
 	res, err := a.Execute(context.Background(), AdapterRequest{

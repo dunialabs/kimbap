@@ -66,7 +66,7 @@ func toHTTPDefinitions(svc *ServiceManifest) ([]actions.ActionDefinition, error)
 			Idempotent:   idempotent,
 			ApprovalHint: mapApprovalHint(actionSpec.Risk.Level),
 			Auth:         mapAuth(resolveActionAuth(svc.Auth, actionSpec.Auth)),
-			InputSchema:  buildInputSchema(actionSpec.Args, actionSpec.Request.PathParams),
+			InputSchema:  buildInputSchema(actionSpec.Args, actionSpec.Request.PathParams, actionSpec.Pagination),
 			OutputSchema: buildOutputSchema(actionSpec.Response),
 			Defaults:     collectDefaults(actionSpec.Args),
 			Adapter: actions.AdapterConfig{
@@ -119,7 +119,7 @@ func toAppleScriptDefinitions(svc *ServiceManifest) ([]actions.ActionDefinition,
 			Idempotent:   idempotent,
 			ApprovalHint: mapApprovalHint(actionSpec.Risk.Level),
 			Auth:         mapAuth(resolveActionAuth(svc.Auth, actionSpec.Auth)),
-			InputSchema:  buildInputSchema(actionSpec.Args, nil),
+			InputSchema:  buildInputSchema(actionSpec.Args, nil, nil),
 			OutputSchema: buildOutputSchema(actionSpec.Response),
 			Defaults:     collectDefaults(actionSpec.Args),
 			Adapter: actions.AdapterConfig{
@@ -170,7 +170,7 @@ func toCommandDefinitions(svc *ServiceManifest) ([]actions.ActionDefinition, err
 			Idempotent:   idempotent,
 			ApprovalHint: mapApprovalHint(actionSpec.Risk.Level),
 			Auth:         mapAuth(resolveActionAuth(svc.Auth, actionSpec.Auth)),
-			InputSchema:  buildInputSchema(actionSpec.Args, nil),
+			InputSchema:  buildInputSchema(actionSpec.Args, nil, nil),
 			OutputSchema: buildOutputSchema(actionSpec.Response),
 			Defaults:     collectDefaults(actionSpec.Args),
 			Adapter: actions.AdapterConfig{
@@ -273,12 +273,12 @@ func resolveActionAuth(defaultAuth ServiceAuth, actionAuth *ServiceAuth) Service
 	return defaultAuth
 }
 
-func buildInputSchema(args []ActionArg, pathParams map[string]string) *actions.Schema {
-	if len(args) == 0 && len(pathParams) == 0 {
+func buildInputSchema(args []ActionArg, pathParams map[string]string, page *PageSpec) *actions.Schema {
+	if len(args) == 0 && len(pathParams) == 0 && page == nil {
 		return &actions.Schema{Type: "object", AdditionalProperties: true}
 	}
 
-	properties := make(map[string]*actions.Schema, len(args)+len(pathParams))
+	properties := make(map[string]*actions.Schema, len(args)+len(pathParams)+1)
 	required := make([]string, 0)
 	requiredSet := make(map[string]struct{})
 
@@ -306,13 +306,17 @@ func buildInputSchema(args []ActionArg, pathParams map[string]string) *actions.S
 		}
 	}
 
+	if page != nil {
+		properties["_max_pages"] = &actions.Schema{Type: "integer"}
+	}
+
 	sort.Strings(required)
 
 	return &actions.Schema{
 		Type:                 "object",
 		Required:             required,
 		Properties:           properties,
-		AdditionalProperties: true,
+		AdditionalProperties: false,
 	}
 }
 

@@ -2,12 +2,12 @@ package main
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"strings"
 
 	"github.com/dunialabs/kimbap/internal/approvals"
 	"github.com/dunialabs/kimbap/internal/store"
+	"github.com/dunialabs/kimbap/internal/storeconv"
 )
 
 type storeApprovalStoreAdapter struct {
@@ -18,26 +18,7 @@ func (a *storeApprovalStoreAdapter) Create(ctx context.Context, req *approvals.A
 	if a.st == nil {
 		return fmt.Errorf("store unavailable")
 	}
-	inputJSON := "{}"
-	if req.Input != nil {
-		if b, err := json.Marshal(req.Input); err == nil {
-			inputJSON = string(b)
-		}
-	}
-	return a.st.CreateApproval(ctx, &store.ApprovalRecord{
-		ID:                req.ID,
-		TenantID:          req.TenantID,
-		RequestID:         req.RequestID,
-		AgentName:         req.AgentName,
-		Service:           req.Service,
-		Action:            req.Action,
-		Status:            string(req.Status),
-		InputJSON:         inputJSON,
-		RequiredApprovals: max(1, req.RequiredApprovals),
-		VotesJSON:         approvalVotesToJSON(req.Votes),
-		CreatedAt:         req.CreatedAt,
-		ExpiresAt:         req.ExpiresAt,
-	})
+	return a.st.CreateApproval(ctx, storeconv.ApprovalRecordForCreate(req))
 }
 
 func (a *storeApprovalStoreAdapter) Get(ctx context.Context, id string) (*approvals.ApprovalRequest, error) {
@@ -45,38 +26,13 @@ func (a *storeApprovalStoreAdapter) Get(ctx context.Context, id string) (*approv
 	if err != nil {
 		return nil, err
 	}
-	result := &approvals.ApprovalRequest{
-		ID:                rec.ID,
-		TenantID:          rec.TenantID,
-		RequestID:         rec.RequestID,
-		AgentName:         rec.AgentName,
-		Service:           rec.Service,
-		Action:            rec.Action,
-		Input:             parseApprovalInputJSON(rec.InputJSON),
-		Status:            approvals.ApprovalStatus(rec.Status),
-		CreatedAt:         rec.CreatedAt,
-		ExpiresAt:         rec.ExpiresAt,
-		ResolvedBy:        rec.ResolvedBy,
-		DenyReason:        rec.Reason,
-		RequiredApprovals: max(1, rec.RequiredApprovals),
-		Votes:             parseApprovalVotesJSON(rec.VotesJSON),
-	}
-	if rec.ResolvedAt != nil {
-		result.ResolvedAt = rec.ResolvedAt
-	}
+	converted := storeconv.ApprovalRequestFromRecord(*rec)
+	result := &converted
 	return result, nil
 }
 
 func (a *storeApprovalStoreAdapter) Update(ctx context.Context, req *approvals.ApprovalRequest) error {
-	return a.st.UpdateApproval(ctx, &store.ApprovalRecord{
-		ID:                req.ID,
-		Status:            string(req.Status),
-		ResolvedAt:        req.ResolvedAt,
-		ResolvedBy:        req.ResolvedBy,
-		Reason:            req.DenyReason,
-		RequiredApprovals: max(1, req.RequiredApprovals),
-		VotesJSON:         approvalVotesToJSON(req.Votes),
-	})
+	return a.st.UpdateApproval(ctx, storeconv.ApprovalRecordForUpdate(req))
 }
 
 func (a *storeApprovalStoreAdapter) ListPending(ctx context.Context, tenantID string) ([]approvals.ApprovalRequest, error) {
@@ -86,23 +42,7 @@ func (a *storeApprovalStoreAdapter) ListPending(ctx context.Context, tenantID st
 	}
 	out := make([]approvals.ApprovalRequest, len(recs))
 	for i, r := range recs {
-		out[i] = approvals.ApprovalRequest{
-			ID:                r.ID,
-			TenantID:          r.TenantID,
-			RequestID:         r.RequestID,
-			AgentName:         r.AgentName,
-			Service:           r.Service,
-			Action:            r.Action,
-			Input:             parseApprovalInputJSON(r.InputJSON),
-			Status:            approvals.ApprovalStatus(r.Status),
-			CreatedAt:         r.CreatedAt,
-			ExpiresAt:         r.ExpiresAt,
-			ResolvedAt:        r.ResolvedAt,
-			ResolvedBy:        r.ResolvedBy,
-			DenyReason:        r.Reason,
-			RequiredApprovals: max(1, r.RequiredApprovals),
-			Votes:             parseApprovalVotesJSON(r.VotesJSON),
-		}
+		out[i] = storeconv.ApprovalRequestFromRecord(r)
 	}
 	return out, nil
 }
@@ -118,23 +58,7 @@ func (a *storeApprovalStoreAdapter) ListAll(ctx context.Context, tenantID string
 	}
 	out := make([]approvals.ApprovalRequest, 0, len(recs))
 	for _, r := range recs {
-		item := approvals.ApprovalRequest{
-			ID:                r.ID,
-			TenantID:          r.TenantID,
-			RequestID:         r.RequestID,
-			AgentName:         r.AgentName,
-			Service:           r.Service,
-			Action:            r.Action,
-			Input:             parseApprovalInputJSON(r.InputJSON),
-			Status:            approvals.ApprovalStatus(r.Status),
-			CreatedAt:         r.CreatedAt,
-			ExpiresAt:         r.ExpiresAt,
-			ResolvedAt:        r.ResolvedAt,
-			ResolvedBy:        r.ResolvedBy,
-			DenyReason:        r.Reason,
-			RequiredApprovals: max(1, r.RequiredApprovals),
-			Votes:             parseApprovalVotesJSON(r.VotesJSON),
-		}
+		item := storeconv.ApprovalRequestFromRecord(r)
 		if filter.AgentName != "" && !strings.EqualFold(item.AgentName, filter.AgentName) {
 			continue
 		}
@@ -151,37 +75,4 @@ func (a *storeApprovalStoreAdapter) ListAll(ctx context.Context, tenantID string
 
 func (a *storeApprovalStoreAdapter) ExpireOld(ctx context.Context) (int, error) {
 	return expirePendingApprovalsWithSideEffects(ctx, a.st, "", nil)
-}
-
-func parseApprovalInputJSON(raw string) map[string]any {
-	if strings.TrimSpace(raw) == "" {
-		return nil
-	}
-	var input map[string]any
-	if err := json.Unmarshal([]byte(raw), &input); err != nil {
-		return nil
-	}
-	return input
-}
-
-func parseApprovalVotesJSON(raw string) []approvals.ApprovalVote {
-	if strings.TrimSpace(raw) == "" {
-		return nil
-	}
-	var votes []approvals.ApprovalVote
-	if err := json.Unmarshal([]byte(raw), &votes); err != nil {
-		return nil
-	}
-	return votes
-}
-
-func approvalVotesToJSON(votes []approvals.ApprovalVote) string {
-	if len(votes) == 0 {
-		return "[]"
-	}
-	b, err := json.Marshal(votes)
-	if err != nil {
-		return "[]"
-	}
-	return string(b)
 }

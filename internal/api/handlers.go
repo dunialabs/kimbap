@@ -20,6 +20,7 @@ import (
 	"github.com/dunialabs/kimbap/internal/policy"
 	runtimepkg "github.com/dunialabs/kimbap/internal/runtime"
 	"github.com/dunialabs/kimbap/internal/store"
+	"github.com/dunialabs/kimbap/internal/storeconv"
 	"github.com/dunialabs/kimbap/internal/vault"
 	"github.com/dunialabs/kimbap/internal/webhooks"
 	"github.com/go-chi/chi/v5"
@@ -262,7 +263,7 @@ func toTokenView(t store.TokenRecord) tokenView {
 		TenantID:    t.TenantID,
 		AgentName:   t.AgentName,
 		DisplayHint: t.DisplayHint,
-		Scopes:      parseScopes(t.Scopes),
+		Scopes:      storeconv.ParseScopes(t.Scopes),
 		CreatedAt:   t.CreatedAt,
 		ExpiresAt:   t.ExpiresAt,
 		LastUsedAt:  t.LastUsedAt,
@@ -715,19 +716,7 @@ func (a *storeTokenAdapter) Create(ctx context.Context, token *auth.ServiceToken
 	if token == nil {
 		return errors.New("token is required")
 	}
-	return a.st.CreateToken(ctx, &store.TokenRecord{
-		ID:          token.ID,
-		TenantID:    token.TenantID,
-		AgentName:   token.AgentName,
-		TokenHash:   token.TokenHash,
-		DisplayHint: token.DisplayHint,
-		Scopes:      marshalScopes(token.Scopes),
-		CreatedAt:   token.CreatedAt,
-		ExpiresAt:   token.ExpiresAt,
-		LastUsedAt:  token.LastUsedAt,
-		RevokedAt:   token.RevokedAt,
-		CreatedBy:   token.CreatedBy,
-	})
+	return a.st.CreateToken(ctx, storeconv.TokenRecordFromServiceToken(token))
 }
 
 func (a *storeTokenAdapter) ValidateAndResolve(ctx context.Context, rawToken string) (*auth.Principal, error) {
@@ -746,20 +735,7 @@ func (a *storeTokenAdapter) ValidateAndResolve(ctx context.Context, rawToken str
 	if now.After(token.ExpiresAt) {
 		return nil, auth.ErrExpiredToken
 	}
-	scopes := parseScopes(token.Scopes)
-	if token.Scopes != "" && scopes == nil {
-		return nil, auth.ErrInvalidToken
-	}
-	return &auth.Principal{
-		ID:        token.AgentName,
-		Type:      auth.PrincipalTypeService,
-		TenantID:  token.TenantID,
-		AgentName: token.AgentName,
-		Scopes:    scopes,
-		TokenID:   token.ID,
-		IssuedAt:  token.CreatedAt,
-		ExpiresAt: token.ExpiresAt,
-	}, nil
+	return storeconv.PrincipalFromTokenRecord(token)
 }
 
 func (a *storeTokenAdapter) Revoke(ctx context.Context, tokenID string) error {
@@ -780,20 +756,7 @@ func (a *storeTokenAdapter) List(ctx context.Context, tenantID string) ([]auth.S
 	}
 	out := make([]auth.ServiceToken, 0, len(items))
 	for i := range items {
-		it := items[i]
-		out = append(out, auth.ServiceToken{
-			ID:          it.ID,
-			TenantID:    it.TenantID,
-			AgentName:   it.AgentName,
-			TokenHash:   it.TokenHash,
-			DisplayHint: it.DisplayHint,
-			Scopes:      parseScopes(it.Scopes),
-			CreatedAt:   it.CreatedAt,
-			ExpiresAt:   it.ExpiresAt,
-			LastUsedAt:  it.LastUsedAt,
-			RevokedAt:   it.RevokedAt,
-			CreatedBy:   it.CreatedBy,
-		})
+		out = append(out, storeconv.ServiceTokenFromRecord(items[i]))
 	}
 	return out, nil
 }
@@ -806,19 +769,8 @@ func (a *storeTokenAdapter) Inspect(ctx context.Context, tokenID string) (*auth.
 		}
 		return nil, err
 	}
-	return &auth.ServiceToken{
-		ID:          it.ID,
-		TenantID:    it.TenantID,
-		AgentName:   it.AgentName,
-		TokenHash:   it.TokenHash,
-		DisplayHint: it.DisplayHint,
-		Scopes:      parseScopes(it.Scopes),
-		CreatedAt:   it.CreatedAt,
-		ExpiresAt:   it.ExpiresAt,
-		LastUsedAt:  it.LastUsedAt,
-		RevokedAt:   it.RevokedAt,
-		CreatedBy:   it.CreatedBy,
-	}, nil
+	converted := storeconv.ServiceTokenFromRecord(*it)
+	return &converted, nil
 }
 
 func (a *storeTokenAdapter) MarkUsed(ctx context.Context, tokenID string) error {
@@ -849,28 +801,6 @@ func sanitizeErrMsg(err error, status int) string {
 		return "internal server error"
 	}
 	return err.Error()
-}
-
-func marshalScopes(scopes []string) string {
-	if len(scopes) == 0 {
-		return "[]"
-	}
-	b, err := json.Marshal(scopes)
-	if err != nil {
-		return "[]"
-	}
-	return string(b)
-}
-
-func parseScopes(raw string) []string {
-	if strings.TrimSpace(raw) == "" {
-		return nil
-	}
-	var scopes []string
-	if err := json.Unmarshal([]byte(raw), &scopes); err != nil {
-		return nil
-	}
-	return scopes
 }
 
 func (s *Server) removeHeldExecution(ctx context.Context, approvalRequestID string) {

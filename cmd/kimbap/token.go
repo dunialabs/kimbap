@@ -4,7 +4,6 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"strings"
@@ -15,6 +14,7 @@ import (
 	"github.com/dunialabs/kimbap/internal/auth"
 	"github.com/dunialabs/kimbap/internal/config"
 	"github.com/dunialabs/kimbap/internal/store"
+	"github.com/dunialabs/kimbap/internal/storeconv"
 	"github.com/spf13/cobra"
 )
 
@@ -45,7 +45,7 @@ func newTokenCreateCommand() *cobra.Command {
 		Args:  cobra.NoArgs,
 		RunE: func(_ *cobra.Command, _ []string) error {
 			if strings.TrimSpace(agent) == "" {
-				return fmt.Errorf("--agent is required")
+				return fmt.Errorf("--agent is required\nRun: kimbap token create --agent <name>")
 			}
 
 			cfg, err := loadAppConfig()
@@ -247,19 +247,7 @@ func (a *sqlTokenStoreAdapter) Create(ctx context.Context, token *auth.ServiceTo
 	if token == nil {
 		return errors.New("token is required")
 	}
-	return a.st.CreateToken(ctx, &store.TokenRecord{
-		ID:          token.ID,
-		TenantID:    token.TenantID,
-		AgentName:   token.AgentName,
-		TokenHash:   token.TokenHash,
-		DisplayHint: token.DisplayHint,
-		Scopes:      marshalScopes(token.Scopes),
-		CreatedAt:   token.CreatedAt,
-		ExpiresAt:   token.ExpiresAt,
-		LastUsedAt:  token.LastUsedAt,
-		RevokedAt:   token.RevokedAt,
-		CreatedBy:   token.CreatedBy,
-	})
+	return a.st.CreateToken(ctx, storeconv.TokenRecordFromServiceToken(token))
 
 }
 
@@ -279,20 +267,7 @@ func (a *sqlTokenStoreAdapter) ValidateAndResolve(ctx context.Context, rawToken 
 	if now.After(token.ExpiresAt) {
 		return nil, auth.ErrExpiredToken
 	}
-	scopes := parseScopes(token.Scopes)
-	if token.Scopes != "" && scopes == nil {
-		return nil, auth.ErrInvalidToken
-	}
-	return &auth.Principal{
-		ID:        token.AgentName,
-		Type:      auth.PrincipalTypeService,
-		TenantID:  token.TenantID,
-		AgentName: token.AgentName,
-		Scopes:    scopes,
-		TokenID:   token.ID,
-		IssuedAt:  token.CreatedAt,
-		ExpiresAt: token.ExpiresAt,
-	}, nil
+	return storeconv.PrincipalFromTokenRecord(token)
 }
 
 func (a *sqlTokenStoreAdapter) Revoke(ctx context.Context, tokenID string) error {
@@ -313,20 +288,7 @@ func (a *sqlTokenStoreAdapter) List(ctx context.Context, tenantID string) ([]aut
 	}
 	out := make([]auth.ServiceToken, 0, len(items))
 	for i := range items {
-		it := items[i]
-		out = append(out, auth.ServiceToken{
-			ID:          it.ID,
-			TenantID:    it.TenantID,
-			AgentName:   it.AgentName,
-			TokenHash:   it.TokenHash,
-			DisplayHint: it.DisplayHint,
-			Scopes:      parseScopes(it.Scopes),
-			CreatedAt:   it.CreatedAt,
-			ExpiresAt:   it.ExpiresAt,
-			LastUsedAt:  it.LastUsedAt,
-			RevokedAt:   it.RevokedAt,
-			CreatedBy:   it.CreatedBy,
-		})
+		out = append(out, storeconv.ServiceTokenFromRecord(items[i]))
 	}
 	return out, nil
 }
@@ -339,19 +301,8 @@ func (a *sqlTokenStoreAdapter) Inspect(ctx context.Context, tokenID string) (*au
 		}
 		return nil, err
 	}
-	return &auth.ServiceToken{
-		ID:          it.ID,
-		TenantID:    it.TenantID,
-		AgentName:   it.AgentName,
-		TokenHash:   it.TokenHash,
-		DisplayHint: it.DisplayHint,
-		Scopes:      parseScopes(it.Scopes),
-		CreatedAt:   it.CreatedAt,
-		ExpiresAt:   it.ExpiresAt,
-		LastUsedAt:  it.LastUsedAt,
-		RevokedAt:   it.RevokedAt,
-		CreatedBy:   it.CreatedBy,
-	}, nil
+	converted := storeconv.ServiceTokenFromRecord(*it)
+	return &converted, nil
 }
 
 func (a *sqlTokenStoreAdapter) MarkUsed(ctx context.Context, tokenID string) error {
@@ -360,28 +311,6 @@ func (a *sqlTokenStoreAdapter) MarkUsed(ctx context.Context, tokenID string) err
 		return auth.ErrInvalidToken
 	}
 	return err
-}
-
-func marshalScopes(scopes []string) string {
-	if len(scopes) == 0 {
-		return "[]"
-	}
-	b, err := json.Marshal(scopes)
-	if err != nil {
-		return "[]"
-	}
-	return string(b)
-}
-
-func parseScopes(raw string) []string {
-	if strings.TrimSpace(raw) == "" {
-		return nil
-	}
-	var scopes []string
-	if err := json.Unmarshal([]byte(raw), &scopes); err != nil {
-		return nil
-	}
-	return scopes
 }
 
 func parseCSV(raw string) []string {

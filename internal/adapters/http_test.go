@@ -84,6 +84,41 @@ func TestHTTPAdapterSuccessPostJSONBody(t *testing.T) {
 	}
 }
 
+func TestHTTPAdapterPostBodyOmitsUndeclaredSchemaFields(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		body, _ := io.ReadAll(r.Body)
+		var payload map[string]any
+		_ = json.Unmarshal(body, &payload)
+		if payload["title"] != "hello" {
+			t.Fatalf("unexpected title payload: %+v", payload)
+		}
+		if _, ok := payload["inject"]; ok {
+			t.Fatalf("did not expect undeclared input field in body payload: %+v", payload)
+		}
+		w.WriteHeader(http.StatusCreated)
+		_, _ = w.Write([]byte(`{"id":1}`))
+	}))
+	defer server.Close()
+
+	adapter := NewHTTPAdapter(server.Client())
+	res, err := adapter.Execute(context.Background(), AdapterRequest{
+		Action: actions.ActionDefinition{
+			InputSchema: &actions.Schema{Properties: map[string]*actions.Schema{
+				"title": {Type: "string"},
+			}},
+			Adapter: actions.AdapterConfig{Type: "http", Method: "POST", URLTemplate: server.URL + "/issues"},
+		},
+		Input: map[string]any{"title": "hello", "inject": true},
+	})
+
+	if err != nil {
+		t.Fatalf("expected no error, got %v", err)
+	}
+	if res.HTTPStatus != http.StatusCreated {
+		t.Fatalf("expected 201, got %d", res.HTTPStatus)
+	}
+}
+
 func TestHTTPAdapterURLTemplateAndCustomHeader(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path != "/repos/octo/kimbap/issues" {

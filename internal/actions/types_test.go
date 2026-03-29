@@ -161,6 +161,17 @@ func TestValidateInputExtraFieldIgnored(t *testing.T) {
 	}
 }
 
+func TestValidateInputRejectsUnknownFieldWhenStrictSchemaWithoutProperties(t *testing.T) {
+	schema := &Schema{Type: "object", AdditionalProperties: false}
+	err := ValidateInput(schema, map[string]any{"unexpected": "value"})
+	if err == nil {
+		t.Fatal("expected unknown field error")
+	}
+	if !strings.Contains(err.Message, "unknown field") {
+		t.Fatalf("expected unknown field error, got %q", err.Message)
+	}
+}
+
 func TestValidateInputEmptySchemaPassesAll(t *testing.T) {
 	err := ValidateInput(&Schema{}, map[string]any{"anything": 123, "nested": map[string]any{"x": true}})
 	if err != nil {

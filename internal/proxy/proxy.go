@@ -47,6 +47,8 @@ const (
 	maxProxyConnRequestHeaderBytes = 64 << 10 // 64 KB — bounds bufio.NewReader on CONNECT tunnel
 )
 
+var errProxyNonJSONMatchedBody = errors.New("matched proxy requests only support empty or JSON request bodies")
+
 var proxyForwardTransport = &http.Transport{
 	Proxy: nil,
 	DialContext: (&net.Dialer{
@@ -502,11 +504,15 @@ func (p *ProxyServer) executeClassifiedRequest(ctx context.Context, req *http.Re
 
 	input, err := extractProxyInput(req)
 	if err != nil {
+		httpStatus := http.StatusBadRequest
+		if errors.Is(err, errProxyNonJSONMatchedBody) {
+			httpStatus = http.StatusUnsupportedMediaType
+		}
 		return actions.ExecutionResult{
 			RequestID:  requestID,
 			Status:     actions.StatusError,
-			HTTPStatus: http.StatusBadRequest,
-			Error:      actions.NewExecutionError(actions.ErrValidationFailed, err.Error(), http.StatusBadRequest, false, nil),
+			HTTPStatus: httpStatus,
+			Error:      actions.NewExecutionError(actions.ErrValidationFailed, err.Error(), httpStatus, false, nil),
 		}
 	}
 
@@ -575,8 +581,7 @@ func extractProxyInput(req *http.Request) (map[string]any, error) {
 
 	var body any
 	if err := json.Unmarshal(trimmed, &body); err != nil {
-		out["raw_body"] = string(raw)
-		return out, nil
+		return nil, errProxyNonJSONMatchedBody
 	}
 
 	switch typed := body.(type) {

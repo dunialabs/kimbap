@@ -278,6 +278,9 @@ func ValidateInput(schema *Schema, input map[string]any) *ExecutionError {
 	if input == nil {
 		input = map[string]any{}
 	}
+	if schema.Type == "" && schema.Properties == nil && len(schema.Required) == 0 {
+		return nil
+	}
 
 	for _, key := range schema.Required {
 		if _, ok := input[key]; !ok {
@@ -291,11 +294,20 @@ func ValidateInput(schema *Schema, input map[string]any) *ExecutionError {
 		}
 	}
 
-	if schema.Properties == nil {
-		return nil
-	}
-
 	for key, value := range input {
+		if schema.Properties == nil {
+			if !schema.AdditionalProperties {
+				return NewExecutionError(
+					ErrValidationFailed,
+					fmt.Sprintf("unknown field %q", key),
+					400,
+					false,
+					map[string]any{"field": key},
+				)
+			}
+			continue
+		}
+
 		prop, ok := schema.Properties[key]
 		if !ok {
 			if !schema.AdditionalProperties {

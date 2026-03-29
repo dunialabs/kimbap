@@ -62,6 +62,51 @@ func TestServerHealthAndRequestID(t *testing.T) {
 	}
 }
 
+func TestStoreTokenAdapterValidateAndResolveUsesTokenIDAsPrincipalID(t *testing.T) {
+	st, err := store.OpenSQLiteStore(filepath.Join(t.TempDir(), "api-token-adapter-principal.sqlite"))
+	if err != nil {
+		t.Fatalf("open sqlite store: %v", err)
+	}
+	if err := st.Migrate(context.Background()); err != nil {
+		t.Fatalf("migrate store: %v", err)
+	}
+
+	rawToken := "ktk_test_token_value"
+	hash := sha256.Sum256([]byte(rawToken))
+	record := &store.TokenRecord{
+		ID:          "st_token_identity",
+		TenantID:    "tenant-a",
+		AgentName:   "agent-a",
+		TokenHash:   hex.EncodeToString(hash[:]),
+		DisplayHint: "xxxx",
+		Scopes:      `["read"]`,
+		CreatedAt:   time.Now().UTC().Add(-1 * time.Minute),
+		ExpiresAt:   time.Now().UTC().Add(30 * time.Minute),
+		CreatedBy:   "test",
+	}
+	if err := st.CreateToken(context.Background(), record); err != nil {
+		t.Fatalf("create token: %v", err)
+	}
+
+	adapter := &storeTokenAdapter{st: st}
+	principal, err := adapter.ValidateAndResolve(context.Background(), rawToken)
+	if err != nil {
+		t.Fatalf("ValidateAndResolve error: %v", err)
+	}
+	if principal == nil {
+		t.Fatal("expected principal")
+	}
+	if principal.ID != record.ID {
+		t.Fatalf("expected principal.ID=%q, got %q", record.ID, principal.ID)
+	}
+	if principal.TokenID != record.ID {
+		t.Fatalf("expected principal.TokenID=%q, got %q", record.ID, principal.TokenID)
+	}
+	if principal.AgentName != record.AgentName {
+		t.Fatalf("expected principal.AgentName=%q, got %q", record.AgentName, principal.AgentName)
+	}
+}
+
 func TestServerListActions(t *testing.T) {
 	ts, _ := newTestAPIServer(t)
 

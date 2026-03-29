@@ -178,16 +178,15 @@ func buildCommandArgPairs(req AdapterRequest) []string {
 		return nil
 	}
 
-	seen := make(map[string]bool)
 	argNames := make([]string, 0, len(input))
-	if req.Action.InputSchema != nil {
+	if req.Action.InputSchema != nil && req.Action.InputSchema.Properties != nil {
 		for name := range req.Action.InputSchema.Properties {
-			seen[name] = true
-			argNames = append(argNames, name)
+			if _, ok := input[name]; ok {
+				argNames = append(argNames, name)
+			}
 		}
-	}
-	for name := range input {
-		if !seen[name] {
+	} else {
+		for name := range input {
 			argNames = append(argNames, name)
 		}
 	}

@@ -468,6 +468,56 @@ func TestProxyRuntimeSuccessReturnsJSON(t *testing.T) {
 	}
 }
 
+func TestProxyMatchedRequestRejectsNonJSONBody(t *testing.T) {
+	target := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer target.Close()
+
+	targetURL, _ := url.Parse(target.URL)
+	c := classifier.NewClassifier()
+	if err := c.AddRule(classifier.Rule{
+		ID:          "test-rule-post",
+		Service:     "test-svc",
+		Action:      "test-action",
+		HostPattern: targetURL.Hostname(),
+		PathPattern: "/api",
+		Method:      "POST",
+		Priority:    100,
+	}); err != nil {
+		t.Fatalf("AddRule failed: %v", err)
+	}
+	rt := runtime.NewRuntime(runtime.Runtime{
+		PolicyEvaluator: allowPolicyEvaluator{},
+		ActionRegistry: staticActionRegistry{def: actions.ActionDefinition{
+			Name:       "test-svc.test-action",
+			Idempotent: true,
+			Auth:       actions.AuthRequirement{Type: actions.AuthTypeNone},
+			Adapter:    actions.AdapterConfig{Type: "http"},
+		}},
+		Adapters: map[string]adapters.Adapter{"http": echoAdapter{}},
+	})
+
+	proxyAddr, stop := startTestProxyWithRuntime(t, c, UnmatchedPolicyAllow, rt)
+	defer stop()
+
+	proxyURL, _ := url.Parse("http://" + proxyAddr)
+	client := &http.Client{Transport: &http.Transport{Proxy: http.ProxyURL(proxyURL)}}
+
+	req, _ := http.NewRequest(http.MethodPost, target.URL+"/api", strings.NewReader("a=b&c=d"))
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	resp, err := client.Do(req)
+	if err != nil {
+		t.Fatalf("request via proxy failed: %v", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusUnsupportedMediaType {
+		body, _ := io.ReadAll(resp.Body)
+		t.Fatalf("expected 415 for matched non-JSON body, got %d body=%s", resp.StatusCode, string(body))
+	}
+}
+
 func TestProxyRuntimeRequiresExplicitIdempotencyKeyForNonIdempotentAction(t *testing.T) {
 	target := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusOK)
