@@ -1412,7 +1412,7 @@ td.mono {
   }
 
   function errorBannerHTML(msg) {
-    return '<div class="error-banner">⚠ ' + esc(msg) + '</div>';
+    return '<div class="error-banner">⚠ ' + esc(msg) + '<button type="button" style="margin-left:auto;background:none;border:none;color:inherit;cursor:pointer;font-size:16px;padding:0 4px" onclick="this.parentElement.remove()" aria-label="Dismiss">×</button></div>';
   }
 
   function pruneNulls(obj) {
