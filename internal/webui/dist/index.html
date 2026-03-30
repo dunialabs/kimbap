@@ -1641,7 +1641,11 @@ td.mono {
 
       html += '<button type="button" class="action-item" data-action="' + escAttr(name) + '">' +
         '<div class="action-body">' +
-          '<div class="action-name">' + esc(name) + '</div>' +
+          '<div class="action-name">' + (function() {
+            var dot = name.indexOf('.');
+            if (dot > 0) return '<span style="color:var(--text-muted)">' + esc(name.substring(0, dot)) + '</span>.' + esc(name.substring(dot + 1));
+            return esc(name);
+          })() + '</div>' +
           (desc ? '<div class="action-desc">' + esc(desc) + '</div>' : '') +
           '<div class="action-meta">' +
             riskBadge(risk) +
@@ -1726,7 +1730,7 @@ td.mono {
     parts = ['kimbap call', name];
     for (j = 0; j < requiredKeys.length; j++) {
       parts.push('--' + requiredKeys[j]);
-      parts.push('"VALUE"');
+      parts.push('<value>');
     }
     return parts.join(' ');
   }
@@ -2142,7 +2146,7 @@ td.mono {
       }
       var actionAriaAttr = actionFull !== '—' ? ' aria-label="' + escAttr(actionAria) + '"' : '';
       html += '<tr>' +
-        '<td class="mono"' + idTitleAttr + idAriaAttr + '>' + esc(id || '—') + '</td>' +
+        '<td class="mono"' + idTitleAttr + idAriaAttr + '>' + esc(id ? (id.length > 8 ? id.substring(0, 8) + '…' : id) : '—') + '</td>' +
         '<td class="mono" style="color:var(--text-primary)"' + actionTitleAttr + actionAriaAttr + '>' + esc(actionFull) +
           (inputSummary ? '<br><span style="font-size:11px;color:var(--text-muted);font-weight:normal"' + inputSummaryTitleAttr + inputSummaryAriaAttr + '>' + esc(inputSummary) + '</span>' : '') +
         '</td>' +
