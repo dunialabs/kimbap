@@ -22,6 +22,8 @@ const (
 
 var KnownAgents = []AgentKind{AgentClaudeCode, AgentOpenCode, AgentCodex, AgentCursor, AgentGeneric}
 
+const managedSkillMarkerFile = ".kimbap-managed"
+
 type AgentConfig struct {
 	Kind           AgentKind
 	AgentSkillsDir string
@@ -213,6 +215,17 @@ func SyncServices(installer ServiceInstaller, rulesContent string, opts SyncOpti
 					continue
 				}
 				packDir := filepath.Join(projectDir, selected.cfg.AgentSkillsDir, pack.Name)
+				managed, ownerErr := isManagedSkillDir(packDir)
+				if ownerErr != nil {
+					result.Failed = append(result.Failed, pack.Name)
+					result.Errors = append(result.Errors, fmt.Sprintf("service %q: check ownership: %v", pack.Name, ownerErr))
+					continue
+				}
+				if !managed {
+					result.Failed = append(result.Failed, pack.Name)
+					result.Errors = append(result.Errors, fmt.Sprintf("service %q: existing unmanaged skill directory; refusing to overwrite", pack.Name))
+					continue
+				}
 				allFiles := make(map[string]string, len(pack.PackFiles)+1)
 				if pack.AgentSkillMD != "" {
 					allFiles["SKILL.md"] = pack.AgentSkillMD
@@ -220,6 +233,7 @@ func SyncServices(installer ServiceInstaller, rulesContent string, opts SyncOpti
 				for k, v := range pack.PackFiles {
 					allFiles[k] = v
 				}
+				allFiles[managedSkillMarkerFile] = "managed_by: kimbap\n"
 				needsWrite, checkErr := packNeedsWrite(packDir, allFiles, opts.Force)
 				if checkErr != nil {
 					result.Failed = append(result.Failed, pack.Name)
@@ -261,13 +275,32 @@ func SyncServices(installer ServiceInstaller, rulesContent string, opts SyncOpti
 				}
 
 				agentSkillPath := filepath.Join(projectDir, selected.cfg.AgentSkillsDir, installedService.Name, "SKILL.md")
+				serviceDir := filepath.Dir(agentSkillPath)
+				managed, ownerErr := isManagedSkillDir(serviceDir)
+				if ownerErr != nil {
+					result.Failed = append(result.Failed, installedService.Name)
+					result.Errors = append(result.Errors, fmt.Sprintf("service %q: check ownership: %v", installedService.Name, ownerErr))
+					continue
+				}
+				if !managed {
+					result.Failed = append(result.Failed, installedService.Name)
+					result.Errors = append(result.Errors, fmt.Sprintf("service %q: existing unmanaged skill directory; refusing to overwrite", installedService.Name))
+					continue
+				}
+				markerPath := filepath.Join(projectDir, selected.cfg.AgentSkillsDir, installedService.Name, managedSkillMarkerFile)
 				needsWrite, checkErr := fileNeedsWrite(agentSkillPath, installedService.Content, opts.Force)
 				if checkErr != nil {
 					result.Failed = append(result.Failed, installedService.Name)
 					result.Errors = append(result.Errors, fmt.Sprintf("service %q: %v", installedService.Name, checkErr))
 					continue
 				}
-				if !needsWrite {
+				markerNeedsWrite, markerErr := fileNeedsWrite(markerPath, "managed_by: kimbap\n", opts.Force)
+				if markerErr != nil {
+					result.Failed = append(result.Failed, installedService.Name)
+					result.Errors = append(result.Errors, fmt.Sprintf("service %q marker: %v", installedService.Name, markerErr))
+					continue
+				}
+				if !needsWrite && !markerNeedsWrite {
 					result.Skipped = append(result.Skipped, installedService.Name)
 					continue
 				}
@@ -282,13 +315,30 @@ func SyncServices(installer ServiceInstaller, rulesContent string, opts SyncOpti
 					result.Errors = append(result.Errors, fmt.Sprintf("service %q: create dir: %v", installedService.Name, err))
 					continue
 				}
-				if err := atomicWriteFile(agentSkillPath, installedService.Content); err != nil {
-					result.Failed = append(result.Failed, installedService.Name)
-					result.Errors = append(result.Errors, fmt.Sprintf("service %q: write file: %v", installedService.Name, err))
-					continue
+				if needsWrite {
+					if err := atomicWriteFile(agentSkillPath, installedService.Content); err != nil {
+						result.Failed = append(result.Failed, installedService.Name)
+						result.Errors = append(result.Errors, fmt.Sprintf("service %q: write file: %v", installedService.Name, err))
+						continue
+					}
+				}
+				if markerNeedsWrite {
+					if err := atomicWriteFile(markerPath, "managed_by: kimbap\n"); err != nil {
+						result.Failed = append(result.Failed, installedService.Name)
+						result.Errors = append(result.Errors, fmt.Sprintf("service %q: write marker: %v", installedService.Name, err))
+						continue
+					}
 				}
 
-				result.Written = append(result.Written, installedService.Name)
+				if !needsWrite && markerNeedsWrite {
+					result.Written = append(result.Written, installedService.Name)
+					continue
+				}
+				if needsWrite {
+					result.Written = append(result.Written, installedService.Name)
+					continue
+				}
+				result.Skipped = append(result.Skipped, installedService.Name)
 			}
 
 			if !opts.SkipPrune {
@@ -447,6 +497,25 @@ func pathExists(path string) (bool, error) {
 	return false, err
 }
 
+func isManagedSkillDir(path string) (bool, error) {
+	info, err := os.Stat(path)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return true, nil
+		}
+		return false, err
+	}
+	if !info.IsDir() {
+		return false, fmt.Errorf("path %q is not a directory", path)
+	}
+	markerPath := filepath.Join(path, managedSkillMarkerFile)
+	exists, markerErr := pathExists(markerPath)
+	if markerErr != nil {
+		return false, markerErr
+	}
+	return exists, nil
+}
+
 func fileNeedsWrite(path string, content string, force bool) (bool, error) {
 	if force {
 		return true, nil
@@ -522,8 +591,8 @@ func listSyncedServices(agentSkillsDir string) ([]string, error) {
 		if !entry.IsDir() || entry.Name() == "kimbap" {
 			continue
 		}
-		agentSkillFile := filepath.Join(agentSkillsDir, entry.Name(), "SKILL.md")
-		exists, err := pathExists(agentSkillFile)
+		markerFile := filepath.Join(agentSkillsDir, entry.Name(), managedSkillMarkerFile)
+		exists, err := pathExists(markerFile)
 		if err != nil {
 			return nil, err
 		}
@@ -556,8 +625,8 @@ func pruneStaleServices(agentSkillsDir string, installed []InstalledService, dry
 		if !entry.IsDir() || active[entry.Name()] {
 			continue
 		}
-		agentSkillFile := filepath.Join(agentSkillsDir, entry.Name(), "SKILL.md")
-		if _, err := os.Stat(agentSkillFile); err != nil {
+		markerFile := filepath.Join(agentSkillsDir, entry.Name(), managedSkillMarkerFile)
+		if _, err := os.Stat(markerFile); err != nil {
 			if os.IsNotExist(err) {
 				continue
 			}

@@ -787,7 +787,7 @@ func mapApprovalError(err error) *actions.ExecutionError {
 		return actions.NewExecutionError(actions.ErrValidationFailed, "approval already resolved", http.StatusConflict, false, nil)
 	case errors.Is(err, approvals.ErrExpired), errors.Is(err, store.ErrApprovalExpired):
 		return actions.NewExecutionError(actions.ErrApprovalTimeout, "approval has expired", http.StatusGone, false, nil)
-	case errors.Is(err, approvals.ErrDuplicateVote):
+	case errors.Is(err, approvals.ErrDuplicateVote), errors.Is(err, store.ErrApprovalDuplicateVote):
 		return actions.NewExecutionError(actions.ErrValidationFailed, "approver has already voted", http.StatusConflict, false, nil)
 	case errors.Is(err, approvals.ErrNotFound), errors.Is(err, store.ErrNotFound):
 		return actions.NewExecutionError(actions.ErrResourceNotFound, "approval not found", http.StatusNotFound, false, nil)

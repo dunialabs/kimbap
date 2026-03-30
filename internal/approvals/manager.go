@@ -21,6 +21,14 @@ type ApprovalStore interface {
 	ExpireOld(ctx context.Context) (int, error)
 }
 
+type approvalResolutionStore interface {
+	Resolve(ctx context.Context, id string, actor string, decision ApprovalStatus, reason string) (*ApprovalRequest, error)
+}
+
+type approvalResolutionCapability interface {
+	CanResolveApproval() bool
+}
+
 type ApprovalFilter struct {
 	Status    *ApprovalStatus
 	AgentName string
@@ -84,6 +92,13 @@ func (m *ApprovalManager) Approve(ctx context.Context, id string, approvedBy str
 		return errors.New("approved_by is required")
 	}
 
+	if resolver, ok := m.store.(approvalResolutionStore); ok {
+		if capStore, hasCap := m.store.(approvalResolutionCapability); !hasCap || capStore.CanResolveApproval() {
+			_, err := resolver.Resolve(ctx, id, approvedBy, StatusApproved, "")
+			return err
+		}
+	}
+
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
@@ -132,6 +147,13 @@ func (m *ApprovalManager) Deny(ctx context.Context, id string, deniedBy string, 
 	deniedBy = strings.TrimSpace(deniedBy)
 	if deniedBy == "" {
 		return errors.New("denied_by is required")
+	}
+
+	if resolver, ok := m.store.(approvalResolutionStore); ok {
+		if capStore, hasCap := m.store.(approvalResolutionCapability); !hasCap || capStore.CanResolveApproval() {
+			_, err := resolver.Resolve(ctx, id, deniedBy, StatusDenied, reason)
+			return err
+		}
 	}
 
 	m.mu.Lock()

@@ -342,6 +342,91 @@ func TestSQLiteStoreUpdateApprovalStatusExpiredReturnsTypedError(t *testing.T) {
 	}
 }
 
+func TestSQLiteStoreResolveApprovalVoteApproveThresholdAndDuplicate(t *testing.T) {
+	st := newTestSQLiteStore(t)
+	ctx := context.Background()
+	now := time.Now().UTC()
+
+	req := &ApprovalRecord{
+		ID:                "apr-resolve-approve",
+		TenantID:          "tenant-a",
+		RequestID:         "req-resolve-approve",
+		AgentName:         "agent-a",
+		Service:           "github",
+		Action:            "issues.create",
+		Status:            "pending",
+		InputJSON:         `{}`,
+		RequiredApprovals: 2,
+		VotesJSON:         `[]`,
+		CreatedAt:         now,
+		ExpiresAt:         now.Add(10 * time.Minute),
+	}
+	if err := st.CreateApproval(ctx, req); err != nil {
+		t.Fatalf("create approval: %v", err)
+	}
+
+	first, err := st.ResolveApprovalVote(ctx, req.ID, "operator-1", "approved", "")
+	if err != nil {
+		t.Fatalf("first resolve vote: %v", err)
+	}
+	if first.Status != "pending" {
+		t.Fatalf("expected pending after first approval vote, got %s", first.Status)
+	}
+
+	if _, err := st.ResolveApprovalVote(ctx, req.ID, "operator-1", "approved", ""); !errors.Is(err, ErrApprovalDuplicateVote) {
+		t.Fatalf("expected ErrApprovalDuplicateVote, got %v", err)
+	}
+
+	second, err := st.ResolveApprovalVote(ctx, req.ID, "operator-2", "approved", "")
+	if err != nil {
+		t.Fatalf("second resolve vote: %v", err)
+	}
+	if second.Status != "approved" {
+		t.Fatalf("expected approved after second vote, got %s", second.Status)
+	}
+	if second.ResolvedAt == nil {
+		t.Fatal("expected resolved_at after approval threshold met")
+	}
+}
+
+func TestSQLiteStoreResolveApprovalVoteDenyImmediatelyResolves(t *testing.T) {
+	st := newTestSQLiteStore(t)
+	ctx := context.Background()
+	now := time.Now().UTC()
+
+	req := &ApprovalRecord{
+		ID:                "apr-resolve-deny",
+		TenantID:          "tenant-a",
+		RequestID:         "req-resolve-deny",
+		AgentName:         "agent-a",
+		Service:           "github",
+		Action:            "issues.create",
+		Status:            "pending",
+		InputJSON:         `{}`,
+		RequiredApprovals: 3,
+		VotesJSON:         `[]`,
+		CreatedAt:         now,
+		ExpiresAt:         now.Add(10 * time.Minute),
+	}
+	if err := st.CreateApproval(ctx, req); err != nil {
+		t.Fatalf("create approval: %v", err)
+	}
+
+	updated, err := st.ResolveApprovalVote(ctx, req.ID, "operator-3", "denied", "insufficient context")
+	if err != nil {
+		t.Fatalf("resolve deny vote: %v", err)
+	}
+	if updated.Status != "denied" {
+		t.Fatalf("expected denied status, got %s", updated.Status)
+	}
+	if updated.ResolvedBy != "operator-3" {
+		t.Fatalf("expected resolved_by operator-3, got %q", updated.ResolvedBy)
+	}
+	if updated.Reason != "insufficient context" {
+		t.Fatalf("expected deny reason persisted, got %q", updated.Reason)
+	}
+}
+
 func TestSQLiteStorePolicySetAndGet(t *testing.T) {
 	st := newTestSQLiteStore(t)
 	ctx := context.Background()

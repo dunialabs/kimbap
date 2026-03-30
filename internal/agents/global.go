@@ -560,6 +560,14 @@ func validatePackFileName(name string) error {
 	return nil
 }
 
+func WritePackDir(targetDir string, files map[string]string) error {
+	return atomicWriteDir(targetDir, files)
+}
+
+func ValidatePackFileName(name string) error {
+	return validatePackFileName(name)
+}
+
 // GlobalStatus returns the global setup state for all known agents.
 func GlobalStatus() ([]GlobalStatusResult, error) {
 	configs, err := resolveGlobalConfigs()

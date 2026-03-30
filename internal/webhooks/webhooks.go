@@ -60,6 +60,12 @@ type Subscription struct {
 }
 
 const maxConcurrentDeliveries = 32
+const deliveryQueueSize = maxConcurrentDeliveries * 64
+
+type deliveryTask struct {
+	subscription Subscription
+	event        Event
+}
 
 type Dispatcher struct {
 	mu            sync.RWMutex
@@ -68,6 +74,7 @@ type Dispatcher struct {
 	events        []Event
 	maxEvents     int
 	deliverySem   chan struct{}
+	deliveryQueue chan deliveryTask
 	eventSink     func(Event)
 }
 
@@ -128,11 +135,16 @@ func NewDispatcher() *Dispatcher {
 }
 
 func newDispatcher(client *http.Client) *Dispatcher {
-	return &Dispatcher{
-		client:      client,
-		maxEvents:   1000,
-		deliverySem: make(chan struct{}, maxConcurrentDeliveries),
+	dispatcher := &Dispatcher{
+		client:        client,
+		maxEvents:     1000,
+		deliverySem:   make(chan struct{}, maxConcurrentDeliveries),
+		deliveryQueue: make(chan deliveryTask, deliveryQueueSize),
 	}
+	for i := 0; i < maxConcurrentDeliveries; i++ {
+		go dispatcher.deliveryWorker()
+	}
+	return dispatcher
 }
 
 func IsPrivateIP(ip net.IP) bool {
@@ -266,11 +278,20 @@ func (d *Dispatcher) EmitForTenant(tenantID string, eventType EventType, data an
 		if sub.TenantID != "" && sub.TenantID != event.TenantID {
 			continue
 		}
-		go func(s Subscription) {
-			d.deliverySem <- struct{}{}
-			defer func() { <-d.deliverySem }()
-			d.deliver(s, event)
-		}(sub)
+		task := deliveryTask{subscription: sub, event: event}
+		select {
+		case d.deliveryQueue <- task:
+		default:
+			log.Warn().Str("subscriptionId", sub.ID).Str("eventType", string(eventType)).Msg("webhook delivery queue full; dropping event")
+		}
+	}
+}
+
+func (d *Dispatcher) deliveryWorker() {
+	for task := range d.deliveryQueue {
+		d.deliverySem <- struct{}{}
+		d.deliver(task.subscription, task.event)
+		<-d.deliverySem
 	}
 }
 

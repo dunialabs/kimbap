@@ -134,14 +134,18 @@ func BuildRuntime(deps RuntimeDeps) (*runtimepkg.Runtime, error) {
 }
 
 type servicesActionRegistry struct {
-	installer        *services.LocalInstaller
-	verifyMode       string
-	signaturePolicy  string
-	servicesDir      string
-	mu               sync.RWMutex
-	cachedDefs       []actions.ActionDefinition
-	cachedByName     map[string]actions.ActionDefinition
-	cacheFingerprint string
+	installer           *services.LocalInstaller
+	verifyMode          string
+	signaturePolicy     string
+	servicesDir         string
+	mu                  sync.RWMutex
+	cachedDefs          []actions.ActionDefinition
+	cachedByName        map[string]actions.ActionDefinition
+	cacheFingerprint    string
+	cachedDirState      string
+	cachedManifestFiles []string
+	lastFullScan        time.Time
+	fullScanInterval    time.Duration
 }
 
 func (r *servicesActionRegistry) InvalidateActionDefinitionCache() {
@@ -153,6 +157,9 @@ func (r *servicesActionRegistry) InvalidateActionDefinitionCache() {
 	r.cachedDefs = nil
 	r.cachedByName = nil
 	r.cacheFingerprint = ""
+	r.cachedDirState = ""
+	r.cachedManifestFiles = nil
+	r.lastFullScan = time.Time{}
 }
 
 func (r *servicesActionRegistry) Lookup(_ context.Context, name string) (*actions.ActionDefinition, error) {
@@ -215,12 +222,13 @@ func (r *servicesActionRegistry) List(_ context.Context, opts runtimepkg.ListOpt
 	return filtered, nil
 }
 
-func (r *servicesActionRegistry) computeFingerprint() string {
+func (r *servicesActionRegistry) computeFingerprint() (string, []string) {
 	entries, err := os.ReadDir(r.servicesDir)
 	if err != nil {
-		return ""
+		return "", nil
 	}
 	var b strings.Builder
+	manifestFiles := make([]string, 0)
 	for _, e := range entries {
 		if e.IsDir() || filepath.Ext(e.Name()) != ".yaml" {
 			continue
@@ -229,11 +237,45 @@ func (r *servicesActionRegistry) computeFingerprint() string {
 		if err != nil {
 			continue
 		}
+		manifestFiles = append(manifestFiles, filepath.Join(r.servicesDir, e.Name()))
 		fmt.Fprintf(&b, "%s:%d:%d;", e.Name(), info.Size(), info.ModTime().UnixNano())
 	}
 	lockPath := filepath.Join(r.servicesDir, "kimbap-services.lock")
 	if info, err := os.Stat(lockPath); err == nil {
 		fmt.Fprintf(&b, "lock:%d:%d", info.Size(), info.ModTime().UnixNano())
+	}
+	return b.String(), manifestFiles
+}
+
+func (r *servicesActionRegistry) computeDirectoryStateLocked() string {
+	dirInfo, err := os.Stat(r.servicesDir)
+	if err != nil {
+		if errors.Is(err, os.ErrNotExist) {
+			return "dir:missing;lock:missing"
+		}
+		return ""
+	}
+	var b strings.Builder
+	fmt.Fprintf(&b, "dir:%d:%d;", dirInfo.Size(), dirInfo.ModTime().UnixNano())
+
+	lockPath := filepath.Join(r.servicesDir, "kimbap-services.lock")
+	if info, lockErr := os.Stat(lockPath); lockErr == nil {
+		fmt.Fprintf(&b, "lock:%d:%d", info.Size(), info.ModTime().UnixNano())
+	} else if errors.Is(lockErr, os.ErrNotExist) {
+		b.WriteString("lock:missing")
+	} else {
+		return ""
+	}
+	for _, manifestPath := range r.cachedManifestFiles {
+		info, statErr := os.Stat(manifestPath)
+		if statErr != nil {
+			if errors.Is(statErr, os.ErrNotExist) {
+				fmt.Fprintf(&b, ";manifest:%s:missing", manifestPath)
+				continue
+			}
+			return ""
+		}
+		fmt.Fprintf(&b, ";manifest:%s:%d:%d", manifestPath, info.Size(), info.ModTime().UnixNano())
 	}
 	return b.String()
 }
@@ -242,13 +284,27 @@ func (r *servicesActionRegistry) loadDefinitions() ([]actions.ActionDefinition, 
 	if r == nil || r.installer == nil {
 		return nil, fmt.Errorf("services installer is not initialized")
 	}
-	fp := r.computeFingerprint()
+	scanInterval := r.fullScanInterval
+	if scanInterval <= 0 {
+		scanInterval = time.Second
+	}
+	now := time.Now()
 
 	r.mu.Lock()
 	defer r.mu.Unlock()
-	if fp != "" && fp == r.cacheFingerprint && r.cachedDefs != nil {
+	dirState := r.computeDirectoryStateLocked()
+	if r.cachedDefs != nil && dirState != "" && dirState == r.cachedDirState && now.Sub(r.lastFullScan) < scanInterval {
 		return r.cachedDefs, nil
 	}
+
+	fp, manifestFiles := r.computeFingerprint()
+	if fp != "" && fp == r.cacheFingerprint && r.cachedDefs != nil {
+		r.cachedDirState = dirState
+		r.cachedManifestFiles = manifestFiles
+		r.lastFullScan = now
+		return r.cachedDefs, nil
+	}
+
 	defs, err := r.loadDefinitionsUncached()
 	if err != nil {
 		return nil, err
@@ -260,6 +316,9 @@ func (r *servicesActionRegistry) loadDefinitions() ([]actions.ActionDefinition, 
 	r.cachedDefs = defs
 	r.cachedByName = byName
 	r.cacheFingerprint = fp
+	r.cachedDirState = dirState
+	r.cachedManifestFiles = manifestFiles
+	r.lastFullScan = now
 	return defs, nil
 }
 

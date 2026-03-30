@@ -204,6 +204,44 @@ func TestStatusAfterSync(t *testing.T) {
 	}
 }
 
+func TestStatusSkipsUnmanagedSkillDirectories(t *testing.T) {
+	dir := t.TempDir()
+	installer := fakeInstaller{skills: []InstalledService{{Name: "github-pr", Content: "# SKILL\n"}}}
+
+	if _, err := SyncServices(installer, "# rules\n", SyncOptions{ProjectDir: dir, Agents: []AgentKind{AgentClaudeCode}}); err != nil {
+		t.Fatalf("sync failed: %v", err)
+	}
+
+	customDir := filepath.Join(dir, ".claude", "skills", "custom")
+	if err := os.MkdirAll(customDir, 0o755); err != nil {
+		t.Fatalf("create custom dir: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(customDir, "SKILL.md"), []byte("# custom\n"), 0o644); err != nil {
+		t.Fatalf("write custom skill: %v", err)
+	}
+
+	statuses, err := Status(dir)
+	if err != nil {
+		t.Fatalf("status failed: %v", err)
+	}
+
+	var claude StatusResult
+	found := false
+	for _, status := range statuses {
+		if status.Agent == AgentClaudeCode {
+			claude = status
+			found = true
+			break
+		}
+	}
+	if !found {
+		t.Fatal("expected claude-code status")
+	}
+	if len(claude.SyncedServices) != 1 || claude.SyncedServices[0] != "github-pr" {
+		t.Fatalf("expected only managed service in synced list, got %+v", claude.SyncedServices)
+	}
+}
+
 func TestIsAgentDetectedDetailedReturnsErrorOnNonDirectoryPath(t *testing.T) {
 	dir := t.TempDir()
 	projectFile := filepath.Join(dir, "project-file")
@@ -378,6 +416,81 @@ func TestSyncServicesSkipPrunePreservesStaleDir(t *testing.T) {
 
 	if _, err := os.Stat(staleDir); err != nil {
 		t.Fatalf("expected stale service dir to remain when SkipPrune=true, stat err=%v", err)
+	}
+}
+
+func TestSyncServicesDoesNotOverwriteUnmanagedLegacySkillDir(t *testing.T) {
+	dir := t.TempDir()
+	serviceDir := filepath.Join(dir, ".claude", "skills", "github")
+	if err := os.MkdirAll(serviceDir, 0o755); err != nil {
+		t.Fatalf("create unmanaged service dir: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(serviceDir, "SKILL.md"), []byte("# custom\n"), 0o644); err != nil {
+		t.Fatalf("write unmanaged SKILL.md: %v", err)
+	}
+
+	installer := fakeInstaller{skills: []InstalledService{{Name: "github", Content: "# managed\n"}}}
+	results, err := SyncServices(installer, "# rules\n", SyncOptions{ProjectDir: dir, Agents: []AgentKind{AgentClaudeCode}})
+	if err != nil {
+		t.Fatalf("sync failed: %v", err)
+	}
+	if len(results) != 1 {
+		t.Fatalf("expected one result, got %d", len(results))
+	}
+	if len(results[0].Failed) != 1 || results[0].Failed[0] != "github" {
+		t.Fatalf("expected github in failed list, got %+v", results[0].Failed)
+	}
+
+	data, readErr := os.ReadFile(filepath.Join(serviceDir, "SKILL.md"))
+	if readErr != nil {
+		t.Fatalf("read SKILL.md: %v", readErr)
+	}
+	if string(data) != "# custom\n" {
+		t.Fatalf("expected unmanaged content preserved, got %q", string(data))
+	}
+}
+
+func TestSyncServicesDoesNotOverwriteUnmanagedPackDir(t *testing.T) {
+	dir := t.TempDir()
+	serviceDir := filepath.Join(dir, ".claude", "skills", "github")
+	if err := os.MkdirAll(serviceDir, 0o755); err != nil {
+		t.Fatalf("create unmanaged service dir: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(serviceDir, "SKILL.md"), []byte("# custom\n"), 0o644); err != nil {
+		t.Fatalf("write unmanaged SKILL.md: %v", err)
+	}
+
+	installer := fakePackInstaller{
+		skills: []InstalledService{{Name: "github", Content: "# legacy\n"}},
+		packs: []InstalledServicePack{{
+			Name:         "github",
+			AgentSkillMD: "# managed\n",
+			PackFiles: map[string]string{
+				"GOTCHAS.md": "# gotchas\n",
+			},
+		}},
+	}
+
+	results, err := SyncServices(installer, "# rules\n", SyncOptions{ProjectDir: dir, Agents: []AgentKind{AgentClaudeCode}})
+	if err != nil {
+		t.Fatalf("sync failed: %v", err)
+	}
+	if len(results) != 1 {
+		t.Fatalf("expected one result, got %d", len(results))
+	}
+	if len(results[0].Failed) != 1 || results[0].Failed[0] != "github" {
+		t.Fatalf("expected github in failed list, got %+v", results[0].Failed)
+	}
+
+	data, readErr := os.ReadFile(filepath.Join(serviceDir, "SKILL.md"))
+	if readErr != nil {
+		t.Fatalf("read SKILL.md: %v", readErr)
+	}
+	if string(data) != "# custom\n" {
+		t.Fatalf("expected unmanaged content preserved, got %q", string(data))
+	}
+	if _, statErr := os.Stat(filepath.Join(serviceDir, managedSkillMarkerFile)); !os.IsNotExist(statErr) {
+		t.Fatalf("expected marker not to be created for unmanaged dir, stat err=%v", statErr)
 	}
 }
 
@@ -666,6 +779,11 @@ func TestPruneStaleSkillsPackDir(t *testing.T) {
 		if err := os.WriteFile(filepath.Join(path, "SKILL.md"), []byte("# skill\n"), 0o644); err != nil {
 			t.Fatalf("write skill file %s: %v", name, err)
 		}
+		if name != "kimbap" {
+			if err := os.WriteFile(filepath.Join(path, managedSkillMarkerFile), []byte("managed_by: kimbap\n"), 0o644); err != nil {
+				t.Fatalf("write marker file %s: %v", name, err)
+			}
+		}
 	}
 
 	pruned, errs := pruneStaleServices(skillsDir, []InstalledService{{Name: "github"}}, false)
@@ -684,5 +802,44 @@ func TestPruneStaleSkillsPackDir(t *testing.T) {
 	}
 	if _, err := os.Stat(filepath.Join(skillsDir, "kimbap")); err != nil {
 		t.Fatalf("expected kimbap dir kept, stat err=%v", err)
+	}
+}
+
+func TestPruneStaleServicesSkipsUnmanagedSkillDirectories(t *testing.T) {
+	dir := t.TempDir()
+	skillsDir := filepath.Join(dir, ".claude", "skills")
+	managed := filepath.Join(skillsDir, "managed-stale")
+	unmanaged := filepath.Join(skillsDir, "custom-skill")
+
+	if err := os.MkdirAll(managed, 0o755); err != nil {
+		t.Fatalf("create managed dir: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(managed, managedSkillMarkerFile), []byte("managed_by: kimbap\n"), 0o644); err != nil {
+		t.Fatalf("write managed marker: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(managed, "SKILL.md"), []byte("# managed\n"), 0o644); err != nil {
+		t.Fatalf("write managed skill: %v", err)
+	}
+
+	if err := os.MkdirAll(unmanaged, 0o755); err != nil {
+		t.Fatalf("create unmanaged dir: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(unmanaged, "SKILL.md"), []byte("# custom\n"), 0o644); err != nil {
+		t.Fatalf("write unmanaged skill: %v", err)
+	}
+
+	pruned, errs := pruneStaleServices(skillsDir, []InstalledService{}, false)
+	if len(errs) != 0 {
+		t.Fatalf("unexpected prune errors: %+v", errs)
+	}
+	if len(pruned) != 1 || pruned[0] != "managed-stale" {
+		t.Fatalf("expected only managed stale dir to be pruned, got %+v", pruned)
+	}
+
+	if _, err := os.Stat(managed); !os.IsNotExist(err) {
+		t.Fatalf("expected managed stale dir removed, stat err=%v", err)
+	}
+	if _, err := os.Stat(unmanaged); err != nil {
+		t.Fatalf("expected unmanaged custom dir to remain, stat err=%v", err)
 	}
 }

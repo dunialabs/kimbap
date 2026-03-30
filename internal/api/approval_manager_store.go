@@ -14,9 +14,18 @@ type approvalRecordUpdater interface {
 	UpdateApproval(ctx context.Context, req *store.ApprovalRecord) error
 }
 
+type approvalVoteResolver interface {
+	ResolveApprovalVote(ctx context.Context, id string, actor string, decision string, reason string) (*store.ApprovalRecord, error)
+}
+
 type approvalManagerStoreAdapter struct {
-	base    store.Store
-	updater approvalRecordUpdater
+	base     store.Store
+	updater  approvalRecordUpdater
+	resolver approvalVoteResolver
+}
+
+func (a *approvalManagerStoreAdapter) CanResolveApproval() bool {
+	return a != nil && a.resolver != nil
 }
 
 func newApprovalManager(st store.Store) (*approvals.ApprovalManager, bool) {
@@ -25,6 +34,9 @@ func newApprovalManager(st store.Store) (*approvals.ApprovalManager, bool) {
 		return nil, false
 	}
 	adapter := &approvalManagerStoreAdapter{base: st, updater: updater}
+	if resolver, resolverOK := st.(approvalVoteResolver); resolverOK {
+		adapter.resolver = resolver
+	}
 	return approvals.NewApprovalManager(adapter, nil, 0), true
 }
 
@@ -63,6 +75,33 @@ func (a *approvalManagerStoreAdapter) Update(ctx context.Context, req *approvals
 		return approvals.ErrNotFound
 	}
 	return err
+}
+
+func (a *approvalManagerStoreAdapter) Resolve(ctx context.Context, id string, actor string, decision approvals.ApprovalStatus, reason string) (*approvals.ApprovalRequest, error) {
+	if a == nil || a.resolver == nil {
+		return nil, errors.New("approval resolver unavailable")
+	}
+	rec, err := a.resolver.ResolveApprovalVote(ctx, id, actor, string(decision), reason)
+	if err != nil {
+		switch {
+		case errors.Is(err, store.ErrNotFound):
+			return nil, approvals.ErrNotFound
+		case errors.Is(err, store.ErrApprovalAlreadyResolved):
+			return nil, approvals.ErrAlreadyResolved
+		case errors.Is(err, store.ErrApprovalExpired):
+			return nil, approvals.ErrExpired
+		case errors.Is(err, store.ErrApprovalDuplicateVote):
+			return nil, approvals.ErrDuplicateVote
+		default:
+			return nil, err
+		}
+	}
+	converted, convErr := storeconv.ApprovalRequestFromRecordStrict(*rec)
+	if convErr != nil {
+		return nil, convErr
+	}
+	result := &converted
+	return result, nil
 }
 
 func (a *approvalManagerStoreAdapter) ListPending(ctx context.Context, tenantID string) ([]approvals.ApprovalRequest, error) {

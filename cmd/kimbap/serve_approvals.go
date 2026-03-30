@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"strings"
 
@@ -12,6 +13,10 @@ import (
 
 type storeApprovalStoreAdapter struct {
 	st *store.SQLStore
+}
+
+func (a *storeApprovalStoreAdapter) CanResolveApproval() bool {
+	return a != nil && a.st != nil
 }
 
 func (a *storeApprovalStoreAdapter) Create(ctx context.Context, req *approvals.ApprovalRequest) error {
@@ -36,6 +41,33 @@ func (a *storeApprovalStoreAdapter) Get(ctx context.Context, id string) (*approv
 
 func (a *storeApprovalStoreAdapter) Update(ctx context.Context, req *approvals.ApprovalRequest) error {
 	return a.st.UpdateApproval(ctx, storeconv.ApprovalRecordForUpdate(req))
+}
+
+func (a *storeApprovalStoreAdapter) Resolve(ctx context.Context, id string, actor string, decision approvals.ApprovalStatus, reason string) (*approvals.ApprovalRequest, error) {
+	if a == nil || a.st == nil {
+		return nil, fmt.Errorf("store unavailable")
+	}
+	rec, err := a.st.ResolveApprovalVote(ctx, id, actor, string(decision), reason)
+	if err != nil {
+		switch {
+		case errors.Is(err, store.ErrNotFound):
+			return nil, approvals.ErrNotFound
+		case errors.Is(err, store.ErrApprovalAlreadyResolved):
+			return nil, approvals.ErrAlreadyResolved
+		case errors.Is(err, store.ErrApprovalExpired):
+			return nil, approvals.ErrExpired
+		case errors.Is(err, store.ErrApprovalDuplicateVote):
+			return nil, approvals.ErrDuplicateVote
+		default:
+			return nil, err
+		}
+	}
+	converted, convErr := storeconv.ApprovalRequestFromRecordStrict(*rec)
+	if convErr != nil {
+		return nil, convErr
+	}
+	result := &converted
+	return result, nil
 }
 
 func (a *storeApprovalStoreAdapter) ListPending(ctx context.Context, tenantID string) ([]approvals.ApprovalRequest, error) {
