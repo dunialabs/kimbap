@@ -1620,7 +1620,9 @@ td.mono {
     });
 
     if (filtered.length === 0) {
-      container.innerHTML = '<div class="empty-state"><h3>No actions match this search</h3>' +
+      container.innerHTML = '<div class="empty-state">' +
+        '<div class="empty-state-icon">🔍</div>' +
+        '<h3>No actions match this search</h3>' +
         '<p>Try a different name, service, or keyword.</p></div>';
       return;
     }
