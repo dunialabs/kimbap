@@ -68,28 +68,31 @@ Works with Claude Code, OpenCode, Codex, OpenClaw, NanoClaw, and any agent that 
 
 ---
 
-## Build your own service
+## Turn your API into a CLI
 
-Add any REST API, CLI tool, or macOS app with a single YAML manifest:
+Got a REST API? Turn it into a secure CLI tool with one YAML file:
 
 ```yaml
-name: stripe
+name: deploy-api
 version: 1.0.0
-base_url: https://api.stripe.com/v1
+base_url: https://api.internal.company.com/v1
 auth:
   type: bearer
-  credential_ref: stripe.api_key
+  credential_ref: deploy_api.token
 actions:
-  list-charges:
+  list-deployments:
     method: GET
-    path: /charges
+    path: /services/{service}/deployments
+    params:
+      service:
+        required: true
     risk:
       level: low
 ```
 
 ```bash
-kimbap service install stripe.yaml
-kimbap call stripe.list-charges
+kimbap service install deploy-api.yaml
+kimbap call deploy-api.list-deployments --service payments
 ```
 
 Three adapter types: **HTTP** (REST APIs), **Command** (local executable CLIs), **AppleScript** (macOS native apps).
