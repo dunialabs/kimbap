@@ -1174,6 +1174,8 @@ td.mono {
     });
     if (prev === 'approvals' && name !== 'approvals') stopApprovalsTimer();
     if (name === 'approvals') startApprovalsTimer();
+    var viewLabels = { dashboard: 'Dashboard', actions: 'Actions', approvals: 'Approvals', audit: 'Audit', services: 'Credentials' };
+    document.title = (viewLabels[name] || name) + ' — Kimbap Console';
     window.location.hash = name;
     loadViewData(name);
   }
