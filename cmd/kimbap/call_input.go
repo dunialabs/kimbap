@@ -8,7 +8,6 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/dunialabs/kimbap/internal/actions"
 	runtimepkg "github.com/dunialabs/kimbap/internal/runtime"
 )
 
@@ -170,11 +169,6 @@ func parseDynamicInput(tokens []string) (map[string]any, error) {
 	}
 
 	return out, nil
-}
-
-func normalizeCallInputTokensForGlobalFormat(tokens []string, def actions.ActionDefinition) []string {
-	_ = def
-	return tokens
 }
 
 func splitCallInvocationArgs(tokens []string) (string, []string, bool, error) {

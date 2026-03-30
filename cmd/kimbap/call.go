@@ -65,17 +65,7 @@ Discover available actions:
 			showSplashOnce()
 		},
 		RunE: func(cmd *cobra.Command, args []string) error {
-			opts.dryRun = false
-			opts.trace = false
-			opts.format = "text"
-			opts.jsonInput = ""
-			opts.idempotencyKey = ""
-			opts.configPath = ""
-			opts.dataDir = ""
-			opts.logLevel = ""
-			opts.mode = ""
-			opts.splashColor = ""
-			opts.noSplash = false
+			opts = cliOptions{format: "text"}
 			actionName, inputTokens, showHelp, err := splitCallInvocationArgs(args)
 			if err != nil {
 				return err
@@ -106,8 +96,6 @@ Discover available actions:
 			if err != nil {
 				return err
 			}
-
-			inputTokens = normalizeCallInputTokensForGlobalFormat(inputTokens, *def)
 
 			input, err := parseDynamicInput(inputTokens)
 			if err != nil {

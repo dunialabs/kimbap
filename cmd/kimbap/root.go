@@ -280,7 +280,7 @@ func primaryCommandPath(args []string) []string {
 }
 
 func splashOptions() splash.Options {
-	cfg, err := loadSplashConfig()
+	cfg, err := loadBaseConfigForCLI()
 	if err != nil {
 		return splash.Options{
 			Version:      config.CLIVersion(),
@@ -302,14 +302,6 @@ func splashOptions() splash.Options {
 		Server:       strings.TrimSpace(cfg.Auth.ServerURL),
 		ColorProfile: detectSplashColorProfile(),
 	}
-}
-
-func loadSplashConfig() (*config.KimbapConfig, error) {
-	cfg, err := loadBaseConfigForCLI()
-	if err != nil {
-		return nil, err
-	}
-	return cfg, nil
 }
 
 func modeFromRaw(raw string) splash.Mode {
@@ -906,7 +898,7 @@ func buildRuntimeFromConfigWithCleanup(cfg *config.KimbapConfig) (*runtime.Runti
 		if jwErr != nil {
 			_, _ = fmt.Fprintf(os.Stderr, "warning: audit writer init failed (%v), audit events will not be recorded\n", jwErr)
 		} else {
-			auditWriter = app.NewAuditWriterAdapter(jw)
+			auditWriter = app.NewAuditWriterAdapter(audit.NewRedactingWriter(jw))
 			auditCloser = jw
 		}
 	}
