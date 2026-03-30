@@ -378,6 +378,16 @@ func TestPrescanCallSplashFlags_NoSplashOptionalFalse(t *testing.T) {
 	}
 }
 
+func TestPrescanCallSplashFlags_SplashColorParsed(t *testing.T) {
+	resetOptsForTest(t)
+
+	prescanCallSplashFlags([]string{"slack.list-channels", "--splash-color", "ansi256"})
+
+	if opts.splashColor != "ansi256" {
+		t.Fatalf("expected splashColor=ansi256, got %q", opts.splashColor)
+	}
+}
+
 func TestPrescanRawSplashFlags_NoSplashOptionalFalse(t *testing.T) {
 	resetOptsForTest(t)
 	prevArgs := os.Args
@@ -405,6 +415,19 @@ func TestPrescanRawSplashFlags_FormatMissingValueIgnored(t *testing.T) {
 
 	if opts.format != "text" {
 		t.Fatalf("expected format to remain unchanged when --format lacks value, got %q", opts.format)
+	}
+}
+
+func TestPrescanRawSplashFlags_SplashColorParsed(t *testing.T) {
+	resetOptsForTest(t)
+	prevArgs := os.Args
+	t.Cleanup(func() { os.Args = prevArgs })
+
+	os.Args = []string{"kimbap", "call", "slack.list-channels", "--splash-color=none"}
+	prescanRawSplashFlags()
+
+	if opts.splashColor != "none" {
+		t.Fatalf("expected splashColor=none, got %q", opts.splashColor)
 	}
 }
 
@@ -537,6 +560,27 @@ func TestSplitGlobalCallFlags_DoubleDashStopsParsing(t *testing.T) {
 	}
 }
 
+func TestSplitGlobalCallFlags_ParsesSplashColor(t *testing.T) {
+	resetOptsForTest(t)
+
+	out, err := splitGlobalCallFlags([]string{"--splash-color", "ansi256", "svc.act", "--name", "kim"})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if opts.splashColor != "ansi256" {
+		t.Fatalf("expected splashColor=ansi256, got %q", opts.splashColor)
+	}
+	expected := []string{"svc.act", "--name", "kim"}
+	if len(out) != len(expected) {
+		t.Fatalf("expected output %v, got %v", expected, out)
+	}
+	for i, v := range expected {
+		if out[i] != v {
+			t.Fatalf("expected out[%d]=%q, got %q", i, v, out[i])
+		}
+	}
+}
+
 func TestPrescanCallSplashFlags_DoubleDashStopsParsing(t *testing.T) {
 	resetOptsForTest(t)
 
@@ -548,5 +592,70 @@ func TestPrescanCallSplashFlags_DoubleDashStopsParsing(t *testing.T) {
 	}
 	if opts.noSplash {
 		t.Fatal("expected noSplash to remain false after --")
+	}
+}
+
+func TestNormalizeCallInputTokensForGlobalFormatConsumesJsonWhenActionHasNoFormatField(t *testing.T) {
+	resetOptsForTest(t)
+	opts.format = "text"
+
+	def := actions.ActionDefinition{
+		InputSchema: &actions.Schema{Properties: map[string]*actions.Schema{
+			"name":  {Type: "string"},
+			"count": {Type: "integer"},
+		}},
+	}
+
+	input := []string{"--name", "Seoul", "--count", "1", "--format", "json"}
+	out := normalizeCallInputTokensForGlobalFormat(input, def)
+
+	if opts.format != "json" {
+		t.Fatalf("expected global format json, got %q", opts.format)
+	}
+	if len(out) != 4 || out[0] != "--name" || out[1] != "Seoul" || out[2] != "--count" || out[3] != "1" {
+		t.Fatalf("expected --format json consumed from input tokens, got %v", out)
+	}
+}
+
+func TestNormalizeCallInputTokensForGlobalFormatKeepsFormatWhenActionDefinesFormatField(t *testing.T) {
+	resetOptsForTest(t)
+	opts.format = "text"
+
+	def := actions.ActionDefinition{
+		InputSchema: &actions.Schema{Properties: map[string]*actions.Schema{
+			"format": {Type: "string"},
+			"query":  {Type: "string"},
+		}},
+	}
+
+	input := []string{"--query", "diagram", "--format", "png"}
+	out := normalizeCallInputTokensForGlobalFormat(input, def)
+
+	if opts.format != "text" {
+		t.Fatalf("expected global format to remain text, got %q", opts.format)
+	}
+	if strings.Join(out, " ") != strings.Join(input, " ") {
+		t.Fatalf("expected input tokens unchanged, got %v", out)
+	}
+}
+
+func TestNormalizeCallInputTokensForGlobalFormatKeepsUnknownFormatValueForActionInput(t *testing.T) {
+	resetOptsForTest(t)
+	opts.format = "text"
+
+	def := actions.ActionDefinition{
+		InputSchema: &actions.Schema{Properties: map[string]*actions.Schema{
+			"name": {Type: "string"},
+		}},
+	}
+
+	input := []string{"--name", "foo", "--format", "png"}
+	out := normalizeCallInputTokensForGlobalFormat(input, def)
+
+	if opts.format != "text" {
+		t.Fatalf("expected global format to remain text, got %q", opts.format)
+	}
+	if strings.Join(out, " ") != strings.Join(input, " ") {
+		t.Fatalf("expected input tokens unchanged, got %v", out)
 	}
 }

@@ -112,6 +112,29 @@ var result = {
 };
 JSON.stringify(result);`,
 		},
+		"spotify-play-uri": {
+			Name: "spotify-play-uri", TargetApp: "Spotify",
+			Script: stdinReader + `
+var app = Application("Spotify");
+app.includeStandardAdditions = false;
+
+if (!input.uri) throw new Error("uri is required");
+var uri = String(input.uri).trim();
+if (!uri) throw new Error("uri is required");
+if (uri.indexOf("spotify:") !== 0) throw new Error("[NOT_SUPPORTED] uri must start with spotify:");
+
+try {
+	app.playTrack(uri);
+} catch (e) {
+	throw new Error("[NOT_FOUND] spotify uri not playable");
+}
+
+var result = {
+	uri: uri,
+	state: String(app.playerState())
+};
+JSON.stringify(result);`,
+		},
 		"spotify-search-play": {
 			Name: "spotify-search-play", TargetApp: "Spotify",
 			Script: stdinReader + `
@@ -123,11 +146,15 @@ if (!input.query) throw new Error("query is required");
 var query = String(input.query).trim();
 if (!query) throw new Error("query is required");
 
-var sources = app.sources();
-if (!sources || sources.length === 0) throw new Error("[NOT_FOUND] no spotify source available");
+if (query.indexOf("spotify:") !== 0) {
+	throw new Error("[NOT_SUPPORTED] free-text Spotify search is not available via AppleScript. Use spotify URI (spotify:track:...) with query or use spotify-play-uri.");
+}
 
-app.searchFor(query, {source: sources[0]});
-app.play();
+try {
+	app.playTrack(query);
+} catch (e) {
+	throw new Error("[NOT_FOUND] spotify uri not playable");
+}
 
 var result = {
 	query: query,

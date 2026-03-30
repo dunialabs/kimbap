@@ -178,9 +178,18 @@ func mapAppleScriptError(stderr []byte, err error) *actions.ExecutionError {
 	case strings.Contains(stderrStr, "-1743"):
 		status = http.StatusForbidden
 		code = actions.ErrUnauthorized
+	case strings.Contains(stderrStr, "[NOT_SUPPORTED]"):
+		status = http.StatusBadRequest
+		code = actions.ErrValidationFailed
 	case strings.Contains(stderrStr, "-600"):
 		status = http.StatusServiceUnavailable
 		retryable = true
+	case strings.Contains(stderrStr, "-1708"):
+		status = http.StatusBadRequest
+		code = actions.ErrValidationFailed
+		if strings.Contains(strings.ToLower(stderrStr), "message not understood") {
+			message = "AppleScript command is not supported by the target app (Message not understood). Use a supported action or update the service command mapping."
+		}
 	case strings.Contains(stderrStr, "-128"):
 		status = 499
 	case strings.Contains(stderrStr, "-1712"):
@@ -196,7 +205,17 @@ func mapAppleScriptError(stderr []byte, err error) *actions.ExecutionError {
 		status = http.StatusConflict
 		code = actions.ErrValidationFailed
 	case strings.Contains(stderrStr, "-2700"):
-		status = http.StatusInternalServerError
+		lower := strings.ToLower(stderrStr)
+		if strings.Contains(lower, "application can't be found") ||
+			strings.Contains(lower, "application can’t be found") ||
+			strings.Contains(lower, "can't get application") ||
+			strings.Contains(lower, "can’t get application") {
+			status = http.StatusNotFound
+			code = actions.ErrActionNotFound
+			message = "target application is unavailable. Install/open the app and retry."
+		} else {
+			status = http.StatusInternalServerError
+		}
 	}
 
 	return actions.NewExecutionError(code, message, status, retryable, map[string]any{

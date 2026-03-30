@@ -7,17 +7,23 @@ import (
 	"errors"
 	"fmt"
 	"io/fs"
+	"net/url"
 	"os"
 	"path/filepath"
 	"sort"
 	"strings"
 	"time"
 
+	"github.com/dunialabs/kimbap/internal/actions"
 	"github.com/dunialabs/kimbap/internal/agents"
+	"github.com/dunialabs/kimbap/internal/config"
+	"github.com/dunialabs/kimbap/internal/connectors"
 	"github.com/dunialabs/kimbap/internal/registry"
 	"github.com/dunialabs/kimbap/internal/services"
+	"github.com/dunialabs/kimbap/internal/vault"
 	"github.com/dunialabs/kimbap/services/catalog"
 	"github.com/spf13/cobra"
+	"golang.org/x/term"
 )
 
 func newServiceCommand() *cobra.Command {
@@ -68,7 +74,7 @@ func newServiceInstallCommand() *cobra.Command {
 			}
 			installer := installerFromConfig(cfg)
 
-			manifest, source, err := resolveServiceInstallSource(args[0])
+			manifest, source, err := resolveServiceInstallSource(commandContext(cmd), args[0])
 			if err != nil {
 				return err
 			}
@@ -76,6 +82,11 @@ func newServiceInstallCommand() *cobra.Command {
 			installed, err := installer.InstallWithForceAndActivation(manifest, source, force, !noActivate)
 			if err != nil {
 				return err
+			}
+			if installed.Enabled && strings.HasPrefix(strings.TrimSpace(source), "registry:") {
+				if credErr := ensureInstalledServiceCredentials(commandContext(cmd), cfg, &installed.Manifest); credErr != nil {
+					return credErr
+				}
 			}
 
 			autoAlias := ""
@@ -92,20 +103,10 @@ func newServiceInstallCommand() *cobra.Command {
 			}
 
 			if setupShortcuts {
-				if alias, created, aliasErr := ensureInstalledServiceAlias(cfg, installer, &installed.Manifest); aliasErr != nil {
-					_, _ = fmt.Fprintf(os.Stderr, "warning: auto alias setup skipped for %s: %v\n", installed.Manifest.Name, aliasErr)
-				} else {
-					autoAlias = alias
-					autoAliasCreated = created
-				}
-				if created, skipped, actionAliasErr := ensureInstalledActionAliases(cfg, installer, &installed.Manifest); actionAliasErr != nil {
-					_, _ = fmt.Fprintf(os.Stderr, "warning: action alias setup skipped for %s: %v\n", installed.Manifest.Name, actionAliasErr)
-				} else {
-					actionAliasesCreated = created
-					if len(skipped) > 0 {
-						_, _ = fmt.Fprintf(os.Stderr, "warning: skipped action aliases for %s: %s\n", installed.Manifest.Name, strings.Join(skipped, "; "))
-					}
-				}
+				shortcutResult := applyInstalledShortcuts(cfg, installer, &installed.Manifest, "auto")
+				autoAlias = shortcutResult.AutoAlias
+				autoAliasCreated = shortcutResult.AutoAliasCreated
+				actionAliasesCreated = shortcutResult.ActionAliasesCreated
 			}
 
 			if outputAsJSON() {
@@ -136,6 +137,198 @@ func newServiceInstallCommand() *cobra.Command {
 	cmd.Flags().BoolVar(&noActivate, "no-activate", false, "install service as disabled")
 	cmd.Flags().BoolVar(&noShortcuts, "no-shortcuts", false, "skip automatic shortcut alias setup during install")
 	return cmd
+}
+
+func serviceManifestRequiresCredentials(manifest *services.ServiceManifest) bool {
+	if manifest == nil {
+		return false
+	}
+	if authTypeRequiresCredential(manifest.Auth.Type) {
+		return true
+	}
+	for _, action := range manifest.Actions {
+		if action.Auth != nil && authTypeRequiresCredential(action.Auth.Type) {
+			return true
+		}
+	}
+	return false
+}
+
+func authTypeRequiresCredential(raw string) bool {
+	trimmed := strings.ToLower(strings.TrimSpace(raw))
+	return trimmed != "" && trimmed != string(actions.AuthTypeNone)
+}
+
+func ensureInstalledServiceCredentials(ctx context.Context, cfg *config.KimbapConfig, manifest *services.ServiceManifest) error {
+	if cfg == nil || manifest == nil || !serviceManifestRequiresCredentials(manifest) {
+		return nil
+	}
+	if !canPromptInTTY() {
+		return nil
+	}
+
+	serviceName := strings.TrimSpace(manifest.Name)
+	if serviceName == "" {
+		return nil
+	}
+
+	servicesByName, err := loadLinkServices(cfg)
+	if err != nil {
+		return fmt.Errorf("load installed services for credential setup: %w", err)
+	}
+
+	info, ok := servicesByName[strings.ToLower(serviceName)]
+	if !ok {
+		info = linkServiceInfo{
+			Service:       serviceName,
+			AuthType:      actions.AuthType(strings.ToLower(strings.TrimSpace(manifest.Auth.Type))),
+			CredentialRef: strings.TrimSpace(manifest.Auth.CredentialRef),
+			OAuthProvider: linkResolveOAuthProvider(serviceName),
+		}
+	}
+
+	tenantID := defaultTenantID()
+	oauthStates, oauthErr := listConnectorStates(ctx, cfg, tenantID)
+	if oauthErr != nil {
+		oauthStates = nil
+	}
+
+	if linkIsOAuthService(info, oauthStates) {
+		providerID := strings.TrimSpace(info.OAuthProvider)
+		if providerID == "" {
+			providerID = serviceName
+		}
+		return runAuthConnect(
+			cfg,
+			providerID,
+			tenantID,
+			"auto",
+			"",
+			"auto",
+			false,
+			0,
+			5*time.Minute,
+			"",
+			string(connectors.ScopeUser),
+			"default",
+			false,
+			nil,
+		)
+	}
+
+	credentialRef := strings.TrimSpace(info.CredentialRef)
+	if credentialRef == "" {
+		return fmt.Errorf("service %q requires authentication but has no credential_ref", serviceName)
+	}
+
+	vs, err := initVaultStore(cfg)
+	if err != nil {
+		return err
+	}
+	defer closeVaultStoreIfPossible(vs)
+
+	exists, existsErr := vs.Exists(ctx, tenantID, credentialRef)
+	if existsErr == nil && exists {
+		return nil
+	}
+	if existsErr != nil && !errors.Is(existsErr, vault.ErrSecretNotFound) {
+		return existsErr
+	}
+	authLabel := credentialPromptLabel(info.AuthType)
+	_, _ = fmt.Fprintf(os.Stderr, "Enter %s for %s: ", authLabel, serviceName)
+	payload, readErr := term.ReadPassword(int(os.Stdin.Fd()))
+	if readErr != nil {
+		return fmt.Errorf("read credential for %s: %w", serviceName, readErr)
+	}
+	_, _ = fmt.Fprintln(os.Stderr)
+	payload = []byte(strings.TrimSpace(string(payload)))
+	if len(payload) == 0 {
+		return fmt.Errorf("credential value is empty")
+	}
+
+	secretType := linkAuthTypeToSecretType(info.AuthType)
+	if _, upsertErr := vs.Upsert(ctx, tenantID, credentialRef, secretType, payload, nil, "cli"); upsertErr != nil {
+		return upsertErr
+	}
+	return nil
+}
+
+func credentialPromptLabel(authType actions.AuthType) string {
+	switch authType {
+	case actions.AuthTypeBearer:
+		return "a bearer token"
+	case actions.AuthTypeBasic:
+		return "basic auth credentials"
+	case actions.AuthTypeHeader:
+		return "a custom header credential"
+	case actions.AuthTypeQuery:
+		return "a query parameter credential"
+	case actions.AuthTypeAPIKey:
+		return "an API key"
+	default:
+		return "a credential"
+	}
+}
+
+type serviceShortcutResult struct {
+	AutoAlias            string
+	AutoAliasCreated     bool
+	ActionAliasesCreated []string
+}
+
+func runInstalledShortcutSetup(cfg *config.KimbapConfig, installer *services.LocalInstaller, manifest *services.ServiceManifest) (serviceShortcutResult, []string, error, error) {
+	result := serviceShortcutResult{ActionAliasesCreated: make([]string, 0)}
+	if cfg == nil || installer == nil || manifest == nil {
+		return result, nil, nil, nil
+	}
+
+	alias, created, aliasErr := ensureInstalledServiceAlias(cfg, installer, manifest)
+	if aliasErr == nil {
+		result.AutoAlias = alias
+		result.AutoAliasCreated = created
+	}
+
+	createdActionAliases, skippedActionAliases, actionAliasErr := ensureInstalledActionAliases(cfg, installer, manifest)
+	if actionAliasErr == nil {
+		result.ActionAliasesCreated = createdActionAliases
+	}
+
+	return result, skippedActionAliases, aliasErr, actionAliasErr
+}
+
+func applyInstalledShortcuts(cfg *config.KimbapConfig, installer *services.LocalInstaller, manifest *services.ServiceManifest, mode string) serviceShortcutResult {
+	result := serviceShortcutResult{ActionAliasesCreated: make([]string, 0)}
+	if cfg == nil || installer == nil || manifest == nil {
+		return result
+	}
+	name := strings.TrimSpace(manifest.Name)
+	if name == "" {
+		return result
+	}
+
+	serviceWarn := "auto alias setup skipped"
+	actionWarn := "action alias setup skipped"
+	if strings.EqualFold(strings.TrimSpace(mode), "enabled") {
+		serviceWarn = "enabled service alias setup skipped"
+		actionWarn = "enabled action alias setup skipped"
+	}
+
+	shortcutResult, skipped, aliasErr, actionAliasErr := runInstalledShortcutSetup(cfg, installer, manifest)
+	result = shortcutResult
+
+	if aliasErr != nil {
+		_, _ = fmt.Fprintf(os.Stderr, "warning: %s for %s: %v\n", serviceWarn, name, aliasErr)
+	}
+
+	if actionAliasErr != nil {
+		_, _ = fmt.Fprintf(os.Stderr, "warning: %s for %s: %v\n", actionWarn, name, actionAliasErr)
+	} else {
+		if len(skipped) > 0 {
+			_, _ = fmt.Fprintf(os.Stderr, "warning: skipped action aliases for %s: %s\n", name, strings.Join(skipped, ", "))
+		}
+	}
+
+	return result
 }
 
 func newServiceListCommand() *cobra.Command {
@@ -277,7 +470,7 @@ func newServiceEnableCommand() *cobra.Command {
 		Use:   "enable <name>",
 		Short: "Enable an installed service",
 		Args:  cobra.ExactArgs(1),
-		RunE: func(_ *cobra.Command, args []string) error {
+		RunE: func(cmd *cobra.Command, args []string) error {
 			cfg, err := loadAppConfig()
 			if err != nil {
 				return err
@@ -305,20 +498,10 @@ func newServiceEnableCommand() *cobra.Command {
 			if enabledService, getErr := installer.Get(name); getErr != nil {
 				_, _ = fmt.Fprintf(os.Stderr, "warning: enabled service alias setup skipped for %s: %v\n", name, getErr)
 			} else {
-				if alias, created, aliasErr := ensureInstalledServiceAlias(cfg, installer, &enabledService.Manifest); aliasErr != nil {
-					_, _ = fmt.Fprintf(os.Stderr, "warning: enabled service alias setup skipped for %s: %v\n", enabledService.Manifest.Name, aliasErr)
-				} else {
-					autoAlias = alias
-					autoAliasCreated = created
-				}
-				if created, skipped, actionAliasErr := ensureInstalledActionAliases(cfg, installer, &enabledService.Manifest); actionAliasErr != nil {
-					_, _ = fmt.Fprintf(os.Stderr, "warning: enabled action alias setup skipped for %s: %v\n", enabledService.Manifest.Name, actionAliasErr)
-				} else {
-					actionAliasesCreated = created
-					if len(skipped) > 0 {
-						_, _ = fmt.Fprintf(os.Stderr, "warning: skipped action aliases for %s: %s\n", enabledService.Manifest.Name, strings.Join(skipped, "; "))
-					}
-				}
+				shortcutResult := applyInstalledShortcuts(cfg, installer, &enabledService.Manifest, "enabled")
+				autoAlias = shortcutResult.AutoAlias
+				autoAliasCreated = shortcutResult.AutoAliasCreated
+				actionAliasesCreated = shortcutResult.ActionAliasesCreated
 			}
 
 			if outputAsJSON() {
@@ -350,7 +533,7 @@ func newServiceDisableCommand() *cobra.Command {
 		Use:   "disable <name>",
 		Short: "Disable an installed service",
 		Args:  cobra.ExactArgs(1),
-		RunE: func(_ *cobra.Command, args []string) error {
+		RunE: func(cmd *cobra.Command, args []string) error {
 			cfg, err := loadAppConfig()
 			if err != nil {
 				return err
@@ -400,7 +583,7 @@ func newServiceRemoveCommand() *cobra.Command {
 		Use:   "remove <name>",
 		Short: "Remove installed service by name",
 		Args:  cobra.ExactArgs(1),
-		RunE: func(_ *cobra.Command, args []string) error {
+		RunE: func(cmd *cobra.Command, args []string) error {
 			cfg, err := loadAppConfig()
 			if err != nil {
 				return err
@@ -452,7 +635,7 @@ func newServiceUpdateCommand() *cobra.Command {
 		Use:   "update <name>",
 		Short: "Update an installed service to the latest version",
 		Args:  cobra.ExactArgs(1),
-		RunE: func(_ *cobra.Command, args []string) error {
+		RunE: func(cmd *cobra.Command, args []string) error {
 			name := strings.TrimSpace(args[0])
 			cfg, err := loadAppConfig()
 			if err != nil {
@@ -469,7 +652,7 @@ func newServiceUpdateCommand() *cobra.Command {
 			}
 
 			source := strings.TrimSpace(installed.Source)
-			manifest, newSource, resolveErr := resolveServiceInstallSource(sourceToInstallArg(source))
+			manifest, newSource, resolveErr := resolveServiceInstallSource(commandContext(cmd), sourceToInstallArg(source))
 			if resolveErr != nil {
 				return fmt.Errorf("resolve update source for %q (%s): %w", name, source, resolveErr)
 			}
@@ -502,20 +685,10 @@ func newServiceUpdateCommand() *cobra.Command {
 			autoAliasCreated := false
 			actionAliasesCreated := make([]string, 0)
 			if !noShortcuts && updated.Enabled {
-				if alias, created, aliasErr := ensureInstalledServiceAlias(cfg, installer, &updated.Manifest); aliasErr != nil {
-					_, _ = fmt.Fprintf(os.Stderr, "warning: auto alias setup skipped for %s: %v\n", updated.Manifest.Name, aliasErr)
-				} else {
-					autoAlias = alias
-					autoAliasCreated = created
-				}
-				if created, skipped, actionAliasErr := ensureInstalledActionAliases(cfg, installer, &updated.Manifest); actionAliasErr != nil {
-					_, _ = fmt.Fprintf(os.Stderr, "warning: action alias setup skipped for %s: %v\n", updated.Manifest.Name, actionAliasErr)
-				} else {
-					actionAliasesCreated = created
-					if len(skipped) > 0 {
-						_, _ = fmt.Fprintf(os.Stderr, "warning: skipped action aliases for %s: %s\n", updated.Manifest.Name, strings.Join(skipped, "; "))
-					}
-				}
+				shortcutResult := applyInstalledShortcuts(cfg, installer, &updated.Manifest, "auto")
+				autoAlias = shortcutResult.AutoAlias
+				autoAliasCreated = shortcutResult.AutoAliasCreated
+				actionAliasesCreated = shortcutResult.ActionAliasesCreated
 			}
 
 			if outputAsJSON() {
@@ -551,7 +724,7 @@ func newServiceOutdatedCommand() *cobra.Command {
 		Use:   "outdated",
 		Short: "List outdated services from the service catalog",
 		Long:  "Lists installed services from the registry when installed version differs from the service catalog version.",
-		RunE: func(_ *cobra.Command, _ []string) error {
+		RunE: func(cmd *cobra.Command, _ []string) error {
 			cfg, err := loadAppConfig()
 			if err != nil {
 				return err
@@ -582,7 +755,7 @@ func newServiceOutdatedCommand() *cobra.Command {
 					installArg = svc.Manifest.Name
 				}
 
-				manifest, _, resolveErr := resolveServiceInstallSource(installArg)
+				manifest, _, resolveErr := resolveServiceInstallSource(commandContext(cmd), installArg)
 				if resolveErr != nil {
 					var notFound *registry.ErrNotFound
 					if errors.As(resolveErr, &notFound) {
@@ -825,178 +998,10 @@ func shortcutsByServiceName(commandAliases map[string]string) map[string][]strin
 	return out
 }
 
-func newServiceExportAgentSkillCommand() *cobra.Command {
-	var outputPath string
-	var outputDir string
-	var exportLegacy bool
-
-	cmd := &cobra.Command{
-		Use:   "export-agent-skill <name> [--output file] [--dir directory]",
-		Short: "Export installed service as agent SKILL.md",
-		Long:  "Generate a SKILL.md file compatible with Claude Code, OpenAI Codex, GitHub Copilot, and other AI agents.",
-		Args:  cobra.ExactArgs(1),
-		RunE: func(cmd *cobra.Command, args []string) error {
-			if cmd.Flags().Changed("dir") && cmd.Flags().Changed("output") {
-				return fmt.Errorf("--dir and --output are mutually exclusive")
-			}
-			if exportLegacy && strings.TrimSpace(outputDir) == "" {
-				return fmt.Errorf("--legacy requires --dir")
-			}
-
-			cfg, err := loadAppConfig()
-			if err != nil {
-				return err
-			}
-
-			installed, err := installerFromConfig(cfg).Get(args[0])
-			if err != nil {
-				return fmt.Errorf("service %q not found: %w", args[0], err)
-			}
-			if !installed.Enabled {
-				return fmt.Errorf("service %q is installed but disabled; enable it before exporting agent skill", args[0])
-			}
-
-			skillOpts := []services.SkillMDOption{services.WithSource(installed.Source)}
-			if callAlias := configuredServiceCallAlias(cfg, installed.Manifest.Name); callAlias != "" {
-				skillOpts = append(skillOpts, services.WithCallAlias(callAlias))
-			}
-
-			if strings.TrimSpace(outputDir) != "" {
-				serviceDir := filepath.Join(outputDir, installed.Manifest.Name)
-				if !exportLegacy {
-					pack, packErr := services.GenerateAgentSkillPack(&installed.Manifest, skillOpts...)
-					if packErr != nil {
-						return packErr
-					}
-					writtenFiles, writeErr := writeAgentSkillPackDir(serviceDir, pack)
-					if writeErr != nil {
-						return writeErr
-					}
-					sort.Strings(writtenFiles)
-					if outputAsJSON() {
-						return printOutput(map[string]any{"exported": true, "pack": true, "files": writtenFiles})
-					}
-					return printOutput(fmt.Sprintf(successCheck()+" %s exported (%d files)", installed.Manifest.Name, len(writtenFiles)))
-				}
-				content, legacyErr := services.GenerateAgentSkillMD(&installed.Manifest, skillOpts...)
-				if legacyErr != nil {
-					return legacyErr
-				}
-				if _, writeErr := writeAgentSkillPackDir(serviceDir, map[string]string{"SKILL.md": content}); writeErr != nil {
-					return writeErr
-				}
-				outPath := filepath.Join(serviceDir, "SKILL.md")
-				if outputAsJSON() {
-					return printOutput(map[string]any{"exported": true, "path": outPath})
-				}
-				return printOutput(fmt.Sprintf(successCheck()+" %s exported to %s", installed.Manifest.Name, outPath))
-			}
-
-			content, err := services.GenerateAgentSkillMD(&installed.Manifest, skillOpts...)
-			if err != nil {
-				return err
-			}
-
-			if strings.TrimSpace(outputPath) != "" {
-				if err := os.WriteFile(outputPath, []byte(content), 0o644); err != nil {
-					return fmt.Errorf("write SKILL.md: %w", err)
-				}
-				if outputAsJSON() {
-					return printOutput(map[string]any{"exported": true, "path": outputPath})
-				}
-				return printOutput(fmt.Sprintf(successCheck()+" %s exported to %s", installed.Manifest.Name, outputPath))
-			}
-
-			fmt.Print(content)
-			return nil
-		},
+func resolveServiceInstallSource(ctx context.Context, arg string) (*services.ServiceManifest, string, error) {
+	if ctx == nil {
+		ctx = contextBackground()
 	}
-
-	cmd.Flags().StringVar(&outputPath, "output", "", "output file path")
-	cmd.Flags().StringVar(&outputDir, "dir", "", "output directory (creates name/ folder pack with SKILL.md, GOTCHAS.md, RECIPES.md)")
-	cmd.Flags().BoolVar(&exportLegacy, "legacy", false, "export as single SKILL.md file (legacy mode) instead of folder pack")
-
-	return cmd
-}
-
-func writeAgentSkillPackDir(serviceDir string, pack map[string]string) ([]string, error) {
-	names := make([]string, 0, len(pack))
-	for filename := range pack {
-		if err := validateExportPackFileName(filename); err != nil {
-			return nil, err
-		}
-		names = append(names, filename)
-	}
-	sort.Strings(names)
-
-	parentDir := filepath.Dir(serviceDir)
-	if err := os.MkdirAll(parentDir, 0o755); err != nil {
-		return nil, fmt.Errorf("create parent directory: %w", err)
-	}
-	tmpDir, err := os.MkdirTemp(parentDir, ".kimbap-export-*.tmp")
-	if err != nil {
-		return nil, fmt.Errorf("create temp directory: %w", err)
-	}
-	staged := false
-	defer func() {
-		if !staged {
-			os.RemoveAll(tmpDir)
-		}
-	}()
-
-	writtenFiles := make([]string, 0, len(names))
-	for _, filename := range names {
-		if err := os.WriteFile(filepath.Join(tmpDir, filename), []byte(pack[filename]), 0o644); err != nil {
-			return nil, fmt.Errorf("write %s: %w", filename, err)
-		}
-		writtenFiles = append(writtenFiles, filepath.Join(serviceDir, filename))
-	}
-
-	oldDir := serviceDir + ".old"
-	hasOld := false
-	if _, statErr := os.Stat(serviceDir); statErr == nil {
-		if err := os.RemoveAll(oldDir); err != nil {
-			return nil, fmt.Errorf("remove stale backup export dir: %w", err)
-		}
-		if err := os.Rename(serviceDir, oldDir); err != nil {
-			return nil, fmt.Errorf("backup existing export dir: %w", err)
-		}
-		hasOld = true
-	}
-	if err := os.Rename(tmpDir, serviceDir); err != nil {
-		if hasOld {
-			if restoreErr := os.Rename(oldDir, serviceDir); restoreErr != nil {
-				return nil, fmt.Errorf("promote temp to target: %w (restore from backup %q failed: %v)", err, oldDir, restoreErr)
-			}
-		}
-		return nil, fmt.Errorf("promote temp to target: %w", err)
-	}
-	if hasOld {
-		os.RemoveAll(oldDir)
-	}
-	staged = true
-	return writtenFiles, nil
-}
-
-func validateExportPackFileName(name string) error {
-	trimmed := strings.TrimSpace(name)
-	if trimmed == "" {
-		return fmt.Errorf("pack filename must be non-empty")
-	}
-	if filepath.IsAbs(trimmed) {
-		return fmt.Errorf("pack filename %q must be relative", name)
-	}
-	clean := filepath.Clean(trimmed)
-	if clean == "." || clean == ".." || strings.HasPrefix(clean, "../") {
-		return fmt.Errorf("pack filename %q must not escape export directory", name)
-	}
-	if strings.ContainsAny(clean, `/\`) {
-		return fmt.Errorf("pack filename %q must not contain path separators", name)
-	}
-	return nil
-}
-
-func resolveServiceInstallSource(arg string) (*services.ServiceManifest, string, error) {
 	trimmed := strings.TrimSpace(arg)
 	if trimmed == "" {
 		return nil, "", fmt.Errorf("service source is required")
@@ -1004,13 +1009,13 @@ func resolveServiceInstallSource(arg string) (*services.ServiceManifest, string,
 
 	if strings.HasPrefix(trimmed, "registry:") {
 		registryName := strings.TrimSpace(strings.TrimPrefix(trimmed, "registry:"))
-		return resolveRegistryServiceByName(registryName)
+		return resolveRegistryServiceByName(ctx, registryName)
 	}
 
-	if strings.HasPrefix(trimmed, "http://") {
+	if scheme := serviceSourceURLScheme(trimmed); scheme == "http" {
 		return nil, "", fmt.Errorf("insecure URL %q rejected: use https:// to install service manifests", trimmed)
 	}
-	if strings.HasPrefix(trimmed, "https://") {
+	if scheme := serviceSourceURLScheme(trimmed); scheme == "https" {
 		manifest, err := parseServiceManifestURL(trimmed)
 		if err != nil {
 			return nil, "", err
@@ -1024,9 +1029,9 @@ func resolveServiceInstallSource(arg string) (*services.ServiceManifest, string,
 			return nil, "", parseErr
 		}
 		reg := registry.NewGitHubRegistry(owner, repo, "", subdir)
-		ctx, cancel := context.WithTimeout(contextBackground(), 30*time.Second)
+		resolveCtx, cancel := context.WithTimeout(ctx, 30*time.Second)
 		defer cancel()
-		manifest, source, resolveErr := reg.Resolve(ctx, serviceName)
+		manifest, source, resolveErr := reg.Resolve(resolveCtx, serviceName)
 		if resolveErr != nil {
 			return nil, "", fmt.Errorf("fetch from GitHub %q: %w", trimmed, resolveErr)
 		}
@@ -1053,10 +1058,13 @@ func resolveServiceInstallSource(arg string) (*services.ServiceManifest, string,
 		return nil, "", fmt.Errorf("stat service source %q: %w", trimmed, err)
 	}
 
-	return resolveRegistryServiceByName(trimmed)
+	return resolveRegistryServiceByName(ctx, trimmed)
 }
 
-func resolveRegistryServiceByName(name string) (*services.ServiceManifest, string, error) {
+func resolveRegistryServiceByName(ctx context.Context, name string) (*services.ServiceManifest, string, error) {
+	if ctx == nil {
+		ctx = contextBackground()
+	}
 	trimmed := strings.ToLower(strings.TrimSpace(name))
 	if err := services.ValidateServiceName(trimmed); err != nil {
 		return nil, "", err
@@ -1079,9 +1087,9 @@ func resolveRegistryServiceByName(name string) (*services.ServiceManifest, strin
 		registryURL := strings.TrimSpace(cfg.Services.RegistryURL)
 		if registryURL != "" && registryURL != "https://services.kimbap.ai" {
 			remoteReg := registry.NewRemoteRegistry("registry", registryURL)
-			ctx, cancel := context.WithTimeout(contextBackground(), 30*time.Second)
+			resolveCtx, cancel := context.WithTimeout(ctx, 30*time.Second)
 			defer cancel()
-			manifest, _, resolveErr := remoteReg.Resolve(ctx, trimmed)
+			manifest, _, resolveErr := remoteReg.Resolve(resolveCtx, trimmed)
 			if resolveErr == nil {
 				return manifest, "registry:" + trimmed, nil
 			}
@@ -1098,6 +1106,18 @@ func resolveRegistryServiceByName(name string) (*services.ServiceManifest, strin
 		hint = fmt.Sprintf("Did you mean %q? Run 'kimbap service list --available' to see all catalog services.", suggestion)
 	}
 	return nil, "", fmt.Errorf("%w. %s", &registry.ErrNotFound{Name: trimmed, Registry: "catalog"}, hint)
+}
+
+func serviceSourceURLScheme(raw string) string {
+	parsed, err := url.Parse(strings.TrimSpace(raw))
+	if err != nil {
+		return ""
+	}
+	scheme := strings.ToLower(strings.TrimSpace(parsed.Scheme))
+	if scheme != "http" && scheme != "https" {
+		return ""
+	}
+	return scheme
 }
 
 func sourceToInstallArg(source string) string {

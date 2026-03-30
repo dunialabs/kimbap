@@ -213,18 +213,41 @@ type initServiceSelection struct {
 }
 
 func starterServiceNames() []string {
+	candidates := []string{}
 	if runtime.GOOS == "darwin" {
-		return []string{
+		candidates = []string{
 			"apple-notes", "apple-calendar", "apple-reminders",
 			"finder", "safari", "contacts",
 			"wikipedia", "open-meteo", "hacker-news",
 		}
+	} else {
+		candidates = []string{
+			"wikipedia", "open-meteo", "hacker-news",
+			"rest-countries", "exchange-rate",
+			"public-holidays", "nominatim",
+		}
 	}
-	return []string{
-		"wikipedia", "open-meteo", "hacker-news",
-		"rest-countries", "exchange-rate",
-		"public-holidays", "nominatim",
+	return filterStarterServiceNames(candidates, func(name string) (*services.ServiceManifest, error) {
+		data, err := catalog.Get(name)
+		if err != nil {
+			return nil, err
+		}
+		return services.ParseManifest(data)
+	})
+}
+
+func filterStarterServiceNames(candidates []string, resolveManifest func(name string) (*services.ServiceManifest, error)) []string {
+	filtered := make([]string, 0, len(candidates))
+	for _, name := range candidates {
+		if resolveManifest != nil {
+			manifest, err := resolveManifest(name)
+			if err == nil && serviceManifestRequiresCredentials(manifest) {
+				continue
+			}
+		}
+		filtered = append(filtered, name)
 	}
+	return filtered
 }
 
 func resolveInitServiceSelectionFromReader(rawServices string, noServices bool, interactive bool, reader io.Reader) (initServiceSelection, error) {
@@ -390,18 +413,18 @@ func installInitServices(cfg *config.KimbapConfig, selection initServiceSelectio
 		if manifest == nil {
 			return
 		}
-		_, created, aliasErr := ensureInstalledServiceAlias(cfg, installer, manifest)
+		shortcutResult, skippedActionAliases, aliasErr, actionAliasErr := runInstalledShortcutSetup(cfg, installer, manifest)
 		if aliasErr != nil {
 			failed = append(failed, fmt.Sprintf("%s (alias: %v)", manifest.Name, aliasErr))
 			return
 		}
-		if created {
+		if shortcutResult.AutoAliasCreated {
 			aliased++
 		}
-		if createdActionAliases, skippedActionAliases, actionAliasErr := ensureInstalledActionAliases(cfg, installer, manifest); actionAliasErr != nil {
+		if actionAliasErr != nil {
 			failed = append(failed, fmt.Sprintf("%s (action-alias: %v)", manifest.Name, actionAliasErr))
 		} else {
-			actionAliased += len(createdActionAliases)
+			actionAliased += len(shortcutResult.ActionAliasesCreated)
 			if len(skippedActionAliases) > 0 {
 				_, _ = fmt.Fprintf(os.Stderr, "warning: skipped action aliases for %s: %s\n", manifest.Name, strings.Join(skippedActionAliases, ", "))
 			}

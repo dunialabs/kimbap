@@ -1427,7 +1427,7 @@ func TestGenerateAgentSkillMDHTTPUnchanged(t *testing.T) {
 		"```bash\n" +
 		"kimbap actions list --service notes-service --format json\n" +
 		"kimbap actions describe notes-service.<action> --format json\n" +
-		"kimbap call notes-service.<action> --dry-run --format json\n" +
+		"kimbap call --format json notes-service.<action> --dry-run\n" +
 		"```\n\n" +
 		"## Shortcut Command Alias (optional)\n\n" +
 		"```bash\n" +
@@ -2095,7 +2095,7 @@ func TestGenerateAgentSkillMDRiskLevelHints(t *testing.T) {
 			if err != nil {
 				t.Fatalf("GenerateAgentSkillMD error: %v", err)
 			}
-			hasDryRun := strings.Contains(out, "--dry-run --format json first to preview")
+			hasDryRun := strings.Contains(out, "⚠️ This action is risk level:")
 			hasApproval := strings.Contains(out, "kimbap approve list")
 			if hasDryRun != tc.wantDryRunHint {
 				t.Errorf("risk=%q: dry-run hint = %v, want %v\nOutput:\n%s", tc.riskLevel, hasDryRun, tc.wantDryRunHint, out)
@@ -2186,7 +2186,7 @@ func TestGenerateAgentSkillMDCriticalRisk(t *testing.T) {
 		t.Fatalf("GenerateAgentSkillMD: %v", err)
 	}
 
-	if !strings.Contains(content, "⚠️ This action is risk level: critical. Use --dry-run --format json first to preview.") {
+	if !strings.Contains(content, "⚠️ This action is risk level: critical. Preview first: `kimbap call --format json") {
 		t.Fatalf("expected critical dry-run warning, got:\n%s", content)
 	}
 	if !strings.Contains(content, "🔒 Approval may be required. Check: `kimbap approve list`") {

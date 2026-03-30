@@ -215,6 +215,52 @@ func TestServiceCLIInstallEnableDisableLifecycle(t *testing.T) {
 	})
 }
 
+func TestServiceManifestRequiresCredentials(t *testing.T) {
+	t.Run("top-level auth requires credentials", func(t *testing.T) {
+		manifest := &services.ServiceManifest{
+			Name: "financial-datasets",
+			Auth: services.ServiceAuth{Type: "header", CredentialRef: "financial-datasets.api_key"},
+			Actions: map[string]services.ServiceAction{
+				"get-stock-price": {Method: "GET", Path: "/stock"},
+			},
+		}
+		if !serviceManifestRequiresCredentials(manifest) {
+			t.Fatal("expected credential-required manifest to be detected")
+		}
+	})
+
+	t.Run("none auth does not require credentials", func(t *testing.T) {
+		manifest := &services.ServiceManifest{
+			Name: "open-meteo",
+			Auth: services.ServiceAuth{Type: "none"},
+			Actions: map[string]services.ServiceAction{
+				"get-forecast": {Method: "GET", Path: "/forecast"},
+			},
+		}
+		if serviceManifestRequiresCredentials(manifest) {
+			t.Fatal("did not expect auth:none manifest to require credentials")
+		}
+	})
+
+	t.Run("action-level auth requires credentials", func(t *testing.T) {
+		manifest := &services.ServiceManifest{
+			Name: "mixed",
+			Auth: services.ServiceAuth{Type: "none"},
+			Actions: map[string]services.ServiceAction{
+				"list": {Method: "GET", Path: "/list"},
+				"write": {
+					Method: "POST",
+					Path:   "/write",
+					Auth:   &services.ServiceAuth{Type: "bearer", CredentialRef: "mixed.token"},
+				},
+			},
+		}
+		if !serviceManifestRequiresCredentials(manifest) {
+			t.Fatal("expected action-level auth requirement to be detected")
+		}
+	})
+}
+
 func TestServiceCLIEnableBackfillsActionAliasesAfterNoActivateInstall(t *testing.T) {
 	dataDir := t.TempDir()
 	servicesDir := filepath.Join(dataDir, "services")

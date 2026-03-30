@@ -6,6 +6,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/dunialabs/kimbap/internal/services"
 	"github.com/dunialabs/kimbap/services/catalog"
 )
 
@@ -483,6 +484,45 @@ func TestResolveInitServiceSelectionFromReader(t *testing.T) {
 				}
 			}
 		})
+	}
+}
+
+func TestFilterStarterServiceNamesExcludesCredentialRequiredServices(t *testing.T) {
+	candidates := []string{"open-meteo", "financial-datasets", "broken"}
+
+	manifests := map[string]*services.ServiceManifest{
+		"open-meteo": {
+			Name: "open-meteo",
+			Auth: services.ServiceAuth{Type: "none"},
+			Actions: map[string]services.ServiceAction{
+				"get-forecast": {Method: "GET", Path: "/forecast"},
+			},
+		},
+		"financial-datasets": {
+			Name: "financial-datasets",
+			Auth: services.ServiceAuth{Type: "header", CredentialRef: "financial-datasets.api_key"},
+			Actions: map[string]services.ServiceAction{
+				"get-stock-price": {Method: "GET", Path: "/stock"},
+			},
+		},
+	}
+
+	got := filterStarterServiceNames(candidates, func(name string) (*services.ServiceManifest, error) {
+		m, ok := manifests[name]
+		if !ok {
+			return nil, os.ErrNotExist
+		}
+		return m, nil
+	})
+
+	want := []string{"open-meteo", "broken"}
+	if len(got) != len(want) {
+		t.Fatalf("expected starter names %v, got %v", want, got)
+	}
+	for i := range want {
+		if got[i] != want[i] {
+			t.Fatalf("starter[%d]: expected %q, got %q", i, want[i], got[i])
+		}
 	}
 }
 

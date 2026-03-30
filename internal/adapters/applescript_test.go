@@ -261,7 +261,10 @@ func TestErrorMappingTable(t *testing.T) {
 		wantStatus int
 	}{
 		{"TCC denied", "execution error: (-1743)", 403},
+		{"Not supported sentinel", "execution error: [NOT_SUPPORTED] unsupported operation", 400},
 		{"App not running", "execution error: (-600)", 503},
+		{"App missing", "execution error: Application can't be found. (-2700)", 404},
+		{"Message not understood", "execution error: Message not understood. (-1708)", 400},
 		{"User cancelled", "execution error: (-128)", 499},
 		{"Timeout", "execution error: (-1712)", 504},
 		{"Object not found", "execution error: (-1728)", 404},
@@ -290,6 +293,19 @@ func TestUnknownErrorFallback(t *testing.T) {
 	}
 	if details, ok := got.Details["stderr"].(string); !ok || details != stderr {
 		t.Fatalf("Details[stderr] = %v, want %q", got.Details["stderr"], stderr)
+	}
+}
+
+func TestMessageNotUnderstoodIncludesGuidance(t *testing.T) {
+	err := mapAppleScriptError([]byte("execution error: Message not understood. (-1708)"), errors.New("exit status 1"))
+	if err.HTTPStatus != 400 {
+		t.Fatalf("HTTPStatus = %d, want 400", err.HTTPStatus)
+	}
+	if err.Code != actions.ErrValidationFailed {
+		t.Fatalf("Code = %q, want %q", err.Code, actions.ErrValidationFailed)
+	}
+	if !strings.Contains(err.Message, "not supported by the target app") {
+		t.Fatalf("Message = %q, want guidance for unsupported command", err.Message)
 	}
 }
 

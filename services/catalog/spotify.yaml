@@ -17,9 +17,9 @@ gotchas:
     likely_cause: macOS Automation permission for Spotify was not granted
     recovery: Grant terminal/agent automation access to Spotify in System Settings > Privacy & Security > Automation
     severity: high
-  - symptom: search-play does not start the expected song
-    likely_cause: Spotify search can return ambiguous matches for short queries
-    recovery: Use a more specific query including artist name
+  - symptom: search-play fails with "Message not understood" or unsupported search errors
+    likely_cause: Spotify AppleScript does not support free-text search playback APIs
+    recovery: Use spotify URI playback via spotify.play-uri or pass a spotify:track URI to search-play
     severity: medium
 recipes:
   - name: Resume and inspect current playback
@@ -27,10 +27,10 @@ recipes:
     steps:
       - Run spotify.play to resume playback
       - Run spotify.get-current-track to confirm track name and artist
-  - name: Jump to a specific song quickly
-    description: Search for a track and start playback in one flow
+  - name: Play an exact track URI
+    description: Start playback using a Spotify URI for deterministic results
     steps:
-      - Run spotify.search-play with a precise query string
+      - Run spotify.play-uri with spotify:track:<id>
       - Run spotify.get-player-state to verify playback is active
 actions:
   get-current-track:
@@ -101,7 +101,7 @@ actions:
       level: low
   search-play:
     command: spotify-search-play
-    description: Search Spotify by query and start playback
+    description: Start playback from a Spotify URI passed via query (legacy compatibility)
     idempotent: false
     args:
       - name: query
@@ -111,3 +111,15 @@ actions:
       type: object
     risk:
       level: medium
+  play-uri:
+    command: spotify-play-uri
+    description: Start playback for an exact Spotify URI (spotify:track:..., spotify:playlist:...)
+    idempotent: false
+    args:
+      - name: uri
+        type: string
+        required: true
+    response:
+      type: object
+    risk:
+      level: low

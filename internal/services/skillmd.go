@@ -170,7 +170,7 @@ func GenerateAgentSkillMD(manifest *ServiceManifest, opts ...SkillMDOption) (str
 			sb.WriteString("\n⚠️  Non-idempotent: pass --idempotency-key <unique-id> for safe retries.\n")
 		}
 		if riskLevel == "" || riskLevel == "unknown" || riskLevel == "medium" || riskLevel == "high" || riskLevel == "critical" {
-			fmt.Fprintf(&sb, "\n> ⚠️ This action is risk level: %s. Use --dry-run --format json first to preview.\n", riskDisplay)
+			fmt.Fprintf(&sb, "\n> ⚠️ This action is risk level: %s. Preview first: `kimbap call --format json %s.%s --dry-run`.\n", riskDisplay, callServiceName, key)
 		}
 		if riskLevel == "high" || riskLevel == "critical" {
 			sb.WriteString("\n> 🔒 Approval may be required. Check: `kimbap approve list`\n")
@@ -182,7 +182,7 @@ func GenerateAgentSkillMD(manifest *ServiceManifest, opts ...SkillMDOption) (str
 	sb.WriteString("```bash\n")
 	fmt.Fprintf(&sb, "kimbap actions list --service %s --format json\n", manifest.Name)
 	fmt.Fprintf(&sb, "kimbap actions describe %s.<action> --format json\n", callServiceName)
-	fmt.Fprintf(&sb, "kimbap call %s.<action> --dry-run --format json\n", callServiceName)
+	fmt.Fprintf(&sb, "kimbap call --format json %s.<action> --dry-run\n", callServiceName)
 	sb.WriteString("```\n")
 	if shortcut := generateStandaloneAliasExample(manifest); shortcut != "" {
 		sb.WriteString("\n")
@@ -277,7 +277,7 @@ Never ask for, print, or store raw API keys, passwords, tokens, cookies, or sess
 <protocol>
 1. Search by intent:    ` + "`kimbap search \"<intent>\" --format json`" + `
 2. Inspect the action:  ` + "`kimbap actions describe <service.action> --format json`" + `
-3. Preview if non-low:  ` + "`kimbap call <service.action> --dry-run --format json`" + `
+3. Preview if non-low:  ` + "`kimbap call --format json <service.action> --dry-run`" + `
 4. Execute:             ` + "`kimbap call <service.action> [--param value ...]`" + `
 5. Optional shortcut:   ` + "`kimbap alias set <shortcut> <service.action>`" + ` then run ` + "`<shortcut> ...`" + `
 Browse all services only when search returns nothing: ` + "`kimbap actions list --format json`" + `
@@ -404,7 +404,7 @@ func generatePackSkillMD(manifest *ServiceManifest, cfg skillMDConfig) (string, 
 	}
 	sb.WriteString("## Before Execute\n\n")
 	fmt.Fprintf(&sb, "- Inspect: `kimbap actions describe %s.<action> --format json`\n", callServiceName)
-	fmt.Fprintf(&sb, "- Preview non-low-risk actions: `kimbap call %s.<action> --dry-run --format json`\n", callServiceName)
+	fmt.Fprintf(&sb, "- Preview non-low-risk actions: `kimbap call --format json %s.<action> --dry-run`\n", callServiceName)
 	if hasGotchas {
 		sb.WriteString("- Read GOTCHAS.md in this pack before unfamiliar or risky actions\n")
 	}

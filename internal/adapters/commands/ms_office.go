@@ -106,7 +106,18 @@ try {
 	throw new Error("[NOT_FOUND] active document not found");
 }
 
-doc.saveAs({fileName: Path(input.output_path), fileFormat: "format PDF"});
+var exported = false;
+try {
+	doc.exportAsFixedFormat({outputFileName: Path(input.output_path), exportFormat: "wdExportFormatPDF"});
+	exported = true;
+} catch (e1) {
+	try {
+		doc.saveAs({fileName: Path(input.output_path), fileFormat: 17});
+		exported = true;
+	} catch (e2) {
+		throw new Error("[NOT_SUPPORTED] failed to export Word document to PDF");
+	}
+}
 JSON.stringify({name: doc.name(), exported: true, outputPath: input.output_path});`,
 		},
 		"word-close-document": {
@@ -232,7 +243,19 @@ try {
 	throw new Error("[NOT_FOUND] active workbook not found");
 }
 
-workbook.saveWorkbookAs({filename: Path(input.output_path), fileFormat: "PDF file format"});
+try {
+	workbook.exportAsFixedFormat({type: "xlTypePDF", fileName: Path(input.output_path)});
+} catch (e1) {
+	try {
+		workbook.exportAsFixedFormat({type: 0, fileName: Path(input.output_path)});
+	} catch (e2) {
+		try {
+			workbook.saveAs({filename: Path(input.output_path), fileFormat: 57});
+		} catch (e3) {
+			throw new Error("[NOT_SUPPORTED] failed to export Excel workbook to PDF");
+		}
+	}
+}
 JSON.stringify({name: workbook.name(), exported: true, outputPath: input.output_path});`,
 		},
 		"excel-close-workbook": {
@@ -344,7 +367,15 @@ try {
 	throw new Error("[NOT_FOUND] active presentation not found");
 }
 
-pres.saveAs(Path(input.output_path), {fileFormat: "PDF"});
+try {
+	pres.saveAs(Path(input.output_path), {fileFormat: "PDF"});
+} catch (e1) {
+	try {
+		pres.saveAs(Path(input.output_path), {fileFormat: 32});
+	} catch (e2) {
+		throw new Error("[NOT_SUPPORTED] failed to export PowerPoint presentation to PDF");
+	}
+}
 JSON.stringify({name: pres.name(), exported: true, outputPath: input.output_path});`,
 		},
 		"ppt-save-as-png": {
@@ -362,7 +393,15 @@ try {
 	throw new Error("[NOT_FOUND] active presentation not found");
 }
 
-pres.saveAs(Path(input.output_dir), {fileFormat: "PNG"});
+try {
+	pres.export({path: Path(input.output_dir), filterName: "PNG"});
+} catch (e1) {
+	try {
+		pres.saveAs(Path(input.output_dir), {fileFormat: "PNG"});
+	} catch (e2) {
+		throw new Error("[NOT_SUPPORTED] failed to export PowerPoint presentation to PNG");
+	}
+}
 JSON.stringify({name: pres.name(), exported: true, outputDir: input.output_dir});`,
 		},
 		"ppt-close-presentation": {

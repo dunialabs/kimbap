@@ -110,3 +110,36 @@ func TestNumbersCellAccessUsesRanges(t *testing.T) {
 		}
 	}
 }
+
+func TestMSOfficeExportCommandsUseResilientPDFPNGStrategies(t *testing.T) {
+	cmds := MSOfficeCommands()
+
+	wordPDF := cmds["word-save-as-pdf"].Script
+	if !strings.Contains(wordPDF, "exportAsFixedFormat") {
+		t.Error("word-save-as-pdf should try exportAsFixedFormat first")
+	}
+	if !strings.Contains(wordPDF, "fileFormat: 17") {
+		t.Error("word-save-as-pdf should include numeric PDF fallback (17)")
+	}
+
+	excelPDF := cmds["excel-save-as-pdf"].Script
+	if !strings.Contains(excelPDF, "exportAsFixedFormat") {
+		t.Error("excel-save-as-pdf should use exportAsFixedFormat")
+	}
+	if !strings.Contains(excelPDF, "fileFormat: 57") {
+		t.Error("excel-save-as-pdf should include saveAs PDF fallback (57)")
+	}
+
+	pptPDF := cmds["ppt-save-as-pdf"].Script
+	if !strings.Contains(pptPDF, "fileFormat: 32") {
+		t.Error("ppt-save-as-pdf should include numeric PDF fallback (32)")
+	}
+
+	pptPNG := cmds["ppt-save-as-png"].Script
+	if !strings.Contains(pptPNG, "pres.export") {
+		t.Error("ppt-save-as-png should attempt export() with filterName PNG")
+	}
+	if !strings.Contains(pptPNG, "fileFormat: \"PNG\"") {
+		t.Error("ppt-save-as-png should keep saveAs PNG fallback")
+	}
+}
