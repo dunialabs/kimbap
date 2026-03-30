@@ -555,7 +555,7 @@ func parseAgentKinds(raw string) []agents.AgentKind {
 	parts := strings.Split(trimmed, ",")
 	out := make([]agents.AgentKind, 0, len(parts))
 	for _, part := range parts {
-		kind := strings.TrimSpace(part)
+		kind := strings.ToLower(strings.TrimSpace(part))
 		if kind == "" {
 			continue
 		}

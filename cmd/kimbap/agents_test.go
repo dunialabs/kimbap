@@ -156,3 +156,19 @@ func TestAgentsSyncHelpIncludesGenericAgentKind(t *testing.T) {
 		t.Fatalf("expected sync help to include generic agent kind, got: %q", output)
 	}
 }
+
+func TestParseAgentKindsNormalizesCaseAndWhitespace(t *testing.T) {
+	kinds := parseAgentKinds(" CODEX,  Claude-Code ,opencode ")
+	if len(kinds) != 3 {
+		t.Fatalf("expected 3 kinds, got %d", len(kinds))
+	}
+	if kinds[0] != "codex" {
+		t.Fatalf("kinds[0] = %q, want codex", kinds[0])
+	}
+	if kinds[1] != "claude-code" {
+		t.Fatalf("kinds[1] = %q, want claude-code", kinds[1])
+	}
+	if kinds[2] != "opencode" {
+		t.Fatalf("kinds[2] = %q, want opencode", kinds[2])
+	}
+}

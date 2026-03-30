@@ -150,7 +150,7 @@ kimbap service install github --force
 kimbap service install github --no-shortcuts
 ```
 
-Install sets up eligible shortcut aliases by default. In interactive flows, you'll be asked first; use `--no-shortcuts` to skip.
+Install sets up eligible shortcut aliases by default. Use `--no-shortcuts` to skip.
 
 ---
 
@@ -649,7 +649,7 @@ kimbap daemon
 
 Install global Kimbap discovery hints for detected AI agent environments.
 
-Supported agent kinds: `claude-code`, `opencode`, `codex`, `cursor`, `openclaw`, `nanoclaw`, `generic`.
+Supported agent kinds: `claude-code`, `opencode`, `codex`, `cursor`, `openclaw`, `nanoclaw`.
 
 - Default: installs global hints only.
 - Use `--sync --dir <path>` to also run service sync into a project directory.
@@ -709,7 +709,6 @@ Install global discovery hints **and** agent operating profiles. Writes a `KIMBA
 | `openclaw` | `KIMBAP_OPERATING_RULES.md` (OpenClaw workspace root) |
 | `nanoclaw` | `.claude/KIMBAP_OPERATING_RULES.md` |
 | `codex` | `.codex/KIMBAP_OPERATING_RULES.md` |
-| `generic` | `.agents/KIMBAP_OPERATING_RULES.md` |
 
 **Example:**
 
@@ -717,6 +716,8 @@ Install global discovery hints **and** agent operating profiles. Writes a `KIMBA
 kimbap agents setup --with-profiles
 kimbap agents setup --with-profiles --profile-dir /path/to/project
 ```
+
+Note: `generic` is supported in `kimbap agents sync` (project-level sync), not in `kimbap agents setup`.
 
 ---
 
