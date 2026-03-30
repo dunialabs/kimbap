@@ -134,24 +134,7 @@ func newAgentsSetupCommand() *cobra.Command {
 				syncResult = &res
 
 				if !outputAsJSON() {
-					if syncResult.AgentsFound == 0 || len(syncResult.SyncResults) == 0 {
-						fmt.Printf("- No agent environments detected for sync in %s\n", absDir)
-						return nil
-					}
-					hasWrittenServices := false
-					for _, r := range syncResult.SyncResults {
-						if len(r.Written) > 0 {
-							hasWrittenServices = true
-							break
-						}
-					}
-					if dryRun {
-						fmt.Printf("- Service sync dry-run completed for %s\n", absDir)
-					} else if hasWrittenServices {
-						fmt.Printf(successCheck()+" Services synced to %s\n", absDir)
-					} else {
-						fmt.Printf("- Services already in sync at %s\n", absDir)
-					}
+					fmt.Println(describeAgentsSetupSyncOutcome(syncResult, absDir, dryRun))
 				}
 			}
 
@@ -183,6 +166,37 @@ func newAgentsSetupCommand() *cobra.Command {
 	_ = cmd.Flags().MarkHidden("no-sync")
 
 	return cmd
+}
+
+func describeAgentsSetupSyncOutcome(syncResult *agentSetupResult, absDir string, dryRun bool) string {
+	if syncResult == nil || syncResult.AgentsFound == 0 || len(syncResult.SyncResults) == 0 {
+		return fmt.Sprintf("- No agent environments detected for sync in %s", absDir)
+	}
+	if dryRun {
+		return fmt.Sprintf("- Service sync dry-run completed for %s", absDir)
+	}
+
+	hasWrittenServices := false
+	hasProtectedServices := false
+	for _, r := range syncResult.SyncResults {
+		if len(r.Written) > 0 {
+			hasWrittenServices = true
+		}
+		if len(r.Protected) > 0 {
+			hasProtectedServices = true
+		}
+	}
+
+	if hasWrittenServices && hasProtectedServices {
+		return fmt.Sprintf(successCheck()+" Services synced to %s (left existing unmanaged skill directories untouched)", absDir)
+	}
+	if hasWrittenServices {
+		return fmt.Sprintf(successCheck()+" Services synced to %s", absDir)
+	}
+	if hasProtectedServices {
+		return fmt.Sprintf("- Service sync skipped for existing unmanaged skill directories in %s", absDir)
+	}
+	return fmt.Sprintf("- Services already in sync at %s", absDir)
 }
 
 func resolveAgentsSyncProjectDir(projectDir string) (string, error) {

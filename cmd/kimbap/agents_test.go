@@ -2,9 +2,12 @@ package main
 
 import (
 	"encoding/json"
+	"os"
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/dunialabs/kimbap/internal/agents"
 )
 
 func TestAgentsSetupNoAgentsDetected(t *testing.T) {
@@ -170,5 +173,71 @@ func TestParseAgentKindsNormalizesCaseAndWhitespace(t *testing.T) {
 	}
 	if kinds[2] != "opencode" {
 		t.Fatalf("kinds[2] = %q, want opencode", kinds[2])
+	}
+}
+
+func TestRunAgentsSyncSkipsUnmanagedSkillDirsWithoutError(t *testing.T) {
+	dataDir := t.TempDir()
+	servicesDir := filepath.Join(dataDir, "services")
+	configPath := writeServiceCLIConfig(t, dataDir, servicesDir)
+	manifestPath := filepath.Join(t.TempDir(), "notes-service.yaml")
+	writeLocalManifest(t, manifestPath, "notes-service", "1.0.0")
+	projectDir := t.TempDir()
+	unmanagedDir := filepath.Join(projectDir, ".claude", "skills", "notes-service")
+	if err := os.MkdirAll(unmanagedDir, 0o755); err != nil {
+		t.Fatalf("create unmanaged dir: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(unmanagedDir, "SKILL.md"), []byte("# custom\n"), 0o644); err != nil {
+		t.Fatalf("write unmanaged skill: %v", err)
+	}
+
+	withServiceCLIOpts(t, configPath, func() {
+		installCmd := newServiceInstallCommand()
+		installCmd.SetArgs([]string{manifestPath, "--no-shortcuts"})
+		if _, err := captureStdout(t, installCmd.Execute); err != nil {
+			t.Fatalf("service install failed: %v", err)
+		}
+
+		result, err := runAgentsSync(projectDir, "claude-code", "", false, false)
+		if err != nil {
+			t.Fatalf("runAgentsSync returned unexpected error: %v", err)
+		}
+		if result.AgentsFound != 1 {
+			t.Fatalf("expected 1 agent found, got %d", result.AgentsFound)
+		}
+		if len(result.SyncResults) != 1 {
+			t.Fatalf("expected 1 sync result, got %d", len(result.SyncResults))
+		}
+		syncResult := result.SyncResults[0]
+		if len(syncResult.Failed) != 0 {
+			t.Fatalf("expected no failed entries, got %+v", syncResult.Failed)
+		}
+		if len(syncResult.Errors) != 0 {
+			t.Fatalf("expected no errors, got %+v", syncResult.Errors)
+		}
+		if len(syncResult.Skipped) != 1 || syncResult.Skipped[0] != "notes-service" {
+			t.Fatalf("expected unmanaged directory to be skipped, got %+v", syncResult.Skipped)
+		}
+		if len(syncResult.Protected) != 1 || syncResult.Protected[0] != "notes-service" {
+			t.Fatalf("expected unmanaged directory to be marked protected, got %+v", syncResult.Protected)
+		}
+	})
+}
+
+func TestDescribeAgentsSetupSyncOutcomeDistinguishesProtectedSkips(t *testing.T) {
+	msg := describeAgentsSetupSyncOutcome(&agentSetupResult{
+		AgentsFound: 1,
+		SyncResults: []agents.SyncResult{{Agent: agents.AgentClaudeCode, Protected: []string{"notes-service"}, Skipped: []string{"notes-service"}}},
+	}, "/tmp/project", false)
+	if !strings.Contains(msg, "existing unmanaged skill directories") {
+		t.Fatalf("expected protected skip message, got %q", msg)
+	}
+
+	msg = describeAgentsSetupSyncOutcome(&agentSetupResult{
+		AgentsFound: 1,
+		SyncResults: []agents.SyncResult{{Agent: agents.AgentClaudeCode, Skipped: []string{"notes-service"}}},
+	}, "/tmp/project", false)
+	if !strings.Contains(msg, "already in sync") {
+		t.Fatalf("expected already-in-sync message for ordinary skips, got %q", msg)
 	}
 }

@@ -112,6 +112,7 @@ type SyncResult struct {
 	AgentSkillsDir string    `json:"agent_skills_dir"`
 	Written        []string  `json:"written"`
 	Skipped        []string  `json:"skipped"`
+	Protected      []string  `json:"protected,omitempty"`
 	Failed         []string  `json:"failed"`
 	Pruned         []string  `json:"pruned,omitempty"`
 	RulesWritten   bool      `json:"rules_written"`
@@ -211,6 +212,7 @@ func SyncServices(installer ServiceInstaller, rulesContent string, opts SyncOpti
 			AgentSkillsDir: agentSkillsDir,
 			Written:        make([]string, 0),
 			Skipped:        make([]string, 0),
+			Protected:      make([]string, 0),
 			Failed:         make([]string, 0),
 			Errors:         make([]string, 0),
 		}
@@ -236,8 +238,8 @@ func SyncServices(installer ServiceInstaller, rulesContent string, opts SyncOpti
 					continue
 				}
 				if !managed {
-					result.Failed = append(result.Failed, pack.Name)
-					result.Errors = append(result.Errors, fmt.Sprintf("service %q: existing unmanaged skill directory; refusing to overwrite", pack.Name))
+					result.Skipped = append(result.Skipped, pack.Name)
+					result.Protected = append(result.Protected, pack.Name)
 					continue
 				}
 				allFiles := make(map[string]string, len(pack.PackFiles)+1)
@@ -297,8 +299,8 @@ func SyncServices(installer ServiceInstaller, rulesContent string, opts SyncOpti
 					continue
 				}
 				if !managed {
-					result.Failed = append(result.Failed, installedService.Name)
-					result.Errors = append(result.Errors, fmt.Sprintf("service %q: existing unmanaged skill directory; refusing to overwrite", installedService.Name))
+					result.Skipped = append(result.Skipped, installedService.Name)
+					result.Protected = append(result.Protected, installedService.Name)
 					continue
 				}
 				markerPath := filepath.Join(projectDir, selected.cfg.AgentSkillsDir, installedService.Name, managedSkillMarkerFile)
@@ -390,6 +392,7 @@ func SyncServices(installer ServiceInstaller, rulesContent string, opts SyncOpti
 
 		sort.Strings(result.Written)
 		sort.Strings(result.Skipped)
+		sort.Strings(result.Protected)
 		sort.Strings(result.Failed)
 		results = append(results, result)
 	}

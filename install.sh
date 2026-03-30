@@ -741,9 +741,9 @@ main() {
     ensure_agent_sync_ready "${INSTALL_PATH}/kimbap" "$QUICKSTART_SELECTED"
     run_agent_setup "${INSTALL_PATH}/kimbap" "$AGENT_DIR"
   elif [ -t 1 ] && [ -e /dev/tty ]; then
-    printf "Set up detected agent skills in %s? [y/N] " "$AGENT_DIR" >/dev/tty
-    read -r setup_agents </dev/tty || setup_agents="n"
-    case "${setup_agents:-N}" in
+    printf "Set up detected agent skills in %s? [Y/n] " "$AGENT_DIR" >/dev/tty
+    read -r setup_agents </dev/tty || setup_agents="y"
+    case "${setup_agents:-Y}" in
       [Yy]*)
         run_agent_setup "${INSTALL_PATH}/kimbap" "$AGENT_DIR"
         ;;

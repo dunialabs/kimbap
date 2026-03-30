@@ -437,8 +437,17 @@ func TestSyncServicesDoesNotOverwriteUnmanagedLegacySkillDir(t *testing.T) {
 	if len(results) != 1 {
 		t.Fatalf("expected one result, got %d", len(results))
 	}
-	if len(results[0].Failed) != 1 || results[0].Failed[0] != "github" {
-		t.Fatalf("expected github in failed list, got %+v", results[0].Failed)
+	if len(results[0].Failed) != 0 {
+		t.Fatalf("expected no failed entries for unmanaged dir skip, got %+v", results[0].Failed)
+	}
+	if len(results[0].Skipped) != 1 || results[0].Skipped[0] != "github" {
+		t.Fatalf("expected github in skipped list, got %+v", results[0].Skipped)
+	}
+	if len(results[0].Protected) != 1 || results[0].Protected[0] != "github" {
+		t.Fatalf("expected github in protected list, got %+v", results[0].Protected)
+	}
+	if len(results[0].Errors) != 0 {
+		t.Fatalf("expected no sync errors for unmanaged dir skip, got %+v", results[0].Errors)
 	}
 
 	data, readErr := os.ReadFile(filepath.Join(serviceDir, "SKILL.md"))
@@ -478,8 +487,17 @@ func TestSyncServicesDoesNotOverwriteUnmanagedPackDir(t *testing.T) {
 	if len(results) != 1 {
 		t.Fatalf("expected one result, got %d", len(results))
 	}
-	if len(results[0].Failed) != 1 || results[0].Failed[0] != "github" {
-		t.Fatalf("expected github in failed list, got %+v", results[0].Failed)
+	if len(results[0].Failed) != 0 {
+		t.Fatalf("expected no failed entries for unmanaged dir skip, got %+v", results[0].Failed)
+	}
+	if len(results[0].Skipped) != 1 || results[0].Skipped[0] != "github" {
+		t.Fatalf("expected github in skipped list, got %+v", results[0].Skipped)
+	}
+	if len(results[0].Protected) != 1 || results[0].Protected[0] != "github" {
+		t.Fatalf("expected github in protected list, got %+v", results[0].Protected)
+	}
+	if len(results[0].Errors) != 0 {
+		t.Fatalf("expected no sync errors for unmanaged dir skip, got %+v", results[0].Errors)
 	}
 
 	data, readErr := os.ReadFile(filepath.Join(serviceDir, "SKILL.md"))
