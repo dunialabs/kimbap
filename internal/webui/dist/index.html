@@ -2323,6 +2323,21 @@ td.mono {
     }
   }
 
+
+  // ── Keyboard shortcuts ──
+  document.addEventListener('keydown', function(e) {
+    if (e.key !== '/') return;
+    var active = document.activeElement;
+    var tag = active ? (active.tagName || '').toLowerCase() : '';
+    if (tag === 'input' || tag === 'textarea' || tag === 'select') return;
+    var searchId = state.view === 'audit' ? 'auditSearch' : 'actionSearch';
+    var input = document.getElementById(searchId);
+    if (input && (state.view === 'actions' || state.view === 'audit')) {
+      e.preventDefault();
+      input.focus();
+    }
+  });
+
   // ── Init ──
   updateAuthUI();
   var initial = routeFromHash();
