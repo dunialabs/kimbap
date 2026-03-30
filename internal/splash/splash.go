@@ -3,6 +3,8 @@ package splash
 import (
 	"fmt"
 	"math"
+	"regexp"
+	"strconv"
 	"strings"
 )
 
@@ -105,13 +107,101 @@ const (
 )
 
 type Options struct {
-	Version     string
-	Mode        Mode
-	VaultStatus string
-	Server      string
+	Version      string
+	Mode         Mode
+	VaultStatus  string
+	Server       string
+	ColorProfile ColorProfile
+}
+
+type ColorProfile string
+
+const (
+	ColorProfileAuto      ColorProfile = "auto"
+	ColorProfileTrueColor ColorProfile = "truecolor"
+	ColorProfileANSI256   ColorProfile = "ansi256"
+	ColorProfileNone      ColorProfile = "none"
+)
+
+var ansiTrueColorRE = regexp.MustCompile(`\x1b\[38;2;(\d+);(\d+);(\d+)m`)
+
+func normalizeColorProfile(profile ColorProfile) ColorProfile {
+	switch profile {
+	case ColorProfileANSI256, ColorProfileNone, ColorProfileTrueColor:
+		return profile
+	default:
+		return ColorProfileTrueColor
+	}
+}
+
+func clampColorByte(v int) int {
+	if v < 0 {
+		return 0
+	}
+	if v > 255 {
+		return 255
+	}
+	return v
+}
+
+func rgbToANSI256(r, g, b int) int {
+	r = clampColorByte(r)
+	g = clampColorByte(g)
+	b = clampColorByte(b)
+	r6 := int(math.Round(float64(r) * 5.0 / 255.0))
+	g6 := int(math.Round(float64(g) * 5.0 / 255.0))
+	b6 := int(math.Round(float64(b) * 5.0 / 255.0))
+	return 16 + (36 * r6) + (6 * g6) + b6
+}
+
+func convertTrueColorToANSI256(in string) string {
+	if in == "" {
+		return in
+	}
+
+	matches := ansiTrueColorRE.FindAllStringSubmatchIndex(in, -1)
+	if len(matches) == 0 {
+		return in
+	}
+
+	var sb strings.Builder
+	sb.Grow(len(in))
+	last := 0
+
+	for _, m := range matches {
+		if len(m) < 8 {
+			continue
+		}
+		start, end := m[0], m[1]
+		sb.WriteString(in[last:start])
+
+		r, errR := strconv.Atoi(in[m[2]:m[3]])
+		g, errG := strconv.Atoi(in[m[4]:m[5]])
+		b, errB := strconv.Atoi(in[m[6]:m[7]])
+		if errR != nil || errG != nil || errB != nil {
+			sb.WriteString(in[start:end])
+			last = end
+			continue
+		}
+
+		sb.WriteString(fmt.Sprintf("\x1b[38;5;%dm", rgbToANSI256(r, g, b)))
+		last = end
+	}
+
+	sb.WriteString(in[last:])
+	return sb.String()
+}
+
+func stripANSIMarkup(in string) string {
+	if in == "" {
+		return in
+	}
+	return ansiTrueColorRE.ReplaceAllString(strings.ReplaceAll(in, reset, ""), "")
 }
 
 func Render(opts Options) string {
+	colorProfile := normalizeColorProfile(opts.ColorProfile)
+
 	version := strings.TrimSpace(opts.Version)
 	if version == "" {
 		version = "dev"
@@ -160,7 +250,15 @@ func Render(opts Options) string {
 	sb.WriteString(" " + bar + "\n")
 	sb.WriteString(" " + colGreen + "vault" + reset + colMuted + " " + vaultStatus + " · " + reset + modeStr + colMuted + " · " + colDim + "kimbap.sh" + reset + "\n")
 
-	return sb.String()
+	out := sb.String()
+	switch colorProfile {
+	case ColorProfileANSI256:
+		return convertTrueColorToANSI256(out)
+	case ColorProfileNone:
+		return stripANSIMarkup(out)
+	default:
+		return out
+	}
 }
 
 func Print(opts Options) {
