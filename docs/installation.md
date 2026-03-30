@@ -37,23 +37,64 @@ Check current installed version against latest release:
 curl -fsSL https://kimbap.sh/install.sh | bash -s -- --check
 ```
 
+Install and immediately configure agent skills for Claude/OpenCode/Codex in the current project:
+
+```bash
+curl -fsSL https://kimbap.sh/install.sh | bash -s -- --with-agents
+```
+
+If no kimbap config/services exist yet, installer bootstraps init automatically before syncing skills (default quickstart set: `starter`).
+Use `--quickstart-services all` when you want the full catalog on first setup.
+
+Control quickstart service selection during install:
+
+```bash
+# default is starter
+curl -fsSL https://kimbap.sh/install.sh | bash -s -- --quickstart-services starter
+
+# install all catalog services
+curl -fsSL https://kimbap.sh/install.sh | bash -s -- --quickstart-services all
+
+# skip service install during quickstart init
+curl -fsSL https://kimbap.sh/install.sh | bash -s -- --quickstart-services none
+```
+
 ### Homebrew (macOS / Linux)
 
 ```bash
-brew tap dunialabs/kimbap
-brew install kimbap
+brew install dunialabs/kimbap/kimbap
 ```
 
 Upgrade later:
 
 ```bash
-brew update && brew upgrade kimbap
+brew update && brew upgrade dunialabs/kimbap/kimbap
 ```
 
 For script installs, manual update is rerunning the installer:
 
 ```bash
 curl -fsSL https://kimbap.sh/install.sh | bash
+```
+
+### Uninstall
+
+If you installed using `install.sh`, remove script-managed binaries (`kimbap`, `kb`):
+
+```bash
+curl -fsSL https://kimbap.sh/install.sh | bash -s -- --uninstall
+```
+
+Also remove local kimbap data/config (`~/.kimbap`):
+
+```bash
+curl -fsSL https://kimbap.sh/install.sh | bash -s -- --uninstall --purge-data
+```
+
+If you installed with Homebrew, uninstall with:
+
+```bash
+brew uninstall dunialabs/kimbap/kimbap
 ```
 
 ### From source
@@ -74,16 +115,24 @@ make deps && make build
 ### Local / dev evaluation
 
 ```bash
-kimbap init --mode dev
+kimbap init --services all
 ```
 
 Dev mode auto-generates a vault master key and stores it in `~/.kimbap/.dev-master-key`. In interactive mode, pressing Enter at the service prompt installs all catalog services by default.
+If services are installed during init, eligible shortcut aliases are set up by default. In interactive flows, you'll be asked first; use `--no-shortcuts` to skip.
+
+After init, you can run shortcuts directly (no `kimbap call` prefix):
+
+```bash
+geosearch --name "San Francisco"
+weather --latitude 37.7749 --longitude -122.4194
+```
 
 ### Production
 
 ```bash
 export KIMBAP_MASTER_KEY_HEX="$(openssl rand -hex 32)"
-kimbap init --services all
+kimbap init --mode embedded --services all
 ```
 
 Store the key securely. You need it to unlock the vault on every run. Use `--services all` explicitly in scripts and non-interactive environments.
@@ -103,9 +152,10 @@ Store the key securely. You need it to unlock the vault on every run. Use `--ser
 | `--mode <mode>` | Runtime mode: `dev`, `embedded`, or `connected` |
 | `--services <list>` | Comma-separated service names, or `"all"` to install everything |
 | `--no-services` | Skip service installation |
+| `--no-shortcuts` | Skip automatic shortcut alias setup during service installation |
 | `--with-console` | Enable the embedded console route |
-| `--with-agents` | Run agent setup immediately after init |
-| `--agents-project-dir <path>` | Project directory to use during agent sync |
+| `--with-agents` | Run agent setup immediately after init (syncs into current directory by default) |
+| `--agents-project-dir <path>` | Override project directory used during agent sync |
 | `--force` | Overwrite existing config if present |
 
 ---
@@ -175,6 +225,9 @@ kimbap agents setup --with-profiles
 
 # Sync service discovery (generates SKILL.md per service)
 kimbap agents sync
+
+# Force project SKILL sync for OpenCode in current project
+kimbap agents sync --agent opencode --dir "$PWD" --force
 ```
 
 **Profile install locations:**
@@ -187,7 +240,7 @@ kimbap agents sync
 | Codex | `.codex/KIMBAP_OPERATING_RULES.md` |
 | Generic | `.agents/KIMBAP_OPERATING_RULES.md` |
 
-Run `kimbap agents sync` any time you install new services to regenerate the discovery files.
+Service lifecycle commands (`service install`, `enable`, `disable`, `remove`, `update`) attempt automatic agent sync for the current project when agent configs are detected in text output mode. Run `kimbap agents sync` when you want explicit control (`--dir`, `--agent`, `--services`, `--force`) or when using JSON output.
 
 ---
 
@@ -210,6 +263,13 @@ To confirm actions are available and callable:
 ```bash
 kimbap actions list
 kimbap call github.list-repos --sort updated
+```
+
+To verify shortcut commands:
+
+```bash
+kimbap alias set geosearch open-meteo-geocoding.search
+geosearch --name "San Francisco"
 ```
 
 ---

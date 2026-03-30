@@ -41,23 +41,38 @@ Uninstall:
 curl -fsSL https://kimbap.sh/install.sh | bash -s -- --uninstall
 ```
 
+If installed with Homebrew:
+
+```bash
+brew uninstall dunialabs/kimbap/kimbap
+```
+
 **2. Initialize**
 
 ```bash
-kimbap init --mode dev --services all
+kimbap init --services all
 ```
 
-**3. Call**
+Eligible shortcut aliases are set up by default. In interactive flows, you'll be asked first; use `--no-shortcuts` to skip.
+
+**3. Run immediately with shortcut commands**
+
+```bash
+geosearch --name "San Francisco"
+```
+
+Then fetch weather:
+
+```bash
+weather --latitude 37.7749 --longitude -122.4194
+```
+
+No API key, no localhost setup.
+
+Canonical command style is still available:
 
 ```bash
 kimbap call open-meteo-geocoding.search --name "San Francisco" --count 1
-```
-
-That is it for the first demo: one command, no API key, and no localhost setup.
-
-Then fetch the weather with the San Francisco coordinates:
-
-```bash
 kimbap call open-meteo.get-forecast --latitude 37.7749 --longitude -122.4194
 ```
 
@@ -133,7 +148,13 @@ Wikipedia · Hacker News · CoinGecko · Open-Meteo (weather, air quality, histo
 
 If you need a dedicated MCP control plane (gateway, policy, audit), see [dunialabs/peta-core](https://github.com/dunialabs/peta-core).
 
-One command for all of them: `kimbap call <service>.<action>`
+Canonical command for all of them: `kimbap call <service>.<action>`
+
+Optional frictionless shortcut (per action):
+
+`kimbap alias set <shortcut> <service>.<action>` → run `<shortcut> ...`
+
+You can inspect configured shortcuts with `kimbap service list` (`SHORTCUTS` column).
 
 ---
 
@@ -200,7 +221,7 @@ For most use cases: use `kimbap call` with `--mode embedded`.
 
 ```bash
 export KIMBAP_MASTER_KEY_HEX="$(openssl rand -hex 32)"
-kimbap init --services all
+kimbap init --mode embedded --services all
 ```
 
 ### kimbap-web (embedded web console)
@@ -210,6 +231,7 @@ kimbap serve --console --port 8080
 ```
 
 Opens the operations console at `http://localhost:8080/console`. Shows audit logs, pending approvals, and service health. Disabled by default.
+Action detail includes a shortcut setup snippet (`kimbap alias set <shortcut> <service>.<action>`) for frictionless command use.
 
 ### Documentation
 

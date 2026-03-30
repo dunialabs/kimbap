@@ -1,6 +1,6 @@
 # Kimbap Quick Start
 
-Get from zero to your first `kimbap call` in under 5 minutes.
+Get from zero to your first action in under 5 minutes.
 
 ---
 
@@ -21,28 +21,36 @@ brew install dunialabs/kimbap/kimbap
 ## 2. Initialize
 
 ```bash
-kimbap init --mode dev --services all
+kimbap init --services all
 ```
 
 Creates `~/.kimbap/` with a config file, encrypted vault, and default policy. Installs all catalog service manifests. Dev mode auto-generates a vault key stored locally, so no extra setup is needed.
+Eligible shortcut aliases are set up by default during init. In interactive flows, you'll be asked first; use `--no-shortcuts` to skip.
 
 ---
 
-## 3. Your first call
+## 3. Your first action
 
 Run this:
 
 ```bash
-kimbap call open-meteo-geocoding.search --name "San Francisco" --count 1
+geosearch --name "San Francisco"
 ```
 
 Then fetch weather for San Francisco:
 
 ```bash
-kimbap call open-meteo.get-forecast --latitude 37.7749 --longitude -122.4194
+weather --latitude 37.7749 --longitude -122.4194
 ```
 
 Simple flow, no API key, no localhost setup.
+
+Canonical form is still available:
+
+```bash
+kimbap call open-meteo-geocoding.search --name "San Francisco" --count 1
+kimbap call open-meteo.get-forecast --latitude 37.7749 --longitude -122.4194
+```
 
 ---
 
@@ -82,6 +90,12 @@ Uninstall later if needed:
 
 ```bash
 curl -fsSL https://kimbap.sh/install.sh | bash -s -- --uninstall
+```
+
+If you installed via Homebrew instead, uninstall with:
+
+```bash
+brew uninstall dunialabs/kimbap/kimbap
 ```
 
 ---

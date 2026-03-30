@@ -12,21 +12,22 @@ import (
 )
 
 type KimbapConfig struct {
-	Mode          string              `yaml:"mode"`
-	DataDir       string              `yaml:"data_dir"`
-	ListenAddr    string              `yaml:"listen_addr"`
-	ProxyAddr     string              `yaml:"proxy_addr"`
-	LogLevel      string              `yaml:"log_level"`
-	LogFormat     string              `yaml:"log_format"`
-	Console       ConsoleConfig       `yaml:"console"`
-	Vault         VaultConfig         `yaml:"vault"`
-	Auth          AuthConfig          `yaml:"auth"`
-	Audit         AuditConfig         `yaml:"audit"`
-	Policy        PolicyConfig        `yaml:"policy"`
-	Services      ServicesConfig      `yaml:"services"`
-	Database      DatabaseConfig      `yaml:"database"`
-	Notifications NotificationsConfig `yaml:"notifications"`
-	Aliases       map[string]string   `yaml:"aliases,omitempty"`
+	Mode           string              `yaml:"mode"`
+	DataDir        string              `yaml:"data_dir"`
+	ListenAddr     string              `yaml:"listen_addr"`
+	ProxyAddr      string              `yaml:"proxy_addr"`
+	LogLevel       string              `yaml:"log_level"`
+	LogFormat      string              `yaml:"log_format"`
+	Console        ConsoleConfig       `yaml:"console"`
+	Vault          VaultConfig         `yaml:"vault"`
+	Auth           AuthConfig          `yaml:"auth"`
+	Audit          AuditConfig         `yaml:"audit"`
+	Policy         PolicyConfig        `yaml:"policy"`
+	Services       ServicesConfig      `yaml:"services"`
+	Database       DatabaseConfig      `yaml:"database"`
+	Notifications  NotificationsConfig `yaml:"notifications"`
+	Aliases        map[string]string   `yaml:"aliases,omitempty"`
+	CommandAliases map[string]string   `yaml:"command_aliases,omitempty"`
 }
 
 type VaultConfig struct {
@@ -112,7 +113,8 @@ func DefaultConfig() *KimbapConfig {
 		Console: ConsoleConfig{
 			Enabled: false,
 		},
-		Aliases: map[string]string{},
+		Aliases:        map[string]string{},
+		CommandAliases: map[string]string{},
 		Vault: VaultConfig{
 			Backend: "sqlite",
 			Path:    filepath.Join(dataDir, "vault.db"),
@@ -300,6 +302,9 @@ func mergeConfigFromFile(cfg *KimbapConfig, path string, required bool) error {
 		if _, hasAliases := raw["aliases"]; hasAliases && len(loaded.Aliases) == 0 {
 			cfg.Aliases = nil
 		}
+		if _, hasCommandAliases := raw["command_aliases"]; hasCommandAliases && len(loaded.CommandAliases) == 0 {
+			cfg.CommandAliases = nil
+		}
 	}
 
 	mergeConfig(cfg, &loaded)
@@ -319,12 +324,12 @@ func warnUnknownConfigKeys(raw map[string]any, path string) {
 		"console": true,
 		"vault":   true, "auth": true, "audit": true, "policy": true,
 		"services": true, "database": true, "notifications": true,
-		"aliases": true,
+		"aliases": true, "command_aliases": true,
 	}
 	for key := range raw {
 		if !topLevel[key] {
 			_, _ = fmt.Fprintf(os.Stderr,
-				"warning: unknown config key %q in %s (known: mode, data_dir, console, vault, auth, audit, policy, services, database, notifications, aliases)\n",
+				"warning: unknown config key %q in %s (known: mode, data_dir, console, vault, auth, audit, policy, services, database, notifications, aliases, command_aliases)\n",
 				key, path)
 		}
 	}
@@ -474,6 +479,14 @@ func mergeConfig(dst, src *KimbapConfig) {
 		}
 		for k, v := range src.Aliases {
 			dst.Aliases[k] = v
+		}
+	}
+	if len(src.CommandAliases) > 0 {
+		if dst.CommandAliases == nil {
+			dst.CommandAliases = make(map[string]string, len(src.CommandAliases))
+		}
+		for k, v := range src.CommandAliases {
+			dst.CommandAliases[k] = v
 		}
 	}
 

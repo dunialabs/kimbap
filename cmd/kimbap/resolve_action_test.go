@@ -21,7 +21,7 @@ func TestResolveActionByName_NoServicesInstalled_SuggestsInit(t *testing.T) {
 	if !strings.Contains(err.Error(), "no services installed") {
 		t.Fatalf("expected no-services message, got %q", err.Error())
 	}
-	if !strings.Contains(err.Error(), "kimbap init --mode dev --services all") {
+	if !strings.Contains(err.Error(), "kimbap init --services all") {
 		t.Fatalf("expected init guidance in error, got %q", err.Error())
 	}
 }
@@ -111,5 +111,79 @@ func TestResolveActionByName_ServicesInstalled_ActionNotFound(t *testing.T) {
 	}
 	if !strings.Contains(errText, "Did you mean \"demo.noop\"") {
 		t.Fatalf("expected did-you-mean suggestion, got %q", errText)
+	}
+}
+
+func TestResolveActionByName_UsesServiceAlias(t *testing.T) {
+	servicesDir := t.TempDir()
+	cfg := config.DefaultConfig()
+	cfg.Services.Dir = servicesDir
+	cfg.Aliases = map[string]string{"geo": "open-meteo-geocoding"}
+
+	manifest := &services.ServiceManifest{
+		Name:    "open-meteo-geocoding",
+		Version: "1.0.0",
+		Adapter: "http",
+		BaseURL: "https://example.com",
+		Auth:    services.ServiceAuth{Type: string(actions.AuthTypeNone)},
+		Actions: map[string]services.ServiceAction{
+			"search": {
+				Method:      "GET",
+				Path:        "/search",
+				Description: "search",
+				Risk:        services.RiskSpec{Level: "low"},
+				Response:    services.ResponseSpec{Type: "object"},
+			},
+		},
+	}
+
+	installer := services.NewLocalInstaller(servicesDir)
+	if _, err := installer.Install(manifest, "local"); err != nil {
+		t.Fatalf("install service: %v", err)
+	}
+
+	def, err := resolveActionByName(cfg, "geo.search")
+	if err != nil {
+		t.Fatalf("resolveActionByName(alias) error: %v", err)
+	}
+	if def.Name != "open-meteo-geocoding.search" {
+		t.Fatalf("resolved action = %q, want %q", def.Name, "open-meteo-geocoding.search")
+	}
+}
+
+func TestResolveActionByName_IgnoresInvalidConfiguredServiceAlias(t *testing.T) {
+	servicesDir := t.TempDir()
+	cfg := config.DefaultConfig()
+	cfg.Services.Dir = servicesDir
+	cfg.Aliases = map[string]string{"1": "open-meteo-geocoding"}
+
+	manifest := &services.ServiceManifest{
+		Name:    "open-meteo-geocoding",
+		Version: "1.0.0",
+		Adapter: "http",
+		BaseURL: "https://example.com",
+		Auth:    services.ServiceAuth{Type: string(actions.AuthTypeNone)},
+		Actions: map[string]services.ServiceAction{
+			"search": {
+				Method:      "GET",
+				Path:        "/search",
+				Description: "search",
+				Risk:        services.RiskSpec{Level: "low"},
+				Response:    services.ResponseSpec{Type: "object"},
+			},
+		},
+	}
+
+	installer := services.NewLocalInstaller(servicesDir)
+	if _, err := installer.Install(manifest, "local"); err != nil {
+		t.Fatalf("install service: %v", err)
+	}
+
+	_, err := resolveActionByName(cfg, "1.search")
+	if err == nil {
+		t.Fatal("expected invalid configured service alias to be ignored")
+	}
+	if !strings.Contains(err.Error(), "action \"1.search\" not found") {
+		t.Fatalf("expected unresolved action error for invalid alias, got %q", err.Error())
 	}
 }

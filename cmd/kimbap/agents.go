@@ -114,23 +114,9 @@ func newAgentsSetupCommand() *cobra.Command {
 				return nil
 			}
 
-			trimmedDir := strings.TrimSpace(dir)
-			if trimmedDir == "" {
-				trimmedDir = "."
-			}
-			absDir, err := filepath.Abs(trimmedDir)
-			if err != nil {
-				return fmt.Errorf("resolve sync directory: %w", err)
-			}
-			if absDir == "/" {
-				return fmt.Errorf("refusing to sync to root directory")
-			}
-			st, err := os.Stat(absDir)
+			absDir, err := resolveAgentsSyncProjectDir(dir)
 			if err != nil {
 				return err
-			}
-			if !st.IsDir() {
-				return fmt.Errorf("sync target is not a directory: %s", absDir)
 			}
 
 			syncResult, err := runAgentsSync(absDir, agentRaw, "", force, dryRun)
@@ -163,6 +149,31 @@ func newAgentsSetupCommand() *cobra.Command {
 	cmd.Flags().StringVar(&profileDir, "profile-dir", ".", "target directory for profile installation (used with --with-profiles)")
 
 	return cmd
+}
+
+func resolveAgentsSyncProjectDir(projectDir string) (string, error) {
+	trimmedDir := strings.TrimSpace(projectDir)
+	if trimmedDir == "" {
+		trimmedDir = "."
+	}
+
+	absDir, err := filepath.Abs(trimmedDir)
+	if err != nil {
+		return "", fmt.Errorf("resolve sync directory: %w", err)
+	}
+	if absDir == "/" {
+		return "", fmt.Errorf("refusing to sync to root directory")
+	}
+
+	st, err := os.Stat(absDir)
+	if err != nil {
+		return "", err
+	}
+	if !st.IsDir() {
+		return "", fmt.Errorf("sync target is not a directory: %s", absDir)
+	}
+
+	return absDir, nil
 }
 
 func installProfilesForAgents(results []agents.GlobalSetupResult, targetDir string, dryRun bool) error {
@@ -388,6 +399,11 @@ func newAgentsStatusCommand() *cobra.Command {
 }
 
 func runAgentsSync(projectDir string, rawAgentKinds string, rawServices string, force bool, dryRun bool) (agentSetupResult, error) {
+	resolvedProjectDir, err := resolveAgentsSyncProjectDir(projectDir)
+	if err != nil {
+		return agentSetupResult{}, err
+	}
+
 	cfg, err := loadAppConfigReadOnly()
 	if err != nil {
 		return agentSetupResult{}, err
@@ -414,7 +430,7 @@ func runAgentsSync(projectDir string, rawAgentKinds string, rawServices string, 
 		staticServiceInstaller{services: installedServices, packs: installedPacks},
 		"",
 		agents.SyncOptions{
-			ProjectDir: projectDir,
+			ProjectDir: resolvedProjectDir,
 			Agents:     parseAgentKinds(rawAgentKinds),
 			Force:      force,
 			DryRun:     dryRun,
@@ -429,10 +445,7 @@ func runAgentsSync(projectDir string, rawAgentKinds string, rawServices string, 
 	metaContent := services.GenerateMetaAgentSkillMD()
 	metaPaths := make([]string, 0, len(syncResults))
 
-	normalizedProjectDir := strings.TrimSpace(projectDir)
-	if normalizedProjectDir == "" {
-		normalizedProjectDir = "."
-	}
+	normalizedProjectDir := resolvedProjectDir
 
 	var syncErrs []string
 	for _, result := range syncResults {
@@ -489,7 +502,7 @@ func runAgentsSync(projectDir string, rawAgentKinds string, rawServices string, 
 	}
 
 	if !dryRun && !isPartialSync && len(syncResults) > 0 {
-		recordProjectSyncState(projectSyncScope(projectDir), installedServices, installedPacks)
+		recordProjectSyncState(projectSyncScope(resolvedProjectDir), installedServices, installedPacks)
 	}
 
 	return agentSetupResult{
@@ -541,7 +554,11 @@ func buildInstalledServicesForSync(cfg *config.KimbapConfig, serviceFilter []str
 
 	out := make([]agents.InstalledService, 0, len(installed))
 	for _, s := range installed {
-		content, genErr := services.GenerateAgentSkillMD(&s.Manifest, services.WithSource(s.Source))
+		skillOpts := []services.SkillMDOption{services.WithSource(s.Source)}
+		if callAlias := configuredServiceCallAlias(cfg, s.Manifest.Name); callAlias != "" {
+			skillOpts = append(skillOpts, services.WithCallAlias(callAlias))
+		}
+		content, genErr := services.GenerateAgentSkillMD(&s.Manifest, skillOpts...)
 		if genErr != nil {
 			_, _ = fmt.Fprintf(os.Stderr, "warning: failed to generate SKILL.md for %q: %v\n", s.Manifest.Name, genErr)
 			continue
@@ -559,7 +576,11 @@ func buildInstalledPacksForSync(cfg *config.KimbapConfig, serviceFilter []string
 	}
 	out := make([]agents.InstalledServicePack, 0, len(installed))
 	for _, s := range installed {
-		pack, genErr := services.GenerateAgentSkillPack(&s.Manifest, services.WithSource(s.Source))
+		skillOpts := []services.SkillMDOption{services.WithSource(s.Source)}
+		if callAlias := configuredServiceCallAlias(cfg, s.Manifest.Name); callAlias != "" {
+			skillOpts = append(skillOpts, services.WithCallAlias(callAlias))
+		}
+		pack, genErr := services.GenerateAgentSkillPack(&s.Manifest, skillOpts...)
 		if genErr != nil {
 			_, _ = fmt.Fprintf(os.Stderr, "warning: failed to generate skill pack for %q: %v\n", s.Manifest.Name, genErr)
 			continue

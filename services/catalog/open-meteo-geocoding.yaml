@@ -1,6 +1,8 @@
 name: open-meteo-geocoding
 version: 1.0.0
 description: Open-Meteo geocoding API for converting city names and addresses to coordinates
+aliases:
+  - geo
 base_url: https://geocoding-api.open-meteo.com
 auth:
   type: none
@@ -32,6 +34,8 @@ actions:
     method: GET
     path: /v1/search
     description: Search for a location by name and return coordinates
+    aliases:
+      - geosearch
     args:
       - name: name
         type: string

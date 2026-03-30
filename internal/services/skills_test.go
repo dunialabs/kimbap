@@ -1307,6 +1307,64 @@ func TestGenerateAgentSkillMDContainsExpectedSections(t *testing.T) {
 	}
 }
 
+func TestGenerateAgentSkillMDUsesConfiguredAlias(t *testing.T) {
+	manifest := &ServiceManifest{
+		Name:     "open-meteo-geocoding",
+		Aliases:  []string{"geo"},
+		Version:  "1.0.0",
+		BaseURL:  "https://geocoding-api.open-meteo.com",
+		Auth:     ServiceAuth{Type: "none"},
+		Adapter:  "http",
+		Actions:  map[string]ServiceAction{"search": {Method: "GET", Path: "/v1/search", Aliases: []string{"geosearch"}, Risk: RiskSpec{Level: "low"}}},
+		Triggers: &TriggerConfig{TaskVerbs: []string{"search"}, Objects: []string{"city"}},
+	}
+
+	content, err := GenerateAgentSkillMD(manifest, WithCallAlias("geo"))
+	if err != nil {
+		t.Fatalf("GenerateAgentSkillMD: %v", err)
+	}
+	if !strings.Contains(content, "Configured service alias in this environment: `geo`") {
+		t.Fatalf("expected alias prerequisite line, got:\n%s", content)
+	}
+	if !strings.Contains(content, "kimbap call geo.search") {
+		t.Fatalf("expected usage to use alias, got:\n%s", content)
+	}
+	if !strings.Contains(content, "kimbap actions describe geo.<action> --format json") {
+		t.Fatalf("expected discovery describe to use alias, got:\n%s", content)
+	}
+	if !strings.Contains(content, "kimbap alias set geosearch open-meteo-geocoding.search") {
+		t.Fatalf("expected shortcut command alias example to use action alias, got:\n%s", content)
+	}
+}
+
+func TestGenerateAgentSkillMDDoesNotAssumeManifestAliasByDefault(t *testing.T) {
+	manifest := &ServiceManifest{
+		Name:    "open-meteo-geocoding",
+		Aliases: []string{"geo"},
+		Version: "1.0.0",
+		BaseURL: "https://geocoding-api.open-meteo.com",
+		Auth:    ServiceAuth{Type: "none"},
+		Adapter: "http",
+		Actions: map[string]ServiceAction{
+			"search": {Method: "GET", Path: "/v1/search", Risk: RiskSpec{Level: "low"}},
+		},
+	}
+
+	content, err := GenerateAgentSkillMD(manifest)
+	if err != nil {
+		t.Fatalf("GenerateAgentSkillMD: %v", err)
+	}
+	if strings.Contains(content, "Configured service alias in this environment: `geo`") {
+		t.Fatalf("expected no configured alias line without explicit call alias option, got:\n%s", content)
+	}
+	if !strings.Contains(content, "kimbap call open-meteo-geocoding.search") {
+		t.Fatalf("expected usage to use canonical service name by default, got:\n%s", content)
+	}
+	if strings.Contains(content, "kimbap call geo.search") {
+		t.Fatalf("expected default output not to assume manifest alias, got:\n%s", content)
+	}
+}
+
 func TestGenerateAgentSkillMDAppleScript(t *testing.T) {
 	manifest, err := ParseManifest([]byte(actionWithCommandFixture))
 	if err != nil {
@@ -1357,6 +1415,7 @@ func TestGenerateAgentSkillMDHTTPUnchanged(t *testing.T) {
 		"- Kimbap CLI installed and in PATH\n" +
 		"- Service installed: `kimbap service install notes-service.yaml`\n\n" +
 		"## Available Actions\n\n" +
+		"Pick an action below, then run `kimbap call notes-service.<action> ...`.\n\n" +
 		"### notes-service.list_notes\n\n" +
 		"**HTTP**: `GET /notes`\n" +
 		"**Risk**: low\n\n" +
@@ -1369,6 +1428,11 @@ func TestGenerateAgentSkillMDHTTPUnchanged(t *testing.T) {
 		"kimbap actions list --service notes-service --format json\n" +
 		"kimbap actions describe notes-service.<action> --format json\n" +
 		"kimbap call notes-service.<action> --dry-run --format json\n" +
+		"```\n\n" +
+		"## Shortcut Command Alias (optional)\n\n" +
+		"```bash\n" +
+		"kimbap alias set <shortcut> notes-service.list_notes\n" +
+		"<shortcut>\n" +
 		"```\n"
 
 	if content != expected {
@@ -1487,6 +1551,80 @@ func TestGenerateAgentSkillPack(t *testing.T) {
 	nilResult, nilErr := GenerateAgentSkillPack(nil)
 	if nilErr == nil || nilResult != nil {
 		t.Fatalf("expected nil manifest to return error and nil result, got result=%v err=%v", nilResult, nilErr)
+	}
+}
+
+func TestGenerateAgentSkillPackUsesConfiguredAliasInExamples(t *testing.T) {
+	manifest := &ServiceManifest{
+		Name:        "open-meteo-geocoding",
+		Aliases:     []string{"geo"},
+		Version:     "1.0.0",
+		Description: "Geocode cities",
+		BaseURL:     "https://geocoding-api.open-meteo.com",
+		Auth:        ServiceAuth{Type: "none"},
+		Actions: map[string]ServiceAction{
+			"search": {
+				Method:      "GET",
+				Path:        "/v1/search",
+				Aliases:     []string{"geosearch"},
+				Description: "Search city",
+				Risk:        RiskSpec{Level: "low"},
+				Args:        []ActionArg{{Name: "name", Type: "string", Required: true}},
+			},
+		},
+	}
+
+	pack, err := GenerateAgentSkillPack(manifest, WithCallAlias("geo"))
+	if err != nil {
+		t.Fatalf("GenerateAgentSkillPack: %v", err)
+	}
+	skill := pack["SKILL.md"]
+	if !strings.Contains(skill, "Configured service alias in this environment: `geo`") {
+		t.Fatalf("expected alias prerequisite line, got:\n%s", skill)
+	}
+	if !strings.Contains(skill, "kimbap call geo.search --name <value>") {
+		t.Fatalf("expected example call to use alias, got:\n%s", skill)
+	}
+	if !strings.Contains(skill, "kimbap actions describe geo.<action> --format json") {
+		t.Fatalf("expected before execute describe to use alias, got:\n%s", skill)
+	}
+	if !strings.Contains(skill, "kimbap alias set geosearch open-meteo-geocoding.search") {
+		t.Fatalf("expected shortcut alias section to use geosearch, got:\n%s", skill)
+	}
+}
+
+func TestGenerateAgentSkillPackDoesNotAssumeManifestAliasByDefault(t *testing.T) {
+	manifest := &ServiceManifest{
+		Name:        "open-meteo-geocoding",
+		Aliases:     []string{"geo"},
+		Version:     "1.0.0",
+		Description: "Geocode cities",
+		BaseURL:     "https://geocoding-api.open-meteo.com",
+		Auth:        ServiceAuth{Type: "none"},
+		Actions: map[string]ServiceAction{
+			"search": {
+				Method:      "GET",
+				Path:        "/v1/search",
+				Description: "Search city",
+				Risk:        RiskSpec{Level: "low"},
+				Args:        []ActionArg{{Name: "name", Type: "string", Required: true}},
+			},
+		},
+	}
+
+	pack, err := GenerateAgentSkillPack(manifest)
+	if err != nil {
+		t.Fatalf("GenerateAgentSkillPack: %v", err)
+	}
+	skill := pack["SKILL.md"]
+	if strings.Contains(skill, "Configured service alias in this environment: `geo`") {
+		t.Fatalf("expected no configured alias line without explicit call alias option, got:\n%s", skill)
+	}
+	if !strings.Contains(skill, "kimbap call open-meteo-geocoding.search --name <value>") {
+		t.Fatalf("expected example call to use canonical service name by default, got:\n%s", skill)
+	}
+	if strings.Contains(skill, "kimbap call geo.search --name <value>") {
+		t.Fatalf("expected default pack not to assume manifest alias, got:\n%s", skill)
 	}
 }
 
@@ -2296,6 +2434,7 @@ func TestGenerateMetaAgentSkillMDContainsServiceActionSyntax(t *testing.T) {
 		"kimbap actions list --format json",
 		"kimbap actions describe <service.action> --format json",
 		"kimbap call <service.action>",
+		"kimbap alias set <shortcut> <service.action>",
 		"<troubleshooting>",
 		"<rules>",
 	}

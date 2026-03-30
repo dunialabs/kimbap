@@ -9,6 +9,7 @@ import (
 	"net/url"
 	"os"
 	"regexp"
+	"sort"
 	"strings"
 	"time"
 
@@ -227,6 +228,86 @@ func isArgDefaultTypeCompatible(v any, declaredType string) bool {
 
 func validatePackMetadata(m *ServiceManifest) []ValidationError {
 	errList := make([]ValidationError, 0)
+
+	seenAliases := make(map[string]int, len(m.Aliases))
+	for idx, alias := range m.Aliases {
+		trimmed := strings.ToLower(strings.TrimSpace(alias))
+		field := fmt.Sprintf("aliases[%d]", idx)
+		if trimmed == "" {
+			errList = append(errList, ValidationError{Field: field, Message: "must be non-empty"})
+			continue
+		}
+		if strings.Contains(trimmed, ".") {
+			errList = append(errList, ValidationError{Field: field, Message: "must not contain dots"})
+			continue
+		}
+		if !serviceNamePattern.MatchString(trimmed) {
+			errList = append(errList, ValidationError{Field: field, Message: "must match [a-z][a-z0-9-]*"})
+			continue
+		}
+		if err := ValidateServiceName(trimmed); err != nil {
+			errList = append(errList, ValidationError{Field: field, Message: err.Error()})
+			continue
+		}
+		if trimmed == strings.ToLower(strings.TrimSpace(m.Name)) {
+			errList = append(errList, ValidationError{Field: field, Message: "must differ from service name"})
+			continue
+		}
+		if firstIdx, exists := seenAliases[trimmed]; exists {
+			errList = append(errList, ValidationError{Field: field, Message: fmt.Sprintf("duplicates aliases[%d] %q", firstIdx, trimmed)})
+			continue
+		}
+		seenAliases[trimmed] = idx
+	}
+
+	actionKeys := make([]string, 0, len(m.Actions))
+	for actionKey := range m.Actions {
+		actionKeys = append(actionKeys, actionKey)
+	}
+	sort.Strings(actionKeys)
+	seenActionAliases := make(map[string]string)
+	for _, actionKey := range actionKeys {
+		action := m.Actions[actionKey]
+		seenPerAction := make(map[string]int, len(action.Aliases))
+		for idx, alias := range action.Aliases {
+			trimmed := strings.ToLower(strings.TrimSpace(alias))
+			field := fmt.Sprintf("actions.%s.aliases[%d]", actionKey, idx)
+			if trimmed == "" {
+				errList = append(errList, ValidationError{Field: field, Message: "must be non-empty"})
+				continue
+			}
+			if strings.Contains(trimmed, ".") {
+				errList = append(errList, ValidationError{Field: field, Message: "must not contain dots"})
+				continue
+			}
+			if !serviceNamePattern.MatchString(trimmed) {
+				errList = append(errList, ValidationError{Field: field, Message: "must match [a-z][a-z0-9-]*"})
+				continue
+			}
+			if err := ValidateServiceName(trimmed); err != nil {
+				errList = append(errList, ValidationError{Field: field, Message: err.Error()})
+				continue
+			}
+			if trimmed == strings.ToLower(strings.TrimSpace(m.Name)) {
+				errList = append(errList, ValidationError{Field: field, Message: "must differ from service name"})
+				continue
+			}
+			if _, exists := seenAliases[trimmed]; exists {
+				errList = append(errList, ValidationError{Field: field, Message: "must not duplicate service-level aliases"})
+				continue
+			}
+			if firstIdx, exists := seenPerAction[trimmed]; exists {
+				errList = append(errList, ValidationError{Field: field, Message: fmt.Sprintf("duplicates actions.%s.aliases[%d] %q", actionKey, firstIdx, trimmed)})
+				continue
+			}
+			if existingAction, exists := seenActionAliases[trimmed]; exists {
+				errList = append(errList, ValidationError{Field: field, Message: fmt.Sprintf("duplicates alias used in actions.%s", existingAction)})
+				continue
+			}
+			seenPerAction[trimmed] = idx
+			seenActionAliases[trimmed] = actionKey
+		}
+	}
 
 	if m.Triggers != nil {
 		if len(m.Triggers.TaskVerbs) == 0 {

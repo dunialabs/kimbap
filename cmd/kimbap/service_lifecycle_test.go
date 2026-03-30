@@ -94,6 +94,28 @@ func decodeJSONObject(t *testing.T, raw string) map[string]any {
 	return out
 }
 
+func decodeJSONArrayOfObjects(t *testing.T, raw string) []map[string]any {
+	t.Helper()
+	var out []map[string]any
+	if err := json.Unmarshal([]byte(raw), &out); err != nil {
+		t.Fatalf("decode JSON array output failed: %v\noutput=%s", err, raw)
+	}
+	return out
+}
+
+func anySliceContainsString(items []any, needle string) bool {
+	for _, item := range items {
+		value, ok := item.(string)
+		if !ok {
+			continue
+		}
+		if value == needle {
+			return true
+		}
+	}
+	return false
+}
+
 func writeLocalManifest(t *testing.T, path, name, version string) {
 	t.Helper()
 	raw := "name: " + name + "\n" +
@@ -109,6 +131,28 @@ func writeLocalManifest(t *testing.T, path, name, version string) {
 		"    method: GET\n" +
 		"    path: /ping\n" +
 		"    description: ping endpoint\n" +
+		"    risk:\n" +
+		"      level: low\n"
+	if err := os.WriteFile(path, []byte(raw), 0o644); err != nil {
+		t.Fatalf("write manifest %q: %v", path, err)
+	}
+}
+
+func writeLocalManifestWithActionAlias(t *testing.T, path, name, version, actionAlias string) {
+	t.Helper()
+	raw := "name: " + name + "\n" +
+		"version: " + version + "\n" +
+		"description: local test service\n" +
+		"base_url: https://api.example.com\n" +
+		"auth:\n" +
+		"  type: none\n" +
+		"actions:\n" +
+		"  search:\n" +
+		"    method: GET\n" +
+		"    path: /search\n" +
+		"    description: search endpoint\n" +
+		"    aliases:\n" +
+		"      - " + actionAlias + "\n" +
 		"    risk:\n" +
 		"      level: low\n"
 	if err := os.WriteFile(path, []byte(raw), 0o644); err != nil {
@@ -171,6 +215,152 @@ func TestServiceCLIInstallEnableDisableLifecycle(t *testing.T) {
 	})
 }
 
+func TestServiceCLIEnableBackfillsActionAliasesAfterNoActivateInstall(t *testing.T) {
+	dataDir := t.TempDir()
+	servicesDir := filepath.Join(dataDir, "services")
+	configPath := writeServiceCLIConfig(t, dataDir, servicesDir)
+
+	withServiceCLIOpts(t, configPath, func() {
+		manifestPath := filepath.Join(t.TempDir(), "open-meteo-geocoding.yaml")
+		const serviceName = "open-meteo-geocoding"
+		writeLocalManifestWithActionAlias(t, manifestPath, serviceName, "1.0.0", "geosearch")
+
+		execDir := t.TempDir()
+		execPath := filepath.Join(execDir, "kimbap")
+		origExecutablePath := aliasExecutablePath
+		origLstat := aliasFileLstat
+		origSymlink := aliasFileSymlink
+		t.Cleanup(func() {
+			aliasExecutablePath = origExecutablePath
+			aliasFileLstat = origLstat
+			aliasFileSymlink = origSymlink
+		})
+		aliasExecutablePath = func() (string, error) { return execPath, nil }
+		aliasFileLstat = func(path string) (os.FileInfo, error) { return nil, os.ErrNotExist }
+		aliasFileSymlink = func(oldname, newname string) error { return nil }
+
+		installCmd := newServiceInstallCommand()
+		installCmd.SetArgs([]string{manifestPath, "--no-activate"})
+		if _, err := captureStdout(t, installCmd.Execute); err != nil {
+			t.Fatalf("service install --no-activate failed: %v", err)
+		}
+
+		cfg, err := loadAppConfig()
+		if err != nil {
+			t.Fatalf("loadAppConfig() error: %v", err)
+		}
+		if _, exists := cfg.CommandAliases["geosearch"]; exists {
+			t.Fatalf("did not expect geosearch alias before enabling service, got %+v", cfg.CommandAliases)
+		}
+
+		enableCmd := newServiceEnableCommand()
+		enableCmd.SetArgs([]string{serviceName})
+		enableOutput, err := captureStdout(t, enableCmd.Execute)
+		if err != nil {
+			t.Fatalf("service enable failed: %v", err)
+		}
+
+		payload := decodeJSONObject(t, enableOutput)
+		created, ok := payload["action_aliases_created"].([]any)
+		if !ok || len(created) == 0 {
+			t.Fatalf("expected action_aliases_created in enable output payload, got %+v", payload)
+		}
+
+		cfg, err = loadAppConfig()
+		if err != nil {
+			t.Fatalf("loadAppConfig() after enable error: %v", err)
+		}
+		if got := cfg.CommandAliases["geosearch"]; got != "open-meteo-geocoding.search" {
+			t.Fatalf("expected command alias geosearch -> open-meteo-geocoding.search after enable, got %+v", cfg.CommandAliases)
+		}
+	})
+}
+
+func TestServiceCLIInstallAutoAliasConfiguredAndPersisted(t *testing.T) {
+	dataDir := t.TempDir()
+	servicesDir := filepath.Join(dataDir, "services")
+	configPath := writeServiceCLIConfig(t, dataDir, servicesDir)
+
+	withServiceCLIOpts(t, configPath, func() {
+		manifestPath := filepath.Join(t.TempDir(), "open-meteo-geocoding.yaml")
+		const serviceName = "open-meteo-geocoding"
+		writeLocalManifest(t, manifestPath, serviceName, "1.0.0")
+
+		installCmd := newServiceInstallCommand()
+		installCmd.SetArgs([]string{manifestPath})
+		if _, err := captureStdout(t, installCmd.Execute); err != nil {
+			t.Fatalf("service install failed: %v", err)
+		}
+
+		cfg, err := loadAppConfig()
+		if err != nil {
+			t.Fatalf("loadAppConfig() error: %v", err)
+		}
+		autoAlias := services.PreferredServiceAlias(serviceName, nil)
+		if autoAlias == "" {
+			t.Fatal("expected non-empty auto alias")
+		}
+		if target, ok := cfg.Aliases[autoAlias]; !ok || target != serviceName {
+			t.Fatalf("expected alias %q -> %q in config, got aliases=%+v", autoAlias, serviceName, cfg.Aliases)
+		}
+
+		installer := installerFromConfig(cfg)
+		installed, err := installer.Get(serviceName)
+		if err != nil {
+			t.Fatalf("installer.Get() error: %v", err)
+		}
+		if len(installed.Manifest.Aliases) != 0 {
+			t.Fatalf("expected installed manifest aliases to remain unchanged when alias is config-level only, got %+v", installed.Manifest.Aliases)
+		}
+	})
+}
+
+func TestServiceCLIInstallAppliesManifestActionAliases(t *testing.T) {
+	dataDir := t.TempDir()
+	servicesDir := filepath.Join(dataDir, "services")
+	configPath := writeServiceCLIConfig(t, dataDir, servicesDir)
+
+	withServiceCLIOpts(t, configPath, func() {
+		manifestPath := filepath.Join(t.TempDir(), "open-meteo-geocoding.yaml")
+		const serviceName = "open-meteo-geocoding"
+		writeLocalManifestWithActionAlias(t, manifestPath, serviceName, "1.0.0", "geosearch")
+
+		execDir := t.TempDir()
+		execPath := filepath.Join(execDir, "kimbap")
+		origExecutablePath := aliasExecutablePath
+		origLstat := aliasFileLstat
+		origSymlink := aliasFileSymlink
+		t.Cleanup(func() {
+			aliasExecutablePath = origExecutablePath
+			aliasFileLstat = origLstat
+			aliasFileSymlink = origSymlink
+		})
+		aliasExecutablePath = func() (string, error) { return execPath, nil }
+		aliasFileLstat = func(path string) (os.FileInfo, error) { return nil, os.ErrNotExist }
+		aliasFileSymlink = func(oldname, newname string) error { return nil }
+
+		installCmd := newServiceInstallCommand()
+		installCmd.SetArgs([]string{manifestPath})
+		output, err := captureStdout(t, installCmd.Execute)
+		if err != nil {
+			t.Fatalf("service install failed: %v", err)
+		}
+		payload := decodeJSONObject(t, output)
+		created, ok := payload["action_aliases_created"].([]any)
+		if !ok || len(created) == 0 {
+			t.Fatalf("expected action_aliases_created in output payload, got %+v", payload)
+		}
+
+		cfg, err := loadAppConfig()
+		if err != nil {
+			t.Fatalf("loadAppConfig() error: %v", err)
+		}
+		if got := cfg.CommandAliases["geosearch"]; got != "open-meteo-geocoding.search" {
+			t.Fatalf("expected command alias geosearch -> open-meteo-geocoding.search, got %+v", cfg.CommandAliases)
+		}
+	})
+}
+
 func TestServiceCLIListAvailableReflectsInstalledAndEnabledStatus(t *testing.T) {
 	dataDir := t.TempDir()
 	servicesDir := filepath.Join(dataDir, "services")
@@ -214,6 +404,165 @@ func TestServiceCLIListAvailableReflectsInstalledAndEnabledStatus(t *testing.T) 
 		}
 		if status, _ := matched["status"].(string); status != "disabled" {
 			t.Fatalf("expected status=disabled, got %q (row=%+v)", status, matched)
+		}
+	})
+}
+
+func TestServiceCLIListUsesEmptyShortcutArrayWhenUnset(t *testing.T) {
+	dataDir := t.TempDir()
+	servicesDir := filepath.Join(dataDir, "services")
+	configPath := writeServiceCLIConfig(t, dataDir, servicesDir)
+
+	withServiceCLIOpts(t, configPath, func() {
+		manifestPath := filepath.Join(t.TempDir(), "local-empty-shortcuts.yaml")
+		const serviceName = "local-empty-shortcuts"
+		writeLocalManifest(t, manifestPath, serviceName, "1.0.0")
+
+		installCmd := newServiceInstallCommand()
+		installCmd.SetArgs([]string{manifestPath, "--no-shortcuts"})
+		if _, err := captureStdout(t, installCmd.Execute); err != nil {
+			t.Fatalf("service install --no-shortcuts failed: %v", err)
+		}
+
+		listCmd := newServiceListCommand()
+		listCmd.SetArgs(nil)
+		output, err := captureStdout(t, listCmd.Execute)
+		if err != nil {
+			t.Fatalf("service list failed: %v", err)
+		}
+
+		rows := decodeJSONArrayOfObjects(t, output)
+		var matched map[string]any
+		for _, row := range rows {
+			if row["name"] == serviceName {
+				matched = row
+				break
+			}
+		}
+		if matched == nil {
+			t.Fatalf("service %q not present in list output", serviceName)
+		}
+
+		shortcuts, ok := matched["shortcuts"].([]any)
+		if !ok {
+			t.Fatalf("expected shortcuts array in list output row, got %+v", matched)
+		}
+		if len(shortcuts) != 0 {
+			t.Fatalf("expected empty shortcuts array when unset, got %+v", shortcuts)
+		}
+	})
+}
+
+func TestServiceCLIListIncludesShortcutsForInstalledService(t *testing.T) {
+	dataDir := t.TempDir()
+	servicesDir := filepath.Join(dataDir, "services")
+	configPath := writeServiceCLIConfig(t, dataDir, servicesDir)
+
+	withServiceCLIOpts(t, configPath, func() {
+		manifestPath := filepath.Join(t.TempDir(), "open-meteo-geocoding.yaml")
+		const serviceName = "open-meteo-geocoding"
+		writeLocalManifestWithActionAlias(t, manifestPath, serviceName, "1.0.0", "geosearch")
+
+		execDir := t.TempDir()
+		execPath := filepath.Join(execDir, "kimbap")
+		origExecutablePath := aliasExecutablePath
+		origLstat := aliasFileLstat
+		origSymlink := aliasFileSymlink
+		t.Cleanup(func() {
+			aliasExecutablePath = origExecutablePath
+			aliasFileLstat = origLstat
+			aliasFileSymlink = origSymlink
+		})
+		aliasExecutablePath = func() (string, error) { return execPath, nil }
+		aliasFileLstat = func(path string) (os.FileInfo, error) { return nil, os.ErrNotExist }
+		aliasFileSymlink = func(oldname, newname string) error { return nil }
+
+		installCmd := newServiceInstallCommand()
+		installCmd.SetArgs([]string{manifestPath})
+		if _, err := captureStdout(t, installCmd.Execute); err != nil {
+			t.Fatalf("service install failed: %v", err)
+		}
+
+		listCmd := newServiceListCommand()
+		listCmd.SetArgs(nil)
+		output, err := captureStdout(t, listCmd.Execute)
+		if err != nil {
+			t.Fatalf("service list failed: %v", err)
+		}
+
+		rows := decodeJSONArrayOfObjects(t, output)
+		var matched map[string]any
+		for _, row := range rows {
+			if row["name"] == serviceName {
+				matched = row
+				break
+			}
+		}
+		if matched == nil {
+			t.Fatalf("service %q not present in list output", serviceName)
+		}
+
+		shortcuts, ok := matched["shortcuts"].([]any)
+		if !ok {
+			t.Fatalf("expected shortcuts array in list output row, got %+v", matched)
+		}
+		if !anySliceContainsString(shortcuts, "geosearch") {
+			t.Fatalf("expected shortcuts to include geosearch, got %+v", shortcuts)
+		}
+	})
+}
+
+func TestServiceCLIListAvailableIncludesShortcutsForInstalledRow(t *testing.T) {
+	dataDir := t.TempDir()
+	servicesDir := filepath.Join(dataDir, "services")
+	configPath := writeServiceCLIConfig(t, dataDir, servicesDir)
+
+	withServiceCLIOpts(t, configPath, func() {
+		execDir := t.TempDir()
+		execPath := filepath.Join(execDir, "kimbap")
+		origExecutablePath := aliasExecutablePath
+		origLstat := aliasFileLstat
+		origSymlink := aliasFileSymlink
+		t.Cleanup(func() {
+			aliasExecutablePath = origExecutablePath
+			aliasFileLstat = origLstat
+			aliasFileSymlink = origSymlink
+		})
+		aliasExecutablePath = func() (string, error) { return execPath, nil }
+		aliasFileLstat = func(path string) (os.FileInfo, error) { return nil, os.ErrNotExist }
+		aliasFileSymlink = func(oldname, newname string) error { return nil }
+
+		installCmd := newServiceInstallCommand()
+		installCmd.SetArgs([]string{"open-meteo-geocoding"})
+		if _, err := captureStdout(t, installCmd.Execute); err != nil {
+			t.Fatalf("service install failed: %v", err)
+		}
+
+		listCmd := newServiceListCommand()
+		listCmd.SetArgs([]string{"--available"})
+		output, err := captureStdout(t, listCmd.Execute)
+		if err != nil {
+			t.Fatalf("service list --available failed: %v", err)
+		}
+
+		rows := decodeJSONArrayOfObjects(t, output)
+		var matched map[string]any
+		for _, row := range rows {
+			if row["name"] == "open-meteo-geocoding" {
+				matched = row
+				break
+			}
+		}
+		if matched == nil {
+			t.Fatal("open-meteo-geocoding not present in --available output")
+		}
+
+		shortcuts, ok := matched["shortcuts"].([]any)
+		if !ok {
+			t.Fatalf("expected shortcuts array in --available row, got %+v", matched)
+		}
+		if !anySliceContainsString(shortcuts, "geosearch") {
+			t.Fatalf("expected --available shortcuts to include geosearch, got %+v", shortcuts)
 		}
 	})
 }
@@ -315,6 +664,284 @@ func TestServiceCLIRemoveDeletesInstalledManifest(t *testing.T) {
 
 		if _, err := os.Stat(filepath.Join(servicesDir, serviceName+".yaml")); !os.IsNotExist(err) {
 			t.Fatalf("expected manifest file to be removed, stat err=%v", err)
+		}
+	})
+}
+
+func TestServiceCLIDisableCleansUpServiceAndCommandAliases(t *testing.T) {
+	dataDir := t.TempDir()
+	servicesDir := filepath.Join(dataDir, "services")
+	configPath := writeServiceCLIConfig(t, dataDir, servicesDir)
+
+	withServiceCLIOpts(t, configPath, func() {
+		manifestPath := filepath.Join(t.TempDir(), "open-meteo-geocoding.yaml")
+		const serviceName = "open-meteo-geocoding"
+		writeLocalManifestWithActionAlias(t, manifestPath, serviceName, "1.0.0", "geosearch")
+
+		execDir := t.TempDir()
+		execPath := filepath.Join(execDir, "kimbap")
+		aliasPath := filepath.Join(execDir, "geosearch")
+		symlinkExists := false
+		executableRemoved := false
+
+		origExecutablePath := aliasExecutablePath
+		origLstat := aliasFileLstat
+		origSymlink := aliasFileSymlink
+		origReadlink := aliasFileReadlink
+		origRemove := aliasFileRemove
+		t.Cleanup(func() {
+			aliasExecutablePath = origExecutablePath
+			aliasFileLstat = origLstat
+			aliasFileSymlink = origSymlink
+			aliasFileReadlink = origReadlink
+			aliasFileRemove = origRemove
+		})
+
+		aliasExecutablePath = func() (string, error) { return execPath, nil }
+		aliasFileLstat = func(path string) (os.FileInfo, error) {
+			if path == aliasPath && symlinkExists {
+				return symlinkFileInfo{}, nil
+			}
+			return nil, os.ErrNotExist
+		}
+		aliasFileSymlink = func(oldname, newname string) error {
+			if oldname == execPath && newname == aliasPath {
+				symlinkExists = true
+			}
+			return nil
+		}
+		aliasFileReadlink = func(path string) (string, error) {
+			if path == aliasPath && symlinkExists {
+				return execPath, nil
+			}
+			return "", os.ErrNotExist
+		}
+		aliasFileRemove = func(path string) error {
+			if path == aliasPath && symlinkExists {
+				symlinkExists = false
+				executableRemoved = true
+				return nil
+			}
+			return nil
+		}
+
+		installCmd := newServiceInstallCommand()
+		installCmd.SetArgs([]string{manifestPath})
+		if _, err := captureStdout(t, installCmd.Execute); err != nil {
+			t.Fatalf("service install failed: %v", err)
+		}
+
+		disableCmd := newServiceDisableCommand()
+		disableCmd.SetArgs([]string{serviceName})
+		if _, err := captureStdout(t, disableCmd.Execute); err != nil {
+			t.Fatalf("service disable failed: %v", err)
+		}
+
+		cfg, err := loadAppConfig()
+		if err != nil {
+			t.Fatalf("loadAppConfig() after disable error: %v", err)
+		}
+		if _, exists := cfg.CommandAliases["geosearch"]; exists {
+			t.Fatalf("expected command alias geosearch removed on disable, got %+v", cfg.CommandAliases)
+		}
+		for alias, target := range cfg.Aliases {
+			if strings.EqualFold(strings.TrimSpace(target), serviceName) {
+				t.Fatalf("expected service aliases for %q removed on disable, still have %q -> %q", serviceName, alias, target)
+			}
+		}
+		if !executableRemoved {
+			t.Fatal("expected executable shortcut cleanup during disable")
+		}
+	})
+}
+
+func TestServiceCLIRemoveCleansUpServiceAndCommandAliases(t *testing.T) {
+	dataDir := t.TempDir()
+	servicesDir := filepath.Join(dataDir, "services")
+	configPath := writeServiceCLIConfig(t, dataDir, servicesDir)
+
+	withServiceCLIOpts(t, configPath, func() {
+		manifestPath := filepath.Join(t.TempDir(), "open-meteo-geocoding-remove-cleanup.yaml")
+		const serviceName = "open-meteo-geocoding"
+		writeLocalManifestWithActionAlias(t, manifestPath, serviceName, "1.0.0", "geosearch")
+
+		execDir := t.TempDir()
+		execPath := filepath.Join(execDir, "kimbap")
+		aliasPath := filepath.Join(execDir, "geosearch")
+		symlinkExists := false
+		executableRemoved := false
+
+		origExecutablePath := aliasExecutablePath
+		origLstat := aliasFileLstat
+		origSymlink := aliasFileSymlink
+		origReadlink := aliasFileReadlink
+		origRemove := aliasFileRemove
+		t.Cleanup(func() {
+			aliasExecutablePath = origExecutablePath
+			aliasFileLstat = origLstat
+			aliasFileSymlink = origSymlink
+			aliasFileReadlink = origReadlink
+			aliasFileRemove = origRemove
+		})
+
+		aliasExecutablePath = func() (string, error) { return execPath, nil }
+		aliasFileLstat = func(path string) (os.FileInfo, error) {
+			if path == aliasPath && symlinkExists {
+				return symlinkFileInfo{}, nil
+			}
+			return nil, os.ErrNotExist
+		}
+		aliasFileSymlink = func(oldname, newname string) error {
+			if oldname == execPath && newname == aliasPath {
+				symlinkExists = true
+			}
+			return nil
+		}
+		aliasFileReadlink = func(path string) (string, error) {
+			if path == aliasPath && symlinkExists {
+				return execPath, nil
+			}
+			return "", os.ErrNotExist
+		}
+		aliasFileRemove = func(path string) error {
+			if path == aliasPath && symlinkExists {
+				symlinkExists = false
+				executableRemoved = true
+				return nil
+			}
+			return nil
+		}
+
+		installCmd := newServiceInstallCommand()
+		installCmd.SetArgs([]string{manifestPath})
+		if _, err := captureStdout(t, installCmd.Execute); err != nil {
+			t.Fatalf("service install failed: %v", err)
+		}
+
+		removeCmd := newServiceRemoveCommand()
+		removeCmd.SetArgs([]string{serviceName})
+		if _, err := captureStdout(t, removeCmd.Execute); err != nil {
+			t.Fatalf("service remove failed: %v", err)
+		}
+
+		cfg, err := loadAppConfig()
+		if err != nil {
+			t.Fatalf("loadAppConfig() after remove error: %v", err)
+		}
+		if _, exists := cfg.CommandAliases["geosearch"]; exists {
+			t.Fatalf("expected command alias geosearch removed on remove, got %+v", cfg.CommandAliases)
+		}
+		for alias, target := range cfg.Aliases {
+			if strings.EqualFold(strings.TrimSpace(target), serviceName) {
+				t.Fatalf("expected service aliases for %q removed on remove, still have %q -> %q", serviceName, alias, target)
+			}
+		}
+		if !executableRemoved {
+			t.Fatal("expected executable shortcut cleanup during remove")
+		}
+	})
+}
+
+func TestCleanupAliasesForServiceRollsBackEarlierRemovalsOnFailure(t *testing.T) {
+	dataDir := t.TempDir()
+	servicesDir := filepath.Join(dataDir, "services")
+	configPath := writeServiceCLIConfig(t, dataDir, servicesDir)
+
+	withServiceCLIOpts(t, configPath, func() {
+		resolvedConfigPath, resolveErr := resolveConfigPath()
+		if resolveErr != nil {
+			t.Fatalf("resolveConfigPath() error: %v", resolveErr)
+		}
+		if err := upsertConfigAlias(resolvedConfigPath, "geo", "svc"); err != nil {
+			t.Fatalf("set service alias: %v", err)
+		}
+		if err := upsertConfigCommandAlias(resolvedConfigPath, "aone", "svc.search"); err != nil {
+			t.Fatalf("set command alias aone: %v", err)
+		}
+		if err := upsertConfigCommandAlias(resolvedConfigPath, "ztwo", "svc.search"); err != nil {
+			t.Fatalf("set command alias ztwo: %v", err)
+		}
+
+		cfg, err := loadAppConfig()
+		if err != nil {
+			t.Fatalf("loadAppConfig() error: %v", err)
+		}
+
+		execDir := t.TempDir()
+		execPath := filepath.Join(execDir, "kimbap")
+		symlinkState := map[string]bool{
+			filepath.Join(execDir, "aone"): true,
+			filepath.Join(execDir, "ztwo"): true,
+		}
+		restoredAoneExecutable := false
+
+		origExecutablePath := aliasExecutablePath
+		origLstat := aliasFileLstat
+		origSymlink := aliasFileSymlink
+		origReadlink := aliasFileReadlink
+		origRemove := aliasFileRemove
+		t.Cleanup(func() {
+			aliasExecutablePath = origExecutablePath
+			aliasFileLstat = origLstat
+			aliasFileSymlink = origSymlink
+			aliasFileReadlink = origReadlink
+			aliasFileRemove = origRemove
+		})
+
+		aliasExecutablePath = func() (string, error) { return execPath, nil }
+		aliasFileLstat = func(path string) (os.FileInfo, error) {
+			if symlinkState[path] {
+				return symlinkFileInfo{}, nil
+			}
+			return nil, os.ErrNotExist
+		}
+		aliasFileReadlink = func(path string) (string, error) {
+			if symlinkState[path] {
+				return execPath, nil
+			}
+			return "", os.ErrNotExist
+		}
+		aliasFileRemove = func(path string) error {
+			if !symlinkState[path] {
+				return os.ErrNotExist
+			}
+			if filepath.Base(path) == "ztwo" {
+				return os.ErrPermission
+			}
+			symlinkState[path] = false
+			return nil
+		}
+		aliasFileSymlink = func(oldname, newname string) error {
+			if oldname != execPath {
+				return os.ErrInvalid
+			}
+			symlinkState[newname] = true
+			if filepath.Base(newname) == "aone" {
+				restoredAoneExecutable = true
+			}
+			return nil
+		}
+
+		_, _, _, cleanupErr := cleanupAliasesForService(resolvedConfigPath, "svc", cfg.Aliases, cfg.CommandAliases)
+		if cleanupErr == nil {
+			t.Fatal("expected cleanupAliasesForService to fail")
+		}
+
+		reloaded, loadErr := loadAppConfig()
+		if loadErr != nil {
+			t.Fatalf("reload config: %v", loadErr)
+		}
+		if got := reloaded.Aliases["geo"]; got != "svc" {
+			t.Fatalf("expected service alias geo restored, got aliases=%+v", reloaded.Aliases)
+		}
+		if got := reloaded.CommandAliases["aone"]; got != "svc.search" {
+			t.Fatalf("expected command alias aone restored, got %+v", reloaded.CommandAliases)
+		}
+		if got := reloaded.CommandAliases["ztwo"]; got != "svc.search" {
+			t.Fatalf("expected command alias ztwo restored, got %+v", reloaded.CommandAliases)
+		}
+		if !restoredAoneExecutable {
+			t.Fatal("expected aone executable alias to be restored during rollback")
 		}
 	})
 }

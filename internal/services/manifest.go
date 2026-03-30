@@ -2,6 +2,7 @@ package services
 
 type ServiceManifest struct {
 	Name        string                   `yaml:"name"`
+	Aliases     []string                 `yaml:"aliases,omitempty"`
 	Version     string                   `yaml:"version"`
 	Description string                   `yaml:"description"`
 	Adapter     string                   `yaml:"adapter,omitempty"`
@@ -35,6 +36,7 @@ type ServiceAction struct {
 	Path         string         `yaml:"path"`
 	Description  string         `yaml:"description"`
 	Warnings     []string       `yaml:"warnings,omitempty"`
+	Aliases      []string       `yaml:"aliases,omitempty"`
 	Command      string         `yaml:"command,omitempty"`
 	Idempotent   *bool          `yaml:"idempotent,omitempty"`
 	Auth         *ServiceAuth   `yaml:"auth,omitempty"`

@@ -269,6 +269,66 @@ func TestValidateCommandManifest_AuthConstraints(t *testing.T) {
 	}
 }
 
+func TestValidateManifest_AliasesAcceptValidEntries(t *testing.T) {
+	m := validHTTPManifest()
+	m.Name = "open-meteo-geocoding"
+	m.Aliases = []string{"geo", "weather-geo"}
+	a := m.Actions["get_item"]
+	a.Aliases = []string{"geosearch"}
+	m.Actions["get_item"] = a
+
+	errList := ValidateManifest(m)
+	if len(errList) != 0 {
+		t.Fatalf("expected no validation errors, got %v", errList)
+	}
+}
+
+func TestValidateManifest_AliasesRejectInvalidEntries(t *testing.T) {
+	m := validHTTPManifest()
+	m.Name = "open-meteo-geocoding"
+	m.Aliases = []string{"", "open-meteo-geocoding", "bad.alias", "geo", "geo"}
+
+	errList := ValidateManifest(m)
+	if !hasValidationError(errList, "aliases[0]", "must be non-empty") {
+		t.Fatalf("expected non-empty aliases[0] validation error, got %v", errList)
+	}
+	if !hasValidationError(errList, "aliases[1]", "must differ from service name") {
+		t.Fatalf("expected aliases[1] differs-from-name validation error, got %v", errList)
+	}
+	if !hasValidationError(errList, "aliases[2]", "must not contain dots") {
+		t.Fatalf("expected aliases[2] no-dot validation error, got %v", errList)
+	}
+	if !hasValidationError(errList, "aliases[4]", "duplicates aliases[3]") {
+		t.Fatalf("expected aliases[4] duplicate validation error, got %v", errList)
+	}
+}
+
+func TestValidateManifest_ActionAliasesRejectInvalidEntries(t *testing.T) {
+	m := validHTTPManifest()
+	m.Name = "open-meteo-geocoding"
+	m.Aliases = []string{"geo"}
+	a := m.Actions["get_item"]
+	a.Aliases = []string{"", "bad.alias", "geo", "geosearch", "geosearch", "open-meteo-geocoding"}
+	m.Actions["get_item"] = a
+
+	errList := ValidateManifest(m)
+	if !hasValidationError(errList, "actions.get_item.aliases[0]", "must be non-empty") {
+		t.Fatalf("expected action alias non-empty error, got %v", errList)
+	}
+	if !hasValidationError(errList, "actions.get_item.aliases[1]", "must not contain dots") {
+		t.Fatalf("expected action alias no-dot error, got %v", errList)
+	}
+	if !hasValidationError(errList, "actions.get_item.aliases[2]", "must not duplicate service-level aliases") {
+		t.Fatalf("expected action alias service-level duplicate error, got %v", errList)
+	}
+	if !hasValidationError(errList, "actions.get_item.aliases[4]", "duplicates actions.get_item.aliases[3]") {
+		t.Fatalf("expected action alias duplicate error, got %v", errList)
+	}
+	if !hasValidationError(errList, "actions.get_item.aliases[5]", "must differ from service name") {
+		t.Fatalf("expected action alias differs-from-service-name error, got %v", errList)
+	}
+}
+
 func TestValidateCommandManifest_CommandSpecExecutableWhenPresent(t *testing.T) {
 	m := validCommandManifest()
 	m.CommandSpec = &CommandSpec{}

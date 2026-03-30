@@ -434,6 +434,26 @@ func TestLoadKimbapConfigWithoutDefault_AllowsClearingAliasesWithExplicitEmptyMa
 	}
 }
 
+func TestLoadKimbapConfigWithoutDefault_AllowsClearingCommandAliasesWithExplicitEmptyMap(t *testing.T) {
+	base := filepath.Join(t.TempDir(), "base.yaml")
+	override := filepath.Join(t.TempDir(), "override.yaml")
+
+	if err := os.WriteFile(base, []byte("command_aliases:\n  geosearch: open-meteo-geocoding.search\n"), 0o644); err != nil {
+		t.Fatalf("write base config: %v", err)
+	}
+	if err := os.WriteFile(override, []byte("command_aliases: {}\n"), 0o644); err != nil {
+		t.Fatalf("write override config: %v", err)
+	}
+
+	cfg, err := LoadKimbapConfigWithoutDefault(base, override)
+	if err != nil {
+		t.Fatalf("LoadKimbapConfigWithoutDefault: %v", err)
+	}
+	if len(cfg.CommandAliases) != 0 {
+		t.Fatalf("expected command_aliases to be cleared by explicit empty map, got %+v", cfg.CommandAliases)
+	}
+}
+
 func TestNotificationConfigYAMLParsing(t *testing.T) {
 	yamlContent := `
 notifications:

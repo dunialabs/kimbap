@@ -1626,6 +1626,12 @@ td.mono {
     return parts.join(' ');
   }
 
+  function buildAliasHint(name, inputSchema) {
+    var direct = buildCopyCmd(name, inputSchema);
+    var usage = direct.replace(/^kimbap call\s+[^\s]+/, '<shortcut>');
+    return 'Shortcut command format:\n' + usage + '\nIf not configured yet, set once:\nkimbap alias set <shortcut> ' + name;
+  }
+
   function renderActionDetail(a) {
     var detailEl = document.getElementById('actionDetail');
     var name = getField(a, 'Name', 'name') || 'unnamed';
@@ -1650,6 +1656,7 @@ td.mono {
     var urlTemplate = getField(adapter, 'URLTemplate', 'url_template') || '';
     var inputSchema = a.InputSchema || a.input_schema;
     var schemaDisplay;
+    var aliasHint = buildAliasHint(name, inputSchema);
 
     var html = '<div class="action-detail">' +
       '<div class="action-detail-header">' +
@@ -1659,6 +1666,7 @@ td.mono {
       '</div>' +
       (displayName && displayName.trim().toLowerCase() !== rawDesc.trim().toLowerCase() && displayName.trim().toLowerCase() !== name.trim().toLowerCase() ? '<p style="color:var(--text-secondary);margin-bottom:var(--space-md)">' + esc(displayName) + '</p>' : '') +
       '<p style="color:var(--text-secondary);margin-bottom:var(--space-md)">' + esc(desc) + '</p>' +
+      '<p style="color:var(--text-secondary);margin-bottom:var(--space-md)">Shortcut CLI:<br><code>' + esc(aliasHint).replace(/\n/g, '<br>') + '</code></p>' +
       '<div class="detail-grid">' +
         detailField('Namespace', ns) +
         detailField('Verb', verb !== '—' ? verb.toUpperCase() : verb) +

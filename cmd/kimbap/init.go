@@ -25,20 +25,21 @@ func newInitCommand() *cobra.Command {
 	var force bool
 	var servicesRaw string
 	var noServices bool
+	var noShortcuts bool
 	var withConsole bool
 	var withAgents bool
 	var agentsProjectDir string
 	cmd := &cobra.Command{
 		Use:   "init",
 		Short: "Bootstrap a fresh Kimbap installation",
-		Example: `  # Quick start with dev mode and all services
-  kimbap init --mode dev --services all
+		Example: `  # Quick start (defaults to dev mode) with all services
+	  kimbap init --services all
 
-  # Production setup (requires KIMBAP_MASTER_KEY_HEX)
-  kimbap init --services all
+	  # Production setup (requires KIMBAP_MASTER_KEY_HEX)
+	  kimbap init --mode embedded --services all
 
-  # Initialize with agent integration
-  kimbap init --mode dev --services all --with-agents`,
+	  # Initialize with agent integration
+	  kimbap init --services all --with-agents`,
 		RunE: func(_ *cobra.Command, _ []string) error {
 			cfg := buildInitConfig()
 			if withConsole {
@@ -74,7 +75,7 @@ func newInitCommand() *cobra.Command {
 				return selectionErr
 			}
 
-			serviceCheck := installInitServices(cfg, serviceSelection, hasFailure)
+			serviceCheck := installInitServices(cfg, serviceSelection, hasFailure, noShortcuts)
 			checks, hasFailure = appendInitChecks(checks, hasFailure, serviceCheck)
 
 			readinessCheck := checkInitLocalAdapterReadiness(serviceSelection, hasFailure)
@@ -111,6 +112,7 @@ func newInitCommand() *cobra.Command {
 	cmd.Flags().BoolVar(&force, "force", false, "overwrite existing config file")
 	cmd.Flags().StringVar(&servicesRaw, "services", "", "comma-separated catalog services to install, all, starter")
 	cmd.Flags().BoolVar(&noServices, "no-services", false, "skip service installation during init")
+	cmd.Flags().BoolVar(&noShortcuts, "no-shortcuts", false, "skip automatic shortcut alias setup during init service installation")
 	cmd.Flags().BoolVar(&withConsole, "with-console", false, "enable embedded console route in config")
 	cmd.Flags().BoolVar(&withAgents, "with-agents", false, "run agents setup and sync after init")
 	cmd.Flags().StringVar(&agentsProjectDir, "agents-project-dir", "", "project directory for agents sync when used with --with-agents")
@@ -166,10 +168,12 @@ func setupInitAgents(withAgents bool, projectDir string, hasFailure bool) doctor
 	}
 	trimmedProjectDir := strings.TrimSpace(projectDir)
 	if trimmedProjectDir == "" {
-		if globalFailures > 0 {
-			return doctorCheck{Name: "agent integration", Status: "warn", Detail: fmt.Sprintf("global hints installed with %d failures; project sync skipped (set --agents-project-dir to enable)", globalFailures)}
+		cwd, cwdErr := os.Getwd()
+		if cwdErr != nil || strings.TrimSpace(cwd) == "" {
+			trimmedProjectDir = "."
+		} else {
+			trimmedProjectDir = cwd
 		}
-		return doctorCheck{Name: "agent integration", Status: "ok", Detail: "global hints installed; project sync skipped (set --agents-project-dir to enable)"}
 	}
 
 	syncResult, syncErr := runAgentsSync(trimmedProjectDir, "", "", false, false)
@@ -353,7 +357,7 @@ func isInteractiveStdin() bool {
 	return fi.Mode()&os.ModeCharDevice != 0
 }
 
-func installInitServices(cfg *config.KimbapConfig, selection initServiceSelection, hasFailure bool) doctorCheck {
+func installInitServices(cfg *config.KimbapConfig, selection initServiceSelection, hasFailure bool, noShortcuts bool) doctorCheck {
 	if hasFailure {
 		return doctorCheck{Name: "catalog services installed", Status: "skip", Detail: "skipped due to previous init failures"}
 	}
@@ -365,10 +369,44 @@ func installInitServices(cfg *config.KimbapConfig, selection initServiceSelectio
 	}
 
 	installer := installerFromConfig(cfg)
+	setupShortcuts := !noShortcuts
+	if setupShortcuts && canPromptInTTY() {
+		confirm, confirmErr := confirmShortcutSetup("selected services")
+		if confirmErr != nil {
+			return doctorCheck{Name: "catalog services installed", Status: "fail", Detail: fmt.Sprintf("shortcut setup prompt failed: %v", confirmErr)}
+		}
+		setupShortcuts = confirm
+	}
 	installed := 0
 	enabled := 0
 	skipped := 0
+	aliased := 0
+	actionAliased := 0
 	failed := make([]string, 0)
+	applyAlias := func(manifest *services.ServiceManifest) {
+		if !setupShortcuts {
+			return
+		}
+		if manifest == nil {
+			return
+		}
+		_, created, aliasErr := ensureInstalledServiceAlias(cfg, installer, manifest)
+		if aliasErr != nil {
+			failed = append(failed, fmt.Sprintf("%s (alias: %v)", manifest.Name, aliasErr))
+			return
+		}
+		if created {
+			aliased++
+		}
+		if createdActionAliases, skippedActionAliases, actionAliasErr := ensureInstalledActionAliases(cfg, installer, manifest); actionAliasErr != nil {
+			failed = append(failed, fmt.Sprintf("%s (action-alias: %v)", manifest.Name, actionAliasErr))
+		} else {
+			actionAliased += len(createdActionAliases)
+			if len(skippedActionAliases) > 0 {
+				_, _ = fmt.Fprintf(os.Stderr, "warning: skipped action aliases for %s: %s\n", manifest.Name, strings.Join(skippedActionAliases, ", "))
+			}
+		}
+	}
 
 	for _, name := range selection.Names {
 		data, getErr := catalog.Get(name)
@@ -387,12 +425,16 @@ func installInitServices(cfg *config.KimbapConfig, selection initServiceSelectio
 			if errors.Is(installErr, services.ErrServiceAlreadyInstalled) {
 				existing, getErr := installer.Get(name)
 				if getErr == nil && existing.Enabled {
+					applyAlias(&existing.Manifest)
 					skipped++
 					continue
 				}
 				if enableErr := installer.Enable(name); enableErr != nil {
 					failed = append(failed, fmt.Sprintf("%s (enable: %v)", name, enableErr))
 				} else {
+					if existing, getEnabledErr := installer.Get(name); getEnabledErr == nil {
+						applyAlias(&existing.Manifest)
+					}
 					enabled++
 				}
 				continue
@@ -400,10 +442,11 @@ func installInitServices(cfg *config.KimbapConfig, selection initServiceSelectio
 			failed = append(failed, fmt.Sprintf("%s (install: %v)", name, installErr))
 			continue
 		}
+		applyAlias(manifest)
 		installed++
 	}
 
-	detail := fmt.Sprintf("installed: %d, enabled: %d, unchanged: %d", installed, enabled, skipped)
+	detail := fmt.Sprintf("installed: %d, enabled: %d, unchanged: %d, aliased: %d, action aliases: %d", installed, enabled, skipped, aliased, actionAliased)
 	if len(failed) > 0 {
 		return doctorCheck{Name: "catalog services installed", Status: "fail", Detail: fmt.Sprintf("%s, failed: %s", detail, strings.Join(failed, "; "))}
 	}
@@ -584,10 +627,18 @@ func buildInitConfig() *config.KimbapConfig {
 	if strings.TrimSpace(opts.logLevel) != "" {
 		cfg.LogLevel = opts.logLevel
 	}
-	if strings.TrimSpace(opts.mode) != "" {
-		cfg.Mode = opts.mode
-	}
+	cfg.Mode = resolveInitMode()
 	return cfg
+}
+
+func resolveInitMode() string {
+	if mode := strings.TrimSpace(opts.mode); mode != "" {
+		return mode
+	}
+	if mode := strings.TrimSpace(os.Getenv("KIMBAP_MODE")); mode != "" {
+		return mode
+	}
+	return "dev"
 }
 
 func validateInitMode(mode string) error {

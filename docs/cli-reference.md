@@ -40,6 +40,30 @@ kimbap call github.create-issue --owner acme --repo api --title "fix bug" --body
 kimbap call slack.post-message --channel C123 --text "hello"
 ```
 
+### kimbap alias set \<shortcut\> \<service\>.\<action\>
+
+Create a standalone shortcut command (no `kimbap call` prefix needed at runtime).
+Many catalog services are installed with default shortcuts automatically; use this when you want to add or override one manually.
+
+**Syntax:**
+
+```
+kimbap alias set <shortcut> <service>.<action>
+```
+
+**Examples:**
+
+```bash
+kimbap alias set geosearch open-meteo-geocoding.search
+geosearch --name "San Francisco"
+```
+
+To remove it:
+
+```bash
+kimbap alias remove geosearch
+```
+
 ---
 
 ### kimbap search \<query\>
@@ -112,7 +136,7 @@ Install a service manifest. Accepts a path to a local YAML file, an HTTPS URL, o
 **Syntax:**
 
 ```
-kimbap service install <name|path-to-yaml|url> [--force]
+kimbap service install <name|path-to-yaml|url> [--force] [--no-shortcuts]
 ```
 
 **Examples:**
@@ -123,7 +147,10 @@ kimbap service install my-service.yaml
 kimbap service install https://example.com/service.yaml
 kimbap service install stripe
 kimbap service install github --force
+kimbap service install github --no-shortcuts
 ```
+
+Install sets up eligible shortcut aliases by default. In interactive flows, you'll be asked first; use `--no-shortcuts` to skip.
 
 ---
 
@@ -157,6 +184,7 @@ kimbap service validate my-service.yaml
 ### kimbap service list
 
 List installed services, or list all catalog services with install/enable status.
+Output includes shortcut aliases per service in both text (`SHORTCUTS` column) and JSON (`shortcuts` field).
 
 **Syntax:**
 
@@ -758,19 +786,23 @@ In dev mode (`--mode dev`), a vault master key is auto-generated. In production,
 | `--mode <mode>` | Runtime mode: `dev`, `embedded`, or `connected` |
 | `--services <list>` | Comma-separated catalog service names to install, or `all` |
 | `--no-services` | Skip service installation entirely |
+| `--no-shortcuts` | Skip automatic shortcut alias setup during init service installation |
 | `--with-console` | Enable the `/console` route in the generated config |
-| `--with-agents` | Run `agents setup` and `agents sync` after init |
-| `--agents-project-dir <path>` | Project directory to target for agent sync |
+| `--with-agents` | Run `agents setup` and `agents sync` after init (current directory by default) |
+| `--agents-project-dir <path>` | Override project directory for agent sync |
 | `--force` | Overwrite an existing config file |
 
 **Examples:**
 
 ```bash
-kimbap init --mode dev --services all
-kimbap init --services all --with-agents --agents-project-dir .
+kimbap init --services all
+kimbap init --services all --with-agents
+kimbap init --services all --with-agents --agents-project-dir /path/to/project
 kimbap init --services github,stripe --force
 kimbap init --no-services
 ```
+
+Service lifecycle commands (`service install`, `enable`, `disable`, `remove`, `update`) also attempt automatic agent sync for the current project when agent configs are detected in text output mode. Use `kimbap agents sync --dir <path>` for explicit sync targeting, and for JSON output workflows.
 
 ---
 

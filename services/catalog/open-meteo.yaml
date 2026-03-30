@@ -36,6 +36,8 @@ actions:
     method: GET
     path: /v1/forecast
     description: Get weather forecast for a location
+    aliases:
+      - weather
     args:
       - name: latitude
         type: number

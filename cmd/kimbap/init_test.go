@@ -23,14 +23,157 @@ func TestBuildInitConfigRebasesPolicyPathWithDataDir(t *testing.T) {
 	}
 }
 
-func TestBuildInitConfigKeepsDefaultModeEmbedded(t *testing.T) {
+func TestBuildInitConfigDefaultsToDevMode(t *testing.T) {
 	original := opts
 	t.Cleanup(func() { opts = original })
 
 	opts = cliOptions{}
 	cfg := buildInitConfig()
+	if cfg.Mode != "dev" {
+		t.Fatalf("expected default init mode dev, got %q", cfg.Mode)
+	}
+}
+
+func TestBuildInitConfigRespectsKimbapModeEnv(t *testing.T) {
+	original := opts
+	t.Cleanup(func() { opts = original })
+	t.Setenv("KIMBAP_MODE", "embedded")
+
+	opts = cliOptions{}
+	cfg := buildInitConfig()
 	if cfg.Mode != "embedded" {
-		t.Fatalf("expected default init mode embedded, got %q", cfg.Mode)
+		t.Fatalf("expected env mode embedded, got %q", cfg.Mode)
+	}
+}
+
+func TestBuildInitConfigFlagModeOverridesEnv(t *testing.T) {
+	original := opts
+	t.Cleanup(func() { opts = original })
+	t.Setenv("KIMBAP_MODE", "embedded")
+
+	opts = cliOptions{}
+	opts.mode = "connected"
+	cfg := buildInitConfig()
+	if cfg.Mode != "connected" {
+		t.Fatalf("expected flag mode connected, got %q", cfg.Mode)
+	}
+}
+
+func TestCanPromptInTTYReturnsFalseForJSONOutput(t *testing.T) {
+	original := opts
+	t.Cleanup(func() { opts = original })
+
+	opts = cliOptions{format: "json"}
+	if canPromptInTTY() {
+		t.Fatal("expected canPromptInTTY to be false for json output")
+	}
+}
+
+func TestInstallInitServicesPromptDeclineSkipsShortcutSetup(t *testing.T) {
+	dataDir := t.TempDir()
+	servicesDir := filepath.Join(dataDir, "services")
+	configPath := writeServiceCLIConfig(t, dataDir, servicesDir)
+
+	prevOpts := opts
+	opts = cliOptions{configPath: configPath, format: "text", noSplash: true}
+	t.Cleanup(func() { opts = prevOpts })
+
+	origCanPrompt := canPromptInTTY
+	canPromptInTTY = func() bool { return true }
+	t.Cleanup(func() { canPromptInTTY = origCanPrompt })
+
+	oldStdin := os.Stdin
+	r, w, err := os.Pipe()
+	if err != nil {
+		t.Fatalf("create stdin pipe: %v", err)
+	}
+	if _, err := w.WriteString("n\n"); err != nil {
+		t.Fatalf("write stdin input: %v", err)
+	}
+	_ = w.Close()
+	os.Stdin = r
+	t.Cleanup(func() {
+		os.Stdin = oldStdin
+		_ = r.Close()
+	})
+
+	cfg, err := loadAppConfig()
+	if err != nil {
+		t.Fatalf("loadAppConfig() error: %v", err)
+	}
+
+	check := installInitServices(cfg, initServiceSelection{Names: []string{"open-meteo-geocoding"}}, false, false)
+	if check.Status != "ok" {
+		t.Fatalf("expected installInitServices status ok, got %q (%s)", check.Status, check.Detail)
+	}
+
+	reloaded, err := loadAppConfig()
+	if err != nil {
+		t.Fatalf("reload config error: %v", err)
+	}
+	if len(reloaded.CommandAliases) != 0 {
+		t.Fatalf("expected no command aliases when prompt is declined, got %+v", reloaded.CommandAliases)
+	}
+}
+
+func TestInstallInitServicesPromptAcceptsAndCreatesShortcutAliases(t *testing.T) {
+	dataDir := t.TempDir()
+	servicesDir := filepath.Join(dataDir, "services")
+	configPath := writeServiceCLIConfig(t, dataDir, servicesDir)
+
+	prevOpts := opts
+	opts = cliOptions{configPath: configPath, format: "text", noSplash: true}
+	t.Cleanup(func() { opts = prevOpts })
+
+	origCanPrompt := canPromptInTTY
+	canPromptInTTY = func() bool { return true }
+	t.Cleanup(func() { canPromptInTTY = origCanPrompt })
+
+	oldStdin := os.Stdin
+	r, w, err := os.Pipe()
+	if err != nil {
+		t.Fatalf("create stdin pipe: %v", err)
+	}
+	if _, err := w.WriteString("y\n"); err != nil {
+		t.Fatalf("write stdin input: %v", err)
+	}
+	_ = w.Close()
+	os.Stdin = r
+	t.Cleanup(func() {
+		os.Stdin = oldStdin
+		_ = r.Close()
+	})
+
+	execDir := t.TempDir()
+	execPath := filepath.Join(execDir, "kimbap")
+	origExecutablePath := aliasExecutablePath
+	origLstat := aliasFileLstat
+	origSymlink := aliasFileSymlink
+	t.Cleanup(func() {
+		aliasExecutablePath = origExecutablePath
+		aliasFileLstat = origLstat
+		aliasFileSymlink = origSymlink
+	})
+	aliasExecutablePath = func() (string, error) { return execPath, nil }
+	aliasFileLstat = func(path string) (os.FileInfo, error) { return nil, os.ErrNotExist }
+	aliasFileSymlink = func(oldname, newname string) error { return nil }
+
+	cfg, err := loadAppConfig()
+	if err != nil {
+		t.Fatalf("loadAppConfig() error: %v", err)
+	}
+
+	check := installInitServices(cfg, initServiceSelection{Names: []string{"open-meteo-geocoding"}}, false, false)
+	if check.Status != "ok" {
+		t.Fatalf("expected installInitServices status ok, got %q (%s)", check.Status, check.Detail)
+	}
+
+	reloaded, err := loadAppConfig()
+	if err != nil {
+		t.Fatalf("reload config error: %v", err)
+	}
+	if got := reloaded.CommandAliases["geosearch"]; got != "open-meteo-geocoding.search" {
+		t.Fatalf("expected geosearch shortcut alias after prompt acceptance, got %+v", reloaded.CommandAliases)
 	}
 }
 

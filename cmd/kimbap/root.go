@@ -408,7 +408,7 @@ func resolveActionByName(cfg *config.KimbapConfig, name string) (*actions.Action
 		if len(allInstalled) > 0 {
 			return nil, fmt.Errorf("no enabled services found — run 'kimbap service list' to see installed services")
 		}
-		return nil, fmt.Errorf("no services installed — run 'kimbap init --mode dev --services all' to get started")
+		return nil, fmt.Errorf("no services installed — run 'kimbap init --services all' to get started")
 	}
 	for i := range defs {
 		if defs[i].Name == resolved {
@@ -435,9 +435,12 @@ func resolveAliasedActionName(cfg *config.KimbapConfig, actionName string) strin
 	if service == "" || action == "" {
 		return actionName
 	}
+	if !services.IsValidServiceAlias(service) {
+		return actionName
+	}
 	if target, ok := cfg.Aliases[service]; ok {
-		target = strings.TrimSpace(target)
-		if target != "" {
+		target = strings.ToLower(strings.TrimSpace(target))
+		if target != "" && services.ValidateServiceName(target) == nil {
 			return target + "." + action
 		}
 	}
@@ -450,6 +453,75 @@ func splitActionName(actionName string) (service string, action string) {
 		return "", actionName
 	}
 	return service, action
+}
+
+func rewriteArgsForExecutableAlias(argv []string) []string {
+	if len(argv) == 0 {
+		return argv
+	}
+
+	binary := strings.TrimSpace(filepath.Base(argv[0]))
+	if binary == "" || strings.EqualFold(binary, "kimbap") {
+		return argv
+	}
+
+	configPath := ""
+	for i := 1; i < len(argv); i++ {
+		tok := strings.TrimSpace(argv[i])
+		if tok == "--" {
+			break
+		}
+		if tok == "--config" && i+1 < len(argv) {
+			next := strings.TrimSpace(argv[i+1])
+			if next != "" && !strings.HasPrefix(next, "-") {
+				configPath = next
+				i++
+				continue
+			}
+		}
+		if strings.HasPrefix(tok, "--config=") {
+			configPath = strings.TrimSpace(strings.TrimPrefix(tok, "--config="))
+		}
+	}
+
+	var (
+		cfg *config.KimbapConfig
+		err error
+	)
+	if strings.TrimSpace(configPath) == "" {
+		cfg, err = config.LoadKimbapConfig()
+	} else {
+		cfg, err = config.LoadKimbapConfigWithoutDefault(configPath)
+	}
+	if err != nil {
+		return argv
+	}
+
+	return rewriteArgsForConfiguredExecutableAlias(argv, cfg.CommandAliases)
+}
+
+func rewriteArgsForConfiguredExecutableAlias(argv []string, commandAliases map[string]string) []string {
+	if len(argv) == 0 || len(commandAliases) == 0 {
+		return argv
+	}
+
+	binary := strings.TrimSpace(filepath.Base(argv[0]))
+	if binary == "" || strings.EqualFold(binary, "kimbap") {
+		return argv
+	}
+
+	target := strings.TrimSpace(commandAliases[binary])
+	if target == "" {
+		target = strings.TrimSpace(commandAliases[strings.ToLower(binary)])
+	}
+	if target == "" || !strings.Contains(target, ".") {
+		return argv
+	}
+
+	out := make([]string, 0, len(argv)+2)
+	out = append(out, argv[0], "call", target)
+	out = append(out, argv[1:]...)
+	return out
 }
 
 func initVaultStore(cfg *config.KimbapConfig) (vault.Store, error) {

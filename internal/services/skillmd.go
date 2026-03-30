@@ -9,13 +9,32 @@ import (
 type SkillMDOption func(*skillMDConfig)
 
 type skillMDConfig struct {
-	Source string
+	Source    string
+	CallAlias string
 }
 
 func WithSource(source string) SkillMDOption {
 	return func(c *skillMDConfig) {
 		c.Source = source
 	}
+}
+
+func WithCallAlias(alias string) SkillMDOption {
+	return func(c *skillMDConfig) {
+		c.CallAlias = alias
+	}
+}
+
+func resolveSkillCallServiceName(manifestName string, cfg skillMDConfig) string {
+	serviceName := strings.TrimSpace(manifestName)
+	alias := strings.ToLower(strings.TrimSpace(cfg.CallAlias))
+	if alias == "" || alias == serviceName {
+		return serviceName
+	}
+	if err := ValidateServiceName(alias); err != nil {
+		return serviceName
+	}
+	return alias
 }
 
 func buildInstallInstruction(name string, cfg skillMDConfig) string {
@@ -59,6 +78,7 @@ func GenerateAgentSkillMD(manifest *ServiceManifest, opts ...SkillMDOption) (str
 	}
 
 	var sb strings.Builder
+	callServiceName := resolveSkillCallServiceName(manifest.Name, cfg)
 
 	sb.WriteString("---\n")
 	fmt.Fprintf(&sb, "name: %s\n", manifest.Name)
@@ -75,6 +95,9 @@ func GenerateAgentSkillMD(manifest *ServiceManifest, opts ...SkillMDOption) (str
 	sb.WriteString("## Prerequisites\n\n")
 	sb.WriteString("- Kimbap CLI installed and in PATH\n")
 	fmt.Fprintf(&sb, "- Service installed: `%s`\n", buildInstallInstruction(manifest.Name, cfg))
+	if callServiceName != strings.TrimSpace(manifest.Name) {
+		fmt.Fprintf(&sb, "- Configured service alias in this environment: `%s`\n", callServiceName)
+	}
 	for _, line := range adapterPrerequisites(manifest) {
 		sb.WriteString("- ")
 		sb.WriteString(line)
@@ -95,6 +118,7 @@ func GenerateAgentSkillMD(manifest *ServiceManifest, opts ...SkillMDOption) (str
 	sb.WriteString("\n")
 
 	sb.WriteString("## Available Actions\n\n")
+	fmt.Fprintf(&sb, "Pick an action below, then run `kimbap call %s.<action> ...`.\n\n", callServiceName)
 
 	keys := sortedActionKeys(manifest.Actions)
 	for _, key := range keys {
@@ -135,7 +159,7 @@ func GenerateAgentSkillMD(manifest *ServiceManifest, opts ...SkillMDOption) (str
 
 		sb.WriteString("**Usage**:\n")
 		sb.WriteString("```bash\n")
-		fmt.Fprintf(&sb, "kimbap call %s", actionName)
+		fmt.Fprintf(&sb, "kimbap call %s.%s", callServiceName, key)
 		for _, arg := range action.Args {
 			if arg.Required {
 				fmt.Fprintf(&sb, " --%s <value>", arg.Name)
@@ -157,9 +181,13 @@ func GenerateAgentSkillMD(manifest *ServiceManifest, opts ...SkillMDOption) (str
 	sb.WriteString("## Discovery\n\n")
 	sb.WriteString("```bash\n")
 	fmt.Fprintf(&sb, "kimbap actions list --service %s --format json\n", manifest.Name)
-	fmt.Fprintf(&sb, "kimbap actions describe %s.<action> --format json\n", manifest.Name)
-	fmt.Fprintf(&sb, "kimbap call %s.<action> --dry-run --format json\n", manifest.Name)
+	fmt.Fprintf(&sb, "kimbap actions describe %s.<action> --format json\n", callServiceName)
+	fmt.Fprintf(&sb, "kimbap call %s.<action> --dry-run --format json\n", callServiceName)
 	sb.WriteString("```\n")
+	if shortcut := generateStandaloneAliasExample(manifest); shortcut != "" {
+		sb.WriteString("\n")
+		sb.WriteString(shortcut)
+	}
 
 	return sb.String(), nil
 }
@@ -251,6 +279,7 @@ Never ask for, print, or store raw API keys, passwords, tokens, cookies, or sess
 2. Inspect the action:  ` + "`kimbap actions describe <service.action> --format json`" + `
 3. Preview if non-low:  ` + "`kimbap call <service.action> --dry-run --format json`" + `
 4. Execute:             ` + "`kimbap call <service.action> [--param value ...]`" + `
+5. Optional shortcut:   ` + "`kimbap alias set <shortcut> <service.action>`" + ` then run ` + "`<shortcut> ...`" + `
 Browse all services only when search returns nothing: ` + "`kimbap actions list --format json`" + `
 </protocol>
 
@@ -296,6 +325,7 @@ func GenerateAgentSkillPack(manifest *ServiceManifest, opts ...SkillMDOption) (m
 
 func generatePackSkillMD(manifest *ServiceManifest, cfg skillMDConfig) (string, error) {
 	var sb strings.Builder
+	callServiceName := resolveSkillCallServiceName(manifest.Name, cfg)
 	sb.WriteString("---\n")
 	sb.WriteString(fmt.Sprintf("name: %s\n", manifest.Name))
 	desc := buildPackDescription(manifest)
@@ -309,6 +339,9 @@ func generatePackSkillMD(manifest *ServiceManifest, cfg skillMDConfig) (string, 
 	sb.WriteString("## Prerequisites\n\n")
 	sb.WriteString("- Kimbap CLI installed and in PATH\n")
 	sb.WriteString(fmt.Sprintf("- Service installed: `%s`\n", buildInstallInstruction(manifest.Name, cfg)))
+	if callServiceName != strings.TrimSpace(manifest.Name) {
+		sb.WriteString(fmt.Sprintf("- Configured service alias in this environment: `%s`\n", callServiceName))
+	}
 	for _, line := range adapterPrerequisites(manifest) {
 		sb.WriteString("- ")
 		sb.WriteString(line)
@@ -316,6 +349,7 @@ func generatePackSkillMD(manifest *ServiceManifest, cfg skillMDConfig) (string, 
 	}
 	sb.WriteString("\n")
 	sb.WriteString("## Available Actions\n\n")
+	sb.WriteString(fmt.Sprintf("Pick an action from this table, then run `kimbap call %s.<action> ...`.\n\n", callServiceName))
 	sb.WriteString("| Action | Description | Inputs | Risk |\n")
 	sb.WriteString("|--------|-------------|--------|------|\n")
 	for _, key := range sortedActionKeys(manifest.Actions) {
@@ -360,13 +394,17 @@ func generatePackSkillMD(manifest *ServiceManifest, cfg skillMDConfig) (string, 
 		}
 		sb.WriteString("\n")
 	}
-	if exampleSection := generateExampleCalls(manifest); exampleSection != "" {
+	if exampleSection := generateExampleCalls(manifest, callServiceName); exampleSection != "" {
 		sb.WriteString(exampleSection)
 		sb.WriteString("\n")
 	}
+	if shortcut := generateStandaloneAliasExample(manifest); shortcut != "" {
+		sb.WriteString(shortcut)
+		sb.WriteString("\n")
+	}
 	sb.WriteString("## Before Execute\n\n")
-	fmt.Fprintf(&sb, "- Inspect: `kimbap actions describe %s.<action> --format json`\n", manifest.Name)
-	fmt.Fprintf(&sb, "- Preview non-low-risk actions: `kimbap call %s.<action> --dry-run --format json`\n", manifest.Name)
+	fmt.Fprintf(&sb, "- Inspect: `kimbap actions describe %s.<action> --format json`\n", callServiceName)
+	fmt.Fprintf(&sb, "- Preview non-low-risk actions: `kimbap call %s.<action> --dry-run --format json`\n", callServiceName)
 	if hasGotchas {
 		sb.WriteString("- Read GOTCHAS.md in this pack before unfamiliar or risky actions\n")
 	}
@@ -546,7 +584,7 @@ func actionExamplePriority(action ServiceAction) int {
 	}
 }
 
-func generateExampleCalls(manifest *ServiceManifest) string {
+func generateExampleCalls(manifest *ServiceManifest, callServiceName string) string {
 	keys := sortedActionKeys(manifest.Actions)
 	if len(keys) == 0 {
 		return ""
@@ -560,7 +598,7 @@ func generateExampleCalls(manifest *ServiceManifest) string {
 	for _, key := range keys {
 		action := manifest.Actions[key]
 		var line strings.Builder
-		line.WriteString(fmt.Sprintf("kimbap call %s.%s", manifest.Name, key))
+		line.WriteString(fmt.Sprintf("kimbap call %s.%s", callServiceName, key))
 		for _, arg := range action.Args {
 			if arg.Required {
 				line.WriteString(fmt.Sprintf(" --%s <value>", arg.Name))
@@ -578,6 +616,49 @@ func generateExampleCalls(manifest *ServiceManifest) string {
 	for _, ex := range examples {
 		sb.WriteString(ex + "\n")
 	}
+	sb.WriteString("```\n")
+	return sb.String()
+}
+
+func generateStandaloneAliasExample(manifest *ServiceManifest) string {
+	keys := sortedActionKeys(manifest.Actions)
+	if len(keys) == 0 {
+		return ""
+	}
+	sort.SliceStable(keys, func(i, j int) bool {
+		pi := actionExamplePriority(manifest.Actions[keys[i]])
+		pj := actionExamplePriority(manifest.Actions[keys[j]])
+		if pi == pj {
+			return keys[i] < keys[j]
+		}
+		return pi < pj
+	})
+
+	key := keys[0]
+	action := manifest.Actions[key]
+	shortcut := "<shortcut>"
+	for _, candidate := range action.Aliases {
+		trimmed := strings.ToLower(strings.TrimSpace(candidate))
+		if trimmed == "" {
+			continue
+		}
+		if strings.Contains(trimmed, ".") {
+			continue
+		}
+		shortcut = trimmed
+		break
+	}
+	var sb strings.Builder
+	sb.WriteString("## Shortcut Command Alias (optional)\n\n")
+	sb.WriteString("```bash\n")
+	fmt.Fprintf(&sb, "kimbap alias set %s %s.%s\n", shortcut, manifest.Name, key)
+	sb.WriteString(shortcut)
+	for _, arg := range action.Args {
+		if arg.Required {
+			fmt.Fprintf(&sb, " --%s <value>", arg.Name)
+		}
+	}
+	sb.WriteString("\n")
 	sb.WriteString("```\n")
 	return sb.String()
 }

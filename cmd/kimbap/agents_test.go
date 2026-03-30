@@ -1,6 +1,7 @@
 package main
 
 import (
+	"path/filepath"
 	"strings"
 	"testing"
 )
@@ -46,5 +47,30 @@ func TestAgentsSetupNoAgentsDetected_JSON(t *testing.T) {
 
 	if strings.TrimSpace(output) != "[]" {
 		t.Fatalf("expected empty JSON array for zero agents, got: %q", output)
+	}
+}
+
+func TestResolveAgentsSyncProjectDirRejectsRoot(t *testing.T) {
+	_, err := resolveAgentsSyncProjectDir("/")
+	if err == nil {
+		t.Fatal("expected root directory to be rejected")
+	}
+	if !strings.Contains(err.Error(), "refusing to sync to root directory") {
+		t.Fatalf("expected root rejection error, got %v", err)
+	}
+}
+
+func TestResolveAgentsSyncProjectDirResolvesAbsoluteDirectory(t *testing.T) {
+	dir := t.TempDir()
+	resolved, err := resolveAgentsSyncProjectDir(dir)
+	if err != nil {
+		t.Fatalf("resolveAgentsSyncProjectDir() error: %v", err)
+	}
+	want, wantErr := filepath.Abs(dir)
+	if wantErr != nil {
+		t.Fatalf("filepath.Abs(%q) error: %v", dir, wantErr)
+	}
+	if resolved != want {
+		t.Fatalf("resolved dir = %q, want %q", resolved, want)
 	}
 }

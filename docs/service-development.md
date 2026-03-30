@@ -39,6 +39,23 @@ actions:
 
 That's enough to install and call. Everything else in this guide is optional enrichment.
 
+### Optional: frictionless shortcuts (YAML-level)
+
+You can declare shortcut-friendly aliases directly in the manifest:
+
+```yaml
+name: open-meteo-geocoding
+aliases: [geo]          # service alias (kimbap call geo.search ...)
+actions:
+  search:
+    aliases: [geosearch] # standalone command alias candidate
+```
+
+- `aliases` (top-level): service aliases.
+- `actions.<action>.aliases`: shortcut command alias candidates for that action.
+
+When a service is installed, eligible default shortcut aliases are set up by default (`--no-shortcuts` opts out; interactive flows ask first). If a preferred alias collides, kimbap tries shorter fallback candidates before skipping.
+
 ---
 
 ## Adapter Types
