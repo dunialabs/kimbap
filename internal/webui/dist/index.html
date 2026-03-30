@@ -1443,6 +1443,21 @@ td.mono {
     '</div>';
   }
 
+  function dashboardAuthNoticeHTML() {
+    return '<div class="auth-gate">' +
+      '<div class="auth-gate-icon">🔓</div>' +
+      '<h2>Add a token to unlock protected views</h2>' +
+      '<p>Dashboard and Actions are already available. Add a kimbap access token to open Approvals, Audit, and Credentials.<br>' +
+      'Create one with <code>kimbap token create --agent console</code>, then paste it here.</p>' +
+      '<form class="token-input-group" novalidate onsubmit="return saveToken(\'tokenInput_dashboard\')">' +
+        '<label class="sr-only" for="tokenInput_dashboard">Access token</label>' +
+        '<input class="token-input" type="password" id="tokenInput_dashboard" placeholder="ktk_..." aria-label="Access token" aria-required="true" aria-describedby="tokenInput_dashboard_error" oninput="clearTokenError(\'tokenInput_dashboard\')" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" required />' +
+        '<button type="submit" class="connect-btn">Save token</button>' +
+      '</form>' +
+      '<div id="tokenInput_dashboard_error" class="token-error" aria-live="polite"></div>' +
+    '</div>';
+  }
+
   function errorBannerHTML(msg) {
     return '<div class="error-banner">⚠ ' + esc(msg) + '<button type="button" style="margin-left:auto;background:none;border:none;color:inherit;cursor:pointer;font-size:16px;padding:0 4px" onclick="this.parentElement.remove()" aria-label="Dismiss">×</button></div>';
   }
@@ -1473,7 +1488,7 @@ td.mono {
     var requestEpoch = state.requestEpoch;
     var authGateEl = document.getElementById('dashAuthGate');
     if (!state.token) {
-      if (authGateEl) authGateEl.innerHTML = authGateHTML('dashboard');
+      if (authGateEl) authGateEl.innerHTML = dashboardAuthNoticeHTML();
     } else {
       if (authGateEl) authGateEl.innerHTML = '';
     }
@@ -1762,7 +1777,7 @@ td.mono {
     parts = ['kimbap call', name];
     for (j = 0; j < requiredKeys.length; j++) {
       parts.push('--' + requiredKeys[j]);
-      parts.push('<value>');
+      parts.push('"VALUE"');
     }
     return parts.join(' ');
   }
@@ -1796,20 +1811,13 @@ td.mono {
       (displayName && displayName.trim().toLowerCase() !== rawDesc.trim().toLowerCase() && displayName.trim().toLowerCase() !== name.trim().toLowerCase() ? '<p style="color:var(--text-secondary);margin-bottom:var(--space-md)">' + esc(displayName) + '</p>' : '') +
       '<p style="color:var(--text-secondary);margin-bottom:var(--space-md)">' + esc(desc) + '</p>' +
       '<div class="detail-grid">' +
-        detailField('Namespace', ns) +
-        detailField('Verb', verb !== '—' ? verb.toUpperCase() : verb) +
-        detailField('Resource', resource) +
-        detailField('Version', version !== undefined ? version : '—') +
         detailField('Risk', risk, riskBadge(risk)) +
         detailField('Authentication', humanizeLabel(authType)) +
-        detailField('Credential', credRef) +
         detailField('Safe to retry', idempotent === true ? 'Yes' : (idempotent === false ? 'No' : '—')) +
         detailField('Approval Policy', humanizeLabel(approvalHint)) +
-        detailField('Adapter', humanizeLabel(adapterType)) +
         (method ? detailField('HTTP Method', method.toUpperCase()) : '') +
         (baseUrl ? detailField('Base URL', baseUrl) : '') +
         (urlTemplate ? detailField('URL Template', urlTemplate) : '') +
-        detailField('Shortcut Setup', 'kimbap alias set <shortcut-name> ' + name) +
       '</div>';
 
     if (inputSchema) {
@@ -2206,7 +2214,22 @@ td.mono {
     var verb = mode === 'deny' ? 'deny' : 'approve';
     var requestEpoch = state.requestEpoch;
     var errMsg;
+    var approval;
+    var actionLabel;
     if (!id || state.approvalsBusy[id]) return;
+    if (verb === 'deny') {
+      approval = Array.isArray(state.approvals)
+        ? state.approvals.find(function(item) {
+            return (getField(item, 'ID', 'id') || '') === id;
+          })
+        : null;
+      actionLabel = approval
+        ? ((getField(approval, 'Service', 'service') || '') + '.' + (getField(approval, 'Action', 'action') || '')).replace(/^\./, '').replace(/\.$/, '')
+        : '';
+      if (!window.confirm('Deny this approval' + (actionLabel ? ' for ' + actionLabel : '') + '?')) {
+        return;
+      }
+    }
 
     state.approvalsBusy[id] = mode;
     if (state.approvals) {
