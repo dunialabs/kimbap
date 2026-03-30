@@ -32,8 +32,13 @@ curl -fsSL https://kimbap.sh/install.sh | bash -s -- --check
 Or with Homebrew:
 
 ```bash
-brew tap dunialabs/kimbap
-brew install kimbap
+brew install dunialabs/kimbap/kimbap
+```
+
+Uninstall:
+
+```bash
+curl -fsSL https://kimbap.sh/install.sh | bash -s -- --uninstall
 ```
 
 **2. Initialize**
@@ -45,11 +50,16 @@ kimbap init --mode dev --services all
 **3. Call**
 
 ```bash
-# Create a note — no API key needed (macOS)
-kimbap call apple-notes.create-note --title "Hello from Kimbap" --body "Your first kimbap action."
+kimbap call open-meteo-geocoding.search --name "San Francisco" --count 1
 ```
 
-Open Apple Notes. The note is there. No API key, no server — one command.
+That is it for the first demo: one command, no API key, and no localhost setup.
+
+Then fetch the weather with the San Francisco coordinates:
+
+```bash
+kimbap call open-meteo.get-forecast --latitude 37.7749 --longitude -122.4194
+```
 
 ---
 
@@ -193,7 +203,7 @@ export KIMBAP_MASTER_KEY_HEX="$(openssl rand -hex 32)"
 kimbap init --services all
 ```
 
-### Web console
+### kimbap-web (embedded web console)
 
 ```bash
 kimbap serve --console --port 8080

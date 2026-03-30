@@ -13,8 +13,7 @@ curl -fsSL https://kimbap.sh/install.sh | bash
 Or with Homebrew:
 
 ```bash
-brew tap dunialabs/kimbap
-brew install kimbap
+brew install dunialabs/kimbap/kimbap
 ```
 
 ---
@@ -31,20 +30,19 @@ Creates `~/.kimbap/` with a config file, encrypted vault, and default policy. In
 
 ## 3. Your first call
 
-macOS native services need no credentials. Try this now:
+Run this:
 
 ```bash
-kimbap call apple-notes.create-note --title "Hello from Kimbap" --body "Your first note, created by kimbap."
+kimbap call open-meteo-geocoding.search --name "San Francisco" --count 1
 ```
 
-This creates a real note in Apple Notes. Delete it afterward if you like.
+Then fetch weather for San Francisco:
 
 ```bash
-# Or try read-only: kimbap call apple-notes.list-notes
+kimbap call open-meteo.get-forecast --latitude 37.7749 --longitude -122.4194
 ```
 
-> **On Linux?** macOS-native apps won't work, but cross-platform services are available.
-> Try: `kimbap call open-meteo.get-forecast --latitude 37.5 --longitude 127.0`
+Simple flow, no API key, no localhost setup.
 
 ---
 
@@ -79,6 +77,12 @@ kimbap agents setup
 Auto-detects installed agents and sets up kimbap discovery for them.
 
 Need profile/rules customization? See the Installation Guide for advanced setup options.
+
+Uninstall later if needed:
+
+```bash
+curl -fsSL https://kimbap.sh/install.sh | bash -s -- --uninstall
+```
 
 ---
 
