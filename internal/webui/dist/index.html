@@ -1724,7 +1724,7 @@ td.mono {
     parts = ['kimbap call', name];
     for (j = 0; j < requiredKeys.length; j++) {
       parts.push('--' + requiredKeys[j]);
-      parts.push('<value>');
+      parts.push('"VALUE"');
     }
     return parts.join(' ');
   }
@@ -1735,19 +1735,13 @@ td.mono {
     var rawDesc = getField(a, 'Description', 'description') || '';
     var desc = rawDesc || '—';
     var risk = getField(a, 'Risk', 'risk') || 'unknown';
-    var ns = getField(a, 'Namespace', 'namespace') || '—';
-    var verb = getField(a, 'Verb', 'verb') || '—';
-    var resource = getField(a, 'Resource', 'resource') || '—';
-    var version = getField(a, 'Version', 'version');
     var rawDisplayName = getField(a, 'DisplayName', 'display_name') || '';
     var displayName = rawDisplayName;
     var idempotent = getField(a, 'Idempotent', 'idempotent');
     var approvalHint = getField(a, 'ApprovalHint', 'approval_hint') || 'none';
     var auth = a.Auth || a.auth || {};
     var authType = getField(auth, 'Type', 'type') || 'none';
-    var credRef = getField(auth, 'CredentialRef', 'credential_ref') || '—';
     var adapter = a.Adapter || a.adapter || {};
-    var adapterType = getField(adapter, 'Type', 'type') || '—';
     var method = getField(adapter, 'Method', 'method') || '';
     var baseUrl = getField(adapter, 'BaseURL', 'base_url') || '';
     var urlTemplate = getField(adapter, 'URLTemplate', 'url_template') || '';
@@ -1777,6 +1771,7 @@ td.mono {
         (method ? detailField('HTTP Method', method.toUpperCase()) : '') +
         (baseUrl ? detailField('Base URL', baseUrl) : '') +
         (urlTemplate ? detailField('URL Template', urlTemplate) : '') +
+        detailField('Shortcut Setup', 'kimbap alias set <shortcut-name> ' + name) +
       '</div>';
 
     if (inputSchema) {
