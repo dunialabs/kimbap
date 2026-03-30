@@ -103,6 +103,23 @@ func TestDetectSplashColorProfile_ExplicitAutoIgnoresEnvOverride(t *testing.T) {
 	}
 }
 
+func TestDetectSplashBackgroundTone(t *testing.T) {
+	t.Setenv("COLORFGBG", "15;0")
+	if tone := detectSplashBackgroundTone(); tone != splash.BackgroundToneDark {
+		t.Fatalf("expected dark background tone, got %q", tone)
+	}
+
+	t.Setenv("COLORFGBG", "0;15")
+	if tone := detectSplashBackgroundTone(); tone != splash.BackgroundToneLight {
+		t.Fatalf("expected light background tone, got %q", tone)
+	}
+
+	t.Setenv("COLORFGBG", "")
+	if tone := detectSplashBackgroundTone(); tone != splash.BackgroundToneDark {
+		t.Fatalf("expected dark default background tone, got %q", tone)
+	}
+}
+
 func TestShouldSuppressSplashForInvocation_AuditExport(t *testing.T) {
 	if !shouldSuppressSplashForInvocation([]string{"audit", "export", "--from", "2026-01-01", "--to", "2026-01-02"}) {
 		t.Fatal("expected audit export invocation to suppress splash")

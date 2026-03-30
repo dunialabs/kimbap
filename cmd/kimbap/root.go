@@ -288,6 +288,7 @@ func splashOptions() splash.Options {
 			VaultStatus:  vaultStatusFromRaw(opts.mode),
 			Server:       strings.TrimSpace(os.Getenv("KIMBAP_AUTH_SERVER_URL")),
 			ColorProfile: detectSplashColorProfile(),
+			Background:   detectSplashBackgroundTone(),
 		}
 	}
 
@@ -301,6 +302,7 @@ func splashOptions() splash.Options {
 		VaultStatus:  vaultStatusFromConfig(cfg),
 		Server:       strings.TrimSpace(cfg.Auth.ServerURL),
 		ColorProfile: detectSplashColorProfile(),
+		Background:   detectSplashBackgroundTone(),
 	}
 }
 
@@ -485,6 +487,26 @@ func parseSplashColorProfile(raw string) (splash.ColorProfile, bool) {
 	default:
 		return splash.ColorProfileAuto, false
 	}
+}
+
+func detectSplashBackgroundTone() splash.BackgroundTone {
+	raw := strings.TrimSpace(os.Getenv("COLORFGBG"))
+	if raw == "" {
+		return splash.BackgroundToneDark
+	}
+	parts := strings.Split(raw, ";")
+	last := strings.TrimSpace(parts[len(parts)-1])
+	bg, err := strconv.Atoi(last)
+	if err != nil {
+		return splash.BackgroundToneDark
+	}
+	if bg == 7 || bg == 15 {
+		return splash.BackgroundToneLight
+	}
+	if bg >= 0 && bg <= 6 {
+		return splash.BackgroundToneDark
+	}
+	return splash.BackgroundToneDark
 }
 
 func supportsTrueColorEnv() bool {

@@ -14,26 +14,46 @@ func rgb(r, g, b int) string {
 
 const reset = "\x1b[0m"
 
-var (
-	nori1  = rgb(26, 74, 26)
-	nori2  = rgb(46, 110, 46)
-	rice1  = rgb(250, 248, 240)
-	rice2  = rgb(240, 234, 216)
-	sesame = rgb(200, 160, 48)
-	green1 = rgb(52, 160, 52)
-	green2 = rgb(42, 122, 42)
-	orange = rgb(240, 120, 32)
-	yolk1  = rgb(244, 208, 48)
-	yolk2  = rgb(248, 240, 64)
-	white  = rgb(253, 244, 240)
-	red1   = rgb(232, 72, 72)
-	red2   = rgb(224, 64, 64)
+type palette struct {
+	nori1     string
+	nori2     string
+	rice1     string
+	rice2     string
+	sesame    string
+	green1    string
+	green2    string
+	orange    string
+	yolk1     string
+	yolk2     string
+	white     string
+	red1      string
+	red2      string
+	colDim    string
+	colMuted  string
+	colWhite  string
+	colPurple string
+	colGreen  string
+}
 
-	colDim    = rgb(72, 79, 88)
-	colMuted  = rgb(110, 118, 129)
-	colWhite  = rgb(255, 255, 255)
-	colPurple = rgb(163, 113, 247)
-	colGreen  = rgb(63, 185, 80)
+var (
+	darkPalette = palette{
+		nori1: rgb(26, 74, 26), nori2: rgb(46, 110, 46),
+		rice1: rgb(232, 226, 206), rice2: rgb(204, 193, 164),
+		sesame: rgb(200, 160, 48), green1: rgb(52, 160, 52), green2: rgb(42, 122, 42),
+		orange: rgb(240, 120, 32), yolk1: rgb(244, 208, 48), yolk2: rgb(248, 240, 64),
+		white: rgb(236, 224, 216), red1: rgb(232, 72, 72), red2: rgb(224, 64, 64),
+		colDim: rgb(110, 118, 129), colMuted: rgb(156, 163, 175), colWhite: rgb(255, 255, 255),
+		colPurple: rgb(163, 113, 247), colGreen: rgb(63, 185, 80),
+	}
+	lightPalette = palette{
+		nori1: rgb(20, 66, 28), nori2: rgb(36, 96, 44),
+		rice1: rgb(188, 178, 150), rice2: rgb(160, 149, 124),
+		sesame: rgb(156, 118, 34), green1: rgb(42, 136, 58), green2: rgb(36, 102, 44),
+		orange: rgb(210, 102, 28), yolk1: rgb(212, 176, 32), yolk2: rgb(226, 206, 46),
+		white: rgb(182, 154, 146), red1: rgb(196, 58, 58), red2: rgb(176, 48, 48),
+		colDim: rgb(98, 106, 118), colMuted: rgb(76, 85, 99), colWhite: rgb(23, 23, 23),
+		colPurple: rgb(111, 74, 201), colGreen: rgb(39, 132, 67),
+	}
 )
 
 const (
@@ -50,7 +70,7 @@ type cell struct {
 	glyph string
 }
 
-func getCell(nx, ny float64) *cell {
+func getCell(nx, ny float64, p palette) *cell {
 	px := nx * rx
 	py := ny * ry
 	d := math.Sqrt(nx*nx + ny*ny)
@@ -59,44 +79,44 @@ func getCell(nx, ny float64) *cell {
 		return nil
 	}
 	if d > 0.92 {
-		return &cell{nori1, "██"}
+		return &cell{p.nori1, "██"}
 	}
 	if d > 0.84 {
-		return &cell{nori2, "▒▒"}
+		return &cell{p.nori2, "▒▒"}
 	}
 
 	if d > 0.52 {
 		speckle := math.Abs(math.Sin(px*7.3+py*3.1)) > 0.92
 		if speckle && d < 0.68 {
-			return &cell{sesame, "··"}
+			return &cell{p.sesame, "··"}
 		}
 		if d > 0.70 {
-			return &cell{rice1, "██"}
+			return &cell{p.rice1, "██"}
 		}
-		return &cell{rice2, "▓▓"}
+		return &cell{p.rice2, "▓▓"}
 	}
 
 	switch {
 	case py < -1.5 && math.Abs(px) < 1.8:
-		return &cell{green1, "▓▓"}
+		return &cell{p.green1, "▓▓"}
 	case py < -0.8 && math.Abs(px) < 2.4 && math.Abs(px) > 1.4:
-		return &cell{green2, "▒▒"}
+		return &cell{p.green2, "▒▒"}
 	case px < -1.0 && px > -2.4 && py > -1.5 && py < 0.3:
-		return &cell{orange, "▓▓"}
+		return &cell{p.orange, "▓▓"}
 	case py > -1.5 && py < -0.3 && math.Abs(px) < 1.0:
-		return &cell{yolk1, "▓▓"}
+		return &cell{p.yolk1, "▓▓"}
 	case py > -0.4 && py < 0.8 && math.Abs(px) < 1.2:
-		return &cell{yolk2, "██"}
+		return &cell{p.yolk2, "██"}
 	case px > 0.9 && px < 2.4 && py > -1.5 && py < 0.9:
 		if int(math.Floor((py+1.5)*1.6))%2 == 0 {
-			return &cell{white, "░░"}
+			return &cell{p.white, "░░"}
 		}
-		return &cell{red1, "▓▓"}
+		return &cell{p.red1, "▓▓"}
 	case py > 0.7 && py < 2.0 && math.Abs(px) < 1.7:
-		return &cell{red2, "▓▓"}
+		return &cell{p.red2, "▓▓"}
 	}
 
-	return &cell{rice2, "░░"}
+	return &cell{p.rice2, "░░"}
 }
 
 type Mode string
@@ -112,7 +132,16 @@ type Options struct {
 	VaultStatus  string
 	Server       string
 	ColorProfile ColorProfile
+	Background   BackgroundTone
 }
+
+type BackgroundTone string
+
+const (
+	BackgroundToneAuto  BackgroundTone = "auto"
+	BackgroundToneDark  BackgroundTone = "dark"
+	BackgroundToneLight BackgroundTone = "light"
+)
 
 type ColorProfile string
 
@@ -201,6 +230,7 @@ func stripANSIMarkup(in string) string {
 
 func Render(opts Options) string {
 	colorProfile := normalizeColorProfile(opts.ColorProfile)
+	p := paletteForBackground(opts.Background)
 
 	version := strings.TrimSpace(opts.Version)
 	if version == "" {
@@ -225,7 +255,7 @@ func Render(opts Options) string {
 		for c := 0; c < cols; c++ {
 			nx := (float64(c) - cx) / rx
 			ny := (float64(r) - cy) / ry
-			v := getCell(nx, ny)
+			v := getCell(nx, ny, p)
 			if v != nil {
 				sb.WriteString(v.color)
 				sb.WriteString(v.glyph)
@@ -237,18 +267,18 @@ func Render(opts Options) string {
 		sb.WriteByte('\n')
 	}
 
-	bar := colDim + "────────────────────" + reset
-	modeStr := colMuted + string(mode) + reset
+	bar := p.colDim + "────────────────────" + reset
+	modeStr := p.colMuted + string(mode) + reset
 	if mode == ModeConnected && strings.TrimSpace(opts.Server) != "" {
-		modeStr = colMuted + "connected · " + colDim + strings.TrimSpace(opts.Server) + reset
+		modeStr = p.colMuted + "connected · " + p.colDim + strings.TrimSpace(opts.Server) + reset
 	}
 
 	sb.WriteByte('\n')
 	sb.WriteString(" " + bar + "\n")
-	sb.WriteString(" " + colWhite + "k i m b a p" + reset + "\n")
-	sb.WriteString(" " + colMuted + "action runtime" + reset + colDim + " · " + reset + colPurple + version + reset + "\n")
+	sb.WriteString(" " + p.colWhite + "k i m b a p" + reset + "\n")
+	sb.WriteString(" " + p.colMuted + "action runtime" + reset + p.colDim + " · " + reset + p.colPurple + version + reset + "\n")
 	sb.WriteString(" " + bar + "\n")
-	sb.WriteString(" " + colGreen + "vault" + reset + colMuted + " " + vaultStatus + " · " + reset + modeStr + colMuted + " · " + colDim + "kimbap.sh" + reset + "\n")
+	sb.WriteString(" " + p.colGreen + "vault" + reset + p.colMuted + " " + vaultStatus + " · " + reset + modeStr + p.colMuted + " · " + p.colDim + "kimbap.sh" + reset + "\n")
 
 	out := sb.String()
 	switch colorProfile {
@@ -259,6 +289,13 @@ func Render(opts Options) string {
 	default:
 		return out
 	}
+}
+
+func paletteForBackground(tone BackgroundTone) palette {
+	if tone == BackgroundToneLight {
+		return lightPalette
+	}
+	return darkPalette
 }
 
 func Print(opts Options) {

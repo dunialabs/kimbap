@@ -56,11 +56,21 @@ func TestRenderColorProfileNone(t *testing.T) {
 	}
 }
 
+func TestRenderLightBackgroundUsesDarkerBrandText(t *testing.T) {
+	out := Render(Options{Background: BackgroundToneLight})
+	if !strings.Contains(out, rgb(23, 23, 23)+"k i m b a p") {
+		t.Fatalf("expected darker title color for light backgrounds, got %q", out)
+	}
+	if !strings.Contains(out, rgb(188, 178, 150)+"██") {
+		t.Fatalf("expected darker rice palette for light backgrounds, got %q", out)
+	}
+}
+
 func TestGetCellOutsideShapeReturnsNil(t *testing.T) {
-	if v := getCell(2.0, 2.0); v != nil {
+	if v := getCell(2.0, 2.0, darkPalette); v != nil {
 		t.Fatalf("expected nil cell outside splash shape, got %+v", v)
 	}
-	if v := getCell(0.0, 0.0); v == nil {
+	if v := getCell(0.0, 0.0, darkPalette); v == nil {
 		t.Fatal("expected non-nil cell in splash center")
 	}
 }
