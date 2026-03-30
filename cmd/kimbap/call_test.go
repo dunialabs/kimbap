@@ -322,20 +322,53 @@ func TestCallCommandShowsFriendlyMissingRequiredParameters(t *testing.T) {
 			t.Fatalf("service install failed: %v", err)
 		}
 
-		opts.format = "text"
-		callCmd := newCallCommand()
-		callCmd.SetArgs([]string{"--config", configPath, "qa-call-required.create-issue", "--owner", "acme"})
-		_, err := captureStdout(t, callCmd.Execute)
-		if err == nil {
-			t.Fatal("expected call command to fail on missing required params")
-		}
-		msg := err.Error()
-		if !strings.Contains(msg, "missing required parameters: --repo, --title") {
-			t.Fatalf("expected missing params in error, got %q", msg)
-		}
-		if !strings.Contains(msg, "Usage:\n  kimbap call qa-call-required.create-issue --owner <string> --repo <string> --title <string> [--body <string>]") {
-			t.Fatalf("expected usage line in error, got %q", msg)
-		}
+		t.Run("text mode precheck", func(t *testing.T) {
+			opts.format = "text"
+			callCmd := newCallCommand()
+			callCmd.SetArgs([]string{"--config", configPath, "--mode", "dev", "qa-call-required.create-issue", "--owner", "acme"})
+			_, err := captureStdout(t, callCmd.Execute)
+			if err == nil {
+				t.Fatal("expected call command to fail on missing required params")
+			}
+			msg := err.Error()
+			if !strings.Contains(msg, "missing required parameters: --repo, --title") {
+				t.Fatalf("expected missing params in error, got %q", msg)
+			}
+			if !strings.Contains(msg, "Usage:\n  kimbap call qa-call-required.create-issue --owner <string> --repo <string> --title <string> [--body <string>]") {
+				t.Fatalf("expected usage line in error, got %q", msg)
+			}
+		})
+
+		t.Run("json mode skips precheck", func(t *testing.T) {
+			opts.format = "text"
+			callCmd := newCallCommand()
+			callCmd.SetArgs([]string{"--config", configPath, "--mode", "dev", "--format", "json", "qa-call-required.create-issue", "--owner", "acme"})
+			_, err := captureStdout(t, callCmd.Execute)
+			if err == nil {
+				t.Fatal("expected call command to fail on missing required params")
+			}
+			msg := err.Error()
+			if strings.Contains(msg, "missing required parameters:") {
+				t.Fatalf("expected JSON mode to skip friendly precheck, got %q", msg)
+			}
+		})
+
+		t.Run("dry run skips precheck", func(t *testing.T) {
+			opts.format = "text"
+			callCmd := newCallCommand()
+			callCmd.SetArgs([]string{"--config", configPath, "--mode", "dev", "qa-call-required.create-issue", "--owner", "acme", "--dry-run"})
+			_, err := captureStdout(t, callCmd.Execute)
+			if err == nil {
+				t.Fatal("expected dry-run to fail on invalid input")
+			}
+			msg := err.Error()
+			if strings.Contains(msg, "missing required parameters:") {
+				t.Fatalf("expected dry-run to skip friendly precheck, got %q", msg)
+			}
+			if !strings.Contains(msg, "dry-run: input validation failed") {
+				t.Fatalf("expected dry-run validation failure, got %q", msg)
+			}
+		})
 	})
 }
 
