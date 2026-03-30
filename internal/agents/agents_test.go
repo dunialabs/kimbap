@@ -512,6 +512,81 @@ func TestSyncServicesDoesNotOverwriteUnmanagedPackDir(t *testing.T) {
 	}
 }
 
+func TestSyncServicesAdoptsLegacyManagedDirFromSyncState(t *testing.T) {
+	dir := t.TempDir()
+	serviceDir := filepath.Join(dir, ".claude", "skills", "github")
+	if err := os.MkdirAll(serviceDir, 0o755); err != nil {
+		t.Fatalf("create legacy service dir: %v", err)
+	}
+	legacySkill := "---\nname: github\ndescription: |\n  legacy\nallowed-tools: Bash\n---\n\n# github\n\n## Prerequisites\n\n- Kimbap CLI installed and in PATH\n\n## Available Actions\n"
+	if err := os.WriteFile(filepath.Join(serviceDir, "SKILL.md"), []byte(legacySkill), 0o644); err != nil {
+		t.Fatalf("write legacy SKILL.md: %v", err)
+	}
+	if err := RecordSync(syncScope(dir), []string{"github"}, []string{legacySkill}); err != nil {
+		t.Fatalf("RecordSync: %v", err)
+	}
+
+	installer := fakeInstaller{skills: []InstalledService{{Name: "github", Content: "# managed\n"}}}
+	results, err := SyncServices(installer, "# rules\n", SyncOptions{ProjectDir: dir, Agents: []AgentKind{AgentClaudeCode}})
+	if err != nil {
+		t.Fatalf("sync failed: %v", err)
+	}
+	if len(results) != 1 {
+		t.Fatalf("expected one result, got %d", len(results))
+	}
+	if len(results[0].Written) != 1 || results[0].Written[0] != "github" {
+		t.Fatalf("expected github to be adopted and rewritten, got %+v", results[0].Written)
+	}
+	if len(results[0].Protected) != 0 {
+		t.Fatalf("expected no protected entries for legacy-managed dir, got %+v", results[0].Protected)
+	}
+	if len(results[0].Errors) != 0 || len(results[0].Failed) != 0 {
+		t.Fatalf("expected no sync issues, failed=%+v errors=%+v", results[0].Failed, results[0].Errors)
+	}
+	if _, err := os.Stat(filepath.Join(serviceDir, managedSkillMarkerFile)); err != nil {
+		t.Fatalf("expected marker to be written for adopted legacy dir, stat err=%v", err)
+	}
+}
+
+func TestSyncServicesDoesNotAdoptUserOwnedDirFromSyncState(t *testing.T) {
+	dir := t.TempDir()
+	serviceDir := filepath.Join(dir, ".claude", "skills", "github")
+	if err := os.MkdirAll(serviceDir, 0o755); err != nil {
+		t.Fatalf("create custom service dir: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(serviceDir, "SKILL.md"), []byte("# my custom github skill\n"), 0o644); err != nil {
+		t.Fatalf("write custom SKILL.md: %v", err)
+	}
+	if err := RecordSync(syncScope(dir), []string{"github"}, []string{"# some old content\n"}); err != nil {
+		t.Fatalf("RecordSync: %v", err)
+	}
+
+	installer := fakeInstaller{skills: []InstalledService{{Name: "github", Content: "# managed\n"}}}
+	results, err := SyncServices(installer, "# rules\n", SyncOptions{ProjectDir: dir, Agents: []AgentKind{AgentClaudeCode}})
+	if err != nil {
+		t.Fatalf("sync failed: %v", err)
+	}
+	if len(results) != 1 {
+		t.Fatalf("expected one result, got %d", len(results))
+	}
+	if len(results[0].Written) != 0 {
+		t.Fatalf("expected no writes for user-owned dir, got %+v", results[0].Written)
+	}
+	if len(results[0].Protected) != 1 || results[0].Protected[0] != "github" {
+		t.Fatalf("expected github to remain protected, got %+v", results[0].Protected)
+	}
+	data, readErr := os.ReadFile(filepath.Join(serviceDir, "SKILL.md"))
+	if readErr != nil {
+		t.Fatalf("read custom SKILL.md: %v", readErr)
+	}
+	if string(data) != "# my custom github skill\n" {
+		t.Fatalf("expected custom skill content preserved, got %q", string(data))
+	}
+	if _, err := os.Stat(filepath.Join(serviceDir, managedSkillMarkerFile)); !os.IsNotExist(err) {
+		t.Fatalf("expected no marker written for user-owned dir, stat err=%v", err)
+	}
+}
+
 func TestSyncServicesFallsBackWhenPackCoverageIsPartial(t *testing.T) {
 	dir := t.TempDir()
 	installer := fakePackInstaller{

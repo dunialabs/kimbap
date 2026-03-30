@@ -128,6 +128,10 @@ type SyncOptions struct {
 	SkipPrune  bool
 }
 
+type legacyManagedContext struct {
+	services map[string]struct{}
+}
+
 type ServiceInstaller interface {
 	List() ([]InstalledService, error)
 }
@@ -156,6 +160,10 @@ func SyncServices(installer ServiceInstaller, rulesContent string, opts SyncOpti
 	projectDir := normalizeProjectDir(opts.ProjectDir)
 	if info, err := os.Stat(projectDir); err == nil && !info.IsDir() {
 		return nil, fmt.Errorf("project path %q is not a directory", projectDir)
+	}
+	legacyCtx, legacyErr := loadLegacyManagedContext(projectDir)
+	if legacyErr != nil {
+		return nil, fmt.Errorf("load legacy managed context: %w", legacyErr)
 	}
 
 	installedServices, err := installer.List()
@@ -231,7 +239,14 @@ func SyncServices(installer ServiceInstaller, rulesContent string, opts SyncOpti
 					continue
 				}
 				packDir := filepath.Join(projectDir, selected.cfg.AgentSkillsDir, pack.Name)
-				managed, ownerErr := isManagedSkillDir(packDir)
+				allFiles := make(map[string]string, len(pack.PackFiles)+1)
+				if pack.AgentSkillMD != "" {
+					allFiles["SKILL.md"] = pack.AgentSkillMD
+				}
+				for k, v := range pack.PackFiles {
+					allFiles[k] = v
+				}
+				managed, ownerErr := isManagedSkillPackDir(packDir, pack.Name, allFiles, legacyCtx)
 				if ownerErr != nil {
 					result.Failed = append(result.Failed, pack.Name)
 					result.Errors = append(result.Errors, fmt.Sprintf("service %q: check ownership: %v", pack.Name, ownerErr))
@@ -241,13 +256,6 @@ func SyncServices(installer ServiceInstaller, rulesContent string, opts SyncOpti
 					result.Skipped = append(result.Skipped, pack.Name)
 					result.Protected = append(result.Protected, pack.Name)
 					continue
-				}
-				allFiles := make(map[string]string, len(pack.PackFiles)+1)
-				if pack.AgentSkillMD != "" {
-					allFiles["SKILL.md"] = pack.AgentSkillMD
-				}
-				for k, v := range pack.PackFiles {
-					allFiles[k] = v
 				}
 				allFiles[managedSkillMarkerFile] = "managed_by: kimbap\n"
 				needsWrite, checkErr := packNeedsWrite(packDir, allFiles, opts.Force)
@@ -292,7 +300,7 @@ func SyncServices(installer ServiceInstaller, rulesContent string, opts SyncOpti
 
 				agentSkillPath := filepath.Join(projectDir, selected.cfg.AgentSkillsDir, installedService.Name, "SKILL.md")
 				serviceDir := filepath.Dir(agentSkillPath)
-				managed, ownerErr := isManagedSkillDir(serviceDir)
+				managed, ownerErr := isManagedLegacySkillDir(serviceDir, installedService.Name, installedService.Content, legacyCtx)
 				if ownerErr != nil {
 					result.Failed = append(result.Failed, installedService.Name)
 					result.Errors = append(result.Errors, fmt.Sprintf("service %q: check ownership: %v", installedService.Name, ownerErr))
@@ -514,7 +522,7 @@ func pathExists(path string) (bool, error) {
 	return false, err
 }
 
-func isManagedSkillDir(path string) (bool, error) {
+func isManagedLegacySkillDir(path string, serviceName string, expectedSkillContent string, legacyCtx legacyManagedContext) (bool, error) {
 	info, err := os.Stat(path)
 	if err != nil {
 		if os.IsNotExist(err) {
@@ -530,7 +538,111 @@ func isManagedSkillDir(path string) (bool, error) {
 	if markerErr != nil {
 		return false, markerErr
 	}
-	return exists, nil
+	if exists {
+		return true, nil
+	}
+	return isLegacyManagedSkillDir(path, serviceName, map[string]string{"SKILL.md": expectedSkillContent}, legacyCtx)
+}
+
+func isManagedSkillPackDir(path string, serviceName string, expectedFiles map[string]string, legacyCtx legacyManagedContext) (bool, error) {
+	info, err := os.Stat(path)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return true, nil
+		}
+		return false, err
+	}
+	if !info.IsDir() {
+		return false, fmt.Errorf("path %q is not a directory", path)
+	}
+	markerPath := filepath.Join(path, managedSkillMarkerFile)
+	exists, markerErr := pathExists(markerPath)
+	if markerErr != nil {
+		return false, markerErr
+	}
+	if exists {
+		return true, nil
+	}
+	return isLegacyManagedSkillDir(path, serviceName, expectedFiles, legacyCtx)
+}
+
+func isLegacyManagedSkillDir(path string, serviceName string, expectedFiles map[string]string, legacyCtx legacyManagedContext) (bool, error) {
+	if !legacyCtx.hasService(serviceName) {
+		return false, nil
+	}
+	entries, err := os.ReadDir(path)
+	if err != nil {
+		return false, err
+	}
+	if len(entries) == 0 {
+		return false, nil
+	}
+	allowed := make(map[string]struct{}, len(expectedFiles))
+	for name := range expectedFiles {
+		allowed[name] = struct{}{}
+	}
+	for _, entry := range entries {
+		if entry.IsDir() {
+			return false, nil
+		}
+		if _, ok := allowed[entry.Name()]; !ok {
+			return false, nil
+		}
+	}
+	skillContent, ok := expectedFiles["SKILL.md"]
+	if !ok {
+		return false, nil
+	}
+	existingSkill, err := os.ReadFile(filepath.Join(path, "SKILL.md"))
+	if err != nil {
+		if os.IsNotExist(err) {
+			return false, nil
+		}
+		return false, err
+	}
+	if !looksLikeLegacyManagedSkill(serviceName, string(existingSkill), skillContent) {
+		return false, nil
+	}
+	return true, nil
+}
+
+func looksLikeLegacyManagedSkill(serviceName string, existingSkill string, expectedSkill string) bool {
+	if strings.TrimSpace(existingSkill) == strings.TrimSpace(expectedSkill) {
+		return true
+	}
+	return strings.Contains(existingSkill, "name: "+serviceName+"\n") &&
+		strings.Contains(existingSkill, "allowed-tools: Bash") &&
+		strings.Contains(existingSkill, "- Kimbap CLI installed and in PATH") &&
+		strings.Contains(existingSkill, "## Available Actions")
+}
+
+func (c legacyManagedContext) hasService(serviceName string) bool {
+	_, ok := c.services[serviceName]
+	return ok
+}
+
+func loadLegacyManagedContext(projectDir string) (legacyManagedContext, error) {
+	state, err := ReadSyncState(syncScope(projectDir))
+	if err != nil {
+		return legacyManagedContext{}, err
+	}
+	services := make(map[string]struct{}, len(state.SyncedServices))
+	for _, name := range state.SyncedServices {
+		services[name] = struct{}{}
+	}
+	return legacyManagedContext{services: services}, nil
+}
+
+func syncScope(projectDir string) string {
+	normalized := strings.TrimSpace(projectDir)
+	if normalized == "" {
+		normalized = "."
+	}
+	absProjectDir, err := filepath.Abs(normalized)
+	if err == nil {
+		return absProjectDir
+	}
+	return normalized
 }
 
 func fileNeedsWrite(path string, content string, force bool) (bool, error) {
