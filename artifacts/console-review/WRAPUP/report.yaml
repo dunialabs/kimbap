@@ -1,8 +1,0 @@
-round: WRAPUP
-status: closed
-summary: "All rounds R001-R100 completed and validated."
-final_checks:
-  total_rounds: 100
-  completed_rounds: 100
-  ledger_verified: true
-  oracle_verified: true
