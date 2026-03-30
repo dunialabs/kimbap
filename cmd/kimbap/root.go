@@ -801,7 +801,22 @@ func resolveVaultMasterKey(cfg *config.KimbapConfig) ([]byte, error) {
 	if err := os.MkdirAll(cfg.DataDir, 0o700); err != nil {
 		return nil, fmt.Errorf("create data dir: %w", err)
 	}
-	f, err := os.OpenFile(devKeyPath, os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0o600)
+	tmpFile, err := os.CreateTemp(cfg.DataDir, ".dev-master-key.tmp.*")
+	if err != nil {
+		return nil, fmt.Errorf("persist dev master key: create temp file: %w", err)
+	}
+	tmpPath := tmpFile.Name()
+	if _, writeErr := tmpFile.Write(key); writeErr != nil {
+		_ = tmpFile.Close()
+		_ = os.Remove(tmpPath)
+		return nil, fmt.Errorf("write dev master key temp file: %w", writeErr)
+	}
+	if closeErr := tmpFile.Close(); closeErr != nil {
+		_ = os.Remove(tmpPath)
+		return nil, fmt.Errorf("close dev master key temp file: %w", closeErr)
+	}
+	err = os.Link(tmpPath, devKeyPath)
+	_ = os.Remove(tmpPath)
 	if err != nil {
 		if os.IsExist(err) {
 			existing, readErr := readPersistedDevMasterKey(devKeyPath)
@@ -811,12 +826,6 @@ func resolveVaultMasterKey(cfg *config.KimbapConfig) ([]byte, error) {
 			return nil, fmt.Errorf("read dev master key %s after concurrent create: %w", devKeyPath, readErr)
 		}
 		return nil, fmt.Errorf("persist dev master key: %w", err)
-	}
-	_, writeErr := f.Write(key)
-	_ = f.Close()
-	if writeErr != nil {
-		_ = os.Remove(devKeyPath)
-		return nil, fmt.Errorf("write dev master key: %w", writeErr)
 	}
 	return key, nil
 }
@@ -843,16 +852,6 @@ func readPersistedDevMasterKey(path string) ([]byte, error) {
 	}
 	if len(existing) == 32 {
 		return existing, nil
-	}
-	for range 10 {
-		time.Sleep(50 * time.Millisecond)
-		existing, readErr = os.ReadFile(path)
-		if readErr == nil && len(existing) == 32 {
-			return existing, nil
-		}
-	}
-	if readErr != nil {
-		return nil, readErr
 	}
 	return nil, fmt.Errorf("invalid dev master key at %s: expected 32 bytes, got %d", path, len(existing))
 }

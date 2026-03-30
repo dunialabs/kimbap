@@ -527,45 +527,22 @@ func newServiceDisableCommand() *cobra.Command {
 		Short: "Disable an installed service",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			cfg, err := loadAppConfig()
-			if err != nil {
-				return err
-			}
-			installer := installerFromConfig(cfg)
-			name := strings.TrimSpace(args[0])
-
-			if _, getErr := installer.Get(name); getErr != nil {
-				if errors.Is(getErr, fs.ErrNotExist) {
-					return augmentServiceNotFoundError(installer, name, getErr)
-				}
-				return getErr
-			}
-
-			configPath, resolveErr := resolveConfigPath()
-			if resolveErr != nil {
-				return fmt.Errorf("service %q disable setup failed: resolve config path: %w", name, resolveErr)
-			}
-			serviceAliasSnapshot := collectServiceAliasesForTarget(cfg.Aliases, name)
-			commandAliasSnapshot := collectCommandAliasesForTarget(cfg.CommandAliases, name)
-			if _, _, _, cleanupErr := cleanupAliasesForService(configPath, name, cfg.Aliases, cfg.CommandAliases); cleanupErr != nil {
-				return fmt.Errorf("service %q disable failed during alias cleanup: %w", name, cleanupErr)
-			}
-
-			if err := installer.Disable(name); err != nil {
-				if rollbackErr := restoreServiceScopedAliases(configPath, cfg.Aliases, cfg.CommandAliases, serviceAliasSnapshot, commandAliasSnapshot); rollbackErr != nil {
-					return fmt.Errorf("disable service %q: %w (and failed to restore aliases: %v)", name, err, rollbackErr)
-				}
-				if errors.Is(err, fs.ErrNotExist) {
-					return augmentServiceNotFoundError(installer, name, err)
-				}
-				return err
-			}
-			if outputAsJSON() {
-				maybePrintAgentSyncHint(opts.format)
-				return printOutput(map[string]any{"enabled": false, "name": name})
-			}
-			maybePrintAgentSyncHint(opts.format)
-			return printOutput(fmt.Sprintf(successCheck()+" %s disabled", name))
+			return runServiceMutationWithAliasCleanup(
+				args[0],
+				"disable",
+				nil,
+				func(installer *services.LocalInstaller) func(string) error {
+					return installer.Disable
+				},
+				func(name string) error {
+					if outputAsJSON() {
+						maybePrintAgentSyncHint(opts.format)
+						return printOutput(map[string]any{"enabled": false, "name": name})
+					}
+					maybePrintAgentSyncHint(opts.format)
+					return printOutput(fmt.Sprintf(successCheck()+" %s disabled", name))
+				},
+			)
 		},
 	}
 	return cmd
@@ -577,48 +554,69 @@ func newServiceRemoveCommand() *cobra.Command {
 		Short: "Remove installed service by name",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			cfg, err := loadAppConfig()
-			if err != nil {
-				return err
-			}
-			installer := installerFromConfig(cfg)
-			name := strings.TrimSpace(args[0])
-
-			if _, getErr := installer.Get(name); getErr != nil {
-				if errors.Is(getErr, fs.ErrNotExist) {
-					return augmentServiceNotFoundError(installer, name, getErr)
-				}
-				return getErr
-			}
-
-			configPath, resolveErr := resolveConfigPath()
-			if resolveErr != nil {
-				return fmt.Errorf("service %q remove setup failed: resolve config path: %w", name, resolveErr)
-			}
-			serviceAliasSnapshot := collectServiceAliasesForTarget(cfg.Aliases, name)
-			commandAliasSnapshot := collectCommandAliasesForTarget(cfg.CommandAliases, name)
-			if _, _, _, cleanupErr := cleanupAliasesForService(configPath, name, cfg.Aliases, cfg.CommandAliases); cleanupErr != nil {
-				return fmt.Errorf("service %q remove failed during alias cleanup: %w", name, cleanupErr)
-			}
-
-			if err := installer.Remove(name); err != nil {
-				if rollbackErr := restoreServiceScopedAliases(configPath, cfg.Aliases, cfg.CommandAliases, serviceAliasSnapshot, commandAliasSnapshot); rollbackErr != nil {
-					return fmt.Errorf("remove service %q: %w (and failed to restore aliases: %v)", name, err, rollbackErr)
-				}
-				if errors.Is(err, fs.ErrNotExist) {
-					return augmentServiceNotFoundError(installer, name, err)
-				}
-				return err
-			}
-			if outputAsJSON() {
-				maybePrintAgentSyncHint(opts.format)
-				return printOutput(map[string]any{"removed": true, "name": name})
-			}
-			maybePrintAgentSyncHint(opts.format)
-			return printOutput(fmt.Sprintf(successCheck()+" %s removed", name))
+			return runServiceMutationWithAliasCleanup(
+				args[0],
+				"remove",
+				nil,
+				func(installer *services.LocalInstaller) func(string) error {
+					return installer.Remove
+				},
+				func(name string) error {
+					if outputAsJSON() {
+						maybePrintAgentSyncHint(opts.format)
+						return printOutput(map[string]any{"removed": true, "name": name})
+					}
+					maybePrintAgentSyncHint(opts.format)
+					return printOutput(fmt.Sprintf(successCheck()+" %s removed", name))
+				},
+			)
 		},
 	}
 	return cmd
+}
+
+func runServiceMutationWithAliasCleanup(rawName string, operationName string, preMutation func(cfg *config.KimbapConfig, installer *services.LocalInstaller, name string) error, operation func(installer *services.LocalInstaller) func(string) error, successOutput func(name string) error) error {
+	cfg, err := loadAppConfig()
+	if err != nil {
+		return err
+	}
+	installer := installerFromConfig(cfg)
+	name := strings.TrimSpace(rawName)
+
+	if _, getErr := installer.Get(name); getErr != nil {
+		if errors.Is(getErr, fs.ErrNotExist) {
+			return augmentServiceNotFoundError(installer, name, getErr)
+		}
+		return getErr
+	}
+
+	if preMutation != nil {
+		if err := preMutation(cfg, installer, name); err != nil {
+			return err
+		}
+	}
+
+	configPath, resolveErr := resolveConfigPath()
+	if resolveErr != nil {
+		return fmt.Errorf("service %q %s setup failed: resolve config path: %w", name, operationName, resolveErr)
+	}
+	serviceAliasSnapshot := collectServiceAliasesForTarget(cfg.Aliases, name)
+	commandAliasSnapshot := collectCommandAliasesForTarget(cfg.CommandAliases, name)
+	if _, _, _, cleanupErr := cleanupAliasesForService(configPath, name, cfg.Aliases, cfg.CommandAliases); cleanupErr != nil {
+		return fmt.Errorf("service %q %s failed during alias cleanup: %w", name, operationName, cleanupErr)
+	}
+
+	if err := operation(installer)(name); err != nil {
+		if rollbackErr := restoreServiceScopedAliases(configPath, cfg.Aliases, cfg.CommandAliases, serviceAliasSnapshot, commandAliasSnapshot); rollbackErr != nil {
+			return fmt.Errorf("%s service %q: %w (and failed to restore aliases: %v)", operationName, name, err, rollbackErr)
+		}
+		if errors.Is(err, fs.ErrNotExist) {
+			return augmentServiceNotFoundError(installer, name, err)
+		}
+		return err
+	}
+
+	return successOutput(name)
 }
 
 func newServiceUpdateCommand() *cobra.Command {
@@ -1337,35 +1335,6 @@ func maybePrintAgentSyncHint(format string) {
 		return
 	}
 
-	projectDir, wdErr := os.Getwd()
-	if wdErr != nil || strings.TrimSpace(projectDir) == "" {
-		projectDir = "."
-	}
-
-	syncResult, syncErr := runAgentsSync(projectDir, "", "", false, false)
-	if syncErr == nil && syncResult.AgentsFound > 0 {
-		written := 0
-		pruned := 0
-		hasFailures := false
-		for _, r := range syncResult.SyncResults {
-			written += len(r.Written)
-			pruned += len(r.Pruned)
-			if len(r.Failed) > 0 || len(r.Errors) > 0 {
-				hasFailures = true
-			}
-		}
-
-		if hasFailures {
-			_, _ = fmt.Fprintf(os.Stderr, "\nWarning: automatic agent sync completed with issues. Run 'kimbap agents sync --force' to inspect and repair.\n")
-			return
-		}
-
-		if written > 0 || pruned > 0 || len(syncResult.MetaAgentSkillPaths) > 0 {
-			_, _ = fmt.Fprintf(os.Stderr, "\nSynced AI agent skills automatically (agents=%d, written=%d, pruned=%d).\n", syncResult.AgentsFound, written, pruned)
-		}
-		return
-	}
-
 	results, err := agents.GlobalStatus()
 	if err != nil || len(results) == 0 {
 		return
@@ -1380,8 +1349,5 @@ func maybePrintAgentSyncHint(format string) {
 	if !hasAgent {
 		return
 	}
-	if syncErr != nil {
-		_, _ = fmt.Fprintf(os.Stderr, "\nwarning: automatic agent sync skipped: %v\n", syncErr)
-	}
-	_, _ = fmt.Fprintln(os.Stderr, "\nHint: Run 'kimbap agents sync' to update your AI agents with this change.")
+	_, _ = fmt.Fprintln(os.Stderr, "Hint: Run 'kimbap agents sync' to update your AI agents with this change.")
 }
