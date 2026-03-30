@@ -25,7 +25,7 @@ kimbap init --services select
 ```
 
 Creates local runtime files (default in `~/.kimbap/`) and opens an interactive service checklist. Recommended services are preselected, and `all` is available in one command.
-Eligible shortcut aliases are set up by default during init. In interactive flows, you'll be asked first; use `--no-shortcuts` to skip.
+Shortcut aliases are set up by default during init. Use `--no-shortcuts` to skip.
 
 ---
 
@@ -44,13 +44,6 @@ weather --latitude 37.7749 --longitude -122.4194
 ```
 
 Simple flow, no API key, no localhost setup.
-
-Canonical form is still available:
-
-```bash
-kimbap call open-meteo-geocoding.search --name "San Francisco" --count 1
-kimbap call open-meteo.get-forecast --latitude 37.7749 --longitude -122.4194
-```
 
 ---
 

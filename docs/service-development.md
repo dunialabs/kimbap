@@ -54,7 +54,7 @@ actions:
 - `aliases` (top-level): service aliases.
 - `actions.<action>.aliases`: shortcut command alias candidates for that action.
 
-When a service is installed, eligible default shortcut aliases are set up by default (`--no-shortcuts` opts out; interactive flows ask first). If a preferred alias collides, kimbap tries shorter fallback candidates before skipping.
+When a service is installed, eligible default shortcut aliases are set up by default (`--no-shortcuts` opts out). If a preferred alias collides, kimbap tries shorter fallback candidates before skipping.
 
 ---
 

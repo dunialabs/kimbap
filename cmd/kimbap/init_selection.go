@@ -26,11 +26,11 @@ func starterServiceNames() []string {
 		candidates = []string{
 			"apple-notes", "apple-calendar", "apple-reminders",
 			"finder", "safari", "contacts",
-			"wikipedia", "open-meteo", "hacker-news",
+			"wikipedia", "open-meteo", "open-meteo-geocoding", "hacker-news",
 		}
 	} else {
 		candidates = []string{
-			"wikipedia", "open-meteo", "hacker-news",
+			"wikipedia", "open-meteo", "open-meteo-geocoding", "hacker-news",
 			"rest-countries", "exchange-rate",
 			"public-holidays", "nominatim",
 		}

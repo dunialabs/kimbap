@@ -35,7 +35,7 @@ brew install dunialabs/kimbap/kimbap
 kimbap init --services select
 ```
 
-`select` opens an interactive checklist with a preselected recommended set (and an `all` command). Eligible shortcut aliases are set up by default. In interactive flows, you'll be asked first; use `--no-shortcuts` to skip.
+`select` opens an interactive checklist with a preselected recommended set (and an `all` command). Shortcut aliases are enabled by default; use `--no-shortcuts` to opt out.
 
 Pick what you want to install, then run immediately with shortcuts.
 
@@ -126,7 +126,7 @@ Wikipedia · Hacker News · CoinGecko · Open-Meteo (weather, air quality, histo
 
 If you need a dedicated MCP control plane (gateway, policy, audit), see [dunialabs/peta-core](https://github.com/dunialabs/peta-core).
 
-Canonical command for all of them: `kimbap call <service>.<action>`
+Direct call format: `kimbap call <service>.<action>`
 
 Optional frictionless shortcut (per action):
 

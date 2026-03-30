@@ -94,13 +94,6 @@ func newServiceInstallCommand() *cobra.Command {
 			actionAliasesCreated := make([]string, 0)
 
 			setupShortcuts := !noShortcuts && installed.Enabled
-			if setupShortcuts && canPromptInTTY() {
-				confirm, confirmErr := confirmShortcutSetup(installed.Manifest.Name)
-				if confirmErr != nil {
-					return confirmErr
-				}
-				setupShortcuts = confirm
-			}
 
 			if setupShortcuts {
 				shortcutResult := applyInstalledShortcuts(cfg, installer, &installed.Manifest, "auto")

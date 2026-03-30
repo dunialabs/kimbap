@@ -43,6 +43,9 @@ Install and immediately configure skills for detected supported agents in the cu
 curl -fsSL https://kimbap.sh/install.sh | bash -s -- --with-agents
 ```
 
+`--agent-kinds` for installer setup supports: `claude-code,opencode,codex,cursor,openclaw,nanoclaw`.
+(`generic` is sync-only via `kimbap agents sync --agent generic --dir <project>`.)
+
 If no kimbap config/services exist yet, installer offers interactive service selection first (default quickstart mode: `select`, with recommended services preselected).
 Use `--quickstart-services all` when you want the full catalog on first setup.
 
@@ -123,7 +126,7 @@ kimbap init --services select
 ```
 
 Dev mode auto-generates a vault master key and stores it in `~/.kimbap/.dev-master-key`. In interactive mode, `--services select` opens a checklist with recommended services preselected (you can switch to `all` from the checklist).
-If services are installed during init, eligible shortcut aliases are set up by default. In interactive flows, you'll be asked first; use `--no-shortcuts` to skip.
+If services are installed during init, eligible shortcut aliases are set up by default. Use `--no-shortcuts` to skip.
 
 After init, you can run shortcuts directly (no `kimbap call` prefix):
 

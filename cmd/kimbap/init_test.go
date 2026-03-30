@@ -70,7 +70,7 @@ func TestCanPromptInTTYReturnsFalseForJSONOutput(t *testing.T) {
 	}
 }
 
-func TestInstallInitServicesPromptDeclineSkipsShortcutSetup(t *testing.T) {
+func TestInstallInitServicesNoShortcutsSkipsShortcutSetup(t *testing.T) {
 	dataDir := t.TempDir()
 	servicesDir := filepath.Join(dataDir, "services")
 	configPath := writeServiceCLIConfig(t, dataDir, servicesDir)
@@ -79,31 +79,27 @@ func TestInstallInitServicesPromptDeclineSkipsShortcutSetup(t *testing.T) {
 	opts = cliOptions{configPath: configPath, format: "text", noSplash: true}
 	t.Cleanup(func() { opts = prevOpts })
 
-	origCanPrompt := canPromptInTTY
-	canPromptInTTY = func() bool { return true }
-	t.Cleanup(func() { canPromptInTTY = origCanPrompt })
-
-	oldStdin := os.Stdin
-	r, w, err := os.Pipe()
-	if err != nil {
-		t.Fatalf("create stdin pipe: %v", err)
-	}
-	if _, err := w.WriteString("n\n"); err != nil {
-		t.Fatalf("write stdin input: %v", err)
-	}
-	_ = w.Close()
-	os.Stdin = r
+	execDir := t.TempDir()
+	execPath := filepath.Join(execDir, "kimbap")
+	stubAliasLookPathToDir(t, execDir)
+	origExecutablePath := aliasExecutablePath
+	origLstat := aliasFileLstat
+	origSymlink := aliasFileSymlink
 	t.Cleanup(func() {
-		os.Stdin = oldStdin
-		_ = r.Close()
+		aliasExecutablePath = origExecutablePath
+		aliasFileLstat = origLstat
+		aliasFileSymlink = origSymlink
 	})
+	aliasExecutablePath = func() (string, error) { return execPath, nil }
+	aliasFileLstat = func(path string) (os.FileInfo, error) { return nil, os.ErrNotExist }
+	aliasFileSymlink = func(oldname, newname string) error { return nil }
 
 	cfg, err := loadAppConfig()
 	if err != nil {
 		t.Fatalf("loadAppConfig() error: %v", err)
 	}
 
-	check := installInitServices(cfg, initServiceSelection{Names: []string{"open-meteo-geocoding"}}, false, false)
+	check := installInitServices(cfg, initServiceSelection{Names: []string{"open-meteo-geocoding"}}, false, true)
 	if check.Status != "ok" {
 		t.Fatalf("expected installInitServices status ok, got %q (%s)", check.Status, check.Detail)
 	}
@@ -113,11 +109,11 @@ func TestInstallInitServicesPromptDeclineSkipsShortcutSetup(t *testing.T) {
 		t.Fatalf("reload config error: %v", err)
 	}
 	if len(reloaded.CommandAliases) != 0 {
-		t.Fatalf("expected no command aliases when prompt is declined, got %+v", reloaded.CommandAliases)
+		t.Fatalf("expected no command aliases when --no-shortcuts is used, got %+v", reloaded.CommandAliases)
 	}
 }
 
-func TestInstallInitServicesPromptAcceptsAndCreatesShortcutAliases(t *testing.T) {
+func TestInstallInitServicesCreatesShortcutAliasesByDefault(t *testing.T) {
 	dataDir := t.TempDir()
 	servicesDir := filepath.Join(dataDir, "services")
 	configPath := writeServiceCLIConfig(t, dataDir, servicesDir)
@@ -125,25 +121,6 @@ func TestInstallInitServicesPromptAcceptsAndCreatesShortcutAliases(t *testing.T)
 	prevOpts := opts
 	opts = cliOptions{configPath: configPath, format: "text", noSplash: true}
 	t.Cleanup(func() { opts = prevOpts })
-
-	origCanPrompt := canPromptInTTY
-	canPromptInTTY = func() bool { return true }
-	t.Cleanup(func() { canPromptInTTY = origCanPrompt })
-
-	oldStdin := os.Stdin
-	r, w, err := os.Pipe()
-	if err != nil {
-		t.Fatalf("create stdin pipe: %v", err)
-	}
-	if _, err := w.WriteString("y\n"); err != nil {
-		t.Fatalf("write stdin input: %v", err)
-	}
-	_ = w.Close()
-	os.Stdin = r
-	t.Cleanup(func() {
-		os.Stdin = oldStdin
-		_ = r.Close()
-	})
 
 	execDir := t.TempDir()
 	execPath := filepath.Join(execDir, "kimbap")
@@ -175,7 +152,7 @@ func TestInstallInitServicesPromptAcceptsAndCreatesShortcutAliases(t *testing.T)
 		t.Fatalf("reload config error: %v", err)
 	}
 	if got := reloaded.CommandAliases["geosearch"]; got != "open-meteo-geocoding.search" {
-		t.Fatalf("expected geosearch shortcut alias after prompt acceptance, got %+v", reloaded.CommandAliases)
+		t.Fatalf("expected geosearch shortcut alias with default setup, got %+v", reloaded.CommandAliases)
 	}
 }
 

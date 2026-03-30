@@ -88,7 +88,8 @@ Options:
       --agent-project-dir <path>
                           Project directory to sync agent skills into (default: current directory)
       --agent-kinds <csv>
-                          Agents to configure (default: auto-detect supported agents)
+                          Setup agent kinds (claude-code,opencode,codex,cursor,openclaw,nanoclaw)
+                          default: auto-detect supported agents (generic is sync-only)
       --quickstart-services <value>
                            recommended|all|none|select|<comma-separated service names>
                            (default: select; legacy alias 'starter' is still accepted)
@@ -118,6 +119,36 @@ detect_installed_version() {
 
 detect_installed_binary() {
   command -v kimbap 2>/dev/null || true
+}
+
+validate_agent_kinds_for_setup() {
+  local trimmed
+  trimmed="$(printf '%s' "$AGENT_KINDS" | xargs)"
+  if [[ -z "$trimmed" ]]; then
+    return 0
+  fi
+
+  local part kind
+  local invalid=()
+  IFS=',' read -r -a parts <<<"$trimmed"
+  for part in "${parts[@]}"; do
+    kind="$(printf '%s' "$part" | tr '[:upper:]' '[:lower:]' | xargs)"
+    [[ -z "$kind" ]] && continue
+    case "$kind" in
+      claude-code|opencode|codex|cursor|openclaw|nanoclaw)
+        ;;
+      generic)
+        invalid+=("generic (sync-only; use 'kimbap agents sync --agent generic --dir <project>')")
+        ;;
+      *)
+        invalid+=("$kind")
+        ;;
+    esac
+  done
+
+  if [[ ${#invalid[@]} -gt 0 ]]; then
+    error "Unsupported --agent-kinds for installer setup: ${invalid[*]}"
+  fi
 }
 
 resolve_install_dir() {
@@ -377,6 +408,9 @@ uninstall_kimbap() {
       if [[ -z "$target" ]]; then
         return
       fi
+      if [[ ! -d "$target" && ! -e "$target" && ! -L "$target" ]]; then
+        return
+      fi
       if ! is_safe_purge_target "$target"; then
         warn "Skipping unsafe purge target outside HOME: $target"
         return
@@ -555,6 +589,9 @@ cleanup() {
 # ── Main ──────────────────────────────────────────────────────────────────────
 main() {
 	parse_args "$@"
+  if [[ "$UNINSTALL_ONLY" -ne 1 && "$CHECK_ONLY" -ne 1 ]]; then
+    validate_agent_kinds_for_setup
+  fi
 
   if [[ "$PURGE_DATA" -eq 1 && "$UNINSTALL_ONLY" -ne 1 ]]; then
     error "--purge-data requires --uninstall"
@@ -650,9 +687,9 @@ main() {
       [Yy]*)
         local recommended_preview
         if [[ "$OS" == "darwin" ]]; then
-          recommended_preview="apple-notes, apple-calendar, apple-reminders, finder, safari, contacts, wikipedia, open-meteo, hacker-news"
+          recommended_preview="apple-notes, apple-calendar, apple-reminders, finder, safari, contacts, wikipedia, open-meteo, open-meteo-geocoding, hacker-news"
         else
-          recommended_preview="wikipedia, open-meteo, hacker-news, rest-countries, exchange-rate, public-holidays, nominatim"
+          recommended_preview="wikipedia, open-meteo, open-meteo-geocoding, hacker-news, rest-countries, exchange-rate, public-holidays, nominatim"
         fi
         printf "Service presets:\n" >/dev/tty
         printf "  recommended: curated defaults (%s)\n" "$recommended_preview" >/dev/tty

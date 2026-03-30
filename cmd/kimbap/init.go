@@ -217,13 +217,6 @@ func installInitServices(cfg *config.KimbapConfig, selection initServiceSelectio
 
 	installer := installerFromConfig(cfg)
 	setupShortcuts := !noShortcuts
-	if setupShortcuts && canPromptInTTY() {
-		confirm, confirmErr := confirmShortcutSetup("selected services")
-		if confirmErr != nil {
-			return doctorCheck{Name: "catalog services installed", Status: "fail", Detail: fmt.Sprintf("shortcut setup prompt failed: %v", confirmErr)}
-		}
-		setupShortcuts = confirm
-	}
 	installed := 0
 	enabled := 0
 	skipped := 0
