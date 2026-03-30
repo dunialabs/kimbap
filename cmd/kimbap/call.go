@@ -139,6 +139,12 @@ Discover available actions:
 				Mode:   actions.ModeCall,
 			}
 
+			if !outputAsJSON() && !isDryRun() {
+				if err := checkRequiredInputs(def, input); err != nil {
+					return err
+				}
+			}
+
 			if isDryRun() {
 				preview := buildDryRunPreview(cfg, req)
 				if err := printOutput(preview); err != nil {
@@ -237,6 +243,93 @@ func actionHasInputField(def *actions.ActionDefinition, fieldName string) bool {
 	}
 	_, exists := def.InputSchema.Properties[fieldName]
 	return exists
+}
+
+func checkRequiredInputs(def *actions.ActionDefinition, input map[string]any) error {
+	if def == nil || def.InputSchema == nil || len(def.InputSchema.Required) == 0 {
+		return nil
+	}
+
+	resolved := cloneInputWithDefaults(input, def.Defaults)
+	missing := missingRequiredInputs(def.InputSchema.Required, resolved)
+	if len(missing) == 0 {
+		return nil
+	}
+
+	return fmt.Errorf(
+		"missing required parameters: %s\n\nUsage:\n  %s\n\nRun 'kimbap call %s --help' for details.",
+		strings.Join(missing, ", "),
+		buildCallUsageLine(*def),
+		strings.TrimSpace(def.Name),
+	)
+}
+
+func cloneInputWithDefaults(input map[string]any, defaults map[string]any) map[string]any {
+	if len(input) == 0 && len(defaults) == 0 {
+		return map[string]any{}
+	}
+
+	cloned := make(map[string]any, len(input)+len(defaults))
+	for k, v := range input {
+		cloned[k] = v
+	}
+	for k, v := range defaults {
+		if _, exists := cloned[k]; !exists {
+			cloned[k] = v
+		}
+	}
+	return cloned
+}
+
+func missingRequiredInputs(required []string, input map[string]any) []string {
+	missing := make([]string, 0, len(required))
+	for _, name := range required {
+		if _, exists := input[name]; !exists {
+			missing = append(missing, "--"+name)
+		}
+	}
+	sort.Strings(missing)
+	return missing
+}
+
+func buildCallUsageLine(def actions.ActionDefinition) string {
+	usage := []string{"kimbap", "call", strings.TrimSpace(def.Name)}
+	if def.InputSchema == nil || len(def.InputSchema.Properties) == 0 {
+		return strings.Join(usage, " ")
+	}
+
+	required := make(map[string]bool, len(def.InputSchema.Required))
+	for _, name := range def.InputSchema.Required {
+		required[name] = true
+	}
+
+	propNames := make([]string, 0, len(def.InputSchema.Properties))
+	for name := range def.InputSchema.Properties {
+		propNames = append(propNames, name)
+	}
+	sort.Strings(propNames)
+
+	requiredSegments := make([]string, 0, len(propNames))
+	optionalSegments := make([]string, 0, len(propNames))
+	for _, name := range propNames {
+		prop := def.InputSchema.Properties[name]
+		typeName := "any"
+		if prop != nil {
+			if t := strings.TrimSpace(prop.Type); t != "" {
+				typeName = t
+			}
+		}
+		segment := fmt.Sprintf("--%s <%s>", name, typeName)
+		if required[name] {
+			requiredSegments = append(requiredSegments, segment)
+			continue
+		}
+		optionalSegments = append(optionalSegments, "["+segment+"]")
+	}
+
+	usage = append(usage, requiredSegments...)
+	usage = append(usage, optionalSegments...)
+	return strings.Join(usage, " ")
 }
 
 func printCallResult(result actions.ExecutionResult) error {

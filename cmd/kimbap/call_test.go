@@ -3,6 +3,7 @@ package main
 import (
 	"io"
 	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -226,6 +227,116 @@ func TestMergeInputMapsNilBase(t *testing.T) {
 	if merged["a"] != "1" {
 		t.Fatalf("expected a=1, got %v", merged["a"])
 	}
+}
+
+func TestCheckRequiredInputsListsAllMissingParameters(t *testing.T) {
+	err := checkRequiredInputs(&actions.ActionDefinition{
+		Name: "github.create-issue",
+		InputSchema: &actions.Schema{
+			Properties: map[string]*actions.Schema{
+				"owner": {Type: "string"},
+				"repo":  {Type: "string"},
+				"title": {Type: "string"},
+				"body":  {Type: "string"},
+			},
+			Required: []string{"owner", "repo", "title"},
+		},
+	}, map[string]any{"owner": "acme"})
+	if err == nil {
+		t.Fatal("expected error for missing required params")
+	}
+	msg := err.Error()
+	if !strings.Contains(msg, "missing required parameters: --repo, --title") {
+		t.Fatalf("expected missing params list, got %q", msg)
+	}
+	if !strings.Contains(msg, "Usage:\n  kimbap call github.create-issue --owner <string> --repo <string> --title <string> [--body <string>]") {
+		t.Fatalf("expected usage hint, got %q", msg)
+	}
+	if !strings.Contains(msg, "Run 'kimbap call github.create-issue --help' for details.") {
+		t.Fatalf("expected help hint, got %q", msg)
+	}
+}
+
+func TestCheckRequiredInputsHonorsDefaults(t *testing.T) {
+	err := checkRequiredInputs(&actions.ActionDefinition{
+		Name:     "svc.action",
+		Defaults: map[string]any{"repo": "default-repo"},
+		InputSchema: &actions.Schema{
+			Properties: map[string]*actions.Schema{
+				"repo": {Type: "string"},
+			},
+			Required: []string{"repo"},
+		},
+	}, map[string]any{})
+	if err != nil {
+		t.Fatalf("expected defaults to satisfy required inputs, got %v", err)
+	}
+}
+
+func TestCheckRequiredInputsSkipsWhenNoSchemaRequirements(t *testing.T) {
+	if err := checkRequiredInputs(&actions.ActionDefinition{Name: "svc.action"}, map[string]any{}); err != nil {
+		t.Fatalf("expected nil error without schema, got %v", err)
+	}
+}
+
+func TestCallCommandShowsFriendlyMissingRequiredParameters(t *testing.T) {
+	dataDir := t.TempDir()
+	servicesDir := filepath.Join(dataDir, "services")
+	configPath := writeServiceCLIConfig(t, dataDir, servicesDir)
+
+	manifestPath := filepath.Join(t.TempDir(), "qa-call-required.yaml")
+	manifest := "name: qa-call-required\n" +
+		"version: 1.0.0\n" +
+		"description: qa fixture\n" +
+		"base_url: https://api.example.com\n" +
+		"auth:\n" +
+		"  type: none\n" +
+		"actions:\n" +
+		"  create-issue:\n" +
+		"    method: POST\n" +
+		"    path: /issues\n" +
+		"    description: create issue\n" +
+		"    args:\n" +
+		"      - name: owner\n" +
+		"        type: string\n" +
+		"        required: true\n" +
+		"      - name: repo\n" +
+		"        type: string\n" +
+		"        required: true\n" +
+		"      - name: title\n" +
+		"        type: string\n" +
+		"        required: true\n" +
+		"      - name: body\n" +
+		"        type: string\n" +
+		"        required: false\n" +
+		"    risk:\n" +
+		"      level: medium\n"
+	if err := os.WriteFile(manifestPath, []byte(manifest), 0o644); err != nil {
+		t.Fatalf("write manifest: %v", err)
+	}
+
+	withServiceCLIOpts(t, configPath, func() {
+		installCmd := newServiceInstallCommand()
+		installCmd.SetArgs([]string{manifestPath, "--no-shortcuts"})
+		if _, err := captureStdout(t, installCmd.Execute); err != nil {
+			t.Fatalf("service install failed: %v", err)
+		}
+
+		opts.format = "text"
+		callCmd := newCallCommand()
+		callCmd.SetArgs([]string{"--config", configPath, "qa-call-required.create-issue", "--owner", "acme"})
+		_, err := captureStdout(t, callCmd.Execute)
+		if err == nil {
+			t.Fatal("expected call command to fail on missing required params")
+		}
+		msg := err.Error()
+		if !strings.Contains(msg, "missing required parameters: --repo, --title") {
+			t.Fatalf("expected missing params in error, got %q", msg)
+		}
+		if !strings.Contains(msg, "Usage:\n  kimbap call qa-call-required.create-issue --owner <string> --repo <string> --title <string> [--body <string>]") {
+			t.Fatalf("expected usage line in error, got %q", msg)
+		}
+	})
 }
 
 func TestCoerceJSONNumbersLargeInt(t *testing.T) {
