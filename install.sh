@@ -531,7 +531,8 @@ main() {
 
   printf "\n${GREEN}${BOLD}✓ kimbap v${VERSION} installed successfully!${RESET}\n"
   printf "  Binary: %s/kimbap\n" "$INSTALL_PATH"
-  printf "  Alias:  %s/kb -> %s/kimbap\n\n" "$INSTALL_PATH" "$INSTALL_PATH"
+  printf "  Alias:  %s/kb -> %s/kimbap\n" "$INSTALL_PATH" "$INSTALL_PATH"
+  printf "  Tip:    if this shell still resolves an old kimbap path, run: hash -r\n\n"
 
   local QUICKSTART_SELECTED="$QUICKSTART_SERVICES"
 
@@ -541,6 +542,17 @@ main() {
     answer="${answer:-Y}"
     case "$answer" in
       [Yy]*)
+        local starter_preview
+        if [[ "$OS" == "darwin" ]]; then
+          starter_preview="apple-notes, apple-calendar, apple-reminders, finder, safari, contacts, wikipedia, open-meteo, hacker-news"
+        else
+          starter_preview="wikipedia, open-meteo, hacker-news, rest-countries, exchange-rate, public-holidays, nominatim"
+        fi
+        printf "Service presets:\n" >/dev/tty
+        printf "  starter: curated defaults (%s)\n" "$starter_preview" >/dev/tty
+        printf "  all:     every catalog service\n" >/dev/tty
+        printf "  none:    skip service installation for now\n" >/dev/tty
+        printf "  custom:  enter comma-separated service names\n" >/dev/tty
         printf "Select services to install [starter/all/none/custom] (default: %s): " "$QUICKSTART_SERVICES" >/dev/tty
         read -r service_choice </dev/tty || service_choice=""
         service_choice="${service_choice:-$QUICKSTART_SERVICES}"

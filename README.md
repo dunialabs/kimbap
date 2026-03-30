@@ -35,18 +35,6 @@ Or with Homebrew:
 brew install dunialabs/kimbap/kimbap
 ```
 
-Uninstall:
-
-```bash
-curl -fsSL https://kimbap.sh/install.sh | bash -s -- --uninstall
-```
-
-If installed with Homebrew:
-
-```bash
-brew uninstall dunialabs/kimbap/kimbap
-```
-
 **2. Initialize**
 
 ```bash
