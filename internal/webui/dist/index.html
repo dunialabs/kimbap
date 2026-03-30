@@ -997,7 +997,7 @@ td.mono {
       <div class="section-header">
         <div>
           <h1>Dashboard</h1>
-          <p>Track runtime health, installed actions, and version.</p>
+          <p>Track runtime health, installed actions, and pending approvals.</p>
         </div>
         <div class="refresh-info">
           <div class="refresh-dot"></div>
@@ -1005,6 +1005,7 @@ td.mono {
         </div>
       </div>
     </div>
+    <div id="dashAuthGate"></div>
     <div class="card-grid" id="dashCards">
       <div class="card">
         <div class="card-title">Runtime Health</div>
@@ -1438,6 +1439,12 @@ td.mono {
   // ── Dashboard ──
   function loadDashboard() {
     var requestEpoch = state.requestEpoch;
+    var authGateEl = document.getElementById('dashAuthGate');
+    if (!state.token) {
+      if (authGateEl) authGateEl.innerHTML = authGateHTML('dashboard');
+    } else {
+      if (authGateEl) authGateEl.innerHTML = '';
+    }
     api('/health').then(function(r) {
       if (!isViewRequestCurrent('dashboard', requestEpoch)) return;
       var el = document.getElementById('dashHealth');
