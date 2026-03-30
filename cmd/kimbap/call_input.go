@@ -173,60 +173,8 @@ func parseDynamicInput(tokens []string) (map[string]any, error) {
 }
 
 func normalizeCallInputTokensForGlobalFormat(tokens []string, def actions.ActionDefinition) []string {
-	if strings.EqualFold(strings.TrimSpace(opts.format), "json") {
-		return tokens
-	}
-	if callActionAcceptsFormatInput(def) {
-		return tokens
-	}
-
-	out := make([]string, 0, len(tokens))
-	for i := 0; i < len(tokens); i++ {
-		tok := strings.TrimSpace(tokens[i])
-		if tok == "--" {
-			out = append(out, tokens[i:]...)
-			break
-		}
-		if tok == "--format" {
-			if i+1 < len(tokens) {
-				next := strings.TrimSpace(tokens[i+1])
-				if callFormatValueIsGlobal(next) {
-					opts.format = strings.ToLower(next)
-					i++
-					continue
-				}
-			}
-		} else if strings.HasPrefix(tok, "--format=") {
-			value := strings.TrimSpace(strings.TrimPrefix(tok, "--format="))
-			if callFormatValueIsGlobal(value) {
-				opts.format = strings.ToLower(value)
-				continue
-			}
-		}
-		out = append(out, tokens[i])
-	}
-	return out
-}
-
-func callActionAcceptsFormatInput(def actions.ActionDefinition) bool {
-	if def.InputSchema == nil || len(def.InputSchema.Properties) == 0 {
-		return false
-	}
-	for key := range def.InputSchema.Properties {
-		if strings.EqualFold(strings.TrimSpace(key), "format") {
-			return true
-		}
-	}
-	return false
-}
-
-func callFormatValueIsGlobal(value string) bool {
-	switch strings.ToLower(strings.TrimSpace(value)) {
-	case "json", "text":
-		return true
-	default:
-		return false
-	}
+	_ = def
+	return tokens
 }
 
 func splitCallInvocationArgs(tokens []string) (string, []string, bool, error) {

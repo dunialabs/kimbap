@@ -453,6 +453,7 @@ func isCredentialReady(cfg *config.KimbapConfig, req actions.ExecutionRequest) b
 }
 
 func prescanCallSplashFlags(tokens []string) {
+	actionSeen := false
 	for i := 0; i < len(tokens); i++ {
 		tok := strings.TrimSpace(tokens[i])
 		if tok == "--" {
@@ -463,7 +464,11 @@ func prescanCallSplashFlags(tokens []string) {
 			value, consumed := parseOptionalBoolFlagValue(tokens, i)
 			opts.noSplash = value
 			i += consumed
-		case tok == "--format" && i+1 < len(tokens):
+		case strings.HasPrefix(tok, "--no-splash="):
+			if v, err := strconv.ParseBool(strings.TrimSpace(strings.TrimPrefix(tok, "--no-splash="))); err == nil {
+				opts.noSplash = v
+			}
+		case !actionSeen && tok == "--format" && i+1 < len(tokens):
 			next := strings.TrimSpace(tokens[i+1])
 			if !strings.HasPrefix(next, "-") {
 				opts.format = next
@@ -475,10 +480,12 @@ func prescanCallSplashFlags(tokens []string) {
 				opts.splashColor = next
 				i++
 			}
-		case strings.HasPrefix(tok, "--format="):
+		case !actionSeen && strings.HasPrefix(tok, "--format="):
 			opts.format = strings.TrimSpace(strings.TrimPrefix(tok, "--format="))
 		case strings.HasPrefix(tok, "--splash-color="):
 			opts.splashColor = strings.TrimSpace(strings.TrimPrefix(tok, "--splash-color="))
+		case !strings.HasPrefix(tok, "-"):
+			actionSeen = true
 		}
 	}
 }
