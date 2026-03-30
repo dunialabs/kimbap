@@ -1913,6 +1913,7 @@ td.mono {
   }
 
   function renderAuditTable(items, container) {
+    var totalCount = items.length;
     var filter = (document.getElementById('auditSearch') ? document.getElementById('auditSearch').value || '' : '').toLowerCase();
     if (filter) {
       items = items.filter(function(ev) {
@@ -1924,7 +1925,11 @@ td.mono {
         return actionFull.indexOf(filter) !== -1 || agent.indexOf(filter) !== -1 || status.indexOf(filter) !== -1;
       });
     }
-    var html = '<div class="table-wrap"><table>' +
+    var countText = filter
+      ? items.length + ' of ' + totalCount + (totalCount === 1 ? ' entry' : ' entries')
+      : items.length + (items.length === 1 ? ' entry' : ' entries');
+    var html = '<div style="font-size:12px;color:var(--text-muted);margin-bottom:var(--space-sm)">' + esc(countText) + '</div>' +
+      '<div class="table-wrap"><table>' +
       '<thead><tr>' +
         '<th>Timestamp</th>' +
         '<th>Action</th>' +
