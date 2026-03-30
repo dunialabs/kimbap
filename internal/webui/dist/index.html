@@ -977,7 +977,7 @@ td.mono {
       <button type="button" class="nav-tab" data-view="actions">Actions</button>
       <button type="button" class="nav-tab" data-view="approvals">Approvals <span id="approvalsBadge" class="nav-badge" style="display:none"></span></button>
       <button type="button" class="nav-tab" data-view="audit">Audit</button>
-      <button type="button" class="nav-tab" data-view="services">Vault</button>
+      <button type="button" class="nav-tab" data-view="services">Credentials</button>
     </nav>
 
     <div class="auth-area">
@@ -1084,7 +1084,7 @@ td.mono {
 
   <div class="view" id="view-services">
     <div class="view-header">
-      <h1>Vault</h1>
+      <h1>Credentials</h1>
       <p>Saved credentials for linked services</p>
     </div>
     <div id="servicesContent">
@@ -2222,7 +2222,7 @@ td.mono {
         container.innerHTML = '<div class="empty-state">' +
           '<div class="empty-state-icon">🔐</div>' +
           '<h3>No credentials saved</h3>' +
-          '<p>Save a credential with <code>kimbap vault set</code>, then link it to a service with <code>kimbap link</code>.</p></div>';
+          '<p>Link a service with <code>kimbap link &lt;service&gt; --stdin</code> to store credentials and connect in one step.</p></div>';
         return;
       }
 
