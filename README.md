@@ -23,12 +23,6 @@
 curl -fsSL https://kimbap.sh/install.sh | bash
 ```
 
-Check installed vs latest release:
-
-```bash
-curl -fsSL https://kimbap.sh/install.sh | bash -s -- --check
-```
-
 Or with Homebrew:
 
 ```bash
@@ -56,13 +50,6 @@ weather --latitude 37.7749 --longitude -122.4194
 ```
 
 No API key, no localhost setup.
-
-Canonical command style is still available:
-
-```bash
-kimbap call open-meteo-geocoding.search --name "San Francisco" --count 1
-kimbap call open-meteo.get-forecast --latitude 37.7749 --longitude -122.4194
-```
 
 ---
 

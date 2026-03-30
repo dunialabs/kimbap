@@ -238,6 +238,31 @@ func TestEnsureInstalledActionAliasesGeneratedExistingMappingDoesNotEmitNoCandid
 		}
 		cfg.CommandAliases = map[string]string{"geosearch": "open-meteo-geocoding.search"}
 
+		execDir := t.TempDir()
+		execPath := filepath.Join(execDir, "kimbap")
+		aliasPath := filepath.Join(execDir, "geosearch")
+		origExecutablePath := aliasExecutablePath
+		origLstat := aliasFileLstat
+		origReadlink := aliasFileReadlink
+		t.Cleanup(func() {
+			aliasExecutablePath = origExecutablePath
+			aliasFileLstat = origLstat
+			aliasFileReadlink = origReadlink
+		})
+		aliasExecutablePath = func() (string, error) { return execPath, nil }
+		aliasFileLstat = func(path string) (os.FileInfo, error) {
+			if path == aliasPath {
+				return symlinkFileInfo{}, nil
+			}
+			return nil, os.ErrNotExist
+		}
+		aliasFileReadlink = func(path string) (string, error) {
+			if path == aliasPath {
+				return execPath, nil
+			}
+			return "", os.ErrNotExist
+		}
+
 		manifest := &services.ServiceManifest{
 			Name:    "open-meteo-geocoding",
 			Version: "1.0.0",
@@ -265,6 +290,80 @@ func TestEnsureInstalledActionAliasesGeneratedExistingMappingDoesNotEmitNoCandid
 			if strings.Contains(item, "no collision-free alias candidate") {
 				t.Fatalf("expected no no-candidate warning when existing mapping satisfies generated alias, skipped=%+v", skipped)
 			}
+		}
+	})
+}
+
+func TestEnsureInstalledActionAliasesRecreatesMissingExecutableForExistingMapping(t *testing.T) {
+	dataDir := t.TempDir()
+	servicesDir := filepath.Join(dataDir, "services")
+	configPath := writeServiceCLIConfig(t, dataDir, servicesDir)
+
+	withServiceCLIOpts(t, configPath, func() {
+		cfg, err := loadAppConfig()
+		if err != nil {
+			t.Fatalf("loadAppConfig() error: %v", err)
+		}
+		cfg.CommandAliases = map[string]string{"weather": "open-meteo.get-forecast"}
+
+		execDir := t.TempDir()
+		execPath := filepath.Join(execDir, "kimbap")
+		aliasPath := filepath.Join(execDir, "weather")
+		symlinkCreated := false
+
+		origExecutablePath := aliasExecutablePath
+		origLstat := aliasFileLstat
+		origSymlink := aliasFileSymlink
+		t.Cleanup(func() {
+			aliasExecutablePath = origExecutablePath
+			aliasFileLstat = origLstat
+			aliasFileSymlink = origSymlink
+		})
+
+		aliasExecutablePath = func() (string, error) { return execPath, nil }
+		aliasFileLstat = func(path string) (os.FileInfo, error) {
+			if path == aliasPath {
+				return nil, os.ErrNotExist
+			}
+			return nil, os.ErrNotExist
+		}
+		aliasFileSymlink = func(oldname, newname string) error {
+			if oldname != execPath || newname != aliasPath {
+				t.Fatalf("unexpected symlink args old=%q new=%q", oldname, newname)
+			}
+			symlinkCreated = true
+			return nil
+		}
+
+		manifest := &services.ServiceManifest{
+			Name:    "open-meteo",
+			Version: "1.0.0",
+			Adapter: "http",
+			BaseURL: "https://example.com",
+			Auth:    services.ServiceAuth{Type: string(actions.AuthTypeNone)},
+			Actions: map[string]services.ServiceAction{
+				"get-forecast": {
+					Method:   "GET",
+					Path:     "/forecast",
+					Aliases:  []string{"weather"},
+					Response: services.ResponseSpec{Type: "object"},
+					Risk:     services.RiskSpec{Level: "low"},
+				},
+			},
+		}
+
+		created, skipped, runErr := ensureInstalledActionAliases(cfg, services.NewLocalInstaller(servicesDir), manifest)
+		if runErr != nil {
+			t.Fatalf("ensureInstalledActionAliases() error: %v", runErr)
+		}
+		if !symlinkCreated {
+			t.Fatal("expected missing executable alias to be recreated")
+		}
+		if len(created) == 0 || created[0] != "weather" {
+			t.Fatalf("expected recreated alias to be reported in created list, got %+v", created)
+		}
+		if len(skipped) > 0 {
+			t.Fatalf("expected no skips while recreating existing alias mapping, got %+v", skipped)
 		}
 	})
 }

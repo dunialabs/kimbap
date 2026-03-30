@@ -354,3 +354,116 @@ func TestAliasSetActionAliasRollsBackExecutableWhenConfigWriteFails(t *testing.T
 		}
 	})
 }
+
+func TestEnsureExecutableActionAliasReplacesStaleKimbapSymlink(t *testing.T) {
+	execDir := t.TempDir()
+	execPath := filepath.Join(execDir, "kimbap")
+	aliasPath := filepath.Join(execDir, "weather")
+	symlinkPresent := true
+	removed := false
+	created := false
+
+	origExecutablePath := aliasExecutablePath
+	origLstat := aliasFileLstat
+	origReadlink := aliasFileReadlink
+	origRemove := aliasFileRemove
+	origSymlink := aliasFileSymlink
+	t.Cleanup(func() {
+		aliasExecutablePath = origExecutablePath
+		aliasFileLstat = origLstat
+		aliasFileReadlink = origReadlink
+		aliasFileRemove = origRemove
+		aliasFileSymlink = origSymlink
+	})
+
+	aliasExecutablePath = func() (string, error) { return execPath, nil }
+	aliasFileLstat = func(path string) (os.FileInfo, error) {
+		if path == aliasPath && symlinkPresent {
+			return symlinkFileInfo{}, nil
+		}
+		return nil, os.ErrNotExist
+	}
+	aliasFileReadlink = func(path string) (string, error) {
+		if path == aliasPath && symlinkPresent {
+			return "/opt/homebrew/bin/kimbap", nil
+		}
+		return "", os.ErrNotExist
+	}
+	aliasFileRemove = func(path string) error {
+		if path != aliasPath || !symlinkPresent {
+			return os.ErrNotExist
+		}
+		removed = true
+		symlinkPresent = false
+		return nil
+	}
+	aliasFileSymlink = func(oldname, newname string) error {
+		if oldname != execPath || newname != aliasPath {
+			t.Fatalf("unexpected symlink args old=%q new=%q", oldname, newname)
+		}
+		created = true
+		symlinkPresent = true
+		return nil
+	}
+
+	path, executableCreated, err := ensureExecutableActionAlias("weather")
+	if err != nil {
+		t.Fatalf("ensureExecutableActionAlias() error: %v", err)
+	}
+	if path != aliasPath {
+		t.Fatalf("alias path = %q, want %q", path, aliasPath)
+	}
+	if !executableCreated {
+		t.Fatal("expected stale symlink replacement to report executableCreated=true")
+	}
+	if !removed || !created {
+		t.Fatalf("expected stale symlink to be removed and recreated, removed=%v created=%v", removed, created)
+	}
+}
+
+func TestRemoveExecutableActionAliasRemovesStaleKimbapSymlink(t *testing.T) {
+	execDir := t.TempDir()
+	execPath := filepath.Join(execDir, "kimbap")
+	aliasPath := filepath.Join(execDir, "weather")
+	removedPath := ""
+
+	origExecutablePath := aliasExecutablePath
+	origLstat := aliasFileLstat
+	origReadlink := aliasFileReadlink
+	origRemove := aliasFileRemove
+	t.Cleanup(func() {
+		aliasExecutablePath = origExecutablePath
+		aliasFileLstat = origLstat
+		aliasFileReadlink = origReadlink
+		aliasFileRemove = origRemove
+	})
+
+	aliasExecutablePath = func() (string, error) { return execPath, nil }
+	aliasFileLstat = func(path string) (os.FileInfo, error) {
+		if path == aliasPath {
+			return symlinkFileInfo{}, nil
+		}
+		return nil, os.ErrNotExist
+	}
+	aliasFileReadlink = func(path string) (string, error) {
+		if path != aliasPath {
+			return "", os.ErrNotExist
+		}
+		return "/opt/homebrew/bin/kimbap", nil
+	}
+	aliasFileRemove = func(path string) error {
+		removedPath = path
+		return nil
+	}
+
+	removed, err := removeExecutableActionAlias("weather")
+	if err != nil {
+		t.Fatalf("removeExecutableActionAlias() error: %v", err)
+	}
+	if !removed {
+		t.Fatal("expected stale kimbap symlink to be removed")
+	}
+	if removedPath != aliasPath {
+		t.Fatalf("removed path = %q, want %q", removedPath, aliasPath)
+	}
+}

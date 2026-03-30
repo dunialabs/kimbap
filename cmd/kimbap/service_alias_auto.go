@@ -172,6 +172,14 @@ func ensureInstalledActionAliases(cfg *config.KimbapConfig, installer *services.
 			}
 			if existing, exists := cfg.CommandAliases[alias]; exists {
 				if strings.ToLower(strings.TrimSpace(existing)) == target {
+					_, executableCreated, ensureErr := ensureExecutableActionAlias(alias)
+					if ensureErr != nil {
+						skipped = append(skipped, alias+" ("+ensureErr.Error()+")")
+						continue
+					}
+					if executableCreated {
+						created = append(created, alias)
+					}
 					aliasCreatedForAction = true
 					if generatedCandidates {
 						break

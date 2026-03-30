@@ -359,6 +359,15 @@ func ensureExecutableActionAlias(alias string) (string, bool, error) {
 		if symlinkTargetMatchesExecutable(aliasPath, currentTarget, execPath) {
 			return aliasPath, false, nil
 		}
+		if symlinkTargetReferencesKimbapBinary(aliasPath, currentTarget) {
+			if err := aliasFileRemove(aliasPath); err != nil {
+				return "", false, fmt.Errorf("replace stale command alias symlink %s: %w", aliasPath, err)
+			}
+			if err := aliasFileSymlink(execPath, aliasPath); err != nil {
+				return "", false, fmt.Errorf("create command alias symlink %s -> %s: %w", aliasPath, execPath, err)
+			}
+			return aliasPath, true, nil
+		}
 		return "", false, fmt.Errorf("cannot create command alias %q: symlink %s already points elsewhere", alias, aliasPath)
 	}
 	if !os.IsNotExist(statErr) {
@@ -393,7 +402,7 @@ func removeExecutableActionAlias(alias string) (bool, error) {
 	if readErr != nil {
 		return false, fmt.Errorf("inspect alias symlink %s: %w", aliasPath, readErr)
 	}
-	if !symlinkTargetMatchesExecutable(aliasPath, target, execPath) {
+	if !symlinkTargetMatchesExecutable(aliasPath, target, execPath) && !symlinkTargetReferencesKimbapBinary(aliasPath, target) {
 		return false, fmt.Errorf("alias executable path %s points to a different target", aliasPath)
 	}
 	if err := aliasFileRemove(aliasPath); err != nil {
@@ -408,6 +417,14 @@ func symlinkTargetMatchesExecutable(symlinkPath, symlinkTarget, executablePath s
 		resolvedTarget = filepath.Join(filepath.Dir(symlinkPath), resolvedTarget)
 	}
 	return filepath.Clean(resolvedTarget) == filepath.Clean(executablePath)
+}
+
+func symlinkTargetReferencesKimbapBinary(symlinkPath, symlinkTarget string) bool {
+	resolvedTarget := symlinkTarget
+	if !filepath.IsAbs(resolvedTarget) {
+		resolvedTarget = filepath.Join(filepath.Dir(symlinkPath), resolvedTarget)
+	}
+	return strings.EqualFold(filepath.Base(filepath.Clean(resolvedTarget)), "kimbap")
 }
 
 func upsertConfigAlias(configPath, alias, target string) error {
