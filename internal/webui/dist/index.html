@@ -1610,6 +1610,7 @@ td.mono {
       var expires = td.getAttribute('data-expires');
       if (!expires) return;
       td.textContent = fmtTimeRemaining(expires);
+      td.style.color = approvalTimeLeftColor(expires);
     });
   }
 
@@ -2120,6 +2121,19 @@ td.mono {
     return summary;
   }
 
+  function approvalTimeLeftColor(expiresAt) {
+    var parsed;
+    var delta;
+    if (!expiresAt) return 'var(--text-secondary)';
+    parsed = Date.parse(expiresAt);
+    if (Number.isNaN(parsed)) return 'var(--text-secondary)';
+    delta = parsed - Date.now();
+    if (delta <= 0) return 'var(--accent-red)';
+    if (delta <= 60 * 60 * 1000) return 'var(--accent-red)';
+    if (delta <= 24 * 60 * 60 * 1000) return 'var(--accent-amber)';
+    return 'var(--text-secondary)';
+  }
+
   function approvalInputPreview(inputJSON) {
     var parsed;
     if (!inputJSON) { return ''; }
@@ -2201,7 +2215,7 @@ td.mono {
         '<td' + agentTitleAttr + agentAriaAttr + '>' + esc(agent) + '</td>' +
         '<td title="' + escAttr(statusTitle) + '" aria-label="' + escAttr(statusTitle) + '">' + approvalStatusBadge(status) + '<span class="sr-only"> ' + esc(statusBadgeText) + '</span></td>' +
         '<td class="mono"' + expiresTitleAttr + expiresAriaAttr + '>' + esc(expiresDisplay) + '</td>' +
-        '<td class="mono" data-expires="' + escAttr(expires) + '"' + timeLeftTitleAttr + timeLeftAriaAttr + '>' + esc(timeLeftDisplay) + '</td>' +
+        '<td class="mono" data-expires="' + escAttr(expires) + '" style="color:' + approvalTimeLeftColor(expires) + '"' + timeLeftTitleAttr + timeLeftAriaAttr + '>' + esc(timeLeftDisplay) + '</td>' +
         '<td><div class="row-actions" role="group" aria-label="' + escAttr(actionGroupAria) + '" aria-busy="' + (busy ? 'true' : 'false') + '">' +
           '<button type="button" class="mini-btn approve" aria-label="' + escAttr(approveAria) + '" title="' + escAttr(approveAria) + '" ' + (busy ? 'disabled ' : '') + 'onclick="resolveApproval(\'' + escAttr(id) + '\',\'approve\')">' + approveLabel + '</button>' +
           '<button type="button" class="mini-btn deny" aria-label="' + escAttr(denyAria) + '" title="' + escAttr(denyAria) + '" ' + (busy ? 'disabled ' : '') + 'onclick="resolveApproval(\'' + escAttr(id) + '\',\'deny\')">' + denyLabel + '</button>' +
