@@ -11,6 +11,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/dunialabs/kimbap/internal/sqliteutil"
 	"github.com/google/uuid"
 	_ "github.com/jackc/pgx/v5/stdlib"
 	_ "modernc.org/sqlite"
@@ -46,7 +47,7 @@ func OpenSQLiteStore(dsn string) (*SQLStore, error) {
 	}
 	db.SetMaxOpenConns(1)
 	db.SetMaxIdleConns(1)
-	if err := applySQLiteConnectionPragmas(context.Background(), db, []string{
+	if err := sqliteutil.ApplyConnectionPragmas(context.Background(), db, []string{
 		"PRAGMA busy_timeout = 5000",
 		"PRAGMA journal_mode = WAL",
 	}); err != nil {
@@ -97,18 +98,6 @@ func openDBWithPing(driverName, dsn, label string) (*sql.DB, error) {
 		return nil, fmt.Errorf("ping %s database: %w", label, err)
 	}
 	return db, nil
-}
-
-func applySQLiteConnectionPragmas(ctx context.Context, db *sql.DB, pragmas []string) error {
-	if db == nil {
-		return errors.New("database is required")
-	}
-	for _, pragma := range pragmas {
-		if _, err := db.ExecContext(ctx, pragma); err != nil {
-			return fmt.Errorf("apply sqlite pragma %q: %w", pragma, err)
-		}
-	}
-	return nil
 }
 
 func (s *SQLStore) Close() error {
@@ -651,7 +640,48 @@ func (s *SQLStore) GetApproval(ctx context.Context, id string) (*ApprovalRecord,
 var (
 	ErrApprovalAlreadyResolved = errors.New("approval already resolved")
 	ErrApprovalExpired         = errors.New("approval has expired")
+	ErrApprovalDuplicateVote   = errors.New("approver has already voted")
 )
+
+type approvalVoteRecord struct {
+	ApproverID string
+	Decision   string
+	Reason     string
+	VotedAt    time.Time
+}
+
+func parseApprovalVotesJSONStrict(raw string) ([]approvalVoteRecord, error) {
+	trimmed := strings.TrimSpace(raw)
+	if trimmed == "" {
+		return nil, nil
+	}
+	var votes []approvalVoteRecord
+	if err := json.Unmarshal([]byte(trimmed), &votes); err != nil {
+		return nil, err
+	}
+	return votes, nil
+}
+
+func approvalVotesToJSON(votes []approvalVoteRecord) (string, error) {
+	if len(votes) == 0 {
+		return "[]", nil
+	}
+	encoded, err := json.Marshal(votes)
+	if err != nil {
+		return "", err
+	}
+	return string(encoded), nil
+}
+
+func countApprovedVotes(votes []approvalVoteRecord) int {
+	count := 0
+	for _, vote := range votes {
+		if vote.Decision == "approved" {
+			count++
+		}
+	}
+	return count
+}
 
 func (s *SQLStore) UpdateApprovalStatus(ctx context.Context, id string, status string, resolvedBy string, reason string) error {
 	id = strings.TrimSpace(id)
@@ -718,6 +748,117 @@ func (s *SQLStore) UpdateApproval(ctx context.Context, req *ApprovalRecord) erro
 		return ErrNotFound
 	}
 	return nil
+}
+
+func (s *SQLStore) ResolveApprovalVote(ctx context.Context, id string, actor string, decision string, reason string) (*ApprovalRecord, error) {
+	id = strings.TrimSpace(id)
+	actor = strings.TrimSpace(actor)
+	decision = strings.TrimSpace(strings.ToLower(decision))
+	reason = strings.TrimSpace(reason)
+
+	if id == "" {
+		return nil, ErrNotFound
+	}
+	if actor == "" {
+		return nil, errors.New("resolved_by is required")
+	}
+	switch decision {
+	case "approved", "denied":
+	default:
+		return nil, fmt.Errorf("invalid approval decision %q", decision)
+	}
+
+	now := time.Now().UTC()
+	for attempt := 0; attempt < 8; attempt++ {
+		rec, err := s.GetApproval(ctx, id)
+		if err != nil {
+			return nil, err
+		}
+		if rec == nil {
+			return nil, ErrNotFound
+		}
+		if rec.Status != "pending" {
+			if rec.Status == "expired" {
+				return nil, ErrApprovalExpired
+			}
+			return nil, ErrApprovalAlreadyResolved
+		}
+		if !rec.ExpiresAt.After(now) {
+			return nil, ErrApprovalExpired
+		}
+
+		votes, err := parseApprovalVotesJSONStrict(rec.VotesJSON)
+		if err != nil {
+			return nil, fmt.Errorf("parse approval votes for %q: %w", rec.ID, err)
+		}
+		for _, vote := range votes {
+			if strings.TrimSpace(vote.ApproverID) == actor {
+				return nil, ErrApprovalDuplicateVote
+			}
+		}
+
+		vote := approvalVoteRecord{
+			ApproverID: actor,
+			Decision:   decision,
+			Reason:     "",
+			VotedAt:    now,
+		}
+		if decision == "denied" {
+			vote.Reason = reason
+		}
+		votes = append(votes, vote)
+
+		requiredApprovals := rec.RequiredApprovals
+		if requiredApprovals <= 0 {
+			requiredApprovals = 1
+		}
+
+		status := "pending"
+		resolvedBy := ""
+		var resolvedAt *time.Time
+		resolvedReason := ""
+
+		if decision == "denied" {
+			status = "denied"
+			resolvedBy = actor
+			resolvedReason = reason
+			resolvedNow := now
+			resolvedAt = &resolvedNow
+		} else if countApprovedVotes(votes) >= requiredApprovals {
+			status = "approved"
+			resolvedBy = actor
+			resolvedNow := now
+			resolvedAt = &resolvedNow
+		}
+
+		votesJSON, err := approvalVotesToJSON(votes)
+		if err != nil {
+			return nil, fmt.Errorf("encode approval votes for %q: %w", rec.ID, err)
+		}
+
+		res, err := s.db.ExecContext(ctx, s.bind(`
+			UPDATE approvals
+			SET status = ?, resolved_at = ?, resolved_by = ?, reason = ?, required_approvals = ?, votes_json = ?
+			WHERE id = ? AND status = 'pending' AND expires_at > ? AND votes_json = ?
+		`), status, resolvedAt, resolvedBy, resolvedReason, requiredApprovals, votesJSON, id, now, rec.VotesJSON)
+		if err != nil {
+			return nil, err
+		}
+		if affectedRows(res) == 0 {
+			continue
+		}
+
+		updated, err := s.GetApproval(ctx, id)
+		if err != nil {
+			return nil, err
+		}
+		if updated == nil {
+			return nil, ErrNotFound
+		}
+		return updated, nil
+	}
+
+	return nil, fmt.Errorf("resolve approval vote: concurrent update conflict")
 }
 
 func (s *SQLStore) ListApprovals(ctx context.Context, tenantID string, status string) ([]ApprovalRecord, error) {

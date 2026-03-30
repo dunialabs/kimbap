@@ -43,7 +43,7 @@ func newTokenCreateCommand() *cobra.Command {
 		Use:   "create --agent <name> [--ttl <duration>] [--scopes <s1,s2>]",
 		Short: "Issue a new service token",
 		Args:  cobra.NoArgs,
-		RunE: func(_ *cobra.Command, _ []string) error {
+		RunE: func(cmd *cobra.Command, _ []string) error {
 			if strings.TrimSpace(agent) == "" {
 				return fmt.Errorf("--agent is required\nRun: kimbap token create --agent <name>")
 			}
@@ -67,7 +67,7 @@ func newTokenCreateCommand() *cobra.Command {
 			} else if ttl < 0 {
 				return auth.ErrInvalidTTL
 			}
-			raw, tok, err := tokenService.Issue(contextBackground(), tenant, agent, "", parseCSV(scopes), ttl)
+			raw, tok, err := tokenService.Issue(commandContext(cmd), tenant, agent, "", parseCSV(scopes), ttl)
 			if err != nil {
 				return err
 			}
@@ -112,7 +112,7 @@ func newTokenInspectCommand() *cobra.Command {
 		Use:   "inspect <token-id>",
 		Short: "Inspect token metadata",
 		Args:  cobra.ExactArgs(1),
-		RunE: func(_ *cobra.Command, args []string) error {
+		RunE: func(cmd *cobra.Command, args []string) error {
 			cfg, err := loadAppConfig()
 			if err != nil {
 				return err
@@ -123,7 +123,7 @@ func newTokenInspectCommand() *cobra.Command {
 			}
 			defer store.Close()
 
-			tok, err := store.Inspect(contextBackground(), args[0])
+			tok, err := store.Inspect(commandContext(cmd), args[0])
 			if err != nil {
 				return err
 			}
@@ -138,7 +138,7 @@ func newTokenRevokeCommand() *cobra.Command {
 		Use:   "revoke <token-id>",
 		Short: "Revoke a token immediately",
 		Args:  cobra.ExactArgs(1),
-		RunE: func(_ *cobra.Command, args []string) error {
+		RunE: func(cmd *cobra.Command, args []string) error {
 			cfg, err := loadAppConfig()
 			if err != nil {
 				return err
@@ -148,7 +148,7 @@ func newTokenRevokeCommand() *cobra.Command {
 				return err
 			}
 			defer tokenStore.Close()
-			if err := tokenService.Revoke(contextBackground(), args[0]); err != nil {
+			if err := tokenService.Revoke(commandContext(cmd), args[0]); err != nil {
 				return err
 			}
 			return printOutput(map[string]any{"revoked": true, "token_id": args[0]})
@@ -163,7 +163,7 @@ func newTokenListCommand() *cobra.Command {
 		Use:   "list [--tenant <id>]",
 		Short: "List token metadata",
 		Args:  cobra.NoArgs,
-		RunE: func(_ *cobra.Command, _ []string) error {
+		RunE: func(cmd *cobra.Command, _ []string) error {
 			cfg, err := loadAppConfig()
 			if err != nil {
 				return err
@@ -177,7 +177,7 @@ func newTokenListCommand() *cobra.Command {
 			if strings.TrimSpace(tenant) == "" {
 				tenant = defaultTenantID()
 			}
-			tokens, err := store.List(contextBackground(), tenant)
+			tokens, err := store.List(commandContext(cmd), tenant)
 			if err != nil {
 				return err
 			}

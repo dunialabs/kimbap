@@ -119,6 +119,41 @@ func TestHTTPAdapterPostBodyOmitsUndeclaredSchemaFields(t *testing.T) {
 	}
 }
 
+func TestHTTPAdapterPostBodyPreservesUndeclaredFieldsForFreeformSchema(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		body, _ := io.ReadAll(r.Body)
+		var payload map[string]any
+		_ = json.Unmarshal(body, &payload)
+		if payload["title"] != "hello" {
+			t.Fatalf("unexpected title payload: %+v", payload)
+		}
+		if _, ok := payload["inject"]; !ok {
+			t.Fatalf("expected undeclared input field in freeform payload: %+v", payload)
+		}
+		w.WriteHeader(http.StatusCreated)
+		_, _ = w.Write([]byte(`{"id":1}`))
+	}))
+	defer server.Close()
+
+	adapter := NewHTTPAdapter(server.Client())
+	res, err := adapter.Execute(context.Background(), AdapterRequest{
+		Action: actions.ActionDefinition{
+			InputSchema: &actions.Schema{Properties: map[string]*actions.Schema{
+				"title": {Type: "string"},
+			}, AdditionalProperties: true},
+			Adapter: actions.AdapterConfig{Type: "http", Method: "POST", URLTemplate: server.URL + "/issues"},
+		},
+		Input: map[string]any{"title": "hello", "inject": true},
+	})
+
+	if err != nil {
+		t.Fatalf("expected no error, got %v", err)
+	}
+	if res.HTTPStatus != http.StatusCreated {
+		t.Fatalf("expected 201, got %d", res.HTTPStatus)
+	}
+}
+
 func TestHTTPAdapterURLTemplateAndCustomHeader(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path != "/repos/octo/kimbap/issues" {
@@ -388,6 +423,24 @@ func TestBuildBodyWithTemplate(t *testing.T) {
 	}
 	if parsed["user_age"] != float64(30) {
 		t.Fatalf("expected user_age=30, got %v (type %T)", parsed["user_age"], parsed["user_age"])
+	}
+}
+
+func TestHTTPAdapterValidateAcceptsUppercaseHTTPSAbsoluteTemplate(t *testing.T) {
+	adapter := NewHTTPAdapter(nil)
+	err := adapter.Validate(actions.ActionDefinition{Adapter: actions.AdapterConfig{URLTemplate: "HTTPS://example.com/items"}})
+	if err != nil {
+		t.Fatalf("expected uppercase HTTPS template to be treated as absolute URL, got %v", err)
+	}
+}
+
+func TestResolveURLAcceptsUppercaseHTTPSAbsoluteTemplate(t *testing.T) {
+	resolved, err := resolveURL("", "HTTPS://example.com/items", map[string]any{})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if resolved != "HTTPS://example.com/items" {
+		t.Fatalf("expected resolved URL to remain absolute, got %q", resolved)
 	}
 }
 

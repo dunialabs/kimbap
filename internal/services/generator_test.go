@@ -1,6 +1,7 @@
 package services
 
 import (
+	"context"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -174,7 +175,7 @@ paths:
 	}))
 	defer server.Close()
 
-	manifest, err := GenerateFromOpenAPIURL(server.URL)
+	manifest, err := GenerateFromOpenAPIURL(context.Background(), server.URL)
 	if err != nil {
 		t.Fatalf("GenerateFromOpenAPIURL failed: %v", err)
 	}
@@ -210,7 +211,7 @@ paths:
 	}))
 	defer server.Close()
 
-	manifest, err := GenerateFromOpenAPIURL(server.URL)
+	manifest, err := GenerateFromOpenAPIURL(context.Background(), server.URL)
 	if err != nil {
 		t.Fatalf("GenerateFromOpenAPIURL failed: %v", err)
 	}

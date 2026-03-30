@@ -5,11 +5,11 @@ import (
 	"database/sql"
 	"encoding/json"
 	"errors"
-	"fmt"
 	"strings"
 	"time"
 
 	corecrypto "github.com/dunialabs/kimbap/internal/crypto"
+	"github.com/dunialabs/kimbap/internal/sqliteutil"
 	"github.com/google/uuid"
 	_ "modernc.org/sqlite"
 )
@@ -49,7 +49,7 @@ func OpenSQLiteStore(dsn string, envelope *corecrypto.EnvelopeService) (*SQLiteS
 		return nil, err
 	}
 	db.SetMaxOpenConns(1)
-	if err := applySQLiteConnectionPragmas(context.Background(), db, []string{
+	if err := sqliteutil.ApplyConnectionPragmas(context.Background(), db, []string{
 		"PRAGMA busy_timeout = 5000",
 		"PRAGMA foreign_keys = ON",
 	}); err != nil {
@@ -69,18 +69,6 @@ func (s *SQLiteStore) Close() error {
 		return nil
 	}
 	return s.db.Close()
-}
-
-func applySQLiteConnectionPragmas(ctx context.Context, db *sql.DB, pragmas []string) error {
-	if db == nil {
-		return errors.New("database is required")
-	}
-	for _, pragma := range pragmas {
-		if _, err := db.ExecContext(ctx, pragma); err != nil {
-			return fmt.Errorf("apply sqlite pragma %q: %w", pragma, err)
-		}
-	}
-	return nil
 }
 
 func (s *SQLiteStore) Create(ctx context.Context, tenantID string, name string, secretType SecretType, plaintext []byte, labels map[string]string, createdBy string) (*SecretRecord, error) {

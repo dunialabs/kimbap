@@ -3,6 +3,8 @@ package services
 import (
 	"context"
 	"encoding/json"
+	"fmt"
+	"net"
 	"net/url"
 	"strings"
 
@@ -11,13 +13,36 @@ import (
 
 const maxOpenAPISpecBytes int64 = 10 << 20
 
-func GenerateFromOpenAPIURL(rawURL string) (*ServiceManifest, error) {
-	body, fetchedURL, err := FetchHTTPResource(context.Background(), rawURL, maxOpenAPISpecBytes, "OpenAPI spec", false)
+func GenerateFromOpenAPIURL(ctx context.Context, rawURL string) (*ServiceManifest, error) {
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	parsed, err := url.Parse(strings.TrimSpace(rawURL))
+	if err != nil {
+		return nil, fmt.Errorf("invalid OpenAPI URL %q: %w", rawURL, err)
+	}
+	if strings.EqualFold(strings.TrimSpace(parsed.Scheme), "http") && !isLoopbackHost(parsed.Hostname()) {
+		return nil, fmt.Errorf("insecure URL %q rejected: use https:// for OpenAPI sources", rawURL)
+	}
+
+	body, fetchedURL, err := FetchHTTPResource(ctx, rawURL, maxOpenAPISpecBytes, "OpenAPI spec", false)
 	if err != nil {
 		return nil, err
 	}
 	body = resolveServerURL(body, fetchedURL.String())
 	return GenerateFromOpenAPI(body)
+}
+
+func isLoopbackHost(host string) bool {
+	host = strings.TrimSpace(host)
+	if host == "" {
+		return false
+	}
+	if strings.EqualFold(host, "localhost") {
+		return true
+	}
+	ip := net.ParseIP(host)
+	return ip != nil && ip.IsLoopback()
 }
 
 func resolveServerURL(specBytes []byte, fetchedURL string) []byte {

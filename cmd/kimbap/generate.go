@@ -135,6 +135,9 @@ func renderTypeScriptSnippets(grouped map[string][]actions.ActionDefinition) str
 					_, _ = fmt.Fprintf(&b, "  %s%s: %s;\n", tsFieldName(key), optionalMark, tsSchemaType(prop))
 				}
 			}
+			if schemaAllowsAdditionalProperties(def.InputSchema) {
+				_, _ = fmt.Fprintf(&b, "  [key: string]: unknown;\n")
+			}
 
 			_, _ = fmt.Fprintf(&b, "}\n\n")
 			_, _ = fmt.Fprintf(&b, "// Usage: %s\n\n", usageLine(def))
@@ -166,8 +169,14 @@ func renderPythonSnippets(grouped map[string][]actions.ActionDefinition) string 
 			_, _ = fmt.Fprintf(&b, "# %s — %s\n", def.Name, safeDesc)
 			_, _ = fmt.Fprintf(&b, "# Usage: %s\n", usageLine(def))
 
+			if schemaAllowsAdditionalProperties(def.InputSchema) {
+				_, _ = fmt.Fprintf(&b, "%s = dict[str, Any]\n\n", actionInputTypeName(def.Name))
+				continue
+			}
+
 			if def.InputSchema == nil || len(def.InputSchema.Properties) == 0 {
-				_, _ = fmt.Fprintf(&b, "class %s(TypedDict, total=False):\n", actionInputTypeName(def.Name))
+				typeName := actionInputTypeName(def.Name)
+				_, _ = fmt.Fprintf(&b, "class %s(TypedDict, total=False):\n", typeName)
 				_, _ = fmt.Fprintf(&b, "    pass\n\n")
 				continue
 			}
@@ -331,6 +340,13 @@ func requiredFields(schema *actions.Schema) map[string]bool {
 		required[key] = true
 	}
 	return required
+}
+
+func schemaAllowsAdditionalProperties(schema *actions.Schema) bool {
+	if schema == nil {
+		return false
+	}
+	return schema.AdditionalProperties
 }
 
 func actionInputTypeName(actionName string) string {

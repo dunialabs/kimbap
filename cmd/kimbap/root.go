@@ -34,6 +34,7 @@ type cliOptions struct {
 	logLevel       string
 	mode           string
 	format         string
+	splashColor    string
 	jsonInput      string
 	idempotencyKey string
 	dryRun         bool
@@ -94,6 +95,7 @@ func init() {
 	flags.StringVar(&opts.logLevel, "log-level", "", "log level (debug, info, warn, error)")
 	flags.StringVar(&opts.mode, "mode", "", "execution mode (dev, embedded, connected)")
 	flags.StringVar(&opts.format, "format", "text", "output format (text, json)")
+	flags.StringVar(&opts.splashColor, "splash-color", "", "splash color mode override (auto, truecolor, ansi256, none)")
 	flags.BoolVar(&opts.dryRun, "dry-run", false, "validate and preview without executing (returns JSON)")
 	flags.BoolVar(&opts.trace, "trace", false, "print execution pipeline trace to stderr")
 	flags.BoolVar(&opts.noSplash, "no-splash", false, "disable startup splash output")
@@ -164,11 +166,6 @@ func init() {
 	}
 }
 
-// prescanRawSplashFlags scans os.Args for --no-splash and --format flags
-// before cobra parses them. This is needed because the "call" command uses
-// DisableFlagParsing which prevents normal flag parsing, and the root
-// PersistentPreRun fires before any child PersistentPreRun when
-// EnableTraverseRunHooks is enabled.
 func prescanRawSplashFlags() {
 	for i := 1; i < len(os.Args); i++ {
 		tok := strings.TrimSpace(os.Args[i])
@@ -190,8 +187,16 @@ func prescanRawSplashFlags() {
 				opts.format = next
 				i++
 			}
+		case tok == "--splash-color" && i+1 < len(os.Args):
+			next := strings.TrimSpace(os.Args[i+1])
+			if !strings.HasPrefix(next, "-") {
+				opts.splashColor = next
+				i++
+			}
 		case strings.HasPrefix(tok, "--format="):
 			opts.format = strings.TrimSpace(strings.TrimPrefix(tok, "--format="))
+		case strings.HasPrefix(tok, "--splash-color="):
+			opts.splashColor = strings.TrimSpace(strings.TrimPrefix(tok, "--splash-color="))
 		}
 	}
 }
@@ -214,10 +219,11 @@ func splashOptions() splash.Options {
 	cfg, err := loadSplashConfig()
 	if err != nil {
 		return splash.Options{
-			Version:     config.CLIVersion(),
-			Mode:        modeFromRaw(opts.mode),
-			VaultStatus: vaultStatusFromRaw(opts.mode),
-			Server:      strings.TrimSpace(os.Getenv("KIMBAP_AUTH_SERVER_URL")),
+			Version:      config.CLIVersion(),
+			Mode:         modeFromRaw(opts.mode),
+			VaultStatus:  vaultStatusFromRaw(opts.mode),
+			Server:       strings.TrimSpace(os.Getenv("KIMBAP_AUTH_SERVER_URL")),
+			ColorProfile: detectSplashColorProfile(),
 		}
 	}
 
@@ -226,10 +232,11 @@ func splashOptions() splash.Options {
 	}
 
 	return splash.Options{
-		Version:     config.CLIVersion(),
-		Mode:        modeFromRaw(cfg.Mode),
-		VaultStatus: vaultStatusFromConfig(cfg),
-		Server:      strings.TrimSpace(cfg.Auth.ServerURL),
+		Version:      config.CLIVersion(),
+		Mode:         modeFromRaw(cfg.Mode),
+		VaultStatus:  vaultStatusFromConfig(cfg),
+		Server:       strings.TrimSpace(cfg.Auth.ServerURL),
+		ColorProfile: detectSplashColorProfile(),
 	}
 }
 
@@ -332,6 +339,77 @@ func isColorStdout() bool {
 		return false
 	}
 	return fi.Mode()&os.ModeCharDevice != 0
+}
+
+func detectSplashColorProfile() splash.ColorProfile {
+	if override, ok := parseSplashColorProfile(rawSplashColorOverride()); ok {
+		return override
+	}
+
+	if !isColorStdout() {
+		return splash.ColorProfileNone
+	}
+	if supportsTrueColorEnv() {
+		return splash.ColorProfileTrueColor
+	}
+	if supportsANSI256Env() {
+		return splash.ColorProfileANSI256
+	}
+	return splash.ColorProfileNone
+}
+
+func rawSplashColorOverride() string {
+	if raw := strings.TrimSpace(opts.splashColor); raw != "" {
+		return raw
+	}
+	return strings.TrimSpace(os.Getenv("KIMBAP_SPLASH_COLOR"))
+}
+
+func parseSplashColorProfile(raw string) (splash.ColorProfile, bool) {
+	v := strings.ToLower(strings.TrimSpace(raw))
+	if v == "" {
+		return splash.ColorProfileAuto, false
+	}
+	switch v {
+	case "auto":
+		return splash.ColorProfileAuto, false
+	case "truecolor", "24bit", "24-bit":
+		return splash.ColorProfileTrueColor, true
+	case "ansi256", "256", "256color", "256-color":
+		return splash.ColorProfileANSI256, true
+	case "none", "off", "false", "no":
+		return splash.ColorProfileNone, true
+	default:
+		return splash.ColorProfileAuto, false
+	}
+}
+
+func supportsTrueColorEnv() bool {
+	colorterm := strings.ToLower(strings.TrimSpace(os.Getenv("COLORTERM")))
+	if strings.Contains(colorterm, "truecolor") || strings.Contains(colorterm, "24bit") {
+		return true
+	}
+
+	term := strings.ToLower(strings.TrimSpace(os.Getenv("TERM")))
+	if strings.Contains(term, "direct") {
+		return true
+	}
+
+	termProgram := strings.ToLower(strings.TrimSpace(os.Getenv("TERM_PROGRAM")))
+	if termProgram == "iterm.app" || termProgram == "apple_terminal" || termProgram == "wezterm" || termProgram == "vscode" {
+		return true
+	}
+
+	if strings.TrimSpace(os.Getenv("WT_SESSION")) != "" || strings.TrimSpace(os.Getenv("KITTY_WINDOW_ID")) != "" {
+		return true
+	}
+
+	return false
+}
+
+func supportsANSI256Env() bool {
+	term := strings.ToLower(strings.TrimSpace(os.Getenv("TERM")))
+	return strings.Contains(term, "256color")
 }
 
 func isDryRun() bool {
@@ -651,6 +729,15 @@ func parseJSONMap(raw string) (map[string]any, error) {
 
 func contextBackground() context.Context {
 	return context.Background()
+}
+
+func commandContext(cmd *cobra.Command) context.Context {
+	if cmd != nil {
+		if ctx := cmd.Context(); ctx != nil {
+			return ctx
+		}
+	}
+	return contextBackground()
 }
 
 func buildRuntimeFromConfig(cfg *config.KimbapConfig) (*runtime.Runtime, error) {

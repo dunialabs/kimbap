@@ -43,7 +43,7 @@ func (a *HTTPAdapter) Validate(def actions.ActionDefinition) error {
 	if tmpl == "" {
 		return fmt.Errorf("adapter url template is required")
 	}
-	if !strings.HasPrefix(tmpl, "http://") && !strings.HasPrefix(tmpl, "https://") {
+	if !isHTTPURL(tmpl) {
 		if strings.TrimSpace(def.Adapter.BaseURL) == "" {
 			return fmt.Errorf("adapter base_url is required for relative url template %q", tmpl)
 		}
@@ -424,7 +424,7 @@ func resolveURL(baseURL, tmpl string, values map[string]any) (string, error) {
 		return "", fmt.Errorf("missing url template variables")
 	}
 
-	if strings.HasPrefix(resolved, "http://") || strings.HasPrefix(resolved, "https://") {
+	if isHTTPURL(resolved) {
 		if strings.TrimSpace(baseURL) != "" {
 			if err := validateResolvedHostMatchesBase(baseURL, resolved); err != nil {
 				return "", err
@@ -537,6 +537,9 @@ func filterInputBySchema(input map[string]any, schema *actions.Schema) map[strin
 	if input == nil {
 		return nil
 	}
+	if schema != nil && schema.AdditionalProperties {
+		return cloneAnyMap(input)
+	}
 	if schema == nil || schema.Properties == nil {
 		return cloneAnyMap(input)
 	}
@@ -547,6 +550,15 @@ func filterInputBySchema(input map[string]any, schema *actions.Schema) map[strin
 		}
 	}
 	return out
+}
+
+func isHTTPURL(raw string) bool {
+	parsed, err := url.Parse(strings.TrimSpace(raw))
+	if err != nil {
+		return false
+	}
+	scheme := strings.ToLower(strings.TrimSpace(parsed.Scheme))
+	return scheme == "http" || scheme == "https"
 }
 
 func resolveBodyTemplate(tmpl string, input map[string]any) ([]byte, error) {

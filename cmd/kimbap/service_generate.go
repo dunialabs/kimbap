@@ -19,18 +19,19 @@ func newServiceGenerateCommand() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "generate --openapi <path-or-url> [--output file.yaml]",
 		Short: "Generate a service manifest from OpenAPI 3.x",
-		RunE: func(_ *cobra.Command, _ []string) error {
+		RunE: func(cmd *cobra.Command, _ []string) error {
 			var (
 				manifest *services.ServiceManifest
 				err      error
 			)
 
-			if strings.HasPrefix(strings.TrimSpace(openapiSource), "http://") {
+			scheme, hasHTTP := serviceURLScheme(openapiSource)
+			if hasHTTP && scheme == "http" {
 				return fmt.Errorf("insecure URL %q rejected: use https:// for OpenAPI sources", openapiSource)
 			}
 
 			if isServiceHTTPURL(openapiSource) {
-				manifest, err = services.GenerateFromOpenAPIURL(openapiSource)
+				manifest, err = services.GenerateFromOpenAPIURL(commandContext(cmd), openapiSource)
 			} else {
 				manifest, err = services.GenerateFromOpenAPIFile(openapiSource)
 			}
@@ -63,16 +64,25 @@ func newServiceGenerateCommand() *cobra.Command {
 }
 
 func isServiceHTTPURL(value string) bool {
-	parsed, err := url.Parse(strings.TrimSpace(value))
-	if err != nil {
-		return false
-	}
-	return parsed.Scheme == "http" || parsed.Scheme == "https"
+	_, ok := serviceURLScheme(value)
+	return ok
 }
 
-func parseServiceManifestURL(serviceURL string) (*services.ServiceManifest, error) {
+func serviceURLScheme(value string) (string, bool) {
+	parsed, err := url.Parse(strings.TrimSpace(value))
+	if err != nil {
+		return "", false
+	}
+	scheme := strings.ToLower(strings.TrimSpace(parsed.Scheme))
+	if scheme != "http" && scheme != "https" {
+		return "", false
+	}
+	return scheme, true
+}
+
+func parseServiceManifestURL(ctx context.Context, serviceURL string) (*services.ServiceManifest, error) {
 	const maxManifestBytes = 1 << 20
-	body, _, err := services.FetchHTTPResource(context.Background(), serviceURL, maxManifestBytes, "service manifest", true)
+	body, _, err := services.FetchHTTPResource(ctx, serviceURL, maxManifestBytes, "service manifest", true)
 	if err != nil {
 		return nil, err
 	}

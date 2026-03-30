@@ -1016,7 +1016,7 @@ func resolveServiceInstallSource(ctx context.Context, arg string) (*services.Ser
 		return nil, "", fmt.Errorf("insecure URL %q rejected: use https:// to install service manifests", trimmed)
 	}
 	if scheme := serviceSourceURLScheme(trimmed); scheme == "https" {
-		manifest, err := parseServiceManifestURL(trimmed)
+		manifest, err := parseServiceManifestURL(ctx, trimmed)
 		if err != nil {
 			return nil, "", err
 		}

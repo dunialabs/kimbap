@@ -78,7 +78,7 @@ func TestLinkStdinReadsAndStoresCredential(t *testing.T) {
 		CredentialRef: "stripe.api_key",
 	}
 
-	err = linkStoreCredentialFromInput(mock, "default", "stripe.api_key", info, true, "")
+	err = linkStoreCredentialFromInput(context.Background(), mock, "default", "stripe.api_key", info, true, "")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -111,7 +111,7 @@ func TestLinkFileReadsAndStoresCredential(t *testing.T) {
 		CredentialRef: "stripe.api_key",
 	}
 
-	err := linkStoreCredentialFromInput(mock, "default", "stripe.api_key", info, false, keyFile)
+	err := linkStoreCredentialFromInput(context.Background(), mock, "default", "stripe.api_key", info, false, keyFile)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -258,7 +258,7 @@ func TestLinkInteractivePrompt_NonTTY_PrintsInstructions(t *testing.T) {
 		CredentialRef: "github.api_key",
 	}
 
-	err = linkHandleKeyBasedService(nil, info, false, "default", false, "", true)
+	err = linkHandleKeyBasedService(context.Background(), nil, info, false, "default", false, "", true)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}

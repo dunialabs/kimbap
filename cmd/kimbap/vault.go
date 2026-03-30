@@ -44,7 +44,7 @@ func newVaultSetCommand() *cobra.Command {
   # Overwrite an existing secret
   printf '%s' "$NEW_KEY" | kimbap vault set github.api_key --stdin --force`,
 		Args: cobra.ExactArgs(1),
-		RunE: func(_ *cobra.Command, args []string) error {
+		RunE: func(cmd *cobra.Command, args []string) error {
 			cfg, err := loadAppConfig()
 			if err != nil {
 				return err
@@ -64,10 +64,11 @@ func newVaultSetCommand() *cobra.Command {
 			}
 
 			var rec *vault.SecretRecord
+			cmdCtx := commandContext(cmd)
 			if force {
-				rec, err = store.Upsert(contextBackground(), defaultTenantID(), args[0], kind, payload, nil, "cli")
+				rec, err = store.Upsert(cmdCtx, defaultTenantID(), args[0], kind, payload, nil, "cli")
 			} else {
-				rec, err = store.Create(contextBackground(), defaultTenantID(), args[0], kind, payload, nil, "cli")
+				rec, err = store.Create(cmdCtx, defaultTenantID(), args[0], kind, payload, nil, "cli")
 			}
 			if err != nil {
 				return err
@@ -94,7 +95,7 @@ func newVaultGetCommand() *cobra.Command {
 		Use:   "get <name>",
 		Short: "Show secret metadata or reveal value",
 		Args:  cobra.ExactArgs(1),
-		RunE: func(_ *cobra.Command, args []string) error {
+		RunE: func(cmd *cobra.Command, args []string) error {
 			cfg, err := loadAppConfig()
 			if err != nil {
 				return err
@@ -105,8 +106,9 @@ func newVaultGetCommand() *cobra.Command {
 			}
 			defer closeVaultStoreIfPossible(store)
 
+			cmdCtx := commandContext(cmd)
 			if !reveal {
-				rec, err := store.GetMeta(contextBackground(), defaultTenantID(), args[0])
+				rec, err := store.GetMeta(cmdCtx, defaultTenantID(), args[0])
 				if err != nil {
 					return err
 				}
@@ -131,11 +133,11 @@ func newVaultGetCommand() *cobra.Command {
 				return fmt.Errorf("--confirm-reveal is required when using --reveal")
 			}
 
-			value, err := store.GetValue(contextBackground(), defaultTenantID(), args[0])
+			value, err := store.GetValue(cmdCtx, defaultTenantID(), args[0])
 			if err != nil {
 				return err
 			}
-			if err := store.MarkUsed(contextBackground(), defaultTenantID(), args[0]); err != nil {
+			if err := store.MarkUsed(cmdCtx, defaultTenantID(), args[0]); err != nil {
 				_, _ = fmt.Fprintf(os.Stderr, "warning: failed to record secret usage for %q: %v\n", args[0], err)
 			}
 			if outputAsJSON() {
@@ -169,7 +171,7 @@ func newVaultListCommand() *cobra.Command {
 				return err
 			}
 			defer closeVaultStoreIfPossible(store)
-			records, err := store.List(contextBackground(), defaultTenantID(), vault.ListOptions{})
+			records, err := store.List(commandContext(cmd), defaultTenantID(), vault.ListOptions{})
 			if err != nil {
 				return err
 			}
@@ -211,7 +213,7 @@ func newVaultRotateCommand() *cobra.Command {
 		Use:   "rotate <name>",
 		Short: "Rotate an existing secret with a new value",
 		Args:  cobra.ExactArgs(1),
-		RunE: func(_ *cobra.Command, args []string) error {
+		RunE: func(cmd *cobra.Command, args []string) error {
 			cfg, err := loadAppConfig()
 			if err != nil {
 				return err
@@ -225,7 +227,7 @@ func newVaultRotateCommand() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			rec, err := store.Rotate(contextBackground(), defaultTenantID(), args[0], payload, "cli")
+			rec, err := store.Rotate(commandContext(cmd), defaultTenantID(), args[0], payload, "cli")
 			if err != nil {
 				return err
 			}
@@ -246,7 +248,7 @@ func newVaultDeleteCommand() *cobra.Command {
 		Use:   "delete <name> [--force]",
 		Short: "Delete a secret and all its versions",
 		Args:  cobra.ExactArgs(1),
-		RunE: func(_ *cobra.Command, args []string) error {
+		RunE: func(cmd *cobra.Command, args []string) error {
 			name := strings.TrimSpace(args[0])
 			if name == "" {
 				return fmt.Errorf("secret name is required")
@@ -268,7 +270,7 @@ func newVaultDeleteCommand() *cobra.Command {
 			}
 			defer closeVaultStoreIfPossible(store)
 
-			if err := store.Delete(contextBackground(), defaultTenantID(), name); err != nil {
+			if err := store.Delete(commandContext(cmd), defaultTenantID(), name); err != nil {
 				return err
 			}
 			if outputAsJSON() {

@@ -60,7 +60,7 @@ func newLinkCommand() *cobra.Command {
   # Check connection status
   kimbap link github --status`,
 		Args: cobra.ExactArgs(1),
-		RunE: func(_ *cobra.Command, args []string) error {
+		RunE: func(cmd *cobra.Command, args []string) error {
 			service := strings.TrimSpace(args[0])
 			if service == "" {
 				return fmt.Errorf("service is required")
@@ -112,8 +112,9 @@ func newLinkCommand() *cobra.Command {
 				return printOutput(fmt.Sprintf("%s requires no authentication.", info.Service))
 			}
 
+			cmdCtx := commandContext(cmd)
 			tenantID := connectorTenant(tenant)
-			oauthStates, oauthErr := listConnectorStates(contextBackground(), cfg, tenantID)
+			oauthStates, oauthErr := listConnectorStates(cmdCtx, cfg, tenantID)
 			if oauthErr != nil {
 				_, _ = fmt.Fprintf(os.Stderr, "warning: %s\n", unavailableMessage(componentConnectorStore, oauthErr))
 			}
@@ -175,7 +176,7 @@ func newLinkCommand() *cobra.Command {
 				)
 
 			default:
-				return linkHandleKeyBasedService(cfg, info, statusOnly, connectorTenant(tenant), fromStdin, fromFile, noVerify)
+				return linkHandleKeyBasedService(cmdCtx, cfg, info, statusOnly, connectorTenant(tenant), fromStdin, fromFile, noVerify)
 			}
 		},
 	}
@@ -209,8 +210,9 @@ func newLinkListCommand() *cobra.Command {
 				return err
 			}
 
+			cmdCtx := commandContext(c)
 			tenantID := connectorTenant(tenant)
-			oauthStates, oauthErr := listConnectorStates(contextBackground(), cfg, tenantID)
+			oauthStates, oauthErr := listConnectorStates(cmdCtx, cfg, tenantID)
 			if oauthErr != nil {
 				return unavailableError(componentConnectorStore, oauthErr)
 			}
@@ -253,7 +255,7 @@ func newLinkListCommand() *cobra.Command {
 				default:
 					row.CredentialRef = info.CredentialRef
 					if vs != nil && strings.TrimSpace(info.CredentialRef) != "" {
-						if exists, getErr := vs.Exists(contextBackground(), tenantID, info.CredentialRef); getErr == nil && exists {
+						if exists, getErr := vs.Exists(cmdCtx, tenantID, info.CredentialRef); getErr == nil && exists {
 							row.Status = "connected"
 						} else if getErr == nil || errors.Is(getErr, vault.ErrSecretNotFound) {
 							row.Status = "not_connected"
@@ -485,7 +487,7 @@ func defaultRunVerificationAction(ctx context.Context, cfg *config.KimbapConfig,
 	defer cancel()
 	rt, runtimeCleanup, err := buildRuntimeFromConfigWithCleanup(cfg)
 	if err != nil {
-		return successCheck()+" Stored (verification skipped)"
+		return successCheck() + " Stored (verification skipped)"
 	}
 	defer runtimeCleanup()
 	result := rt.Execute(verifyCtx, actions.ExecutionRequest{
@@ -512,16 +514,16 @@ func defaultRunVerificationAction(ctx context.Context, cfg *config.KimbapConfig,
 func verifyLinkedService(ctx context.Context, cfg *config.KimbapConfig, serviceName, tenantID string) string {
 	defs, err := loadInstalledActions(cfg)
 	if err != nil {
-		return successCheck()+" Stored (verification skipped)"
+		return successCheck() + " Stored (verification skipped)"
 	}
 	action := findVerificationAction(defs, serviceName)
 	if action == nil {
-		return successCheck()+" Stored (no low-risk action available for automatic verification)"
+		return successCheck() + " Stored (no low-risk action available for automatic verification)"
 	}
 	return runVerificationAction(ctx, cfg, action, tenantID)
 }
 
-func linkHandleKeyBasedService(cfg *config.KimbapConfig, info linkServiceInfo, statusOnly bool, tenantID string, fromStdin bool, fromFile string, noVerify bool) error {
+func linkHandleKeyBasedService(ctx context.Context, cfg *config.KimbapConfig, info linkServiceInfo, statusOnly bool, tenantID string, fromStdin bool, fromFile string, noVerify bool) error {
 	credentialRef := strings.TrimSpace(info.CredentialRef)
 	if credentialRef == "" {
 		if outputAsJSON() {
@@ -542,17 +544,17 @@ func linkHandleKeyBasedService(cfg *config.KimbapConfig, info linkServiceInfo, s
 	defer closeVaultStoreIfPossible(vs)
 
 	if fromStdin || fromFile != "" {
-		if err := linkStoreCredentialFromInput(vs, tenantID, credentialRef, info, fromStdin, fromFile); err != nil {
+		if err := linkStoreCredentialFromInput(ctx, vs, tenantID, credentialRef, info, fromStdin, fromFile); err != nil {
 			return err
 		}
 		if !noVerify {
-			msg := verifyLinkedService(contextBackground(), cfg, info.Service, tenantID)
+			msg := verifyLinkedService(ctx, cfg, info.Service, tenantID)
 			_, _ = fmt.Fprintln(os.Stderr, msg)
 		}
 		return nil
 	}
 
-	exists, err := vs.Exists(contextBackground(), tenantID, credentialRef)
+	exists, err := vs.Exists(ctx, tenantID, credentialRef)
 	if err == nil && exists {
 		if outputAsJSON() {
 			return printOutput(map[string]any{
@@ -604,11 +606,11 @@ func linkHandleKeyBasedService(cfg *config.KimbapConfig, info linkServiceInfo, s
 			return fmt.Errorf("read credential: %w", readErr)
 		}
 		_, _ = fmt.Fprintln(os.Stderr)
-		if err := linkStoreCredentialPayload(vs, tenantID, credentialRef, info, credential); err != nil {
+		if err := linkStoreCredentialPayload(ctx, vs, tenantID, credentialRef, info, credential); err != nil {
 			return err
 		}
 		if !noVerify {
-			msg := verifyLinkedService(contextBackground(), cfg, info.Service, tenantID)
+			msg := verifyLinkedService(ctx, cfg, info.Service, tenantID)
 			_, _ = fmt.Fprintln(os.Stderr, msg)
 		}
 		return nil
@@ -643,21 +645,21 @@ func linkRejectStdinFileForOAuth(info linkServiceInfo, oauthStates []connectorSt
 	return fmt.Errorf("service %q uses OAuth authentication. Use 'kimbap auth connect %s' instead of --stdin/--file", info.Service, info.Service)
 }
 
-func linkStoreCredentialFromInput(vs vault.Store, tenantID, credentialRef string, info linkServiceInfo, fromStdin bool, fromFile string) error {
+func linkStoreCredentialFromInput(ctx context.Context, vs vault.Store, tenantID, credentialRef string, info linkServiceInfo, fromStdin bool, fromFile string) error {
 	payload, err := readSecretInput(fromFile, fromStdin)
 	if err != nil {
 		return err
 	}
-	return linkStoreCredentialPayload(vs, tenantID, credentialRef, info, payload)
+	return linkStoreCredentialPayload(ctx, vs, tenantID, credentialRef, info, payload)
 }
 
-func linkStoreCredentialPayload(vs vault.Store, tenantID, credentialRef string, info linkServiceInfo, payload []byte) error {
+func linkStoreCredentialPayload(ctx context.Context, vs vault.Store, tenantID, credentialRef string, info linkServiceInfo, payload []byte) error {
 	payload = bytes.TrimSpace(payload)
 	if len(payload) == 0 {
 		return fmt.Errorf("credential value is empty after trimming whitespace")
 	}
 	secretType := linkAuthTypeToSecretType(info.AuthType)
-	if _, err := vs.Upsert(contextBackground(), tenantID, credentialRef, secretType, payload, nil, "cli"); err != nil {
+	if _, err := vs.Upsert(ctx, tenantID, credentialRef, secretType, payload, nil, "cli"); err != nil {
 		return err
 	}
 	if outputAsJSON() {
