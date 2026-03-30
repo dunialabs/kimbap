@@ -86,6 +86,8 @@ kimbap agents setup
 
 Detects installed agents, generates SKILL.md per service, and installs them into each agent's config.
 
+Service lifecycle commands (`service install`, `enable`, `disable`, `remove`, `update`) also attempt automatic agent sync in text mode when agent configs are detected. Use `kimbap agents sync` for explicit sync control (or JSON workflows).
+
 Works with Claude Code, OpenCode, Codex, Cursor, and any agent that can run a CLI command.
 
 ---
