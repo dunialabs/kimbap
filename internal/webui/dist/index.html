@@ -1522,6 +1522,7 @@ td.mono {
         var items = (r.body && r.body.data) ? r.body.data : [];
         var count = Array.isArray(items) ? items.length : 0;
         el.textContent = count;
+        el.style.color = count > 0 ? 'var(--accent-amber)' : '';
         sub.textContent = count === 0 ? 'No pending approvals' : (count === 1 ? '1 action awaiting review' : count + ' actions awaiting review');
         setApprovalsBadge(count);
       }).catch(function() {
