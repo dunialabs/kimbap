@@ -941,6 +941,25 @@ td.mono {
   max-height: 300px;
   overflow-y: auto;
 }
+
+/* ── Nav badge ── */
+.nav-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  font-size: 11px;
+  font-weight: 700;
+  font-family: var(--font-mono);
+  background: #c53040;
+  color: #fff;
+  border-radius: 9px;
+  margin-left: 6px;
+  vertical-align: middle;
+  line-height: 1;
+}
 </style>
 </head>
 <body>
@@ -956,7 +975,7 @@ td.mono {
     <nav class="nav-tabs" id="nav" aria-label="Console sections">
       <button type="button" class="nav-tab active" data-view="dashboard" aria-current="page">Dashboard</button>
       <button type="button" class="nav-tab" data-view="actions">Actions</button>
-      <button type="button" class="nav-tab" data-view="approvals">Approvals</button>
+      <button type="button" class="nav-tab" data-view="approvals">Approvals <span id="approvalsBadge" class="nav-badge" style="display:none"></span></button>
       <button type="button" class="nav-tab" data-view="audit">Audit</button>
       <button type="button" class="nav-tab" data-view="services">Vault</button>
     </nav>
@@ -1092,6 +1111,7 @@ td.mono {
     auditItems: null,
     vault: null,
     dashTimer: null,
+    approvalsTimer: null,
     errors: {},
     requestEpoch: 0,
     actionDetailRequestId: 0,
@@ -1138,6 +1158,7 @@ td.mono {
 
   function switchView(name) {
     if (state.view === name) return;
+    var prev = state.view;
     state.view = name;
     tabs.forEach(function(t) {
       var isActive = t.dataset.view === name;
@@ -1151,6 +1172,8 @@ td.mono {
     views.forEach(function(v) {
       v.classList.toggle('active', v.id === 'view-' + name);
     });
+    if (prev === 'approvals' && name !== 'approvals') stopApprovalsTimer();
+    if (name === 'approvals') startApprovalsTimer();
     window.location.hash = name;
     loadViewData(name);
   }
@@ -1268,6 +1291,8 @@ td.mono {
     state.requestEpoch += 1;
     state.approvalsBusy = {};
     updateAuthUI();
+    setApprovalsBadge(null);
+    stopApprovalsTimer();
     state.audit = null;
     state.auditItems = null;
     state.vault = null;
@@ -1276,6 +1301,19 @@ td.mono {
 
   function isViewRequestCurrent(viewName, requestEpoch) {
     return state.requestEpoch === requestEpoch && state.view === viewName;
+  }
+
+  // ── Nav badge ──
+  function setApprovalsBadge(count) {
+    var el = document.getElementById('approvalsBadge');
+    if (!el) return;
+    if (typeof count === 'number' && count > 0) {
+      el.textContent = count > 99 ? '99+' : String(count);
+      el.style.display = '';
+    } else {
+      el.textContent = '';
+      el.style.display = 'none';
+    }
   }
 
   // ── Render helpers ──
@@ -1478,12 +1516,14 @@ td.mono {
         if (r.status === 401 || r.status === 403) {
           el.textContent = '—';
           sub.textContent = 'Token lacks approvals scope';
+          setApprovalsBadge(null);
           return;
         }
         var items = (r.body && r.body.data) ? r.body.data : [];
         var count = Array.isArray(items) ? items.length : 0;
         el.textContent = count;
         sub.textContent = count === 0 ? 'No pending approvals' : (count === 1 ? '1 action awaiting review' : count + ' actions awaiting review');
+        setApprovalsBadge(count);
       }).catch(function() {
         if (!isViewRequestCurrent('dashboard', requestEpoch)) return;
         document.getElementById('dashApprovals').textContent = '—';
@@ -1492,6 +1532,7 @@ td.mono {
     } else {
       document.getElementById('dashApprovals').textContent = '—';
       document.getElementById('dashApprovalsSub').textContent = 'Token required';
+      setApprovalsBadge(null);
     }
   }
 
@@ -1500,6 +1541,28 @@ td.mono {
     state.dashTimer = setInterval(function() {
       if (state.view === 'dashboard') loadDashboard();
     }, 30000);
+  }
+
+  // ── Approvals timer ──
+  function startApprovalsTimer() {
+    stopApprovalsTimer();
+    state.approvalsTimer = setInterval(refreshTimeLeftCells, 30000);
+  }
+
+  function stopApprovalsTimer() {
+    if (state.approvalsTimer) {
+      clearInterval(state.approvalsTimer);
+      state.approvalsTimer = null;
+    }
+  }
+
+  function refreshTimeLeftCells() {
+    var cells = document.querySelectorAll('[data-expires]');
+    cells.forEach(function(td) {
+      var expires = td.getAttribute('data-expires');
+      if (!expires) return;
+      td.textContent = fmtTimeRemaining(expires);
+    });
   }
 
   // ── Actions ──
@@ -1653,12 +1716,6 @@ td.mono {
     return parts.join(' ');
   }
 
-  function buildAliasHint(name, inputSchema) {
-    var direct = buildCopyCmd(name, inputSchema);
-    var usage = direct.replace(/^kimbap call\s+[^\s]+/, '<shortcut>');
-    return 'Shortcut command format:\n' + usage + '\nIf not configured yet, set once:\nkimbap alias set <shortcut> ' + name;
-  }
-
   function renderActionDetail(a) {
     var detailEl = document.getElementById('actionDetail');
     var name = getField(a, 'Name', 'name') || 'unnamed';
@@ -1683,8 +1740,6 @@ td.mono {
     var urlTemplate = getField(adapter, 'URLTemplate', 'url_template') || '';
     var inputSchema = a.InputSchema || a.input_schema;
     var schemaDisplay;
-    var aliasHint = buildAliasHint(name, inputSchema);
-
     var html = '<div class="action-detail">' +
       '<div class="action-detail-header">' +
         '<h3>' + esc(name) + '</h3>' +
@@ -1693,7 +1748,6 @@ td.mono {
       '</div>' +
       (displayName && displayName.trim().toLowerCase() !== rawDesc.trim().toLowerCase() && displayName.trim().toLowerCase() !== name.trim().toLowerCase() ? '<p style="color:var(--text-secondary);margin-bottom:var(--space-md)">' + esc(displayName) + '</p>' : '') +
       '<p style="color:var(--text-secondary);margin-bottom:var(--space-md)">' + esc(desc) + '</p>' +
-      '<p style="color:var(--text-secondary);margin-bottom:var(--space-md)">Shortcut CLI:<br><code>' + esc(aliasHint).replace(/\n/g, '<br>') + '</code></p>' +
       '<div class="detail-grid">' +
         detailField('Namespace', ns) +
         detailField('Verb', verb !== '—' ? verb.toUpperCase() : verb) +
@@ -1708,6 +1762,7 @@ td.mono {
         (method ? detailField('HTTP Method', method.toUpperCase()) : '') +
         (baseUrl ? detailField('Base URL', baseUrl) : '') +
         (urlTemplate ? detailField('URL Template', urlTemplate) : '') +
+        detailField('Shortcut Setup', 'kimbap alias set <shortcut-name> ' + name) +
       '</div>';
 
     if (inputSchema) {
@@ -1916,6 +1971,7 @@ td.mono {
       var items;
       if (r.status === 401 || r.status === 403) {
         state.approvals = [];
+        setApprovalsBadge(null);
         errMsg = 'This token cannot access approvals. Paste a token with approval permissions.';
         container.innerHTML = authGateHTML('approvals', errMsg);
         return;
@@ -1929,6 +1985,7 @@ td.mono {
       items = r.body.data;
       if (!Array.isArray(items) || items.length === 0) {
         state.approvals = [];
+        setApprovalsBadge(0);
         container.innerHTML = '<div class="empty-state">' +
           '<div class="empty-state-icon">✅</div>' +
           '<h3>No pending approvals</h3>' +
@@ -1936,6 +1993,7 @@ td.mono {
         return;
       }
       state.approvals = items;
+      setApprovalsBadge(items.length);
       renderApprovalsTable(items, container);
     }).catch(function() {
       if (!isViewRequestCurrent('approvals', requestEpoch)) return;
@@ -2076,7 +2134,7 @@ td.mono {
         '<td title="' + escAttr(statusTitle) + '" aria-label="' + escAttr(statusTitle) + '">' + approvalStatusBadge(status) + '<span class="sr-only"> ' + esc(statusBadgeText) + '</span></td>' +
         '<td class="mono"' + createdTitleAttr + createdAriaAttr + '>' + esc(createdDisplay) + '</td>' +
         '<td class="mono"' + expiresTitleAttr + expiresAriaAttr + '>' + esc(expiresDisplay) + '</td>' +
-        '<td class="mono"' + timeLeftTitleAttr + timeLeftAriaAttr + '>' + esc(timeLeftDisplay) + '</td>' +
+        '<td class="mono" data-expires="' + escAttr(expires) + '"' + timeLeftTitleAttr + timeLeftAriaAttr + '>' + esc(timeLeftDisplay) + '</td>' +
         '<td><div class="row-actions" role="group" aria-label="' + escAttr(actionGroupAria) + '" aria-busy="' + (busy ? 'true' : 'false') + '">' +
           '<button type="button" class="mini-btn approve" aria-label="' + escAttr(approveAria) + '" title="' + escAttr(approveAria) + '" ' + (busy ? 'disabled ' : '') + 'onclick="resolveApproval(\'' + escAttr(id) + '\',\'approve\')">' + approveLabel + '</button>' +
           '<button type="button" class="mini-btn deny" aria-label="' + escAttr(denyAria) + '" title="' + escAttr(denyAria) + '" ' + (busy ? 'disabled ' : '') + 'onclick="resolveApproval(\'' + escAttr(id) + '\',\'deny\')">' + denyLabel + '</button>' +
