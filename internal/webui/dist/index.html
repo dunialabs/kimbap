@@ -964,6 +964,26 @@ td.mono {
   overflow-y: auto;
 }
 
+.approval-request-details {
+  margin-top: var(--space-xs);
+}
+
+.approval-request-details summary {
+  cursor: pointer;
+  font-size: 11px;
+  color: var(--accent-blue);
+  user-select: none;
+}
+
+.approval-request-details summary:hover {
+  color: var(--text-primary);
+}
+
+.approval-request-preview {
+  margin-top: var(--space-xs);
+  max-height: 180px;
+}
+
 /* ── Nav badge ── */
 .nav-badge {
   display: inline-flex;
@@ -2129,6 +2149,14 @@ td.mono {
     return summary;
   }
 
+  function approvalInputPreview(inputJSON) {
+    var parsed;
+    if (!inputJSON) { return ''; }
+    try { parsed = JSON.parse(inputJSON); } catch(e) { return ''; }
+    if (typeof parsed !== 'object' || parsed === null) { return ''; }
+    return JSON.stringify(redactSensitiveDeep(parsed), null, 2);
+  }
+
   function renderApprovalsTable(items, container) {
     var html = '<div class="table-wrap"><table>' +
       '<thead><tr>' +
@@ -2163,8 +2191,12 @@ td.mono {
       var inputJSON = getField(item, 'InputJSON', 'input_json') || '';
       var inputSummary = approvalInputSummary(inputJSON, 30, 4);
       var inputSummaryFull = approvalInputSummary(inputJSON, 0, 0);
+      var inputPreview = approvalInputPreview(inputJSON);
       var inputSummaryTitleAttr = inputSummaryFull ? ' title="' + escAttr(inputSummaryFull) + '"' : '';
       var inputSummaryAriaAttr = inputSummaryFull ? ' aria-label="' + escAttr('Input summary: ' + inputSummaryFull) + '"' : '';
+      var inputDisclosure = inputPreview
+        ? '<details class="approval-request-details"><summary>View request</summary><div class="schema-preview approval-request-preview">' + esc(inputPreview) + '</div></details>'
+        : '';
       var busyMode = state.approvalsBusy[id] || '';
       var busy = !!busyMode;
       var approveLabel = busyMode === 'approve' ? 'Approving...' : 'Approve';
@@ -2193,6 +2225,7 @@ td.mono {
         '<td class="mono"' + idTitleAttr + idAriaAttr + '>' + esc(id ? (id.length > 8 ? id.substring(0, 8) + '…' : id) : '—') + '</td>' +
         '<td class="mono" style="color:var(--text-primary)"' + actionTitleAttr + actionAriaAttr + '>' + esc(actionFull) +
           (inputSummary ? '<br><span style="font-size:11px;color:var(--text-muted);font-weight:normal"' + inputSummaryTitleAttr + inputSummaryAriaAttr + '>' + esc(inputSummary) + '</span>' : '') +
+          inputDisclosure +
         '</td>' +
         '<td' + agentTitleAttr + agentAriaAttr + '>' + esc(agent) + '</td>' +
         '<td title="' + escAttr(statusTitle) + '" aria-label="' + escAttr(statusTitle) + '">' + approvalStatusBadge(status) + '<span class="sr-only"> ' + esc(statusBadgeText) + '</span></td>' +
