@@ -70,7 +70,11 @@ Works with Claude Code, OpenCode, Codex, OpenClaw, NanoClaw, and any agent that 
 
 ## Turn your API into a CLI
 
-Got a REST API? Turn it into a secure CLI tool with one YAML file:
+Got a REST API? Turn it into a secure CLI tool in four steps:
+
+1) Start from your API endpoint.
+
+2) Define it in one YAML file:
 
 ```yaml
 name: inventory-api
@@ -92,12 +96,21 @@ actions:
       level: low
 ```
 
+3) Install the service definition:
+
 ```bash
 kimbap service install inventory-api.yaml
+```
+
+Register once.
+
+4) Run it as a direct CLI command:
+
+```bash
 items --warehouse seoul
 ```
 
-Install it, then run it directly.
+Then run it like a native CLI command.
 
 Three adapter types: **HTTP** (REST APIs), **Command** (local executable CLIs), **AppleScript** (macOS native apps).
 
