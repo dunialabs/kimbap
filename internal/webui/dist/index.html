@@ -683,6 +683,24 @@ td.mono {
   opacity: 0.9;
 }
 
+.token-visibility-btn {
+  padding: var(--space-sm) var(--space-md);
+  font-size: 12px;
+  font-weight: 600;
+  font-family: var(--font-sans);
+  background: transparent;
+  color: var(--text-secondary);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.token-visibility-btn:hover {
+  border-color: var(--border-focus);
+  color: var(--text-primary);
+}
+
 /* ── Empty / Error states ── */
 .empty-state {
   text-align: center;
@@ -730,8 +748,6 @@ td.mono {
   font-size: 13px;
   color: var(--accent-red);
   margin-bottom: var(--space-md);
-  display: flex;
-  align-items: center;
   gap: var(--space-sm);
 }
 
@@ -1271,6 +1287,16 @@ td.mono {
 
   window.clearTokenError = function(inputId) {
     setTokenError(inputId, '');
+  };
+
+  window.toggleTokenVisibility = function(inputId, btn) {
+    var input = document.getElementById(inputId);
+    var visible;
+    if (!input || !btn) return;
+    visible = input.type === 'text';
+    input.type = visible ? 'password' : 'text';
+    btn.textContent = visible ? 'Show' : 'Hide';
+    btn.setAttribute('aria-label', visible ? 'Show access token' : 'Hide access token');
   };
 
   window.saveToken = function(inputId) {
@@ -2116,14 +2142,10 @@ td.mono {
       var status = getField(item, 'Status', 'status') || 'pending';
       var statusTitle = approvalStatusTitle(status);
       var statusBadgeText = humanizeLabel(status);
-      var created = getField(item, 'CreatedAt', 'created_at') || '';
       var expires = getField(item, 'ExpiresAt', 'expires_at') || '';
-      var createdDisplay = fmtTime(created);
       var expiresDisplay = fmtTime(expires);
       var timeLeftDisplay = fmtTimeRemaining(expires);
-      var createdTitleAttr = createdDisplay !== '—' ? ' title="Created at ' + escAttr(createdDisplay) + '"' : '';
       var expiresTitleAttr = expiresDisplay !== '—' ? ' title="Expires at ' + escAttr(expiresDisplay) + '"' : '';
-      var createdAriaAttr = createdDisplay !== '—' ? ' aria-label="Created at ' + escAttr(createdDisplay) + '"' : '';
       var expiresAriaAttr = expiresDisplay !== '—' ? ' aria-label="Expires at ' + escAttr(expiresDisplay) + '"' : '';
       var timeLeftTitleAttr = expiresDisplay !== '—' ? ' title="Expires at ' + escAttr(expiresDisplay + ' (' + timeLeftDisplay + ' left)') + '"' : '';
       var timeLeftAriaText = expiresDisplay !== '—'
