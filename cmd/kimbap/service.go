@@ -805,6 +805,9 @@ func newServiceValidateCommand() *cobra.Command {
 		RunE: func(_ *cobra.Command, args []string) error {
 			manifest, err := services.ParseManifestFile(args[0])
 			if err != nil {
+				if outputAsJSON() {
+					_ = printOutput(map[string]any{"valid": false, "error": err.Error()})
+				}
 				return err
 			}
 			if outputAsJSON() {

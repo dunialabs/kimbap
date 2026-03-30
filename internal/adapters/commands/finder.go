@@ -39,7 +39,7 @@ function isFolder(item) {
 
 var folder;
 try {
-	folder = app.folders[Path(input.path)];
+	folder = app.folder(Path(input.path));
 	folder.name();
 } catch (e) {
 	throw new Error("[NOT_FOUND] folder not found");
@@ -95,7 +95,7 @@ function isFolder(item) {
 
 var item;
 try {
-	item = app.items[Path(input.path)];
+	item = app.item(Path(input.path));
 	item.name();
 } catch (e) {
 	throw new Error("[NOT_FOUND] item not found");
@@ -123,7 +123,7 @@ if (!input.name) throw new Error("name is required");
 
 var container;
 try {
-	container = app.folders[Path(input.path)];
+	container = app.folder(Path(input.path));
 	container.name();
 } catch (e) {
 	throw new Error("[NOT_FOUND] folder not found");
@@ -157,7 +157,7 @@ if (!input.destination_path) throw new Error("destination_path is required");
 
 var sourceItem;
 try {
-	sourceItem = app.items[Path(input.source_path)];
+	sourceItem = app.item(Path(input.source_path));
 	sourceItem.name();
 } catch (e) {
 	throw new Error("[NOT_FOUND] source item not found");
@@ -165,7 +165,7 @@ try {
 
 var destinationFolder;
 try {
-	destinationFolder = app.folders[Path(input.destination_path)];
+	destinationFolder = app.folder(Path(input.destination_path));
 	destinationFolder.name();
 } catch (e) {
 	throw new Error("[NOT_FOUND] destination folder not found");
@@ -195,7 +195,7 @@ if (!input.destination_path) throw new Error("destination_path is required");
 
 var sourceItem;
 try {
-	sourceItem = app.items[Path(input.source_path)];
+	sourceItem = app.item(Path(input.source_path));
 	sourceItem.name();
 } catch (e) {
 	throw new Error("[NOT_FOUND] source item not found");
@@ -203,7 +203,7 @@ try {
 
 var destinationFolder;
 try {
-	destinationFolder = app.folders[Path(input.destination_path)];
+	destinationFolder = app.folder(Path(input.destination_path));
 	destinationFolder.name();
 } catch (e) {
 	throw new Error("[NOT_FOUND] destination folder not found");
@@ -232,7 +232,7 @@ if (!input.path) throw new Error("path is required");
 
 var item;
 try {
-	item = app.items[Path(input.path)];
+	item = app.item(Path(input.path));
 	item.name();
 } catch (e) {
 	throw new Error("[NOT_FOUND] item not found");
@@ -251,7 +251,7 @@ if (!input.path) throw new Error("path is required");
 
 var item;
 try {
-	item = app.items[Path(input.path)];
+	item = app.item(Path(input.path));
 	item.name();
 } catch (e) {
 	throw new Error("[NOT_FOUND] item not found");

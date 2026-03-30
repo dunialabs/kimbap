@@ -43,6 +43,8 @@ actions:
     request:
       path_params:
         title: "{title}"
+      headers:
+        User-Agent: "kimbap/1.0 (https://kimbap.sh)"
     response:
       type: object
     risk:
@@ -67,6 +69,8 @@ actions:
       query:
         q: "{q}"
         limit: "{limit}"
+      headers:
+        User-Agent: "kimbap/1.0 (https://kimbap.sh)"
     response:
       extract: pages
       type: array
@@ -87,6 +91,8 @@ actions:
       path_params:
         MM: "{MM}"
         DD: "{DD}"
+      headers:
+        User-Agent: "kimbap/1.0 (https://kimbap.sh)"
     response:
       type: object
     risk:

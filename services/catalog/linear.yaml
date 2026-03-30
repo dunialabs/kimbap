@@ -3,7 +3,8 @@ version: 1.0.0
 description: Linear API for issue tracking, project management, and team workflows via GraphQL
 base_url: https://api.linear.app
 auth:
-  type: bearer
+  type: header
+  header_name: Authorization
   credential_ref: linear.api_key
 triggers:
   task_verbs: [list, create, update, manage]

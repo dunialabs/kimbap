@@ -120,6 +120,8 @@ Discover available actions:
 				}
 				input = mergeInputMaps(input, jsonInput)
 			}
+			applyMisplacedGlobalFormat(&opts, def, input)
+			coerceArrayInputsBySchema(def, input)
 
 			requestID := "req_" + uuid.NewString()
 			req := actions.ExecutionRequest{
@@ -187,6 +189,54 @@ Discover available actions:
 		},
 	}
 	return cmd
+}
+
+func applyMisplacedGlobalFormat(o *cliOptions, def *actions.ActionDefinition, input map[string]any) {
+	if actionHasInputField(def, "format") {
+		return
+	}
+	fmtVal, hasFormat := input["format"]
+	if !hasFormat {
+		return
+	}
+	fmtStr, isString := fmtVal.(string)
+	if !isString {
+		return
+	}
+	fmtStr = strings.TrimSpace(fmtStr)
+	if fmtStr != "text" && fmtStr != "json" {
+		return
+	}
+	o.format = fmtStr
+	delete(input, "format")
+	_, _ = fmt.Fprintf(os.Stderr, "note: --format must be placed before the action name; applying it automatically\n")
+}
+
+func coerceArrayInputsBySchema(def *actions.ActionDefinition, input map[string]any) {
+	if def == nil || def.InputSchema == nil || len(def.InputSchema.Properties) == 0 || len(input) == 0 {
+		return
+	}
+	for name, prop := range def.InputSchema.Properties {
+		if prop == nil || !strings.EqualFold(strings.TrimSpace(prop.Type), "array") {
+			continue
+		}
+		val, exists := input[name]
+		if !exists {
+			continue
+		}
+		if _, isArray := val.([]any); isArray {
+			continue
+		}
+		input[name] = []any{val}
+	}
+}
+
+func actionHasInputField(def *actions.ActionDefinition, fieldName string) bool {
+	if def == nil || def.InputSchema == nil || len(def.InputSchema.Properties) == 0 {
+		return false
+	}
+	_, exists := def.InputSchema.Properties[fieldName]
+	return exists
 }
 
 func printCallResult(result actions.ExecutionResult) error {

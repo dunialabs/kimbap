@@ -50,6 +50,10 @@ actions:
       - name: list
         type: string
         required: false
+      - name: limit
+        type: integer
+        required: false
+        default: 100
     response:
       type: array
     risk:

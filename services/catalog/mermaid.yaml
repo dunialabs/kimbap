@@ -3,7 +3,7 @@ version: 1.0.0
 description: Mermaid diagram creation and rendering via Mermaid CLI harness
 adapter: command
 command_spec:
-  executable: mermaid
+  executable: mmdc
   json_flag: "--json"
   timeout: "30s"
 auth:

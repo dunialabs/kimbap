@@ -227,13 +227,24 @@ func (s *SQLStore) Migrate(ctx context.Context) error {
 		}
 	}
 
-	for _, q := range []string{
-		`ALTER TABLE approvals ADD COLUMN required_approvals INTEGER NOT NULL DEFAULT 1`,
-		`ALTER TABLE approvals ADD COLUMN votes_json TEXT NOT NULL DEFAULT '[]'`,
-	} {
-		if _, err := s.db.ExecContext(ctx, s.bind(q)); err != nil {
-			if !isColumnAlreadyExistsError(err) {
+	if s.dialect == "postgres" {
+		for _, q := range []string{
+			`ALTER TABLE approvals ADD COLUMN IF NOT EXISTS required_approvals INTEGER NOT NULL DEFAULT 1`,
+			`ALTER TABLE approvals ADD COLUMN IF NOT EXISTS votes_json TEXT NOT NULL DEFAULT '[]'`,
+		} {
+			if _, err := s.db.ExecContext(ctx, s.bind(q)); err != nil {
 				return err
+			}
+		}
+	} else {
+		for _, q := range []string{
+			`ALTER TABLE approvals ADD COLUMN required_approvals INTEGER NOT NULL DEFAULT 1`,
+			`ALTER TABLE approvals ADD COLUMN votes_json TEXT NOT NULL DEFAULT '[]'`,
+		} {
+			if _, err := s.db.ExecContext(ctx, s.bind(q)); err != nil {
+				if !isColumnAlreadyExistsError(err) {
+					return err
+				}
 			}
 		}
 	}

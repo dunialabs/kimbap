@@ -36,20 +36,21 @@ if (input.calendar) {
 var result = [];
 calendars.forEach(function(c) {
 	var calName = c.name();
-	var events = c.events();
+	var events = c.events.whose({
+		startDate: {_lessThan: end},
+		endDate: {_greaterThan: start}
+	})();
 	events.forEach(function(e) {
 		var eventStart = e.startDate();
 		var eventEnd = e.endDate();
-		if (eventStart < end && eventEnd > start) {
-			result.push({
-				title: e.summary(),
-				startDate: eventStart ? eventStart.toISOString() : null,
-				endDate: eventEnd ? eventEnd.toISOString() : null,
-				location: e.location(),
-				notes: e.description(),
-				calendar: calName
-			});
-		}
+		result.push({
+			title: e.summary(),
+			startDate: eventStart ? eventStart.toISOString() : null,
+			endDate: eventEnd ? eventEnd.toISOString() : null,
+			location: e.location(),
+			notes: e.description(),
+			calendar: calName
+		});
 	});
 });
 
@@ -63,12 +64,16 @@ app.includeStandardAdditions = false;
 
 var calendars = app.calendars();
 var matches = [];
+var checked = 0;
+var limit = 500;
 
 for (var i = 0; i < calendars.length; i++) {
+	if (checked >= limit) break;
 	var c = calendars[i];
 	var calName = c.name();
 	var events = c.events();
-	for (var j = 0; j < events.length; j++) {
+	for (var j = 0; j < events.length && checked < limit; j++) {
+		checked++;
 		var e = events[j];
 		if (e.summary() === input.title) {
 			matches.push({
@@ -131,11 +136,16 @@ app.includeStandardAdditions = false;
 var query = (input.query || "").toLowerCase();
 var calendars = app.calendars();
 var result = [];
+var checked = 0;
+var limit = 500;
 
-calendars.forEach(function(c) {
+for (var i = 0; i < calendars.length && checked < limit; i++) {
+	var c = calendars[i];
 	var calName = c.name();
 	var events = c.events();
-	events.forEach(function(e) {
+	for (var j = 0; j < events.length && checked < limit; j++) {
+		checked++;
+		var e = events[j];
 		var title = (e.summary() || "");
 		var notes = (e.description() || "");
 		if (title.toLowerCase().indexOf(query) >= 0 || notes.toLowerCase().indexOf(query) >= 0) {
@@ -148,8 +158,8 @@ calendars.forEach(function(c) {
 				calendar: calName
 			});
 		}
-	});
-});
+	}
+}
 
 JSON.stringify(result);`,
 		},

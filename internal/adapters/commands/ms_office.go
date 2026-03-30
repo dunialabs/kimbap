@@ -35,10 +35,16 @@ app.includeStandardAdditions = false;
 
 var doc;
 try {
-	doc = app.activeDocument();
+	doc = app.activeDocument;
+	if (!doc) doc = app.documents[0];
 	doc.name();
 } catch (e) {
-	throw new Error("[NOT_FOUND] active document not found");
+	try {
+		doc = app.documents[0];
+		doc.name();
+	} catch (e2) {
+		throw new Error("[NOT_FOUND] active document not found");
+	}
 }
 
 JSON.stringify({
@@ -55,10 +61,16 @@ if (typeof input.text !== "string") throw new Error("text is required");
 
 var doc;
 try {
-	doc = app.activeDocument();
+	doc = app.activeDocument;
+	if (!doc) doc = app.documents[0];
 	doc.name();
 } catch (e) {
-	throw new Error("[NOT_FOUND] active document not found");
+	try {
+		doc = app.documents[0];
+		doc.name();
+	} catch (e2) {
+		throw new Error("[NOT_FOUND] active document not found");
+	}
 }
 
 doc.textObject().content = input.text;
@@ -75,10 +87,16 @@ if (typeof input.replace !== "string") throw new Error("replace is required");
 
 var doc;
 try {
-	doc = app.activeDocument();
+	doc = app.activeDocument;
+	if (!doc) doc = app.documents[0];
 	doc.name();
 } catch (e) {
-	throw new Error("[NOT_FOUND] active document not found");
+	try {
+		doc = app.documents[0];
+		doc.name();
+	} catch (e2) {
+		throw new Error("[NOT_FOUND] active document not found");
+	}
 }
 
 var source = doc.textObject().content() || "";
@@ -100,10 +118,16 @@ if (!input.output_path) throw new Error("output_path is required");
 
 var doc;
 try {
-	doc = app.activeDocument();
+	doc = app.activeDocument;
+	if (!doc) doc = app.documents[0];
 	doc.name();
 } catch (e) {
-	throw new Error("[NOT_FOUND] active document not found");
+	try {
+		doc = app.documents[0];
+		doc.name();
+	} catch (e2) {
+		throw new Error("[NOT_FOUND] active document not found");
+	}
 }
 
 var exported = false;
@@ -128,10 +152,16 @@ app.includeStandardAdditions = false;
 
 var doc;
 try {
-	doc = app.activeDocument();
+	doc = app.activeDocument;
+	if (!doc) doc = app.documents[0];
 	doc.name();
 } catch (e) {
-	throw new Error("[NOT_FOUND] active document not found");
+	try {
+		doc = app.documents[0];
+		doc.name();
+	} catch (e2) {
+		throw new Error("[NOT_FOUND] active document not found");
+	}
 }
 
 var save = !!input.save;
@@ -173,10 +203,16 @@ if (!input.cell) throw new Error("cell is required");
 
 var workbook;
 try {
-	workbook = app.activeWorkbook();
+	workbook = app.activeWorkbook;
+	if (!workbook) workbook = app.workbooks[0];
 	workbook.name();
 } catch (e) {
-	throw new Error("[NOT_FOUND] active workbook not found");
+	try {
+		workbook = app.workbooks[0];
+		workbook.name();
+	} catch (e2) {
+		throw new Error("[NOT_FOUND] active workbook not found");
+	}
 }
 
 var sheet = input.sheet ? workbook.worksheets.whose({name: input.sheet})()[0] : workbook.activeSheet();
@@ -195,10 +231,16 @@ if (typeof input.value === "undefined") throw new Error("value is required");
 
 var workbook;
 try {
-	workbook = app.activeWorkbook();
+	workbook = app.activeWorkbook;
+	if (!workbook) workbook = app.workbooks[0];
 	workbook.name();
 } catch (e) {
-	throw new Error("[NOT_FOUND] active workbook not found");
+	try {
+		workbook = app.workbooks[0];
+		workbook.name();
+	} catch (e2) {
+		throw new Error("[NOT_FOUND] active workbook not found");
+	}
 }
 
 var sheet = input.sheet ? workbook.worksheets.whose({name: input.sheet})()[0] : workbook.activeSheet();
@@ -216,10 +258,16 @@ if (!input.range) throw new Error("range is required");
 
 var workbook;
 try {
-	workbook = app.activeWorkbook();
+	workbook = app.activeWorkbook;
+	if (!workbook) workbook = app.workbooks[0];
 	workbook.name();
 } catch (e) {
-	throw new Error("[NOT_FOUND] active workbook not found");
+	try {
+		workbook = app.workbooks[0];
+		workbook.name();
+	} catch (e2) {
+		throw new Error("[NOT_FOUND] active workbook not found");
+	}
 }
 
 var sheet = input.sheet ? workbook.worksheets.whose({name: input.sheet})()[0] : workbook.activeSheet();
@@ -237,10 +285,16 @@ if (!input.output_path) throw new Error("output_path is required");
 
 var workbook;
 try {
-	workbook = app.activeWorkbook();
+	workbook = app.activeWorkbook;
+	if (!workbook) workbook = app.workbooks[0];
 	workbook.name();
 } catch (e) {
-	throw new Error("[NOT_FOUND] active workbook not found");
+	try {
+		workbook = app.workbooks[0];
+		workbook.name();
+	} catch (e2) {
+		throw new Error("[NOT_FOUND] active workbook not found");
+	}
 }
 
 try {
@@ -266,10 +320,16 @@ app.includeStandardAdditions = false;
 
 var workbook;
 try {
-	workbook = app.activeWorkbook();
+	workbook = app.activeWorkbook;
+	if (!workbook) workbook = app.workbooks[0];
 	workbook.name();
 } catch (e) {
-	throw new Error("[NOT_FOUND] active workbook not found");
+	try {
+		workbook = app.workbooks[0];
+		workbook.name();
+	} catch (e2) {
+		throw new Error("[NOT_FOUND] active workbook not found");
+	}
 }
 
 var save = !!input.save;
@@ -310,10 +370,16 @@ app.includeStandardAdditions = false;
 
 var pres;
 try {
-	pres = app.activePresentation();
+	pres = app.activePresentation;
+	if (!pres) pres = app.presentations[0];
 	pres.name();
 } catch (e) {
-	throw new Error("[NOT_FOUND] active presentation not found");
+	try {
+		pres = app.presentations[0];
+		pres.name();
+	} catch (e2) {
+		throw new Error("[NOT_FOUND] active presentation not found");
+	}
 }
 
 var slide = pres.make({new: "slide", at: pres.slides.end});
@@ -331,10 +397,16 @@ if (typeof input.text !== "string") throw new Error("text is required");
 
 var pres;
 try {
-	pres = app.activePresentation();
+	pres = app.activePresentation;
+	if (!pres) pres = app.presentations[0];
 	pres.name();
 } catch (e) {
-	throw new Error("[NOT_FOUND] active presentation not found");
+	try {
+		pres = app.presentations[0];
+		pres.name();
+	} catch (e2) {
+		throw new Error("[NOT_FOUND] active presentation not found");
+	}
 }
 
 var slides = pres.slides();
@@ -361,10 +433,16 @@ if (!input.output_path) throw new Error("output_path is required");
 
 var pres;
 try {
-	pres = app.activePresentation();
+	pres = app.activePresentation;
+	if (!pres) pres = app.presentations[0];
 	pres.name();
 } catch (e) {
-	throw new Error("[NOT_FOUND] active presentation not found");
+	try {
+		pres = app.presentations[0];
+		pres.name();
+	} catch (e2) {
+		throw new Error("[NOT_FOUND] active presentation not found");
+	}
 }
 
 try {
@@ -387,10 +465,16 @@ if (!input.output_dir) throw new Error("output_dir is required");
 
 var pres;
 try {
-	pres = app.activePresentation();
+	pres = app.activePresentation;
+	if (!pres) pres = app.presentations[0];
 	pres.name();
 } catch (e) {
-	throw new Error("[NOT_FOUND] active presentation not found");
+	try {
+		pres = app.presentations[0];
+		pres.name();
+	} catch (e2) {
+		throw new Error("[NOT_FOUND] active presentation not found");
+	}
 }
 
 try {
@@ -412,10 +496,16 @@ app.includeStandardAdditions = false;
 
 var pres;
 try {
-	pres = app.activePresentation();
+	pres = app.activePresentation;
+	if (!pres) pres = app.presentations[0];
 	pres.name();
 } catch (e) {
-	throw new Error("[NOT_FOUND] active presentation not found");
+	try {
+		pres = app.presentations[0];
+		pres.name();
+	} catch (e2) {
+		throw new Error("[NOT_FOUND] active presentation not found");
+	}
 }
 
 var save = !!input.save;

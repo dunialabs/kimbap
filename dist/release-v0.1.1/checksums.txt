@@ -1,0 +1,4 @@
+598a1ccf9a1397ab051ca1eb4fe9240b526731748d21a6aa7308b6b94fb2f423  kimbap_0.1.1_darwin_amd64.tar.gz
+2ef186e9104db7e00b7f1cd757fdaf8914b5a8941ea650180d5f4105cc279167  kimbap_0.1.1_darwin_arm64.tar.gz
+c040d700f8a532a818c94234f342d63bd9cda0de096cf6a7bdc34f311e243ca3  kimbap_0.1.1_linux_amd64.tar.gz
+d5039cc36ec47f5cac24e7424201af7c06bffc79d11f89c805a4294e4af6ddc1  kimbap_0.1.1_linux_arm64.tar.gz

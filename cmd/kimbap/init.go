@@ -491,7 +491,7 @@ func validateInitMode(mode string) error {
 }
 
 func writeInitConfig(cfg *config.KimbapConfig, force bool) (string, doctorCheck) {
-	path, err := resolveConfigPath()
+	path, err := config.ResolveConfigPathWithDataDir(opts.configPath, opts.dataDir)
 	if err != nil {
 		return "", doctorCheck{Name: "config file", Status: "fail", Detail: err.Error()}
 	}

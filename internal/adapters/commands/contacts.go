@@ -107,26 +107,63 @@ function mapPerson(person) {
 }
 
 var q = String(input.query).toLowerCase();
-var people = app.people();
+var byName;
+try {
+	byName = app.people.whose({name: {_contains: input.query}})();
+} catch (e) {
+	byName = [];
+}
 
-var filtered = people.filter(function(person) {
-	var name = "";
-	try { name = (person.name() || "").toLowerCase(); } catch (e) {}
-	if (name.indexOf(q) >= 0) return true;
+var seenIds = {};
+var result = [];
 
-	try {
-		var emails = person.emails();
-		for (var i = 0; i < emails.length; i++) {
-			var emailVal = "";
-			try { emailVal = (emails[i].value() || "").toLowerCase(); } catch (e) {}
-			if (emailVal.indexOf(q) >= 0) return true;
-		}
-	} catch (e) {}
-
-	return false;
+byName.forEach(function(person) {
+	if (result.length >= 50) return;
+	var key = "";
+	try { key = person.id(); } catch (e) {}
+	if (!key) {
+		try { key = person.name(); } catch (e) {}
+	}
+	if (!key) return;
+	if (seenIds[key]) return;
+	seenIds[key] = true;
+	result.push(mapPerson(person));
 });
 
-JSON.stringify(filtered.slice(0, 50).map(mapPerson));`,
+if (result.length < 10) {
+	var all = app.people();
+	var checked = 0;
+	for (var i = 0; i < all.length && checked < 100 && result.length < 50; i++) {
+		var person = all[i];
+		checked++;
+		var key = "";
+		try { key = person.id(); } catch (e) {}
+		if (!key) {
+			try { key = person.name(); } catch (e) {}
+		}
+		if (!key || seenIds[key]) continue;
+
+		var matched = false;
+		try {
+			var emails = person.emails();
+			for (var j = 0; j < emails.length; j++) {
+				var emailVal = "";
+				try { emailVal = (emails[j].value() || "").toLowerCase(); } catch (e) {}
+				if (emailVal.indexOf(q) >= 0) {
+					matched = true;
+					break;
+				}
+			}
+		} catch (e) {}
+
+		if (matched) {
+			seenIds[key] = true;
+			result.push(mapPerson(person));
+		}
+	}
+}
+
+JSON.stringify(result);`,
 		},
 		"contacts-get": {
 			Name: "contacts-get", TargetApp: "Contacts",
