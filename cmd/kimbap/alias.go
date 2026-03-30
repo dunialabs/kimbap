@@ -1,8 +1,10 @@
 package main
 
 import (
+	"errors"
 	"fmt"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"regexp"
 	"sort"
@@ -20,6 +22,7 @@ var (
 	aliasFileReadlink        = os.Readlink
 	aliasFileSymlink         = os.Symlink
 	aliasFileRemove          = os.Remove
+	aliasLookPath            = exec.LookPath
 )
 
 func newAliasCommand() *cobra.Command {
@@ -342,7 +345,149 @@ func ensureExecutableActionAlias(alias string) (string, bool, error) {
 	}
 	execPath = filepath.Clean(execPath)
 
-	aliasPath := filepath.Join(filepath.Dir(execPath), alias)
+	candidates := aliasExecutableDirectoryCandidates(execPath)
+	errs := make([]string, 0)
+	for _, candidate := range candidates {
+		if err := ensureAliasDirectory(candidate.Path, candidate.AllowCreate); err != nil {
+			errs = append(errs, fmt.Sprintf("%s (%s)", candidate.Path, err.Error()))
+			continue
+		}
+		aliasPath := filepath.Join(candidate.Path, alias)
+		resolvedPath, created, createErr := ensureExecutableActionAliasPath(alias, execPath, aliasPath)
+		if createErr == nil {
+			if verifyErr := verifyExecutableAliasResolution(alias, resolvedPath); verifyErr != nil {
+				if created {
+					_, _ = removeExecutableActionAliasPath(resolvedPath, execPath)
+				}
+				errs = append(errs, verifyErr.Error())
+				continue
+			}
+			return resolvedPath, created, nil
+		}
+		errs = append(errs, createErr.Error())
+		var conflict *aliasPathConflictError
+		if errors.As(createErr, &conflict) && candidate.InPath {
+			break
+		}
+	}
+
+	if len(errs) == 0 {
+		return "", false, fmt.Errorf("cannot create command alias %q: no candidate alias directories available", alias)
+	}
+	return "", false, fmt.Errorf("cannot create command alias %q: %s", alias, strings.Join(errs, "; "))
+}
+
+func removeExecutableActionAlias(alias string) (bool, error) {
+	execPath, err := aliasExecutablePath()
+	if err != nil {
+		return false, fmt.Errorf("resolve kimbap executable path: %w", err)
+	}
+	execPath = filepath.Clean(execPath)
+	removedAny := false
+	errs := make([]string, 0)
+	for _, candidate := range aliasExecutableDirectoryCandidates(execPath) {
+		aliasPath := filepath.Join(candidate.Path, alias)
+		removed, removeErr := removeExecutableActionAliasPath(aliasPath, execPath)
+		if removeErr != nil {
+			errs = append(errs, removeErr.Error())
+			continue
+		}
+		if removed {
+			removedAny = true
+		}
+	}
+	if removedAny {
+		return true, nil
+	}
+	if len(errs) > 0 {
+		return false, errors.New(strings.Join(errs, "; "))
+	}
+	return false, nil
+}
+
+type aliasDirectoryCandidate struct {
+	Path        string
+	AllowCreate bool
+	InPath      bool
+}
+
+func aliasExecutableDirectoryCandidates(execPath string) []aliasDirectoryCandidate {
+	pathEntries := filepath.SplitList(os.Getenv("PATH"))
+	pathOrder := map[string]int{}
+	for i, item := range pathEntries {
+		cleaned := filepath.Clean(strings.TrimSpace(item))
+		if cleaned == "" || cleaned == "." {
+			continue
+		}
+		if _, exists := pathOrder[cleaned]; exists {
+			continue
+		}
+		pathOrder[cleaned] = i
+	}
+
+	seen := map[string]struct{}{}
+	out := make([]aliasDirectoryCandidate, 0)
+	add := func(path string, allowCreate bool) {
+		cleaned := filepath.Clean(strings.TrimSpace(path))
+		if cleaned == "" || cleaned == "." {
+			return
+		}
+		if _, exists := seen[cleaned]; exists {
+			return
+		}
+		seen[cleaned] = struct{}{}
+		_, inPath := pathOrder[cleaned]
+		out = append(out, aliasDirectoryCandidate{Path: cleaned, AllowCreate: allowCreate, InPath: inPath})
+	}
+
+	add(filepath.Dir(execPath), false)
+	for _, item := range pathEntries {
+		add(item, false)
+	}
+	if homeDir, homeErr := os.UserHomeDir(); homeErr == nil && strings.TrimSpace(homeDir) != "" {
+		localBin := filepath.Join(homeDir, ".local", "bin")
+		if _, ok := pathOrder[filepath.Clean(localBin)]; ok {
+			add(localBin, true)
+		}
+	}
+	return out
+}
+
+type aliasPathConflictError struct {
+	message string
+}
+
+func (e *aliasPathConflictError) Error() string {
+	if e == nil {
+		return ""
+	}
+	return e.message
+}
+
+func ensureAliasDirectory(path string, allowCreate bool) error {
+	if strings.TrimSpace(path) == "" {
+		return fmt.Errorf("empty directory path")
+	}
+	st, err := os.Stat(path)
+	if err == nil {
+		if !st.IsDir() {
+			return fmt.Errorf("path exists but is not a directory")
+		}
+		return nil
+	}
+	if !os.IsNotExist(err) {
+		return err
+	}
+	if !allowCreate {
+		return fmt.Errorf("directory does not exist")
+	}
+	if mkErr := os.MkdirAll(path, 0o755); mkErr != nil {
+		return mkErr
+	}
+	return nil
+}
+
+func ensureExecutableActionAliasPath(alias, execPath, aliasPath string) (string, bool, error) {
 	if filepath.Clean(aliasPath) == execPath {
 		return "", false, fmt.Errorf("alias %q conflicts with kimbap executable path", alias)
 	}
@@ -350,7 +495,7 @@ func ensureExecutableActionAlias(alias string) (string, bool, error) {
 	info, statErr := aliasFileLstat(aliasPath)
 	if statErr == nil {
 		if info.Mode()&os.ModeSymlink == 0 {
-			return "", false, fmt.Errorf("cannot create command alias %q: path %s already exists and is not a symlink", alias, aliasPath)
+			return "", false, &aliasPathConflictError{message: fmt.Sprintf("cannot create command alias %q: path %s already exists and is not a symlink", alias, aliasPath)}
 		}
 		currentTarget, readErr := aliasFileReadlink(aliasPath)
 		if readErr != nil {
@@ -368,7 +513,7 @@ func ensureExecutableActionAlias(alias string) (string, bool, error) {
 			}
 			return aliasPath, true, nil
 		}
-		return "", false, fmt.Errorf("cannot create command alias %q: symlink %s already points elsewhere", alias, aliasPath)
+		return "", false, &aliasPathConflictError{message: fmt.Sprintf("cannot create command alias %q: symlink %s already points elsewhere", alias, aliasPath)}
 	}
 	if !os.IsNotExist(statErr) {
 		return "", false, fmt.Errorf("inspect alias path %s: %w", aliasPath, statErr)
@@ -380,14 +525,18 @@ func ensureExecutableActionAlias(alias string) (string, bool, error) {
 	return aliasPath, true, nil
 }
 
-func removeExecutableActionAlias(alias string) (bool, error) {
-	execPath, err := aliasExecutablePath()
+func verifyExecutableAliasResolution(alias, aliasPath string) error {
+	resolved, err := aliasLookPath(alias)
 	if err != nil {
-		return false, fmt.Errorf("resolve kimbap executable path: %w", err)
+		return fmt.Errorf("command alias %q created at %s but is not discoverable on PATH", alias, aliasPath)
 	}
-	execPath = filepath.Clean(execPath)
-	aliasPath := filepath.Join(filepath.Dir(execPath), alias)
+	if filepath.Clean(resolved) != filepath.Clean(aliasPath) {
+		return fmt.Errorf("command alias %q created at %s but resolves to %s first", alias, aliasPath, resolved)
+	}
+	return nil
+}
 
+func removeExecutableActionAliasPath(aliasPath, execPath string) (bool, error) {
 	info, statErr := aliasFileLstat(aliasPath)
 	if os.IsNotExist(statErr) {
 		return false, nil
@@ -396,14 +545,14 @@ func removeExecutableActionAlias(alias string) (bool, error) {
 		return false, fmt.Errorf("inspect alias path %s: %w", aliasPath, statErr)
 	}
 	if info.Mode()&os.ModeSymlink == 0 {
-		return false, fmt.Errorf("alias executable path %s exists but is not a symlink", aliasPath)
+		return false, nil
 	}
 	target, readErr := aliasFileReadlink(aliasPath)
 	if readErr != nil {
 		return false, fmt.Errorf("inspect alias symlink %s: %w", aliasPath, readErr)
 	}
 	if !symlinkTargetMatchesExecutable(aliasPath, target, execPath) && !symlinkTargetReferencesKimbapBinary(aliasPath, target) {
-		return false, fmt.Errorf("alias executable path %s points to a different target", aliasPath)
+		return false, nil
 	}
 	if err := aliasFileRemove(aliasPath); err != nil {
 		return false, fmt.Errorf("remove alias executable path %s: %w", aliasPath, err)

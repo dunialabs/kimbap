@@ -273,6 +273,7 @@ func TestServiceCLIEnableBackfillsActionAliasesAfterNoActivateInstall(t *testing
 
 		execDir := t.TempDir()
 		execPath := filepath.Join(execDir, "kimbap")
+		stubAliasLookPathToDir(t, execDir)
 		origExecutablePath := aliasExecutablePath
 		origLstat := aliasFileLstat
 		origSymlink := aliasFileSymlink
@@ -373,6 +374,7 @@ func TestServiceCLIInstallAppliesManifestActionAliases(t *testing.T) {
 
 		execDir := t.TempDir()
 		execPath := filepath.Join(execDir, "kimbap")
+		stubAliasLookPathToDir(t, execDir)
 		origExecutablePath := aliasExecutablePath
 		origLstat := aliasFileLstat
 		origSymlink := aliasFileSymlink
@@ -511,6 +513,7 @@ func TestServiceCLIListIncludesShortcutsForInstalledService(t *testing.T) {
 
 		execDir := t.TempDir()
 		execPath := filepath.Join(execDir, "kimbap")
+		stubAliasLookPathToDir(t, execDir)
 		origExecutablePath := aliasExecutablePath
 		origLstat := aliasFileLstat
 		origSymlink := aliasFileSymlink
@@ -566,6 +569,7 @@ func TestServiceCLIListAvailableIncludesShortcutsForInstalledRow(t *testing.T) {
 	withServiceCLIOpts(t, configPath, func() {
 		execDir := t.TempDir()
 		execPath := filepath.Join(execDir, "kimbap")
+		stubAliasLookPathToDir(t, execDir)
 		origExecutablePath := aliasExecutablePath
 		origLstat := aliasFileLstat
 		origSymlink := aliasFileSymlink
@@ -726,6 +730,7 @@ func TestServiceCLIDisableCleansUpServiceAndCommandAliases(t *testing.T) {
 
 		execDir := t.TempDir()
 		execPath := filepath.Join(execDir, "kimbap")
+		stubAliasLookPathToDir(t, execDir)
 		aliasPath := filepath.Join(execDir, "geosearch")
 		symlinkExists := false
 		executableRemoved := false
@@ -813,6 +818,7 @@ func TestServiceCLIRemoveCleansUpServiceAndCommandAliases(t *testing.T) {
 
 		execDir := t.TempDir()
 		execPath := filepath.Join(execDir, "kimbap")
+		stubAliasLookPathToDir(t, execDir)
 		aliasPath := filepath.Join(execDir, "geosearch")
 		symlinkExists := false
 		executableRemoved := false
@@ -915,6 +921,7 @@ func TestCleanupAliasesForServiceRollsBackEarlierRemovalsOnFailure(t *testing.T)
 
 		execDir := t.TempDir()
 		execPath := filepath.Join(execDir, "kimbap")
+		stubAliasLookPathToDir(t, execDir)
 		symlinkState := map[string]bool{
 			filepath.Join(execDir, "aone"): true,
 			filepath.Join(execDir, "ztwo"): true,

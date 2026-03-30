@@ -1,12 +1,17 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 BIN_PATH="$ROOT_DIR/bin/kimbap"
 
 resolve_config_path() {
   if [ -n "${KIMBAP_CONFIG:-}" ]; then
     printf '%s\n' "$KIMBAP_CONFIG"
+    return
+  fi
+
+  if [ -n "${KIMBAP_DATA_DIR:-}" ]; then
+    printf '%s\n' "${KIMBAP_DATA_DIR%/}/config.yaml"
     return
   fi
 

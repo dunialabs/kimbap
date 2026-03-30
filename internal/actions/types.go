@@ -152,6 +152,11 @@ type AdapterConfig struct {
 	AllowInsecure  bool
 	TargetApp      string
 	Command        string
+	ScriptSource   string
+	ScriptLanguage string
+	ApprovalRef    string
+	AuditRef       string
+	RegistryMode   string
 }
 
 type ResponseConfig struct {

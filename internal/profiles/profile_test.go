@@ -7,7 +7,7 @@ import (
 )
 
 func TestGetProfileReturnsValidTemplateForEachType(t *testing.T) {
-	types := []ProfileType{ProfileClaudeCode, ProfileOpenCode, ProfileCodex, ProfileGeneric, ProfileCursor}
+	types := []ProfileType{ProfileClaudeCode, ProfileOpenCode, ProfileCodex, ProfileGeneric, ProfileCursor, ProfileOpenClaw, ProfileNanoClaw}
 	for _, profileType := range types {
 		profile, err := GetProfile(profileType)
 		if err != nil {

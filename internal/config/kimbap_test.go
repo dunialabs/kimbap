@@ -107,6 +107,56 @@ func TestResolveConfigPathUsesExplicitPath(t *testing.T) {
 	}
 }
 
+func TestResolveConfigPathUsesKimbapConfigEnvWhenExplicitMissing(t *testing.T) {
+	envPath := filepath.Join(t.TempDir(), "env-config.yaml")
+	t.Setenv("KIMBAP_CONFIG", envPath)
+
+	path, err := ResolveConfigPath("")
+	if err != nil {
+		t.Fatalf("ResolveConfigPath: %v", err)
+	}
+	if path != envPath {
+		t.Fatalf("expected KIMBAP_CONFIG path %q, got %q", envPath, path)
+	}
+}
+
+func TestResolveConfigPathExplicitOverridesKimbapConfigEnv(t *testing.T) {
+	explicit := filepath.Join(t.TempDir(), "explicit.yaml")
+	t.Setenv("KIMBAP_CONFIG", filepath.Join(t.TempDir(), "env-config.yaml"))
+
+	path, err := ResolveConfigPath(explicit)
+	if err != nil {
+		t.Fatalf("ResolveConfigPath: %v", err)
+	}
+	if path != explicit {
+		t.Fatalf("expected explicit path %q, got %q", explicit, path)
+	}
+}
+
+func TestResolveConfigPathWithDataDirUsesDataDirWhenExplicitMissing(t *testing.T) {
+	dataDir := filepath.Join(t.TempDir(), "isolated-data")
+	path, err := ResolveConfigPathWithDataDir("", dataDir)
+	if err != nil {
+		t.Fatalf("ResolveConfigPathWithDataDir: %v", err)
+	}
+	want := filepath.Join(dataDir, "config.yaml")
+	if path != want {
+		t.Fatalf("expected data-dir config path %q, got %q", want, path)
+	}
+}
+
+func TestResolveConfigPathWithDataDirPrefersExplicitPath(t *testing.T) {
+	explicit := filepath.Join(t.TempDir(), "explicit.yaml")
+	dataDir := filepath.Join(t.TempDir(), "isolated-data")
+	path, err := ResolveConfigPathWithDataDir(explicit, dataDir)
+	if err != nil {
+		t.Fatalf("ResolveConfigPathWithDataDir: %v", err)
+	}
+	if path != explicit {
+		t.Fatalf("expected explicit path %q, got %q", explicit, path)
+	}
+}
+
 func TestApplyDataDirOverrideRebasesDerivedDefaults(t *testing.T) {
 	cfg := DefaultConfig()
 	override := filepath.Join(t.TempDir(), "override-data")
@@ -360,6 +410,7 @@ func TestLoadKimbapConfigAppliesServicesEnvOverrides(t *testing.T) {
 	t.Setenv("KIMBAP_SERVICES_REGISTRY_URL", "https://services.example.com")
 	t.Setenv("KIMBAP_SERVICES_VERIFY", "strict")
 	t.Setenv("KIMBAP_SERVICES_SIGNATURE_POLICY", "required")
+	t.Setenv("KIMBAP_SERVICES_APPLESCRIPT_REGISTRY_MODE", "manifest")
 
 	cfg, err := LoadKimbapConfigWithoutDefault()
 	if err != nil {
@@ -377,6 +428,23 @@ func TestLoadKimbapConfigAppliesServicesEnvOverrides(t *testing.T) {
 	}
 	if cfg.Services.SignaturePolicy != "required" {
 		t.Fatalf("expected services signature policy override, got %q", cfg.Services.SignaturePolicy)
+	}
+	if cfg.Services.AppleScriptRegistryMode != "manifest" {
+		t.Fatalf("expected services applescript_registry_mode override, got %q", cfg.Services.AppleScriptRegistryMode)
+	}
+}
+
+func TestLoadKimbapConfigRejectsInvalidAppleScriptRegistryMode(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	t.Setenv("KIMBAP_SERVICES_APPLESCRIPT_REGISTRY_MODE", "fast-and-loose")
+
+	_, err := LoadKimbapConfigWithoutDefault()
+	if err == nil {
+		t.Fatal("expected invalid services.applescript_registry_mode error, got nil")
+	}
+	if !strings.Contains(err.Error(), "applescript_registry_mode") {
+		t.Fatalf("expected applescript_registry_mode in error, got %v", err)
 	}
 }
 

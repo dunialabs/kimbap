@@ -37,26 +37,30 @@ Check current installed version against latest release:
 curl -fsSL https://kimbap.sh/install.sh | bash -s -- --check
 ```
 
-Install and immediately configure agent skills for Claude/OpenCode/Codex in the current project:
+Install and immediately configure skills for detected supported agents in the current project (override with `--agent-kinds` if needed):
 
 ```bash
 curl -fsSL https://kimbap.sh/install.sh | bash -s -- --with-agents
 ```
 
-If no kimbap config/services exist yet, installer bootstraps init automatically before syncing skills (default quickstart set: `starter`).
+If no kimbap config/services exist yet, installer offers interactive service selection first (default quickstart mode: `select`, with recommended services preselected).
 Use `--quickstart-services all` when you want the full catalog on first setup.
 
 Control quickstart service selection during install:
 
 ```bash
-# default is starter
-curl -fsSL https://kimbap.sh/install.sh | bash -s -- --quickstart-services starter
+# default is interactive select
+curl -fsSL https://kimbap.sh/install.sh | bash -s -- --quickstart-services select
+
+# install recommended curated defaults directly
+curl -fsSL https://kimbap.sh/install.sh | bash -s -- --quickstart-services recommended
 
 # install all catalog services
 curl -fsSL https://kimbap.sh/install.sh | bash -s -- --quickstart-services all
 
 # skip service install during quickstart init
 curl -fsSL https://kimbap.sh/install.sh | bash -s -- --quickstart-services none
+
 ```
 
 ### Homebrew (macOS / Linux)
@@ -85,7 +89,7 @@ If you installed using `install.sh`, remove script-managed binaries (`kimbap`, `
 curl -fsSL https://kimbap.sh/install.sh | bash -s -- --uninstall
 ```
 
-Also remove local kimbap data/config (`~/.kimbap`):
+Also remove resolved local kimbap data/config paths (default `~/.kimbap`; respects `KIMBAP_DATA_DIR` / `KIMBAP_CONFIG` when set):
 
 ```bash
 curl -fsSL https://kimbap.sh/install.sh | bash -s -- --uninstall --purge-data
@@ -115,10 +119,10 @@ make deps && make build
 ### Local / dev evaluation
 
 ```bash
-kimbap init --services all
+kimbap init --services select
 ```
 
-Dev mode auto-generates a vault master key and stores it in `~/.kimbap/.dev-master-key`. In interactive mode, pressing Enter at the service prompt installs all catalog services by default.
+Dev mode auto-generates a vault master key and stores it in `~/.kimbap/.dev-master-key`. In interactive mode, `--services select` opens a checklist with recommended services preselected (you can switch to `all` from the checklist).
 If services are installed during init, eligible shortcut aliases are set up by default. In interactive flows, you'll be asked first; use `--no-shortcuts` to skip.
 
 After init, you can run shortcuts directly (no `kimbap call` prefix):
@@ -143,14 +147,14 @@ Store the key securely. You need it to unlock the vault on every run. Use `--ser
 - Generates `config.yaml` with default settings
 - Initializes the encrypted vault
 - Creates a default policy file
-- Installs all catalog service manifests (when `--services all`)
+- Installs selected catalog service manifests (all/recommended/custom via `--services`)
 
 **Init flags:**
 
 | Flag | Description |
 |---|---|
 | `--mode <mode>` | Runtime mode: `dev`, `embedded`, or `connected` |
-| `--services <list>` | Comma-separated service names, or `"all"` to install everything |
+| `--services <list>` | Comma-separated service names, or `"all"`, `"recommended"` (legacy alias: `starter`), `"select"` (interactive checklist) |
 | `--no-services` | Skip service installation |
 | `--no-shortcuts` | Skip automatic shortcut alias setup during service installation |
 | `--with-console` | Enable the embedded console route |
@@ -217,17 +221,26 @@ Each command starts the OAuth flow for that provider and stores the resulting to
 kimbap ships with profiles for common AI coding agents. Use `--with-profiles` to write project-level operating rules files so the agent discovers kimbap when working in that project.
 
 ```bash
-# Auto-detect and configure all installed agents
+# Auto-detect and install global discovery hints for installed agents
 kimbap agents setup
 
+# Also sync service discovery into current project
+kimbap agents setup --sync --dir "$PWD"
+
 # Also install agent operating profiles into the project directory
-kimbap agents setup --with-profiles
+kimbap agents setup --sync --with-profiles --dir "$PWD"
 
 # Sync service discovery (generates SKILL.md per service)
 kimbap agents sync
 
 # Force project SKILL sync for OpenCode in current project
 kimbap agents sync --agent opencode --dir "$PWD" --force
+
+# OpenClaw official workspace sync
+kimbap agents sync --agent openclaw --dir "$HOME/.openclaw/workspace"
+
+# NanoClaw repository sync
+kimbap agents sync --agent nanoclaw --dir /path/to/nanoclaw
 ```
 
 **Profile install locations:**
@@ -237,6 +250,8 @@ kimbap agents sync --agent opencode --dir "$PWD" --force
 | Claude Code | `.claude/KIMBAP_OPERATING_RULES.md` |
 | OpenCode | `.opencode/KIMBAP_OPERATING_RULES.md` |
 | Cursor | `.cursor/KIMBAP_OPERATING_RULES.md` |
+| OpenClaw | `KIMBAP_OPERATING_RULES.md` (OpenClaw workspace root) |
+| NanoClaw | `.claude/KIMBAP_OPERATING_RULES.md` |
 | Codex | `.codex/KIMBAP_OPERATING_RULES.md` |
 | Generic | `.agents/KIMBAP_OPERATING_RULES.md` |
 
@@ -276,7 +291,7 @@ geosearch --name "San Francisco"
 
 ## Configuration reference
 
-These environment variables control kimbap's runtime behavior. All can also be set in `~/.kimbap/config.yaml`.
+These environment variables control kimbap's runtime behavior. Config is resolved from `KIMBAP_CONFIG` or default discovery (`$XDG_CONFIG_HOME/kimbap/config.yaml` when set, otherwise `~/.kimbap/config.yaml`).
 
 | Variable | Default | Description |
 |---|---|---|

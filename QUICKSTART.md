@@ -21,10 +21,10 @@ brew install dunialabs/kimbap/kimbap
 ## 2. Initialize
 
 ```bash
-kimbap init --services all
+kimbap init --services select
 ```
 
-Creates `~/.kimbap/` with a config file, encrypted vault, and default policy. Installs all catalog service manifests. Dev mode auto-generates a vault key stored locally, so no extra setup is needed.
+Creates local runtime files (default in `~/.kimbap/`) and opens an interactive service checklist. Recommended services are preselected, and `all` is available in one command.
 Eligible shortcut aliases are set up by default during init. In interactive flows, you'll be asked first; use `--no-shortcuts` to skip.
 
 ---
@@ -82,7 +82,11 @@ The same pattern works for any service: `kimbap link <service>`.
 kimbap agents setup
 ```
 
-Auto-detects installed agents and sets up kimbap discovery for them.
+Auto-detects installed agents and installs global kimbap discovery hints. For project sync, run:
+
+```bash
+kimbap agents setup --sync --dir .
+```
 
 Need profile/rules customization? See the Installation Guide for advanced setup options.
 

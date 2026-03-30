@@ -373,7 +373,7 @@ func (r *Runtime) execute(ctx context.Context, req actions.ExecutionRequest, tra
 	}
 	trace.Record("check_policy_decision", "ok", policyDecision)
 
-	approvalNeeded := policyDecision == "require_approval" || req.Action.ApprovalHint == actions.ApprovalRequired
+	approvalNeeded := policyDecision == "require_approval" || req.Action.ApprovalHint == actions.ApprovalRequired || requiresInlineScriptApproval(req.Action)
 	if approvalNeeded {
 		approvalRes, approvalErr := r.requestApproval(ctx, req)
 		if approvalErr != nil {
@@ -599,6 +599,13 @@ func (r *Runtime) requestApproval(ctx context.Context, req actions.ExecutionRequ
 	if r.ApprovalManager == nil {
 		return nil, actions.NewExecutionError(actions.ErrDownstreamUnavailable, "approval manager unavailable", 500, false, nil)
 	}
+	approvalMeta := map[string]any{
+		"mode": req.Mode,
+	}
+	if approvalRef := strings.TrimSpace(req.Action.Adapter.ApprovalRef); approvalRef != "" {
+		approvalMeta["approval_ref"] = approvalRef
+	}
+
 	approvalResult, err := r.ApprovalManager.CreateRequest(ctx, ApprovalRequest{
 		RequestID: req.RequestID,
 		TraceID:   req.TraceID,
@@ -606,9 +613,7 @@ func (r *Runtime) requestApproval(ctx context.Context, req actions.ExecutionRequ
 		Principal: req.Principal,
 		Action:    req.Action,
 		Input:     req.Input,
-		Meta: map[string]any{
-			"mode": req.Mode,
-		},
+		Meta:      approvalMeta,
 	})
 	if err != nil {
 		return nil, actions.NewExecutionError(actions.ErrDownstreamUnavailable, err.Error(), 500, false, nil)
@@ -630,6 +635,16 @@ func (r *Runtime) cancelApprovalOnHoldFailure(ctx context.Context, approvalReque
 	cancelCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), auditWriteTimeout)
 	defer cancel()
 	return r.ApprovalManager.CancelRequest(cancelCtx, approvalRequestID, reason)
+}
+
+func requiresInlineScriptApproval(action actions.ActionDefinition) bool {
+	if !strings.EqualFold(strings.TrimSpace(action.Adapter.Type), "applescript") {
+		return false
+	}
+	if strings.TrimSpace(action.Adapter.ScriptSource) == "" {
+		return false
+	}
+	return strings.TrimSpace(action.Adapter.ApprovalRef) != ""
 }
 
 func (r *Runtime) getAdapter(adapterType string) (adapters.Adapter, *actions.ExecutionError) {
@@ -702,11 +717,15 @@ func (r *Runtime) finalizeWithStatus(
 		result.Meta["context_error"] = err.Error()
 	}
 
-	auditRef := req.RequestID
+	auditRef := strings.TrimSpace(req.Action.Adapter.AuditRef)
+	if auditRef == "" {
+		auditRef = req.RequestID
+	}
 	if auditRef == "" {
 		auditRef = req.TraceID
 	}
 	result.AuditRef = auditRef
+	result.Meta["audit_ref"] = auditRef
 
 	auditCtx, cancelAudit := context.WithTimeout(context.WithoutCancel(ctx), auditWriteTimeout)
 	defer cancelAudit()

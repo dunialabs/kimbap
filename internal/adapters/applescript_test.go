@@ -50,6 +50,74 @@ func TestAppleScriptAdapterValidate_UnknownCommand(t *testing.T) {
 	}
 }
 
+func TestAppleScriptAdapterValidate_InlineScriptWithoutCommand(t *testing.T) {
+	a := NewAppleScriptAdapter(NewMockRunner(nil, nil, nil))
+	err := a.Validate(actions.ActionDefinition{
+		Adapter: actions.AdapterConfig{
+			TargetApp:      "Notes",
+			ScriptSource:   `ObjC.import('stdlib'); JSON.stringify({ok:true});`,
+			ScriptLanguage: "jxa",
+			ApprovalRef:    "approval.default",
+			AuditRef:       "audit.default",
+		},
+	})
+	if err != nil {
+		t.Fatalf("Validate() error = %v, want nil", err)
+	}
+}
+
+func TestAppleScriptAdapterValidate_RejectsUnknownInlineScriptLanguage(t *testing.T) {
+	a := NewAppleScriptAdapter(NewMockRunner(nil, nil, nil))
+	err := a.Validate(actions.ActionDefinition{
+		Adapter: actions.AdapterConfig{
+			TargetApp:      "Notes",
+			ScriptSource:   `ObjC.import('stdlib'); JSON.stringify({ok:true});`,
+			ScriptLanguage: "jython",
+			ApprovalRef:    "approval.default",
+			AuditRef:       "audit.default",
+		},
+	})
+	if err == nil {
+		t.Fatal("Validate() error = nil, want unsupported language error")
+	}
+	if !strings.Contains(err.Error(), "script language") {
+		t.Fatalf("error = %q, want script language guidance", err.Error())
+	}
+}
+
+func TestAppleScriptAdapterValidate_InlineScriptRequiresApprovalAndAuditRefs(t *testing.T) {
+	a := NewAppleScriptAdapter(NewMockRunner(nil, nil, nil))
+	err := a.Validate(actions.ActionDefinition{
+		Adapter: actions.AdapterConfig{
+			TargetApp:    "Notes",
+			ScriptSource: `ObjC.import('stdlib'); JSON.stringify({ok:true});`,
+		},
+	})
+	if err == nil {
+		t.Fatal("Validate() error = nil, want missing approval/audit refs error")
+	}
+	if !strings.Contains(err.Error(), "approval_ref") {
+		t.Fatalf("error = %q, want approval_ref requirement", err.Error())
+	}
+}
+
+func TestAppleScriptAdapterValidate_InlineScriptRequiresAuditRef(t *testing.T) {
+	a := NewAppleScriptAdapter(NewMockRunner(nil, nil, nil))
+	err := a.Validate(actions.ActionDefinition{
+		Adapter: actions.AdapterConfig{
+			TargetApp:    "Notes",
+			ScriptSource: `ObjC.import('stdlib'); JSON.stringify({ok:true});`,
+			ApprovalRef:  "approval.default",
+		},
+	})
+	if err == nil {
+		t.Fatal("Validate() error = nil, want missing audit_ref error")
+	}
+	if !strings.Contains(err.Error(), "audit_ref") {
+		t.Fatalf("error = %q, want audit_ref requirement", err.Error())
+	}
+}
+
 func TestAppleScriptAdapterLoadsAllRegistries(t *testing.T) {
 	a := NewAppleScriptAdapter(NewMockRunner(nil, nil, nil))
 	tests := []actions.AdapterConfig{
@@ -116,6 +184,82 @@ func TestAppleScriptAdapterExecute_ArrayOutput(t *testing.T) {
 	}
 	if len(data) != 1 {
 		t.Fatalf("len(Output[data]) = %d, want 1", len(data))
+	}
+}
+
+func TestAppleScriptAdapterExecute_UsesInlineScriptSource(t *testing.T) {
+	mock := NewMockRunner([]byte(`{"ok":true}`), nil, nil)
+	a := NewAppleScriptAdapter(mock)
+	inlineScript := `ObjC.import('stdlib'); JSON.stringify({ok:true, source:"inline"});`
+
+	_, err := a.Execute(context.Background(), AdapterRequest{
+		Action: actions.ActionDefinition{Adapter: actions.AdapterConfig{Command: "notes.inline", TargetApp: "Notes", ScriptSource: inlineScript, ApprovalRef: "approval.default", AuditRef: "audit.default"}},
+		Input:  map[string]any{},
+	})
+	if err != nil {
+		t.Fatalf("Execute() error = %v, want nil", err)
+	}
+	if len(mock.Calls) != 1 {
+		t.Fatalf("mock calls = %d, want 1", len(mock.Calls))
+	}
+	args := mock.Calls[0].Args
+	joined := strings.Join(args, " ")
+	if !strings.Contains(joined, "JavaScript") {
+		t.Fatalf("osascript args = %v, want JavaScript mode", args)
+	}
+	if !strings.Contains(joined, "source:\"inline\"") {
+		t.Fatalf("osascript args should include inline script content, got %v", args)
+	}
+}
+
+func TestAppleScriptAdapterExecute_InlineAppleScriptLanguageUsesNativeMode(t *testing.T) {
+	mock := NewMockRunner([]byte(`{"ok":true}`), nil, nil)
+	a := NewAppleScriptAdapter(mock)
+	inlineScript := `return "ok"`
+
+	_, err := a.Execute(context.Background(), AdapterRequest{
+		Action: actions.ActionDefinition{Adapter: actions.AdapterConfig{TargetApp: "Notes", ScriptSource: inlineScript, ScriptLanguage: "applescript", ApprovalRef: "approval.default", AuditRef: "audit.default"}},
+		Input:  map[string]any{},
+	})
+	if err != nil {
+		t.Fatalf("Execute() error = %v, want nil", err)
+	}
+	if len(mock.Calls) != 1 {
+		t.Fatalf("mock calls = %d, want 1", len(mock.Calls))
+	}
+	args := mock.Calls[0].Args
+	joined := strings.Join(args, " ")
+	if strings.Contains(joined, "JavaScript") {
+		t.Fatalf("osascript args = %v, did not expect JavaScript language flag for applescript mode", args)
+	}
+}
+
+func TestAppleScriptAdapterExecute_ManifestModeFailsClosedWithoutInlineScript(t *testing.T) {
+	a := NewAppleScriptAdapter(NewMockRunner([]byte(`{"ok":true}`), nil, nil))
+	res, err := a.Execute(context.Background(), AdapterRequest{
+		Action: actions.ActionDefinition{Adapter: actions.AdapterConfig{Command: "list-notes", TargetApp: "Notes", RegistryMode: "manifest"}},
+	})
+	if err == nil {
+		t.Fatal("Execute() error = nil, want validation failure")
+	}
+	if res == nil || res.HTTPStatus != 400 {
+		t.Fatalf("HTTPStatus = %v, want 400", res)
+	}
+	if actions.AsExecutionError(err).Code != actions.ErrValidationFailed {
+		t.Fatalf("error code = %q, want %q", actions.AsExecutionError(err).Code, actions.ErrValidationFailed)
+	}
+}
+
+func TestAppleScriptAdapterExecute_InlineScriptFailsWithoutApprovalAuditRefs(t *testing.T) {
+	a := NewAppleScriptAdapter(NewMockRunner([]byte(`{"ok":true}`), nil, nil))
+	res, err := a.Execute(context.Background(), AdapterRequest{
+		Action: actions.ActionDefinition{Adapter: actions.AdapterConfig{TargetApp: "Notes", ScriptSource: `ObjC.import('stdlib'); JSON.stringify({ok:true});`}},
+	})
+	if err == nil {
+		t.Fatal("Execute() error = nil, want validation failure")
+	}
+	if res == nil || res.HTTPStatus != 400 {
+		t.Fatalf("HTTPStatus = %v, want 400", res)
 	}
 }
 

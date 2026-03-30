@@ -66,11 +66,28 @@ func (a *AppleScriptAdapter) Type() string {
 
 func (a *AppleScriptAdapter) Validate(def actions.ActionDefinition) error {
 	command := strings.TrimSpace(def.Adapter.Command)
-	if command == "" {
-		return fmt.Errorf("applescript adapter requires command")
-	}
+	scriptSource := strings.TrimSpace(def.Adapter.ScriptSource)
+	registryMode := strings.ToLower(strings.TrimSpace(def.Adapter.RegistryMode))
 	if strings.TrimSpace(def.Adapter.TargetApp) == "" {
 		return fmt.Errorf("applescript adapter requires target_app")
+	}
+	if registryMode == "manifest" && scriptSource == "" {
+		return fmt.Errorf("applescript manifest registry mode requires script_source")
+	}
+	if scriptSource != "" {
+		if _, err := resolveAppleScriptLanguage(def.Adapter.ScriptLanguage); err != nil {
+			return err
+		}
+		if strings.TrimSpace(def.Adapter.ApprovalRef) == "" {
+			return fmt.Errorf("applescript inline script requires approval_ref")
+		}
+		if strings.TrimSpace(def.Adapter.AuditRef) == "" {
+			return fmt.Errorf("applescript inline script requires audit_ref")
+		}
+		return nil
+	}
+	if command == "" {
+		return fmt.Errorf("applescript adapter requires command or script_source")
 	}
 	if _, ok := a.commands[command]; !ok {
 		return fmt.Errorf("unknown applescript command: %s", command)
@@ -81,12 +98,36 @@ func (a *AppleScriptAdapter) Validate(def actions.ActionDefinition) error {
 func (a *AppleScriptAdapter) Execute(ctx context.Context, req AdapterRequest) (*AdapterResult, error) {
 	start := time.Now()
 	commandName := strings.TrimSpace(req.Action.Adapter.Command)
-
-	cmd, ok := a.commands[commandName]
-	if !ok {
-		execErr := actions.NewExecutionError(actions.ErrValidationFailed, fmt.Sprintf("unknown command: %s", commandName), http.StatusBadRequest, false, nil)
+	scriptSource := strings.TrimSpace(req.Action.Adapter.ScriptSource)
+	registryMode := strings.ToLower(strings.TrimSpace(req.Action.Adapter.RegistryMode))
+	if registryMode == "manifest" && scriptSource == "" {
+		execErr := actions.NewExecutionError(actions.ErrValidationFailed, "manifest applescript action missing script_source", http.StatusBadRequest, false, nil)
 		return &AdapterResult{HTTPStatus: http.StatusBadRequest, DurationMS: time.Since(start).Milliseconds()}, execErr
 	}
+	runtimeArgs, langErr := resolveAppleScriptLanguage(req.Action.Adapter.ScriptLanguage)
+	if langErr != nil {
+		execErr := actions.NewExecutionError(actions.ErrValidationFailed, langErr.Error(), http.StatusBadRequest, false, nil)
+		return &AdapterResult{HTTPStatus: http.StatusBadRequest, DurationMS: time.Since(start).Milliseconds()}, execErr
+	}
+	if scriptSource != "" {
+		if strings.TrimSpace(req.Action.Adapter.ApprovalRef) == "" {
+			execErr := actions.NewExecutionError(actions.ErrValidationFailed, "inline applescript action missing approval_ref", http.StatusBadRequest, false, nil)
+			return &AdapterResult{HTTPStatus: http.StatusBadRequest, DurationMS: time.Since(start).Milliseconds()}, execErr
+		}
+		if strings.TrimSpace(req.Action.Adapter.AuditRef) == "" {
+			execErr := actions.NewExecutionError(actions.ErrValidationFailed, "inline applescript action missing audit_ref", http.StatusBadRequest, false, nil)
+			return &AdapterResult{HTTPStatus: http.StatusBadRequest, DurationMS: time.Since(start).Milliseconds()}, execErr
+		}
+	}
+	if scriptSource == "" {
+		cmd, ok := a.commands[commandName]
+		if !ok {
+			execErr := actions.NewExecutionError(actions.ErrValidationFailed, fmt.Sprintf("unknown command: %s", commandName), http.StatusBadRequest, false, nil)
+			return &AdapterResult{HTTPStatus: http.StatusBadRequest, DurationMS: time.Since(start).Milliseconds()}, execErr
+		}
+		scriptSource = cmd.Script
+	}
+	runtimeArgs = append(runtimeArgs, scriptSource)
 
 	input := req.Input
 	if input == nil {
@@ -113,7 +154,7 @@ func (a *AppleScriptAdapter) Execute(ctx context.Context, req AdapterRequest) (*
 	stdout, stderr, execErr := a.runner.Run(
 		execCtx,
 		"/usr/bin/osascript",
-		[]string{"-l", "JavaScript", "-e", cmd.Script},
+		runtimeArgs,
 		bytes.NewReader(inputJSON),
 	)
 
@@ -154,6 +195,17 @@ func (a *AppleScriptAdapter) Execute(ctx context.Context, req AdapterRequest) (*
 		DurationMS: durationMS,
 		RawBody:    stdout,
 	}, nil
+}
+
+func resolveAppleScriptLanguage(raw string) ([]string, error) {
+	switch strings.ToLower(strings.TrimSpace(raw)) {
+	case "", "jxa":
+		return []string{"-l", "JavaScript", "-e"}, nil
+	case "applescript":
+		return []string{"-e"}, nil
+	default:
+		return nil, fmt.Errorf("unsupported applescript script language %q: must be one of jxa or applescript", raw)
+	}
 }
 
 func mapAppleScriptError(stderr []byte, err error) *actions.ExecutionError {

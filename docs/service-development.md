@@ -302,6 +302,43 @@ actions:
 
 **`command`** on each action must reference a registered AppleScript command handler. Kimbap dispatches to this handler by name, passing args as a record. If the handler is not registered, the action will fail at runtime with a handler-not-found error.
 
+**`inline_script`** can be used to define AppleScript/JXA action behavior directly in the manifest so new apps/services can be onboarded without adding new Go command registries. In dual mode, either `command` or `inline_script` is accepted; in manifest mode, `inline_script` is required.
+
+```yaml
+actions:
+  list-notes:
+    description: List notes from the default account
+    inline_script:
+      id: notes.list_notes.inline
+      language: jxa
+      timeout: 10s
+      approval_ref: approval.default
+      audit_ref: audit.default
+      source: |
+        ObjC.import('stdlib');
+        ObjC.import('Foundation');
+        var stdin = $.NSFileHandle.fileHandleWithStandardInput;
+        var data = stdin.readDataToEndOfFile;
+        var str = $.NSString.alloc.initWithDataEncoding(data, $.NSUTF8StringEncoding).js;
+        var input = str.length > 0 ? JSON.parse(str) : {};
+        var app = Application("Notes");
+        app.includeStandardAdditions = false;
+        var result = app.notes().map(function(n) { return {name: n.name()}; });
+        JSON.stringify(result);
+    args: []
+    response:
+      type: array
+    risk:
+      level: low
+```
+
+`inline_script.language` supports `jxa` (default) and `applescript`.
+
+`services.applescript_registry_mode` controls migration behavior:
+- `legacy`: require `command` handlers only
+- `dual` (default): allow `command` or `inline_script`
+- `manifest`: require `inline_script`
+
 The adapter does not use `method`, `path`, `base_url`, or `command_spec`. Auth type must be `none` for AppleScript actions.
 
 ---
@@ -379,6 +416,7 @@ The adapter does not use `method`, `path`, `base_url`, or `command_spec`. Auth t
 | `method` | string | for http | `GET`, `POST`, `PUT`, `PATCH`, `DELETE`, `HEAD`, or `OPTIONS` |
 | `path` | string | for http | Must start with `/` |
 | `command` | string | for command/applescript | Subcommand string or handler name |
+| `inline_script` | object | for applescript (recommended) | Inline script execution specification |
 | `description` | string | no | Human-readable description |
 | `idempotent` | boolean | no | Whether repeated calls have the same effect |
 | `warnings` | string[] | no | Free-text warnings shown before execution |
@@ -400,6 +438,17 @@ The adapter does not use `method`, `path`, `base_url`, or `command_spec`. Auth t
 | `required` | boolean | yes | If true, caller must provide a value |
 | `default` | any | no | Must not be set on required args. Type must match declared type |
 | `enum` | array | no | Restricts accepted values to this list |
+
+### inline_script fields (AppleScript adapter)
+
+| Field | Type | Required | Notes |
+|---|---|---|---|
+| `id` | string | yes | Stable command identifier, unique per action |
+| `language` | string | no | `jxa` (default) or `applescript` |
+| `timeout` | string | no | Duration string, e.g. `"10s"` |
+| `approval_ref` | string | yes | Approval policy reference key. Inline AppleScript actions with this field trigger approval flow at runtime. |
+| `audit_ref` | string | yes | Audit event reference key. Propagated to execution result `audit_ref` metadata and persisted in audit event metadata. |
+| `source` | string | yes | Script source body |
 
 ### request fields (HTTP adapter)
 

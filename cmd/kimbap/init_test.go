@@ -147,6 +147,7 @@ func TestInstallInitServicesPromptAcceptsAndCreatesShortcutAliases(t *testing.T)
 
 	execDir := t.TempDir()
 	execPath := filepath.Join(execDir, "kimbap")
+	stubAliasLookPathToDir(t, execDir)
 	origExecutablePath := aliasExecutablePath
 	origLstat := aliasFileLstat
 	origSymlink := aliasFileSymlink
@@ -405,6 +406,7 @@ func TestResolveInitServiceSelectionFromReader(t *testing.T) {
 		input           string
 		wantSkipped     bool
 		wantAll         bool
+		wantStarter     bool
 		wantNames       []string
 		wantErr         bool
 		wantErrContains string
@@ -414,25 +416,21 @@ func TestResolveInitServiceSelectionFromReader(t *testing.T) {
 		{name: "services all returns all", rawServices: "all", wantAll: true},
 		{name: "services ALL case insensitive", rawServices: "ALL", wantAll: true},
 		{name: "services all with whitespace", rawServices: " all ", wantAll: true},
+		{name: "services recommended returns preset", rawServices: "recommended", wantStarter: true},
+		{name: "services starter legacy alias returns preset", rawServices: "starter", wantStarter: true},
 		{name: "services csv returns normalized", rawServices: "github,slack", wantNames: []string{"github", "slack"}},
 		{name: "services csv with whitespace", rawServices: "github , slack", wantNames: []string{"github", "slack"}},
 		{name: "services invalid errors", rawServices: "nonexistent-service-xyz", wantErr: true, wantErrContains: "unknown catalog service"},
 		{name: "services comma-only errors", rawServices: ",,,", wantErr: true, wantErrContains: "invalid --services value"},
 		{name: "non-interactive empty skips", rawServices: "", interactive: false, wantSkipped: true},
-		{name: "interactive enter installs all", rawServices: "", interactive: true, input: "\n", wantAll: true},
-		{name: "interactive Y installs all", rawServices: "", interactive: true, input: "Y\n", wantAll: true},
-		{name: "interactive y installs all", rawServices: "", interactive: true, input: "y\n", wantAll: true},
-		{name: "interactive yes installs all", rawServices: "", interactive: true, input: "yes\n", wantAll: true},
-		{name: "interactive n skips", rawServices: "", interactive: true, input: "n\n", wantSkipped: true},
-		{name: "interactive N skips", rawServices: "", interactive: true, input: "N\n", wantSkipped: true},
-		{name: "interactive no skips", rawServices: "", interactive: true, input: "no\n", wantSkipped: true},
-		{name: "interactive csv parses", rawServices: "", interactive: true, input: "github,slack\n", wantNames: []string{"github", "slack"}},
+		{name: "interactive done returns recommended preset", rawServices: "", interactive: true, input: "d\n", wantStarter: true},
+		{name: "interactive all then done", rawServices: "", interactive: true, input: "a\nd\n", wantAll: true},
+		{name: "interactive none then done skips", rawServices: "", interactive: true, input: "n\nd\n", wantSkipped: true},
+		{name: "interactive invalid token reprompts", rawServices: "", interactive: true, input: "bogus\nd\n", wantStarter: true},
 		{name: "interactive EOF skips", rawServices: "", interactive: true, input: "", wantSkipped: true},
-		{name: "interactive select then csv", rawServices: "", interactive: true, input: "select\ngithub,slack\n", wantNames: []string{"github", "slack"}},
-		{name: "interactive select then all", rawServices: "", interactive: true, input: "select\nall\n", wantAll: true},
-		{name: "interactive select then empty skips", rawServices: "", interactive: true, input: "select\n\n", wantSkipped: true},
-		{name: "interactive select then EOF skips", rawServices: "", interactive: true, input: "select\n", wantSkipped: true},
-		{name: "interactive invalid service errors", rawServices: "", interactive: true, input: "nonexistent-service-xyz\n", wantErr: true, wantErrContains: "unknown catalog service"},
+		{name: "explicit services select uses checklist", rawServices: "select", interactive: true, input: "d\n", wantStarter: true},
+		{name: "explicit services select non-interactive errors", rawServices: "select", interactive: false, wantErr: true, wantErrContains: "requires interactive stdin"},
+		{name: "explicit checklist out-of-range reprompts", rawServices: "select", interactive: true, input: "999\nd\n", wantStarter: true},
 	}
 
 	for _, tc := range tests {
@@ -468,6 +466,22 @@ func TestResolveInitServiceSelectionFromReader(t *testing.T) {
 				for i, want := range allServices {
 					if result.Names[i] != want {
 						t.Fatalf("Names[%d]: expected %q, got %q", i, want, result.Names[i])
+					}
+				}
+				return
+			}
+
+			if tc.wantStarter {
+				starterSet := map[string]struct{}{}
+				for _, name := range starterServiceNames() {
+					starterSet[name] = struct{}{}
+				}
+				if len(result.Names) != len(starterSet) {
+					t.Fatalf("expected starter selection size %d, got %v", len(starterSet), result.Names)
+				}
+				for _, got := range result.Names {
+					if _, ok := starterSet[got]; !ok {
+						t.Fatalf("expected recommended selection set %v, got %v", starterSet, result.Names)
 					}
 				}
 				return

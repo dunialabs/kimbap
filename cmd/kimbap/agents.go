@@ -13,10 +13,22 @@ import (
 	"github.com/spf13/cobra"
 )
 
+const (
+	supportedGlobalAgentKindsText  = "claude-code, opencode, codex, cursor, openclaw, nanoclaw"
+	supportedProjectAgentKindsText = "claude-code, opencode, codex, cursor, openclaw, nanoclaw, generic"
+)
+
 type agentSetupResult struct {
 	SyncResults         []agents.SyncResult `json:"sync_results"`
 	MetaAgentSkillPaths []string            `json:"meta_agent_skill_paths,omitempty"`
 	AgentsFound         int                 `json:"agents_found"`
+}
+
+type agentsSetupOutput struct {
+	GlobalResults []agents.GlobalSetupResult `json:"global_results"`
+	SyncEnabled   bool                       `json:"sync_enabled"`
+	SyncDir       string                     `json:"sync_dir,omitempty"`
+	SyncResult    *agentSetupResult          `json:"sync_result,omitempty"`
 }
 
 func newAgentsCommand() *cobra.Command {
@@ -39,13 +51,20 @@ func newAgentsSetupCommand() *cobra.Command {
 		withProfiles bool
 		profileDir   string
 		dir          string
+		syncProject  bool
 		noSync       bool
 	)
 
 	cmd := &cobra.Command{
 		Use:   "setup",
-		Short: "Install global kimbap discovery hints for detected AI agents",
+		Short: "Install global kimbap discovery hints for detected AI agents (including Cursor/OpenClaw/NanoClaw)",
 		RunE: func(_ *cobra.Command, _ []string) error {
+			doSync := syncProject && !noSync
+			var (
+				syncResult *agentSetupResult
+				absDir     string
+			)
+
 			metaContent := services.GenerateMetaAgentSkillMD()
 			results, err := agents.GlobalSetup(metaContent, agents.GlobalSetupOptions{
 				Agents: parseAgentKinds(agentRaw),
@@ -56,40 +75,32 @@ func newAgentsSetupCommand() *cobra.Command {
 				return err
 			}
 
-			if len(results) == 0 {
-				if outputAsJSON() {
-					return printOutput(results)
-				}
-				fmt.Println("No AI agents detected. Install Claude Code, OpenCode, Cursor, or Codex, then re-run 'kimbap agents setup'.")
-				return nil
-			}
-
-			if outputAsJSON() {
-				if err := printOutput(results); err != nil {
-					return err
-				}
-			} else {
+			if !outputAsJSON() {
 				useColor := isColorStdout()
-				for _, r := range results {
-					var icon string
-					if r.Error != "" {
-						icon = "✗"
-						if useColor {
-							icon = "\x1b[31m" + icon + "\x1b[0m"
+				if len(results) == 0 {
+					fmt.Println("No AI agents detected. Install Claude Code, OpenCode, Codex, Cursor, OpenClaw, or NanoClaw, then re-run 'kimbap agents setup'.")
+				} else {
+					for _, r := range results {
+						var icon string
+						if r.Error != "" {
+							icon = "✗"
+							if useColor {
+								icon = "\x1b[31m" + icon + "\x1b[0m"
+							}
+							fmt.Printf("  %s %-16s %s\n", icon, r.Agent, r.Error)
+						} else if r.Skipped {
+							icon = "-"
+							if useColor {
+								icon = "\x1b[2m" + icon + "\x1b[0m"
+							}
+							fmt.Printf("  %s %-16s skipped\n", icon, r.Agent)
+						} else {
+							icon = "✓"
+							if useColor {
+								icon = "\x1b[32m" + icon + "\x1b[0m"
+							}
+							fmt.Printf("  %s %-16s skill written\n", icon, r.Agent)
 						}
-						fmt.Printf("  %s %-16s %s\n", icon, r.Agent, r.Error)
-					} else if r.Skipped {
-						icon = "-"
-						if useColor {
-							icon = "\x1b[2m" + icon + "\x1b[0m"
-						}
-						fmt.Printf("  %s %-16s skipped\n", icon, r.Agent)
-					} else {
-						icon = "✓"
-						if useColor {
-							icon = "\x1b[32m" + icon + "\x1b[0m"
-						}
-						fmt.Printf("  %s %-16s skill written\n", icon, r.Agent)
 					}
 				}
 			}
@@ -110,43 +121,66 @@ func newAgentsSetupCommand() *cobra.Command {
 				}
 			}
 
-			if noSync {
-				return nil
-			}
+			if doSync {
+				absDir, err = resolveAgentsSyncProjectDir(dir)
+				if err != nil {
+					return err
+				}
 
-			absDir, err := resolveAgentsSyncProjectDir(dir)
-			if err != nil {
-				return err
-			}
+				res, syncErr := runAgentsSync(absDir, agentRaw, "", force, dryRun)
+				if syncErr != nil {
+					return syncErr
+				}
+				syncResult = &res
 
-			syncResult, err := runAgentsSync(absDir, agentRaw, "", force, dryRun)
-			if err != nil {
-				return err
-			}
-
-			hasWrittenServices := false
-			for _, r := range syncResult.SyncResults {
-				if len(r.Written) > 0 {
-					hasWrittenServices = true
-					break
+				if !outputAsJSON() {
+					if syncResult.AgentsFound == 0 || len(syncResult.SyncResults) == 0 {
+						fmt.Printf("- No agent environments detected for sync in %s\n", absDir)
+						return nil
+					}
+					hasWrittenServices := false
+					for _, r := range syncResult.SyncResults {
+						if len(r.Written) > 0 {
+							hasWrittenServices = true
+							break
+						}
+					}
+					if dryRun {
+						fmt.Printf("- Service sync dry-run completed for %s\n", absDir)
+					} else if hasWrittenServices {
+						fmt.Printf(successCheck()+" Services synced to %s\n", absDir)
+					} else {
+						fmt.Printf("- Services already in sync at %s\n", absDir)
+					}
 				}
 			}
 
-			if !outputAsJSON() && hasWrittenServices && !dryRun {
-				fmt.Printf(successCheck()+" Services synced to %s\n", absDir)
+			if outputAsJSON() {
+				if !doSync {
+					return printOutput(results)
+				}
+				payload := agentsSetupOutput{
+					GlobalResults: results,
+					SyncEnabled:   true,
+					SyncDir:       absDir,
+					SyncResult:    syncResult,
+				}
+				return printOutput(payload)
 			}
 
 			return nil
 		},
 	}
 
-	cmd.Flags().StringVar(&agentRaw, "agent", "", "comma-separated agent kinds")
+	cmd.Flags().StringVar(&agentRaw, "agent", "", "comma-separated agent kinds ("+supportedGlobalAgentKindsText+")")
 	cmd.Flags().BoolVar(&force, "force", false, "overwrite unchanged files")
 	cmd.Flags().BoolVar(&dryRun, "dry-run", false, "show planned changes without writing files")
 	cmd.Flags().StringVar(&dir, "dir", ".", "project directory to sync into")
-	cmd.Flags().BoolVar(&noSync, "no-sync", false, "skip sync after global setup")
+	cmd.Flags().BoolVar(&syncProject, "sync", false, "also sync installed services into --dir after global setup")
+	cmd.Flags().BoolVar(&noSync, "no-sync", false, "deprecated: use default (no sync) or explicit --sync")
 	cmd.Flags().BoolVar(&withProfiles, "with-profiles", false, "also install agent operating profiles into the project directory")
 	cmd.Flags().StringVar(&profileDir, "profile-dir", ".", "target directory for profile installation (used with --with-profiles)")
+	_ = cmd.Flags().MarkHidden("no-sync")
 
 	return cmd
 }
@@ -250,7 +284,7 @@ func newAgentsUninstallGlobalCommand() *cobra.Command {
 		},
 	}
 
-	cmd.Flags().StringVar(&agentRaw, "agent", "", "comma-separated agent kinds")
+	cmd.Flags().StringVar(&agentRaw, "agent", "", "comma-separated agent kinds ("+supportedGlobalAgentKindsText+")")
 	cmd.Flags().BoolVar(&dryRun, "dry-run", false, "show planned changes without removing files")
 
 	return cmd
@@ -290,7 +324,7 @@ func newAgentsSyncCommand() *cobra.Command {
 	}
 
 	cmd.Flags().StringVar(&dir, "dir", ".", "target project directory")
-	cmd.Flags().StringVar(&agentRaw, "agent", "", "comma-separated agent kinds")
+	cmd.Flags().StringVar(&agentRaw, "agent", "", "comma-separated agent kinds ("+supportedProjectAgentKindsText+")")
 	cmd.Flags().StringVar(&services, "services", "", "comma-separated service names to sync")
 	cmd.Flags().BoolVar(&force, "force", false, "overwrite unchanged files")
 	cmd.Flags().BoolVar(&dryRun, "dry-run", false, "show planned changes without writing files")
@@ -308,7 +342,7 @@ func newAgentsStatusCommand() *cobra.Command {
 
 	cmd := &cobra.Command{
 		Use:   "status",
-		Short: "Show sync status for known AI agents",
+		Short: "Show sync status for known AI agents (including Cursor/OpenClaw/NanoClaw)",
 		RunE: func(_ *cobra.Command, _ []string) error {
 			globalResults, globalErr := agents.GlobalStatus()
 			if globalErr != nil {

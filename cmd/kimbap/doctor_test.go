@@ -44,6 +44,24 @@ func TestCheckConfigFileUsesExplicitConfigWithoutDefault(t *testing.T) {
 	}
 }
 
+func TestResolveConfigPathUsesDataDirWhenConfigNotExplicit(t *testing.T) {
+	prevOpts := opts
+	dataDir := filepath.Join(t.TempDir(), "isolated")
+	opts = cliOptions{dataDir: dataDir}
+	t.Cleanup(func() {
+		opts = prevOpts
+	})
+
+	path, err := resolveConfigPath()
+	if err != nil {
+		t.Fatalf("resolveConfigPath() error: %v", err)
+	}
+	want := filepath.Join(dataDir, "config.yaml")
+	if path != want {
+		t.Fatalf("expected config path %q, got %q", want, path)
+	}
+}
+
 func TestCheckVaultAccessibleDoesNotCreateMissingVault(t *testing.T) {
 	vaultPath := filepath.Join(t.TempDir(), "vault.db")
 

@@ -619,7 +619,7 @@ Start a persistent HTTP server that exposes the action runtime over a local HTTP
 | `--port` | `0` (disabled) | Port override; when omitted, address comes from config/default |
 | `--console` | disabled | Enable the embedded operations console at `/console` |
 
-The `/console` route is disabled by default. Enable it via `--console` flag or by setting `console.enabled: true` in `~/.kimbap/config.yaml`. Do not expose this endpoint on a network interface in production.
+The `/console` route is disabled by default. Enable it via `--console` flag or by setting `console.enabled: true` in your resolved config path (`$XDG_CONFIG_HOME/kimbap/config.yaml` or `~/.kimbap/config.yaml`). Do not expose this endpoint on a network interface in production.
 
 **Examples:**
 
@@ -649,14 +649,17 @@ kimbap daemon
 
 Install global Kimbap discovery hints for detected AI agent environments.
 
-- Default: installs global hints and runs service sync into the target project directory.
-- Use `--no-sync` to skip the sync step.
+Supported agent kinds: `claude-code`, `opencode`, `codex`, `cursor`, `openclaw`, `nanoclaw`, `generic`.
+
+- Default: installs global hints only.
+- Use `--sync --dir <path>` to also run service sync into a project directory.
 - With `--with-profiles`: also installs project-level operating rules files.
 
 **Example:**
 
 ```bash
 kimbap agents setup
+kimbap agents setup --sync --dir .
 kimbap agents setup --with-profiles
 ```
 
@@ -666,10 +669,14 @@ kimbap agents setup --with-profiles
 
 Sync installed services to detected agent skill directories. Generates a `SKILL.md` file per service in each discovered agent directory.
 
+Use `--agent` to scope sync to specific kinds: `claude-code`, `opencode`, `codex`, `cursor`, `openclaw`, `nanoclaw`, `generic`.
+
 **Example:**
 
 ```bash
 kimbap agents sync
+kimbap agents sync --agent openclaw --dir "$HOME/.openclaw/workspace"
+kimbap agents sync --agent nanoclaw --dir /path/to/nanoclaw
 ```
 
 ---
@@ -677,6 +684,8 @@ kimbap agents sync
 ### kimbap agents status
 
 Show the sync status for all known AI agent environments: which agents were detected, which skill files exist, and which are stale.
+
+Includes Cursor, OpenClaw, and NanoClaw when their environments are present.
 
 **Example:**
 
@@ -697,6 +706,8 @@ Install global discovery hints **and** agent operating profiles. Writes a `KIMBA
 | `claude-code` | `.claude/KIMBAP_OPERATING_RULES.md` |
 | `opencode` | `.opencode/KIMBAP_OPERATING_RULES.md` |
 | `cursor` | `.cursor/KIMBAP_OPERATING_RULES.md` |
+| `openclaw` | `KIMBAP_OPERATING_RULES.md` (OpenClaw workspace root) |
+| `nanoclaw` | `.claude/KIMBAP_OPERATING_RULES.md` |
 | `codex` | `.codex/KIMBAP_OPERATING_RULES.md` |
 | `generic` | `.agents/KIMBAP_OPERATING_RULES.md` |
 
@@ -755,15 +766,11 @@ kimbap generate py --service github -o ./types/github.py
 
 ## Other advanced commands
 
-The following commands are hidden from `kimbap --help` and intended for advanced use cases. They are available but not required for normal operation.
+The following commands are intended for advanced use cases.
 
 ### kimbap token (Advanced)
 
 Manage agent access tokens. Use `kimbap token --help` for full usage.
-
-### kimbap alias (Advanced)
-
-Manage action aliases. Use `kimbap alias --help` for full usage.
 
 ### kimbap completion (Advanced)
 
@@ -784,7 +791,7 @@ In dev mode (`--mode dev`), a vault master key is auto-generated. In production,
 | Flag | Description |
 |---|---|
 | `--mode <mode>` | Runtime mode: `dev`, `embedded`, or `connected` |
-| `--services <list>` | Comma-separated catalog service names to install, or `all` |
+| `--services <list>` | Comma-separated catalog service names, or `all`, `recommended` (legacy alias: `starter`), `select` |
 | `--no-services` | Skip service installation entirely |
 | `--no-shortcuts` | Skip automatic shortcut alias setup during init service installation |
 | `--with-console` | Enable the `/console` route in the generated config |
@@ -795,8 +802,8 @@ In dev mode (`--mode dev`), a vault master key is auto-generated. In production,
 **Examples:**
 
 ```bash
-kimbap init --services all
-kimbap init --services all --with-agents
+kimbap init --services select
+kimbap init --services recommended --with-agents
 kimbap init --services all --with-agents --agents-project-dir /path/to/project
 kimbap init --services github,stripe --force
 kimbap init --no-services
@@ -820,7 +827,7 @@ kimbap doctor
 
 ## Configuration reference
 
-Configuration is read from environment variables or `~/.kimbap/config.yaml`. Environment variables take precedence over the config file.
+Configuration is read from environment variables or discovered config file (`$XDG_CONFIG_HOME/kimbap/config.yaml` when set, otherwise `~/.kimbap/config.yaml`). Environment variables take precedence over the config file.
 
 | Variable | Default | Description |
 |---|---|---|

@@ -32,10 +32,12 @@ brew install dunialabs/kimbap/kimbap
 **2. Initialize**
 
 ```bash
-kimbap init --services all
+kimbap init --services select
 ```
 
-Eligible shortcut aliases are set up by default. In interactive flows, you'll be asked first; use `--no-shortcuts` to skip.
+`select` opens an interactive checklist with a preselected recommended set (and an `all` command). Eligible shortcut aliases are set up by default. In interactive flows, you'll be asked first; use `--no-shortcuts` to skip.
+
+Pick what you want to install, then run immediately with shortcuts.
 
 **3. Run immediately with shortcut commands**
 
@@ -59,11 +61,10 @@ No API key, no localhost setup.
 kimbap agents setup
 ```
 
-Detects installed agents, generates SKILL.md per service, and installs them into each agent's config.
+Detects installed agents and installs global discovery hints.
+Use `kimbap agents setup --sync --dir <project>` when you want project-local skill sync.
 
-Service lifecycle commands (`service install`, `enable`, `disable`, `remove`, `update`) also attempt automatic agent sync in text mode when agent configs are detected. Use `kimbap agents sync` for explicit sync control (or JSON workflows).
-
-Works with Claude Code, OpenCode, Codex, Cursor, and any agent that can run a CLI command.
+Works with Claude Code, OpenCode, Codex, OpenClaw, NanoClaw, and any agent that can run a CLI command.
 
 ---
 

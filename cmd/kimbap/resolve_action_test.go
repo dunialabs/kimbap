@@ -21,7 +21,7 @@ func TestResolveActionByName_NoServicesInstalled_SuggestsInit(t *testing.T) {
 	if !strings.Contains(err.Error(), "no services installed") {
 		t.Fatalf("expected no-services message, got %q", err.Error())
 	}
-	if !strings.Contains(err.Error(), "kimbap init --services all") {
+	if !strings.Contains(err.Error(), "kimbap init --services select") {
 		t.Fatalf("expected init guidance in error, got %q", err.Error())
 	}
 }

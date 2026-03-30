@@ -38,6 +38,7 @@ type ServiceAction struct {
 	Warnings     []string       `yaml:"warnings,omitempty"`
 	Aliases      []string       `yaml:"aliases,omitempty"`
 	Command      string         `yaml:"command,omitempty"`
+	InlineScript *InlineScript  `yaml:"inline_script,omitempty"`
 	Idempotent   *bool          `yaml:"idempotent,omitempty"`
 	Auth         *ServiceAuth   `yaml:"auth,omitempty"`
 	Args         []ActionArg    `yaml:"args"`
@@ -47,6 +48,15 @@ type ServiceAction struct {
 	Retry        *RetrySpec     `yaml:"retry,omitempty"`
 	Pagination   *PageSpec      `yaml:"pagination,omitempty"`
 	ErrorMapping map[int]string `yaml:"error_mapping,omitempty"`
+}
+
+type InlineScript struct {
+	ID          string `yaml:"id"`
+	Language    string `yaml:"language,omitempty"`
+	Timeout     string `yaml:"timeout,omitempty"`
+	Source      string `yaml:"source"`
+	ApprovalRef string `yaml:"approval_ref,omitempty"`
+	AuditRef    string `yaml:"audit_ref,omitempty"`
 }
 
 type ActionArg struct {

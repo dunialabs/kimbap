@@ -101,15 +101,7 @@ func checkConfigFile() doctorCheck {
 }
 
 func loadDoctorConfig() (*config.KimbapConfig, error) {
-	var (
-		cfg *config.KimbapConfig
-		err error
-	)
-	if strings.TrimSpace(opts.configPath) == "" {
-		cfg, err = config.LoadKimbapConfig()
-	} else {
-		cfg, err = config.LoadKimbapConfigWithoutDefault(opts.configPath)
-	}
+	cfg, err := loadBaseConfigForCLI()
 	if err != nil {
 		return nil, err
 	}
@@ -120,7 +112,7 @@ func loadDoctorConfig() (*config.KimbapConfig, error) {
 }
 
 func resolveConfigPath() (string, error) {
-	return config.ResolveConfigPath(opts.configPath)
+	return config.ResolveConfigPathWithDataDir(opts.configPath, opts.dataDir)
 }
 
 func checkDataDirWritable(dataDir string) doctorCheck {

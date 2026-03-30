@@ -59,11 +59,13 @@ func TestAliasSetActionAliasCreatesExecutableAndConfigEntry(t *testing.T) {
 		origLstat := aliasFileLstat
 		origSymlink := aliasFileSymlink
 		origReadlink := aliasFileReadlink
+		origLookPath := aliasLookPath
 		t.Cleanup(func() {
 			aliasExecutablePath = origExecutablePath
 			aliasFileLstat = origLstat
 			aliasFileSymlink = origSymlink
 			aliasFileReadlink = origReadlink
+			aliasLookPath = origLookPath
 		})
 
 		aliasExecutablePath = func() (string, error) { return execPath, nil }
@@ -74,6 +76,12 @@ func TestAliasSetActionAliasCreatesExecutableAndConfigEntry(t *testing.T) {
 			return nil
 		}
 		aliasFileReadlink = os.Readlink
+		aliasLookPath = func(file string) (string, error) {
+			if file == "geosearch" {
+				return filepath.Join(execDir, file), nil
+			}
+			return "", os.ErrNotExist
+		}
 
 		setCmd := newAliasSetCommand()
 		setCmd.SetArgs([]string{"geosearch", "open-meteo-geocoding.search"})
@@ -287,12 +295,14 @@ func TestAliasSetActionAliasRollsBackExecutableWhenConfigWriteFails(t *testing.T
 		origSymlink := aliasFileSymlink
 		origReadlink := aliasFileReadlink
 		origRemove := aliasFileRemove
+		origLookPath := aliasLookPath
 		t.Cleanup(func() {
 			aliasExecutablePath = origExecutablePath
 			aliasFileLstat = origLstat
 			aliasFileSymlink = origSymlink
 			aliasFileReadlink = origReadlink
 			aliasFileRemove = origRemove
+			aliasLookPath = origLookPath
 		})
 
 		aliasExecutablePath = func() (string, error) { return execPath, nil }
@@ -322,6 +332,12 @@ func TestAliasSetActionAliasRollsBackExecutableWhenConfigWriteFails(t *testing.T
 				return nil
 			}
 			return os.ErrNotExist
+		}
+		aliasLookPath = func(file string) (string, error) {
+			if file == "geosearch" {
+				return aliasPath, nil
+			}
+			return "", os.ErrNotExist
 		}
 
 		configDir := filepath.Dir(configPath)
@@ -368,12 +384,14 @@ func TestEnsureExecutableActionAliasReplacesStaleKimbapSymlink(t *testing.T) {
 	origReadlink := aliasFileReadlink
 	origRemove := aliasFileRemove
 	origSymlink := aliasFileSymlink
+	origLookPath := aliasLookPath
 	t.Cleanup(func() {
 		aliasExecutablePath = origExecutablePath
 		aliasFileLstat = origLstat
 		aliasFileReadlink = origReadlink
 		aliasFileRemove = origRemove
 		aliasFileSymlink = origSymlink
+		aliasLookPath = origLookPath
 	})
 
 	aliasExecutablePath = func() (string, error) { return execPath, nil }
@@ -405,6 +423,12 @@ func TestEnsureExecutableActionAliasReplacesStaleKimbapSymlink(t *testing.T) {
 		symlinkPresent = true
 		return nil
 	}
+	aliasLookPath = func(file string) (string, error) {
+		if file == "weather" {
+			return aliasPath, nil
+		}
+		return "", os.ErrNotExist
+	}
 
 	path, executableCreated, err := ensureExecutableActionAlias("weather")
 	if err != nil {
@@ -421,6 +445,66 @@ func TestEnsureExecutableActionAliasReplacesStaleKimbapSymlink(t *testing.T) {
 	}
 }
 
+func TestEnsureExecutableActionAliasFallsBackToWritablePathDir(t *testing.T) {
+	execDir := t.TempDir()
+	execPath := filepath.Join(execDir, "kimbap")
+	fallbackDir := t.TempDir()
+	t.Setenv("PATH", fallbackDir)
+
+	fallbackAliasPath := filepath.Join(fallbackDir, "weather")
+	createdAt := ""
+
+	origExecutablePath := aliasExecutablePath
+	origLstat := aliasFileLstat
+	origReadlink := aliasFileReadlink
+	origSymlink := aliasFileSymlink
+	origLookPath := aliasLookPath
+	t.Cleanup(func() {
+		aliasExecutablePath = origExecutablePath
+		aliasFileLstat = origLstat
+		aliasFileReadlink = origReadlink
+		aliasFileSymlink = origSymlink
+		aliasLookPath = origLookPath
+	})
+
+	aliasExecutablePath = func() (string, error) { return execPath, nil }
+	aliasFileLstat = func(path string) (os.FileInfo, error) { return nil, os.ErrNotExist }
+	aliasFileReadlink = os.Readlink
+	aliasLookPath = func(file string) (string, error) {
+		if file == "weather" {
+			return fallbackAliasPath, nil
+		}
+		return "", os.ErrNotExist
+	}
+	aliasFileSymlink = func(oldname, newname string) error {
+		if oldname != execPath {
+			t.Fatalf("unexpected symlink source %q", oldname)
+		}
+		if filepath.Dir(newname) == execDir {
+			return os.ErrPermission
+		}
+		if filepath.Dir(newname) != fallbackDir {
+			t.Fatalf("expected fallback directory %q, got %q", fallbackDir, filepath.Dir(newname))
+		}
+		createdAt = newname
+		return nil
+	}
+
+	path, created, err := ensureExecutableActionAlias("weather")
+	if err != nil {
+		t.Fatalf("ensureExecutableActionAlias() error: %v", err)
+	}
+	if !created {
+		t.Fatal("expected alias executable to be created in fallback directory")
+	}
+	if path != fallbackAliasPath {
+		t.Fatalf("alias path = %q, want %q", path, fallbackAliasPath)
+	}
+	if createdAt != fallbackAliasPath {
+		t.Fatalf("created alias path = %q, want %q", createdAt, fallbackAliasPath)
+	}
+}
+
 func TestRemoveExecutableActionAliasRemovesStaleKimbapSymlink(t *testing.T) {
 	execDir := t.TempDir()
 	execPath := filepath.Join(execDir, "kimbap")
@@ -431,11 +515,13 @@ func TestRemoveExecutableActionAliasRemovesStaleKimbapSymlink(t *testing.T) {
 	origLstat := aliasFileLstat
 	origReadlink := aliasFileReadlink
 	origRemove := aliasFileRemove
+	origLookPath := aliasLookPath
 	t.Cleanup(func() {
 		aliasExecutablePath = origExecutablePath
 		aliasFileLstat = origLstat
 		aliasFileReadlink = origReadlink
 		aliasFileRemove = origRemove
+		aliasLookPath = origLookPath
 	})
 
 	aliasExecutablePath = func() (string, error) { return execPath, nil }
@@ -465,5 +551,55 @@ func TestRemoveExecutableActionAliasRemovesStaleKimbapSymlink(t *testing.T) {
 	}
 	if removedPath != aliasPath {
 		t.Fatalf("removed path = %q, want %q", removedPath, aliasPath)
+	}
+}
+
+func TestRemoveExecutableActionAliasScansFallbackPathDirectory(t *testing.T) {
+	execDir := t.TempDir()
+	execPath := filepath.Join(execDir, "kimbap")
+	fallbackDir := t.TempDir()
+	t.Setenv("PATH", fallbackDir)
+
+	fallbackAliasPath := filepath.Join(fallbackDir, "weather")
+	removedPath := ""
+
+	origExecutablePath := aliasExecutablePath
+	origLstat := aliasFileLstat
+	origReadlink := aliasFileReadlink
+	origRemove := aliasFileRemove
+	t.Cleanup(func() {
+		aliasExecutablePath = origExecutablePath
+		aliasFileLstat = origLstat
+		aliasFileReadlink = origReadlink
+		aliasFileRemove = origRemove
+	})
+
+	aliasExecutablePath = func() (string, error) { return execPath, nil }
+	aliasFileLstat = func(path string) (os.FileInfo, error) {
+		if path == fallbackAliasPath {
+			return symlinkFileInfo{}, nil
+		}
+		return nil, os.ErrNotExist
+	}
+	aliasFileReadlink = func(path string) (string, error) {
+		if path == fallbackAliasPath {
+			return execPath, nil
+		}
+		return "", os.ErrNotExist
+	}
+	aliasFileRemove = func(path string) error {
+		removedPath = path
+		return nil
+	}
+
+	removed, err := removeExecutableActionAlias("weather")
+	if err != nil {
+		t.Fatalf("removeExecutableActionAlias() error: %v", err)
+	}
+	if !removed {
+		t.Fatal("expected alias executable to be removed from fallback directory")
+	}
+	if removedPath != fallbackAliasPath {
+		t.Fatalf("removed path = %q, want %q", removedPath, fallbackAliasPath)
 	}
 }
