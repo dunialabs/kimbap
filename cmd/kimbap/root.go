@@ -99,7 +99,7 @@ func init() {
 	flags.BoolVar(&opts.noSplash, "no-splash", false, "disable startup splash output")
 	name := binaryName()
 	rootCmd.Use = name
-	rootCmd.Version = strings.TrimSpace(config.AppInfo.Version)
+	rootCmd.Version = config.CLIVersionDisplay()
 	rootCmd.SetVersionTemplate(name + " {{.Version}}\n")
 	defaultHelp := rootCmd.HelpFunc()
 	rootCmd.SetHelpFunc(func(cmd *cobra.Command, args []string) {
@@ -214,7 +214,7 @@ func splashOptions() splash.Options {
 	cfg, err := loadSplashConfig()
 	if err != nil {
 		return splash.Options{
-			Version:     strings.TrimSpace(config.AppInfo.Version),
+			Version:     config.CLIVersion(),
 			Mode:        modeFromRaw(opts.mode),
 			VaultStatus: vaultStatusFromRaw(opts.mode),
 			Server:      strings.TrimSpace(os.Getenv("KIMBAP_AUTH_SERVER_URL")),
@@ -226,7 +226,7 @@ func splashOptions() splash.Options {
 	}
 
 	return splash.Options{
-		Version:     strings.TrimSpace(config.AppInfo.Version),
+		Version:     config.CLIVersion(),
 		Mode:        modeFromRaw(cfg.Mode),
 		VaultStatus: vaultStatusFromConfig(cfg),
 		Server:      strings.TrimSpace(cfg.Auth.ServerURL),

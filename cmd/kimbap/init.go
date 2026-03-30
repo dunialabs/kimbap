@@ -16,7 +16,7 @@ import (
 	"github.com/dunialabs/kimbap/internal/config"
 	"github.com/dunialabs/kimbap/internal/policy"
 	"github.com/dunialabs/kimbap/internal/services"
-	"github.com/dunialabs/kimbap/services"
+	"github.com/dunialabs/kimbap/services/catalog"
 	"github.com/spf13/cobra"
 	"gopkg.in/yaml.v3"
 )

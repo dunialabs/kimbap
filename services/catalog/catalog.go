@@ -8,11 +8,11 @@ import (
 	"strings"
 )
 
-//go:embed catalog/*.yaml
+//go:embed *.yaml
 var embeddedCatalogFS embed.FS
 
 func List() ([]string, error) {
-	entries, err := fs.ReadDir(embeddedCatalogFS, "catalog")
+	entries, err := fs.ReadDir(embeddedCatalogFS, ".")
 	if err != nil {
 		return nil, err
 	}
@@ -32,5 +32,5 @@ func Get(name string) ([]byte, error) {
 	if normalized == "" {
 		return nil, fs.ErrNotExist
 	}
-	return fs.ReadFile(embeddedCatalogFS, "catalog/"+normalized+".yaml")
+	return fs.ReadFile(embeddedCatalogFS, normalized+".yaml")
 }

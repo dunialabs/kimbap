@@ -2,6 +2,7 @@ package storeconv
 
 import (
 	"encoding/json"
+	"fmt"
 	"strings"
 
 	"github.com/dunialabs/kimbap/internal/approvals"
@@ -119,6 +120,28 @@ func ParseApprovalVotesJSON(raw string) []approvals.ApprovalVote {
 	return votes
 }
 
+func ParseApprovalInputJSONStrict(raw string) (map[string]any, error) {
+	if strings.TrimSpace(raw) == "" {
+		return nil, nil
+	}
+	var input map[string]any
+	if err := json.Unmarshal([]byte(raw), &input); err != nil {
+		return nil, err
+	}
+	return input, nil
+}
+
+func ParseApprovalVotesJSONStrict(raw string) ([]approvals.ApprovalVote, error) {
+	if strings.TrimSpace(raw) == "" {
+		return nil, nil
+	}
+	var votes []approvals.ApprovalVote
+	if err := json.Unmarshal([]byte(raw), &votes); err != nil {
+		return nil, err
+	}
+	return votes, nil
+}
+
 func ApprovalVotesToJSON(votes []approvals.ApprovalVote) string {
 	if len(votes) == 0 {
 		return "[]"
@@ -186,4 +209,32 @@ func ApprovalRequestFromRecord(rec store.ApprovalRecord) approvals.ApprovalReque
 		RequiredApprovals: max(1, rec.RequiredApprovals),
 		Votes:             ParseApprovalVotesJSON(rec.VotesJSON),
 	}
+}
+
+func ApprovalRequestFromRecordStrict(rec store.ApprovalRecord) (approvals.ApprovalRequest, error) {
+	input, err := ParseApprovalInputJSONStrict(rec.InputJSON)
+	if err != nil {
+		return approvals.ApprovalRequest{}, fmt.Errorf("parse approval input for %q: %w", rec.ID, err)
+	}
+	votes, err := ParseApprovalVotesJSONStrict(rec.VotesJSON)
+	if err != nil {
+		return approvals.ApprovalRequest{}, fmt.Errorf("parse approval votes for %q: %w", rec.ID, err)
+	}
+	return approvals.ApprovalRequest{
+		ID:                rec.ID,
+		TenantID:          rec.TenantID,
+		RequestID:         rec.RequestID,
+		AgentName:         rec.AgentName,
+		Service:           rec.Service,
+		Action:            rec.Action,
+		Input:             input,
+		Status:            approvals.ApprovalStatus(rec.Status),
+		CreatedAt:         rec.CreatedAt,
+		ExpiresAt:         rec.ExpiresAt,
+		ResolvedAt:        rec.ResolvedAt,
+		ResolvedBy:        rec.ResolvedBy,
+		DenyReason:        rec.Reason,
+		RequiredApprovals: max(1, rec.RequiredApprovals),
+		Votes:             votes,
+	}, nil
 }

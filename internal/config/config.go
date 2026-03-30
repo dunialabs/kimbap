@@ -2,22 +2,58 @@ package config
 
 import (
 	"os"
+	"strings"
 
 	"github.com/joho/godotenv"
 )
 
-// version is set at build time via -ldflags "-X github.com/dunialabs/kimbap/internal/config.version=X.Y.Z"
-// Falls back to "1.1.0" if not set.
-var version = "1.1.0"
+var version = "0.0.1-dev"
+
+var (
+	commit = "unknown"
+	date   = ""
+)
 
 var AppInfo = struct {
 	Name        string
 	Version     string
+	Commit      string
+	Date        string
 	Description string
 }{
 	Name:        "kimbap",
 	Version:     version,
+	Commit:      commit,
+	Date:        date,
 	Description: "Kimbap - Secure action runtime for AI agents",
+}
+
+func CLIVersion() string {
+	v := strings.TrimSpace(AppInfo.Version)
+	if v == "" {
+		return "0.0.1-dev"
+	}
+	return v
+}
+
+func CLIVersionDisplay() string {
+	v := CLIVersion()
+
+	meta := make([]string, 0, 2)
+	if c := strings.TrimSpace(AppInfo.Commit); c != "" && !strings.EqualFold(c, "unknown") {
+		if len(c) > 12 {
+			c = c[:12]
+		}
+		meta = append(meta, "commit "+c)
+	}
+	if d := strings.TrimSpace(AppInfo.Date); d != "" {
+		meta = append(meta, d)
+	}
+
+	if len(meta) == 0 {
+		return v
+	}
+	return v + " (" + strings.Join(meta, ", ") + ")"
 }
 
 func init() {

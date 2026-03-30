@@ -3,13 +3,16 @@ package main
 import (
 	"encoding/json"
 	"io"
+	"net/http"
+	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 	"testing"
 
 	"github.com/dunialabs/kimbap/internal/services"
-	"github.com/dunialabs/kimbap/services"
+	"github.com/dunialabs/kimbap/services/catalog"
 )
 
 func writeServiceCLIConfig(t *testing.T, dataDir, servicesDir string) string {
@@ -19,6 +22,22 @@ func writeServiceCLIConfig(t *testing.T, dataDir, servicesDir string) string {
 		"data_dir: " + dataDir + "\n" +
 		"services:\n" +
 		"  dir: " + servicesDir + "\n"
+	if err := os.WriteFile(configPath, []byte(raw), 0o644); err != nil {
+		t.Fatalf("write config: %v", err)
+	}
+	return configPath
+}
+
+func writeServiceCLIConfigWithRegistryURL(t *testing.T, dataDir, servicesDir, registryURL string) string {
+	t.Helper()
+	configPath := filepath.Join(t.TempDir(), "config.yaml")
+	raw := "mode: embedded\n" +
+		"data_dir: " + dataDir + "\n" +
+		"services:\n" +
+		"  dir: " + servicesDir + "\n"
+	if strings.TrimSpace(registryURL) != "" {
+		raw += "  registry_url: " + strings.TrimSpace(registryURL) + "\n"
+	}
 	if err := os.WriteFile(configPath, []byte(raw), 0o644); err != nil {
 		t.Fatalf("write config: %v", err)
 	}
@@ -324,6 +343,271 @@ func TestServiceCLIUpdateRegistryNoOp(t *testing.T) {
 			t.Fatalf("expected registry no-op update to return updated=false, got payload: %+v", payload)
 		}
 	})
+}
+
+func TestServiceCLIInstallFromConfiguredRegistryPersistsRegistrySource(t *testing.T) {
+	const serviceName = "remote-registry-test"
+
+	registryServer := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/"+serviceName+".yaml" {
+			http.NotFound(w, r)
+			return
+		}
+		_, _ = io.WriteString(w, "name: "+serviceName+"\nversion: 1.0.0\ndescription: remote registry test service\nbase_url: https://api.example.com\nauth:\n  type: none\nactions:\n  ping:\n    method: GET\n    path: /ping\n    description: ping endpoint\n    risk:\n      level: low\n")
+	}))
+	defer registryServer.Close()
+
+	dataDir := t.TempDir()
+	servicesDir := filepath.Join(dataDir, "services")
+	configPath := writeServiceCLIConfigWithRegistryURL(t, dataDir, servicesDir, registryServer.URL)
+
+	prevTransport := http.DefaultTransport
+	http.DefaultTransport = registryServer.Client().Transport
+	t.Cleanup(func() { http.DefaultTransport = prevTransport })
+
+	withServiceCLIOpts(t, configPath, func() {
+		installCmd := newServiceInstallCommand()
+		installCmd.SetArgs([]string{serviceName})
+		if _, err := captureStdout(t, installCmd.Execute); err != nil {
+			t.Fatalf("service install from configured registry failed: %v", err)
+		}
+
+		cfg, err := loadAppConfig()
+		if err != nil {
+			t.Fatalf("loadAppConfig() error: %v", err)
+		}
+
+		installed, err := installerFromConfig(cfg).Get(serviceName)
+		if err != nil {
+			t.Fatalf("installer.Get(%q) error: %v", serviceName, err)
+		}
+		if installed.Source != "registry:"+serviceName {
+			t.Fatalf("installed source = %q, want %q", installed.Source, "registry:"+serviceName)
+		}
+	})
+}
+
+func TestServiceCLIUpdateFromConfiguredRegistryIgnoresLocalNameCollision(t *testing.T) {
+	const serviceName = "remote-registry-update-collision-test"
+
+	currentVersion := "1.0.0"
+	var versionMu sync.RWMutex
+
+	registryServer := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/"+serviceName+".yaml" {
+			http.NotFound(w, r)
+			return
+		}
+
+		versionMu.RLock()
+		version := currentVersion
+		versionMu.RUnlock()
+
+		_, _ = io.WriteString(w,
+			"name: "+serviceName+"\n"+
+				"version: "+version+"\n"+
+				"description: remote registry update collision test service\n"+
+				"base_url: https://api.example.com\n"+
+				"auth:\n"+
+				"  type: none\n"+
+				"actions:\n"+
+				"  ping:\n"+
+				"    method: GET\n"+
+				"    path: /ping\n"+
+				"    description: ping endpoint\n"+
+				"    risk:\n"+
+				"      level: low\n")
+	}))
+	defer registryServer.Close()
+
+	dataDir := t.TempDir()
+	servicesDir := filepath.Join(dataDir, "services")
+	configPath := writeServiceCLIConfigWithRegistryURL(t, dataDir, servicesDir, registryServer.URL)
+
+	prevTransport := http.DefaultTransport
+	http.DefaultTransport = registryServer.Client().Transport
+	t.Cleanup(func() { http.DefaultTransport = prevTransport })
+
+	withServiceCLIOpts(t, configPath, func() {
+		installCmd := newServiceInstallCommand()
+		installCmd.SetArgs([]string{serviceName})
+		if _, err := captureStdout(t, installCmd.Execute); err != nil {
+			t.Fatalf("service install from configured registry failed: %v", err)
+		}
+
+		collisionDir := t.TempDir()
+		collisionPath := filepath.Join(collisionDir, serviceName)
+		writeLocalManifest(t, collisionPath, serviceName, "9.9.9")
+
+		oldWD, err := os.Getwd()
+		if err != nil {
+			t.Fatalf("os.Getwd() error: %v", err)
+		}
+		if err := os.Chdir(collisionDir); err != nil {
+			t.Fatalf("os.Chdir(%q) error: %v", collisionDir, err)
+		}
+		t.Cleanup(func() {
+			_ = os.Chdir(oldWD)
+		})
+
+		versionMu.Lock()
+		currentVersion = "1.1.0"
+		versionMu.Unlock()
+
+		updateCmd := newServiceUpdateCommand()
+		updateCmd.SetArgs([]string{serviceName})
+		if _, err := captureStdout(t, updateCmd.Execute); err != nil {
+			t.Fatalf("service update from configured registry failed: %v", err)
+		}
+
+		cfg, err := loadAppConfig()
+		if err != nil {
+			t.Fatalf("loadAppConfig() error: %v", err)
+		}
+		installed, err := installerFromConfig(cfg).Get(serviceName)
+		if err != nil {
+			t.Fatalf("installer.Get(%q) error: %v", serviceName, err)
+		}
+		if installed.Manifest.Version != "1.1.0" {
+			t.Fatalf("installed version = %q, want 1.1.0", installed.Manifest.Version)
+		}
+		if installed.Source != "registry:"+serviceName {
+			t.Fatalf("installed source = %q, want %q", installed.Source, "registry:"+serviceName)
+		}
+	})
+}
+
+func TestServiceCLIOutdatedReportsVersionDriftFromConfiguredRegistry(t *testing.T) {
+	const serviceName = "remote-registry-outdated-test"
+
+	currentVersion := "1.0.0"
+	var versionMu sync.RWMutex
+
+	registryServer := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/"+serviceName+".yaml" {
+			http.NotFound(w, r)
+			return
+		}
+
+		versionMu.RLock()
+		version := currentVersion
+		versionMu.RUnlock()
+
+		_, _ = io.WriteString(w,
+			"name: "+serviceName+"\n"+
+				"version: "+version+"\n"+
+				"description: remote registry outdated test service\n"+
+				"base_url: https://api.example.com\n"+
+				"auth:\n"+
+				"  type: none\n"+
+				"actions:\n"+
+				"  ping:\n"+
+				"    method: GET\n"+
+				"    path: /ping\n"+
+				"    description: ping endpoint\n"+
+				"    risk:\n"+
+				"      level: low\n")
+	}))
+	defer registryServer.Close()
+
+	dataDir := t.TempDir()
+	servicesDir := filepath.Join(dataDir, "services")
+	configPath := writeServiceCLIConfigWithRegistryURL(t, dataDir, servicesDir, registryServer.URL)
+
+	prevTransport := http.DefaultTransport
+	http.DefaultTransport = registryServer.Client().Transport
+	t.Cleanup(func() { http.DefaultTransport = prevTransport })
+
+	withServiceCLIOpts(t, configPath, func() {
+		installCmd := newServiceInstallCommand()
+		installCmd.SetArgs([]string{serviceName})
+		if _, err := captureStdout(t, installCmd.Execute); err != nil {
+			t.Fatalf("service install from configured registry failed: %v", err)
+		}
+
+		collisionDir := t.TempDir()
+		collisionPath := filepath.Join(collisionDir, serviceName)
+		writeLocalManifest(t, collisionPath, serviceName, "9.9.9")
+
+		oldWD, err := os.Getwd()
+		if err != nil {
+			t.Fatalf("os.Getwd() error: %v", err)
+		}
+		if err := os.Chdir(collisionDir); err != nil {
+			t.Fatalf("os.Chdir(%q) error: %v", collisionDir, err)
+		}
+		t.Cleanup(func() {
+			_ = os.Chdir(oldWD)
+		})
+
+		versionMu.Lock()
+		currentVersion = "1.1.0"
+		versionMu.Unlock()
+
+		outdatedCmd := newServiceOutdatedCommand()
+		output, err := captureStdout(t, outdatedCmd.Execute)
+		if err != nil {
+			t.Fatalf("service outdated failed: %v", err)
+		}
+
+		var rows []map[string]any
+		if unmarshalErr := json.Unmarshal([]byte(output), &rows); unmarshalErr != nil {
+			t.Fatalf("unmarshal outdated output: %v\noutput=%s", unmarshalErr, output)
+		}
+
+		var matched map[string]any
+		for _, row := range rows {
+			if row["name"] == serviceName {
+				matched = row
+				break
+			}
+		}
+		if matched == nil {
+			t.Fatalf("service %q not present in outdated output: %+v", serviceName, rows)
+		}
+		if gotInstalled, _ := matched["installed_version"].(string); gotInstalled != "1.0.0" {
+			t.Fatalf("installed_version = %q, want 1.0.0", gotInstalled)
+		}
+		if gotLatest, _ := matched["latest_version"].(string); gotLatest != "1.1.0" {
+			t.Fatalf("latest_version = %q, want 1.1.0", gotLatest)
+		}
+		if gotSource, _ := matched["source"].(string); gotSource != "registry:"+serviceName {
+			t.Fatalf("source = %q, want %q", gotSource, "registry:"+serviceName)
+		}
+	})
+}
+
+func TestServiceCLIOutdatedSkipsMissingCatalogRegistrySourcesWithoutWarning(t *testing.T) {
+	dataDir := t.TempDir()
+	servicesDir := filepath.Join(dataDir, "services")
+	configPath := writeServiceCLIConfig(t, dataDir, servicesDir)
+
+	manifestPath := filepath.Join(t.TempDir(), "missing-catalog.yaml")
+	const serviceName = "missing-catalog-registry-source"
+	writeLocalManifest(t, manifestPath, serviceName, "1.0.0")
+
+	manifest, err := services.ParseManifestFile(manifestPath)
+	if err != nil {
+		t.Fatalf("ParseManifestFile(%q) error: %v", manifestPath, err)
+	}
+
+	installer := services.NewLocalInstaller(servicesDir)
+	if _, err := installer.InstallWithForceAndActivation(manifest, "registry:definitely-not-a-real-service", false, true); err != nil {
+		t.Fatalf("InstallWithForceAndActivation() error: %v", err)
+	}
+
+	prev := opts
+	opts = cliOptions{configPath: configPath, format: "text", noSplash: true}
+	t.Cleanup(func() { opts = prev })
+
+	outdatedCmd := newServiceOutdatedCommand()
+	stderr, err := captureStderr(t, outdatedCmd.Execute)
+	if err != nil {
+		t.Fatalf("service outdated failed: %v", err)
+	}
+	if strings.Contains(stderr, "failed to resolve") {
+		t.Fatalf("expected missing catalog entries to be skipped without warnings, got stderr=%q", stderr)
+	}
 }
 
 func TestServiceCLIUpdatePreservesActivationState(t *testing.T) {

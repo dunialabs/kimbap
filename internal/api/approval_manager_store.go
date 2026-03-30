@@ -46,7 +46,10 @@ func (a *approvalManagerStoreAdapter) Get(ctx context.Context, id string) (*appr
 	if rec == nil {
 		return nil, approvals.ErrNotFound
 	}
-	converted := storeconv.ApprovalRequestFromRecord(*rec)
+	converted, err := storeconv.ApprovalRequestFromRecordStrict(*rec)
+	if err != nil {
+		return nil, err
+	}
 	out := &converted
 	return out, nil
 }
@@ -69,7 +72,11 @@ func (a *approvalManagerStoreAdapter) ListPending(ctx context.Context, tenantID 
 	}
 	out := make([]approvals.ApprovalRequest, len(recs))
 	for i := range recs {
-		out[i] = storeconv.ApprovalRequestFromRecord(recs[i])
+		converted, convErr := storeconv.ApprovalRequestFromRecordStrict(recs[i])
+		if convErr != nil {
+			return nil, convErr
+		}
+		out[i] = converted
 	}
 	return out, nil
 }
@@ -85,7 +92,10 @@ func (a *approvalManagerStoreAdapter) ListAll(ctx context.Context, tenantID stri
 	}
 	out := make([]approvals.ApprovalRequest, 0, len(recs))
 	for i := range recs {
-		item := storeconv.ApprovalRequestFromRecord(recs[i])
+		item, convErr := storeconv.ApprovalRequestFromRecordStrict(recs[i])
+		if convErr != nil {
+			return nil, convErr
+		}
 		if filter.AgentName != "" && !strings.EqualFold(item.AgentName, filter.AgentName) {
 			continue
 		}

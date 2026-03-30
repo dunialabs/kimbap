@@ -19,7 +19,7 @@ builds:
       - amd64
       - arm64
     ldflags:
-      - -s -w -X github.com/dunialabs/kimbap/internal/config.version={{.Version}}
+      - -s -w -X github.com/dunialabs/kimbap/internal/config.version={{.Version}} -X github.com/dunialabs/kimbap/internal/config.commit={{.Commit}} -X github.com/dunialabs/kimbap/internal/config.date={{.Date}}
 
 archives:
   - id: default
@@ -47,6 +47,29 @@ nfpms:
 
 checksum:
   name_template: "checksums.txt"
+
+brews:
+  - name: kimbap
+    ids:
+      - default
+    homepage: https://kimbap.sh
+    description: Secure action runtime for AI agents
+    license: MIT
+    directory: Formula
+    repository:
+      owner: dunialabs
+      name: homebrew-kimbap
+      branch: main
+      token: "{{ .Env.HOMEBREW_TAP_GITHUB_TOKEN }}"
+    commit_author:
+      name: kimbap-bot
+      email: hello@dunialabs.io
+    install: |
+      bin.install "kimbap"
+      bin.install_symlink "kimbap" => "kb"
+    test: |
+      system "#{bin}/kimbap", "--version"
+    skip_upload: auto
 
 changelog:
   sort: asc

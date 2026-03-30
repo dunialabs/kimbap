@@ -225,7 +225,7 @@ actions:
 **`command_spec`** is required for the command adapter and has four fields:
 
 - `executable` (required): the binary name or full path. It must be on `$PATH` or an absolute path.
-- `json_flag` (optional): a flag appended to every invocation to request JSON output (e.g. `--json`, `--output json`).
+- `json_flag` (optional): flags appended to every invocation to request JSON output (e.g. `--json`, `--output json`). Set to `none` (or `off`/`false`/`-`) to disable appending a JSON flag.
 - `timeout` (optional): a duration string like `"30s"` or `"5m"`. Defaults to the global runtime timeout if omitted.
 - `env_inject` (optional): a map of environment variables to inject at invocation time. Values are passed through literally.
 

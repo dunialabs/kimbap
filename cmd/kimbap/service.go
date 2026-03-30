@@ -16,7 +16,7 @@ import (
 	"github.com/dunialabs/kimbap/internal/agents"
 	"github.com/dunialabs/kimbap/internal/registry"
 	"github.com/dunialabs/kimbap/internal/services"
-	"github.com/dunialabs/kimbap/services"
+	"github.com/dunialabs/kimbap/services/catalog"
 	"github.com/spf13/cobra"
 )
 
@@ -390,8 +390,6 @@ func newServiceOutdatedCommand() *cobra.Command {
 				return err
 			}
 
-			embeddedCatalog := registry.NewEmbeddedRegistry()
-
 			type outdatedEntry struct {
 				Name             string `json:"name"`
 				InstalledVersion string `json:"installed_version"`
@@ -406,18 +404,18 @@ func newServiceOutdatedCommand() *cobra.Command {
 					continue
 				}
 
-				registryName := strings.TrimSpace(strings.TrimPrefix(source, "registry:"))
-				if registryName == "" {
-					registryName = svc.Manifest.Name
+				installArg := sourceToInstallArg(source)
+				if strings.TrimSpace(installArg) == "" {
+					installArg = svc.Manifest.Name
 				}
 
-				manifest, _, resolveErr := embeddedCatalog.Resolve(contextBackground(), registryName)
+				manifest, _, resolveErr := resolveServiceInstallSource(installArg)
 				if resolveErr != nil {
 					var notFound *registry.ErrNotFound
 					if errors.As(resolveErr, &notFound) {
 						continue
 					}
-					_, _ = fmt.Fprintf(os.Stderr, "warning: failed to resolve %q from catalog: %v\n", registryName, resolveErr)
+					_, _ = fmt.Fprintf(os.Stderr, "warning: failed to resolve %q from catalog: %v\n", installArg, resolveErr)
 					continue
 				}
 
@@ -811,6 +809,11 @@ func resolveServiceInstallSource(arg string) (*services.ServiceManifest, string,
 		return nil, "", fmt.Errorf("service source is required")
 	}
 
+	if strings.HasPrefix(trimmed, "registry:") {
+		registryName := strings.TrimSpace(strings.TrimPrefix(trimmed, "registry:"))
+		return resolveRegistryServiceByName(registryName)
+	}
+
 	if strings.HasPrefix(trimmed, "http://") {
 		return nil, "", fmt.Errorf("insecure URL %q rejected: use https:// to install service manifests", trimmed)
 	}
@@ -857,6 +860,11 @@ func resolveServiceInstallSource(arg string) (*services.ServiceManifest, string,
 		return nil, "", fmt.Errorf("stat service source %q: %w", trimmed, err)
 	}
 
+	return resolveRegistryServiceByName(trimmed)
+}
+
+func resolveRegistryServiceByName(name string) (*services.ServiceManifest, string, error) {
+	trimmed := strings.ToLower(strings.TrimSpace(name))
 	if err := services.ValidateServiceName(trimmed); err != nil {
 		return nil, "", err
 	}
@@ -896,13 +904,13 @@ func resolveServiceInstallSource(arg string) (*services.ServiceManifest, string,
 	if suggestion := didYouMean(trimmed, catalogNames); suggestion != "" {
 		hint = fmt.Sprintf("Did you mean %q? Run 'kimbap service list --available' to see all catalog services.", suggestion)
 	}
-	return nil, "", fmt.Errorf("service %q not found in service catalog. %s", trimmed, hint)
+	return nil, "", fmt.Errorf("%w. %s", &registry.ErrNotFound{Name: trimmed, Registry: "catalog"}, hint)
 }
 
 func sourceToInstallArg(source string) string {
 	trimmed := strings.TrimSpace(source)
 	if strings.HasPrefix(trimmed, "registry:") {
-		return strings.TrimPrefix(trimmed, "registry:")
+		return trimmed
 	}
 	if strings.HasPrefix(trimmed, "remote:") {
 		return strings.TrimPrefix(trimmed, "remote:")

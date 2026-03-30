@@ -1,0 +1,70 @@
+name: kitty
+version: 1.0.0
+description: Local terminal control via Kitty remote control protocol (kitten @)
+adapter: command
+command_spec:
+  executable: kitten
+  json_flag: "none"
+  timeout: "30s"
+auth:
+  type: none
+triggers:
+  task_verbs: [inspect, focus, manage]
+  objects: [kitty windows, tabs, sessions]
+  instead_of:
+    - manually inspecting and targeting kitty windows from shell
+  exclusions:
+    - controlling non-kitty terminal applications
+gotchas:
+  - symptom: command returns remote control permission errors
+    likely_cause: kitty was started without allow_remote_control or password policy denies access
+    recovery: enable allow_remote_control or configure remote_control_password in kitty
+    severity: high
+  - symptom: commands fail outside terminal context
+    likely_cause: no KITTY_LISTEN_ON and command is not executed inside a kitty-controlled terminal
+    recovery: run inside kitty or launch kitty with --listen-on and export KITTY_LISTEN_ON
+    severity: medium
+recipes:
+  - name: Inspect and focus a kitty window
+    description: list windows/tabs as JSON, then focus one via match selector
+    steps:
+      - Call list-structure to inspect current window and tab tree
+      - Use focus-window with a match expression such as title:^Editor
+actions:
+  list-structure:
+    command: "@ ls"
+    description: List kitty OS windows, tabs, and windows as JSON
+    idempotent: true
+    response:
+      type: array
+    risk:
+      level: low
+
+  focus-window:
+    command: "@ focus-window"
+    description: Focus a kitty window matching the provided expression
+    idempotent: false
+    args:
+      - name: match
+        type: string
+        required: true
+    response:
+      type: object
+    risk:
+      level: low
+
+  close-window:
+    command: "@ close-window"
+    description: Close a kitty window matching the provided expression
+    idempotent: false
+    args:
+      - name: match
+        type: string
+        required: true
+      - name: ignore_no_match
+        type: boolean
+        required: false
+    response:
+      type: object
+    risk:
+      level: medium

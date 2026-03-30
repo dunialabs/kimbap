@@ -115,6 +115,68 @@ func TestCommandAdapterExecute_InvalidJSONFallsBackToRaw(t *testing.T) {
 	}
 }
 
+func TestCommandAdapterExecute_JSONFlagDisabled(t *testing.T) {
+	a := NewCommandAdapter(nil, 5*time.Second)
+
+	res, err := a.Execute(context.Background(), AdapterRequest{
+		Action: actions.ActionDefinition{
+			Adapter: actions.AdapterConfig{
+				ExecutablePath: os.Args[0],
+				Command:        "-test.run=TestCommandAdapterHelperProcess -- subcmd create",
+				JSONFlag:       "none",
+				EnvInject:      map[string]string{"GO_WANT_HELPER_PROCESS": "1"},
+			},
+		},
+	})
+	if err != nil {
+		t.Fatalf("Execute() error = %v, want nil", err)
+	}
+	argsAny, ok := res.Output["args"].([]any)
+	if !ok {
+		t.Fatalf("output[args] type = %T, want []any", res.Output["args"])
+	}
+	var joinedBuilder strings.Builder
+	for _, item := range argsAny {
+		_, _ = fmt.Fprintf(&joinedBuilder, " %v", item)
+	}
+	joined := joinedBuilder.String()
+	if strings.Contains(joined, "--json") {
+		t.Fatalf("did not expect --json when json_flag disabled, got %v", argsAny)
+	}
+}
+
+func TestCommandAdapterExecute_JSONFlagSupportsMultipleTokens(t *testing.T) {
+	a := NewCommandAdapter(nil, 5*time.Second)
+
+	res, err := a.Execute(context.Background(), AdapterRequest{
+		Action: actions.ActionDefinition{
+			Adapter: actions.AdapterConfig{
+				ExecutablePath: os.Args[0],
+				Command:        "-test.run=TestCommandAdapterHelperProcess -- subcmd create",
+				JSONFlag:       "--output json",
+				EnvInject:      map[string]string{"GO_WANT_HELPER_PROCESS": "1"},
+			},
+		},
+	})
+	if err != nil {
+		t.Fatalf("Execute() error = %v, want nil", err)
+	}
+	argsAny, ok := res.Output["args"].([]any)
+	if !ok {
+		t.Fatalf("output[args] type = %T, want []any", res.Output["args"])
+	}
+	var joinedBuilder strings.Builder
+	for _, item := range argsAny {
+		_, _ = fmt.Fprintf(&joinedBuilder, " %v", item)
+	}
+	joined := joinedBuilder.String()
+	for _, want := range []string{"--output", "json"} {
+		if !strings.Contains(joined, want) {
+			t.Fatalf("expected args to contain %q, got %v", want, argsAny)
+		}
+	}
+}
+
 func TestCommandAdapterExecute_DoesNotForwardUndeclaredInputFields(t *testing.T) {
 	a := NewCommandAdapter(nil, 5*time.Second)
 

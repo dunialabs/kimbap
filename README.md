@@ -23,7 +23,18 @@
 curl -fsSL https://kimbap.sh/install.sh | bash
 ```
 
-Or with Homebrew: `brew install kimbap`
+Check installed vs latest release:
+
+```bash
+curl -fsSL https://kimbap.sh/install.sh | bash -s -- --check
+```
+
+Or with Homebrew:
+
+```bash
+brew tap dunialabs/kimbap
+brew install kimbap
+```
 
 **2. Initialize**
 
@@ -78,7 +89,7 @@ kimbap service install stripe.yaml
 kimbap call stripe.list-charges
 ```
 
-Three adapter types: **HTTP** (REST APIs), **Command** (CLI wrappers), **AppleScript** (macOS native apps).
+Three adapter types: **HTTP** (REST APIs), **Command** (local executable CLIs), **AppleScript** (macOS native apps).
 
 Full schema and examples: **[Service Development Guide](./docs/service-development.md)**
 
@@ -92,11 +103,11 @@ GitHub · Slack · Stripe · Notion · Linear · HubSpot · Airtable · Pinecone
 
 ### Communication
 
-Telegram · WhatsApp · WeChat · Zoom · Apple Mail · Messages
+Telegram · WhatsApp · Zoom · Apple Mail · Messages
 
 ### Local apps
 
-Blender · ComfyUI · Ollama · Mermaid · Spotify · NotebookLM
+Blender · ComfyUI · Ollama · Mermaid · Kitty · Spotify
 
 ### macOS native
 

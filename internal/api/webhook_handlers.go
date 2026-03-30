@@ -149,7 +149,9 @@ func (s *Server) handleListRecentEvents(w http.ResponseWriter, r *http.Request) 
 		for _, rec := range recs {
 			payload := map[string]any{}
 			if strings.TrimSpace(rec.DataJSON) != "" {
-				_ = json.Unmarshal([]byte(rec.DataJSON), &payload)
+				if err := json.Unmarshal([]byte(rec.DataJSON), &payload); err != nil {
+					continue
+				}
 			}
 			merged = append(merged, webhooks.Event{
 				ID:        rec.ID,

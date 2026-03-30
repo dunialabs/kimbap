@@ -9,7 +9,7 @@ import (
 	"github.com/dunialabs/kimbap/internal/config"
 	runtimepkg "github.com/dunialabs/kimbap/internal/runtime"
 	"github.com/dunialabs/kimbap/internal/services"
-	"github.com/dunialabs/kimbap/services"
+	"github.com/dunialabs/kimbap/services/catalog"
 )
 
 func TestBuildRuntimeRegistersAllCatalogActions(t *testing.T) {

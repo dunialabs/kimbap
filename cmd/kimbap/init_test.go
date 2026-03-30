@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/dunialabs/kimbap/services"
+	"github.com/dunialabs/kimbap/services/catalog"
 )
 
 func TestBuildInitConfigRebasesPolicyPathWithDataDir(t *testing.T) {

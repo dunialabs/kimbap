@@ -13,6 +13,94 @@ info()  { printf "${CYAN}${BOLD}==>${RESET} %s\n" "$*"; }
 warn()  { printf "${YELLOW}${BOLD}WARN:${RESET} %s\n" "$*" >&2; }
 error() { printf "${RED}${BOLD}ERROR:${RESET} %s\n" "$*" >&2; exit 1; }
 
+FORCE_INSTALL=0
+CHECK_ONLY=0
+
+parse_args() {
+  while [[ $# -gt 0 ]]; do
+    case "$1" in
+      -v|--version)
+        [[ $# -ge 2 ]] || error "Missing value for $1"
+        VERSION="${2#v}"
+        shift 2
+        ;;
+      -f|--force)
+        FORCE_INSTALL=1
+        shift
+        ;;
+      --check)
+        CHECK_ONLY=1
+        shift
+        ;;
+      -h|--help)
+        cat <<'EOF'
+Usage: install.sh [options]
+
+Options:
+  -v, --version <x.y.z>  Install a specific version (default: latest release)
+  -f, --force            Reinstall even if installed version matches target
+      --check            Show installed/latest versions and exit
+  -h, --help             Show this help message
+EOF
+        exit 0
+        ;;
+      *)
+        error "Unknown option: $1"
+        ;;
+    esac
+  done
+}
+
+detect_installed_version() {
+  local bin="${1:-}"
+  if [[ -z "$bin" ]]; then
+    return 0
+  fi
+  local raw
+  raw="$($bin --version 2>/dev/null || true)"
+  if [[ -z "$raw" ]]; then
+    return 0
+  fi
+  printf '%s\n' "$raw" | awk 'NR==1 {print $2}' | sed 's/^v//'
+}
+
+detect_installed_binary() {
+  command -v kimbap 2>/dev/null || true
+}
+
+resolve_install_dir() {
+  if [[ -n "${INSTALL_DIR:-}" ]]; then
+    printf '%s\n' "$INSTALL_DIR"
+    return
+  fi
+  if [[ -w "/usr/local/bin" ]]; then
+    printf '/usr/local/bin\n'
+    return
+  fi
+  if [ -t 1 ] && command -v sudo >/dev/null 2>&1; then
+    printf '/usr/local/bin\n'
+    return
+  fi
+  printf '%s/.local/bin\n' "$HOME"
+}
+
+print_installer_splash() {
+  local os="$1"
+  local arch="$2"
+  local version="$3"
+  local current="$4"
+  local source_url="$5"
+
+  printf "\n${GREEN}${BOLD}kimbap installer${RESET}\n"
+  printf "  target:   %s/%s\n" "$os" "$arch"
+  printf "  version:  v%s\n" "$version"
+  if [[ -n "$current" ]]; then
+    printf "  current:  v%s\n" "$current"
+  fi
+  printf "  source:   %s\n" "$source_url"
+  printf "  update:   manual (rerun install.sh or use brew upgrade)\n\n"
+}
+
 # ── OS / Arch detection ───────────────────────────────────────────────────────
 detect_os() {
   local raw
@@ -150,12 +238,36 @@ cleanup() {
 
 # ── Main ──────────────────────────────────────────────────────────────────────
 main() {
+	parse_args "$@"
   info "Installing kimbap..."
 
   local OS ARCH
   OS="$(detect_os)"
   ARCH="$(detect_arch)"
   VERSION="$(get_latest_version)"
+  local CURRENT_BIN
+  CURRENT_BIN="$(detect_installed_binary)"
+  local CURRENT_VERSION
+  CURRENT_VERSION="$(detect_installed_version "$CURRENT_BIN")"
+  local EXPECTED_INSTALL_DIR
+  EXPECTED_INSTALL_DIR="$(resolve_install_dir)"
+  local EXPECTED_BIN="${EXPECTED_INSTALL_DIR}/kimbap"
+
+  if [[ "$CHECK_ONLY" -eq 1 ]]; then
+    printf "latest:    v%s\n" "$VERSION"
+    if [[ -n "$CURRENT_VERSION" ]]; then
+      printf "installed: v%s\n" "$CURRENT_VERSION"
+      if [[ "$CURRENT_VERSION" == "$VERSION" ]]; then
+        printf "status:    up-to-date\n"
+      else
+        printf "status:    update available\n"
+      fi
+    else
+      printf "installed: (none)\n"
+      printf "status:    not installed\n"
+    fi
+    return 0
+  fi
 
   info "Detected platform: ${OS}/${ARCH}"
   info "Version: ${VERSION}"
@@ -167,9 +279,20 @@ main() {
   local archive_name="kimbap_${VERSION}_${OS}_${ARCH}.tar.gz"
   local archive="${TMPDIR_KIMBAP}/${archive_name}"
   local checksums="${TMPDIR_KIMBAP}/checksums.txt"
+  local source_url="${base_url}/${archive_name}"
+
+  print_installer_splash "$OS" "$ARCH" "$VERSION" "$CURRENT_VERSION" "$source_url"
+
+  if [[ "$FORCE_INSTALL" -ne 1 && -n "$CURRENT_VERSION" && "$CURRENT_VERSION" == "$VERSION" ]]; then
+    if [[ -n "$CURRENT_BIN" && "$CURRENT_BIN" == "$EXPECTED_BIN" ]]; then
+      info "kimbap v${VERSION} is already installed at ${CURRENT_BIN}. Use --force to reinstall."
+      return 0
+    fi
+    warn "kimbap v${VERSION} found at ${CURRENT_BIN:-unknown}, expected managed path ${EXPECTED_BIN}; reinstalling."
+  fi
 
   info "Downloading ${archive_name}..."
-  download "${base_url}/${archive_name}" "$archive"
+  download "$source_url" "$archive"
 
   info "Downloading checksums..."
   download "${base_url}/checksums.txt" "$checksums"

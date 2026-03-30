@@ -4,6 +4,20 @@ Reference for the `kimbap` CLI. Covers the most commonly used commands and their
 
 ---
 
+## Version
+
+### kimbap --version
+
+Print the CLI version. Release builds show the tagged version, and may also include build metadata like commit/date.
+
+**Example:**
+
+```bash
+kimbap --version
+```
+
+---
+
 ## Action execution
 
 ### kimbap call \<service\>.\<action\>
@@ -91,22 +105,24 @@ kimbap actions describe github.create-issue
 
 ## Service management
 
-### kimbap service install \<file|name\>
+### kimbap service install \<name|path-to-yaml|url\>
 
-Install a service manifest. Accepts a path to a local YAML file or a catalog service name from the service catalog.
+Install a service manifest. Accepts a path to a local YAML file, an HTTPS URL, or a catalog service name from the service catalog.
 
 **Syntax:**
 
 ```
-kimbap service install <file|name>
+kimbap service install <name|path-to-yaml|url> [--force]
 ```
 
 **Examples:**
 
 ```bash
-kimbap service install my-service.yaml
 kimbap service install github
+kimbap service install my-service.yaml
+kimbap service install https://example.com/service.yaml
 kimbap service install stripe
+kimbap service install github --force
 ```
 
 ---
@@ -140,12 +156,43 @@ kimbap service validate my-service.yaml
 
 ### kimbap service list
 
-List all installed services, their versions, and their action counts.
+List installed services, or list all catalog services with install/enable status.
+
+**Syntax:**
+
+```
+kimbap service list [--available]
+```
+
+**Flags:**
+
+| Flag | Description |
+|---|---|
+| `--available` | List all catalog services and show whether each one is installed/enabled |
 
 **Example:**
 
 ```bash
 kimbap service list
+kimbap service list --available
+```
+
+---
+
+### kimbap service outdated
+
+List installed services that are behind the current version in the service catalog.
+
+**Syntax:**
+
+```
+kimbap service outdated
+```
+
+**Example:**
+
+```bash
+kimbap service outdated
 ```
 
 ---

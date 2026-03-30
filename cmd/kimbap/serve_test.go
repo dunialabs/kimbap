@@ -203,6 +203,51 @@ func TestBuildServeServerOptionsHydratesWebhookDataFromStore(t *testing.T) {
 	}
 }
 
+func TestConfigureWebhookDispatcherFromStoreSkipsMalformedWebhookEventPayload(t *testing.T) {
+	st, err := store.OpenSQLiteStore(filepath.Join(t.TempDir(), "serve-hydrate-skip-malformed.sqlite"))
+	if err != nil {
+		t.Fatalf("open sqlite store: %v", err)
+	}
+	t.Cleanup(func() { _ = st.Close() })
+	if err := st.Migrate(context.Background()); err != nil {
+		t.Fatalf("migrate sqlite store: %v", err)
+	}
+
+	if err := st.WriteWebhookEvent(context.Background(), &store.WebhookEventRecord{
+		ID:        "evt_good",
+		TenantID:  "tenant-a",
+		Type:      "approval.expired",
+		Timestamp: time.Now().UTC().Add(-time.Second),
+		DataJSON:  `{"approval_id":"apr_good"}`,
+	}); err != nil {
+		t.Fatalf("write good webhook event: %v", err)
+	}
+	if err := st.WriteWebhookEvent(context.Background(), &store.WebhookEventRecord{
+		ID:        "evt_bad",
+		TenantID:  "tenant-a",
+		Type:      "approval.expired",
+		Timestamp: time.Now().UTC(),
+		DataJSON:  `{`,
+	}); err != nil {
+		t.Fatalf("write malformed webhook event: %v", err)
+	}
+
+	dispatcher := webhooks.NewDispatcher()
+	cleanupWebhookSink, err := configureWebhookDispatcherFromStore(context.Background(), dispatcher, st)
+	if err != nil {
+		t.Fatalf("configure webhook dispatcher: %v", err)
+	}
+	defer cleanupWebhookSink()
+
+	events := dispatcher.RecentEventsByTenant("tenant-a", 10)
+	if len(events) != 1 {
+		t.Fatalf("expected only 1 hydrated event after skipping malformed payload, got %d", len(events))
+	}
+	if events[0].ID != "evt_good" {
+		t.Fatalf("expected hydrated event id evt_good, got %q", events[0].ID)
+	}
+}
+
 func TestConfigureWebhookDispatcherFromStoreReturnsErrorOnHydrationFailure(t *testing.T) {
 	st, err := store.OpenSQLiteStore(filepath.Join(t.TempDir(), "serve-hydrate-failure.sqlite"))
 	if err != nil {
@@ -289,6 +334,43 @@ func TestStoreApprovalStoreAdapterPreservesInputRoundTrip(t *testing.T) {
 	}
 	if items[0].RequiredApprovals != 2 {
 		t.Fatalf("expected list required approvals 2, got %d", items[0].RequiredApprovals)
+	}
+}
+
+func TestStoreApprovalStoreAdapterApproveFailsOnCorruptedVotesJSON(t *testing.T) {
+	st, err := store.OpenSQLiteStore(filepath.Join(t.TempDir(), "serve-approval-corrupt-votes.sqlite"))
+	if err != nil {
+		t.Fatalf("open sqlite store: %v", err)
+	}
+	t.Cleanup(func() { _ = st.Close() })
+	if err := st.Migrate(context.Background()); err != nil {
+		t.Fatalf("migrate sqlite store: %v", err)
+	}
+
+	now := time.Now().UTC()
+	if err := st.CreateApproval(context.Background(), &store.ApprovalRecord{
+		ID:                "apr_bad_votes",
+		TenantID:          "tenant-a",
+		RequestID:         "req_bad_votes",
+		AgentName:         "agent-a",
+		Service:           "github",
+		Action:            "issues.create",
+		Status:            "pending",
+		InputJSON:         "{}",
+		RequiredApprovals: 1,
+		VotesJSON:         "{",
+		CreatedAt:         now,
+		ExpiresAt:         now.Add(time.Hour),
+	}); err != nil {
+		t.Fatalf("create approval: %v", err)
+	}
+
+	adapter := &storeApprovalStoreAdapter{st: st}
+	manager := approvals.NewApprovalManager(adapter, nil, time.Minute)
+	if err := manager.Approve(context.Background(), "apr_bad_votes", "approver-1"); err == nil {
+		t.Fatal("expected corrupted votes JSON to prevent approval")
+	} else if !strings.Contains(err.Error(), "parse approval votes") {
+		t.Fatalf("expected parse approval votes error, got %v", err)
 	}
 }
 

@@ -79,7 +79,9 @@ func (a *CommandAdapter) Execute(ctx context.Context, req AdapterRequest) (*Adap
 	if jsonFlag == "" {
 		jsonFlag = "--json"
 	}
-	args = append(args, jsonFlag)
+	if !isDisabledCommandJSONFlag(jsonFlag) {
+		args = append(args, strings.Fields(jsonFlag)...)
+	}
 
 	timeout := req.Timeout
 	if timeout <= 0 {
@@ -232,6 +234,15 @@ func stringifyArgValue(v any) string {
 			return fmt.Sprintf("%v", value)
 		}
 		return string(encoded)
+	}
+}
+
+func isDisabledCommandJSONFlag(raw string) bool {
+	switch strings.ToLower(strings.TrimSpace(raw)) {
+	case "none", "off", "false", "-":
+		return true
+	default:
+		return false
 	}
 }
 

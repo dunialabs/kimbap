@@ -172,7 +172,12 @@ func configureWebhookDispatcherFromStore(ctx context.Context, dispatcher *webhoo
 	if len(events) > 0 {
 		hydrated := make([]webhooks.Event, 0, len(events))
 		for _, rec := range events {
-			hydrated = append(hydrated, webhookEventRecordToEvent(rec))
+			event, ok := webhookEventRecordToEvent(rec)
+			if !ok {
+				_, _ = fmt.Fprintf(os.Stderr, "warning: skipping malformed persisted webhook event payload: %s\n", rec.ID)
+				continue
+			}
+			hydrated = append(hydrated, event)
 		}
 		dispatcher.ReplaceRecentEvents(hydrated)
 	}
@@ -277,10 +282,12 @@ func parseWebhookEventTypes(raw string) []webhooks.EventType {
 	return events
 }
 
-func webhookEventRecordToEvent(rec store.WebhookEventRecord) webhooks.Event {
+func webhookEventRecordToEvent(rec store.WebhookEventRecord) (webhooks.Event, bool) {
 	var data map[string]any
 	if strings.TrimSpace(rec.DataJSON) != "" {
-		_ = json.Unmarshal([]byte(rec.DataJSON), &data)
+		if err := json.Unmarshal([]byte(rec.DataJSON), &data); err != nil {
+			return webhooks.Event{}, false
+		}
 	}
 	return webhooks.Event{
 		ID:        rec.ID,
@@ -288,7 +295,7 @@ func webhookEventRecordToEvent(rec store.WebhookEventRecord) webhooks.Event {
 		TenantID:  rec.TenantID,
 		Timestamp: rec.Timestamp,
 		Data:      data,
-	}
+	}, true
 }
 
 func webhookEventToRecord(event webhooks.Event) *store.WebhookEventRecord {

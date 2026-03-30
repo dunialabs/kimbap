@@ -7,7 +7,7 @@ import (
 	"testing"
 
 	"github.com/dunialabs/kimbap/internal/services"
-	catalog "github.com/dunialabs/kimbap/services"
+	catalog "github.com/dunialabs/kimbap/services/catalog"
 )
 
 func TestListReturnsSortedUniqueCatalogNames(t *testing.T) {

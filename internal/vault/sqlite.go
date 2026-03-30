@@ -197,12 +197,19 @@ func (s *SQLiteStore) Upsert(ctx context.Context, tenantID string, name string, 
 		return nil, err
 	}
 
+	effectiveLabels := labels
 	var labelsJSON string
 	if labels == nil {
 		if existingLabelsJSON.Valid {
 			labelsJSON = existingLabelsJSON.String
+			if err := json.Unmarshal([]byte(existingLabelsJSON.String), &effectiveLabels); err != nil {
+				return nil, err
+			}
 		} else {
 			labelsJSON = "{}"
+		}
+		if effectiveLabels == nil {
+			effectiveLabels = map[string]string{}
 		}
 	} else {
 		labelsJSON, err = marshalLabels(labels)
@@ -238,15 +245,6 @@ func (s *SQLiteStore) Upsert(ctx context.Context, tenantID string, name string, 
 		return nil, err
 	}
 
-	effectiveLabels := labels
-	if effectiveLabels == nil {
-		if existingLabelsJSON.Valid {
-			_ = json.Unmarshal([]byte(existingLabelsJSON.String), &effectiveLabels)
-		}
-		if effectiveLabels == nil {
-			effectiveLabels = map[string]string{}
-		}
-	}
 	result := &SecretRecord{
 		ID:             secretID,
 		TenantID:       tenantID,

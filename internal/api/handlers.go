@@ -36,7 +36,7 @@ type createTokenRequest struct {
 func (s *Server) handleHealth(w http.ResponseWriter, r *http.Request) {
 	writeSuccess(w, r, http.StatusOK, map[string]any{
 		"status":  "ok",
-		"version": strings.TrimSpace(config.AppInfo.Version),
+		"version": config.CLIVersion(),
 	})
 }
 

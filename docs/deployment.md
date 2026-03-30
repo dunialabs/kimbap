@@ -95,6 +95,13 @@ All configuration is set via environment variables or `~/.kimbap/config.yaml`.
 | ---------------------------- | -------- | -------------------------- | --------------------------------------------------------------------------- |
 | `KIMBAP_SERVICES_REGISTRY_URL` |          | `https://services.kimbap.ai` | Base HTTPS URL used as non-default remote fallback for registry-backed catalog service resolution by name. |
 
+`~/.kimbap/config.yaml` equivalent:
+
+```yaml
+services:
+  registry_url: https://services.kimbap.ai
+```
+
 #### Security
 
 | Name                   | Required          | Default | Description                                                              |

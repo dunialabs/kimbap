@@ -1,7 +1,9 @@
 .PHONY: build run dev test clean deps lint vet install build-census review-init review-validate
 
-VERSION ?= 1.1.0
-LDFLAGS ?= -X github.com/dunialabs/kimbap/internal/config.version=$(VERSION)
+VERSION ?= 0.0.1-dev
+COMMIT ?= $(shell git rev-parse HEAD 2>/dev/null || echo unknown)
+DATE ?= $(shell date -u +"%Y-%m-%dT%H:%M:%SZ")
+LDFLAGS ?= -X github.com/dunialabs/kimbap/internal/config.version=$(VERSION) -X github.com/dunialabs/kimbap/internal/config.commit=$(COMMIT) -X github.com/dunialabs/kimbap/internal/config.date=$(DATE)
 
 build:
 	@mkdir -p bin

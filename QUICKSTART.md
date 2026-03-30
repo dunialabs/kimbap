@@ -7,12 +7,13 @@ Get from zero to your first `kimbap call` in under 5 minutes.
 ## 1. Install
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/dunialabs/kimbap/main/install.sh | bash
+curl -fsSL https://kimbap.sh/install.sh | bash
 ```
 
 Or with Homebrew:
 
 ```bash
+brew tap dunialabs/kimbap
 brew install kimbap
 ```
 

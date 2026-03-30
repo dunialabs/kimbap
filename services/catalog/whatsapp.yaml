@@ -1,105 +1,61 @@
 name: whatsapp
-version: 1.0.0
-description: WhatsApp messaging via whatsapp-web.js CLI harness (QR-code session, no app registration required)
-adapter: command
-command_spec:
-  executable: whatsapp
-  json_flag: "--json"
-  timeout: "60s"
+version: 2.0.0
+description: WhatsApp Cloud API integration for direct message delivery
+base_url: https://graph.facebook.com
 auth:
-  type: none
+  type: bearer
+  credential_ref: whatsapp.token
 triggers:
-  task_verbs: [send, list, fetch, check]
-  objects: [whatsapp messages, chats, media, sessions]
+  task_verbs: [send, deliver, notify]
+  objects: [whatsapp messages, recipients]
   instead_of:
-    - manually automating whatsapp-web.js session scripts
+    - managing unofficial web-session automations
   exclusions:
-    - sending SMS or non-WhatsApp channels
+    - non-WhatsApp channels
 gotchas:
-  - symptom: send-message fails with unauthenticated session errors
-    likely_cause: QR login session expired or not initialized in current runtime
-    recovery: Re-authenticate by scanning QR and verify session-status before sending
+  - symptom: API returns 401/403 for all message requests
+    likely_cause: Access token is missing, expired, or lacks WhatsApp permissions
+    recovery: Rotate whatsapp.token and verify app permissions for Cloud API usage
     severity: high
-  - symptom: get-messages returns fewer results than expected
-    likely_cause: limit is too low or chat_id references a different conversation
-    recovery: Increase limit and confirm the exact chat_id from get-chats
-    severity: medium
+  - symptom: API returns recipient or phone-number-id errors
+    likely_cause: Invalid phone_number_id, destination format, or unapproved messaging context
+    recovery: Validate phone_number_id and recipient format according to Cloud API constraints
+    severity: high
 recipes:
-  - name: Validate session then deliver media update
-    description: Ensure session health, send text context, then attach media safely
+  - name: Send direct text message
+    description: Deliver one WhatsApp text message through Cloud API
     steps:
-      - Call session-status and confirm authenticated state
-      - Call send-message with recipient and context text
-      - Call send-media with file path and optional caption
+      - Provide phone_number_id and recipient number in international format
+      - Call send-text with the final message body
 actions:
-  send-message:
-    command: "message send"
-    description: Send a text message to a WhatsApp recipient
+  send-text:
+    method: POST
+    path: /v22.0/{phone_number_id}/messages
+    description: Send a text message via WhatsApp Cloud API
     idempotent: false
     args:
+      - name: phone_number_id
+        type: string
+        required: true
       - name: to
         type: string
         required: true
       - name: text
         type: string
         required: true
+      - name: preview_url
+        type: boolean
+        required: false
+    request:
+      body:
+        messaging_product: whatsapp
+        recipient_type: individual
+        to: "{to}"
+        type: text
+        text:
+          body: "{text}"
+          preview_url: "{preview_url}"
     response:
       type: object
     risk:
       level: medium
-
-  get-chats:
-    command: "chat list"
-    description: List available chats for the active WhatsApp session
-    idempotent: true
-    args: []
-    response:
-      type: array
-    risk:
-      level: low
-
-  get-messages:
-    command: "chat messages"
-    description: Retrieve recent messages from a specific chat
-    idempotent: true
-    args:
-      - name: chat_id
-        type: string
-        required: true
-      - name: limit
-        type: integer
-        required: false
-        default: 50
-    response:
-      type: array
-    risk:
-      level: low
-
-  send-media:
-    command: "media send"
-    description: Send a media file with optional caption to a recipient
-    idempotent: false
-    args:
-      - name: to
-        type: string
-        required: true
-      - name: path
-        type: string
-        required: true
-      - name: caption
-        type: string
-        required: false
-    response:
-      type: object
-    risk:
-      level: medium
-
-  session-status:
-    command: "session status"
-    description: Check authentication and runtime state of WhatsApp harness
-    idempotent: true
-    args: []
-    response:
-      type: object
-    risk:
-      level: low

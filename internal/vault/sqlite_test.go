@@ -474,6 +474,38 @@ func TestSQLiteStoreRotateFailsOnCorruptedLabelsJSON(t *testing.T) {
 	}
 }
 
+func TestSQLiteStoreUpsertFailsOnCorruptedExistingLabelsJSON(t *testing.T) {
+	store := newTestStore(t)
+	ctx := context.Background()
+
+	if _, err := store.Create(ctx, "tenant-a", "UPSERT_BAD_LABELS", SecretTypeAPIKey, []byte("v1"), map[string]string{"env": "dev"}, "tester"); err != nil {
+		t.Fatalf("create seed: %v", err)
+	}
+	if _, err := store.db.ExecContext(ctx, `UPDATE secrets SET labels = ? WHERE tenant_id = ? AND name = ?`, "{", "tenant-a", "UPSERT_BAD_LABELS"); err != nil {
+		t.Fatalf("corrupt labels JSON: %v", err)
+	}
+
+	if _, err := store.Upsert(ctx, "tenant-a", "UPSERT_BAD_LABELS", SecretTypeAPIKey, []byte("v2"), nil, "tester"); err == nil {
+		t.Fatal("expected upsert to fail when existing labels JSON is corrupted")
+	}
+
+	var currentVersion, versionCount int
+	if err := store.db.QueryRowContext(ctx, `SELECT current_version, version_count FROM secrets WHERE tenant_id = ? AND name = ?`, "tenant-a", "UPSERT_BAD_LABELS").Scan(&currentVersion, &versionCount); err != nil {
+		t.Fatalf("query version metadata after failed upsert: %v", err)
+	}
+	if currentVersion != 1 || versionCount != 1 {
+		t.Fatalf("expected failed upsert to keep version metadata unchanged, current=%d count=%d", currentVersion, versionCount)
+	}
+
+	value, err := store.GetValue(ctx, "tenant-a", "UPSERT_BAD_LABELS")
+	if err != nil {
+		t.Fatalf("get value after failed upsert: %v", err)
+	}
+	if !bytes.Equal(value, []byte("v1")) {
+		t.Fatalf("expected failed upsert to preserve previous value, got %q", string(value))
+	}
+}
+
 func TestSQLiteStoreRotateDeactivatesOldVersions(t *testing.T) {
 	store := newTestStore(t)
 	ctx := context.Background()

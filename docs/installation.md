@@ -20,7 +20,7 @@ Choose one method based on your environment.
 ### Quick install (binary)
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/dunialabs/kimbap/main/install.sh | bash
+curl -fsSL https://kimbap.sh/install.sh | bash
 ```
 
 Downloads the latest release binary, verifies SHA256 checksum, and installs `kimbap` (with `kb` created as a local alias symlink). Install path: `/usr/local/bin` if writable, or via `sudo` in interactive shells, falling back to `~/.local/bin` with PATH instructions. May prompt to run quickstart init in interactive shells.
@@ -28,13 +28,32 @@ Downloads the latest release binary, verifies SHA256 checksum, and installs `kim
 Pin a specific version:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/dunialabs/kimbap/main/install.sh | VERSION=1.1.0 bash
+curl -fsSL https://kimbap.sh/install.sh | bash -s -- --version 0.1.0
+```
+
+Check current installed version against latest release:
+
+```bash
+curl -fsSL https://kimbap.sh/install.sh | bash -s -- --check
 ```
 
 ### Homebrew (macOS / Linux)
 
 ```bash
+brew tap dunialabs/kimbap
 brew install kimbap
+```
+
+Upgrade later:
+
+```bash
+brew update && brew upgrade kimbap
+```
+
+For script installs, manual update is rerunning the installer:
+
+```bash
+curl -fsSL https://kimbap.sh/install.sh | bash
 ```
 
 ### From source

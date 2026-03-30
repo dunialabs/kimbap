@@ -56,7 +56,7 @@ func TestServerHealthAndRequestID(t *testing.T) {
 	if data["status"] != "ok" {
 		t.Fatalf("expected data.status=ok, got %v", data["status"])
 	}
-	expectedVersion := strings.TrimSpace(config.AppInfo.Version)
+	expectedVersion := config.CLIVersion()
 	if data["version"] != expectedVersion {
 		t.Fatalf("expected data.version=%q, got %v", expectedVersion, data["version"])
 	}
@@ -1456,6 +1456,71 @@ func TestHandleListRecentEventsLimitValidation(t *testing.T) {
 	server.handleListRecentEvents(rr, reqWithTenant("/v1/webhooks/events"))
 	if rr.Code != http.StatusOK {
 		t.Fatalf("no limit param: expected 200, got %d", rr.Code)
+	}
+}
+
+func TestHandleListRecentEventsSkipsMalformedPersistedPayload(t *testing.T) {
+	st, err := store.OpenSQLiteStore(filepath.Join(t.TempDir(), "api-webhook-events-malformed.sqlite"))
+	if err != nil {
+		t.Fatalf("open sqlite store: %v", err)
+	}
+	t.Cleanup(func() { _ = st.Close() })
+	if err := st.Migrate(context.Background()); err != nil {
+		t.Fatalf("migrate store: %v", err)
+	}
+
+	rawBootstrap := "ktk_webhook_events_bootstrap"
+	if err := st.CreateToken(context.Background(), newBootstrapTokenRecord("tenant-a", "bootstrap-agent", rawBootstrap)); err != nil {
+		t.Fatalf("seed bootstrap token: %v", err)
+	}
+
+	if err := st.WriteWebhookEvent(context.Background(), &store.WebhookEventRecord{
+		ID:        "evt_good",
+		TenantID:  "tenant-a",
+		Type:      "approval.expired",
+		Timestamp: time.Now().UTC().Add(-time.Second),
+		DataJSON:  `{"approval_id":"apr_good"}`,
+	}); err != nil {
+		t.Fatalf("write good webhook event: %v", err)
+	}
+	if err := st.WriteWebhookEvent(context.Background(), &store.WebhookEventRecord{
+		ID:        "evt_bad",
+		TenantID:  "tenant-a",
+		Type:      "approval.expired",
+		Timestamp: time.Now().UTC(),
+		DataJSON:  `{`,
+	}); err != nil {
+		t.Fatalf("write malformed webhook event: %v", err)
+	}
+
+	server := NewServer(":0", st, WithWebhookDispatcher(webhooks.NewDispatcher()))
+	ts := httptest.NewServer(server.Router())
+	t.Cleanup(ts.Close)
+
+	req, _ := http.NewRequest(http.MethodGet, ts.URL+"/v1/webhooks/events", nil)
+	req.Header.Set("Authorization", "Bearer "+rawBootstrap)
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatalf("list webhook events request: %v", err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		b, _ := io.ReadAll(resp.Body)
+		t.Fatalf("expected 200, got %d body=%s", resp.StatusCode, string(b))
+	}
+
+	var payload map[string]any
+	if err := json.NewDecoder(resp.Body).Decode(&payload); err != nil {
+		t.Fatalf("decode payload: %v", err)
+	}
+	data, _ := payload["data"].(map[string]any)
+	events, _ := data["events"].([]any)
+	if len(events) != 1 {
+		t.Fatalf("expected only 1 event after skipping malformed persisted payload, got %d", len(events))
+	}
+	first, _ := events[0].(map[string]any)
+	if id, _ := first["id"].(string); id != "evt_good" {
+		t.Fatalf("expected event id evt_good, got %q", id)
 	}
 }
 

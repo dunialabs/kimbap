@@ -11,7 +11,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/dunialabs/kimbap/services"
+	"github.com/dunialabs/kimbap/services/catalog"
 )
 
 const validHTTPManifestYAML = `name: test-service
@@ -186,5 +186,30 @@ func TestEmbeddedRegistryResolveAndList(t *testing.T) {
 
 	if _, err := catalog.Get(known); err != nil {
 		t.Fatalf("catalog.Get(%q) should succeed for listed embedded service: %v", known, err)
+	}
+}
+
+func TestEmbeddedRegistryResolveCanonicalizesSourceName(t *testing.T) {
+	registry := NewEmbeddedRegistry()
+	names, err := registry.List(context.Background())
+	if err != nil {
+		t.Fatalf("List() error = %v", err)
+	}
+	if len(names) == 0 {
+		t.Fatal("expected embedded registry to list catalog services")
+	}
+
+	known := names[0]
+	input := "  " + strings.ToUpper(known) + "  "
+
+	manifest, source, err := registry.Resolve(context.Background(), input)
+	if err != nil {
+		t.Fatalf("Resolve(%q) error = %v", input, err)
+	}
+	if manifest.Name != known {
+		t.Fatalf("manifest name = %q, want %q", manifest.Name, known)
+	}
+	if source != "registry:"+known {
+		t.Fatalf("source = %q, want registry:%s", source, known)
 	}
 }
