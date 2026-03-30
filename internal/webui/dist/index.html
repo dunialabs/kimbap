@@ -1711,7 +1711,7 @@ td.mono {
     parts = ['kimbap call', name];
     for (j = 0; j < requiredKeys.length; j++) {
       parts.push('--' + requiredKeys[j]);
-      parts.push('"REQUIRED"');
+      parts.push('"VALUE"');
     }
     return parts.join(' ');
   }
@@ -1743,8 +1743,10 @@ td.mono {
     var html = '<div class="action-detail">' +
       '<div class="action-detail-header">' +
         '<h3>' + esc(name) + '</h3>' +
-        '<button type="button" class="copy-cmd-btn" onclick="copyCmd(this,&apos;' + escAttr(buildCopyCmd(name, inputSchema)) + '&apos;)">Copy command</button> ' +
-        '<button type="button" class="back-btn" onclick="hideActionDetail()">← Back to actions</button>' +
+        '<div style="display:flex;gap:var(--space-sm)">' +
+          '<button type="button" class="copy-cmd-btn" onclick="copyCmd(this,&apos;' + escAttr(buildCopyCmd(name, inputSchema)) + '&apos;)">Copy command</button>' +
+          '<button type="button" class="back-btn" onclick="hideActionDetail()">← Back to actions</button>' +
+        '</div>' +
       '</div>' +
       (displayName && displayName.trim().toLowerCase() !== rawDesc.trim().toLowerCase() && displayName.trim().toLowerCase() !== name.trim().toLowerCase() ? '<p style="color:var(--text-secondary);margin-bottom:var(--space-md)">' + esc(displayName) + '</p>' : '') +
       '<p style="color:var(--text-secondary);margin-bottom:var(--space-md)">' + esc(desc) + '</p>' +
@@ -1762,7 +1764,6 @@ td.mono {
         (method ? detailField('HTTP Method', method.toUpperCase()) : '') +
         (baseUrl ? detailField('Base URL', baseUrl) : '') +
         (urlTemplate ? detailField('URL Template', urlTemplate) : '') +
-        detailField('Shortcut Setup', 'kimbap alias set <shortcut-name> ' + name) +
       '</div>';
 
     if (inputSchema) {
