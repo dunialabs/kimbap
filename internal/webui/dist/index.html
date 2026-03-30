@@ -2089,7 +2089,6 @@ td.mono {
         '<th>Action</th>' +
         '<th>Agent</th>' +
         '<th>Status</th>' +
-        '<th>Created At</th>' +
         '<th>Expires At</th>' +
         '<th>Time Left</th>' +
         '<th>Decision</th>' +
@@ -2154,7 +2153,6 @@ td.mono {
         '</td>' +
         '<td' + agentTitleAttr + agentAriaAttr + '>' + esc(agent) + '</td>' +
         '<td title="' + escAttr(statusTitle) + '" aria-label="' + escAttr(statusTitle) + '">' + approvalStatusBadge(status) + '<span class="sr-only"> ' + esc(statusBadgeText) + '</span></td>' +
-        '<td class="mono"' + createdTitleAttr + createdAriaAttr + '>' + esc(createdDisplay) + '</td>' +
         '<td class="mono"' + expiresTitleAttr + expiresAriaAttr + '>' + esc(expiresDisplay) + '</td>' +
         '<td class="mono" data-expires="' + escAttr(expires) + '"' + timeLeftTitleAttr + timeLeftAriaAttr + '>' + esc(timeLeftDisplay) + '</td>' +
         '<td><div class="row-actions" role="group" aria-label="' + escAttr(actionGroupAria) + '" aria-busy="' + (busy ? 'true' : 'false') + '">' +
