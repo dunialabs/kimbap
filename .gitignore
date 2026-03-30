@@ -44,6 +44,12 @@ temp/
 # Agent / AI workspace
 .sisyphus/
 .openchrome/
+.claude/
+.codex/
+**/KIMBAP_OPERATING_RULES.md
+
+# Generated review artifacts
+artifacts/
 
 # ── Test code — not included in repository ──
 tests/
