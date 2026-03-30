@@ -36,6 +36,26 @@ func TestRenderConnectedModeIncludesServer(t *testing.T) {
 	}
 }
 
+func TestRenderColorProfileANSI256(t *testing.T) {
+	out := Render(Options{ColorProfile: ColorProfileANSI256})
+	if !strings.Contains(out, "\x1b[38;5;") {
+		t.Fatalf("expected ANSI 256 color escapes, got %q", out)
+	}
+	if strings.Contains(out, "\x1b[38;2;") {
+		t.Fatalf("expected truecolor escapes to be converted, got %q", out)
+	}
+}
+
+func TestRenderColorProfileNone(t *testing.T) {
+	out := Render(Options{ColorProfile: ColorProfileNone})
+	if strings.Contains(out, "\x1b[") {
+		t.Fatalf("expected ANSI escapes to be stripped, got %q", out)
+	}
+	if !strings.Contains(out, "k i m b a p") {
+		t.Fatalf("render output missing brand title: %q", out)
+	}
+}
+
 func TestGetCellOutsideShapeReturnsNil(t *testing.T) {
 	if v := getCell(2.0, 2.0); v != nil {
 		t.Fatalf("expected nil cell outside splash shape, got %+v", v)

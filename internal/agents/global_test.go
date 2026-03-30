@@ -409,6 +409,12 @@ func TestGlobalDetectAgents(t *testing.T) {
 	if kinds[AgentCursor] {
 		t.Fatal("did not expect cursor to be detected")
 	}
+	if kinds[AgentOpenClaw] {
+		t.Fatal("did not expect openclaw to be detected")
+	}
+	if kinds[AgentNanoClaw] {
+		t.Fatal("did not expect nanoclaw to be detected")
+	}
 }
 
 func TestAtomicWriteFile(t *testing.T) {

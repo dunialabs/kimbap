@@ -7,6 +7,7 @@ import (
 	"io"
 	"os"
 	"runtime"
+	"strconv"
 	"strings"
 
 	"github.com/dunialabs/kimbap/internal/services"
@@ -25,16 +26,33 @@ func starterServiceNames() []string {
 		candidates = []string{
 			"apple-notes", "apple-calendar", "apple-reminders",
 			"finder", "safari", "contacts",
-			"wikipedia", "open-meteo", "hacker-news",
+			"wikipedia", "open-meteo", "open-meteo-geocoding", "hacker-news",
 		}
 	} else {
 		candidates = []string{
-			"wikipedia", "open-meteo", "hacker-news",
+			"wikipedia", "open-meteo", "open-meteo-geocoding", "hacker-news",
 			"rest-countries", "exchange-rate",
 			"public-holidays", "nominatim",
 		}
 	}
-	return filterStarterServiceNames(candidates, func(name string) (*services.ServiceManifest, error) {
+	candidateSet := make(map[string]struct{}, len(candidates))
+	for _, name := range candidates {
+		candidateSet[name] = struct{}{}
+	}
+
+	orderedCandidates := make([]string, 0, len(candidates))
+	if allServices, listErr := catalog.List(); listErr == nil {
+		for _, name := range allServices {
+			if _, ok := candidateSet[name]; ok {
+				orderedCandidates = append(orderedCandidates, name)
+			}
+		}
+	}
+	if len(orderedCandidates) == 0 {
+		orderedCandidates = candidates
+	}
+
+	return filterStarterServiceNames(orderedCandidates, func(name string) (*services.ServiceManifest, error) {
 		data, err := catalog.Get(name)
 		if err != nil {
 			return nil, err
@@ -62,6 +80,13 @@ func resolveInitServiceSelectionFromReader(rawServices string, noServices bool, 
 		return initServiceSelection{Skipped: true, Reason: "skipped by --no-services"}, nil
 	}
 
+	if isChecklistSelectionKeyword(rawServices) {
+		if !interactive {
+			return initServiceSelection{}, fmt.Errorf("--services %q requires interactive stdin", strings.TrimSpace(rawServices))
+		}
+		return resolveChecklistServiceSelectionFromReader(reader)
+	}
+
 	if strings.EqualFold(strings.TrimSpace(rawServices), "all") {
 		all, listErr := catalog.List()
 		if listErr != nil {
@@ -70,7 +95,7 @@ func resolveInitServiceSelectionFromReader(rawServices string, noServices bool, 
 		return initServiceSelection{Names: all}, nil
 	}
 
-	if strings.EqualFold(strings.TrimSpace(rawServices), "starter") {
+	if strings.EqualFold(strings.TrimSpace(rawServices), "starter") || strings.EqualFold(strings.TrimSpace(rawServices), "recommended") {
 		return initServiceSelection{Names: starterServiceNames()}, nil
 	}
 
@@ -90,89 +115,161 @@ func resolveInitServiceSelectionFromReader(rawServices string, noServices bool, 
 		return initServiceSelection{Skipped: true, Reason: "non-interactive stdin"}, nil
 	}
 
-	serviceCount := 0
-	if all, err := catalog.List(); err == nil {
-		serviceCount = len(all)
+	return resolveChecklistServiceSelectionFromReader(reader)
+}
+
+func isChecklistSelectionKeyword(raw string) bool {
+	trimmed := strings.ToLower(strings.TrimSpace(raw))
+	switch trimmed {
+	case "select", "interactive", "checkbox", "checklist":
+		return true
+	default:
+		return false
 	}
-	_, _ = fmt.Fprintf(os.Stderr, "Install all %d catalog services? [Y/n/select]: ", serviceCount)
+}
+
+func resolveChecklistServiceSelectionFromReader(reader io.Reader) (initServiceSelection, error) {
+	all, err := catalog.List()
+	if err != nil {
+		return initServiceSelection{}, fmt.Errorf("list catalog services: %w", err)
+	}
+	if len(all) == 0 {
+		return initServiceSelection{Skipped: true, Reason: "no catalog services available"}, nil
+	}
+
+	selected := make(map[string]bool, len(all))
+	starterSet := make(map[string]struct{})
+	for _, name := range starterServiceNames() {
+		starterSet[name] = struct{}{}
+	}
+	for _, name := range all {
+		if _, ok := starterSet[name]; ok {
+			selected[name] = true
+		}
+	}
 
 	br := bufio.NewReader(reader)
-
-	line, err := br.ReadString('\n')
-	if err != nil && !errors.Is(err, io.EOF) {
-		return initServiceSelection{}, fmt.Errorf("read service selection: %w", err)
-	}
-
-	trimmed := strings.TrimSpace(line)
-
-	if trimmed == "" && errors.Is(err, io.EOF) {
-		return initServiceSelection{Skipped: true, Reason: "EOF"}, nil
-	}
-
-	if trimmed == "" || strings.EqualFold(trimmed, "y") || strings.EqualFold(trimmed, "yes") {
-		all, listErr := catalog.List()
-		if listErr != nil {
-			return initServiceSelection{}, fmt.Errorf("list catalog services: %w", listErr)
-		}
-		return initServiceSelection{Names: all}, nil
-	}
-
-	if strings.EqualFold(trimmed, "n") || strings.EqualFold(trimmed, "no") {
-		return initServiceSelection{Skipped: true, Reason: "user declined"}, nil
-	}
-
-	if strings.EqualFold(trimmed, "starter") {
-		return initServiceSelection{Names: starterServiceNames()}, nil
-	}
-
-	if strings.EqualFold(trimmed, "select") {
-		if printErr := printCatalogServiceCategories(); printErr != nil {
-			return initServiceSelection{}, printErr
-		}
-		_, _ = fmt.Fprint(os.Stderr, "Enter comma-separated names, or 'all': ")
-
-		line2, err2 := br.ReadString('\n')
-		if err2 != nil && !errors.Is(err2, io.EOF) {
-			return initServiceSelection{}, fmt.Errorf("read service selection: %w", err2)
-		}
-
-		trimmed2 := strings.TrimSpace(line2)
-		if trimmed2 == "" {
-			return initServiceSelection{Skipped: true, Reason: "empty selection"}, nil
-		}
-
-		if strings.EqualFold(trimmed2, "all") {
-			all, listErr := catalog.List()
-			if listErr != nil {
-				return initServiceSelection{}, fmt.Errorf("list catalog services: %w", listErr)
+	for {
+		_, _ = fmt.Fprintln(os.Stderr)
+		_, _ = fmt.Fprintln(os.Stderr, "Service checklist (checkbox style)")
+		_, _ = fmt.Fprintln(os.Stderr, "Commands: <idx>[,<idx>...] toggle · a=all · n=none · r=recommended · d=done · q=skip")
+		for idx, name := range all {
+			mark := " "
+			if selected[name] {
+				mark = "x"
 			}
-			return initServiceSelection{Names: all}, nil
+			_, _ = fmt.Fprintf(os.Stderr, " [%s] %2d) %s\n", mark, idx+1, name)
+		}
+		_, _ = fmt.Fprint(os.Stderr, "Select> ")
+
+		line, readErr := br.ReadString('\n')
+		if readErr != nil && !errors.Is(readErr, io.EOF) {
+			return initServiceSelection{}, fmt.Errorf("read service selection: %w", readErr)
+		}
+		trimmed := strings.ToLower(strings.TrimSpace(line))
+		if trimmed == "" && errors.Is(readErr, io.EOF) {
+			return initServiceSelection{Skipped: true, Reason: "EOF"}, nil
 		}
 
-		if strings.EqualFold(trimmed2, "starter") {
-			return initServiceSelection{Names: starterServiceNames()}, nil
+		switch trimmed {
+		case "", "d", "done":
+			names := make([]string, 0, len(all))
+			for _, name := range all {
+				if selected[name] {
+					names = append(names, name)
+				}
+			}
+			if len(names) == 0 {
+				return initServiceSelection{Skipped: true, Reason: "empty selection"}, nil
+			}
+			return initServiceSelection{Names: names}, nil
+		case "q", "quit", "skip", "cancel":
+			return initServiceSelection{Skipped: true, Reason: "user declined"}, nil
+		case "a", "all":
+			for _, name := range all {
+				selected[name] = true
+			}
+		case "n", "none":
+			for _, name := range all {
+				selected[name] = false
+			}
+		case "r", "recommended", "starter":
+			for _, name := range all {
+				_, isStarter := starterSet[name]
+				selected[name] = isStarter
+			}
+		default:
+			indices, parseErr := parseChecklistIndices(trimmed, len(all))
+			if parseErr != nil {
+				_, _ = fmt.Fprintf(os.Stderr, "Invalid selection: %v\n", parseErr)
+				continue
+			}
+			for _, idx := range indices {
+				name := all[idx-1]
+				selected[name] = !selected[name]
+			}
 		}
+	}
+}
 
-		selected2 := parseCSV(trimmed2)
-		normalized2, normalizeErr2 := normalizeSelectedCatalogServices(selected2)
-		if normalizeErr2 != nil {
-			return initServiceSelection{}, normalizeErr2
+func parseChecklistIndices(raw string, max int) ([]int, error) {
+	if strings.TrimSpace(raw) == "" {
+		return nil, fmt.Errorf("empty selection")
+	}
+	tokens := strings.FieldsFunc(raw, func(r rune) bool {
+		return r == ',' || r == ' ' || r == '\t'
+	})
+	if len(tokens) == 0 {
+		return nil, fmt.Errorf("empty selection")
+	}
+	seen := map[int]struct{}{}
+	out := make([]int, 0, len(tokens))
+	addIndex := func(v int) error {
+		if v < 1 || v > max {
+			return fmt.Errorf("selection index %d out of range (1-%d)", v, max)
 		}
-		if len(normalized2) == 0 {
-			return initServiceSelection{Skipped: true, Reason: "empty selection"}, nil
+		if _, ok := seen[v]; ok {
+			return nil
 		}
-		return initServiceSelection{Names: normalized2}, nil
+		seen[v] = struct{}{}
+		out = append(out, v)
+		return nil
 	}
 
-	selected := parseCSV(trimmed)
-	normalized, normalizeErr := normalizeSelectedCatalogServices(selected)
-	if normalizeErr != nil {
-		return initServiceSelection{}, normalizeErr
+	for _, token := range tokens {
+		part := strings.TrimSpace(token)
+		if part == "" {
+			continue
+		}
+		if strings.Contains(part, "-") {
+			bounds := strings.SplitN(part, "-", 2)
+			start, err1 := strconv.Atoi(strings.TrimSpace(bounds[0]))
+			end, err2 := strconv.Atoi(strings.TrimSpace(bounds[1]))
+			if err1 != nil || err2 != nil {
+				return nil, fmt.Errorf("invalid range %q", part)
+			}
+			if start > end {
+				start, end = end, start
+			}
+			for i := start; i <= end; i++ {
+				if err := addIndex(i); err != nil {
+					return nil, err
+				}
+			}
+			continue
+		}
+		idx, err := strconv.Atoi(part)
+		if err != nil {
+			return nil, fmt.Errorf("invalid selection token %q", part)
+		}
+		if err := addIndex(idx); err != nil {
+			return nil, err
+		}
 	}
-	if len(normalized) == 0 {
-		return initServiceSelection{Skipped: true, Reason: "empty selection"}, nil
+	if len(out) == 0 {
+		return nil, fmt.Errorf("empty selection")
 	}
-	return initServiceSelection{Names: normalized}, nil
+	return out, nil
 }
 
 func resolveInitServiceSelection(rawServices string, noServices bool) (initServiceSelection, error) {

@@ -17,6 +17,8 @@ type GlobalAgentConfig struct {
 	DetectDir       string // absolute path to check for agent presence
 }
 
+var globalAgentKinds = []AgentKind{AgentClaudeCode, AgentOpenCode, AgentCodex, AgentCursor, AgentOpenClaw, AgentNanoClaw}
+
 const (
 	markerStart = "<!-- KIMBAP:START -->"
 	markerEnd   = "<!-- KIMBAP:END -->"
@@ -92,6 +94,17 @@ func resolveGlobalConfigs() (map[AgentKind]GlobalAgentConfig, error) {
 			AgentSkillsDir: filepath.Join(home, ".cursor", "skills"),
 			DetectDir:      filepath.Join(home, ".cursor"),
 		},
+		AgentOpenClaw: {
+			Kind:            AgentOpenClaw,
+			AgentSkillsDir:  filepath.Join(home, ".openclaw", "skills"),
+			InstructionFile: filepath.Join(home, ".openclaw", "workspace", "AGENTS.md"),
+			DetectDir:       filepath.Join(home, ".openclaw"),
+		},
+		AgentNanoClaw: {
+			Kind:           AgentNanoClaw,
+			AgentSkillsDir: filepath.Join(xdgConfig, "nanoclaw", "skills"),
+			DetectDir:      filepath.Join(xdgConfig, "nanoclaw"),
+		},
 	}
 
 	return configs, nil
@@ -114,7 +127,7 @@ func GlobalDetectAgents() ([]GlobalAgentConfig, error) {
 	}
 
 	var detected []GlobalAgentConfig
-	for _, kind := range []AgentKind{AgentClaudeCode, AgentOpenCode, AgentCodex, AgentCursor} {
+	for _, kind := range globalAgentKinds {
 		cfg := configs[kind]
 		if info, statErr := os.Stat(cfg.DetectDir); statErr == nil && info.IsDir() {
 			detected = append(detected, cfg)
@@ -268,7 +281,7 @@ func selectGlobalTargets(allConfigs map[AgentKind]GlobalAgentConfig, requested [
 	}
 
 	var detected []GlobalAgentConfig
-	for _, kind := range []AgentKind{AgentClaudeCode, AgentOpenCode, AgentCodex, AgentCursor} {
+	for _, kind := range globalAgentKinds {
 		cfg := allConfigs[kind]
 		if info, err := os.Stat(cfg.DetectDir); err == nil && info.IsDir() {
 			detected = append(detected, cfg)
@@ -287,7 +300,7 @@ func selectTeardownTargets(allConfigs map[AgentKind]GlobalAgentConfig, requested
 	}
 
 	var targets []GlobalAgentConfig
-	for _, kind := range []AgentKind{AgentClaudeCode, AgentOpenCode, AgentCodex, AgentCursor} {
+	for _, kind := range globalAgentKinds {
 		cfg := allConfigs[kind]
 		if hasKimbapArtifacts(cfg) {
 			targets = append(targets, cfg)
@@ -576,7 +589,7 @@ func GlobalStatus() ([]GlobalStatusResult, error) {
 	}
 
 	var results []GlobalStatusResult
-	for _, kind := range []AgentKind{AgentClaudeCode, AgentOpenCode, AgentCodex, AgentCursor} {
+	for _, kind := range globalAgentKinds {
 		cfg := configs[kind]
 		result := GlobalStatusResult{
 			Agent:          kind,

@@ -46,6 +46,7 @@ func TestEnsureInstalledActionAliasesFallsBackWhenPrimaryCollidesWithServiceName
 	withServiceCLIOpts(t, configPath, func() {
 		execDir := t.TempDir()
 		execPath := filepath.Join(execDir, "kimbap")
+		stubAliasLookPathToDir(t, execDir)
 		origExecutablePath := aliasExecutablePath
 		origLstat := aliasFileLstat
 		origSymlink := aliasFileSymlink
@@ -126,6 +127,7 @@ func TestEnsureInstalledActionAliasesSkipsCandidateThatMatchesServiceAlias(t *te
 	withServiceCLIOpts(t, configPath, func() {
 		execDir := t.TempDir()
 		execPath := filepath.Join(execDir, "kimbap")
+		stubAliasLookPathToDir(t, execDir)
 		origExecutablePath := aliasExecutablePath
 		origLstat := aliasFileLstat
 		origSymlink := aliasFileSymlink
@@ -240,6 +242,7 @@ func TestEnsureInstalledActionAliasesGeneratedExistingMappingDoesNotEmitNoCandid
 
 		execDir := t.TempDir()
 		execPath := filepath.Join(execDir, "kimbap")
+		stubAliasLookPathToDir(t, execDir)
 		aliasPath := filepath.Join(execDir, "geosearch")
 		origExecutablePath := aliasExecutablePath
 		origLstat := aliasFileLstat
@@ -308,6 +311,7 @@ func TestEnsureInstalledActionAliasesRecreatesMissingExecutableForExistingMappin
 
 		execDir := t.TempDir()
 		execPath := filepath.Join(execDir, "kimbap")
+		stubAliasLookPathToDir(t, execDir)
 		aliasPath := filepath.Join(execDir, "weather")
 		symlinkCreated := false
 
@@ -381,6 +385,7 @@ func TestEnsureInstalledActionAliasesRollsBackExecutableWhenConfigWriteFails(t *
 
 		execDir := t.TempDir()
 		execPath := filepath.Join(execDir, "kimbap")
+		stubAliasLookPathToDir(t, execDir)
 		aliasPath := filepath.Join(execDir, "geosearch")
 		symlinkExists := false
 		rollbackRemoved := false

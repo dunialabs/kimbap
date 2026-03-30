@@ -112,6 +112,57 @@ func TestValidateAppleScriptManifest_MissingCommand(t *testing.T) {
 	}
 }
 
+func TestValidateAppleScriptManifest_AllowsInlineScriptInDualMode(t *testing.T) {
+	withAppleScriptRegistryMode(t, "dual")
+	m := validAppleScriptManifest()
+	a := m.Actions["list_notes"]
+	a.Command = ""
+	a.InlineScript = &InlineScript{
+		ID:          "notes.list_notes.inline",
+		Language:    "jxa",
+		Source:      `ObjC.import('stdlib'); JSON.stringify({ok:true});`,
+		ApprovalRef: "approval.default",
+		AuditRef:    "audit.default",
+	}
+	m.Actions["list_notes"] = a
+
+	errList := ValidateManifest(m)
+	if len(errList) != 0 {
+		t.Fatalf("expected inline_script-only applescript action to be valid in dual mode, got %v", errList)
+	}
+}
+
+func TestValidateAppleScriptManifest_ManifestModeRequiresInlineScript(t *testing.T) {
+	withAppleScriptRegistryMode(t, "manifest")
+	m := validAppleScriptManifest()
+
+	errList := ValidateManifest(m)
+	if !hasValidationError(errList, "actions.list_notes.inline_script", "is required") {
+		t.Fatalf("expected inline_script requirement in manifest mode, got %v", errList)
+	}
+}
+
+func TestValidateAppleScriptManifest_InlineScriptRequiresApprovalAndAuditRefs(t *testing.T) {
+	withAppleScriptRegistryMode(t, "dual")
+	m := validAppleScriptManifest()
+	a := m.Actions["list_notes"]
+	a.Command = ""
+	a.InlineScript = &InlineScript{
+		ID:       "notes.list_notes.inline",
+		Language: "jxa",
+		Source:   `ObjC.import('stdlib'); JSON.stringify({ok:true});`,
+	}
+	m.Actions["list_notes"] = a
+
+	errList := ValidateManifest(m)
+	if !hasValidationError(errList, "actions.list_notes.inline_script.approval_ref", "is required") {
+		t.Fatalf("expected approval_ref validation error, got %v", errList)
+	}
+	if !hasValidationError(errList, "actions.list_notes.inline_script.audit_ref", "is required") {
+		t.Fatalf("expected audit_ref validation error, got %v", errList)
+	}
+}
+
 func TestValidateAppleScriptManifest_UnknownCommand(t *testing.T) {
 	m := validAppleScriptManifest()
 	a := m.Actions["list_notes"]
@@ -519,4 +570,17 @@ func hasValidationError(errs []ValidationError, field, messageContains string) b
 		}
 	}
 	return false
+}
+
+func withAppleScriptRegistryMode(t *testing.T, mode string) {
+	t.Helper()
+	prev := CurrentAppleScriptRegistryMode()
+	if err := SetAppleScriptRegistryMode(mode); err != nil {
+		t.Fatalf("SetAppleScriptRegistryMode(%q): %v", mode, err)
+	}
+	t.Cleanup(func() {
+		if err := SetAppleScriptRegistryMode(string(prev)); err != nil {
+			t.Fatalf("restore applescript registry mode: %v", err)
+		}
+	})
 }

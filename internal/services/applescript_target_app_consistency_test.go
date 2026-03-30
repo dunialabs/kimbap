@@ -82,6 +82,13 @@ func TestOfficialAppleScriptCommandsMatchManifestTargetApp(t *testing.T) {
 		expectedApp := strings.TrimSpace(manifest.TargetApp)
 		for actionKey, action := range manifest.Actions {
 			cmdName := strings.TrimSpace(action.Command)
+			if cmdName == "" {
+				if action.InlineScript == nil || strings.TrimSpace(action.InlineScript.Source) == "" {
+					t.Fatalf("%s action %q must define either command or inline_script.source", entry.Name(), actionKey)
+				}
+				checked++
+				continue
+			}
 			cmd, exists := commands[cmdName]
 			if !exists {
 				t.Fatalf("%s action %q references unknown applescript command %q", entry.Name(), actionKey, action.Command)

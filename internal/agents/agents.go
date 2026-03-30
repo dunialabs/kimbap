@@ -17,10 +17,12 @@ const (
 	AgentOpenCode   AgentKind = "opencode"
 	AgentCodex      AgentKind = "codex"
 	AgentCursor     AgentKind = "cursor"
+	AgentOpenClaw   AgentKind = "openclaw"
+	AgentNanoClaw   AgentKind = "nanoclaw"
 	AgentGeneric    AgentKind = "generic"
 )
 
-var KnownAgents = []AgentKind{AgentClaudeCode, AgentOpenCode, AgentCodex, AgentCursor, AgentGeneric}
+var KnownAgents = []AgentKind{AgentClaudeCode, AgentOpenCode, AgentCodex, AgentCursor, AgentOpenClaw, AgentNanoClaw, AgentGeneric}
 
 const managedSkillMarkerFile = ".kimbap-managed"
 
@@ -55,6 +57,18 @@ var agentConfigs = map[AgentKind]AgentConfig{
 		AgentSkillsDir: ".cursor/skills",
 		RulesFile:      ".cursor/KIMBAP_OPERATING_RULES.md",
 		DetectPaths:    []string{".cursor", ".cursor/rules"},
+	},
+	AgentOpenClaw: {
+		Kind:           AgentOpenClaw,
+		AgentSkillsDir: "skills",
+		RulesFile:      "KIMBAP_OPERATING_RULES.md",
+		DetectPaths:    []string{"SOUL.md", "USER.md", "IDENTITY.md"},
+	},
+	AgentNanoClaw: {
+		Kind:           AgentNanoClaw,
+		AgentSkillsDir: ".claude/skills",
+		RulesFile:      ".claude/KIMBAP_OPERATING_RULES.md",
+		DetectPaths:    []string{"container/skills", "src/container-runner.ts"},
 	},
 	AgentGeneric: {
 		Kind:           AgentGeneric,

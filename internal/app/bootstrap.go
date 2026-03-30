@@ -45,6 +45,9 @@ func BuildRuntime(deps RuntimeDeps) (*runtimepkg.Runtime, error) {
 	if deps.Config == nil {
 		return nil, fmt.Errorf("config is required")
 	}
+	if err := services.SetAppleScriptRegistryMode(deps.Config.Services.AppleScriptRegistryMode); err != nil {
+		return nil, err
+	}
 
 	servicesDir := strings.TrimSpace(deps.ServicesDir)
 	policyPath := strings.TrimSpace(deps.PolicyPath)

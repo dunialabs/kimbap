@@ -16,6 +16,8 @@ const (
 	ProfileCodex      ProfileType = "codex"
 	ProfileGeneric    ProfileType = "generic"
 	ProfileCursor     ProfileType = "cursor"
+	ProfileOpenClaw   ProfileType = "openclaw"
+	ProfileNanoClaw   ProfileType = "nanoclaw"
 )
 
 type Profile struct {
@@ -67,6 +69,18 @@ func GetProfile(name ProfileType) (*Profile, error) {
 			Name:        ProfileCursor,
 			Template:    operatingRulesTemplate,
 			InstallPath: filepath.Join(".cursor", "KIMBAP_OPERATING_RULES.md"),
+		}, nil
+	case ProfileOpenClaw:
+		return &Profile{
+			Name:        ProfileOpenClaw,
+			Template:    operatingRulesTemplate,
+			InstallPath: "KIMBAP_OPERATING_RULES.md",
+		}, nil
+	case ProfileNanoClaw:
+		return &Profile{
+			Name:        ProfileNanoClaw,
+			Template:    operatingRulesTemplate,
+			InstallPath: filepath.Join(".claude", "KIMBAP_OPERATING_RULES.md"),
 		}, nil
 	default:
 		return nil, fmt.Errorf("unknown profile type: %q", name)

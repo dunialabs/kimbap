@@ -21,11 +21,11 @@ brew install dunialabs/kimbap/kimbap
 ## 2. Initialize
 
 ```bash
-kimbap init --services all
+kimbap init --services select
 ```
 
-Creates `~/.kimbap/` with a config file, encrypted vault, and default policy. Installs all catalog service manifests. Dev mode auto-generates a vault key stored locally, so no extra setup is needed.
-Eligible shortcut aliases are set up by default during init. In interactive flows, you'll be asked first; use `--no-shortcuts` to skip.
+Creates local runtime files (default in `~/.kimbap/`) and opens an interactive service checklist. Recommended services are preselected, and `all` is available in one command.
+Shortcut aliases are set up by default during init. Use `--no-shortcuts` to skip.
 
 ---
 
@@ -44,13 +44,6 @@ weather --latitude 37.7749 --longitude -122.4194
 ```
 
 Simple flow, no API key, no localhost setup.
-
-Canonical form is still available:
-
-```bash
-kimbap call open-meteo-geocoding.search --name "San Francisco" --count 1
-kimbap call open-meteo.get-forecast --latitude 37.7749 --longitude -122.4194
-```
 
 ---
 
@@ -82,7 +75,11 @@ The same pattern works for any service: `kimbap link <service>`.
 kimbap agents setup
 ```
 
-Auto-detects installed agents and sets up kimbap discovery for them.
+Auto-detects installed agents and installs global kimbap discovery hints. For project sync, run:
+
+```bash
+kimbap agents setup --sync --dir .
+```
 
 Need profile/rules customization? See the Installation Guide for advanced setup options.
 

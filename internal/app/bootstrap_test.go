@@ -50,6 +50,26 @@ func TestBuildRuntimeMinimalConfig(t *testing.T) {
 	}
 }
 
+func TestBuildRuntimeAppliesAppleScriptRegistryMode(t *testing.T) {
+	prevMode := services.CurrentAppleScriptRegistryMode()
+	t.Cleanup(func() {
+		_ = services.SetAppleScriptRegistryMode(string(prevMode))
+	})
+
+	cfg := &config.KimbapConfig{
+		Services: config.ServicesConfig{Dir: t.TempDir(), AppleScriptRegistryMode: "legacy"},
+		Policy:   config.PolicyConfig{Path: ""},
+	}
+
+	_, err := BuildRuntime(RuntimeDeps{Config: cfg})
+	if err != nil {
+		t.Fatalf("BuildRuntime() error: %v", err)
+	}
+	if got := services.CurrentAppleScriptRegistryMode(); got != services.AppleScriptRegistryModeLegacy {
+		t.Fatalf("services.CurrentAppleScriptRegistryMode() = %q, want legacy", got)
+	}
+}
+
 func TestBootstrapRegistersAppleScript(t *testing.T) {
 	cfg := &config.KimbapConfig{Services: config.ServicesConfig{Dir: t.TempDir()}}
 	rt, err := BuildRuntime(RuntimeDeps{Config: cfg})

@@ -55,10 +55,11 @@ type PolicyConfig struct {
 }
 
 type ServicesConfig struct {
-	Dir             string `yaml:"dir"`
-	RegistryURL     string `yaml:"registry_url"`
-	Verify          string `yaml:"verify"`
-	SignaturePolicy string `yaml:"signature_policy"`
+	Dir                     string `yaml:"dir"`
+	RegistryURL             string `yaml:"registry_url"`
+	Verify                  string `yaml:"verify"`
+	SignaturePolicy         string `yaml:"signature_policy"`
+	AppleScriptRegistryMode string `yaml:"applescript_registry_mode"`
 }
 
 type DatabaseConfig struct {
@@ -130,10 +131,11 @@ func DefaultConfig() *KimbapConfig {
 		},
 		Policy: PolicyConfig{Path: filepath.Join(dataDir, "policy.yaml")},
 		Services: ServicesConfig{
-			Dir:             filepath.Join(dataDir, "services"),
-			RegistryURL:     "https://services.kimbap.ai",
-			Verify:          "warn",
-			SignaturePolicy: "optional",
+			Dir:                     filepath.Join(dataDir, "services"),
+			RegistryURL:             "https://services.kimbap.ai",
+			Verify:                  "warn",
+			SignaturePolicy:         "optional",
+			AppleScriptRegistryMode: "dual",
 		},
 		Database: DatabaseConfig{
 			Driver: "sqlite",
@@ -193,12 +195,21 @@ func loadKimbapConfig(includeDefault bool, paths ...string) (*KimbapConfig, erro
 	}
 	cfg.Services.SignaturePolicy = sigPolicy
 
+	appleScriptMode, normErr := normalizeAppleScriptRegistryMode(cfg.Services.AppleScriptRegistryMode)
+	if normErr != nil {
+		return nil, normErr
+	}
+	cfg.Services.AppleScriptRegistryMode = appleScriptMode
+
 	return cfg, nil
 }
 
 func ResolveConfigPath(explicitPath string) (string, error) {
 	if trimmed := strings.TrimSpace(explicitPath); trimmed != "" {
 		return trimmed, nil
+	}
+	if envPath := strings.TrimSpace(os.Getenv("KIMBAP_CONFIG")); envPath != "" {
+		return envPath, nil
 	}
 
 	xdg := strings.TrimSpace(os.Getenv("XDG_CONFIG_HOME"))
@@ -247,6 +258,16 @@ func ResolveConfigPath(explicitPath string) (string, error) {
 		return "", fmt.Errorf("legacy config path is a directory: %s", legacyPath)
 	}
 	return legacyPath, nil
+}
+
+func ResolveConfigPathWithDataDir(explicitPath, dataDir string) (string, error) {
+	if trimmed := strings.TrimSpace(explicitPath); trimmed != "" {
+		return ResolveConfigPath(trimmed)
+	}
+	if trimmedDataDir := strings.TrimSpace(dataDir); trimmedDataDir != "" {
+		return filepath.Join(trimmedDataDir, "config.yaml"), nil
+	}
+	return ResolveConfigPath("")
 }
 
 func defaultKimbapConfigPath() (string, error) {
@@ -339,7 +360,7 @@ func warnUnknownConfigKeys(raw map[string]any, path string) {
 		"auth":          {"token_ttl": true, "session_ttl": true, "server_url": true},
 		"audit":         {"sink": true, "path": true},
 		"policy":        {"path": true},
-		"services":      {"dir": true, "registry_url": true, "verify": true, "signature_policy": true},
+		"services":      {"dir": true, "registry_url": true, "verify": true, "signature_policy": true, "applescript_registry_mode": true},
 		"database":      {"driver": true, "dsn": true},
 		"notifications": {"slack": true, "telegram": true, "email": true, "webhook": true},
 	}
@@ -430,6 +451,7 @@ func applyKimbapEnv(cfg *KimbapConfig) {
 	setIfNotEmpty(&cfg.Services.RegistryURL, os.Getenv("KIMBAP_SERVICES_REGISTRY_URL"))
 	setIfNotEmpty(&cfg.Services.Verify, os.Getenv("KIMBAP_SERVICES_VERIFY"))
 	setIfNotEmpty(&cfg.Services.SignaturePolicy, os.Getenv("KIMBAP_SERVICES_SIGNATURE_POLICY"))
+	setIfNotEmpty(&cfg.Services.AppleScriptRegistryMode, os.Getenv("KIMBAP_SERVICES_APPLESCRIPT_REGISTRY_MODE"))
 
 	setIfNotEmpty(&cfg.Database.Driver, os.Getenv("KIMBAP_DATABASE_DRIVER"))
 	setIfNotEmpty(&cfg.Database.DSN, os.Getenv("KIMBAP_DATABASE_DSN"))
@@ -506,6 +528,7 @@ func mergeConfig(dst, src *KimbapConfig) {
 	setIfNotEmpty(&dst.Services.RegistryURL, src.Services.RegistryURL)
 	setIfNotEmpty(&dst.Services.Verify, src.Services.Verify)
 	setIfNotEmpty(&dst.Services.SignaturePolicy, src.Services.SignaturePolicy)
+	setIfNotEmpty(&dst.Services.AppleScriptRegistryMode, src.Services.AppleScriptRegistryMode)
 
 	setIfNotEmpty(&dst.Database.Driver, src.Database.Driver)
 	setIfNotEmpty(&dst.Database.DSN, src.Database.DSN)
@@ -558,5 +581,17 @@ func normalizeServiceSignaturePolicy(policy string) (string, error) {
 		return normalized, nil
 	default:
 		return "", fmt.Errorf("invalid services.signature_policy value %q: must be one of: off, optional, required", policy)
+	}
+}
+
+func normalizeAppleScriptRegistryMode(mode string) (string, error) {
+	normalized := strings.ToLower(strings.TrimSpace(mode))
+	switch normalized {
+	case "", "dual":
+		return "dual", nil
+	case "legacy", "manifest":
+		return normalized, nil
+	default:
+		return "", fmt.Errorf("invalid services.applescript_registry_mode value %q: must be one of: legacy, dual, manifest", mode)
 	}
 }

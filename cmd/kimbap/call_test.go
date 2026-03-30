@@ -373,8 +373,18 @@ func TestPrescanCallSplashFlags_NoSplashOptionalFalse(t *testing.T) {
 	if opts.noSplash {
 		t.Fatal("expected noSplash=false when --no-splash false is provided")
 	}
-	if opts.format != "json" {
-		t.Fatalf("expected format=json, got %q", opts.format)
+	if opts.format != "" {
+		t.Fatalf("expected format unchanged when --format appears after action, got %q", opts.format)
+	}
+}
+
+func TestPrescanCallSplashFlags_NoSplashInlineValue(t *testing.T) {
+	resetOptsForTest(t)
+
+	prescanCallSplashFlags([]string{"slack.list-channels", "--no-splash=false"})
+
+	if opts.noSplash {
+		t.Fatal("expected noSplash=false when --no-splash=false is provided")
 	}
 }
 
@@ -385,6 +395,16 @@ func TestPrescanCallSplashFlags_SplashColorParsed(t *testing.T) {
 
 	if opts.splashColor != "ansi256" {
 		t.Fatalf("expected splashColor=ansi256, got %q", opts.splashColor)
+	}
+}
+
+func TestPrescanCallSplashFlags_FormatAfterActionIgnored(t *testing.T) {
+	resetOptsForTest(t)
+
+	prescanCallSplashFlags([]string{"mermaid.render-url", "--format", "json"})
+
+	if opts.format != "" {
+		t.Fatalf("expected format unchanged when --format appears after action, got %q", opts.format)
 	}
 }
 
@@ -399,8 +419,8 @@ func TestPrescanRawSplashFlags_NoSplashOptionalFalse(t *testing.T) {
 	if opts.noSplash {
 		t.Fatal("expected noSplash=false when --no-splash false is provided")
 	}
-	if opts.format != "json" {
-		t.Fatalf("expected format=json, got %q", opts.format)
+	if opts.format != "" {
+		t.Fatalf("expected format unchanged when --format appears after call action, got %q", opts.format)
 	}
 }
 
@@ -428,6 +448,19 @@ func TestPrescanRawSplashFlags_SplashColorParsed(t *testing.T) {
 
 	if opts.splashColor != "none" {
 		t.Fatalf("expected splashColor=none, got %q", opts.splashColor)
+	}
+}
+
+func TestPrescanRawSplashFlags_FormatAfterCallActionIgnored(t *testing.T) {
+	resetOptsForTest(t)
+	prevArgs := os.Args
+	t.Cleanup(func() { os.Args = prevArgs })
+
+	os.Args = []string{"kimbap", "call", "mermaid.render-url", "--format", "json"}
+	prescanRawSplashFlags()
+
+	if opts.format != "" {
+		t.Fatalf("expected format unchanged when --format appears after call action, got %q", opts.format)
 	}
 }
 
@@ -595,7 +628,7 @@ func TestPrescanCallSplashFlags_DoubleDashStopsParsing(t *testing.T) {
 	}
 }
 
-func TestNormalizeCallInputTokensForGlobalFormatConsumesJsonWhenActionHasNoFormatField(t *testing.T) {
+func TestNormalizeCallInputTokensForGlobalFormatKeepsFormatAfterAction(t *testing.T) {
 	resetOptsForTest(t)
 	opts.format = "text"
 
@@ -609,11 +642,11 @@ func TestNormalizeCallInputTokensForGlobalFormatConsumesJsonWhenActionHasNoForma
 	input := []string{"--name", "Seoul", "--count", "1", "--format", "json"}
 	out := normalizeCallInputTokensForGlobalFormat(input, def)
 
-	if opts.format != "json" {
-		t.Fatalf("expected global format json, got %q", opts.format)
+	if opts.format != "text" {
+		t.Fatalf("expected global format to remain text, got %q", opts.format)
 	}
-	if len(out) != 4 || out[0] != "--name" || out[1] != "Seoul" || out[2] != "--count" || out[3] != "1" {
-		t.Fatalf("expected --format json consumed from input tokens, got %v", out)
+	if strings.Join(out, " ") != strings.Join(input, " ") {
+		t.Fatalf("expected input tokens unchanged, got %v", out)
 	}
 }
 

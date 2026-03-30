@@ -79,7 +79,7 @@ sudo systemctl start kimbap
 
 ## Configuration
 
-All configuration is set via environment variables or `~/.kimbap/config.yaml`.
+All configuration is set via environment variables or config file discovery (`$XDG_CONFIG_HOME/kimbap/config.yaml` when set, otherwise `~/.kimbap/config.yaml`).
 
 ### Key Environment Variables
 
@@ -94,12 +94,14 @@ All configuration is set via environment variables or `~/.kimbap/config.yaml`.
 | Name                         | Required | Default                    | Description                                                                 |
 | ---------------------------- | -------- | -------------------------- | --------------------------------------------------------------------------- |
 | `KIMBAP_SERVICES_REGISTRY_URL` |          | `https://services.kimbap.ai` | Base HTTPS URL used as non-default remote fallback for registry-backed catalog service resolution by name. |
+| `KIMBAP_SERVICES_APPLESCRIPT_REGISTRY_MODE` | | `dual` | AppleScript action resolution mode: `legacy` (command-only), `dual` (command or inline_script), `manifest` (inline_script required). |
 
-`~/.kimbap/config.yaml` equivalent:
+`config.yaml` equivalent:
 
 ```yaml
 services:
   registry_url: https://services.kimbap.ai
+  applescript_registry_mode: dual
 ```
 
 #### Security

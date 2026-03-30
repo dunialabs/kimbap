@@ -131,6 +131,7 @@ func init() {
 	addGrouped(newLinkCommand(), "core")
 	addGrouped(newSearchCommand(), "core")
 	addGrouped(newActionsCommand(), "core")
+	addGrouped(newAliasCommand(), "core")
 
 	// Setup — install and configure
 	addGrouped(newInitCommand(), "setup")
@@ -159,7 +160,6 @@ func init() {
 		newAuditCommand(),
 		newDaemonCommand(),
 		newCompletionCommand(),
-		newAliasCommand(),
 	} {
 		c.Hidden = true
 		rootCmd.AddCommand(c)
@@ -167,10 +167,21 @@ func init() {
 }
 
 func prescanRawSplashFlags() {
+	withinCall := false
+	callActionSeen := false
 	for i := 1; i < len(os.Args); i++ {
 		tok := strings.TrimSpace(os.Args[i])
 		if tok == "--" {
 			break
+		}
+		if tok == "call" {
+			withinCall = true
+			callActionSeen = false
+			continue
+		}
+		if withinCall && !callActionSeen && tok != "" && !strings.HasPrefix(tok, "-") {
+			callActionSeen = true
+			continue
 		}
 		switch {
 		case tok == "--no-splash":
@@ -181,7 +192,7 @@ func prescanRawSplashFlags() {
 			if v, err := strconv.ParseBool(strings.TrimSpace(strings.TrimPrefix(tok, "--no-splash="))); err == nil {
 				opts.noSplash = v
 			}
-		case tok == "--format" && i+1 < len(os.Args):
+		case !(withinCall && callActionSeen) && tok == "--format" && i+1 < len(os.Args):
 			next := strings.TrimSpace(os.Args[i+1])
 			if !strings.HasPrefix(next, "-") {
 				opts.format = next
@@ -193,7 +204,7 @@ func prescanRawSplashFlags() {
 				opts.splashColor = next
 				i++
 			}
-		case strings.HasPrefix(tok, "--format="):
+		case !(withinCall && callActionSeen) && strings.HasPrefix(tok, "--format="):
 			opts.format = strings.TrimSpace(strings.TrimPrefix(tok, "--format="))
 		case strings.HasPrefix(tok, "--splash-color="):
 			opts.splashColor = strings.TrimSpace(strings.TrimPrefix(tok, "--splash-color="))
@@ -205,6 +216,9 @@ func showSplashOnce() {
 	if splashShown || opts.noSplash {
 		return
 	}
+	if shouldSuppressSplashForInvocation(os.Args[1:]) {
+		return
+	}
 	if outputAsJSON() {
 		return
 	}
@@ -213,6 +227,56 @@ func showSplashOnce() {
 	}
 	splash.Print(splashOptions())
 	splashShown = true
+}
+
+func shouldSuppressSplashForInvocation(args []string) bool {
+	commandPath := primaryCommandPath(args)
+	return len(commandPath) >= 2 && commandPath[0] == "audit" && commandPath[1] == "export"
+}
+
+func primaryCommandPath(args []string) []string {
+	out := make([]string, 0, 2)
+	stringFlags := map[string]bool{
+		"--config":       true,
+		"--data-dir":     true,
+		"--log-level":    true,
+		"--mode":         true,
+		"--format":       true,
+		"--splash-color": true,
+	}
+
+	for i := 0; i < len(args); i++ {
+		tok := strings.TrimSpace(args[i])
+		if tok == "" {
+			continue
+		}
+		if tok == "--" {
+			break
+		}
+		if strings.HasPrefix(tok, "-") {
+			if tok == "--no-splash" || tok == "--dry-run" || tok == "--trace" {
+				_, consumed := parseOptionalBoolFlagValue(args, i)
+				i += consumed
+				continue
+			}
+			if strings.Contains(tok, "=") {
+				continue
+			}
+			if stringFlags[tok] && i+1 < len(args) {
+				next := strings.TrimSpace(args[i+1])
+				if next != "" && !strings.HasPrefix(next, "-") {
+					i++
+				}
+			}
+			continue
+		}
+		out = append(out, strings.ToLower(tok))
+		if len(out) == 2 {
+			break
+		}
+	}
+
+	return out
 }
 
 func splashOptions() splash.Options {
@@ -241,10 +305,11 @@ func splashOptions() splash.Options {
 }
 
 func loadSplashConfig() (*config.KimbapConfig, error) {
-	if strings.TrimSpace(opts.configPath) == "" {
-		return config.LoadKimbapConfig()
+	cfg, err := loadBaseConfigForCLI()
+	if err != nil {
+		return nil, err
 	}
-	return config.LoadKimbapConfigWithoutDefault(opts.configPath)
+	return cfg, nil
 }
 
 func modeFromRaw(raw string) splash.Mode {
@@ -295,15 +360,7 @@ func loadAppConfig() (*config.KimbapConfig, error) {
 }
 
 func loadAppConfigReadOnly() (*config.KimbapConfig, error) {
-	var (
-		cfg *config.KimbapConfig
-		err error
-	)
-	if strings.TrimSpace(opts.configPath) == "" {
-		cfg, err = config.LoadKimbapConfig()
-	} else {
-		cfg, err = config.LoadKimbapConfigWithoutDefault(opts.configPath)
-	}
+	cfg, err := loadBaseConfigForCLI()
 	if err != nil {
 		return nil, err
 	}
@@ -316,7 +373,53 @@ func loadAppConfigReadOnly() (*config.KimbapConfig, error) {
 		cfg.Mode = opts.mode
 	}
 
+	if err := services.SetAppleScriptRegistryMode(cfg.Services.AppleScriptRegistryMode); err != nil {
+		return nil, err
+	}
+
 	return cfg, nil
+}
+
+func loadBaseConfigForCLI() (*config.KimbapConfig, error) {
+	var (
+		cfg *config.KimbapConfig
+		err error
+	)
+	explicitConfigProvided := strings.TrimSpace(opts.configPath) != ""
+	if !explicitConfigProvided && strings.TrimSpace(opts.dataDir) == "" {
+		cfg, err = config.LoadKimbapConfig()
+		if err != nil {
+			return nil, err
+		}
+		return cfg, nil
+	}
+
+	configPath, pathErr := resolveConfigPath()
+	if pathErr != nil {
+		return nil, pathErr
+	}
+	st, statErr := os.Stat(configPath)
+	if statErr == nil {
+		if st.IsDir() {
+			return nil, fmt.Errorf("config path is a directory: %s", configPath)
+		}
+		cfg, err = config.LoadKimbapConfigWithoutDefault(configPath)
+		if err != nil {
+			return nil, err
+		}
+		return cfg, nil
+	}
+	if os.IsNotExist(statErr) {
+		if explicitConfigProvided {
+			return nil, fmt.Errorf("read config file %q: %w", configPath, statErr)
+		}
+		cfg, err = config.LoadKimbapConfigWithoutDefault()
+		if err != nil {
+			return nil, err
+		}
+		return cfg, nil
+	}
+	return nil, fmt.Errorf("stat config path %q: %w", configPath, statErr)
 }
 
 func outputAsJSON() bool {
@@ -342,10 +445,25 @@ func isColorStdout() bool {
 }
 
 func detectSplashColorProfile() splash.ColorProfile {
-	if override, ok := parseSplashColorProfile(rawSplashColorOverride()); ok {
+	flagRaw := strings.TrimSpace(opts.splashColor)
+	if strings.EqualFold(flagRaw, string(splash.ColorProfileAuto)) {
+		return detectSplashColorProfileAuto()
+	}
+	if override, ok := parseSplashColorProfile(flagRaw); ok {
+		return override
+	}
+	envRaw := strings.TrimSpace(os.Getenv("KIMBAP_SPLASH_COLOR"))
+	if strings.EqualFold(envRaw, string(splash.ColorProfileAuto)) {
+		return detectSplashColorProfileAuto()
+	}
+	if override, ok := parseSplashColorProfile(envRaw); ok {
 		return override
 	}
 
+	return detectSplashColorProfileAuto()
+}
+
+func detectSplashColorProfileAuto() splash.ColorProfile {
 	if !isColorStdout() {
 		return splash.ColorProfileNone
 	}
@@ -356,13 +474,6 @@ func detectSplashColorProfile() splash.ColorProfile {
 		return splash.ColorProfileANSI256
 	}
 	return splash.ColorProfileNone
-}
-
-func rawSplashColorOverride() string {
-	if raw := strings.TrimSpace(opts.splashColor); raw != "" {
-		return raw
-	}
-	return strings.TrimSpace(os.Getenv("KIMBAP_SPLASH_COLOR"))
 }
 
 func parseSplashColorProfile(raw string) (splash.ColorProfile, bool) {
@@ -486,7 +597,7 @@ func resolveActionByName(cfg *config.KimbapConfig, name string) (*actions.Action
 		if len(allInstalled) > 0 {
 			return nil, fmt.Errorf("no enabled services found — run 'kimbap service list' to see installed services")
 		}
-		return nil, fmt.Errorf("no services installed — run 'kimbap init --services all' to get started")
+		return nil, fmt.Errorf("no services installed — run 'kimbap init --services select' to choose what to install")
 	}
 	for i := range defs {
 		if defs[i].Name == resolved {
@@ -543,7 +654,38 @@ func rewriteArgsForExecutableAlias(argv []string) []string {
 		return argv
 	}
 
-	configPath := ""
+	configPath, dataDir := parseConfigPathAndDataDirArgs(argv)
+
+	var (
+		cfg *config.KimbapConfig
+		err error
+	)
+	if strings.TrimSpace(configPath) == "" && strings.TrimSpace(dataDir) == "" {
+		cfg, err = config.LoadKimbapConfig()
+	} else {
+		resolvedPath, resolveErr := config.ResolveConfigPathWithDataDir(configPath, dataDir)
+		if resolveErr != nil {
+			return argv
+		}
+		if st, statErr := os.Stat(resolvedPath); statErr == nil {
+			if st.IsDir() {
+				return argv
+			}
+			cfg, err = config.LoadKimbapConfigWithoutDefault(resolvedPath)
+		} else if os.IsNotExist(statErr) {
+			cfg, err = config.LoadKimbapConfigWithoutDefault()
+		} else {
+			return argv
+		}
+	}
+	if err != nil {
+		return argv
+	}
+
+	return rewriteArgsForConfiguredExecutableAlias(argv, cfg.CommandAliases)
+}
+
+func parseConfigPathAndDataDirArgs(argv []string) (configPath string, dataDir string) {
 	for i := 1; i < len(argv); i++ {
 		tok := strings.TrimSpace(argv[i])
 		if tok == "--" {
@@ -557,25 +699,24 @@ func rewriteArgsForExecutableAlias(argv []string) []string {
 				continue
 			}
 		}
+		if tok == "--data-dir" && i+1 < len(argv) {
+			next := strings.TrimSpace(argv[i+1])
+			if next != "" && !strings.HasPrefix(next, "-") {
+				dataDir = next
+				i++
+				continue
+			}
+		}
 		if strings.HasPrefix(tok, "--config=") {
 			configPath = strings.TrimSpace(strings.TrimPrefix(tok, "--config="))
+			continue
+		}
+		if strings.HasPrefix(tok, "--data-dir=") {
+			dataDir = strings.TrimSpace(strings.TrimPrefix(tok, "--data-dir="))
+			continue
 		}
 	}
-
-	var (
-		cfg *config.KimbapConfig
-		err error
-	)
-	if strings.TrimSpace(configPath) == "" {
-		cfg, err = config.LoadKimbapConfig()
-	} else {
-		cfg, err = config.LoadKimbapConfigWithoutDefault(configPath)
-	}
-	if err != nil {
-		return argv
-	}
-
-	return rewriteArgsForConfiguredExecutableAlias(argv, cfg.CommandAliases)
+	return configPath, dataDir
 }
 
 func rewriteArgsForConfiguredExecutableAlias(argv []string, commandAliases map[string]string) []string {

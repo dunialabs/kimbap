@@ -20,8 +20,8 @@ PURGE_DATA=0
 WITH_AGENTS=0
 WITH_PROFILES=0
 AGENT_PROJECT_DIR=""
-AGENT_KINDS="claude-code,opencode,codex"
-QUICKSTART_SERVICES="starter"
+AGENT_KINDS=""
+QUICKSTART_SERVICES="select"
 BREW_TAP="dunialabs/kimbap"
 BREW_FORMULA="kimbap"
 BREW_FULL_FORMULA="${BREW_TAP}/kimbap"
@@ -82,15 +82,17 @@ Options:
   -f, --force            Reinstall even if installed version matches target
       --check            Show installed/latest versions and exit
       --uninstall        Remove kimbap binaries (and alias) from common install paths
-      --purge-data       Remove ~/.kimbap after --uninstall
+      --purge-data       Remove resolved kimbap data/config paths under $HOME after --uninstall
       --with-agents      Run agent setup+sync after install
       --with-profiles    Include operating profile install (use with --with-agents)
       --agent-project-dir <path>
                           Project directory to sync agent skills into (default: current directory)
       --agent-kinds <csv>
-                          Agents to configure (default: claude-code,opencode,codex)
+                          Setup agent kinds (claude-code,opencode,codex,cursor,openclaw,nanoclaw)
+                          default: auto-detect supported agents (generic is sync-only)
       --quickstart-services <value>
-                          starter|all|none|<comma-separated service names> (default: starter)
+                           recommended|all|none|select|<comma-separated service names>
+                           (default: select; legacy alias 'starter' is still accepted)
   -h, --help             Show this help message
 EOF
         exit 0
@@ -117,6 +119,36 @@ detect_installed_version() {
 
 detect_installed_binary() {
   command -v kimbap 2>/dev/null || true
+}
+
+validate_agent_kinds_for_setup() {
+  local trimmed
+  trimmed="$(printf '%s' "$AGENT_KINDS" | xargs)"
+  if [[ -z "$trimmed" ]]; then
+    return 0
+  fi
+
+  local part kind
+  local invalid=()
+  IFS=',' read -r -a parts <<<"$trimmed"
+  for part in "${parts[@]}"; do
+    kind="$(printf '%s' "$part" | tr '[:upper:]' '[:lower:]' | xargs)"
+    [[ -z "$kind" ]] && continue
+    case "$kind" in
+      claude-code|opencode|codex|cursor|openclaw|nanoclaw)
+        ;;
+      generic)
+        invalid+=("generic (sync-only; use 'kimbap agents sync --agent generic --dir <project>')")
+        ;;
+      *)
+        invalid+=("$kind")
+        ;;
+    esac
+  done
+
+  if [[ ${#invalid[@]} -gt 0 ]]; then
+    error "Unsupported --agent-kinds for installer setup: ${invalid[*]}"
+  fi
 }
 
 resolve_install_dir() {
@@ -174,15 +206,26 @@ run_agent_setup() {
     return 0
   fi
 
-  local cmd=("$bin_path" agents setup --agent "$AGENT_KINDS" --dir "$project_dir")
+  local cmd=("$bin_path" agents setup --dir "$project_dir" --sync)
+  if [[ -n "$(printf '%s' "$AGENT_KINDS" | xargs)" ]]; then
+    cmd+=(--agent "$AGENT_KINDS")
+  fi
   if [[ "$WITH_PROFILES" -eq 1 ]]; then
     cmd+=(--with-profiles --profile-dir "$project_dir")
   fi
 
-  info "Configuring AI agents (${AGENT_KINDS}) in ${project_dir}..."
+  local agent_scope="auto-detect"
+  if [[ -n "$(printf '%s' "$AGENT_KINDS" | xargs)" ]]; then
+    agent_scope="$AGENT_KINDS"
+  fi
+  info "Configuring AI agents (${agent_scope}) in ${project_dir}..."
   if ! "${cmd[@]}"; then
     warn "Agent setup failed. You can retry manually:"
-    warn "  $bin_path agents setup --agent \"$AGENT_KINDS\" --dir \"$project_dir\""
+    if [[ -n "$(printf '%s' "$AGENT_KINDS" | xargs)" ]]; then
+      warn "  $bin_path agents setup --agent \"$AGENT_KINDS\" --sync --dir \"$project_dir\""
+    else
+      warn "  $bin_path agents setup --sync --dir \"$project_dir\""
+    fi
     return 0
   fi
 
@@ -201,8 +244,19 @@ run_quickstart_init() {
     none|no|skip)
       cmd+=(--no-services)
       ;;
-    starter|all)
+    recommended|starter|all)
+      if [[ "$normalized" == "starter" ]]; then
+        warn "'starter' is deprecated; using 'recommended'"
+        normalized="recommended"
+      fi
       cmd+=(--services "$normalized")
+      ;;
+    select|interactive|checkbox)
+      if [ -t 1 ] && [ -e /dev/tty ]; then
+        cmd+=(--services select)
+      else
+        return 1
+      fi
       ;;
     "")
       ;;
@@ -229,9 +283,9 @@ ensure_agent_sync_ready() {
 
   local normalized
   normalized="$(printf '%s' "$services_value" | tr '[:upper:]' '[:lower:]' | xargs)"
-  if [[ "$normalized" == "none" || "$normalized" == "no" || "$normalized" == "skip" || -z "$normalized" ]]; then
-    normalized="starter"
-    warn "Agent sync requires installed services; using --quickstart-services starter for bootstrap."
+  if [[ "$normalized" == "none" || "$normalized" == "no" || "$normalized" == "skip" || -z "$normalized" || "$normalized" == "select" || "$normalized" == "interactive" || "$normalized" == "checkbox" ]]; then
+    normalized="recommended"
+    warn "Agent sync requires installed services; using --quickstart-services recommended for bootstrap."
   fi
 
   info "Preparing kimbap config/services for agent sync..."
@@ -296,11 +350,97 @@ uninstall_kimbap() {
   done
 
   if [[ "$PURGE_DATA" -eq 1 ]]; then
-    if [[ -d "$HOME/.kimbap" ]]; then
-      rm -rf "$HOME/.kimbap"
-      info "Removed $HOME/.kimbap"
-    else
-      info "No ~/.kimbap directory found"
+    local purged_any=0
+
+    canonicalize_purge_path() {
+      local input="$1"
+      if [[ -z "$input" ]]; then
+        return 1
+      fi
+      if [[ "$input" != /* ]]; then
+        input="$PWD/$input"
+      fi
+      local parent
+      local base
+      parent="$(dirname "$input")"
+      base="$(basename "$input")"
+
+      if [[ -d "$input" ]]; then
+        (cd "$input" 2>/dev/null && pwd -P)
+        return
+      fi
+
+      if [[ ! -d "$parent" ]]; then
+        return 1
+      fi
+
+      local parent_abs
+      parent_abs="$(cd "$parent" 2>/dev/null && pwd -P)" || return 1
+      printf '%s/%s\n' "$parent_abs" "$base"
+    }
+
+    is_safe_purge_target() {
+      local target="$1"
+      local target_abs
+      local home_abs
+
+      target_abs="$(canonicalize_purge_path "$target")" || return 1
+      home_abs="$(canonicalize_purge_path "$HOME")" || return 1
+
+      if [[ -z "$target_abs" || -z "$home_abs" ]]; then
+        return 1
+      fi
+      case "$target" in
+        "/"|"."|".."|"$HOME"|"$HOME/")
+          return 1
+          ;;
+      esac
+      case "$target_abs" in
+        "$home_abs"/*)
+          return 0
+          ;;
+      esac
+      return 1
+    }
+
+    purge_path_if_exists() {
+      local target="$1"
+      if [[ -z "$target" ]]; then
+        return
+      fi
+      if [[ ! -d "$target" && ! -e "$target" && ! -L "$target" ]]; then
+        return
+      fi
+      if ! is_safe_purge_target "$target"; then
+        warn "Skipping unsafe purge target outside HOME: $target"
+        return
+      fi
+      if [[ -d "$target" ]]; then
+        rm -rf "$target"
+        info "Removed $target"
+        purged_any=1
+        return
+      fi
+      if [[ -e "$target" || -L "$target" ]]; then
+        rm -f "$target"
+        info "Removed $target"
+        purged_any=1
+      fi
+    }
+
+    local resolved_data_dir="${KIMBAP_DATA_DIR:-$HOME/.kimbap}"
+    purge_path_if_exists "$resolved_data_dir"
+
+    if [[ -n "${KIMBAP_CONFIG:-}" ]]; then
+      purge_path_if_exists "$KIMBAP_CONFIG"
+    fi
+    if [[ -n "${XDG_CONFIG_HOME:-}" ]]; then
+      purge_path_if_exists "$XDG_CONFIG_HOME/kimbap/config.yaml"
+    fi
+    purge_path_if_exists "$HOME/.kimbap/config.yaml"
+
+    if [[ "$purged_any" -eq 0 ]]; then
+      info "No resolved kimbap data/config paths found to purge"
     fi
   fi
 
@@ -449,6 +589,9 @@ cleanup() {
 # ── Main ──────────────────────────────────────────────────────────────────────
 main() {
 	parse_args "$@"
+  if [[ "$UNINSTALL_ONLY" -ne 1 && "$CHECK_ONLY" -ne 1 ]]; then
+    validate_agent_kinds_for_setup
+  fi
 
   if [[ "$PURGE_DATA" -eq 1 && "$UNINSTALL_ONLY" -ne 1 ]]; then
     error "--purge-data requires --uninstall"
@@ -542,21 +685,24 @@ main() {
     answer="${answer:-Y}"
     case "$answer" in
       [Yy]*)
-        local starter_preview
+        local recommended_preview
         if [[ "$OS" == "darwin" ]]; then
-          starter_preview="apple-notes, apple-calendar, apple-reminders, finder, safari, contacts, wikipedia, open-meteo, hacker-news"
+          recommended_preview="apple-notes, apple-calendar, apple-reminders, finder, safari, contacts, wikipedia, open-meteo, open-meteo-geocoding, hacker-news"
         else
-          starter_preview="wikipedia, open-meteo, hacker-news, rest-countries, exchange-rate, public-holidays, nominatim"
+          recommended_preview="wikipedia, open-meteo, open-meteo-geocoding, hacker-news, rest-countries, exchange-rate, public-holidays, nominatim"
         fi
         printf "Service presets:\n" >/dev/tty
-        printf "  starter: curated defaults (%s)\n" "$starter_preview" >/dev/tty
+        printf "  recommended: curated defaults (%s)\n" "$recommended_preview" >/dev/tty
         printf "  all:     every catalog service\n" >/dev/tty
         printf "  none:    skip service installation for now\n" >/dev/tty
+        printf "  select:  interactive checkbox-style picker\n" >/dev/tty
         printf "  custom:  enter comma-separated service names\n" >/dev/tty
-        printf "Select services to install [starter/all/none/custom] (default: %s): " "$QUICKSTART_SERVICES" >/dev/tty
+        printf "Select services to install [recommended/all/none/select/custom] (default: %s): " "$QUICKSTART_SERVICES" >/dev/tty
         read -r service_choice </dev/tty || service_choice=""
         service_choice="${service_choice:-$QUICKSTART_SERVICES}"
-        if [[ "$(printf '%s' "$service_choice" | tr '[:upper:]' '[:lower:]' | xargs)" == "custom" ]]; then
+        local normalized_choice
+        normalized_choice="$(printf '%s' "$service_choice" | tr '[:upper:]' '[:lower:]' | xargs)"
+        if [[ "$normalized_choice" == "custom" ]]; then
           printf "Enter comma-separated service names: " >/dev/tty
           read -r custom_services </dev/tty || custom_services=""
           if [[ -n "$(printf '%s' "$custom_services" | xargs)" ]]; then
@@ -564,17 +710,23 @@ main() {
           else
             service_choice="none"
           fi
+        elif [[ "$normalized_choice" == "select" || "$normalized_choice" == "interactive" || "$normalized_choice" == "checkbox" ]]; then
+          service_choice="select"
+        elif [[ "$normalized_choice" == "starter" ]]; then
+          service_choice="recommended"
         fi
         QUICKSTART_SELECTED="$service_choice"
-        run_quickstart_init "${INSTALL_PATH}/kimbap" "$service_choice"
+        if ! run_quickstart_init "${INSTALL_PATH}/kimbap" "$service_choice"; then
+          warn "Selected quickstart mode '$service_choice' is not available in this shell. Run manually in an interactive terminal."
+        fi
         ;;
       [Nn]*)
         info "Skipped. Run when ready:"
-        printf "  %s/kimbap init --mode dev --services starter\n" "$INSTALL_PATH"
+        printf "  %s/kimbap init --mode dev --services select\n" "$INSTALL_PATH"
         ;;
       *)
         info "Unrecognised input. Run when ready:"
-        printf "  %s/kimbap init --mode dev --services starter\n" "$INSTALL_PATH"
+        printf "  %s/kimbap init --mode dev --services select\n" "$INSTALL_PATH"
         ;;
     esac
   else
@@ -589,7 +741,7 @@ main() {
     ensure_agent_sync_ready "${INSTALL_PATH}/kimbap" "$QUICKSTART_SELECTED"
     run_agent_setup "${INSTALL_PATH}/kimbap" "$AGENT_DIR"
   elif [ -t 1 ] && [ -e /dev/tty ]; then
-    printf "Set up Claude/OpenCode/Codex skills in %s? [y/N] " "$AGENT_DIR" >/dev/tty
+    printf "Set up detected agent skills in %s? [y/N] " "$AGENT_DIR" >/dev/tty
     read -r setup_agents </dev/tty || setup_agents="n"
     case "${setup_agents:-N}" in
       [Yy]*)
@@ -597,11 +749,19 @@ main() {
         ;;
       *)
         info "Skipped agent setup. Run later with:"
-        printf "  %s/kimbap agents setup --agent \"%s\" --dir \"%s\"\n" "${INSTALL_PATH}" "$AGENT_KINDS" "$AGENT_DIR"
+        if [[ -n "$(printf '%s' "$AGENT_KINDS" | xargs)" ]]; then
+          printf "  %s/kimbap agents setup --agent \"%s\" --sync --dir \"%s\"\n" "${INSTALL_PATH}" "$AGENT_KINDS" "$AGENT_DIR"
+        else
+          printf "  %s/kimbap agents setup --sync --dir \"%s\"\n" "${INSTALL_PATH}" "$AGENT_DIR"
+        fi
         ;;
     esac
   else
-    printf "Next: %s/kimbap agents setup --agent \"%s\" --dir \"%s\"\n" "${INSTALL_PATH}" "$AGENT_KINDS" "$AGENT_DIR"
+    if [[ -n "$(printf '%s' "$AGENT_KINDS" | xargs)" ]]; then
+      printf "Next: %s/kimbap agents setup --agent \"%s\" --sync --dir \"%s\"\n" "${INSTALL_PATH}" "$AGENT_KINDS" "$AGENT_DIR"
+    else
+      printf "Next: %s/kimbap agents setup --sync --dir \"%s\"\n" "${INSTALL_PATH}" "$AGENT_DIR"
+    fi
   fi
 }
 

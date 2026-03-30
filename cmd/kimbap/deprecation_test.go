@@ -61,7 +61,7 @@ func TestHelpSurfaceCommandCount(t *testing.T) {
 
 	visibleCommands := extractAvailableCommands(out.String())
 	delete(visibleCommands, "help")
-	if len(visibleCommands) > 16 {
-		t.Fatalf("expected help surface to show at most 16 commands, got %d", len(visibleCommands))
+	if len(visibleCommands) > 17 {
+		t.Fatalf("expected help surface to show at most 17 commands, got %d", len(visibleCommands))
 	}
 }

@@ -30,14 +30,14 @@ func newInitCommand() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "init",
 		Short: "Bootstrap a fresh Kimbap installation",
-		Example: `  # Quick start (defaults to dev mode) with all services
-	  kimbap init --services all
+		Example: `  # Quick start (defaults to dev mode) with interactive checklist
+	  kimbap init --services select
 
-	  # Production setup (requires KIMBAP_MASTER_KEY_HEX)
+	  # Production setup (requires KIMBAP_MASTER_KEY_HEX, installs all services)
 	  kimbap init --mode embedded --services all
 
-	  # Initialize with agent integration
-	  kimbap init --services all --with-agents`,
+	  # Initialize with recommended services and agent integration
+	  kimbap init --services recommended --with-agents`,
 		RunE: func(_ *cobra.Command, _ []string) error {
 			cfg := buildInitConfig()
 			if withConsole {
@@ -108,7 +108,7 @@ func newInitCommand() *cobra.Command {
 		},
 	}
 	cmd.Flags().BoolVar(&force, "force", false, "overwrite existing config file")
-	cmd.Flags().StringVar(&servicesRaw, "services", "", "comma-separated catalog services to install, all, starter")
+	cmd.Flags().StringVar(&servicesRaw, "services", "", "comma-separated catalog services to install, all, recommended (legacy alias: starter), or select (interactive checklist)")
 	cmd.Flags().BoolVar(&noServices, "no-services", false, "skip service installation during init")
 	cmd.Flags().BoolVar(&noShortcuts, "no-shortcuts", false, "skip automatic shortcut alias setup during init service installation")
 	cmd.Flags().BoolVar(&withConsole, "with-console", false, "enable embedded console route in config")
@@ -217,13 +217,6 @@ func installInitServices(cfg *config.KimbapConfig, selection initServiceSelectio
 
 	installer := installerFromConfig(cfg)
 	setupShortcuts := !noShortcuts
-	if setupShortcuts && canPromptInTTY() {
-		confirm, confirmErr := confirmShortcutSetup("selected services")
-		if confirmErr != nil {
-			return doctorCheck{Name: "catalog services installed", Status: "fail", Detail: fmt.Sprintf("shortcut setup prompt failed: %v", confirmErr)}
-		}
-		setupShortcuts = confirm
-	}
 	installed := 0
 	enabled := 0
 	skipped := 0

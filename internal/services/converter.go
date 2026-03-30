@@ -102,8 +102,13 @@ func toHTTPDefinitions(svc *ServiceManifest) ([]actions.ActionDefinition, error)
 func toAppleScriptDefinitions(svc *ServiceManifest) ([]actions.ActionDefinition, error) {
 	keys := sortedKeys(svc.Actions)
 	out := make([]actions.ActionDefinition, 0, len(keys))
+	mode := CurrentAppleScriptRegistryMode()
 	for _, key := range keys {
 		actionSpec := svc.Actions[key]
+		commandName, scriptSource, scriptLanguage, scriptTimeout, approvalRef, auditRef, resolveErr := resolveAppleScriptExecutionSpec(actionSpec, mode)
+		if resolveErr != nil {
+			return nil, fmt.Errorf("resolve applescript execution spec for %s.%s: %w", svc.Name, key, resolveErr)
+		}
 
 		idempotent := resolveIdempotent(actionSpec, false)
 
@@ -112,7 +117,7 @@ func toAppleScriptDefinitions(svc *ServiceManifest) ([]actions.ActionDefinition,
 			Version:      1,
 			DisplayName:  nonEmptyString(actionSpec.Description, key),
 			Namespace:    svc.Name,
-			Verb:         actionSpec.Command,
+			Verb:         commandName,
 			Resource:     svc.TargetApp,
 			Description:  actionSpec.Description,
 			Risk:         mapRisk(actionSpec.Risk.Level),
@@ -123,9 +128,15 @@ func toAppleScriptDefinitions(svc *ServiceManifest) ([]actions.ActionDefinition,
 			OutputSchema: buildOutputSchema(actionSpec.Response),
 			Defaults:     collectDefaults(actionSpec.Args),
 			Adapter: actions.AdapterConfig{
-				Type:      "applescript",
-				TargetApp: svc.TargetApp,
-				Command:   actionSpec.Command,
+				Type:           "applescript",
+				TargetApp:      svc.TargetApp,
+				Command:        commandName,
+				ScriptSource:   scriptSource,
+				ScriptLanguage: scriptLanguage,
+				Timeout:        scriptTimeout,
+				ApprovalRef:    approvalRef,
+				AuditRef:       auditRef,
+				RegistryMode:   string(mode),
 			},
 			Classifiers:  nil,
 			ErrorMapping: nil,
@@ -136,6 +147,53 @@ func toAppleScriptDefinitions(svc *ServiceManifest) ([]actions.ActionDefinition,
 	}
 
 	return out, nil
+}
+
+func resolveAppleScriptExecutionSpec(actionSpec ServiceAction, mode AppleScriptRegistryMode) (commandName string, scriptSource string, scriptLanguage string, timeout time.Duration, approvalRef string, auditRef string, err error) {
+	legacyCommand := strings.TrimSpace(actionSpec.Command)
+
+	if mode == AppleScriptRegistryModeLegacy {
+		return legacyCommand, "", "", 0, "", "", nil
+	}
+
+	if actionSpec.InlineScript == nil {
+		if mode == AppleScriptRegistryModeManifest {
+			return "", "", "", 0, "", "", fmt.Errorf("inline_script is required in manifest mode")
+		}
+		return legacyCommand, "", "", 0, "", "", nil
+	}
+
+	inline := actionSpec.InlineScript
+	inlineID := strings.TrimSpace(inline.ID)
+	if inlineID == "" {
+		if mode == AppleScriptRegistryModeManifest {
+			return "", "", "", 0, "", "", fmt.Errorf("inline_script.id is required")
+		}
+		inlineID = legacyCommand
+	}
+
+	source := strings.TrimSpace(inline.Source)
+	if source == "" {
+		if mode == AppleScriptRegistryModeManifest {
+			return "", "", "", 0, "", "", fmt.Errorf("inline_script.source is required")
+		}
+		return legacyCommand, "", "", 0, "", "", nil
+	}
+
+	language := normalizeInlineScriptLanguage(inline.Language)
+	scriptTimeout := parseDurationOrZero(inline.Timeout)
+	return inlineID, source, language, scriptTimeout, strings.TrimSpace(inline.ApprovalRef), strings.TrimSpace(inline.AuditRef), nil
+}
+
+func normalizeInlineScriptLanguage(raw string) string {
+	switch strings.ToLower(strings.TrimSpace(raw)) {
+	case "", "jxa":
+		return "jxa"
+	case "applescript":
+		return "applescript"
+	default:
+		return "jxa"
+	}
 }
 
 func toCommandDefinitions(svc *ServiceManifest) ([]actions.ActionDefinition, error) {

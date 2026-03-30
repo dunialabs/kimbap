@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/json"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -50,6 +51,61 @@ func TestAgentsSetupNoAgentsDetected_JSON(t *testing.T) {
 	}
 }
 
+func TestAgentsSetupSyncJSONIncludesSyncMetadata(t *testing.T) {
+	homeDir := t.TempDir()
+	t.Setenv("HOME", homeDir)
+	t.Setenv("XDG_CONFIG_HOME", homeDir)
+
+	prev := opts
+	opts = cliOptions{format: "json", noSplash: true}
+	t.Cleanup(func() { opts = prev })
+
+	projectDir := t.TempDir()
+	cmd := newAgentsSetupCommand()
+	cmd.SetArgs([]string{"--sync", "--dir", projectDir})
+
+	output, err := captureStdout(t, cmd.Execute)
+	if err != nil {
+		t.Fatalf("agents setup --sync --format json failed: %v", err)
+	}
+
+	var payload map[string]any
+	if unmarshalErr := json.Unmarshal([]byte(output), &payload); unmarshalErr != nil {
+		t.Fatalf("expected JSON object output, got %q (err=%v)", output, unmarshalErr)
+	}
+	if enabled, ok := payload["sync_enabled"].(bool); !ok || !enabled {
+		t.Fatalf("expected sync_enabled=true in payload, got %+v", payload)
+	}
+	if _, ok := payload["sync_result"].(map[string]any); !ok {
+		t.Fatalf("expected sync_result object in payload, got %+v", payload)
+	}
+}
+
+func TestAgentsSetupSyncTextReportsNoAgentsDetectedForSync(t *testing.T) {
+	homeDir := t.TempDir()
+	t.Setenv("HOME", homeDir)
+	t.Setenv("XDG_CONFIG_HOME", homeDir)
+
+	prev := opts
+	opts = cliOptions{format: "text", noSplash: true}
+	t.Cleanup(func() { opts = prev })
+
+	projectDir := t.TempDir()
+	cmd := newAgentsSetupCommand()
+	cmd.SetArgs([]string{"--sync", "--dir", projectDir})
+
+	output, err := captureStdout(t, cmd.Execute)
+	if err != nil {
+		t.Fatalf("agents setup --sync failed: %v", err)
+	}
+	if !strings.Contains(output, "No AI agents detected") {
+		t.Fatalf("expected no-agents setup message, got: %q", output)
+	}
+	if !strings.Contains(output, "No agent environments detected for sync") {
+		t.Fatalf("expected explicit no-agent sync message, got: %q", output)
+	}
+}
+
 func TestResolveAgentsSyncProjectDirRejectsRoot(t *testing.T) {
 	_, err := resolveAgentsSyncProjectDir("/")
 	if err == nil {
@@ -72,5 +128,47 @@ func TestResolveAgentsSyncProjectDirResolvesAbsoluteDirectory(t *testing.T) {
 	}
 	if resolved != want {
 		t.Fatalf("resolved dir = %q, want %q", resolved, want)
+	}
+}
+
+func TestAgentsSetupHelpExcludesGenericAgentKind(t *testing.T) {
+	cmd := newAgentsSetupCommand()
+	cmd.SetArgs([]string{"--help"})
+
+	output, err := captureStdout(t, cmd.Execute)
+	if err != nil {
+		t.Fatalf("agents setup --help failed: %v", err)
+	}
+	if strings.Contains(output, "generic") {
+		t.Fatalf("expected setup help to exclude generic agent kind, got: %q", output)
+	}
+}
+
+func TestAgentsSyncHelpIncludesGenericAgentKind(t *testing.T) {
+	cmd := newAgentsSyncCommand()
+	cmd.SetArgs([]string{"--help"})
+
+	output, err := captureStdout(t, cmd.Execute)
+	if err != nil {
+		t.Fatalf("agents sync --help failed: %v", err)
+	}
+	if !strings.Contains(output, "generic") {
+		t.Fatalf("expected sync help to include generic agent kind, got: %q", output)
+	}
+}
+
+func TestParseAgentKindsNormalizesCaseAndWhitespace(t *testing.T) {
+	kinds := parseAgentKinds(" CODEX,  Claude-Code ,opencode ")
+	if len(kinds) != 3 {
+		t.Fatalf("expected 3 kinds, got %d", len(kinds))
+	}
+	if kinds[0] != "codex" {
+		t.Fatalf("kinds[0] = %q, want codex", kinds[0])
+	}
+	if kinds[1] != "claude-code" {
+		t.Fatalf("kinds[1] = %q, want claude-code", kinds[1])
+	}
+	if kinds[2] != "opencode" {
+		t.Fatalf("kinds[2] = %q, want opencode", kinds[2])
 	}
 }

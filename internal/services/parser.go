@@ -18,19 +18,22 @@ import (
 )
 
 var (
-	serviceNamePattern       = regexp.MustCompile(`^[a-z][a-z0-9-]*$`)
-	actionKeyPattern         = regexp.MustCompile(`^[a-z][a-z0-9_-]*$`)
-	semverLikePattern        = regexp.MustCompile(`^v?\d+\.\d+\.\d+(?:[-+][0-9A-Za-z.-]+)?$`)
-	validRiskLevelSet        = map[string]struct{}{"low": {}, "medium": {}, "high": {}, "critical": {}}
-	validAuthTypeSet         = map[string]struct{}{"header": {}, "bearer": {}, "basic": {}, "query": {}, "body": {}, "none": {}}
-	validHTTPMethodSet       = map[string]struct{}{"GET": {}, "POST": {}, "PUT": {}, "PATCH": {}, "DELETE": {}, "HEAD": {}, "OPTIONS": {}}
-	validAdapterTypeSet      = map[string]struct{}{"http": {}, "applescript": {}, "command": {}}
-	validAppleScriptCommands = buildValidAppleScriptCommands()
-	validArgTypeSet          = map[string]struct{}{"string": {}, "integer": {}, "number": {}, "boolean": {}, "array": {}, "object": {}}
-	validPageTypeSet         = map[string]struct{}{"cursor": {}, "offset": {}}
-	validResponseTypeSet     = map[string]struct{}{"object": {}, "array": {}}
-	validGotchaSeveritySet   = map[string]struct{}{"low": {}, "medium": {}, "high": {}, "critical": {}, "common": {}, "rare": {}}
+	serviceNamePattern           = regexp.MustCompile(`^[a-z][a-z0-9-]*$`)
+	actionKeyPattern             = regexp.MustCompile(`^[a-z][a-z0-9_-]*$`)
+	semverLikePattern            = regexp.MustCompile(`^v?\d+\.\d+\.\d+(?:[-+][0-9A-Za-z.-]+)?$`)
+	validRiskLevelSet            = map[string]struct{}{"low": {}, "medium": {}, "high": {}, "critical": {}}
+	validAuthTypeSet             = map[string]struct{}{"header": {}, "bearer": {}, "basic": {}, "query": {}, "body": {}, "none": {}}
+	validHTTPMethodSet           = map[string]struct{}{"GET": {}, "POST": {}, "PUT": {}, "PATCH": {}, "DELETE": {}, "HEAD": {}, "OPTIONS": {}}
+	validAdapterTypeSet          = map[string]struct{}{"http": {}, "applescript": {}, "command": {}}
+	validAppleScriptCommands     = buildValidAppleScriptCommands()
+	validArgTypeSet              = map[string]struct{}{"string": {}, "integer": {}, "number": {}, "boolean": {}, "array": {}, "object": {}}
+	validPageTypeSet             = map[string]struct{}{"cursor": {}, "offset": {}}
+	validResponseTypeSet         = map[string]struct{}{"object": {}, "array": {}}
+	validGotchaSeveritySet       = map[string]struct{}{"low": {}, "medium": {}, "high": {}, "critical": {}, "common": {}, "rare": {}}
+	validInlineScriptLanguageSet = map[string]struct{}{"": {}, "jxa": {}, "applescript": {}}
 )
+
+const maxInlineScriptBytes = 64 * 1024
 
 type ValidationError struct {
 	Field   string
@@ -480,6 +483,7 @@ func validateHTTPManifest(m *ServiceManifest) []ValidationError {
 
 func validateAppleScriptManifest(m *ServiceManifest) []ValidationError {
 	errs := make([]ValidationError, 0)
+	mode := CurrentAppleScriptRegistryMode()
 
 	if strings.TrimSpace(m.TargetApp) == "" {
 		errs = append(errs, ValidationError{Field: "target_app", Message: "must be set for applescript adapter"})
@@ -493,11 +497,32 @@ func validateAppleScriptManifest(m *ServiceManifest) []ValidationError {
 
 	for actionKey, action := range m.Actions {
 		prefix := "actions." + actionKey
+		commandName := strings.TrimSpace(action.Command)
+		hasInline := action.InlineScript != nil
 
-		if strings.TrimSpace(action.Command) == "" {
-			errs = append(errs, ValidationError{Field: prefix + ".command", Message: "is required"})
-		} else if _, ok := validAppleScriptCommands[strings.ToLower(strings.TrimSpace(action.Command))]; !ok {
-			errs = append(errs, ValidationError{Field: prefix + ".command", Message: "must be a supported applescript command"})
+		switch mode {
+		case AppleScriptRegistryModeLegacy:
+			if commandName == "" {
+				errs = append(errs, ValidationError{Field: prefix + ".command", Message: "is required in legacy applescript registry mode"})
+			}
+		case AppleScriptRegistryModeManifest:
+			if !hasInline {
+				errs = append(errs, ValidationError{Field: prefix + ".inline_script", Message: "is required in manifest applescript registry mode"})
+			}
+		default:
+			if commandName == "" && !hasInline {
+				errs = append(errs, ValidationError{Field: prefix + ".command", Message: "or inline_script is required for applescript adapter"})
+			}
+		}
+
+		if commandName != "" {
+			if _, ok := validAppleScriptCommands[strings.ToLower(commandName)]; !ok {
+				errs = append(errs, ValidationError{Field: prefix + ".command", Message: "must be a supported applescript command"})
+			}
+		}
+
+		if hasInline {
+			errs = append(errs, validateInlineScriptSpec(action.InlineScript, prefix+".inline_script")...)
 		}
 
 		if strings.TrimSpace(action.Method) != "" {
@@ -535,6 +560,47 @@ func validateAppleScriptManifest(m *ServiceManifest) []ValidationError {
 	}
 
 	return errs
+}
+
+func validateInlineScriptSpec(spec *InlineScript, fieldPrefix string) []ValidationError {
+	errList := make([]ValidationError, 0)
+	if spec == nil {
+		return errList
+	}
+
+	id := strings.TrimSpace(spec.ID)
+	if id == "" {
+		errList = append(errList, ValidationError{Field: fieldPrefix + ".id", Message: "is required"})
+	} else if strings.ContainsAny(id, " \t\n\r") {
+		errList = append(errList, ValidationError{Field: fieldPrefix + ".id", Message: "must not contain whitespace"})
+	}
+
+	source := strings.TrimSpace(spec.Source)
+	if source == "" {
+		errList = append(errList, ValidationError{Field: fieldPrefix + ".source", Message: "is required"})
+	} else if len(source) > maxInlineScriptBytes {
+		errList = append(errList, ValidationError{Field: fieldPrefix + ".source", Message: fmt.Sprintf("must be <= %d bytes", maxInlineScriptBytes)})
+	}
+
+	language := strings.ToLower(strings.TrimSpace(spec.Language))
+	if _, ok := validInlineScriptLanguageSet[language]; !ok {
+		errList = append(errList, ValidationError{Field: fieldPrefix + ".language", Message: "must be one of jxa or applescript"})
+	}
+
+	if timeout := strings.TrimSpace(spec.Timeout); timeout != "" {
+		if _, err := time.ParseDuration(timeout); err != nil {
+			errList = append(errList, ValidationError{Field: fieldPrefix + ".timeout", Message: "must be a valid Go duration (e.g. 10s, 1m)"})
+		}
+	}
+
+	if strings.TrimSpace(spec.ApprovalRef) == "" {
+		errList = append(errList, ValidationError{Field: fieldPrefix + ".approval_ref", Message: "is required"})
+	}
+	if strings.TrimSpace(spec.AuditRef) == "" {
+		errList = append(errList, ValidationError{Field: fieldPrefix + ".audit_ref", Message: "is required"})
+	}
+
+	return errList
 }
 
 func validateCommandManifest(m *ServiceManifest) []ValidationError {

@@ -70,7 +70,7 @@ func TestCanPromptInTTYReturnsFalseForJSONOutput(t *testing.T) {
 	}
 }
 
-func TestInstallInitServicesPromptDeclineSkipsShortcutSetup(t *testing.T) {
+func TestInstallInitServicesNoShortcutsSkipsShortcutSetup(t *testing.T) {
 	dataDir := t.TempDir()
 	servicesDir := filepath.Join(dataDir, "services")
 	configPath := writeServiceCLIConfig(t, dataDir, servicesDir)
@@ -79,31 +79,27 @@ func TestInstallInitServicesPromptDeclineSkipsShortcutSetup(t *testing.T) {
 	opts = cliOptions{configPath: configPath, format: "text", noSplash: true}
 	t.Cleanup(func() { opts = prevOpts })
 
-	origCanPrompt := canPromptInTTY
-	canPromptInTTY = func() bool { return true }
-	t.Cleanup(func() { canPromptInTTY = origCanPrompt })
-
-	oldStdin := os.Stdin
-	r, w, err := os.Pipe()
-	if err != nil {
-		t.Fatalf("create stdin pipe: %v", err)
-	}
-	if _, err := w.WriteString("n\n"); err != nil {
-		t.Fatalf("write stdin input: %v", err)
-	}
-	_ = w.Close()
-	os.Stdin = r
+	execDir := t.TempDir()
+	execPath := filepath.Join(execDir, "kimbap")
+	stubAliasLookPathToDir(t, execDir)
+	origExecutablePath := aliasExecutablePath
+	origLstat := aliasFileLstat
+	origSymlink := aliasFileSymlink
 	t.Cleanup(func() {
-		os.Stdin = oldStdin
-		_ = r.Close()
+		aliasExecutablePath = origExecutablePath
+		aliasFileLstat = origLstat
+		aliasFileSymlink = origSymlink
 	})
+	aliasExecutablePath = func() (string, error) { return execPath, nil }
+	aliasFileLstat = func(path string) (os.FileInfo, error) { return nil, os.ErrNotExist }
+	aliasFileSymlink = func(oldname, newname string) error { return nil }
 
 	cfg, err := loadAppConfig()
 	if err != nil {
 		t.Fatalf("loadAppConfig() error: %v", err)
 	}
 
-	check := installInitServices(cfg, initServiceSelection{Names: []string{"open-meteo-geocoding"}}, false, false)
+	check := installInitServices(cfg, initServiceSelection{Names: []string{"open-meteo-geocoding"}}, false, true)
 	if check.Status != "ok" {
 		t.Fatalf("expected installInitServices status ok, got %q (%s)", check.Status, check.Detail)
 	}
@@ -113,11 +109,11 @@ func TestInstallInitServicesPromptDeclineSkipsShortcutSetup(t *testing.T) {
 		t.Fatalf("reload config error: %v", err)
 	}
 	if len(reloaded.CommandAliases) != 0 {
-		t.Fatalf("expected no command aliases when prompt is declined, got %+v", reloaded.CommandAliases)
+		t.Fatalf("expected no command aliases when --no-shortcuts is used, got %+v", reloaded.CommandAliases)
 	}
 }
 
-func TestInstallInitServicesPromptAcceptsAndCreatesShortcutAliases(t *testing.T) {
+func TestInstallInitServicesCreatesShortcutAliasesByDefault(t *testing.T) {
 	dataDir := t.TempDir()
 	servicesDir := filepath.Join(dataDir, "services")
 	configPath := writeServiceCLIConfig(t, dataDir, servicesDir)
@@ -126,27 +122,9 @@ func TestInstallInitServicesPromptAcceptsAndCreatesShortcutAliases(t *testing.T)
 	opts = cliOptions{configPath: configPath, format: "text", noSplash: true}
 	t.Cleanup(func() { opts = prevOpts })
 
-	origCanPrompt := canPromptInTTY
-	canPromptInTTY = func() bool { return true }
-	t.Cleanup(func() { canPromptInTTY = origCanPrompt })
-
-	oldStdin := os.Stdin
-	r, w, err := os.Pipe()
-	if err != nil {
-		t.Fatalf("create stdin pipe: %v", err)
-	}
-	if _, err := w.WriteString("y\n"); err != nil {
-		t.Fatalf("write stdin input: %v", err)
-	}
-	_ = w.Close()
-	os.Stdin = r
-	t.Cleanup(func() {
-		os.Stdin = oldStdin
-		_ = r.Close()
-	})
-
 	execDir := t.TempDir()
 	execPath := filepath.Join(execDir, "kimbap")
+	stubAliasLookPathToDir(t, execDir)
 	origExecutablePath := aliasExecutablePath
 	origLstat := aliasFileLstat
 	origSymlink := aliasFileSymlink
@@ -174,7 +152,7 @@ func TestInstallInitServicesPromptAcceptsAndCreatesShortcutAliases(t *testing.T)
 		t.Fatalf("reload config error: %v", err)
 	}
 	if got := reloaded.CommandAliases["geosearch"]; got != "open-meteo-geocoding.search" {
-		t.Fatalf("expected geosearch shortcut alias after prompt acceptance, got %+v", reloaded.CommandAliases)
+		t.Fatalf("expected geosearch shortcut alias with default setup, got %+v", reloaded.CommandAliases)
 	}
 }
 
@@ -405,6 +383,7 @@ func TestResolveInitServiceSelectionFromReader(t *testing.T) {
 		input           string
 		wantSkipped     bool
 		wantAll         bool
+		wantStarter     bool
 		wantNames       []string
 		wantErr         bool
 		wantErrContains string
@@ -414,25 +393,21 @@ func TestResolveInitServiceSelectionFromReader(t *testing.T) {
 		{name: "services all returns all", rawServices: "all", wantAll: true},
 		{name: "services ALL case insensitive", rawServices: "ALL", wantAll: true},
 		{name: "services all with whitespace", rawServices: " all ", wantAll: true},
+		{name: "services recommended returns preset", rawServices: "recommended", wantStarter: true},
+		{name: "services starter legacy alias returns preset", rawServices: "starter", wantStarter: true},
 		{name: "services csv returns normalized", rawServices: "github,slack", wantNames: []string{"github", "slack"}},
 		{name: "services csv with whitespace", rawServices: "github , slack", wantNames: []string{"github", "slack"}},
 		{name: "services invalid errors", rawServices: "nonexistent-service-xyz", wantErr: true, wantErrContains: "unknown catalog service"},
 		{name: "services comma-only errors", rawServices: ",,,", wantErr: true, wantErrContains: "invalid --services value"},
 		{name: "non-interactive empty skips", rawServices: "", interactive: false, wantSkipped: true},
-		{name: "interactive enter installs all", rawServices: "", interactive: true, input: "\n", wantAll: true},
-		{name: "interactive Y installs all", rawServices: "", interactive: true, input: "Y\n", wantAll: true},
-		{name: "interactive y installs all", rawServices: "", interactive: true, input: "y\n", wantAll: true},
-		{name: "interactive yes installs all", rawServices: "", interactive: true, input: "yes\n", wantAll: true},
-		{name: "interactive n skips", rawServices: "", interactive: true, input: "n\n", wantSkipped: true},
-		{name: "interactive N skips", rawServices: "", interactive: true, input: "N\n", wantSkipped: true},
-		{name: "interactive no skips", rawServices: "", interactive: true, input: "no\n", wantSkipped: true},
-		{name: "interactive csv parses", rawServices: "", interactive: true, input: "github,slack\n", wantNames: []string{"github", "slack"}},
+		{name: "interactive done returns recommended preset", rawServices: "", interactive: true, input: "d\n", wantStarter: true},
+		{name: "interactive all then done", rawServices: "", interactive: true, input: "a\nd\n", wantAll: true},
+		{name: "interactive none then done skips", rawServices: "", interactive: true, input: "n\nd\n", wantSkipped: true},
+		{name: "interactive invalid token reprompts", rawServices: "", interactive: true, input: "bogus\nd\n", wantStarter: true},
 		{name: "interactive EOF skips", rawServices: "", interactive: true, input: "", wantSkipped: true},
-		{name: "interactive select then csv", rawServices: "", interactive: true, input: "select\ngithub,slack\n", wantNames: []string{"github", "slack"}},
-		{name: "interactive select then all", rawServices: "", interactive: true, input: "select\nall\n", wantAll: true},
-		{name: "interactive select then empty skips", rawServices: "", interactive: true, input: "select\n\n", wantSkipped: true},
-		{name: "interactive select then EOF skips", rawServices: "", interactive: true, input: "select\n", wantSkipped: true},
-		{name: "interactive invalid service errors", rawServices: "", interactive: true, input: "nonexistent-service-xyz\n", wantErr: true, wantErrContains: "unknown catalog service"},
+		{name: "explicit services select uses checklist", rawServices: "select", interactive: true, input: "d\n", wantStarter: true},
+		{name: "explicit services select non-interactive errors", rawServices: "select", interactive: false, wantErr: true, wantErrContains: "requires interactive stdin"},
+		{name: "explicit checklist out-of-range reprompts", rawServices: "select", interactive: true, input: "999\nd\n", wantStarter: true},
 	}
 
 	for _, tc := range tests {
@@ -468,6 +443,22 @@ func TestResolveInitServiceSelectionFromReader(t *testing.T) {
 				for i, want := range allServices {
 					if result.Names[i] != want {
 						t.Fatalf("Names[%d]: expected %q, got %q", i, want, result.Names[i])
+					}
+				}
+				return
+			}
+
+			if tc.wantStarter {
+				starterSet := map[string]struct{}{}
+				for _, name := range starterServiceNames() {
+					starterSet[name] = struct{}{}
+				}
+				if len(result.Names) != len(starterSet) {
+					t.Fatalf("expected starter selection size %d, got %v", len(starterSet), result.Names)
+				}
+				for _, got := range result.Names {
+					if _, ok := starterSet[got]; !ok {
+						t.Fatalf("expected recommended selection set %v, got %v", starterSet, result.Names)
 					}
 				}
 				return

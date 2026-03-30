@@ -14,7 +14,7 @@ All CLI modes (call, proxy, run, serve, daemon) pass through the same pipeline.
 
 ## Configuration
 
-All configuration via environment variables or `~/.kimbap/config.yaml`.
+All configuration via environment variables or config file discovery (`$XDG_CONFIG_HOME/kimbap/config.yaml` when set, otherwise `~/.kimbap/config.yaml`).
 
 | Variable | Default | Description |
 |---|---|---|

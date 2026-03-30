@@ -74,13 +74,17 @@ type mockApprovalManager struct {
 	result              *ApprovalResult
 	err                 error
 	cancelErr           error
+	createCalls         int
 	cancelCalls         int
+	lastRequest         ApprovalRequest
 	lastCancelledID     string
 	lastCancelledReason string
 	lastCancelCtxErr    error
 }
 
 func (m *mockApprovalManager) CreateRequest(ctx context.Context, req ApprovalRequest) (*ApprovalResult, error) {
+	m.createCalls++
+	m.lastRequest = req
 	return m.result, m.err
 }
 
@@ -284,6 +288,69 @@ func TestRuntimeExecuteApprovalRequired(t *testing.T) {
 	}
 	if res.Error == nil || res.Error.Code != actions.ErrApprovalRequired {
 		t.Fatalf("expected approval required error, got %+v", res.Error)
+	}
+}
+
+func TestRuntimeExecuteInlineAppleScriptApprovalRefForcesApproval(t *testing.T) {
+	approvalManager := &mockApprovalManager{result: &ApprovalResult{Approved: false, RequestID: "apr-inline"}}
+	rt := Runtime{
+		ApprovalManager:    approvalManager,
+		HeldExecutionStore: &mockHeldExecutionStore{held: map[string]actions.ExecutionRequest{}},
+		Adapters: map[string]adapters.Adapter{
+			"applescript": mockAdapter{kind: "applescript", result: &adapters.AdapterResult{Output: map[string]any{"ok": true}, HTTPStatus: 200}},
+		},
+	}
+
+	res := rt.Execute(context.Background(), baseRequest(actions.ActionDefinition{
+		Name: "notes.inline-create",
+		Adapter: actions.AdapterConfig{
+			Type:         "applescript",
+			TargetApp:    "Notes",
+			ScriptSource: "return \"ok\"",
+			ApprovalRef:  "policy.applescript.inline",
+			AuditRef:     "audit.notes.inline-create",
+		},
+	}))
+
+	if res.Status != actions.StatusApprovalRequired {
+		t.Fatalf("expected approval_required for inline applescript approval_ref, got %s", res.Status)
+	}
+	if approvalManager.createCalls != 1 {
+		t.Fatalf("expected one approval request creation, got %d", approvalManager.createCalls)
+	}
+	if got, _ := approvalManager.lastRequest.Meta["approval_ref"].(string); got != "policy.applescript.inline" {
+		t.Fatalf("expected approval_ref metadata propagated, got %q", got)
+	}
+}
+
+func TestRuntimeExecuteInlineAppleScriptApprovalRefApprovedExecutes(t *testing.T) {
+	approvalManager := &mockApprovalManager{result: &ApprovalResult{Approved: true, RequestID: "apr-inline-ok"}}
+	rt := Runtime{
+		ApprovalManager: approvalManager,
+		Adapters: map[string]adapters.Adapter{
+			"applescript": mockAdapter{kind: "applescript", result: &adapters.AdapterResult{Output: map[string]any{"ok": true}, HTTPStatus: 200}},
+		},
+	}
+
+	res := rt.Execute(context.Background(), baseRequest(actions.ActionDefinition{
+		Name: "notes.inline-create",
+		Adapter: actions.AdapterConfig{
+			Type:         "applescript",
+			TargetApp:    "Notes",
+			ScriptSource: "return \"ok\"",
+			ApprovalRef:  "policy.applescript.inline",
+			AuditRef:     "audit.notes.inline-create",
+		},
+	}))
+
+	if res.Status != actions.StatusSuccess {
+		t.Fatalf("expected success after immediate approval, got %s", res.Status)
+	}
+	if approvalManager.createCalls != 1 {
+		t.Fatalf("expected one approval request creation, got %d", approvalManager.createCalls)
+	}
+	if got, _ := res.Meta["approval_request_id"].(string); got != "apr-inline-ok" {
+		t.Fatalf("expected approval_request_id in result meta, got %q", got)
 	}
 }
 
@@ -512,6 +579,105 @@ func TestRuntimeExecuteAuditRequiredFailClosed(t *testing.T) {
 	}
 	if len(audit.events) != 1 {
 		t.Fatalf("expected one attempted audit write, got %d", len(audit.events))
+	}
+}
+
+func TestRuntimeExecuteUsesAdapterAuditRefWhenProvided(t *testing.T) {
+	audit := &mockAuditWriter{}
+	rt := Runtime{
+		AuditWriter: audit,
+		Adapters: map[string]adapters.Adapter{
+			"applescript": mockAdapter{kind: "applescript", result: &adapters.AdapterResult{Output: map[string]any{"ok": true}, HTTPStatus: 200}},
+		},
+	}
+
+	res := rt.Execute(context.Background(), baseRequest(actions.ActionDefinition{
+		Name: "notes.inline-create",
+		Adapter: actions.AdapterConfig{
+			Type:         "applescript",
+			TargetApp:    "Notes",
+			ScriptSource: "return \"ok\"",
+			AuditRef:     "audit.notes.inline-create",
+		},
+	}))
+
+	if res.Status != actions.StatusSuccess {
+		t.Fatalf("expected success, got %s", res.Status)
+	}
+	if res.AuditRef != "audit.notes.inline-create" {
+		t.Fatalf("expected result audit ref from adapter config, got %q", res.AuditRef)
+	}
+	if len(audit.events) != 1 {
+		t.Fatalf("expected one audit event, got %d", len(audit.events))
+	}
+	if got, _ := audit.events[0].Meta["audit_ref"].(string); got != "audit.notes.inline-create" {
+		t.Fatalf("expected audit event metadata audit_ref to match adapter config, got %q", got)
+	}
+}
+
+func TestRuntimeExecuteAuditRefFallsBackToRequestID(t *testing.T) {
+	audit := &mockAuditWriter{}
+	rt := Runtime{
+		AuditWriter: audit,
+		Adapters: map[string]adapters.Adapter{
+			"http": mockAdapter{kind: "http", result: &adapters.AdapterResult{Output: map[string]any{"ok": true}, HTTPStatus: 200}},
+		},
+	}
+
+	res := rt.Execute(context.Background(), baseRequest(actions.ActionDefinition{
+		Name:    "github.issues.create",
+		Adapter: actions.AdapterConfig{Type: "http", URLTemplate: "https://example.com"},
+	}))
+
+	if res.Status != actions.StatusSuccess {
+		t.Fatalf("expected success, got %s", res.Status)
+	}
+	if res.AuditRef != "req-1" {
+		t.Fatalf("expected audit ref fallback to request id, got %q", res.AuditRef)
+	}
+	if got, _ := res.Meta["audit_ref"].(string); got != "req-1" {
+		t.Fatalf("expected audit_ref metadata fallback to request id, got %q", got)
+	}
+	if len(audit.events) != 1 {
+		t.Fatalf("expected one audit event, got %d", len(audit.events))
+	}
+	if got, _ := audit.events[0].Meta["audit_ref"].(string); got != "req-1" {
+		t.Fatalf("expected audit event audit_ref fallback to request id, got %q", got)
+	}
+}
+
+func TestRuntimeExecuteAuditRefFallsBackToTraceIDWhenRequestIDMissing(t *testing.T) {
+	audit := &mockAuditWriter{}
+	rt := Runtime{
+		AuditWriter: audit,
+		Adapters: map[string]adapters.Adapter{
+			"http": mockAdapter{kind: "http", result: &adapters.AdapterResult{Output: map[string]any{"ok": true}, HTTPStatus: 200}},
+		},
+	}
+
+	req := baseRequest(actions.ActionDefinition{
+		Name:    "github.issues.create",
+		Adapter: actions.AdapterConfig{Type: "http", URLTemplate: "https://example.com"},
+	})
+	req.RequestID = ""
+	req.TraceID = "trace-fallback"
+
+	res := rt.Execute(context.Background(), req)
+
+	if res.Status != actions.StatusSuccess {
+		t.Fatalf("expected success, got %s", res.Status)
+	}
+	if res.AuditRef != "trace-fallback" {
+		t.Fatalf("expected audit ref fallback to trace id, got %q", res.AuditRef)
+	}
+	if got, _ := res.Meta["audit_ref"].(string); got != "trace-fallback" {
+		t.Fatalf("expected audit_ref metadata fallback to trace id, got %q", got)
+	}
+	if len(audit.events) != 1 {
+		t.Fatalf("expected one audit event, got %d", len(audit.events))
+	}
+	if got, _ := audit.events[0].Meta["audit_ref"].(string); got != "trace-fallback" {
+		t.Fatalf("expected audit event audit_ref fallback to trace id, got %q", got)
 	}
 }
 

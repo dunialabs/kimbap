@@ -56,13 +56,13 @@ func TestDetectAgents(t *testing.T) {
 				}
 			},
 			expected:   []AgentKind{AgentClaudeCode},
-			unexpected: []AgentKind{AgentOpenCode, AgentCodex, AgentCursor, AgentGeneric},
+			unexpected: []AgentKind{AgentOpenCode, AgentCodex, AgentCursor, AgentOpenClaw, AgentNanoClaw, AgentGeneric},
 		},
 		{
 			name:       "empty directory detects none",
 			setup:      func(t *testing.T, _ string) { t.Helper() },
 			expected:   []AgentKind{},
-			unexpected: []AgentKind{AgentClaudeCode, AgentOpenCode, AgentCodex, AgentCursor, AgentGeneric},
+			unexpected: []AgentKind{AgentClaudeCode, AgentOpenCode, AgentCodex, AgentCursor, AgentOpenClaw, AgentNanoClaw, AgentGeneric},
 		},
 	}
 
