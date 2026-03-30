@@ -206,8 +206,18 @@ func (s *SQLiteStore) Upsert(ctx context.Context, tenantID string, name string, 
 		}
 	}
 
-	newVersion, err := s.appendSecretVersion(ctx, tx, secretID, currentVersion, envelope, now, createdBy)
-	if err != nil {
+	newVersion := currentVersion + 1
+	versionID := uuid.NewString()
+
+	if _, err := tx.ExecContext(ctx, `UPDATE secret_versions SET active = 0 WHERE secret_id = ? AND version = ?`, secretID, currentVersion); err != nil {
+		return nil, err
+	}
+
+	if _, err := tx.ExecContext(ctx, `
+		INSERT INTO secret_versions (
+			id, secret_id, version, ciphertext, nonce, salt, key_id, algorithm, created_at, created_by, active, wrapped_dek, dek_nonce
+		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?)
+	`, versionID, secretID, newVersion, envelope.Ciphertext, envelope.Nonce, envelope.Salt, envelope.KeyID, envelope.Algorithm, now, createdBy, envelope.WrappedDEK, envelope.DEKNonce); err != nil {
 		return nil, err
 	}
 
@@ -410,6 +420,8 @@ func (s *SQLiteStore) Rotate(ctx context.Context, tenantID string, name string, 
 		return nil, err
 	}
 
+	newVersion := currentVersion + 1
+	versionID := uuid.NewString()
 	var existingLabels map[string]string
 	if labelsRaw.Valid {
 		if err := json.Unmarshal([]byte(labelsRaw.String), &existingLabels); err != nil {
@@ -420,8 +432,15 @@ func (s *SQLiteStore) Rotate(ctx context.Context, tenantID string, name string, 
 		existingLabels = map[string]string{}
 	}
 
-	newVersion, err := s.appendSecretVersion(ctx, tx, secretID, currentVersion, envelope, now, rotatedBy)
-	if err != nil {
+	if _, err := tx.ExecContext(ctx, `UPDATE secret_versions SET active = 0 WHERE secret_id = ? AND version = ?`, secretID, currentVersion); err != nil {
+		return nil, err
+	}
+
+	if _, err := tx.ExecContext(ctx, `
+		INSERT INTO secret_versions (
+			id, secret_id, version, ciphertext, nonce, salt, key_id, algorithm, created_at, created_by, active, wrapped_dek, dek_nonce
+		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?)
+	`, versionID, secretID, newVersion, envelope.Ciphertext, envelope.Nonce, envelope.Salt, envelope.KeyID, envelope.Algorithm, now, rotatedBy, envelope.WrappedDEK, envelope.DEKNonce); err != nil {
 		return nil, err
 	}
 
@@ -452,25 +471,6 @@ func (s *SQLiteStore) Rotate(ctx context.Context, tenantID string, name string, 
 		rotateResult.LastUsedAt = &lastUsedAt.Time
 	}
 	return rotateResult, nil
-}
-
-func (s *SQLiteStore) appendSecretVersion(ctx context.Context, tx *sql.Tx, secretID string, currentVersion int, envelope *corecrypto.EncryptedEnvelope, now time.Time, createdBy string) (int, error) {
-	newVersion := currentVersion + 1
-	versionID := uuid.NewString()
-
-	if _, err := tx.ExecContext(ctx, `UPDATE secret_versions SET active = 0 WHERE secret_id = ? AND version = ?`, secretID, currentVersion); err != nil {
-		return 0, err
-	}
-
-	if _, err := tx.ExecContext(ctx, `
-		INSERT INTO secret_versions (
-			id, secret_id, version, ciphertext, nonce, salt, key_id, algorithm, created_at, created_by, active, wrapped_dek, dek_nonce
-		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?)
-	`, versionID, secretID, newVersion, envelope.Ciphertext, envelope.Nonce, envelope.Salt, envelope.KeyID, envelope.Algorithm, now, createdBy, envelope.WrappedDEK, envelope.DEKNonce); err != nil {
-		return 0, err
-	}
-
-	return newVersion, nil
 }
 
 func (s *SQLiteStore) GetVersion(ctx context.Context, tenantID string, name string, version int) ([]byte, error) {
