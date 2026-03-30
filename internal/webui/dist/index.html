@@ -1714,7 +1714,7 @@ td.mono {
     parts = ['kimbap call', name];
     for (j = 0; j < requiredKeys.length; j++) {
       parts.push('--' + requiredKeys[j]);
-      parts.push('<value>');
+      parts.push('"VALUE"');
     }
     return parts.join(' ');
   }
@@ -2326,6 +2326,10 @@ td.mono {
 
   // ── Keyboard shortcuts ──
   document.addEventListener('keydown', function(e) {
+    if (e.key === 'Escape' && state.actionDetailName) {
+      hideActionDetail();
+      return;
+    }
     if (e.key !== '/') return;
     var active = document.activeElement;
     var tag = active ? (active.tagName || '').toLowerCase() : '';
