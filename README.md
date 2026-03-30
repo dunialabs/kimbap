@@ -73,27 +73,31 @@ Works with Claude Code, OpenCode, Codex, OpenClaw, NanoClaw, and any agent that 
 Got a REST API? Turn it into a secure CLI tool with one YAML file:
 
 ```yaml
-name: deploy-api
+name: inventory-api
 version: 1.0.0
+aliases: [inventory]
 base_url: https://api.internal.company.com/v1
 auth:
   type: bearer
-  credential_ref: deploy_api.token
+  credential_ref: inventory_api.token
 actions:
-  list-deployments:
+  list-items:
+    aliases: [items]
     method: GET
-    path: /services/{service}/deployments
+    path: /warehouses/{warehouse}/items
     params:
-      service:
+      warehouse:
         required: true
     risk:
       level: low
 ```
 
 ```bash
-kimbap service install deploy-api.yaml
-kimbap call deploy-api.list-deployments --service payments
+kimbap service install inventory-api.yaml
+items --warehouse seoul
 ```
+
+Install it, then run it directly.
 
 Three adapter types: **HTTP** (REST APIs), **Command** (local executable CLIs), **AppleScript** (macOS native apps).
 
