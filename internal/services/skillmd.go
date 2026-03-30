@@ -75,6 +75,11 @@ func GenerateAgentSkillMD(manifest *ServiceManifest, opts ...SkillMDOption) (str
 	sb.WriteString("## Prerequisites\n\n")
 	sb.WriteString("- Kimbap CLI installed and in PATH\n")
 	fmt.Fprintf(&sb, "- Service installed: `%s`\n", buildInstallInstruction(manifest.Name, cfg))
+	for _, line := range adapterPrerequisites(manifest) {
+		sb.WriteString("- ")
+		sb.WriteString(line)
+		sb.WriteString("\n")
+	}
 	primaryRef := ""
 	if normalizedAuthType(manifest.Auth.Type) != "none" {
 		primaryRef = manifest.Auth.CredentialRef
@@ -289,7 +294,7 @@ func GenerateAgentSkillPack(manifest *ServiceManifest, opts ...SkillMDOption) (m
 	return files, nil
 }
 
-func generatePackSkillMD(manifest *ServiceManifest, _ skillMDConfig) (string, error) {
+func generatePackSkillMD(manifest *ServiceManifest, cfg skillMDConfig) (string, error) {
 	var sb strings.Builder
 	sb.WriteString("---\n")
 	sb.WriteString(fmt.Sprintf("name: %s\n", manifest.Name))
@@ -301,6 +306,15 @@ func generatePackSkillMD(manifest *ServiceManifest, _ skillMDConfig) (string, er
 	if manifest.Description != "" {
 		sb.WriteString(fmt.Sprintf("%s\n\n", manifest.Description))
 	}
+	sb.WriteString("## Prerequisites\n\n")
+	sb.WriteString("- Kimbap CLI installed and in PATH\n")
+	sb.WriteString(fmt.Sprintf("- Service installed: `%s`\n", buildInstallInstruction(manifest.Name, cfg)))
+	for _, line := range adapterPrerequisites(manifest) {
+		sb.WriteString("- ")
+		sb.WriteString(line)
+		sb.WriteString("\n")
+	}
+	sb.WriteString("\n")
 	sb.WriteString("## Available Actions\n\n")
 	sb.WriteString("| Action | Description | Inputs | Risk |\n")
 	sb.WriteString("|--------|-------------|--------|------|\n")
@@ -369,6 +383,27 @@ func buildPackDescription(manifest *ServiceManifest) string {
 		}
 	}
 	return fmt.Sprintf("Use for approved %s actions through Kimbap.\nInspect the action table below for exact capabilities.", manifest.Name)
+}
+
+func adapterPrerequisites(manifest *ServiceManifest) []string {
+	if manifest == nil {
+		return nil
+	}
+	switch normalizedAdapterType(manifest.Adapter) {
+	case "command":
+		executable := manifest.Name
+		if manifest.CommandSpec != nil && strings.TrimSpace(manifest.CommandSpec.Executable) != "" {
+			executable = strings.TrimSpace(manifest.CommandSpec.Executable)
+		}
+		return []string{fmt.Sprintf("Local executable available in PATH: `%s`", executable)}
+	case "applescript":
+		if strings.TrimSpace(manifest.TargetApp) != "" {
+			return []string{fmt.Sprintf("macOS app installed and automatable: `%s`", strings.TrimSpace(manifest.TargetApp))}
+		}
+		return []string{"macOS target app installed and automatable"}
+	default:
+		return nil
+	}
 }
 
 func generatePackGotchasMD(manifest *ServiceManifest) string {

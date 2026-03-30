@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"runtime"
 	"sort"
@@ -75,6 +76,9 @@ func newInitCommand() *cobra.Command {
 
 			serviceCheck := installInitServices(cfg, serviceSelection, hasFailure)
 			checks, hasFailure = appendInitChecks(checks, hasFailure, serviceCheck)
+
+			readinessCheck := checkInitLocalAdapterReadiness(serviceSelection, hasFailure)
+			checks = append(checks, readinessCheck)
 
 			consoleCheck := ensureConsoleEnabled(configPath, configCheck, withConsole)
 			checks, hasFailure = appendInitChecks(checks, hasFailure, consoleCheck)
@@ -409,6 +413,75 @@ func installInitServices(cfg *config.KimbapConfig, selection initServiceSelectio
 	return doctorCheck{Name: "catalog services installed", Status: "ok", Detail: detail}
 }
 
+func checkInitLocalAdapterReadiness(selection initServiceSelection, hasFailure bool) doctorCheck {
+	if hasFailure {
+		return doctorCheck{Name: "local adapter readiness", Status: "skip", Detail: "skipped due to previous init failures"}
+	}
+	if selection.Skipped {
+		return doctorCheck{Name: "local adapter readiness", Status: "skip", Detail: "no catalog services selected"}
+	}
+	if len(selection.Names) == 0 {
+		return doctorCheck{Name: "local adapter readiness", Status: "skip", Detail: "no services selected"}
+	}
+
+	inspected := 0
+	issues := make([]string, 0)
+
+	for _, name := range selection.Names {
+		data, getErr := catalog.Get(name)
+		if getErr != nil {
+			continue
+		}
+		manifest, parseErr := services.ParseManifest(data)
+		if parseErr != nil {
+			continue
+		}
+
+		switch strings.ToLower(strings.TrimSpace(manifest.Adapter)) {
+		case "command":
+			inspected++
+			executable := ""
+			if manifest.CommandSpec != nil {
+				executable = strings.TrimSpace(manifest.CommandSpec.Executable)
+			}
+			if executable == "" {
+				issues = append(issues, fmt.Sprintf("%s (missing command_spec.executable)", name))
+				continue
+			}
+			if _, lookErr := exec.LookPath(executable); lookErr != nil {
+				issues = append(issues, fmt.Sprintf("%s (executable not found: %s)", name, executable))
+			}
+		case "applescript":
+			inspected++
+			target := strings.TrimSpace(manifest.TargetApp)
+			if runtime.GOOS != "darwin" {
+				issues = append(issues, fmt.Sprintf("%s (AppleScript requires macOS)", name))
+				continue
+			}
+			if target == "" {
+				issues = append(issues, fmt.Sprintf("%s (missing target_app)", name))
+				continue
+			}
+			if err := exec.Command("osascript", "-e", fmt.Sprintf("id of application \"%s\"", target)).Run(); err != nil {
+				issues = append(issues, fmt.Sprintf("%s (application unavailable: %s)", name, target))
+			}
+		}
+	}
+
+	if inspected == 0 {
+		return doctorCheck{Name: "local adapter readiness", Status: "skip", Detail: "no command/applescript services selected"}
+	}
+	if len(issues) > 0 {
+		detail := strings.Join(issues, "; ")
+		if len(issues) > 6 {
+			detail = strings.Join(issues[:6], "; ") + fmt.Sprintf("; ... and %d more", len(issues)-6)
+		}
+		return doctorCheck{Name: "local adapter readiness", Status: "warn", Detail: detail}
+	}
+
+	return doctorCheck{Name: "local adapter readiness", Status: "ok", Detail: fmt.Sprintf("verified runtime prerequisites for %d local-adapter services", inspected)}
+}
+
 func normalizeSelectedCatalogServices(names []string) ([]string, error) {
 	available, err := catalog.List()
 	if err != nil {
@@ -441,8 +514,8 @@ func normalizeSelectedCatalogServices(names []string) ([]string, error) {
 func printCatalogServiceCategories() error {
 	categories := map[string][]string{
 		"SaaS & APIs":   {"github", "slack", "stripe", "notion", "linear", "hubspot", "airtable", "pinecone", "todoist", "posthog", "sentry", "sendgrid", "resend", "exa", "brave-search"},
-		"Communication": {"telegram", "whatsapp", "wechat", "zoom", "apple-mail", "messages"},
-		"Local apps":    {"blender", "comfyui", "ollama", "mermaid", "spotify", "notebooklm"},
+		"Communication": {"telegram", "whatsapp", "zoom", "apple-mail", "messages"},
+		"Local apps":    {"blender", "comfyui", "ollama", "mermaid", "kitty", "spotify"},
 		"macOS native":  {"finder", "safari", "contacts", "shortcuts", "apple-notes", "apple-calendar", "apple-reminders", "keynote", "pages", "numbers"},
 		"Office":        {"ms-word", "ms-excel", "ms-powerpoint"},
 		"Data":          {"wikipedia", "hacker-news", "coingecko", "open-meteo", "open-meteo-air-quality", "open-meteo-historical", "open-meteo-geocoding", "financial-datasets", "rest-countries", "exchange-rate", "public-holidays", "nominatim", "ntfy"},

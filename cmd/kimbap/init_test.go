@@ -342,3 +342,28 @@ func TestResolveInitServiceSelectionFromReader(t *testing.T) {
 		})
 	}
 }
+
+func TestCheckInitLocalAdapterReadinessSkipsOnPriorFailure(t *testing.T) {
+	check := checkInitLocalAdapterReadiness(initServiceSelection{Names: []string{"github"}}, true)
+	if check.Status != "skip" {
+		t.Fatalf("expected skip when prior failure exists, got %q", check.Status)
+	}
+}
+
+func TestCheckInitLocalAdapterReadinessSkipsWhenNoSelection(t *testing.T) {
+	check := checkInitLocalAdapterReadiness(initServiceSelection{Skipped: true}, false)
+	if check.Status != "skip" {
+		t.Fatalf("expected skip when selection is skipped, got %q", check.Status)
+	}
+}
+
+func TestCheckInitLocalAdapterReadinessWarnsForMissingCommandExecutable(t *testing.T) {
+	t.Setenv("PATH", "")
+	check := checkInitLocalAdapterReadiness(initServiceSelection{Names: []string{"kitty"}}, false)
+	if check.Status != "warn" {
+		t.Fatalf("expected warn when command executable cannot be found, got %q (%s)", check.Status, check.Detail)
+	}
+	if !strings.Contains(check.Detail, "kitty") {
+		t.Fatalf("expected readiness warning to mention kitty, got %q", check.Detail)
+	}
+}

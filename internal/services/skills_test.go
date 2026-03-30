@@ -1320,6 +1320,7 @@ func TestGenerateAgentSkillMDAppleScript(t *testing.T) {
 
 	checks := []string{
 		"Use when you need to control Notes via AppleScript.",
+		"- macOS app installed and automatable: `Notes`",
 		"**Command**: `list-notes`",
 	}
 	for _, want := range checks {
@@ -1729,6 +1730,9 @@ func TestGenerateAgentSkillMDCommand(t *testing.T) {
 	manifest := &ServiceManifest{
 		Name:    "ffmpeg",
 		Adapter: "command",
+		CommandSpec: &CommandSpec{
+			Executable: "ffmpeg",
+		},
 		Actions: map[string]ServiceAction{
 			"convert": {
 				Command:     "ffmpeg -i {{input}} {{output}}",
@@ -1749,6 +1753,45 @@ func TestGenerateAgentSkillMDCommand(t *testing.T) {
 	}
 	if !strings.Contains(content, "Use when you need to run ffmpeg commands.") {
 		t.Errorf("command adapter description missing, got:\n%s", content)
+	}
+	if !strings.Contains(content, "- Local executable available in PATH: `ffmpeg`") {
+		t.Errorf("command adapter prerequisites missing executable guidance, got:\n%s", content)
+	}
+}
+
+func TestGenerateAgentSkillPackIncludesAdapterPrerequisites(t *testing.T) {
+	commandManifest := &ServiceManifest{
+		Name:    "ffmpeg",
+		Adapter: "command",
+		CommandSpec: &CommandSpec{
+			Executable: "ffmpeg",
+		},
+		Actions: map[string]ServiceAction{
+			"convert": {Command: "convert", Risk: RiskSpec{Level: "low"}},
+		},
+	}
+	pack, err := GenerateAgentSkillPack(commandManifest)
+	if err != nil {
+		t.Fatalf("GenerateAgentSkillPack(command): %v", err)
+	}
+	if !strings.Contains(pack["SKILL.md"], "- Local executable available in PATH: `ffmpeg`") {
+		t.Fatalf("command pack SKILL.md missing executable prerequisite:\n%s", pack["SKILL.md"])
+	}
+
+	appleManifest := &ServiceManifest{
+		Name:      "apple-notes",
+		Adapter:   "applescript",
+		TargetApp: "Notes",
+		Actions: map[string]ServiceAction{
+			"list-notes": {Command: "list-notes", Risk: RiskSpec{Level: "low"}},
+		},
+	}
+	pack, err = GenerateAgentSkillPack(appleManifest)
+	if err != nil {
+		t.Fatalf("GenerateAgentSkillPack(applescript): %v", err)
+	}
+	if !strings.Contains(pack["SKILL.md"], "- macOS app installed and automatable: `Notes`") {
+		t.Fatalf("applescript pack SKILL.md missing target app prerequisite:\n%s", pack["SKILL.md"])
 	}
 }
 
