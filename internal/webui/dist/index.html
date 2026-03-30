@@ -1089,9 +1089,13 @@ td.mono {
     approvals: null,
     approvalsBusy: {},
     audit: null,
+    auditItems: null,
     vault: null,
     dashTimer: null,
-    errors: {}
+    errors: {},
+    requestEpoch: 0,
+    actionDetailRequestId: 0,
+    actionDetailName: ''
   };
 
   // ── API helpers ──
@@ -1250,6 +1254,8 @@ td.mono {
     setTokenError(inputId, '');
     state.token = val;
     localStorage.setItem('kimbap_console_token', val);
+    state.requestEpoch += 1;
+    state.approvalsBusy = {};
     if (el) el.value = '';
     updateAuthUI();
     loadViewData(state.view);
@@ -1259,11 +1265,18 @@ td.mono {
   window.clearToken = function() {
     state.token = '';
     localStorage.removeItem('kimbap_console_token');
+    state.requestEpoch += 1;
+    state.approvalsBusy = {};
     updateAuthUI();
     state.audit = null;
+    state.auditItems = null;
     state.vault = null;
     loadViewData(state.view);
   };
+
+  function isViewRequestCurrent(viewName, requestEpoch) {
+    return state.requestEpoch === requestEpoch && state.view === viewName;
+  }
 
   // ── Render helpers ──
   function esc(s) {
@@ -1330,6 +1343,7 @@ td.mono {
     delta = end.getTime() - Date.now();
     if (delta <= 0) return 'expired';
     mins = Math.floor(delta / 60000);
+    if (mins < 1) return '<1m left';
     if (mins < 60) return mins + 'm left';
     hours = Math.floor(mins / 60);
     if (hours < 48) return hours + 'h left';
@@ -1383,7 +1397,9 @@ td.mono {
 
   // ── Dashboard ──
   function loadDashboard() {
+    var requestEpoch = state.requestEpoch;
     api('/health').then(function(r) {
+      if (!isViewRequestCurrent('dashboard', requestEpoch)) return;
       var el = document.getElementById('dashHealth');
       var sub = document.getElementById('dashHealthSub');
       var s, isOk;
@@ -1409,14 +1425,16 @@ td.mono {
         verSub.textContent = 'Version unavailable';
       }
     }).catch(function() {
+      if (!isViewRequestCurrent('dashboard', requestEpoch)) return;
       document.getElementById('dashHealth').innerHTML = '<span class="stat-unhealthy">OFFLINE</span>';
-      document.getElementById('dashHealthSub').textContent = 'Make sure kimbap serve is running on port 8080.';
+      document.getElementById('dashHealthSub').textContent = 'Make sure kimbap serve is running for this console URL.';
       document.getElementById('dashVersion').textContent = '—';
       document.getElementById('dashVersionSub').textContent = 'Server offline';
     });
 
     // Actions count
     api('/actions').then(function(r) {
+      if (!isViewRequestCurrent('dashboard', requestEpoch)) return;
       var el = document.getElementById('dashActions');
       var sub = document.getElementById('dashActionsSub');
       var serviceSet = {};
@@ -1446,6 +1464,7 @@ td.mono {
         sub.textContent = 'No actions installed';
       }
     }).catch(function() {
+      if (!isViewRequestCurrent('dashboard', requestEpoch)) return;
       document.getElementById('dashActions').textContent = '—';
       document.getElementById('dashActionsSub').textContent = "Unable to load actions";
     });
@@ -1453,6 +1472,7 @@ td.mono {
     // Pending approvals count
     if (state.token) {
       api('/approvals?status=pending', { auth: true }).then(function(r) {
+        if (!isViewRequestCurrent('dashboard', requestEpoch)) return;
         var el = document.getElementById('dashApprovals');
         var sub = document.getElementById('dashApprovalsSub');
         if (r.status === 401 || r.status === 403) {
@@ -1465,6 +1485,7 @@ td.mono {
         el.textContent = count;
         sub.textContent = count === 0 ? 'No pending approvals' : (count === 1 ? '1 action awaiting review' : count + ' actions awaiting review');
       }).catch(function() {
+        if (!isViewRequestCurrent('dashboard', requestEpoch)) return;
         document.getElementById('dashApprovals').textContent = '—';
         document.getElementById('dashApprovalsSub').textContent = 'Unable to load';
       });
@@ -1502,7 +1523,7 @@ td.mono {
           '<p>Install a service, or run <code>kimbap init --mode dev --services all</code> to add sample actions.</p></div>';
       }
     }).catch(function() {
-      container.innerHTML = errorBannerHTML('Cannot reach the server. Ensure kimbap serve --console is running on port 8080.');
+      container.innerHTML = errorBannerHTML('Cannot reach the server. Ensure kimbap serve --console is running for this console URL.');
     });
   }
 
@@ -1564,10 +1585,14 @@ td.mono {
 
   document.getElementById('auditSearch').addEventListener('input', function() {
     var container = document.getElementById('auditContent');
-    if (state.auditItems) renderAuditTable(state.auditItems, container);
+    if (!state.token || state.view !== 'audit' || !Array.isArray(state.auditItems)) return;
+    renderAuditTable(state.auditItems, container);
   });
 
   window.showActionDetail = function(name) {
+    var detailRequestId = state.actionDetailRequestId + 1;
+    state.actionDetailRequestId = detailRequestId;
+    state.actionDetailName = name;
     var parts = name.split('.');
     if (parts.length < 2) {
       document.getElementById('actionDetail').innerHTML = errorBannerHTML("Action not found in this runtime.");
@@ -1581,6 +1606,7 @@ td.mono {
     document.getElementById('actionList').style.display = 'none';
 
     api('/actions/' + encodeURIComponent(service) + '/' + encodeURIComponent(action)).then(function(r) {
+      if (state.actionDetailRequestId !== detailRequestId || state.actionDetailName !== name) return;
       var cached;
       if (r.body.success && r.body.data) {
         renderActionDetail(r.body.data);
@@ -1596,7 +1622,8 @@ td.mono {
         }
       }
     }).catch(function() {
-      detailEl.innerHTML = errorBannerHTML('Cannot reach the server. Ensure kimbap serve --console is running on port 8080.');
+      if (state.actionDetailRequestId !== detailRequestId || state.actionDetailName !== name) return;
+      detailEl.innerHTML = errorBannerHTML('Cannot reach the server. Ensure kimbap serve --console is running for this console URL.');
       document.getElementById('actionList').style.display = '';
     });
   };
@@ -1774,6 +1801,8 @@ td.mono {
   };
 
   window.hideActionDetail = function() {
+    state.actionDetailRequestId += 1;
+    state.actionDetailName = '';
     document.getElementById('actionDetail').innerHTML = '';
     document.getElementById('actionList').style.display = '';
   };
@@ -1781,27 +1810,33 @@ td.mono {
   // ── Audit ──
   function loadAudit() {
     var container = document.getElementById('auditContent');
+    var requestEpoch = state.requestEpoch;
 
     if (!state.token) {
+      state.auditItems = null;
       container.innerHTML = authGateHTML('audit');
       return;
     }
 
     container.innerHTML = '<div class="loading"><div class="spinner"></div></div>';
     api('/audit?limit=100', { auth: true }).then(function(r) {
+      if (!isViewRequestCurrent('audit', requestEpoch)) return;
       var errMsg, items;
       if (r.status === 401 || r.status === 403) {
+        state.auditItems = null;
         state.errors.audit = 'This token cannot access this view. Paste a different token and try again.';
         container.innerHTML = authGateHTML('audit', state.errors.audit);
         return;
       }
       if (!r.body.success) {
+        state.auditItems = null;
         errMsg = (r.body.error && r.body.error.message) || 'Unable to load audit history.';
         container.innerHTML = errorBannerHTML(errMsg);
         return;
       }
       items = r.body.data;
       if (!Array.isArray(items) || items.length === 0) {
+        state.auditItems = null;
         container.innerHTML = '<div class="empty-state">' +
           '<div class="empty-state-icon">📋</div>' +
           '<h3>No audit activity yet</h3>' +
@@ -1811,7 +1846,9 @@ td.mono {
       state.auditItems = items;
       renderAuditTable(items, container);
     }).catch(function() {
-      container.innerHTML = errorBannerHTML('Cannot reach the server. Ensure kimbap serve --console is running on port 8080.');
+      if (!isViewRequestCurrent('audit', requestEpoch)) return;
+      state.auditItems = null;
+      container.innerHTML = errorBannerHTML('Cannot reach the server. Ensure kimbap serve --console is running for this console URL.');
     });
   }
 
@@ -1864,22 +1901,27 @@ td.mono {
   // ── Approvals ──
   function loadApprovals() {
     var container = document.getElementById('approvalsContent');
+    var requestEpoch = state.requestEpoch;
 
     if (!state.token) {
+      state.approvals = [];
       container.innerHTML = authGateHTML('approvals');
       return;
     }
 
     container.innerHTML = '<div class="loading"><div class="spinner"></div></div>';
     api('/approvals?status=pending', { auth: true }).then(function(r) {
+      if (!isViewRequestCurrent('approvals', requestEpoch)) return;
       var errMsg;
       var items;
       if (r.status === 401 || r.status === 403) {
+        state.approvals = [];
         errMsg = 'This token cannot access approvals. Paste a token with approval permissions.';
         container.innerHTML = authGateHTML('approvals', errMsg);
         return;
       }
       if (!r.body.success) {
+        state.approvals = [];
         errMsg = (r.body.error && r.body.error.message) || 'Unable to load pending approvals.';
         container.innerHTML = errorBannerHTML(errMsg);
         return;
@@ -1896,7 +1938,9 @@ td.mono {
       state.approvals = items;
       renderApprovalsTable(items, container);
     }).catch(function() {
-      container.innerHTML = errorBannerHTML('Cannot reach the server. Ensure kimbap serve --console is running on port 8080.');
+      if (!isViewRequestCurrent('approvals', requestEpoch)) return;
+      state.approvals = [];
+      container.innerHTML = errorBannerHTML('Cannot reach the server. Ensure kimbap serve --console is running for this console URL.');
     });
   }
 
@@ -2047,6 +2091,7 @@ td.mono {
   window.resolveApproval = function(id, mode) {
     var container = document.getElementById('approvalsContent');
     var verb = mode === 'deny' ? 'deny' : 'approve';
+    var requestEpoch = state.requestEpoch;
     var errMsg;
     if (!id || state.approvalsBusy[id]) return;
 
@@ -2056,8 +2101,9 @@ td.mono {
     }
 
     api('/approvals/' + encodeURIComponent(id) + ':' + verb, { auth: true, method: 'POST' }).then(function(r) {
+      if (!isViewRequestCurrent('approvals', requestEpoch)) return;
       if (r.status === 401 || r.status === 403) {
-      container.innerHTML = authGateHTML('approvals', 'This token cannot modify approvals. Paste a token with approval permissions.');
+        container.innerHTML = authGateHTML('approvals', 'This token cannot modify approvals. Paste a token with approval permissions.');
         return;
       }
       if (r.status === 409 || r.status === 410) {
@@ -2073,7 +2119,8 @@ td.mono {
       }
       loadApprovals();
     }).catch(function() {
-      container.innerHTML = errorBannerHTML('Cannot reach the server. Ensure kimbap serve --console is running on port 8080.');
+      if (!isViewRequestCurrent('approvals', requestEpoch)) return;
+      container.innerHTML = errorBannerHTML('Cannot reach the server. Ensure kimbap serve --console is running for this console URL.');
     }).finally(function() {
       delete state.approvalsBusy[id];
     });
@@ -2082,6 +2129,7 @@ td.mono {
   // ── Services (Vault) ──
   function loadServices() {
     var container = document.getElementById('servicesContent');
+    var requestEpoch = state.requestEpoch;
 
     if (!state.token) {
       container.innerHTML = authGateHTML('services');
@@ -2090,6 +2138,7 @@ td.mono {
 
     container.innerHTML = '<div class="loading"><div class="spinner"></div></div>';
     api('/vault', { auth: true }).then(function(r) {
+      if (!isViewRequestCurrent('services', requestEpoch)) return;
       var errMsg, data, items;
       if (r.status === 401 || r.status === 403) {
         state.errors.services = 'This token cannot access this view. Paste a different token and try again.';
@@ -2120,7 +2169,8 @@ td.mono {
 
       renderVaultTable(items, container);
     }).catch(function() {
-      container.innerHTML = errorBannerHTML('Cannot reach the server. Ensure kimbap serve --console is running on port 8080.');
+      if (!isViewRequestCurrent('services', requestEpoch)) return;
+      container.innerHTML = errorBannerHTML('Cannot reach the server. Ensure kimbap serve --console is running for this console URL.');
     });
   }
 
