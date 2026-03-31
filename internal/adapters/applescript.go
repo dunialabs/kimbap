@@ -49,7 +49,7 @@ func NewAppleScriptAdapter(runner CommandRunner) *AppleScriptAdapter {
 // It runs a minimal JXA probe; failure is advisory (does not block registration).
 func (a *AppleScriptAdapter) Preflight(ctx context.Context, targetApp string) error {
 	script := fmt.Sprintf(`Application("%s").name()`, targetApp)
-	_, stderr, err := a.runner.Run(ctx, "/usr/bin/osascript", []string{"-l", "JavaScript", "-e", script}, nil)
+	_, stderr, _, _, err := a.runner.Run(ctx, "/usr/bin/osascript", []string{"-l", "JavaScript", "-e", script}, nil)
 	if err != nil {
 		stderrStr := string(stderr)
 		if strings.Contains(stderrStr, "-1743") {
@@ -151,7 +151,7 @@ func (a *AppleScriptAdapter) Execute(ctx context.Context, req AdapterRequest) (*
 		defer cancel()
 	}
 
-	stdout, stderr, execErr := a.runner.Run(
+	stdout, stderr, stdoutTruncated, _, execErr := a.runner.Run(
 		execCtx,
 		"/usr/bin/osascript",
 		runtimeArgs,
@@ -167,6 +167,22 @@ func (a *AppleScriptAdapter) Execute(ctx context.Context, req AdapterRequest) (*
 			DurationMS: durationMS,
 			Retryable:  mappedErr.Retryable,
 		}, mappedErr
+	}
+	if stdoutTruncated {
+		execErr := actions.NewExecutionError(
+			actions.ErrDownstreamUnavailable,
+			fmt.Sprintf("command output exceeded %d bytes", maxCommandOutputBytes),
+			http.StatusBadGateway,
+			false,
+			map[string]any{"max_bytes": maxCommandOutputBytes},
+		)
+		return &AdapterResult{
+			Output:     map[string]any{"error": execErr.Message},
+			HTTPStatus: http.StatusBadGateway,
+			DurationMS: durationMS,
+			Retryable:  false,
+			RawBody:    stdout,
+		}, execErr
 	}
 
 	output := map[string]any{}

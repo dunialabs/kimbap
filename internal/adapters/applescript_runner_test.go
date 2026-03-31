@@ -17,7 +17,7 @@ func TestMockRunnerImplementsInterface(t *testing.T) {
 func TestMockRunnerRecordsCalls(t *testing.T) {
 	mock := NewMockRunner([]byte(`{"ok":true}`), nil, nil)
 	stdin := bytes.NewReader([]byte(`{"title":"test"}`))
-	stdout, stderr, err := mock.Run(context.Background(), "/usr/bin/osascript", []string{"-l", "JavaScript", "-e", "script"}, stdin)
+	stdout, stderr, stdoutTruncated, stderrTruncated, err := mock.Run(context.Background(), "/usr/bin/osascript", []string{"-l", "JavaScript", "-e", "script"}, stdin)
 
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
@@ -27,6 +27,12 @@ func TestMockRunnerRecordsCalls(t *testing.T) {
 	}
 	if len(stderr) != 0 {
 		t.Errorf("stderr = %q, want empty", stderr)
+	}
+	if stdoutTruncated {
+		t.Error("stdoutTruncated = true, want false")
+	}
+	if stderrTruncated {
+		t.Error("stderrTruncated = true, want false")
 	}
 	if len(mock.Calls) != 1 {
 		t.Fatalf("calls = %d, want 1", len(mock.Calls))

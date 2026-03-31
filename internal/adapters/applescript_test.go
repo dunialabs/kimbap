@@ -508,7 +508,17 @@ type ctxCapturingRunner struct {
 	capturedCtx context.Context
 }
 
-func (r *ctxCapturingRunner) Run(ctx context.Context, name string, args []string, stdin io.Reader) ([]byte, []byte, error) {
+type truncatingRunner struct{}
+
+func (r *truncatingRunner) Run(ctx context.Context, name string, args []string, stdin io.Reader) ([]byte, []byte, bool, bool, error) {
+	_ = ctx
+	_ = name
+	_ = args
+	_ = stdin
+	return []byte(`{"partial":`), nil, true, false, nil
+}
+
+func (r *ctxCapturingRunner) Run(ctx context.Context, name string, args []string, stdin io.Reader) ([]byte, []byte, bool, bool, error) {
 	r.capturedCtx = ctx
 	return r.inner.Run(ctx, name, args, stdin)
 }
@@ -564,5 +574,32 @@ func TestAppleScriptAdapterExecute_RequestTimeoutTakesPriority(t *testing.T) {
 	}
 	if len(mock.Calls) != 1 {
 		t.Fatalf("mock calls = %d, want 1", len(mock.Calls))
+	}
+}
+
+func TestAppleScriptAdapterExecute_FailsOnTruncatedStdout(t *testing.T) {
+	a := NewAppleScriptAdapter(&truncatingRunner{})
+
+	res, err := a.Execute(context.Background(), AdapterRequest{
+		Action: actions.ActionDefinition{
+			Adapter: actions.AdapterConfig{
+				Command:   "list-notes",
+				TargetApp: "Notes",
+			},
+		},
+		Input: map[string]any{},
+	})
+
+	if err == nil {
+		t.Fatal("expected truncation error, got nil")
+	}
+	if res == nil {
+		t.Fatal("expected adapter result, got nil")
+	}
+	if res.HTTPStatus != 502 {
+		t.Fatalf("HTTPStatus = %d, want 502", res.HTTPStatus)
+	}
+	if _, ok := res.Output["error"]; !ok {
+		t.Fatal("expected error payload for truncated stdout")
 	}
 }
