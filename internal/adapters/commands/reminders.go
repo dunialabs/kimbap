@@ -21,16 +21,10 @@ if (input.list) {
 	var lists = app.lists.whose({name: input.list})();
 	reminders = lists.length > 0 ? lists[0].reminders() : [];
 } else {
-	reminders = [];
-	var allLists = app.lists();
+	var allReminders = app.reminders();
 	var parsedLimit = parseInt(input.limit, 10);
 	var limit = (isNaN(parsedLimit) || parsedLimit <= 0) ? 100 : parsedLimit;
-	for (var i = 0; i < allLists.length && reminders.length < limit; i++) {
-		var listReminders = allLists[i].reminders();
-		for (var j = 0; j < listReminders.length && reminders.length < limit; j++) {
-			reminders.push(listReminders[j]);
-		}
-	}
+	reminders = allReminders.slice(0, limit);
 }
 var result = reminders.map(function(r) {
 	var due = r.dueDate();

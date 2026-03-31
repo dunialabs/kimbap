@@ -37,10 +37,24 @@ function isFolder(item) {
 	try { return item.class() === "folder"; } catch (e) { return false; }
 }
 
+function folderURLPrefixes(path) {
+	var trimmed = String(path || "").replace(/\/$/, "");
+	var encoded = encodeURI(trimmed).replace(/#/g, "%23");
+	return ["file://" + encoded, "file://localhost" + encoded];
+}
+
+function findFolderByPath(path) {
+	var prefixes = folderURLPrefixes(path);
+	for (var i = 0; i < prefixes.length; i++) {
+		var folders = app.folders.whose({url: {_beginsWith: prefixes[i]}})();
+		if (folders.length > 0) return folders[0];
+	}
+	throw new Error("[NOT_FOUND] folder not found");
+}
+
 var folder;
 try {
-	folder = app.folder(Path(input.path));
-	folder.name();
+	folder = findFolderByPath(input.path);
 } catch (e) {
 	throw new Error("[NOT_FOUND] folder not found");
 }
@@ -121,10 +135,24 @@ app.includeStandardAdditions = false;
 if (!input.path) throw new Error("path is required");
 if (!input.name) throw new Error("name is required");
 
+function folderURLPrefixes(path) {
+	var trimmed = String(path || "").replace(/\/$/, "");
+	var encoded = encodeURI(trimmed).replace(/#/g, "%23");
+	return ["file://" + encoded, "file://localhost" + encoded];
+}
+
+function findFolderByPath(path) {
+	var prefixes = folderURLPrefixes(path);
+	for (var i = 0; i < prefixes.length; i++) {
+		var folders = app.folders.whose({url: {_beginsWith: prefixes[i]}})();
+		if (folders.length > 0) return folders[0];
+	}
+	throw new Error("[NOT_FOUND] folder not found");
+}
+
 var container;
 try {
-	container = app.folder(Path(input.path));
-	container.name();
+	container = findFolderByPath(input.path);
 } catch (e) {
 	throw new Error("[NOT_FOUND] folder not found");
 }
@@ -155,6 +183,21 @@ app.includeStandardAdditions = false;
 if (!input.source_path) throw new Error("source_path is required");
 if (!input.destination_path) throw new Error("destination_path is required");
 
+function folderURLPrefixes(path) {
+	var trimmed = String(path || "").replace(/\/$/, "");
+	var encoded = encodeURI(trimmed).replace(/#/g, "%23");
+	return ["file://" + encoded, "file://localhost" + encoded];
+}
+
+function findFolderByPath(path) {
+	var prefixes = folderURLPrefixes(path);
+	for (var i = 0; i < prefixes.length; i++) {
+		var folders = app.folders.whose({url: {_beginsWith: prefixes[i]}})();
+		if (folders.length > 0) return folders[0];
+	}
+	throw new Error("[NOT_FOUND] destination folder not found");
+}
+
 var sourceItem;
 try {
 	sourceItem = app.item(Path(input.source_path));
@@ -165,8 +208,7 @@ try {
 
 var destinationFolder;
 try {
-	destinationFolder = app.folder(Path(input.destination_path));
-	destinationFolder.name();
+	destinationFolder = findFolderByPath(input.destination_path);
 } catch (e) {
 	throw new Error("[NOT_FOUND] destination folder not found");
 }
@@ -193,6 +235,21 @@ app.includeStandardAdditions = false;
 if (!input.source_path) throw new Error("source_path is required");
 if (!input.destination_path) throw new Error("destination_path is required");
 
+function folderURLPrefixes(path) {
+	var trimmed = String(path || "").replace(/\/$/, "");
+	var encoded = encodeURI(trimmed).replace(/#/g, "%23");
+	return ["file://" + encoded, "file://localhost" + encoded];
+}
+
+function findFolderByPath(path) {
+	var prefixes = folderURLPrefixes(path);
+	for (var i = 0; i < prefixes.length; i++) {
+		var folders = app.folders.whose({url: {_beginsWith: prefixes[i]}})();
+		if (folders.length > 0) return folders[0];
+	}
+	throw new Error("[NOT_FOUND] destination folder not found");
+}
+
 var sourceItem;
 try {
 	sourceItem = app.item(Path(input.source_path));
@@ -203,8 +260,7 @@ try {
 
 var destinationFolder;
 try {
-	destinationFolder = app.folder(Path(input.destination_path));
-	destinationFolder.name();
+	destinationFolder = findFolderByPath(input.destination_path);
 } catch (e) {
 	throw new Error("[NOT_FOUND] destination folder not found");
 }

@@ -49,7 +49,7 @@ try {
 
 JSON.stringify({
 	name: doc.name(),
-	text: doc.textObject().content()
+	text: doc.textObject.content
 });`,
 		},
 		"word-set-text": {
@@ -73,7 +73,7 @@ try {
 	}
 }
 
-doc.textObject().content = input.text;
+doc.textObject.content = input.text;
 JSON.stringify({name: doc.name(), updated: true});`,
 		},
 		"word-find-replace": {
@@ -99,13 +99,13 @@ try {
 	}
 }
 
-var source = doc.textObject().content() || "";
+var source = doc.textObject.content || "";
 var flags = input.match_case ? "g" : "gi";
 var escaped = input.find.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 var re = new RegExp(escaped, flags);
 var matches = source.match(re);
 var count = matches ? matches.length : 0;
-doc.textObject().content = source.replace(re, input.replace);
+doc.textObject.content = source.replace(re, input.replace);
 
 JSON.stringify({name: doc.name(), replacements: count});`,
 		},
@@ -218,7 +218,7 @@ try {
 var sheet = input.sheet ? workbook.worksheets.whose({name: input.sheet})()[0] : workbook.activeSheet();
 if (!sheet) throw new Error("[NOT_FOUND] worksheet not found");
 
-var value = sheet.range(input.cell).value();
+var value = sheet.ranges[input.cell].value();
 JSON.stringify({workbook: workbook.name(), sheet: sheet.name(), cell: input.cell, value: value});`,
 		},
 		"excel-write-cell": {
@@ -246,7 +246,7 @@ try {
 var sheet = input.sheet ? workbook.worksheets.whose({name: input.sheet})()[0] : workbook.activeSheet();
 if (!sheet) throw new Error("[NOT_FOUND] worksheet not found");
 
-sheet.range(input.cell).value = input.value;
+sheet.ranges[input.cell].value = input.value;
 JSON.stringify({workbook: workbook.name(), sheet: sheet.name(), cell: input.cell, written: true});`,
 		},
 		"excel-read-range": {
@@ -273,7 +273,7 @@ try {
 var sheet = input.sheet ? workbook.worksheets.whose({name: input.sheet})()[0] : workbook.activeSheet();
 if (!sheet) throw new Error("[NOT_FOUND] worksheet not found");
 
-var values = sheet.range(input.range).value();
+var values = sheet.ranges[input.range].value();
 JSON.stringify({workbook: workbook.name(), sheet: sheet.name(), range: input.range, values: values});`,
 		},
 		"excel-save-as-pdf": {

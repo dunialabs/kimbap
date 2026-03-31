@@ -110,6 +110,7 @@ Discover available actions:
 			}
 			applyMisplacedGlobalFormat(&opts, def, input)
 			coerceArrayInputsBySchema(def, input)
+			coerceStringInputsBySchema(def, input)
 
 			requestID := "req_" + uuid.NewString()
 			req := actions.ExecutionRequest{
@@ -222,6 +223,28 @@ func coerceArrayInputsBySchema(def *actions.ActionDefinition, input map[string]a
 			continue
 		}
 		input[name] = []any{val}
+	}
+}
+
+func coerceStringInputsBySchema(def *actions.ActionDefinition, input map[string]any) {
+	if def == nil || def.InputSchema == nil || len(def.InputSchema.Properties) == 0 || len(input) == 0 {
+		return
+	}
+	for name, prop := range def.InputSchema.Properties {
+		if prop == nil || !strings.EqualFold(strings.TrimSpace(prop.Type), "string") {
+			continue
+		}
+		val, exists := input[name]
+		if !exists {
+			continue
+		}
+		if _, isString := val.(string); isString {
+			continue
+		}
+		switch val.(type) {
+		case int, int8, int16, int32, int64, uint, uint8, uint16, uint32, uint64, uintptr, float32, float64:
+			input[name] = fmt.Sprintf("%v", val)
+		}
 	}
 }
 

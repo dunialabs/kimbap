@@ -1,96 +1,47 @@
 name: mermaid
 version: 1.0.0
-description: Mermaid diagram creation and rendering via Mermaid CLI harness
+description: Render Mermaid diagram files to images via the Mermaid CLI (mmdc)
 adapter: command
 command_spec:
   executable: mmdc
-  json_flag: "--json"
+  json_flag: off
   timeout: "30s"
 auth:
   type: none
 triggers:
-  task_verbs: [create, validate, render, share]
-  objects: [mermaid diagrams, diagram definitions, render links]
+  task_verbs: [render, convert]
+  objects: [mermaid diagram files, diagram images]
   instead_of:
-    - manually composing Mermaid payloads and renderer URLs
+    - manually running mmdc commands to render diagrams
   exclusions:
     - editing non-Mermaid diagram tools
 gotchas:
-  - symptom: create-diagram fails with parser errors
-    likely_cause: Mermaid definition syntax is invalid for selected diagram type
-    recovery: Validate syntax first and fix node/edge declarations before create
+  - symptom: render fails with parser errors
+    likely_cause: Mermaid definition syntax is invalid for the diagram type
+    recovery: Check syntax against Mermaid docs before rendering
     severity: high
-  - symptom: render-url returns unsupported format errors
-    likely_cause: Requested format is not accepted by the harness for this diagram
-    recovery: Retry with svg or png and confirm diagram_id exists
-    severity: medium
+  - symptom: mmdc command not found
+    likely_cause: Mermaid CLI is not installed
+    recovery: Install via npm install -g @mermaid-js/mermaid-cli
+    severity: high
 recipes:
-  - name: Draft to shareable diagram flow
-    description: Create, validate, and publish a Mermaid diagram URL safely
+  - name: Render a diagram file to SVG
+    description: Render a Mermaid source file to an SVG output file
     steps:
-      - Call validate with the full diagram definition
-      - Call create-diagram with type and validated definition
-      - Call render-url to obtain an SVG preview link
-      - Call share to generate a shareable artifact
+      - Call render with an input file path and an output path ending in .svg
 actions:
-  create-diagram:
-    command: "diagram create"
-    description: Create a Mermaid diagram from a definition
-    idempotent: false
-    args:
-      - name: type
-        type: string
-        required: true
-      - name: definition
-        type: string
-        required: true
-      - name: title
-        type: string
-        required: false
-    response:
-      type: object
-    risk:
-      level: medium
-
-  validate:
-    command: "diagram validate"
-    description: Validate Mermaid definition syntax and structure
+  render:
+    command: "--quiet"
+    description: Render a Mermaid diagram source file to an image file.
     idempotent: true
     args:
-      - name: definition
+      - name: input
+        type: string
+        required: true
+      - name: output
         type: string
         required: true
     response:
       type: object
     risk:
       level: low
-
-  render-url:
-    command: "render url"
-    description: Generate a rendered diagram URL for a saved diagram
-    idempotent: true
-    args:
-      - name: diagram_id
-        type: string
-        required: true
-      - name: format
-        type: string
-        required: false
-        default: svg
-    response:
-      type: object
-    risk:
-      level: low
-
-  share:
-    command: "share create"
-    description: Create a share entry for an existing diagram
-    idempotent: false
-    args:
-      - name: diagram_id
-        type: string
-        required: true
-    response:
-      type: object
-    risk:
-      level: medium
