@@ -43,6 +43,9 @@ func (w *Worker) Start(ctx context.Context) {
 		return
 	}
 	w.startOnce.Do(func() {
+		if ctx == nil {
+			ctx = context.Background()
+		}
 		ctx, w.cancel = context.WithCancel(ctx)
 		w.wg.Add(1)
 		go func() {

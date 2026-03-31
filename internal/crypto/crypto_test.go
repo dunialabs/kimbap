@@ -209,3 +209,40 @@ func TestEnvelopeUnicodeAndBinary(t *testing.T) {
 		t.Fatalf("unicode/binary payload mismatch")
 	}
 }
+
+func TestEnvelopeDecryptRecoversTenantKeyAfterRestart(t *testing.T) {
+	masterKey, err := GenerateRandomKey(32)
+	if err != nil {
+		t.Fatalf("generate key: %v", err)
+	}
+
+	const tenantKeyID = "tenant:tenant-a"
+
+	originalSvc, err := NewEnvelopeService(masterKey)
+	if err != nil {
+		t.Fatalf("new original envelope service: %v", err)
+	}
+	if err := originalSvc.EnsureKey(tenantKeyID); err != nil {
+		t.Fatalf("ensure tenant key: %v", err)
+	}
+
+	plaintext := []byte("persisted-tenant-envelope")
+	envelope, err := originalSvc.Encrypt(plaintext, tenantKeyID)
+	if err != nil {
+		t.Fatalf("encrypt with tenant key: %v", err)
+	}
+
+	restartedSvc, err := NewEnvelopeService(masterKey)
+	if err != nil {
+		t.Fatalf("new restarted envelope service: %v", err)
+	}
+
+	decrypted, err := restartedSvc.Decrypt(envelope)
+	if err != nil {
+		t.Fatalf("decrypt persisted tenant envelope after restart: %v", err)
+	}
+
+	if !bytes.Equal(decrypted, plaintext) {
+		t.Fatalf("decrypted payload mismatch after restart")
+	}
+}

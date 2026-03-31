@@ -198,6 +198,7 @@ func newApproveDenyCommand() *cobra.Command {
 					}
 					return fmt.Errorf("deny failed: %w", err)
 				}
+				_ = st.RemoveExecution(contextBackground(), args[0])
 				if outputAsJSON() {
 					return printOutput(map[string]any{
 						"request_id":  args[0],

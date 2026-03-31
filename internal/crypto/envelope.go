@@ -131,7 +131,15 @@ func (e *EnvelopeService) Decrypt(envelope *EncryptedEnvelope) ([]byte, error) {
 
 	kek, err := e.getKey(keyID)
 	if err != nil {
-		return nil, err
+		if errors.Is(err, ErrKEKNotFound) && keyID != defaultKeyID {
+			if ensureErr := e.EnsureKey(keyID); ensureErr != nil {
+				return nil, ensureErr
+			}
+			kek, err = e.getKey(keyID)
+		}
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	dek, err := openGCM(kek, envelope.DEKNonce, envelope.WrappedDEK)

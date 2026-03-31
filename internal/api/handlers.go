@@ -733,10 +733,15 @@ func sanitizeErrMsg(err error, status int) string {
 }
 
 func (s *Server) removeHeldExecution(ctx context.Context, approvalRequestID string) {
-	if s.runtime == nil || s.runtime.HeldExecutionStore == nil {
-		return
-	}
 	removeCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), 3*time.Second)
 	defer cancel()
-	_ = s.runtime.HeldExecutionStore.Remove(removeCtx, approvalRequestID)
+	if s.runtime != nil && s.runtime.HeldExecutionStore != nil {
+		_ = s.runtime.HeldExecutionStore.Remove(removeCtx, approvalRequestID)
+		return
+	}
+	if executionStore, ok := s.store.(interface {
+		RemoveExecution(context.Context, string) error
+	}); ok {
+		_ = executionStore.RemoveExecution(removeCtx, approvalRequestID)
+	}
 }
