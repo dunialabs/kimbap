@@ -390,19 +390,7 @@ func buildServeRuntime(cfg *config.KimbapConfig, st *store.SQLStore, vaultStore 
 		_, _ = fmt.Fprintf(os.Stderr, "warning: connector store unavailable, OAuth credential resolution disabled: %v\n", csErr)
 	} else {
 		connStore = cs
-		for _, prov := range providers.ListProviders() {
-			creds := resolveOAuthCreds(cfg, prov.ID)
-			connConfigs = append(connConfigs, connectors.ConnectorConfig{
-				Name:         prov.ID,
-				Provider:     prov.ID,
-				ClientID:     creds.ClientID,
-				ClientSecret: creds.ClientSecret,
-				AuthMethod:   creds.AuthMethod,
-				TokenURL:     prov.TokenEndpoint,
-				DeviceURL:    prov.DeviceEndpoint,
-				Scopes:       prov.DefaultScopes,
-			})
-		}
+		connConfigs = buildConnectorConfigs(cfg)
 	}
 
 	rt, err := app.BuildRuntime(app.RuntimeDeps{

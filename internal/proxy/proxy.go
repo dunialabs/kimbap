@@ -92,6 +92,17 @@ type bufferedConn struct {
 	r io.Reader
 }
 
+type countingReadCloser struct {
+	io.ReadCloser
+	n int64
+}
+
+func (c *countingReadCloser) Read(p []byte) (int, error) {
+	n, err := c.ReadCloser.Read(p)
+	c.n += int64(n)
+	return n, err
+}
+
 func (c *bufferedConn) Read(b []byte) (int, error) {
 	return c.r.Read(b)
 }
@@ -386,97 +397,82 @@ func (p *ProxyServer) handleConnect(w http.ResponseWriter, req *http.Request) {
 			return
 		}
 		mitmReq = mitmReq.WithContext(req.Context())
-		_ = tlsConn.SetReadDeadline(time.Now().Add(defaultProxyReadTimeout))
-
-		if mitmReq.URL == nil {
-			mitmReq.URL = &url.URL{}
-		}
-		mitmReq.URL.Scheme = "https"
-		mitmReq.URL.Host = connectHost
-		if mitmReq.Host == "" {
-			mitmReq.Host = connectHost
-		}
-
-		if strings.EqualFold(mitmReq.Header.Get("Expect"), "100-continue") {
-			_, _ = fmt.Fprintf(tlsConn, "HTTP/1.1 100 Continue\r\n\r\n")
-		}
-
-		if isWebSocketUpgrade(mitmReq) {
-			_ = tlsConn.SetWriteDeadline(time.Now().Add(defaultProxyConnWriteTimeout))
-			_ = writePlainErrorResponse(tlsConn, http.StatusNotImplemented, "websocket is not supported in proxy mode v1")
-			_ = tlsConn.SetWriteDeadline(time.Time{})
-			drainBody(mitmReq.Body)
-			if mitmReq.Close {
-				return
-			}
-			continue
-		}
-
-		reqID := newRequestID()
-		classification := p.classify(mitmReq.Method, connectHost, mitmReq.URL.Path)
-		if classification != nil && classification.Matched {
-			mitmReq.Header.Set("X-Kimbap-Request-ID", reqID)
-			result := p.executeClassifiedRequest(req.Context(), mitmReq, reqID, classification, connectHost, mitmReq.URL.Path)
-			if result.Error != nil && runtimeResultStatus(result) >= 500 {
-				_ = tlsConn.SetWriteDeadline(time.Now().Add(defaultProxyConnWriteTimeout))
-				_ = writePlainErrorResponse(tlsConn, runtimeResultStatus(result), "proxy request failed")
-				_ = tlsConn.SetWriteDeadline(time.Time{})
-				drainBody(mitmReq.Body)
-				if mitmReq.Close {
-					return
-				}
-				continue
-			}
-			_ = tlsConn.SetWriteDeadline(time.Now().Add(defaultProxyConnWriteTimeout))
-			if err := writeRuntimeConnResponse(tlsConn, result); err != nil {
-				_ = tlsConn.SetWriteDeadline(time.Time{})
-				drainBody(mitmReq.Body)
-				return
-			}
-			_ = tlsConn.SetWriteDeadline(time.Time{})
-			drainBody(mitmReq.Body)
-			if mitmReq.Close {
-				return
-			}
-			continue
-		} else if p.unmatchedPolicy == UnmatchedPolicyDeny {
-			_ = tlsConn.SetWriteDeadline(time.Now().Add(defaultProxyConnWriteTimeout))
-			_ = writePlainErrorResponse(tlsConn, http.StatusForbidden, "proxy request denied")
-			_ = tlsConn.SetWriteDeadline(time.Time{})
-			drainBody(mitmReq.Body)
-			if mitmReq.Close {
-				return
-			}
-			continue
-		} else {
-			mitmReq.Header.Set("X-Kimbap-Request-ID", reqID)
-		}
-
-		resp, ferr := p.forwardRequest(mitmReq)
-		if ferr != nil {
-			_ = tlsConn.SetWriteDeadline(time.Now().Add(defaultProxyConnWriteTimeout))
-			_ = writePlainErrorResponse(tlsConn, http.StatusBadGateway, "proxy request failed")
-			_ = tlsConn.SetWriteDeadline(time.Time{})
-			drainBody(mitmReq.Body)
-			if mitmReq.Close {
-				return
-			}
-			continue
-		}
-
-		drainBody(mitmReq.Body)
-		_ = tlsConn.SetWriteDeadline(time.Now().Add(defaultProxyConnWriteTimeout))
-		writeErr := resp.Write(tlsConn)
-		_ = tlsConn.SetWriteDeadline(time.Time{})
-		_ = resp.Body.Close()
-		if writeErr != nil {
+		shouldClose, err := p.processMITMRequest(req.Context(), tlsConn, mitmReq, connectHost, drainBody)
+		if err != nil {
 			return
 		}
-
-		if mitmReq.Close {
+		if shouldClose {
 			return
 		}
 	}
+}
+
+func writeTunnelErrorAndDrain(tlsConn *tls.Conn, req *http.Request, status int, message string, drainBody func(io.ReadCloser)) bool {
+	_ = tlsConn.SetWriteDeadline(time.Now().Add(defaultProxyConnWriteTimeout))
+	_ = writePlainErrorResponse(tlsConn, status, message)
+	_ = tlsConn.SetWriteDeadline(time.Time{})
+	drainBody(req.Body)
+	return req.Close
+}
+
+func (p *ProxyServer) processMITMRequest(ctx context.Context, tlsConn *tls.Conn, mitmReq *http.Request, connectHost string, drainBody func(io.ReadCloser)) (bool, error) {
+	_ = tlsConn.SetReadDeadline(time.Now().Add(defaultProxyReadTimeout))
+
+	if mitmReq.URL == nil {
+		mitmReq.URL = &url.URL{}
+	}
+	mitmReq.URL.Scheme = "https"
+	mitmReq.URL.Host = connectHost
+	if mitmReq.Host == "" {
+		mitmReq.Host = connectHost
+	}
+
+	if strings.EqualFold(mitmReq.Header.Get("Expect"), "100-continue") {
+		_, _ = fmt.Fprintf(tlsConn, "HTTP/1.1 100 Continue\r\n\r\n")
+	}
+
+	if isWebSocketUpgrade(mitmReq) {
+		return writeTunnelErrorAndDrain(tlsConn, mitmReq, http.StatusNotImplemented, "websocket is not supported in proxy mode v1", drainBody), nil
+	}
+
+	reqID := newRequestID()
+	classification := p.classify(mitmReq.Method, connectHost, mitmReq.URL.Path)
+	if classification != nil && classification.Matched {
+		mitmReq.Header.Set("X-Kimbap-Request-ID", reqID)
+		result := p.executeClassifiedRequest(ctx, mitmReq, reqID, classification, connectHost, mitmReq.URL.Path)
+		if result.Error != nil && runtimeResultStatus(result) >= 500 {
+			return writeTunnelErrorAndDrain(tlsConn, mitmReq, runtimeResultStatus(result), "proxy request failed", drainBody), nil
+		}
+		_ = tlsConn.SetWriteDeadline(time.Now().Add(defaultProxyConnWriteTimeout))
+		if err := writeRuntimeConnResponse(tlsConn, result); err != nil {
+			_ = tlsConn.SetWriteDeadline(time.Time{})
+			drainBody(mitmReq.Body)
+			return false, err
+		}
+		_ = tlsConn.SetWriteDeadline(time.Time{})
+		drainBody(mitmReq.Body)
+		return mitmReq.Close, nil
+	} else if p.unmatchedPolicy == UnmatchedPolicyDeny {
+		return writeTunnelErrorAndDrain(tlsConn, mitmReq, http.StatusForbidden, "proxy request denied", drainBody), nil
+	} else {
+		mitmReq.Header.Set("X-Kimbap-Request-ID", reqID)
+	}
+
+	resp, ferr := p.forwardRequest(mitmReq)
+	if ferr != nil {
+		return writeTunnelErrorAndDrain(tlsConn, mitmReq, http.StatusBadGateway, "proxy request failed", drainBody), nil
+	}
+
+	drainBody(mitmReq.Body)
+	_ = tlsConn.SetWriteDeadline(time.Now().Add(defaultProxyConnWriteTimeout))
+	writeErr := resp.Write(tlsConn)
+	_ = tlsConn.SetWriteDeadline(time.Time{})
+	_ = resp.Body.Close()
+	if writeErr != nil {
+		return false, writeErr
+	}
+
+	return mitmReq.Close, nil
 }
 
 func (p *ProxyServer) classify(method, host, reqPath string) *classifier.ClassificationResult {
@@ -565,23 +561,40 @@ func extractProxyInput(req *http.Request) (map[string]any, error) {
 	if req.Body == nil {
 		return out, nil
 	}
-	raw, err := io.ReadAll(io.LimitReader(req.Body, maxProxyRequestBodyBytes+1))
-	if err != nil {
+	if req.ContentLength > maxProxyRequestBodyBytes {
+		return nil, fmt.Errorf("proxy request body exceeded %d bytes", maxProxyRequestBodyBytes)
+	}
+	bodyReader := &countingReadCloser{ReadCloser: req.Body}
+	defer func() { _ = req.Body.Close() }()
+	limitedBody := io.LimitReader(bodyReader, maxProxyRequestBodyBytes+1)
+	decoder := json.NewDecoder(limitedBody)
+
+	var body any
+	decodeErr := decoder.Decode(&body)
+	if decodeErr == nil {
+		var extra any
+		if err := decoder.Decode(&extra); err != io.EOF {
+			decodeErr = err
+		}
+	}
+
+	if _, err := io.Copy(io.Discard, limitedBody); err != nil {
 		return nil, err
 	}
-	_ = req.Body.Close()
-	if len(raw) > maxProxyRequestBodyBytes {
+
+	if bodyReader.n > maxProxyRequestBodyBytes {
 		return nil, fmt.Errorf("proxy request body exceeded %d bytes", maxProxyRequestBodyBytes)
 	}
 
-	trimmed := bytes.TrimSpace(raw)
-	if len(trimmed) == 0 {
-		return out, nil
+	if decodeErr != nil {
+		if errors.Is(decodeErr, io.EOF) {
+			return out, nil
+		}
+		return nil, errProxyNonJSONMatchedBody
 	}
 
-	var body any
-	if err := json.Unmarshal(trimmed, &body); err != nil {
-		return nil, errProxyNonJSONMatchedBody
+	if body == nil {
+		return out, nil
 	}
 
 	switch typed := body.(type) {

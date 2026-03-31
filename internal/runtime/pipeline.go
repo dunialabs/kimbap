@@ -11,6 +11,7 @@ import (
 
 	"github.com/dunialabs/kimbap/internal/actions"
 	"github.com/dunialabs/kimbap/internal/adapters"
+	"github.com/dunialabs/kimbap/internal/headerutil"
 )
 
 type PolicyRequest struct {
@@ -137,7 +138,6 @@ type TraceStep struct {
 
 type TraceCollector struct {
 	Steps    []TraceStep
-	start    time.Time
 	lastStep time.Time
 	now      func() time.Time
 }
@@ -147,7 +147,7 @@ func NewTraceCollector(now func() time.Time) *TraceCollector {
 		now = time.Now
 	}
 	t := now()
-	return &TraceCollector{start: t, lastStep: t, now: now}
+	return &TraceCollector{lastStep: t, now: now}
 }
 
 func (tc *TraceCollector) Record(step, status, detail string) {
@@ -241,7 +241,7 @@ func (r *Runtime) ResumeApproved(ctx context.Context, approvalRequestID string) 
 
 	if validationErr := actions.ValidateInput(held.Action.InputSchema, held.Input); validationErr != nil {
 		return reholdIfRetryable(r.finalizeWithError(ctx, &result, *held,
-			actions.NewExecutionError(actions.ErrValidationFailed, validationErr.Error(), 400, false, nil),
+			validationErr,
 			startedAt, "require_approval", approvalRequestID))
 	}
 
@@ -385,42 +385,40 @@ func (r *Runtime) execute(ctx context.Context, req actions.ExecutionRequest, tra
 			trace.Record("request_approval", "error", approvalErr.Error())
 			return r.finalizeWithError(ctx, &result, req, approvalErr, startedAt, "require_approval", approvalRequestID)
 		}
-		if approvalRes != nil {
-			approvalRequestID = approvalRes.RequestID
-			if approvalRes.Timeout {
-				timeoutErr := actions.NewExecutionError(actions.ErrApprovalTimeout, "approval request timed out", 408, false, map[string]any{"approval_request_id": approvalRes.RequestID})
-				trace.Record("request_approval", "error", timeoutErr.Error())
-				return r.finalizeWithStatus(ctx, &result, req, actions.StatusTimeout, timeoutErr, nil, 408, startedAt, "require_approval", approvalRes.RequestID)
-			}
-			if !approvalRes.Approved {
-				if r.HeldExecutionStore == nil {
-					holdMissingErr := actions.NewExecutionError(
-						actions.ErrDownstreamUnavailable,
-						"approval resume unavailable: held execution store is not configured",
-						500,
-						false,
-						nil,
-					)
-					trace.Record("hold_execution", "error", holdMissingErr.Error())
-					return r.finalizeWithError(ctx, &result, req, holdMissingErr, startedAt, "require_approval", approvalRes.RequestID)
-				}
-				if holdErr := r.HeldExecutionStore.Hold(ctx, approvalRes.RequestID, req); holdErr != nil {
-					holdFailErr := actions.NewExecutionError(actions.ErrDownstreamUnavailable, fmt.Sprintf("failed to hold execution for approval: %v", holdErr), 500, false, nil)
-					if cancelErr := r.cancelApprovalOnHoldFailure(ctx, approvalRes.RequestID, holdErr); cancelErr != nil {
-						if holdFailErr.Details == nil {
-							holdFailErr.Details = map[string]any{}
-						}
-						holdFailErr.Details["approval_cancel_error"] = cancelErr.Error()
-					}
-					trace.Record("hold_execution", "error", holdFailErr.Error())
-					return r.finalizeWithError(ctx, &result, req, holdFailErr, startedAt, "require_approval", approvalRes.RequestID)
-				}
-				approvalErr := actions.NewExecutionError(actions.ErrApprovalRequired, "approval required", 202, false, map[string]any{"approval_request_id": approvalRes.RequestID})
-				trace.Record("request_approval", "error", approvalErr.Error())
-				return r.finalizeWithStatus(ctx, &result, req, actions.StatusApprovalRequired, approvalErr, nil, 202, startedAt, "require_approval", approvalRes.RequestID)
-			}
-			trace.Record("request_approval", "ok", approvalRes.RequestID)
+		approvalRequestID = approvalRes.RequestID
+		if approvalRes.Timeout {
+			timeoutErr := actions.NewExecutionError(actions.ErrApprovalTimeout, "approval request timed out", 408, false, map[string]any{"approval_request_id": approvalRes.RequestID})
+			trace.Record("request_approval", "error", timeoutErr.Error())
+			return r.finalizeWithStatus(ctx, &result, req, actions.StatusTimeout, timeoutErr, nil, 408, startedAt, "require_approval", approvalRes.RequestID)
 		}
+		if !approvalRes.Approved {
+			if r.HeldExecutionStore == nil {
+				holdMissingErr := actions.NewExecutionError(
+					actions.ErrDownstreamUnavailable,
+					"approval resume unavailable: held execution store is not configured",
+					500,
+					false,
+					nil,
+				)
+				trace.Record("hold_execution", "error", holdMissingErr.Error())
+				return r.finalizeWithError(ctx, &result, req, holdMissingErr, startedAt, "require_approval", approvalRes.RequestID)
+			}
+			if holdErr := r.HeldExecutionStore.Hold(ctx, approvalRes.RequestID, req); holdErr != nil {
+				holdFailErr := actions.NewExecutionError(actions.ErrDownstreamUnavailable, fmt.Sprintf("failed to hold execution for approval: %v", holdErr), 500, false, nil)
+				if cancelErr := r.cancelApprovalOnHoldFailure(ctx, approvalRes.RequestID, holdErr); cancelErr != nil {
+					if holdFailErr.Details == nil {
+						holdFailErr.Details = map[string]any{}
+					}
+					holdFailErr.Details["approval_cancel_error"] = cancelErr.Error()
+				}
+				trace.Record("hold_execution", "error", holdFailErr.Error())
+				return r.finalizeWithError(ctx, &result, req, holdFailErr, startedAt, "require_approval", approvalRes.RequestID)
+			}
+			approvalErr := actions.NewExecutionError(actions.ErrApprovalRequired, "approval required", 202, false, map[string]any{"approval_request_id": approvalRes.RequestID})
+			trace.Record("request_approval", "error", approvalErr.Error())
+			return r.finalizeWithStatus(ctx, &result, req, actions.StatusApprovalRequired, approvalErr, nil, 202, startedAt, "require_approval", approvalRes.RequestID)
+		}
+		trace.Record("request_approval", "ok", approvalRes.RequestID)
 	} else {
 		trace.Record("request_approval", "skipped", "not required")
 	}
@@ -868,19 +866,10 @@ func redactHeaders(headers map[string]string) map[string]string {
 
 	redacted := make(map[string]string, len(headers))
 	for key, value := range headers {
-		if isSensitiveHeader(key) {
+		if headerutil.IsSensitiveAuditHeader(key) {
 			continue
 		}
 		redacted[key] = value
 	}
 	return redacted
-}
-
-func isSensitiveHeader(key string) bool {
-	switch strings.ToLower(strings.TrimSpace(key)) {
-	case "authorization", "proxy-authorization", "x-api-key", "x-auth-token", "x-access-token", "cookie", "set-cookie":
-		return true
-	default:
-		return false
-	}
 }

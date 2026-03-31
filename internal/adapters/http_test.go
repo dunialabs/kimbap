@@ -52,6 +52,31 @@ func TestHTTPAdapterSuccessGetWithBearer(t *testing.T) {
 	}
 }
 
+func TestSecureRedirectPolicyStripsCredentialLikeHeaders(t *testing.T) {
+	originReq := httptest.NewRequest(http.MethodGet, "https://api.example.com/start", nil)
+	redirectReq := httptest.NewRequest(http.MethodGet, "https://other.example.com/next", nil)
+	redirectReq.Header.Set("Authorization", "Bearer secret")
+	redirectReq.Header.Set("X-Access-Token", "tok-123")
+	redirectReq.Header.Set("Cookie", "session=keep")
+	redirectReq.Header.Set("Content-Type", "application/json")
+
+	if err := secureRedirectPolicy(redirectReq, []*http.Request{originReq}); err != nil {
+		t.Fatalf("secureRedirectPolicy() error = %v", err)
+	}
+	if got := redirectReq.Header.Get("Authorization"); got != "" {
+		t.Fatalf("expected Authorization stripped, got %q", got)
+	}
+	if got := redirectReq.Header.Get("X-Access-Token"); got != "" {
+		t.Fatalf("expected X-Access-Token stripped, got %q", got)
+	}
+	if got := redirectReq.Header.Get("Cookie"); got != "session=keep" {
+		t.Fatalf("expected Cookie preserved for redirect policy, got %q", got)
+	}
+	if got := redirectReq.Header.Get("Content-Type"); got != "application/json" {
+		t.Fatalf("expected Content-Type preserved, got %q", got)
+	}
+}
+
 func TestHTTPAdapterSuccessPostJSONBody(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodPost {

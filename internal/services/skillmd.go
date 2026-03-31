@@ -515,10 +515,6 @@ func packHasActionWarnings(manifest *ServiceManifest) bool {
 	return false
 }
 
-func generateMetaAgentSkillPack() map[string]string {
-	return map[string]string{"SKILL.md": GenerateMetaAgentSkillMD()}
-}
-
 func formatArgsSummary(args []ActionArg) string {
 	if len(args) == 0 {
 		return "-"

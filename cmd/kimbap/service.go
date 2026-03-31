@@ -471,18 +471,7 @@ func newServiceEnableCommand() *cobra.Command {
 			installer := installerFromConfig(cfg)
 			name := strings.TrimSpace(args[0])
 			if err := installer.Enable(name); err != nil {
-				if errors.Is(err, fs.ErrNotExist) {
-					if installed, listErr := installer.List(); listErr == nil {
-						names := make([]string, len(installed))
-						for i, svc := range installed {
-							names[i] = svc.Manifest.Name
-						}
-						if suggestion := didYouMean(name, names); suggestion != "" {
-							err = fmt.Errorf("%w\n\nDid you mean %q?", err, suggestion)
-						}
-					}
-				}
-				return err
+				return augmentServiceNotFoundError(installer, name, err)
 			}
 
 			autoAlias := ""
@@ -541,20 +530,9 @@ func newServiceDisableCommand() *cobra.Command {
 				return getErr
 			}
 
-			configPath, resolveErr := resolveConfigPath()
-			if resolveErr != nil {
-				return fmt.Errorf("service %q disable setup failed: resolve config path: %w", name, resolveErr)
-			}
-			serviceAliasSnapshot := collectServiceAliasesForTarget(cfg.Aliases, name)
-			commandAliasSnapshot := collectCommandAliasesForTarget(cfg.CommandAliases, name)
-			if _, _, _, cleanupErr := cleanupAliasesForService(configPath, name, cfg.Aliases, cfg.CommandAliases); cleanupErr != nil {
-				return fmt.Errorf("service %q disable failed during alias cleanup: %w", name, cleanupErr)
-			}
-
-			if err := installer.Disable(name); err != nil {
-				if rollbackErr := restoreServiceScopedAliases(configPath, cfg.Aliases, cfg.CommandAliases, serviceAliasSnapshot, commandAliasSnapshot); rollbackErr != nil {
-					return fmt.Errorf("disable service %q: %w (and failed to restore aliases: %v)", name, err, rollbackErr)
-				}
+			if err := withServiceAliasCleanupRollback(cfg, name, "disable", func() error {
+				return installer.Disable(name)
+			}); err != nil {
 				if errors.Is(err, fs.ErrNotExist) {
 					return augmentServiceNotFoundError(installer, name, err)
 				}
@@ -591,20 +569,9 @@ func newServiceRemoveCommand() *cobra.Command {
 				return getErr
 			}
 
-			configPath, resolveErr := resolveConfigPath()
-			if resolveErr != nil {
-				return fmt.Errorf("service %q remove setup failed: resolve config path: %w", name, resolveErr)
-			}
-			serviceAliasSnapshot := collectServiceAliasesForTarget(cfg.Aliases, name)
-			commandAliasSnapshot := collectCommandAliasesForTarget(cfg.CommandAliases, name)
-			if _, _, _, cleanupErr := cleanupAliasesForService(configPath, name, cfg.Aliases, cfg.CommandAliases); cleanupErr != nil {
-				return fmt.Errorf("service %q remove failed during alias cleanup: %w", name, cleanupErr)
-			}
-
-			if err := installer.Remove(name); err != nil {
-				if rollbackErr := restoreServiceScopedAliases(configPath, cfg.Aliases, cfg.CommandAliases, serviceAliasSnapshot, commandAliasSnapshot); rollbackErr != nil {
-					return fmt.Errorf("remove service %q: %w (and failed to restore aliases: %v)", name, err, rollbackErr)
-				}
+			if err := withServiceAliasCleanupRollback(cfg, name, "remove", func() error {
+				return installer.Remove(name)
+			}); err != nil {
 				if errors.Is(err, fs.ErrNotExist) {
 					return augmentServiceNotFoundError(installer, name, err)
 				}
@@ -619,6 +586,27 @@ func newServiceRemoveCommand() *cobra.Command {
 		},
 	}
 	return cmd
+}
+
+func withServiceAliasCleanupRollback(cfg *config.KimbapConfig, name, operation string, run func() error) error {
+	configPath, resolveErr := resolveConfigPath()
+	if resolveErr != nil {
+		return fmt.Errorf("service %q %s setup failed: resolve config path: %w", name, operation, resolveErr)
+	}
+	serviceAliasSnapshot := collectServiceAliasesForTarget(cfg.Aliases, name)
+	commandAliasSnapshot := collectCommandAliasesForTarget(cfg.CommandAliases, name)
+	if _, _, _, cleanupErr := cleanupAliasesForService(configPath, name, cfg.Aliases, cfg.CommandAliases); cleanupErr != nil {
+		return fmt.Errorf("service %q %s failed during alias cleanup: %w", name, operation, cleanupErr)
+	}
+
+	if err := run(); err != nil {
+		if rollbackErr := restoreServiceScopedAliases(configPath, cfg.Aliases, cfg.CommandAliases, serviceAliasSnapshot, commandAliasSnapshot); rollbackErr != nil {
+			return fmt.Errorf("%s service %q: %w (and failed to restore aliases: %v)", operation, name, err, rollbackErr)
+		}
+		return err
+	}
+
+	return nil
 }
 
 func newServiceUpdateCommand() *cobra.Command {

@@ -1,9 +1,7 @@
 package approvals
 
 import (
-	"bytes"
 	"context"
-	"encoding/json"
 	"fmt"
 	"net/http"
 	"strings"
@@ -51,29 +49,11 @@ func (t *TelegramNotifier) Notify(ctx context.Context, req *ApprovalRequest) err
 	text := fmt.Sprintf("[Kimbap] Approval Required\nService: %s.%s\nAgent: %s | Risk: %s\nID: %s\n\nkimbap approve %s",
 		req.Service, req.Action, req.AgentName, req.Risk, req.ID, req.ID)
 
-	payload, err := json.Marshal(map[string]string{
+	payload := map[string]string{
 		"chat_id": t.chatID,
 		"text":    text,
-	})
-	if err != nil {
-		return fmt.Errorf("telegram notifier: marshal payload: %w", err)
 	}
 
 	url := fmt.Sprintf("%s/bot%s/sendMessage", t.baseURL, t.token)
-	httpReq, err := http.NewRequestWithContext(ctx, http.MethodPost, url, bytes.NewReader(payload))
-	if err != nil {
-		return fmt.Errorf("telegram notifier: create request: %w", err)
-	}
-	httpReq.Header.Set("Content-Type", "application/json")
-
-	res, err := t.client.Do(httpReq)
-	if err != nil {
-		return fmt.Errorf("telegram notifier: send: %w", err)
-	}
-	_ = res.Body.Close()
-
-	if res.StatusCode < http.StatusOK || res.StatusCode >= http.StatusMultipleChoices {
-		return fmt.Errorf("telegram notifier: unexpected status %d", res.StatusCode)
-	}
-	return nil
+	return postJSONNotification(ctx, t.client, url, payload, "telegram notifier")
 }

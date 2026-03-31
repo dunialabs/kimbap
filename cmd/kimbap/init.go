@@ -457,12 +457,7 @@ func printCatalogServiceCategories() error {
 func buildInitConfig() *config.KimbapConfig {
 	cfg := config.DefaultConfig()
 	if strings.TrimSpace(opts.dataDir) != "" {
-		cfg.DataDir = opts.dataDir
-		cfg.Vault.Path = filepath.Join(cfg.DataDir, "vault.db")
-		cfg.Services.Dir = filepath.Join(cfg.DataDir, "services")
-		cfg.Audit.Path = filepath.Join(cfg.DataDir, "audit.jsonl")
-		cfg.Database.DSN = filepath.Join(cfg.DataDir, "kimbap.db")
-		cfg.Policy.Path = filepath.Join(cfg.DataDir, "policy.yaml")
+		config.ApplyDataDirOverride(cfg, opts.dataDir)
 	}
 	if strings.TrimSpace(opts.logLevel) != "" {
 		cfg.LogLevel = opts.logLevel

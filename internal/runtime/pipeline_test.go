@@ -497,6 +497,8 @@ func TestRuntimeExecuteRedactsSensitiveHeadersInMeta(t *testing.T) {
 					Headers: map[string]string{
 						"Authorization": "Bearer secret",
 						"X-Api-Key":     "supersecret",
+						"Cookie":        "session=secret",
+						"Set-Cookie":    "session=secret",
 						"Content-Type":  "application/json",
 					},
 				},
@@ -522,6 +524,12 @@ func TestRuntimeExecuteRedactsSensitiveHeadersInMeta(t *testing.T) {
 	}
 	if _, exists := headers["X-Api-Key"]; exists {
 		t.Fatal("expected X-Api-Key header to be redacted")
+	}
+	if _, exists := headers["Cookie"]; exists {
+		t.Fatal("expected Cookie header to be redacted")
+	}
+	if _, exists := headers["Set-Cookie"]; exists {
+		t.Fatal("expected Set-Cookie header to be redacted")
 	}
 	if headers["Content-Type"] != "application/json" {
 		t.Fatalf("expected non-sensitive header preserved, got %+v", headers)

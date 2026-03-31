@@ -18,6 +18,7 @@ import (
 	"unicode/utf8"
 
 	"github.com/dunialabs/kimbap/internal/actions"
+	"github.com/dunialabs/kimbap/internal/headerutil"
 )
 
 type HTTPAdapter struct {
@@ -62,24 +63,10 @@ func secureRedirectPolicy(req *http.Request, via []*http.Request) error {
 
 func stripSensitiveRedirectHeaders(headers http.Header) {
 	for key := range headers {
-		if isSensitiveRedirectHeader(key) {
+		if headerutil.IsCredentialLikeHeader(key) {
 			headers.Del(key)
 		}
 	}
-}
-
-func isSensitiveRedirectHeader(key string) bool {
-	name := strings.ToLower(strings.TrimSpace(key))
-	if name == "authorization" || name == "proxy-authorization" {
-		return true
-	}
-	if strings.Contains(name, "api-key") || strings.Contains(name, "apikey") {
-		return true
-	}
-	if strings.Contains(name, "token") || strings.Contains(name, "secret") {
-		return true
-	}
-	return false
 }
 
 func (a *HTTPAdapter) Type() string {

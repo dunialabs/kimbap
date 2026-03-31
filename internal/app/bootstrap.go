@@ -299,9 +299,6 @@ func (r *servicesActionRegistry) loadDefinitions() ([]actions.ActionDefinition, 
 		return r.cachedDefs, nil
 	}
 	dirState := r.computeDirectoryStateLocked()
-	if r.cachedDefs != nil && dirState != "" && dirState == r.cachedDirState && now.Sub(r.lastFullScan) < scanInterval {
-		return r.cachedDefs, nil
-	}
 
 	fp, manifestFiles := r.computeFingerprint()
 	if fp != "" && fp == r.cacheFingerprint && r.cachedDefs != nil {

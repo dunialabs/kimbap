@@ -19,6 +19,10 @@ import (
 
 const maxAuditQueryLimit = 10000
 
+const tokenSelectColumns = "id, tenant_id, agent_name, token_hash, display_hint, scopes, created_at, expires_at, last_used_at, revoked_at, created_by"
+
+const approvalSelectColumns = "id, tenant_id, request_id, agent_name, service, action, status, input_json, required_approvals, votes_json, created_at, expires_at, resolved_at, resolved_by, reason"
+
 var (
 	ErrNotFound        = errors.New("record not found")
 	ErrInvalidTenantID = errors.New("tenant id is required")
@@ -334,8 +338,7 @@ func (s *SQLStore) CreateToken(ctx context.Context, token *TokenRecord) error {
 func (s *SQLStore) GetToken(ctx context.Context, id string) (*TokenRecord, error) {
 	id = strings.TrimSpace(id)
 	row := s.db.QueryRowContext(ctx, s.bind(`
-		SELECT id, tenant_id, agent_name, token_hash, display_hint, scopes,
-			created_at, expires_at, last_used_at, revoked_at, created_by
+		SELECT `+tokenSelectColumns+`
 		FROM service_tokens WHERE id = ?
 	`), id)
 	rec, err := scanToken(row)
@@ -351,8 +354,7 @@ func (s *SQLStore) GetToken(ctx context.Context, id string) (*TokenRecord, error
 func (s *SQLStore) GetTokenByHash(ctx context.Context, hash string) (*TokenRecord, error) {
 	hash = strings.TrimSpace(hash)
 	row := s.db.QueryRowContext(ctx, s.bind(`
-		SELECT id, tenant_id, agent_name, token_hash, display_hint, scopes,
-			created_at, expires_at, last_used_at, revoked_at, created_by
+		SELECT `+tokenSelectColumns+`
 		FROM service_tokens WHERE token_hash = ?
 	`), hash)
 	rec, err := scanToken(row)
@@ -371,8 +373,7 @@ func (s *SQLStore) ListTokens(ctx context.Context, tenantID string) ([]TokenReco
 		return nil, ErrInvalidTenantID
 	}
 	rows, err := s.db.QueryContext(ctx, s.bind(`
-		SELECT id, tenant_id, agent_name, token_hash, display_hint, scopes,
-			created_at, expires_at, last_used_at, revoked_at, created_by
+		SELECT `+tokenSelectColumns+`
 		FROM service_tokens
 		WHERE tenant_id = ?
 		ORDER BY created_at DESC
@@ -633,9 +634,7 @@ func (s *SQLStore) CreateApproval(ctx context.Context, req *ApprovalRecord) erro
 func (s *SQLStore) GetApproval(ctx context.Context, id string) (*ApprovalRecord, error) {
 	id = strings.TrimSpace(id)
 	row := s.db.QueryRowContext(ctx, s.bind(`
-		SELECT id, tenant_id, request_id, agent_name, service, action,
-			status, input_json, required_approvals, votes_json, created_at, expires_at, resolved_at,
-			resolved_by, reason
+		SELECT `+approvalSelectColumns+`
 		FROM approvals WHERE id = ?
 	`), id)
 	rec, err := scanApproval(row)
@@ -859,14 +858,13 @@ func (s *SQLStore) ResolveApprovalVote(ctx context.Context, id string, actor str
 			continue
 		}
 
-		updated, err := s.GetApproval(ctx, id)
-		if err != nil {
-			return nil, err
-		}
-		if updated == nil {
-			return nil, ErrNotFound
-		}
-		return updated, nil
+		updated := *rec
+		updated.Status = status
+		updated.ResolvedBy = resolvedBy
+		updated.ResolvedAt = resolvedAt
+		updated.Reason = resolvedReason
+		updated.VotesJSON = votesJSON
+		return &updated, nil
 	}
 
 	return nil, fmt.Errorf("resolve approval vote: concurrent update conflict")
@@ -878,9 +876,7 @@ func (s *SQLStore) ListApprovals(ctx context.Context, tenantID string, status st
 		return nil, ErrInvalidTenantID
 	}
 	query := `
-		SELECT id, tenant_id, request_id, agent_name, service, action,
-			status, input_json, required_approvals, votes_json, created_at, expires_at, resolved_at,
-			resolved_by, reason
+		SELECT ` + approvalSelectColumns + `
 		FROM approvals
 		WHERE tenant_id = ?`
 	args := []any{tenantID}
@@ -923,9 +919,7 @@ func (s *SQLStore) ExpirePendingApprovals(ctx context.Context) (int, error) {
 func (s *SQLStore) ListExpiredPendingApprovals(ctx context.Context, tenantID string) ([]ApprovalRecord, error) {
 	now := time.Now().UTC()
 	query := `
-		SELECT id, tenant_id, request_id, agent_name, service, action,
-			status, input_json, required_approvals, votes_json, created_at, expires_at, resolved_at,
-			resolved_by, reason
+		SELECT ` + approvalSelectColumns + `
 		FROM approvals
 		WHERE status = 'pending' AND expires_at <= ?`
 	args := []any{now}

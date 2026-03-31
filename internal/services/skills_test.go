@@ -1848,7 +1848,7 @@ actions:
 }
 
 func TestGenerateMetaAgentSkillPack(t *testing.T) {
-	pack := generateMetaAgentSkillPack()
+	pack := map[string]string{"SKILL.md": GenerateMetaAgentSkillMD()}
 	if len(pack) != 1 {
 		t.Fatalf("expected exactly one file in meta pack, got %d", len(pack))
 	}
