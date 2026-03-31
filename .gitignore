@@ -5,6 +5,7 @@
 
 # Build output
 bin/
+dist/
 /server
 
 # IDE / Editor
