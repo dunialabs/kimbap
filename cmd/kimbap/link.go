@@ -384,9 +384,23 @@ func linkMergeServiceAuth(current linkServiceInfo, def actions.ActionDefinition)
 
 	if current.CredentialRef == "" && nextRef != "" {
 		current.CredentialRef = nextRef
+	} else if current.CredentialRef != "" && nextRef != "" && nextRef != current.CredentialRef {
+		if current.AuthType != actions.AuthTypeOAuth2 && linkIsGlobalAuthType(nextAuth) && !linkIsGlobalAuthType(current.AuthType) {
+			current.AuthType = nextAuth
+			current.CredentialRef = nextRef
+		}
 	}
 
 	return current
+}
+
+func linkIsGlobalAuthType(authType actions.AuthType) bool {
+	switch authType {
+	case actions.AuthTypeBearer, actions.AuthTypeHeader, actions.AuthTypeQuery:
+		return true
+	default:
+		return false
+	}
 }
 
 func linkResolveOAuthProvider(service string) string {
