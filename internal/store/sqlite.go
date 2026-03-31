@@ -779,8 +779,8 @@ func (s *SQLStore) ResolveApprovalVote(ctx context.Context, id string, actor str
 		return nil, fmt.Errorf("invalid approval decision %q", decision)
 	}
 
-	now := time.Now().UTC()
 	for attempt := 0; attempt < 8; attempt++ {
+		now := time.Now().UTC()
 		rec, err := s.GetApproval(ctx, id)
 		if err != nil {
 			return nil, err

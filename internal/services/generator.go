@@ -290,7 +290,11 @@ func buildAction(method, path string, op map[string]any, pathParams []any, root 
 		return ServiceAction{}, err
 	}
 
-	action.Auth = extractOperationAuth(op, root, resolver, skillName)
+	actionAuth, err := extractOperationAuth(op, root, resolver, skillName)
+	if err != nil {
+		return ServiceAction{}, err
+	}
+	action.Auth = actionAuth
 
 	action.Args = sortArgs(action.Args)
 	action.Request.Query = nilIfEmptyStringMap(action.Request.Query)
@@ -750,44 +754,44 @@ func schemaType(schema map[string]any) string {
 	}
 }
 
-func extractOperationAuth(op map[string]any, root map[string]any, resolver *openAPIRefResolver, skillName string) *ServiceAuth {
+func extractOperationAuth(op map[string]any, root map[string]any, resolver *openAPIRefResolver, skillName string) (*ServiceAuth, error) {
 	securityAny, exists := op["security"]
 	if !exists {
-		return nil
+		return nil, nil
 	}
 
 	security, ok := securityAny.([]any)
 	if !ok {
-		return nil
+		return nil, fmt.Errorf("operation security must be an array")
 	}
 
 	schemeName := firstReferencedSecuritySchemeFromList(security)
 	if schemeName == "" {
 		auth := ServiceAuth{Type: "none"}
-		return &auth
+		return &auth, nil
 	}
 
 	schemes := mapAt(mapAt(root, "components"), "securitySchemes")
 	rawScheme := mapAt(schemes, schemeName)
 	if len(rawScheme) == 0 {
-		return nil
+		return nil, fmt.Errorf("security scheme %q not found", schemeName)
 	}
 
 	scheme, err := resolver.resolveMap(rawScheme)
 	if err != nil {
-		return nil
+		return nil, fmt.Errorf("resolve operation security scheme %q: %w", schemeName, err)
 	}
 
 	auth, err := authFromScheme(scheme, skillName)
 	if err != nil {
-		return nil
+		return nil, fmt.Errorf("convert operation security scheme %q: %w", schemeName, err)
 	}
 
 	if auth.Type == "none" {
 		auth.CredentialRef = ""
 	}
 
-	return &auth
+	return &auth, nil
 }
 
 func firstReferencedSecuritySchemeFromList(security []any) string {

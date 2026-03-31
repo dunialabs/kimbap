@@ -69,6 +69,7 @@ func writeEnvelopeError(w http.ResponseWriter, r *http.Request, execErr *actions
 }
 
 func writeEnvelopeJSON(w http.ResponseWriter, status int, env Envelope) {
+	w.Header().Set("Content-Type", "application/json")
 	payload, err := json.Marshal(env)
 	if err != nil {
 		fallback, _ := json.Marshal(Envelope{

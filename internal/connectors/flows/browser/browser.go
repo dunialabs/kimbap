@@ -83,7 +83,12 @@ func RunBrowserFlow(ctx context.Context, cfg BrowserFlowConfig, output io.Writer
 	bindPort := cfg.Port
 	if cfg.RedirectURI != "" {
 		if redirectURL, parseErr := url.Parse(cfg.RedirectURI); parseErr == nil {
-			if h := redirectURL.Hostname(); h == "localhost" || net.ParseIP(h) != nil {
+			if h := redirectURL.Hostname(); h == "localhost" {
+				bindHost = h
+			} else if ip := net.ParseIP(h); ip != nil {
+				if !ip.IsLoopback() {
+					return nil, fmt.Errorf("redirect uri host %q must be loopback", h)
+				}
 				bindHost = h
 			}
 			if bindPort == 0 {

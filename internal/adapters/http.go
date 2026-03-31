@@ -129,6 +129,10 @@ func (a *HTTPAdapter) executeWithPagination(ctx context.Context, req AdapterRequ
 				if v > 0 {
 					limit = v
 				}
+			case int64:
+				if v > 0 {
+					limit = int(v)
+				}
 			case float64:
 				if v > 0 {
 					limit = int(v)

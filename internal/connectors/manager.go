@@ -178,8 +178,6 @@ func (m *Manager) CompleteLogin(ctx context.Context, tenantID, name string, code
 	if token.ExpiresIn > 0 {
 		expiresAt := now.Add(time.Duration(token.ExpiresIn) * time.Second)
 		state.ExpiresAt = &expiresAt
-	} else {
-		state.ExpiresAt = nil
 	}
 	state.LastRefreshError = ""
 	state.RevokedAt = nil

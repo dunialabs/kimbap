@@ -754,9 +754,8 @@ func (p *ProxyServer) validateProxyAuth(req *http.Request) bool {
 		return true
 	}
 
-	if raw, ok := strings.CutPrefix(proxyAuth, "Basic "); ok {
-		raw = strings.TrimSpace(raw)
-		decoded, err := base64.StdEncoding.DecodeString(raw)
+	if fields := strings.Fields(proxyAuth); len(fields) == 2 && strings.EqualFold(fields[0], "Basic") {
+		decoded, err := base64.StdEncoding.DecodeString(fields[1])
 		if err == nil {
 			parts := strings.SplitN(string(decoded), ":", 2)
 			if len(parts) == 2 {

@@ -519,8 +519,24 @@ func writeInitConfig(cfg *config.KimbapConfig, force bool) (string, doctorCheck)
 		detailPrefix = "overwritten"
 	}
 
-	if err := os.WriteFile(path, payload, 0o600); err != nil {
-		return path, doctorCheck{Name: "config file", Status: "fail", Detail: err.Error()}
+	tmp, tmpErr := os.CreateTemp(filepath.Dir(path), ".kimbap-config-*.tmp")
+	if tmpErr != nil {
+		return path, doctorCheck{Name: "config file", Status: "fail", Detail: tmpErr.Error()}
+	}
+	tmpPath := tmp.Name()
+	if _, wErr := tmp.Write(payload); wErr != nil {
+		_ = tmp.Close()
+		_ = os.Remove(tmpPath)
+		return path, doctorCheck{Name: "config file", Status: "fail", Detail: wErr.Error()}
+	}
+	if cErr := tmp.Close(); cErr != nil {
+		_ = os.Remove(tmpPath)
+		return path, doctorCheck{Name: "config file", Status: "fail", Detail: cErr.Error()}
+	}
+	_ = os.Chmod(tmpPath, 0o600)
+	if rErr := os.Rename(tmpPath, path); rErr != nil {
+		_ = os.Remove(tmpPath)
+		return path, doctorCheck{Name: "config file", Status: "fail", Detail: rErr.Error()}
 	}
 	return path, doctorCheck{Name: "config file", Status: status, Detail: fmt.Sprintf("%s: %s", detailPrefix, path)}
 }
@@ -768,9 +784,14 @@ func ensureKBSymlink() doctorCheck {
 					return doctorCheck{Name: "kb alias", Status: "skip", Detail: fmt.Sprintf("exists: %s", kbPath)}
 				}
 			}
-			_ = os.Remove(kbPath)
-			if symlinkErr := os.Symlink(execPath, kbPath); symlinkErr != nil {
-				return doctorCheck{Name: "kb alias", Status: "fail", Detail: fmt.Sprintf("recreate symlink: %v", symlinkErr)}
+			tmpPath := kbPath + ".tmp"
+			_ = os.Remove(tmpPath)
+			if symlinkErr := os.Symlink(execPath, tmpPath); symlinkErr != nil {
+				return doctorCheck{Name: "kb alias", Status: "fail", Detail: fmt.Sprintf("stage symlink: %v", symlinkErr)}
+			}
+			if renameErr := os.Rename(tmpPath, kbPath); renameErr != nil {
+				_ = os.Remove(tmpPath)
+				return doctorCheck{Name: "kb alias", Status: "fail", Detail: fmt.Sprintf("replace symlink: %v", renameErr)}
 			}
 			return doctorCheck{Name: "kb alias", Status: "ok", Detail: fmt.Sprintf("updated: %s -> %s", kbPath, execPath)}
 		}
