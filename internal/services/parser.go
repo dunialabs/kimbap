@@ -391,6 +391,8 @@ func validateHTTPManifest(m *ServiceManifest) []ValidationError {
 		errs = append(errs, ValidationError{Field: "base_url", Message: "must be a valid absolute URL"})
 	} else if u.Scheme != "http" && u.Scheme != "https" {
 		errs = append(errs, ValidationError{Field: "base_url", Message: "scheme must be http or https"})
+	} else if u.User != nil {
+		errs = append(errs, ValidationError{Field: "base_url", Message: "must not contain embedded credentials (userinfo)"})
 	} else if u.Scheme == "http" && !isLoopbackHostname(u.Hostname()) {
 		errs = append(errs, ValidationError{Field: "base_url", Message: "http is only allowed for localhost/loopback; use https for remote hosts"})
 	} else if u.RawQuery != "" || u.ForceQuery || u.Fragment != "" || strings.Contains(m.BaseURL, "#") {
