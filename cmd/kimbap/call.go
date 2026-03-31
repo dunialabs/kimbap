@@ -295,8 +295,22 @@ func cloneInputWithDefaults(input map[string]any, defaults map[string]any) map[s
 func missingRequiredInputs(required []string, input map[string]any) []string {
 	missing := make([]string, 0, len(required))
 	for _, name := range required {
-		if _, exists := input[name]; !exists {
+		val, exists := input[name]
+		if !exists {
 			missing = append(missing, "--"+name)
+			continue
+		}
+		// Treat empty required strings / arrays as missing to avoid surprising matches
+		// in downstream adapters (e.g. AppleScript lookups with empty names).
+		switch v := val.(type) {
+		case string:
+			if strings.TrimSpace(v) == "" {
+				missing = append(missing, "--"+name)
+			}
+		case []any:
+			if len(v) == 0 {
+				missing = append(missing, "--"+name)
+			}
 		}
 	}
 	sort.Strings(missing)

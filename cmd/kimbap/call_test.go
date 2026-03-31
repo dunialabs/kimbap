@@ -273,6 +273,24 @@ func TestCheckRequiredInputsHonorsDefaults(t *testing.T) {
 	}
 }
 
+func TestCheckRequiredInputsTreatsEmptyRequiredStringsAsMissing(t *testing.T) {
+	err := checkRequiredInputs(&actions.ActionDefinition{
+		Name: "svc.action",
+		InputSchema: &actions.Schema{
+			Properties: map[string]*actions.Schema{
+				"name": {Type: "string"},
+			},
+			Required: []string{"name"},
+		},
+	}, map[string]any{"name": ""})
+	if err == nil {
+		t.Fatal("expected error for empty required string")
+	}
+	if !strings.Contains(err.Error(), "missing required parameters: --name") {
+		t.Fatalf("expected --name to be reported missing, got %q", err.Error())
+	}
+}
+
 func TestCheckRequiredInputsSkipsWhenNoSchemaRequirements(t *testing.T) {
 	if err := checkRequiredInputs(&actions.ActionDefinition{Name: "svc.action"}, map[string]any{}); err != nil {
 		t.Fatalf("expected nil error without schema, got %v", err)
