@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"maps"
+	"math"
 	"net"
 	"net/http"
 	"net/url"
@@ -124,19 +125,8 @@ func (a *HTTPAdapter) executeWithPagination(ctx context.Context, req AdapterRequ
 		maxPages = pageCfg.MaxPages
 	}
 	if v, ok := req.Input["_max_pages"]; ok {
-		switch n := v.(type) {
-		case int:
-			if n > 0 {
-				maxPages = n
-			}
-		case int64:
-			if n > 0 {
-				maxPages = int(n)
-			}
-		case float64:
-			if n > 0 {
-				maxPages = int(n)
-			}
+		if n, ok := positiveIntFromAny(v); ok {
+			maxPages = n
 		}
 	}
 	if maxPages > hardMaxPaginationPages {
@@ -171,23 +161,8 @@ func (a *HTTPAdapter) executeWithPagination(ctx context.Context, req AdapterRequ
 		if _, exists := pageInput[limitParam]; !exists {
 			pageInput[limitParam] = limit
 		} else {
-			switch v := pageInput[limitParam].(type) {
-			case int:
-				if v > 0 {
-					limit = v
-				}
-			case int64:
-				if v > 0 {
-					limit = int(v)
-				}
-			case float64:
-				if v > 0 {
-					limit = int(v)
-				}
-			case string:
-				if n, err := strconv.Atoi(v); err == nil && n > 0 {
-					limit = n
-				}
+			if n, ok := positiveIntFromAny(pageInput[limitParam]); ok {
+				limit = n
 			}
 		}
 		if limit > hardMaxPaginationPageLimit {
@@ -563,6 +538,32 @@ func effectivePort(u *url.URL) string {
 		return "443"
 	default:
 		return ""
+	}
+}
+
+func positiveIntFromAny(v any) (int, bool) {
+	maxInt := int(^uint(0) >> 1)
+	switch n := v.(type) {
+	case int:
+		return n, n > 0
+	case int64:
+		if n <= 0 || n > int64(maxInt) {
+			return 0, false
+		}
+		return int(n), true
+	case float64:
+		if n <= 0 || math.IsNaN(n) || math.IsInf(n, 0) || n > float64(maxInt) {
+			return 0, false
+		}
+		return int(n), true
+	case string:
+		parsed, err := strconv.ParseInt(strings.TrimSpace(n), 10, 64)
+		if err != nil || parsed <= 0 || parsed > int64(maxInt) {
+			return 0, false
+		}
+		return int(parsed), true
+	default:
+		return 0, false
 	}
 }
 

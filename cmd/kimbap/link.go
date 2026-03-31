@@ -10,6 +10,7 @@ import (
 	"sort"
 	"strings"
 	"time"
+	"unicode/utf8"
 
 	"github.com/dunialabs/kimbap/internal/actions"
 	"github.com/dunialabs/kimbap/internal/config"
@@ -518,8 +519,8 @@ func defaultRunVerificationAction(ctx context.Context, cfg *config.KimbapConfig,
 	errMsg := "unknown error"
 	if result.Error != nil {
 		errMsg = result.Error.Error()
-		if len(errMsg) > 100 {
-			errMsg = errMsg[:100] + "..."
+		if utf8.RuneCountInString(errMsg) > 100 {
+			errMsg = string([]rune(errMsg)[:100]) + "..."
 		}
 	}
 	return fmt.Sprintf("⚠ Stored but verification failed: %s. The credential may still work.", errMsg)

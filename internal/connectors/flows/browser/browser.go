@@ -499,16 +499,26 @@ func stringFromAny(v any) string {
 }
 
 func intFromAny(v any) int {
+	maxInt := int(^uint(0) >> 1)
 	switch value := v.(type) {
 	case float64:
+		if value < 0 || value > float64(maxInt) {
+			return 0
+		}
 		return int(value)
 	case int:
+		if value < 0 {
+			return 0
+		}
 		return value
 	case int64:
+		if value < 0 || value > int64(maxInt) {
+			return 0
+		}
 		return int(value)
 	case json.Number:
 		n, err := value.Int64()
-		if err == nil {
+		if err == nil && n >= 0 && n <= int64(maxInt) {
 			return int(n)
 		}
 	}
