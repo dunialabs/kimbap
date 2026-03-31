@@ -248,6 +248,55 @@ func TestConfigureWebhookDispatcherFromStoreSkipsMalformedWebhookEventPayload(t 
 	}
 }
 
+func TestConfigureWebhookDispatcherFromStoreSkipsMalformedSubscriptionEventsJSON(t *testing.T) {
+	st, err := store.OpenSQLiteStore(filepath.Join(t.TempDir(), "serve-hydrate-skip-malformed-subscription.sqlite"))
+	if err != nil {
+		t.Fatalf("open sqlite store: %v", err)
+	}
+	t.Cleanup(func() { _ = st.Close() })
+	if err := st.Migrate(context.Background()); err != nil {
+		t.Fatalf("migrate sqlite store: %v", err)
+	}
+
+	if err := st.UpsertWebhookSubscription(context.Background(), &store.WebhookSubscriptionRecord{
+		ID:       "wh_good",
+		TenantID: "tenant-a",
+		URL:      "https://example.com/good",
+		Secret:   "secret",
+		EventsJSON: `[
+			"approval.expired"
+		]`,
+		Active: true,
+	}); err != nil {
+		t.Fatalf("upsert valid webhook subscription: %v", err)
+	}
+	if err := st.UpsertWebhookSubscription(context.Background(), &store.WebhookSubscriptionRecord{
+		ID:         "wh_bad",
+		TenantID:   "tenant-a",
+		URL:        "https://example.com/bad",
+		Secret:     "secret",
+		EventsJSON: `{`,
+		Active:     true,
+	}); err != nil {
+		t.Fatalf("upsert malformed webhook subscription: %v", err)
+	}
+
+	dispatcher := webhooks.NewDispatcher()
+	cleanupWebhookSink, err := configureWebhookDispatcherFromStore(context.Background(), dispatcher, st)
+	if err != nil {
+		t.Fatalf("configure webhook dispatcher: %v", err)
+	}
+	defer cleanupWebhookSink()
+
+	subs := dispatcher.ListSubscriptionsByTenant("tenant-a")
+	if len(subs) != 1 {
+		t.Fatalf("expected 1 loaded subscription after skipping malformed events_json, got %d", len(subs))
+	}
+	if subs[0].ID != "wh_good" {
+		t.Fatalf("expected loaded subscription id wh_good, got %q", subs[0].ID)
+	}
+}
+
 func TestConfigureWebhookDispatcherFromStoreReturnsErrorOnHydrationFailure(t *testing.T) {
 	st, err := store.OpenSQLiteStore(filepath.Join(t.TempDir(), "serve-hydrate-failure.sqlite"))
 	if err != nil {

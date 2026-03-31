@@ -181,7 +181,7 @@ func buildCommandArgPairs(req AdapterRequest) []string {
 	}
 
 	argNames := make([]string, 0, len(input))
-	if req.Action.InputSchema != nil && req.Action.InputSchema.Properties != nil {
+	if req.Action.InputSchema != nil && req.Action.InputSchema.Properties != nil && !req.Action.InputSchema.AdditionalProperties {
 		for name := range req.Action.InputSchema.Properties {
 			if _, ok := input[name]; ok {
 				argNames = append(argNames, name)

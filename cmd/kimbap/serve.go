@@ -162,7 +162,12 @@ func configureWebhookDispatcherFromStore(ctx context.Context, dispatcher *webhoo
 		return nil, fmt.Errorf("load webhook subscriptions: %w", err)
 	}
 	for _, sub := range subs {
-		dispatcher.Subscribe(webhookRecordToSubscription(sub))
+		hydrated, ok := webhookRecordToSubscription(sub)
+		if !ok {
+			_, _ = fmt.Fprintf(os.Stderr, "warning: skipping malformed persisted webhook subscription events_json: %s\n", sub.ID)
+			continue
+		}
+		dispatcher.Subscribe(hydrated)
 	}
 
 	events, err := st.ListWebhookEvents(ctx, "", 1000)
@@ -260,26 +265,30 @@ func configureWebhookDispatcherFromStore(ctx context.Context, dispatcher *webhoo
 	}, nil
 }
 
-func webhookRecordToSubscription(rec store.WebhookSubscriptionRecord) webhooks.Subscription {
+func webhookRecordToSubscription(rec store.WebhookSubscriptionRecord) (webhooks.Subscription, bool) {
+	events, ok := parseWebhookEventTypes(rec.EventsJSON)
+	if !ok {
+		return webhooks.Subscription{}, false
+	}
 	return webhooks.Subscription{
 		ID:       rec.ID,
 		URL:      rec.URL,
 		Secret:   rec.Secret,
-		Events:   parseWebhookEventTypes(rec.EventsJSON),
+		Events:   events,
 		TenantID: rec.TenantID,
 		Active:   rec.Active,
-	}
+	}, true
 }
 
-func parseWebhookEventTypes(raw string) []webhooks.EventType {
+func parseWebhookEventTypes(raw string) ([]webhooks.EventType, bool) {
 	if strings.TrimSpace(raw) == "" {
-		return nil
+		return nil, true
 	}
 	var events []webhooks.EventType
 	if err := json.Unmarshal([]byte(raw), &events); err != nil {
-		return nil
+		return nil, false
 	}
-	return events
+	return events, true
 }
 
 func webhookEventRecordToEvent(rec store.WebhookEventRecord) (webhooks.Event, bool) {

@@ -46,7 +46,7 @@ function folderURLPrefixes(path) {
 function findFolderByPath(path) {
 	var prefixes = folderURLPrefixes(path);
 	for (var i = 0; i < prefixes.length; i++) {
-		var folders = app.folders.whose({url: {_beginsWith: prefixes[i]}})();
+		var folders = app.folders.whose({url: {_equals: prefixes[i]}})();
 		if (folders.length > 0) return folders[0];
 	}
 	throw new Error("[NOT_FOUND] folder not found");
@@ -144,7 +144,7 @@ function folderURLPrefixes(path) {
 function findFolderByPath(path) {
 	var prefixes = folderURLPrefixes(path);
 	for (var i = 0; i < prefixes.length; i++) {
-		var folders = app.folders.whose({url: {_beginsWith: prefixes[i]}})();
+		var folders = app.folders.whose({url: {_equals: prefixes[i]}})();
 		if (folders.length > 0) return folders[0];
 	}
 	throw new Error("[NOT_FOUND] folder not found");
@@ -192,7 +192,7 @@ function folderURLPrefixes(path) {
 function findFolderByPath(path) {
 	var prefixes = folderURLPrefixes(path);
 	for (var i = 0; i < prefixes.length; i++) {
-		var folders = app.folders.whose({url: {_beginsWith: prefixes[i]}})();
+		var folders = app.folders.whose({url: {_equals: prefixes[i]}})();
 		if (folders.length > 0) return folders[0];
 	}
 	throw new Error("[NOT_FOUND] destination folder not found");
@@ -244,7 +244,7 @@ function folderURLPrefixes(path) {
 function findFolderByPath(path) {
 	var prefixes = folderURLPrefixes(path);
 	for (var i = 0; i < prefixes.length; i++) {
-		var folders = app.folders.whose({url: {_beginsWith: prefixes[i]}})();
+		var folders = app.folders.whose({url: {_equals: prefixes[i]}})();
 		if (folders.length > 0) return folders[0];
 	}
 	throw new Error("[NOT_FOUND] destination folder not found");

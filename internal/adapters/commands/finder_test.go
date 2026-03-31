@@ -66,3 +66,26 @@ func TestFinderNotFoundMessagesDoNotEchoInputValues(t *testing.T) {
 		}
 	}
 }
+
+func TestFinderFolderLookupUsesExactURLMatching(t *testing.T) {
+	cmds := FinderCommands()
+	lookupScripts := 0
+
+	for name, cmd := range cmds {
+		if !strings.Contains(cmd.Script, "function findFolderByPath(path)") {
+			continue
+		}
+		lookupScripts++
+
+		if strings.Contains(cmd.Script, "_beginsWith") {
+			t.Errorf("%s: folder lookup should not use _beginsWith", name)
+		}
+		if !strings.Contains(cmd.Script, "url: {_equals: prefixes[i]}") {
+			t.Errorf("%s: folder lookup should use _equals", name)
+		}
+	}
+
+	if lookupScripts != 4 {
+		t.Errorf("got %d scripts with findFolderByPath, want 4", lookupScripts)
+	}
+}

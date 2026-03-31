@@ -194,6 +194,7 @@ func newApproveDenyCommand() *cobra.Command {
 				if err := manager.Deny(contextBackground(), args[0], "cli", reason); err != nil {
 					if errors.Is(err, store.ErrApprovalExpired) || errors.Is(err, approvals.ErrExpired) {
 						_, _ = st.ExpireApproval(contextBackground(), args[0])
+						_ = st.RemoveExecution(contextBackground(), args[0])
 					}
 					return fmt.Errorf("deny failed: %w", err)
 				}
@@ -253,6 +254,7 @@ func runApproveAccept(requestID string) error {
 		if err := manager.Approve(contextBackground(), requestID, "cli"); err != nil {
 			if errors.Is(err, store.ErrApprovalExpired) || errors.Is(err, approvals.ErrExpired) {
 				_, _ = st.ExpireApproval(contextBackground(), requestID)
+				_ = st.RemoveExecution(contextBackground(), requestID)
 			}
 			return fmt.Errorf("approve failed: %w", err)
 		}
