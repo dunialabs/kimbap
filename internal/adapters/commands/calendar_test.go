@@ -83,3 +83,26 @@ func TestCalendarNotFoundCommandsEmitSentinel(t *testing.T) {
 		}
 	}
 }
+
+func TestCalendarListEventsHasDefaultLimit(t *testing.T) {
+	cmd := CalendarCommands()["list-events"]
+	if !strings.Contains(cmd.Script, "var limit = (isNaN(parsedLimit) || parsedLimit <= 0) ? 100 : parsedLimit;") {
+		t.Fatal("list-events should cap returned events by default")
+	}
+	if !strings.Contains(cmd.Script, "if (result.length >= limit)") {
+		t.Fatal("list-events should stop once the limit is reached")
+	}
+	if !strings.Contains(cmd.Script, "[NOT_SUPPORTED] list-events across multiple calendars is too slow; specify --calendar") {
+		t.Fatal("list-events should fail fast when multiple calendars would trigger a slow global scan")
+	}
+}
+
+func TestCalendarCreateEventUsesEventClass(t *testing.T) {
+	cmd := CalendarCommands()["create-event"]
+	if strings.Contains(cmd.Script, "app.CalendarEvent(") {
+		t.Fatal("create-event must not use app.CalendarEvent")
+	}
+	if !strings.Contains(cmd.Script, "var event = app.Event(") {
+		t.Fatal("create-event should construct events with app.Event")
+	}
+}

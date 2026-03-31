@@ -24,6 +24,8 @@ app.includeStandardAdditions = false;
 
 var start = input.start_date ? new Date(input.start_date) : new Date();
 var end = input.end_date ? new Date(input.end_date) : new Date(start.getTime() + 7 * 24 * 60 * 60 * 1000);
+var parsedLimit = parseInt(input.limit, 10);
+var limit = (isNaN(parsedLimit) || parsedLimit <= 0) ? 100 : parsedLimit;
 
 var calendars;
 if (input.calendar) {
@@ -31,16 +33,21 @@ if (input.calendar) {
 	if (calendars.length === 0) throw new Error("[NOT_FOUND] calendar not found: " + input.calendar);
 } else {
 	calendars = app.calendars();
+	if (calendars.length > 1) throw new Error("[NOT_SUPPORTED] list-events across multiple calendars is too slow; specify --calendar");
 }
 
 var result = [];
-calendars.forEach(function(c) {
+outer: for (var i = 0; i < calendars.length; i++) {
+	if (result.length >= limit) break;
+	var c = calendars[i];
 	var calName = c.name();
 	var events = c.events.whose({
 		startDate: {_lessThan: end},
 		endDate: {_greaterThan: start}
 	})();
-	events.forEach(function(e) {
+	for (var j = 0; j < events.length; j++) {
+		if (result.length >= limit) break outer;
+		var e = events[j];
 		var eventStart = e.startDate();
 		var eventEnd = e.endDate();
 		result.push({
@@ -51,8 +58,8 @@ calendars.forEach(function(c) {
 			notes: e.description(),
 			calendar: calName
 		});
-	});
-});
+	}
+}
 
 JSON.stringify(result);`,
 		},
@@ -111,7 +118,7 @@ if (input.calendar) {
 var targetCalendar = calendars[0];
 var startDate = new Date(input.start_date);
 var endDate = new Date(input.end_date);
-var event = app.CalendarEvent({
+var event = app.Event({
 	summary: input.title,
 	startDate: startDate,
 	endDate: endDate,

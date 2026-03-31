@@ -143,3 +143,39 @@ func TestMSOfficeExportCommandsUseResilientPDFPNGStrategies(t *testing.T) {
 		t.Error("ppt-save-as-png should keep saveAs PNG fallback")
 	}
 }
+
+func TestMSOfficeWordScriptsUseCallableTextObjectContent(t *testing.T) {
+	cmds := MSOfficeCommands()
+	if strings.Contains(cmds["word-get-text"].Script, "text: doc.textObject.content\n") {
+		t.Fatal("word-get-text must call doc.textObject.content()")
+	}
+	if !strings.Contains(cmds["word-get-text"].Script, "text: doc.textObject.content()") {
+		t.Fatal("word-get-text should call doc.textObject.content()")
+	}
+	if !strings.Contains(cmds["word-find-replace"].Script, "var source = doc.textObject.content() || \"\";") {
+		t.Fatal("word-find-replace should read source text via doc.textObject.content()")
+	}
+}
+
+func TestMSOfficeExcelScriptsPreferActiveSheetWithSheetsFallback(t *testing.T) {
+	cmds := MSOfficeCommands()
+	for _, name := range []string{"excel-read-cell", "excel-write-cell", "excel-read-range"} {
+		cmd := cmds[name]
+		if !strings.Contains(cmd.Script, "sheet = workbook.activeSheet();") {
+			t.Fatalf("%s should try workbook.activeSheet() first", name)
+		}
+		if !strings.Contains(cmd.Script, "workbook.sheets[0]") {
+			t.Fatalf("%s should fall back to workbook.sheets[0]", name)
+		}
+	}
+}
+
+func TestMSOfficePPTAddSlideFailsClosedWhenUnsupported(t *testing.T) {
+	cmd := MSOfficeCommands()["ppt-add-slide"]
+	if strings.Contains(cmd.Script, "pres.make({new: \"slide\"") {
+		t.Fatal("ppt-add-slide must not call unsupported slide creation API")
+	}
+	if !strings.Contains(cmd.Script, "[NOT_SUPPORTED] creating PowerPoint slides is not supported by JXA") {
+		t.Fatal("ppt-add-slide should fail with an explicit NOT_SUPPORTED error")
+	}
+}

@@ -16,28 +16,7 @@ JSON.stringify(result);`,
 			Script: stdinReader + `
 var app = Application("Reminders");
 app.includeStandardAdditions = false;
-var reminders;
-if (input.list) {
-	var lists = app.lists.whose({name: input.list})();
-	reminders = lists.length > 0 ? lists[0].reminders() : [];
-} else {
-	var allReminders = app.reminders();
-	var parsedLimit = parseInt(input.limit, 10);
-	var limit = (isNaN(parsedLimit) || parsedLimit <= 0) ? 100 : parsedLimit;
-	reminders = allReminders.slice(0, limit);
-}
-var result = reminders.map(function(r) {
-	var due = r.dueDate();
-	return {
-		name: r.name(),
-		completed: r.completed(),
-		dueDate: due ? due.toISOString() : null,
-		priority: r.priority(),
-		notes: r.body(),
-		list: r.container().name()
-	};
-});
-JSON.stringify(result);`,
+throw new Error("[NOT_SUPPORTED] list-reminders is temporarily disabled because Reminders enumeration can hang in JXA; use get-reminder with an exact name instead");`,
 		},
 		"get-reminder": {
 			Name: "get-reminder", TargetApp: "Reminders",

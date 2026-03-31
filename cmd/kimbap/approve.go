@@ -348,7 +348,13 @@ func runApproveAccept(requestID string) error {
 			}
 		}
 		approvalPayload["execution"] = execPayload
-		return printOutput(approvalPayload)
+		if err := printOutput(approvalPayload); err != nil {
+			return err
+		}
+		if result.Status != actions.StatusSuccess && result.Error != nil {
+			return result.Error
+		}
+		return nil
 	}
 	if err := printCallResult(result); err != nil {
 		return err

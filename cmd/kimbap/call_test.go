@@ -444,6 +444,19 @@ func TestParseScalarNumericOneIsInteger(t *testing.T) {
 	}
 }
 
+func TestCoerceStringInputsBySchema_ConvertsNumericInputs(t *testing.T) {
+	def := &actions.ActionDefinition{
+		InputSchema: &actions.Schema{Properties: map[string]*actions.Schema{
+			"year": {Type: "string"},
+		}},
+	}
+	input := map[string]any{"year": int64(2026)}
+	coerceStringInputsBySchema(def, input)
+	if got, ok := input["year"].(string); !ok || got != "2026" {
+		t.Fatalf("year = %#v, want string 2026", input["year"])
+	}
+}
+
 func TestSplitCallInvocationArgs_StringFlagMissingValue(t *testing.T) {
 	// After the action name, --format is passed through as an action arg.
 	// Only flags that remain global after the action name should still error without a value.

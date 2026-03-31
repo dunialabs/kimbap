@@ -49,7 +49,7 @@ try {
 
 JSON.stringify({
 	name: doc.name(),
-	text: doc.textObject.content
+	text: doc.textObject.content()
 });`,
 		},
 		"word-set-text": {
@@ -99,7 +99,7 @@ try {
 	}
 }
 
-var source = doc.textObject.content || "";
+var source = doc.textObject.content() || "";
 var flags = input.match_case ? "g" : "gi";
 var escaped = input.find.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 var re = new RegExp(escaped, flags);
@@ -215,7 +215,16 @@ try {
 	}
 }
 
-var sheet = input.sheet ? workbook.worksheets.whose({name: input.sheet})()[0] : workbook.activeSheet();
+var sheet;
+if (input.sheet) {
+	sheet = workbook.worksheets.whose({name: input.sheet})()[0];
+} else {
+	try {
+		sheet = workbook.activeSheet();
+	} catch (e) {
+		sheet = workbook.sheets[0];
+	}
+}
 if (!sheet) throw new Error("[NOT_FOUND] worksheet not found");
 
 var value = sheet.ranges[input.cell].value();
@@ -243,7 +252,16 @@ try {
 	}
 }
 
-var sheet = input.sheet ? workbook.worksheets.whose({name: input.sheet})()[0] : workbook.activeSheet();
+var sheet;
+if (input.sheet) {
+	sheet = workbook.worksheets.whose({name: input.sheet})()[0];
+} else {
+	try {
+		sheet = workbook.activeSheet();
+	} catch (e) {
+		sheet = workbook.sheets[0];
+	}
+}
 if (!sheet) throw new Error("[NOT_FOUND] worksheet not found");
 
 sheet.ranges[input.cell].value = input.value;
@@ -270,7 +288,16 @@ try {
 	}
 }
 
-var sheet = input.sheet ? workbook.worksheets.whose({name: input.sheet})()[0] : workbook.activeSheet();
+var sheet;
+if (input.sheet) {
+	sheet = workbook.worksheets.whose({name: input.sheet})()[0];
+} else {
+	try {
+		sheet = workbook.activeSheet();
+	} catch (e) {
+		sheet = workbook.sheets[0];
+	}
+}
 if (!sheet) throw new Error("[NOT_FOUND] worksheet not found");
 
 var values = sheet.ranges[input.range].value();
@@ -382,10 +409,7 @@ try {
 	}
 }
 
-var slide = pres.make({new: "slide", at: pres.slides.end});
-var slideIndex = pres.slides().length;
-
-JSON.stringify({presentation: pres.name(), added: true, slideIndex: slideIndex, slideId: slide.slideID()});`,
+throw new Error("[NOT_SUPPORTED] creating PowerPoint slides is not supported by JXA");`,
 		},
 		"ppt-set-slide-text": {
 			Name: "ppt-set-slide-text", TargetApp: "Microsoft PowerPoint",

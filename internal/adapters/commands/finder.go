@@ -40,7 +40,7 @@ function isFolder(item) {
 function folderURLPrefixes(path) {
 	var trimmed = String(path || "").replace(/\/$/, "");
 	var encoded = encodeURI(trimmed).replace(/#/g, "%23");
-	return ["file://" + encoded, "file://localhost" + encoded];
+	return ["file://" + encoded, "file://" + encoded + "/", "file://localhost" + encoded, "file://localhost" + encoded + "/"];
 }
 
 function findFolderByPath(path) {
@@ -138,7 +138,7 @@ if (!input.name) throw new Error("name is required");
 function folderURLPrefixes(path) {
 	var trimmed = String(path || "").replace(/\/$/, "");
 	var encoded = encodeURI(trimmed).replace(/#/g, "%23");
-	return ["file://" + encoded, "file://localhost" + encoded];
+	return ["file://" + encoded, "file://" + encoded + "/", "file://localhost" + encoded, "file://localhost" + encoded + "/"];
 }
 
 function findFolderByPath(path) {
@@ -186,7 +186,7 @@ if (!input.destination_path) throw new Error("destination_path is required");
 function folderURLPrefixes(path) {
 	var trimmed = String(path || "").replace(/\/$/, "");
 	var encoded = encodeURI(trimmed).replace(/#/g, "%23");
-	return ["file://" + encoded, "file://localhost" + encoded];
+	return ["file://" + encoded, "file://" + encoded + "/", "file://localhost" + encoded, "file://localhost" + encoded + "/"];
 }
 
 function findFolderByPath(path) {
@@ -238,7 +238,7 @@ if (!input.destination_path) throw new Error("destination_path is required");
 function folderURLPrefixes(path) {
 	var trimmed = String(path || "").replace(/\/$/, "");
 	var encoded = encodeURI(trimmed).replace(/#/g, "%23");
-	return ["file://" + encoded, "file://localhost" + encoded];
+	return ["file://" + encoded, "file://" + encoded + "/", "file://localhost" + encoded, "file://localhost" + encoded + "/"];
 }
 
 function findFolderByPath(path) {

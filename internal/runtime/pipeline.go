@@ -215,24 +215,36 @@ func (r *Runtime) ResumeApproved(ctx context.Context, approvalRequestID string) 
 		Meta:           map[string]any{},
 	}
 
+	reholdIfRetryable := func(res actions.ExecutionResult) actions.ExecutionResult {
+		if res.Error != nil && res.Error.Retryable {
+			if holdErr := r.HeldExecutionStore.Hold(ctx, approvalRequestID, *held); holdErr != nil {
+				if res.Meta == nil {
+					res.Meta = map[string]any{}
+				}
+				res.Meta["resume_retry_hold_error"] = holdErr.Error()
+			}
+		}
+		return res
+	}
+
 	if principalErr := r.authenticatePrincipal(ctx, *held); principalErr != nil {
-		return r.finalizeWithError(ctx, &result, *held, principalErr, startedAt, "require_approval", approvalRequestID)
+		return reholdIfRetryable(r.finalizeWithError(ctx, &result, *held, principalErr, startedAt, "require_approval", approvalRequestID))
 	}
 
 	tenantID, tenantErr := r.resolveTenant(*held)
 	if tenantErr != nil {
-		return r.finalizeWithError(ctx, &result, *held, tenantErr, startedAt, "require_approval", approvalRequestID)
+		return reholdIfRetryable(r.finalizeWithError(ctx, &result, *held, tenantErr, startedAt, "require_approval", approvalRequestID))
 	}
 	held.TenantID = tenantID
 
 	if validationErr := actions.ValidateInput(held.Action.InputSchema, held.Input); validationErr != nil {
-		return r.finalizeWithError(ctx, &result, *held,
+		return reholdIfRetryable(r.finalizeWithError(ctx, &result, *held,
 			actions.NewExecutionError(actions.ErrValidationFailed, validationErr.Error(), 400, false, nil),
-			startedAt, "require_approval", approvalRequestID)
+			startedAt, "require_approval", approvalRequestID))
 	}
 
 	if sanitizeErr := SanitizeInput(held.Input); sanitizeErr != nil {
-		return r.finalizeWithError(ctx, &result, *held, actions.AsExecutionError(sanitizeErr), startedAt, "require_approval", approvalRequestID)
+		return reholdIfRetryable(r.finalizeWithError(ctx, &result, *held, actions.AsExecutionError(sanitizeErr), startedAt, "require_approval", approvalRequestID))
 	}
 
 	if r.PolicyEvaluator != nil {
@@ -246,23 +258,14 @@ func (r *Runtime) ResumeApproved(ctx context.Context, approvalRequestID string) 
 			Classification: held.Classification,
 		})
 		if evalErr != nil {
-			return r.finalizeWithError(ctx, &result, *held, actions.NewExecutionError(actions.ErrDownstreamUnavailable, evalErr.Error(), 500, true, nil), startedAt, "", approvalRequestID)
+			return reholdIfRetryable(r.finalizeWithError(ctx, &result, *held, actions.NewExecutionError(actions.ErrDownstreamUnavailable, evalErr.Error(), 500, true, nil), startedAt, "", approvalRequestID))
 		}
 		if decision != nil && normalizePolicyDecision(decision.Decision) == "deny" {
-			return r.finalizeWithError(ctx, &result, *held, actions.NewExecutionError(actions.ErrUnauthorized, "policy denied action on resume: "+decision.Reason, 403, false, nil), startedAt, "deny", approvalRequestID)
+			return reholdIfRetryable(r.finalizeWithError(ctx, &result, *held, actions.NewExecutionError(actions.ErrUnauthorized, "policy denied action on resume: "+decision.Reason, 403, false, nil), startedAt, "deny", approvalRequestID))
 		}
 	}
 
-	res := r.executeFromCredentialsWithState(ctx, *held, nil, startedAt, "require_approval", approvalRequestID)
-	if res.Error != nil && res.Error.Retryable {
-		if holdErr := r.HeldExecutionStore.Hold(ctx, approvalRequestID, *held); holdErr != nil {
-			if res.Meta == nil {
-				res.Meta = map[string]any{}
-			}
-			res.Meta["resume_retry_hold_error"] = holdErr.Error()
-		}
-	}
-	return res
+	return reholdIfRetryable(r.executeFromCredentialsWithState(ctx, *held, nil, startedAt, "require_approval", approvalRequestID))
 }
 
 func (r *Runtime) execute(ctx context.Context, req actions.ExecutionRequest, trace *TraceCollector) actions.ExecutionResult {

@@ -31,7 +31,54 @@ func NewHTTPAdapter(client *http.Client) *HTTPAdapter {
 	if client == nil {
 		client = &http.Client{}
 	}
+	if client.CheckRedirect == nil {
+		client.CheckRedirect = secureRedirectPolicy
+	}
 	return &HTTPAdapter{client: client}
+}
+
+func secureRedirectPolicy(req *http.Request, via []*http.Request) error {
+	if len(via) >= 10 {
+		return fmt.Errorf("stopped after 10 redirects")
+	}
+	if len(via) == 0 || req == nil || req.URL == nil {
+		return nil
+	}
+
+	origin := via[0]
+	if origin == nil || origin.URL == nil {
+		return nil
+	}
+
+	crossHost := !strings.EqualFold(origin.URL.Hostname(), req.URL.Hostname()) || !strings.EqualFold(effectivePort(origin.URL), effectivePort(req.URL))
+	downgradedHTTPS := strings.EqualFold(origin.URL.Scheme, "https") && strings.EqualFold(req.URL.Scheme, "http")
+	if crossHost || downgradedHTTPS {
+		stripSensitiveRedirectHeaders(req.Header)
+	}
+
+	return nil
+}
+
+func stripSensitiveRedirectHeaders(headers http.Header) {
+	for key := range headers {
+		if isSensitiveRedirectHeader(key) {
+			headers.Del(key)
+		}
+	}
+}
+
+func isSensitiveRedirectHeader(key string) bool {
+	name := strings.ToLower(strings.TrimSpace(key))
+	if name == "authorization" || name == "proxy-authorization" {
+		return true
+	}
+	if strings.Contains(name, "api-key") || strings.Contains(name, "apikey") {
+		return true
+	}
+	if strings.Contains(name, "token") || strings.Contains(name, "secret") {
+		return true
+	}
+	return false
 }
 
 func (a *HTTPAdapter) Type() string {

@@ -65,6 +65,16 @@ func TestRemindersTargetApp(t *testing.T) {
 	}
 }
 
+func TestRemindersListRemindersFailsClosedWhileUnsupported(t *testing.T) {
+	cmd, ok := RemindersCommands()["list-reminders"]
+	if !ok {
+		t.Fatal("list-reminders not found")
+	}
+	if !strings.Contains(cmd.Script, "[NOT_SUPPORTED] list-reminders is temporarily disabled because Reminders enumeration can hang in JXA") {
+		t.Fatal("list-reminders should fail closed with an explicit NOT_SUPPORTED error")
+	}
+}
+
 func TestRemindersNotFoundCommandsEmitSentinel(t *testing.T) {
 	notFoundCmds := []string{"get-reminder", "complete-reminder"}
 	cmds := RemindersCommands()

@@ -83,6 +83,12 @@ func TestFinderFolderLookupUsesExactURLMatching(t *testing.T) {
 		if !strings.Contains(cmd.Script, "url: {_equals: prefixes[i]}") {
 			t.Errorf("%s: folder lookup should use _equals", name)
 		}
+		if !strings.Contains(cmd.Script, "\"file://\" + encoded + \"/\"") {
+			t.Errorf("%s: folder lookup should try trailing-slash file URL variant", name)
+		}
+		if !strings.Contains(cmd.Script, "\"file://localhost\" + encoded + \"/\"") {
+			t.Errorf("%s: folder lookup should try trailing-slash localhost file URL variant", name)
+		}
 	}
 
 	if lookupScripts != 4 {
