@@ -217,7 +217,9 @@ func (r *Runtime) ResumeApproved(ctx context.Context, approvalRequestID string) 
 
 	reholdIfRetryable := func(res actions.ExecutionResult) actions.ExecutionResult {
 		if res.Error != nil && res.Error.Retryable {
-			if holdErr := r.HeldExecutionStore.Hold(ctx, approvalRequestID, *held); holdErr != nil {
+			holdCtx, holdCancel := context.WithTimeout(context.WithoutCancel(ctx), 5*time.Second)
+			defer holdCancel()
+			if holdErr := r.HeldExecutionStore.Hold(holdCtx, approvalRequestID, *held); holdErr != nil {
 				if res.Meta == nil {
 					res.Meta = map[string]any{}
 				}
