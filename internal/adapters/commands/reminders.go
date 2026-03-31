@@ -75,7 +75,8 @@ if (input.list) {
 }
 var props = {name: input.name};
 if (input.due_date) props.dueDate = new Date(input.due_date);
-if (typeof input.priority === "number") props.priority = input.priority;
+var parsedPriority = parseInt(input.priority, 10);
+if (!isNaN(parsedPriority)) props.priority = parsedPriority;
 if (input.notes) props.body = input.notes;
 var reminder = app.Reminder(props);
 targetList.reminders.push(reminder);

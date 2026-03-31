@@ -14,7 +14,7 @@ triggers:
     - unrelated actions outside Todoist task/project management
 gotchas:
   - symptom: Task lookup/update fails after converting IDs in code
-    likely_cause: Todoist v2 task IDs are strings, not integers
+    likely_cause: Todoist task IDs are strings, not integers
     recovery: Treat task_id values as strings end-to-end without numeric coercion
     severity: common
   - symptom: close-task appears to fail because response body is empty

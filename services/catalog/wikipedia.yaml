@@ -1,7 +1,7 @@
 name: wikipedia
 version: 1.0.0
 description: Wikipedia REST API for article summaries, search, and historical events
-base_url: https://en.wikipedia.org/api/rest_v1
+base_url: https://en.wikipedia.org
 auth:
   type: none
 triggers:
@@ -34,7 +34,7 @@ recipes:
 actions:
   get-summary:
     method: GET
-    path: /page/summary/{title}
+    path: /api/rest_v1/page/summary/{title}
     description: Get a summary of a Wikipedia article by title
     args:
       - name: title
@@ -55,7 +55,7 @@ actions:
       retry_on: [429, 500, 502, 503]
   search:
     method: GET
-    path: /page/search
+    path: /w/rest.php/v1/search/page
     description: Search Wikipedia pages by query
     args:
       - name: q
@@ -78,7 +78,7 @@ actions:
       level: low
   get-on-this-day:
     method: GET
-    path: /feed/onthisday/events/{MM}/{DD}
+    path: /api/rest_v1/feed/onthisday/events/{MM}/{DD}
     description: Get historical events that happened on a given month and day
     args:
       - name: MM
