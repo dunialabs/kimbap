@@ -376,7 +376,10 @@ func printCallResult(result actions.ExecutionResult) error {
 			_, _ = fmt.Fprintln(os.Stdout, checkmark+" Done")
 			return nil
 		}
-		_, _ = fmt.Fprintf(os.Stdout, "%s %s\n", checkmark, string(encoded))
+		_, err = fmt.Fprintf(os.Stdout, "%s %s\n", checkmark, string(encoded))
+		if err != nil && isBrokenPipe(err) {
+			return nil
+		}
 		return nil
 	}
 

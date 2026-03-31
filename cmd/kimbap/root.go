@@ -11,6 +11,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"syscall"
 	"time"
 
 	"github.com/dunialabs/kimbap/internal/actions"
@@ -549,10 +550,19 @@ func printOutput(v any) error {
 	if outputAsJSON() {
 		enc := json.NewEncoder(os.Stdout)
 		enc.SetIndent("", "  ")
-		return enc.Encode(v)
+		if err := enc.Encode(v); err != nil {
+			if isBrokenPipe(err) {
+				return nil
+			}
+			return err
+		}
+		return nil
 	}
 	if s, ok := v.(string); ok {
 		_, err := fmt.Fprintln(os.Stdout, s)
+		if isBrokenPipe(err) {
+			return nil
+		}
 		return err
 	}
 	b, err := json.MarshalIndent(v, "", "  ")
@@ -560,7 +570,18 @@ func printOutput(v any) error {
 		return err
 	}
 	_, err = fmt.Fprintln(os.Stdout, string(b))
+	if isBrokenPipe(err) {
+		return nil
+	}
 	return err
+}
+
+func isBrokenPipe(err error) bool {
+	if err == nil {
+		return false
+	}
+	// When piping output to head/tail, the reader may close early and writers get EPIPE.
+	return err == syscall.EPIPE || strings.Contains(strings.ToLower(err.Error()), "broken pipe")
 }
 
 func defaultTenantID() string {
