@@ -19,7 +19,7 @@ func loadManifestFixture(t *testing.T, fixtureName string) *ServiceManifest {
 	if !ok {
 		t.Fatal("failed to resolve current test file path")
 	}
-	fixturePath := filepath.Join(filepath.Dir(file), "..", "..", "testdata", fixtureName)
+	fixturePath := filepath.Join(filepath.Dir(file), "..", "..", "services", "catalog", fixtureName)
 	data, err := os.ReadFile(fixturePath)
 	if err != nil {
 		t.Fatalf("read fixture %q: %v", fixturePath, err)

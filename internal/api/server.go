@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/dunialabs/kimbap/internal/auth"
+	"github.com/dunialabs/kimbap/internal/authstore"
 	"github.com/dunialabs/kimbap/internal/runtime"
 	"github.com/dunialabs/kimbap/internal/store"
 	"github.com/dunialabs/kimbap/internal/vault"
@@ -83,7 +84,7 @@ func NewServer(addr string, st store.Store, opts ...ServerOption) *Server {
 		s.addr = ":8080"
 	}
 	if st != nil {
-		s.tokenService = auth.NewTokenService(&storeTokenAdapter{st: st})
+		s.tokenService = auth.NewTokenService(authstore.NewTokenStoreAdapter(st))
 	}
 	for _, opt := range opts {
 		if opt != nil {

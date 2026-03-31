@@ -295,6 +295,9 @@ func (r *servicesActionRegistry) loadDefinitions() ([]actions.ActionDefinition, 
 
 	r.mu.Lock()
 	defer r.mu.Unlock()
+	if r.cachedDefs != nil && now.Sub(r.lastFullScan) < scanInterval {
+		return r.cachedDefs, nil
+	}
 	dirState := r.computeDirectoryStateLocked()
 	if r.cachedDefs != nil && dirState != "" && dirState == r.cachedDirState && now.Sub(r.lastFullScan) < scanInterval {
 		return r.cachedDefs, nil

@@ -1,6 +1,7 @@
 package api
 
 import (
+	"context"
 	"errors"
 	"net/http"
 	"time"
@@ -135,7 +136,7 @@ func (s *Server) handleApprove(w http.ResponseWriter, r *http.Request) {
 	var execResult *actions.ExecutionResult
 	fullyApproved := existing.Status == "approved"
 	if s.runtime != nil && fullyApproved {
-		result := s.runtime.ResumeApproved(r.Context(), id)
+		result := s.runtime.ResumeApproved(context.WithoutCancel(r.Context()), id)
 		if alreadyApproved && result.Error != nil && result.Error.Code == actions.ErrActionNotFound {
 			writeEnvelopeError(w, r, actions.NewExecutionError(actions.ErrValidationFailed, "approval already resolved", http.StatusConflict, false, nil))
 			return

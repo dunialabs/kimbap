@@ -80,7 +80,7 @@ func testdataAppleNotesPath(t *testing.T) string {
 	if err != nil {
 		t.Fatalf("getwd: %v", err)
 	}
-	path := filepath.Join(wd, "..", "..", "testdata", "apple-notes.yaml")
+	path := filepath.Join(wd, "..", "..", "services", "catalog", "apple-notes.yaml")
 	if _, err := os.Stat(path); err != nil {
 		t.Fatalf("apple-notes fixture not found at %q: %v", path, err)
 	}

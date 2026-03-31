@@ -10,7 +10,7 @@ import (
 )
 
 func TestValidateAppleScriptManifest_Valid(t *testing.T) {
-	fixturePath := filepath.Join("..", "..", "testdata", "apple-notes.yaml")
+	fixturePath := filepath.Join("..", "..", "services", "catalog", "apple-notes.yaml")
 	data, err := os.ReadFile(fixturePath)
 	if err != nil {
 		t.Fatalf("read fixture: %v", err)

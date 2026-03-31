@@ -2,8 +2,6 @@ package api
 
 import (
 	"context"
-	"crypto/sha256"
-	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -46,19 +44,19 @@ func (s *Server) handleListActions(w http.ResponseWriter, r *http.Request) {
 		writeEnvelopeError(w, r, actions.NewExecutionError(actions.ErrValidationFailed, err.Error(), http.StatusBadRequest, false, nil))
 		return
 	}
-	defs := make([]actions.ActionDefinition, 0)
-	if s.runtime != nil && s.runtime.ActionRegistry != nil {
-		items, err := s.runtime.ActionRegistry.List(r.Context(), runtimepkg.ListOptions{
-			Namespace: r.URL.Query().Get("namespace"),
-			Resource:  r.URL.Query().Get("resource"),
-			Verb:      r.URL.Query().Get("verb"),
-			Limit:     limit,
-		})
-		if err != nil {
-			writeEnvelopeError(w, r, actions.NewExecutionError(actions.ErrDownstreamUnavailable, "internal server error", http.StatusInternalServerError, false, nil))
-			return
-		}
-		defs = items
+	if s.runtime == nil || s.runtime.ActionRegistry == nil {
+		writeEnvelopeError(w, r, actions.NewExecutionError(actions.ErrDownstreamUnavailable, "action registry unavailable", http.StatusInternalServerError, false, nil))
+		return
+	}
+	defs, err := s.runtime.ActionRegistry.List(r.Context(), runtimepkg.ListOptions{
+		Namespace: r.URL.Query().Get("namespace"),
+		Resource:  r.URL.Query().Get("resource"),
+		Verb:      r.URL.Query().Get("verb"),
+		Limit:     limit,
+	})
+	if err != nil {
+		writeEnvelopeError(w, r, actions.NewExecutionError(actions.ErrDownstreamUnavailable, "internal server error", http.StatusInternalServerError, false, nil))
+		return
 	}
 	writeSuccess(w, r, http.StatusOK, defs)
 }
@@ -123,7 +121,11 @@ func (s *Server) handleExecuteAction(w http.ResponseWriter, r *http.Request) {
 		writeEnvelopeError(w, r, result.Error)
 		return
 	}
-	writeSuccess(w, r, http.StatusOK, result)
+	status := result.HTTPStatus
+	if status <= 0 || status == http.StatusNoContent {
+		status = http.StatusOK
+	}
+	writeSuccess(w, r, status, result)
 }
 
 func (s *Server) handleValidateAction(w http.ResponseWriter, r *http.Request) {
@@ -706,79 +708,6 @@ func parseNonNegativeIntParam(raw string, field string) (int, error) {
 		return 0, fmt.Errorf("%s must be a non-negative integer", field)
 	}
 	return value, nil
-}
-
-type storeTokenAdapter struct {
-	st store.Store
-}
-
-func (a *storeTokenAdapter) Create(ctx context.Context, token *auth.ServiceToken) error {
-	if token == nil {
-		return errors.New("token is required")
-	}
-	return a.st.CreateToken(ctx, storeconv.TokenRecordFromServiceToken(token))
-}
-
-func (a *storeTokenAdapter) ValidateAndResolve(ctx context.Context, rawToken string) (*auth.Principal, error) {
-	hash := sha256.Sum256([]byte(rawToken))
-	token, err := a.st.GetTokenByHash(ctx, hex.EncodeToString(hash[:]))
-	if err != nil {
-		if errors.Is(err, store.ErrNotFound) {
-			return nil, auth.ErrInvalidToken
-		}
-		return nil, err
-	}
-	now := time.Now().UTC()
-	if token.RevokedAt != nil {
-		return nil, auth.ErrRevokedToken
-	}
-	if now.After(token.ExpiresAt) {
-		return nil, auth.ErrExpiredToken
-	}
-	return storeconv.PrincipalFromTokenRecord(token)
-}
-
-func (a *storeTokenAdapter) Revoke(ctx context.Context, tokenID string) error {
-	if strings.TrimSpace(tokenID) == "" {
-		return auth.ErrInvalidToken
-	}
-	err := a.st.RevokeToken(ctx, tokenID)
-	if errors.Is(err, store.ErrNotFound) {
-		return auth.ErrInvalidToken
-	}
-	return err
-}
-
-func (a *storeTokenAdapter) List(ctx context.Context, tenantID string) ([]auth.ServiceToken, error) {
-	items, err := a.st.ListTokens(ctx, tenantID)
-	if err != nil {
-		return nil, err
-	}
-	out := make([]auth.ServiceToken, 0, len(items))
-	for i := range items {
-		out = append(out, storeconv.ServiceTokenFromRecord(items[i]))
-	}
-	return out, nil
-}
-
-func (a *storeTokenAdapter) Inspect(ctx context.Context, tokenID string) (*auth.ServiceToken, error) {
-	it, err := a.st.GetToken(ctx, tokenID)
-	if err != nil {
-		if errors.Is(err, store.ErrNotFound) {
-			return nil, auth.ErrInvalidToken
-		}
-		return nil, err
-	}
-	converted := storeconv.ServiceTokenFromRecord(*it)
-	return &converted, nil
-}
-
-func (a *storeTokenAdapter) MarkUsed(ctx context.Context, tokenID string) error {
-	err := a.st.UpdateTokenLastUsed(ctx, tokenID)
-	if errors.Is(err, store.ErrNotFound) {
-		return auth.ErrInvalidToken
-	}
-	return err
 }
 
 func mapApprovalError(err error) *actions.ExecutionError {

@@ -2,13 +2,17 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
+	"net/http"
+	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
 	"time"
 
+	"github.com/dunialabs/kimbap/internal/actions"
 	"github.com/dunialabs/kimbap/internal/config"
 	"github.com/dunialabs/kimbap/internal/store"
 )
@@ -126,6 +130,15 @@ func TestRunApproveAcceptMaterializesExpiredApproval(t *testing.T) {
 
 func TestApproveAcceptPrintsNextStep(t *testing.T) {
 	approvalID, cfgPath := seedPendingApprovalForCLI(t, time.Now().UTC().Add(5*time.Minute))
+	t.Setenv("KIMBAP_DEV", "true")
+	cfg, err := config.LoadKimbapConfigWithoutDefault(cfgPath)
+	if err != nil {
+		t.Fatalf("load config: %v", err)
+	}
+	if err := os.WriteFile(cfg.Policy.Path, []byte("version: \"1.0.0\"\nrules:\n  - id: allow-all\n    priority: 100\n    decision: allow\n"), 0o644); err != nil {
+		t.Fatalf("rewrite policy: %v", err)
+	}
+	t.Setenv("KIMBAP_POLICY_PATH", cfg.Policy.Path)
 
 	prevOpts := opts
 	opts = cliOptions{configPath: cfgPath, format: "text"}
@@ -145,6 +158,134 @@ func TestApproveAcceptPrintsNextStep(t *testing.T) {
 	}
 	if strings.Contains(output, "Hint: Approval recorded.") {
 		t.Fatalf("expected old hint removed, got %q", output)
+	}
+}
+
+func TestApproveAcceptResumesHeldExecution(t *testing.T) {
+	t.Setenv("KIMBAP_DEV", "true")
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"ok":true}`))
+	}))
+	defer server.Close()
+
+	approvalID, cfgPath := seedPendingApprovalForCLIWithHeldExecution(t, time.Now().UTC().Add(5*time.Minute), actions.ExecutionRequest{
+		RequestID:      "req-pending-cli",
+		TraceID:        "trace-pending-cli",
+		TenantID:       defaultTenantID(),
+		IdempotencyKey: "idem-pending-cli",
+		Principal:      actions.Principal{ID: "agent-a", TenantID: defaultTenantID()},
+		Action: actions.ActionDefinition{
+			Name:    "github.issues.create",
+			Adapter: actions.AdapterConfig{Type: "http", URLTemplate: server.URL},
+		},
+		Input: map[string]any{},
+		Mode:  actions.ModeCall,
+	})
+	cfg, err := config.LoadKimbapConfigWithoutDefault(cfgPath)
+	if err != nil {
+		t.Fatalf("load config: %v", err)
+	}
+	if err := os.WriteFile(cfg.Policy.Path, []byte("version: \"1.0.0\"\nrules:\n  - id: allow-all\n    priority: 100\n    decision: allow\n"), 0o644); err != nil {
+		t.Fatalf("rewrite policy: %v", err)
+	}
+	t.Setenv("KIMBAP_POLICY_PATH", cfg.Policy.Path)
+
+	prevOpts := opts
+	opts = cliOptions{configPath: cfgPath, format: "text"}
+	t.Cleanup(func() {
+		opts = prevOpts
+	})
+
+	output, err := captureStdout(t, func() error { return runApproveAccept(approvalID) })
+	if err != nil {
+		t.Fatalf("runApproveAccept failed: %v", err)
+	}
+	if !strings.Contains(output, "✓ "+approvalID+" approved") {
+		t.Fatalf("expected approval success line, got %q", output)
+	}
+	if !strings.Contains(output, "Resuming: github.issues.create") {
+		t.Fatalf("expected resume line, got %q", output)
+	}
+	if !strings.Contains(output, `"ok": true`) {
+		t.Fatalf("expected resumed execution output, got %q", output)
+	}
+
+	if held := loadHeldExecutionFromCLIStore(t, cfgPath, approvalID); held != nil {
+		t.Fatalf("expected held execution to be consumed, got %+v", held)
+	}
+}
+
+func TestApproveAcceptJSONOutputsSinglePayloadWhenResumed(t *testing.T) {
+	t.Setenv("KIMBAP_DEV", "true")
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"ok":true}`))
+	}))
+	defer server.Close()
+
+	approvalID, cfgPath := seedPendingApprovalForCLIWithHeldExecution(t, time.Now().UTC().Add(5*time.Minute), actions.ExecutionRequest{
+		RequestID:      "req-pending-cli-json",
+		TraceID:        "trace-pending-cli-json",
+		TenantID:       defaultTenantID(),
+		IdempotencyKey: "idem-pending-cli-json",
+		Principal:      actions.Principal{ID: "agent-a", TenantID: defaultTenantID()},
+		Action: actions.ActionDefinition{
+			Name:    "github.issues.create",
+			Adapter: actions.AdapterConfig{Type: "http", URLTemplate: server.URL},
+		},
+		Input: map[string]any{},
+		Mode:  actions.ModeCall,
+	})
+	cfg, err := config.LoadKimbapConfigWithoutDefault(cfgPath)
+	if err != nil {
+		t.Fatalf("load config: %v", err)
+	}
+	if err := os.WriteFile(cfg.Policy.Path, []byte("version: \"1.0.0\"\nrules:\n  - id: allow-all\n    priority: 100\n    decision: allow\n"), 0o644); err != nil {
+		t.Fatalf("rewrite policy: %v", err)
+	}
+	t.Setenv("KIMBAP_POLICY_PATH", cfg.Policy.Path)
+
+	prevOpts := opts
+	opts = cliOptions{configPath: cfgPath, format: "json"}
+	t.Cleanup(func() {
+		opts = prevOpts
+	})
+
+	output, err := captureStdout(t, func() error { return runApproveAccept(approvalID) })
+	if err != nil {
+		t.Fatalf("runApproveAccept failed: %v", err)
+	}
+	trimmed := strings.TrimSpace(output)
+	var payload map[string]any
+	if err := json.Unmarshal([]byte(trimmed), &payload); err != nil {
+		t.Fatalf("decode payload: %v\noutput=%q", err, output)
+	}
+	if approved, _ := payload["approved"].(bool); !approved {
+		t.Fatalf("expected approved=true, got %+v", payload)
+	}
+	execution, ok := payload["execution"].(map[string]any)
+	if !ok {
+		t.Fatalf("expected execution payload, got %+v", payload)
+	}
+	outputMap, ok := execution["output"].(map[string]any)
+	if !ok || outputMap["ok"] != true {
+		t.Fatalf("expected resumed execution output, got %+v", execution)
+	}
+}
+
+func TestResumeResultMissingHeldExecution(t *testing.T) {
+	if !resumeResultMissingHeldExecution(actions.ExecutionResult{
+		HTTPStatus: 404,
+		Error:      actions.NewExecutionError(actions.ErrActionNotFound, "held execution not found", 404, false, nil),
+	}) {
+		t.Fatal("expected held execution missing result to be treated as non-resume fallback")
+	}
+	if resumeResultMissingHeldExecution(actions.ExecutionResult{
+		HTTPStatus: 404,
+		Error:      actions.NewExecutionError(actions.ErrActionNotFound, "action not found", 404, false, nil),
+	}) {
+		t.Fatal("expected real action-not-found failure to remain an error")
 	}
 }
 
@@ -331,8 +472,15 @@ func seedExpiredApprovalForCLI(t *testing.T, expiresAt time.Time) (string, strin
 	t.Helper()
 	dataDir := t.TempDir()
 	dbPath := filepath.Join(dataDir, "kimbap.db")
-	cfgPath := filepath.Join(t.TempDir(), "config.yaml")
+	policyPath := filepath.Join(dataDir, "policy.yaml")
+	cfgPath := filepath.Join(dataDir, "config.yaml")
+	if err := os.WriteFile(policyPath, []byte("version: \"1.0.0\"\nrules:\n  - id: allow-all\n    priority: 100\n    decision: allow\n"), 0o644); err != nil {
+		t.Fatalf("write policy: %v", err)
+	}
 	cfgRaw := "data_dir: " + dataDir + "\n" +
+		"mode: dev\n" +
+		"policy:\n" +
+		"  path: " + policyPath + "\n" +
 		"database:\n" +
 		"  driver: sqlite\n" +
 		"  dsn: " + dbPath + "\n"
@@ -413,6 +561,28 @@ func seedPendingApprovalForCLI(t *testing.T, expiresAt time.Time) (string, strin
 	return req.ID, cfgPath
 }
 
+func seedPendingApprovalForCLIWithHeldExecution(t *testing.T, expiresAt time.Time, req actions.ExecutionRequest) (string, string) {
+	t.Helper()
+	approvalID, cfgPath := seedPendingApprovalForCLI(t, expiresAt)
+	cfg, err := config.LoadKimbapConfigWithoutDefault(cfgPath)
+	if err != nil {
+		t.Fatalf("load config: %v", err)
+	}
+	st, err := openRuntimeStore(cfg)
+	if err != nil {
+		t.Fatalf("open runtime store: %v", err)
+	}
+	defer st.Close()
+	encoded, err := json.Marshal(req)
+	if err != nil {
+		t.Fatalf("marshal held execution: %v", err)
+	}
+	if err := st.HoldExecution(context.Background(), approvalID, encoded); err != nil {
+		t.Fatalf("hold execution: %v", err)
+	}
+	return approvalID, cfgPath
+}
+
 func loadApprovalFromCLIStore(t *testing.T, cfgPath, approvalID string) *store.ApprovalRecord {
 	t.Helper()
 	cfg, err := config.LoadKimbapConfigWithoutDefault(cfgPath)
@@ -429,4 +599,22 @@ func loadApprovalFromCLIStore(t *testing.T, cfgPath, approvalID string) *store.A
 		t.Fatalf("get approval: %v", err)
 	}
 	return rec
+}
+
+func loadHeldExecutionFromCLIStore(t *testing.T, cfgPath, approvalID string) []byte {
+	t.Helper()
+	cfg, err := config.LoadKimbapConfigWithoutDefault(cfgPath)
+	if err != nil {
+		t.Fatalf("load config: %v", err)
+	}
+	st, err := openRuntimeStore(cfg)
+	if err != nil {
+		t.Fatalf("open runtime store: %v", err)
+	}
+	defer st.Close()
+	requestJSON, err := st.ResumeExecution(context.Background(), approvalID)
+	if err != nil {
+		t.Fatalf("resume execution: %v", err)
+	}
+	return requestJSON
 }

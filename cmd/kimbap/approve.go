@@ -9,6 +9,7 @@ import (
 
 	"time"
 
+	"github.com/dunialabs/kimbap/internal/actions"
 	"github.com/dunialabs/kimbap/internal/approvals"
 	"github.com/dunialabs/kimbap/internal/config"
 	"github.com/dunialabs/kimbap/internal/store"
@@ -240,9 +241,15 @@ func runApproveAccept(requestID string) error {
 	if err != nil {
 		return err
 	}
+	var (
+		approved        bool
+		lookupErr       error
+		approval        *store.ApprovalRecord
+		approvalPayload map[string]any
+	)
 	err = withRuntimeStore(cfg, func(st *store.SQLStore) error {
 		manager := approvals.NewApprovalManager(&storeApprovalStoreAdapter{st: st}, nil, 0)
-		rec, lookupErr := st.GetApproval(contextBackground(), requestID)
+		approval, lookupErr = st.GetApproval(contextBackground(), requestID)
 		if err := manager.Approve(contextBackground(), requestID, "cli"); err != nil {
 			if errors.Is(err, store.ErrApprovalExpired) || errors.Is(err, approvals.ErrExpired) {
 				_, _ = st.ExpireApproval(contextBackground(), requestID)
@@ -253,33 +260,36 @@ func runApproveAccept(requestID string) error {
 		if err != nil {
 			return fmt.Errorf("approve fetch failed: %w", err)
 		}
-		approved := updated != nil && updated.Status == approvals.StatusApproved
+		approved = updated != nil && updated.Status == approvals.StatusApproved
+		approvalPayload = map[string]any{
+			"request_id":  requestID,
+			"resolved_by": "cli",
+			"approved":    approved,
+		}
+		if approved {
+			approvalPayload["status"] = "approved"
+		} else {
+			approvalPayload["status"] = "pending"
+			approvalPayload["pending"] = true
+			if updated != nil {
+				approvalPayload["required_approvals"] = max(1, updated.RequiredApprovals)
+				approvalPayload["current_approvals"] = approvalApprovedVoteCount(updated.Votes)
+			}
+		}
 
 		if outputAsJSON() {
-			payload := map[string]any{
-				"request_id":  requestID,
-				"resolved_by": "cli",
-				"approved":    approved,
+			if !approved {
+				return printOutput(approvalPayload)
 			}
-			if approved {
-				payload["status"] = "approved"
-			} else {
-				payload["status"] = "pending"
-				payload["pending"] = true
-				if updated != nil {
-					payload["required_approvals"] = max(1, updated.RequiredApprovals)
-					payload["current_approvals"] = approvalApprovedVoteCount(updated.Votes)
-				}
-			}
-			return printOutput(payload)
+			return nil
 		}
 		if approved {
 			_, _ = fmt.Fprintf(os.Stdout, successCheck()+" %s approved\n", requestID)
 		} else {
 			_, _ = fmt.Fprintf(os.Stdout, successCheck()+" %s vote recorded (pending additional approvals)\n", requestID)
 		}
-		if approved && lookupErr == nil && rec != nil && rec.Service != "" && rec.Action != "" {
-			_, _ = fmt.Fprintf(os.Stdout, "Retry: kimbap call %s.%s\n", rec.Service, rec.Action)
+		if approved && lookupErr == nil && approval != nil && approval.Service != "" && approval.Action != "" {
+			_, _ = fmt.Fprintf(os.Stdout, "Resuming: %s.%s\n", approval.Service, approval.Action)
 		}
 		return nil
 	})
@@ -299,8 +309,73 @@ func runApproveAccept(requestID string) error {
 		}
 		return err
 	}
+	if !approved {
+		return nil
+	}
+
+	result, resumed, resumeErr := resumeApprovedExecutionForCLI(cfg, requestID)
+	if resumeErr != nil {
+		if !outputAsJSON() && lookupErr == nil && approval != nil && approval.Service != "" && approval.Action != "" {
+			_, _ = fmt.Fprintf(os.Stdout, "Retry: kimbap call %s.%s\n", approval.Service, approval.Action)
+		}
+		return unavailableError(componentRuntime, resumeErr)
+	}
+	if !resumed {
+		if outputAsJSON() {
+			return printOutput(approvalPayload)
+		}
+		if !outputAsJSON() && lookupErr == nil && approval != nil && approval.Service != "" && approval.Action != "" {
+			_, _ = fmt.Fprintf(os.Stdout, "Retry: kimbap call %s.%s\n", approval.Service, approval.Action)
+		}
+		return nil
+	}
+	if outputAsJSON() {
+		execPayload := map[string]any{
+			"status":      result.Status,
+			"http_status": result.HTTPStatus,
+		}
+		if result.Output != nil {
+			execPayload["output"] = result.Output
+		}
+		if result.Error != nil {
+			execPayload["error"] = map[string]any{
+				"code":      result.Error.Code,
+				"message":   result.Error.Message,
+				"retryable": result.Error.Retryable,
+			}
+		}
+		approvalPayload["execution"] = execPayload
+		return printOutput(approvalPayload)
+	}
+	if err := printCallResult(result); err != nil {
+		return err
+	}
+	if result.Status != actions.StatusSuccess && result.Error != nil {
+		return result.Error
+	}
 
 	return nil
+}
+
+func resumeApprovedExecutionForCLI(cfg *config.KimbapConfig, requestID string) (actions.ExecutionResult, bool, error) {
+	if cfg == nil {
+		return actions.ExecutionResult{}, false, fmt.Errorf("config is required")
+	}
+	rt, cleanup, err := buildRuntimeFromConfigWithCleanup(cfg)
+	if err != nil {
+		return actions.ExecutionResult{}, false, err
+	}
+	defer cleanup()
+
+	result := rt.ResumeApproved(contextBackground(), requestID)
+	if resumeResultMissingHeldExecution(result) {
+		return actions.ExecutionResult{}, false, nil
+	}
+	return result, true, nil
+}
+
+func resumeResultMissingHeldExecution(result actions.ExecutionResult) bool {
+	return result.Error != nil && result.Error.Code == actions.ErrActionNotFound && result.HTTPStatus == 404 && result.Error.Message == "held execution not found"
 }
 
 func approvalApprovedVoteCount(votes []approvals.ApprovalVote) int {

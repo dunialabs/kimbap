@@ -17,6 +17,7 @@ import (
 
 	"github.com/dunialabs/kimbap/internal/actions"
 	"github.com/dunialabs/kimbap/internal/auth"
+	"github.com/dunialabs/kimbap/internal/authstore"
 	"github.com/dunialabs/kimbap/internal/config"
 	runtimepkg "github.com/dunialabs/kimbap/internal/runtime"
 	"github.com/dunialabs/kimbap/internal/store"
@@ -88,7 +89,7 @@ func TestStoreTokenAdapterValidateAndResolveUsesTokenIDAsPrincipalID(t *testing.
 		t.Fatalf("create token: %v", err)
 	}
 
-	adapter := &storeTokenAdapter{st: st}
+	adapter := authstore.NewTokenStoreAdapter(st)
 	principal, err := adapter.ValidateAndResolve(context.Background(), rawToken)
 	if err != nil {
 		t.Fatalf("ValidateAndResolve error: %v", err)
@@ -116,6 +117,54 @@ func TestServerListActions(t *testing.T) {
 	}
 	defer resp.Body.Close()
 
+	if resp.StatusCode != http.StatusInternalServerError {
+		t.Fatalf("expected 500, got %d", resp.StatusCode)
+	}
+
+	var body map[string]any
+	if err := json.NewDecoder(resp.Body).Decode(&body); err != nil {
+		t.Fatalf("decode actions response: %v", err)
+	}
+	if body["success"] != false {
+		t.Fatalf("expected success=false, got %v", body["success"])
+	}
+	errBody, ok := body["error"].(map[string]any)
+	if !ok {
+		t.Fatalf("expected error object, got %T", body["error"])
+	}
+	if errBody["code"] != "ERR_DOWNSTREAM_UNAVAILABLE" {
+		t.Fatalf("expected ERR_DOWNSTREAM_UNAVAILABLE, got %v", errBody["code"])
+	}
+	if errBody["message"] != "internal server error" {
+		t.Fatalf("expected sanitized internal server message, got %v", errBody["message"])
+	}
+}
+
+func TestServerListActionsWithRuntime(t *testing.T) {
+	st, err := store.OpenSQLiteStore(filepath.Join(t.TempDir(), "api-actions-runtime.sqlite"))
+	if err != nil {
+		t.Fatalf("open sqlite store: %v", err)
+	}
+	if err := st.Migrate(context.Background()); err != nil {
+		t.Fatalf("migrate store: %v", err)
+	}
+	if err := st.CreateToken(context.Background(), newBootstrapTokenRecord("tenant-a", "bootstrap-agent", "ktk_bootstrap_token_for_tests")); err != nil {
+		t.Fatalf("seed bootstrap token: %v", err)
+	}
+
+	server := NewServer(":0", st, WithRuntime(&runtimepkg.Runtime{ActionRegistry: staticActionRegistry{items: []actions.ActionDefinition{{Name: "apple-notes.list-notes", Namespace: "apple-notes"}}}}))
+	ts := httptest.NewServer(server.Router())
+	t.Cleanup(func() {
+		ts.Close()
+		_ = st.Close()
+	})
+
+	resp, err := http.Get(ts.URL + "/v1/actions")
+	if err != nil {
+		t.Fatalf("actions request: %v", err)
+	}
+	defer resp.Body.Close()
+
 	if resp.StatusCode != http.StatusOK {
 		t.Fatalf("expected 200, got %d", resp.StatusCode)
 	}
@@ -127,8 +176,12 @@ func TestServerListActions(t *testing.T) {
 	if body["success"] != true {
 		t.Fatalf("expected success=true, got %v", body["success"])
 	}
-	if _, ok := body["data"].([]any); !ok {
+	data, ok := body["data"].([]any)
+	if !ok {
 		t.Fatalf("expected data array, got %T", body["data"])
+	}
+	if len(data) != 1 {
+		t.Fatalf("expected 1 action, got %d", len(data))
 	}
 }
 
@@ -2055,6 +2108,24 @@ type forcedApprovalStore struct {
 	forcedUpdateErr error
 	forcedExpireID  string
 	forcedExpireErr error
+}
+
+type staticActionRegistry struct {
+	items []actions.ActionDefinition
+}
+
+func (s staticActionRegistry) Lookup(_ context.Context, name string) (*actions.ActionDefinition, error) {
+	for i := range s.items {
+		if s.items[i].Name == name {
+			item := s.items[i]
+			return &item, nil
+		}
+	}
+	return nil, actions.ErrLookupNotFound
+}
+
+func (s staticActionRegistry) List(_ context.Context, _ runtimepkg.ListOptions) ([]actions.ActionDefinition, error) {
+	return append([]actions.ActionDefinition(nil), s.items...), nil
 }
 
 type forcedAuditExportStore struct {

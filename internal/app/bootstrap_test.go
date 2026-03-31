@@ -232,10 +232,62 @@ actions:
 	}
 
 	registry := &servicesActionRegistry{
-		installer:       services.NewLocalInstaller(servicesDir),
-		verifyMode:      "off",
-		signaturePolicy: "optional",
-		servicesDir:     servicesDir,
+		installer:        services.NewLocalInstaller(servicesDir),
+		verifyMode:       "off",
+		signaturePolicy:  "optional",
+		servicesDir:      servicesDir,
+		fullScanInterval: 10 * time.Millisecond,
+	}
+
+	first, err := registry.loadDefinitions()
+	if err != nil {
+		t.Fatalf("load definitions first call: %v", err)
+	}
+	if len(first) != 1 || first[0].Name != "cached-skill.ping" {
+		t.Fatalf("unexpected first definitions: %+v", first)
+	}
+
+	if err := os.Remove(manifestPath); err != nil {
+		t.Fatalf("remove manifest: %v", err)
+	}
+	time.Sleep(20 * time.Millisecond)
+
+	second, err := registry.loadDefinitions()
+	if err != nil {
+		t.Fatalf("load definitions second call: %v", err)
+	}
+	if len(second) != 0 {
+		t.Fatalf("expected no definitions after manifest deletion, got %+v", second)
+	}
+}
+
+func TestLoadDefinitionsReturnsWarmCacheWithinScanInterval(t *testing.T) {
+	servicesDir := t.TempDir()
+	const manifest = `name: cached-skill
+version: 1.0.0
+description: cached skill
+base_url: https://example.com
+auth:
+  type: none
+actions:
+  ping:
+    method: GET
+    path: /ping
+    idempotent: true
+    risk:
+      level: low
+`
+	manifestPath := filepath.Join(servicesDir, "cached-skill.yaml")
+	if err := os.WriteFile(manifestPath, []byte(manifest), 0o644); err != nil {
+		t.Fatalf("write service manifest: %v", err)
+	}
+
+	registry := &servicesActionRegistry{
+		installer:        services.NewLocalInstaller(servicesDir),
+		verifyMode:       "off",
+		signaturePolicy:  "optional",
+		servicesDir:      servicesDir,
+		fullScanInterval: time.Hour,
 	}
 
 	first, err := registry.loadDefinitions()
@@ -254,8 +306,8 @@ actions:
 	if err != nil {
 		t.Fatalf("load definitions second call: %v", err)
 	}
-	if len(second) != 0 {
-		t.Fatalf("expected no definitions after manifest deletion, got %+v", second)
+	if len(second) != 1 || second[0].Name != "cached-skill.ping" {
+		t.Fatalf("expected warm cache definitions within scan interval, got %+v", second)
 	}
 }
 
