@@ -46,13 +46,13 @@ var (
 		colPurple: rgb(163, 113, 247), colGreen: rgb(63, 185, 80),
 	}
 	lightPalette = palette{
-		nori1: rgb(20, 66, 28), nori2: rgb(36, 96, 44),
-		rice1: rgb(188, 178, 150), rice2: rgb(160, 149, 124),
-		sesame: rgb(156, 118, 34), green1: rgb(42, 136, 58), green2: rgb(36, 102, 44),
-		orange: rgb(210, 102, 28), yolk1: rgb(212, 176, 32), yolk2: rgb(226, 206, 46),
-		white: rgb(182, 154, 146), red1: rgb(196, 58, 58), red2: rgb(176, 48, 48),
-		colDim: rgb(98, 106, 118), colMuted: rgb(76, 85, 99), colWhite: rgb(23, 23, 23),
-		colPurple: rgb(111, 74, 201), colGreen: rgb(39, 132, 67),
+		nori1: rgb(12, 52, 24), nori2: rgb(24, 80, 38),
+		rice1: rgb(234, 224, 202), rice2: rgb(214, 202, 176),
+		sesame: rgb(170, 126, 24), green1: rgb(38, 146, 68), green2: rgb(28, 116, 52),
+		orange: rgb(224, 116, 34), yolk1: rgb(224, 186, 28), yolk2: rgb(242, 214, 46),
+		white: rgb(244, 232, 226), red1: rgb(208, 66, 66), red2: rgb(188, 52, 52),
+		colDim: rgb(92, 98, 110), colMuted: rgb(67, 76, 89), colWhite: rgb(15, 23, 32),
+		colPurple: rgb(102, 68, 192), colGreen: rgb(32, 128, 60),
 	}
 )
 

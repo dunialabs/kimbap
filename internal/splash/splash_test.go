@@ -58,11 +58,14 @@ func TestRenderColorProfileNone(t *testing.T) {
 
 func TestRenderLightBackgroundUsesDarkerBrandText(t *testing.T) {
 	out := Render(Options{Background: BackgroundToneLight})
-	if !strings.Contains(out, rgb(23, 23, 23)+"k i m b a p") {
+	if !strings.Contains(out, rgb(15, 23, 32)+"k i m b a p") {
 		t.Fatalf("expected darker title color for light backgrounds, got %q", out)
 	}
-	if !strings.Contains(out, rgb(188, 178, 150)+"██") {
-		t.Fatalf("expected darker rice palette for light backgrounds, got %q", out)
+	if !strings.Contains(out, rgb(234, 224, 202)+"██") {
+		t.Fatalf("expected lighter rice palette for light backgrounds, got %q", out)
+	}
+	if !strings.Contains(out, rgb(12, 52, 24)+"██") {
+		t.Fatalf("expected deeper nori outline for light backgrounds, got %q", out)
 	}
 }
 
