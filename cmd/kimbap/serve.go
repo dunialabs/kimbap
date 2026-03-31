@@ -30,6 +30,7 @@ import (
 const webhookEventPersistTimeout = 2 * time.Second
 const webhookEventPersistQueueSize = 256
 const webhookEventPersistEnqueueWait = 250 * time.Millisecond
+const webhookEventDrainTimeout = 10 * time.Second
 
 func serverDisplayURL(addr string) string {
 	if addr == "" {
@@ -210,10 +211,13 @@ func configureWebhookDispatcherFromStore(ctx context.Context, dispatcher *webhoo
 			case event := <-eventSinkQueue:
 				persistEvent(event)
 			case <-sinkCtx.Done():
+				drainDeadline := time.After(webhookEventDrainTimeout)
 				for {
 					select {
 					case event := <-eventSinkQueue:
 						persistEvent(event)
+					case <-drainDeadline:
+						return
 					default:
 						return
 					}
