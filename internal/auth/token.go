@@ -146,7 +146,9 @@ func (s *TokenService) Rotate(ctx context.Context, oldTokenID, tenantID, agentNa
 
 	if revokeErr := s.store.Revoke(ctx, oldTokenID); revokeErr != nil {
 		if token != nil && token.ID != "" {
-			if rollbackErr := s.store.Revoke(ctx, token.ID); rollbackErr != nil {
+			rollbackCtx, rollbackCancel := context.WithTimeout(context.WithoutCancel(ctx), 5*time.Second)
+			defer rollbackCancel()
+			if rollbackErr := s.store.Revoke(rollbackCtx, token.ID); rollbackErr != nil {
 				return "", nil, errors.Join(
 					fmt.Errorf("revoke old token: %w", revokeErr),
 					fmt.Errorf("revoke replacement token: %w", rollbackErr),
