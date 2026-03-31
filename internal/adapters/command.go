@@ -123,8 +123,10 @@ func (a *CommandAdapter) Execute(ctx context.Context, req AdapterRequest) (*Adap
 
 	var stdoutBuf bytes.Buffer
 	var stderrBuf bytes.Buffer
-	cmd.Stdout = &limitedWriter{w: &stdoutBuf, limit: maxCommandOutputBytes}
-	cmd.Stderr = &limitedWriter{w: &stderrBuf, limit: maxCommandStderrBytes}
+	stdoutWriter := &limitedWriter{w: &stdoutBuf, limit: maxCommandOutputBytes}
+	stderrWriter := &limitedWriter{w: &stderrBuf, limit: maxCommandStderrBytes}
+	cmd.Stdout = stdoutWriter
+	cmd.Stderr = stderrWriter
 
 	err := cmd.Run()
 	durationMS := time.Since(start).Milliseconds()
@@ -146,6 +148,23 @@ func (a *CommandAdapter) Execute(ctx context.Context, req AdapterRequest) (*Adap
 			HTTPStatus: status,
 			DurationMS: durationMS,
 			Retryable:  retryable,
+			RawBody:    stdout,
+		}, execErr
+	}
+
+	if stdoutWriter.truncated {
+		execErr := actions.NewExecutionError(
+			actions.ErrDownstreamUnavailable,
+			fmt.Sprintf("command output exceeded %d bytes", maxCommandOutputBytes),
+			http.StatusBadGateway,
+			false,
+			map[string]any{"max_bytes": maxCommandOutputBytes},
+		)
+		return &AdapterResult{
+			Output:     map[string]any{"error": execErr.Message},
+			HTTPStatus: http.StatusBadGateway,
+			DurationMS: durationMS,
+			Retryable:  false,
 			RawBody:    stdout,
 		}, execErr
 	}
@@ -261,18 +280,21 @@ func safeProcessEnv() []string {
 }
 
 type limitedWriter struct {
-	w     *bytes.Buffer
-	limit int64
-	n     int64
+	w         *bytes.Buffer
+	limit     int64
+	n         int64
+	truncated bool
 }
 
 func (lw *limitedWriter) Write(p []byte) (int, error) {
 	orig := len(p)
 	remaining := lw.limit - lw.n
 	if remaining <= 0 {
+		lw.truncated = true
 		return orig, nil
 	}
 	if int64(len(p)) > remaining {
+		lw.truncated = true
 		p = p[:remaining]
 	}
 	n, err := lw.w.Write(p)
