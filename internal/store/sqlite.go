@@ -864,6 +864,7 @@ func (s *SQLStore) ResolveApprovalVote(ctx context.Context, id string, actor str
 		updated.ResolvedAt = resolvedAt
 		updated.Reason = resolvedReason
 		updated.VotesJSON = votesJSON
+		updated.RequiredApprovals = requiredApprovals
 		return &updated, nil
 	}
 
