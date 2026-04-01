@@ -91,14 +91,22 @@ func renderStatusSummary(summary statusSummary) string {
 			agentsStr = "\x1b[33m" + agentsStr + "\x1b[0m"
 		}
 	}
-	return strings.Join([]string{
+	lines := []string{
 		fmt.Sprintf("%-14s%s", "Mode:", summary.Mode),
 		fmt.Sprintf("%-14s%s", "Vault:", vault),
 		fmt.Sprintf("%-14s%s", "Services:", servicesStr),
 		fmt.Sprintf("%-14s%s", "Credentials:", credStr),
 		fmt.Sprintf("%-14s%s", "Agents:", agentsStr),
 		fmt.Sprintf("%-14s%s", "Policy:", policy),
-	}, "\n")
+	}
+
+	if summary.Services == 0 {
+		lines = append(lines, "", "Run 'kimbap init --services select' to install services.")
+	} else if summary.Agents == 0 {
+		lines = append(lines, "", "Run 'kimbap agents setup' to configure AI agent integration.")
+	}
+
+	return strings.Join(lines, "\n")
 }
 
 func countEnabledServices(cfg *config.KimbapConfig) (int, error) {

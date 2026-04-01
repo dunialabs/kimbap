@@ -434,8 +434,47 @@ func newAgentsStatusCommand() *cobra.Command {
 				}
 			}
 
-			if len(combined.Global) == 0 && len(combined.Project) == 0 {
-				fmt.Println("No agent configurations found.")
+			anyDetected := false
+			for _, r := range combined.Global {
+				if r.Detected {
+					anyDetected = true
+					break
+				}
+			}
+			if !anyDetected {
+				for _, r := range combined.Project {
+					if r.Detected {
+						anyDetected = true
+						break
+					}
+				}
+			}
+
+			if !anyDetected {
+				if len(combined.Global) == 0 && len(combined.Project) == 0 {
+					fmt.Println("No agent configurations found.")
+				}
+				fmt.Println("\nRun 'kimbap agents setup' to detect and configure AI agents.")
+			} else {
+				needsSetup := false
+				for _, r := range combined.Global {
+					if r.Detected && (!r.AgentSkillPresent || !r.InjectPresent) {
+						needsSetup = true
+						break
+					}
+				}
+				if !needsSetup {
+					for _, r := range combined.Project {
+						if r.Detected && len(r.SyncedServices) == 0 {
+							needsSetup = true
+							break
+						}
+					}
+				}
+				if needsSetup {
+					fmt.Println()
+					fmt.Println("Run 'kimbap agents setup --sync' to install missing skills and sync services.")
+				}
 			}
 
 			return nil

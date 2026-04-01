@@ -284,5 +284,40 @@ func renderDoctorSummary(checks []doctorCheck) string {
 		}
 		_, _ = fmt.Fprintf(&b, "  %s %-25s %s\n", icon, c.Name, c.Detail)
 	}
+
+	if warnings > 0 || failed > 0 {
+		fixes := make([]string, 0)
+		seen := make(map[string]bool)
+		for _, c := range checks {
+			if c.Status != "warn" && c.Status != "fail" {
+				continue
+			}
+			fix := doctorSuggestedFix(c.Name)
+			if fix != "" && !seen[fix] {
+				seen[fix] = true
+				fixes = append(fixes, fix)
+			}
+		}
+		if len(fixes) > 0 {
+			b.WriteString("\n\nSuggested fixes:\n")
+			for _, fix := range fixes {
+				_, _ = fmt.Fprintf(&b, "  %s\n", fix)
+			}
+		}
+	}
+
 	return strings.TrimRight(b.String(), "\n")
+}
+
+func doctorSuggestedFix(checkName string) string {
+	switch checkName {
+	case "agent integration":
+		return "kimbap agents setup"
+	case "credentials stored":
+		return "kimbap link <service>"
+	case "action readiness":
+		return "kimbap service install <name>"
+	default:
+		return ""
+	}
 }

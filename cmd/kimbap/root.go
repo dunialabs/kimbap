@@ -619,6 +619,39 @@ func resolveActionByName(cfg *config.KimbapConfig, name string) (*actions.Action
 		}
 	}
 
+	if !strings.Contains(resolved, ".") {
+		serviceName := strings.ToLower(resolved)
+		var serviceActions []actions.ActionDefinition
+		var canonicalNamespace string
+		for _, d := range defs {
+			if strings.EqualFold(d.Namespace, serviceName) {
+				serviceActions = append(serviceActions, d)
+				if canonicalNamespace == "" {
+					canonicalNamespace = d.Namespace
+				}
+			}
+		}
+		if len(serviceActions) > 0 {
+			var sb strings.Builder
+			sb.WriteString(fmt.Sprintf("%q is a service name. Specify an action:\n", resolved))
+			limit := 5
+			if len(serviceActions) < limit {
+				limit = len(serviceActions)
+			}
+			for i := 0; i < limit; i++ {
+				desc := serviceActions[i].Description
+				if desc == "" {
+					desc = "-"
+				}
+				sb.WriteString(fmt.Sprintf("  kimbap call %-40s %s\n", serviceActions[i].Name, desc))
+			}
+			if len(serviceActions) > 5 {
+				sb.WriteString(fmt.Sprintf("\nRun 'kimbap actions list --service %s' to see all %d actions.", canonicalNamespace, len(serviceActions)))
+			}
+			return nil, fmt.Errorf("%s", sb.String())
+		}
+	}
+
 	names := make([]string, len(defs))
 	for i, d := range defs {
 		names[i] = d.Name

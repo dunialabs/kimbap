@@ -749,9 +749,10 @@ func renderInitSummary(configPath string, checks []doctorCheck) string {
 
 	if failed == 0 && created > 0 {
 		b.WriteString("\nNext steps:\n")
-		_, _ = fmt.Fprintf(&b, "  %-38s %s\n", "kimbap link <service>", "Connect your first service")
-		_, _ = fmt.Fprintf(&b, "  %-38s %s\n", "kimbap call <service>.<action>", "Run your first action")
-		_, _ = fmt.Fprintf(&b, "  %-38s %s\n", "kimbap agents setup", "Set up AI agent integration (optional)")
+		_, _ = fmt.Fprintf(&b, "  %-38s %s\n", "kimbap actions list", "See available actions")
+		_, _ = fmt.Fprintf(&b, "  %-38s %s\n", "kimbap call <service.action> --help", "Learn how to use an action")
+		_, _ = fmt.Fprintf(&b, "  %-38s %s\n", "kimbap link <service>", "Connect a service with credentials")
+		_, _ = fmt.Fprintf(&b, "  %-38s %s\n", "kimbap agents setup", "Set up AI agent integration")
 	}
 
 	return strings.TrimRight(b.String(), "\n")

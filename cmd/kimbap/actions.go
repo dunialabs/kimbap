@@ -73,6 +73,10 @@ func newActionsCommand() *cobra.Command {
 					fmt.Printf("%-40s %s\n", def.Name, desc)
 				}
 			}
+
+			fmt.Println()
+			fmt.Println("Run 'kimbap call <service.action> --help' for usage details.")
+
 			return nil
 		},
 	}

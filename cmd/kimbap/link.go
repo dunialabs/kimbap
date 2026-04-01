@@ -323,6 +323,7 @@ func newLinkListCommand() *cobra.Command {
 			notConnected := len(rows) - connected
 			if notConnected > 0 {
 				_, _ = fmt.Fprintf(c.OutOrStdout(), "\n%d connected · %d not connected\n", connected, notConnected)
+				_, _ = fmt.Fprintf(c.OutOrStdout(), "\nRun 'kimbap link <service>' to connect a service.\n")
 			} else {
 				_, _ = fmt.Fprintf(c.OutOrStdout(), "\nAll %d services connected\n", connected)
 			}

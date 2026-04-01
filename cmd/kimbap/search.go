@@ -98,6 +98,9 @@ func newSearchCommand() *cobra.Command {
 				}
 			}
 
+			fmt.Println()
+			fmt.Println("Run 'kimbap call <service.action> --help' for usage details.")
+
 			return nil
 		},
 	}

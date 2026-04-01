@@ -428,6 +428,7 @@ func newServiceListCommand() *cobra.Command {
 			}
 			if len(installed) == 0 {
 				fmt.Println("No services installed.")
+				fmt.Println("\nRun 'kimbap init --services select' to install services, or 'kimbap service install <name>' to install one.")
 				return nil
 			}
 			useColor := isColorStdout()

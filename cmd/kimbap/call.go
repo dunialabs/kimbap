@@ -84,7 +84,7 @@ Discover available actions:
 				return cmd.Help()
 			}
 			if actionName == "" {
-				return fmt.Errorf("missing action name: expected <service.action>")
+				return fmt.Errorf("missing action name\n\nUsage:\n  kimbap call <service.action> [--arg value...]\n\nRun 'kimbap call --help' for examples, or 'kimbap search <query>' to find actions.")
 			}
 
 			cfg, err := loadAppConfig()

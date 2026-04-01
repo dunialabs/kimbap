@@ -211,7 +211,7 @@ func splitCallInvocationArgs(tokens []string) (string, []string, bool, error) {
 		if len(parts) == 0 {
 			return "", nil, false, nil
 		}
-		return "", nil, false, fmt.Errorf("missing action name: expected <service.action>")
+		return "", nil, false, fmt.Errorf("missing action name\n\nUsage:\n  kimbap call <service.action> [--arg value...]\n\nRun 'kimbap call --help' for examples, or 'kimbap search <query>' to find actions.")
 	}
 
 	actionName := strings.TrimSpace(parts[actionIdx])
