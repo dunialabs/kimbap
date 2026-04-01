@@ -164,8 +164,11 @@ func TestMSOfficeExcelScriptsPreferActiveSheetWithSheetsFallback(t *testing.T) {
 		if !strings.Contains(cmd.Script, "sheet = workbook.activeSheet();") {
 			t.Fatalf("%s should try workbook.activeSheet() first", name)
 		}
-		if !strings.Contains(cmd.Script, "workbook.sheets[0]") {
-			t.Fatalf("%s should fall back to workbook.sheets[0]", name)
+		if !strings.Contains(cmd.Script, "sheet.name();") {
+			t.Fatalf("%s should force-resolve activeSheet via sheet.name()", name)
+		}
+		if !strings.Contains(cmd.Script, "workbook.worksheets[0]") {
+			t.Fatalf("%s should fall back to workbook.worksheets[0]", name)
 		}
 	}
 }

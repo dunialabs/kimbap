@@ -221,8 +221,9 @@ if (input.sheet) {
 } else {
 	try {
 		sheet = workbook.activeSheet();
+		sheet.name();
 	} catch (e) {
-		sheet = workbook.sheets[0];
+		sheet = workbook.worksheets[0];
 	}
 }
 if (!sheet) throw new Error("[NOT_FOUND] worksheet not found");
@@ -258,8 +259,9 @@ if (input.sheet) {
 } else {
 	try {
 		sheet = workbook.activeSheet();
+		sheet.name();
 	} catch (e) {
-		sheet = workbook.sheets[0];
+		sheet = workbook.worksheets[0];
 	}
 }
 if (!sheet) throw new Error("[NOT_FOUND] worksheet not found");
@@ -294,8 +296,9 @@ if (input.sheet) {
 } else {
 	try {
 		sheet = workbook.activeSheet();
+		sheet.name();
 	} catch (e) {
-		sheet = workbook.sheets[0];
+		sheet = workbook.worksheets[0];
 	}
 }
 if (!sheet) throw new Error("[NOT_FOUND] worksheet not found");
