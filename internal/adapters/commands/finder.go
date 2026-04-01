@@ -1,5 +1,53 @@
 package commands
 
+const finderPathHelpers = `
+function normalizedPath(path) {
+	var trimmed = String(path || "").replace(/\/+$/, "");
+	return trimmed || "/";
+}
+
+function pathLocator(path) {
+	var normalized = normalizedPath(path);
+	if (normalized === "/") {
+		return {node: app.startupDisk, parts: []};
+	}
+	var parts = normalized.replace(/^\/+/, "").split("/");
+	if (parts[0] === "Volumes") {
+		if (parts.length < 2) throw new Error("[NOT_FOUND] volume not found");
+		return {node: app.disks.byName(parts[1]), parts: parts.slice(2)};
+	}
+	return {node: app.startupDisk, parts: parts};
+}
+
+function findFolderByPath(path) {
+	var locator = pathLocator(path);
+	var node = locator.node;
+	for (var i = 0; i < locator.parts.length; i++) {
+		var sub = node.folders.whose({name: {_equals: locator.parts[i]}})();
+		if (!sub.length) throw new Error("[NOT_FOUND] folder not found");
+		node = sub[0];
+	}
+	return node;
+}
+
+function findItemByPath(path) {
+	var locator = pathLocator(path);
+	var node = locator.node;
+	for (var i = 0; i < locator.parts.length - 1; i++) {
+		var sub = node.folders.whose({name: {_equals: locator.parts[i]}})();
+		if (!sub.length) throw new Error("[NOT_FOUND] item not found");
+		node = sub[0];
+	}
+	if (!locator.parts.length) return node;
+	var name = locator.parts[locator.parts.length - 1];
+	var sub = node.folders.whose({name: {_equals: name}})();
+	if (sub.length) return sub[0];
+	sub = node.files.whose({name: {_equals: name}})();
+	if (sub.length) return sub[0];
+	throw new Error("[NOT_FOUND] item not found");
+}
+`
+
 func FinderCommands() map[string]Command {
 	return map[string]Command{
 		"finder-list-items": {
@@ -36,21 +84,7 @@ function decodeItemPath(item) {
 function isFolder(item) {
 	try { return item.class() === "folder"; } catch (e) { return false; }
 }
-
-function folderURLPrefixes(path) {
-	var trimmed = String(path || "").replace(/\/$/, "");
-	var encoded = encodeURI(trimmed).replace(/#/g, "%23");
-	return ["file://" + encoded, "file://" + encoded + "/", "file://localhost" + encoded, "file://localhost" + encoded + "/"];
-}
-
-function findFolderByPath(path) {
-	var prefixes = folderURLPrefixes(path);
-	for (var i = 0; i < prefixes.length; i++) {
-		var folders = app.folders.whose({url: {_equals: prefixes[i]}})();
-		if (folders.length > 0) return folders[0];
-	}
-	throw new Error("[NOT_FOUND] folder not found");
-}
+` + finderPathHelpers + `
 
 var folder;
 try {
@@ -106,11 +140,11 @@ function decodeItemPath(item) {
 function isFolder(item) {
 	try { return item.class() === "folder"; } catch (e) { return false; }
 }
+` + finderPathHelpers + `
 
 var item;
 try {
-	item = app.item(Path(input.path));
-	item.name();
+	item = findItemByPath(input.path);
 } catch (e) {
 	throw new Error("[NOT_FOUND] item not found");
 }
@@ -134,21 +168,7 @@ var app = Application("Finder");
 app.includeStandardAdditions = false;
 if (!input.path) throw new Error("path is required");
 if (!input.name) throw new Error("name is required");
-
-function folderURLPrefixes(path) {
-	var trimmed = String(path || "").replace(/\/$/, "");
-	var encoded = encodeURI(trimmed).replace(/#/g, "%23");
-	return ["file://" + encoded, "file://" + encoded + "/", "file://localhost" + encoded, "file://localhost" + encoded + "/"];
-}
-
-function findFolderByPath(path) {
-	var prefixes = folderURLPrefixes(path);
-	for (var i = 0; i < prefixes.length; i++) {
-		var folders = app.folders.whose({url: {_equals: prefixes[i]}})();
-		if (folders.length > 0) return folders[0];
-	}
-	throw new Error("[NOT_FOUND] folder not found");
-}
+` + finderPathHelpers + `
 
 var container;
 try {
@@ -182,26 +202,11 @@ var app = Application("Finder");
 app.includeStandardAdditions = false;
 if (!input.source_path) throw new Error("source_path is required");
 if (!input.destination_path) throw new Error("destination_path is required");
-
-function folderURLPrefixes(path) {
-	var trimmed = String(path || "").replace(/\/$/, "");
-	var encoded = encodeURI(trimmed).replace(/#/g, "%23");
-	return ["file://" + encoded, "file://" + encoded + "/", "file://localhost" + encoded, "file://localhost" + encoded + "/"];
-}
-
-function findFolderByPath(path) {
-	var prefixes = folderURLPrefixes(path);
-	for (var i = 0; i < prefixes.length; i++) {
-		var folders = app.folders.whose({url: {_equals: prefixes[i]}})();
-		if (folders.length > 0) return folders[0];
-	}
-	throw new Error("[NOT_FOUND] destination folder not found");
-}
+` + finderPathHelpers + `
 
 var sourceItem;
 try {
-	sourceItem = app.item(Path(input.source_path));
-	sourceItem.name();
+	sourceItem = findItemByPath(input.source_path);
 } catch (e) {
 	throw new Error("[NOT_FOUND] source item not found");
 }
@@ -234,26 +239,11 @@ var app = Application("Finder");
 app.includeStandardAdditions = false;
 if (!input.source_path) throw new Error("source_path is required");
 if (!input.destination_path) throw new Error("destination_path is required");
-
-function folderURLPrefixes(path) {
-	var trimmed = String(path || "").replace(/\/$/, "");
-	var encoded = encodeURI(trimmed).replace(/#/g, "%23");
-	return ["file://" + encoded, "file://" + encoded + "/", "file://localhost" + encoded, "file://localhost" + encoded + "/"];
-}
-
-function findFolderByPath(path) {
-	var prefixes = folderURLPrefixes(path);
-	for (var i = 0; i < prefixes.length; i++) {
-		var folders = app.folders.whose({url: {_equals: prefixes[i]}})();
-		if (folders.length > 0) return folders[0];
-	}
-	throw new Error("[NOT_FOUND] destination folder not found");
-}
+` + finderPathHelpers + `
 
 var sourceItem;
 try {
-	sourceItem = app.item(Path(input.source_path));
-	sourceItem.name();
+	sourceItem = findItemByPath(input.source_path);
 } catch (e) {
 	throw new Error("[NOT_FOUND] source item not found");
 }
@@ -285,11 +275,11 @@ JSON.stringify({
 var app = Application("Finder");
 app.includeStandardAdditions = false;
 if (!input.path) throw new Error("path is required");
+` + finderPathHelpers + `
 
 var item;
 try {
-	item = app.item(Path(input.path));
-	item.name();
+	item = findItemByPath(input.path);
 } catch (e) {
 	throw new Error("[NOT_FOUND] item not found");
 }
@@ -304,11 +294,11 @@ JSON.stringify({name: name, deleted: true});`,
 var app = Application("Finder");
 app.includeStandardAdditions = false;
 if (!input.path) throw new Error("path is required");
+` + finderPathHelpers + `
 
 var item;
 try {
-	item = app.item(Path(input.path));
-	item.name();
+	item = findItemByPath(input.path);
 } catch (e) {
 	throw new Error("[NOT_FOUND] item not found");
 }

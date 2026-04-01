@@ -67,31 +67,31 @@ func TestFinderNotFoundMessagesDoNotEchoInputValues(t *testing.T) {
 	}
 }
 
-func TestFinderFolderLookupUsesExactURLMatching(t *testing.T) {
+func TestFinderFolderLookupUsesVolumeAwareTraversal(t *testing.T) {
 	cmds := FinderCommands()
 	lookupScripts := 0
 
 	for name, cmd := range cmds {
-		if !strings.Contains(cmd.Script, "function findFolderByPath(path)") {
+		if !strings.Contains(cmd.Script, "function pathLocator(path)") {
 			continue
 		}
 		lookupScripts++
 
-		if strings.Contains(cmd.Script, "_beginsWith") {
-			t.Errorf("%s: folder lookup should not use _beginsWith", name)
+		if strings.Contains(cmd.Script, "app.folders.whose({url: {_equals: prefixes[i]}})") {
+			t.Errorf("%s: folder lookup should not use top-level URL matching", name)
 		}
-		if !strings.Contains(cmd.Script, "url: {_equals: prefixes[i]}") {
-			t.Errorf("%s: folder lookup should use _equals", name)
+		if !strings.Contains(cmd.Script, `parts[0] === "Volumes"`) {
+			t.Errorf("%s: folder lookup should special-case /Volumes paths", name)
 		}
-		if !strings.Contains(cmd.Script, "\"file://\" + encoded + \"/\"") {
-			t.Errorf("%s: folder lookup should try trailing-slash file URL variant", name)
+		if !strings.Contains(cmd.Script, "app.disks.byName(parts[1])") {
+			t.Errorf("%s: folder lookup should resolve mounted volumes by disk name", name)
 		}
-		if !strings.Contains(cmd.Script, "\"file://localhost\" + encoded + \"/\"") {
-			t.Errorf("%s: folder lookup should try trailing-slash localhost file URL variant", name)
+		if !strings.Contains(cmd.Script, "app.startupDisk") {
+			t.Errorf("%s: folder lookup should still support startup disk paths", name)
 		}
 	}
 
-	if lookupScripts != 4 {
-		t.Errorf("got %d scripts with findFolderByPath, want 4", lookupScripts)
+	if lookupScripts != len(cmds) {
+		t.Errorf("got %d scripts with pathLocator, want %d", lookupScripts, len(cmds))
 	}
 }
