@@ -8,6 +8,8 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"sync"
+	"time"
 	"unicode/utf8"
 
 	"github.com/dunialabs/kimbap/internal/actions"
@@ -165,7 +167,9 @@ Discover available actions:
 					return err
 				}
 			} else {
-				result = rt.Execute(contextBackground(), req)
+				result = runWithSpinner(actionName, func() actions.ExecutionResult {
+					return rt.Execute(contextBackground(), req)
+				})
 			}
 			if result.Status == actions.StatusApprovalRequired && !outputAsJSON() {
 				warning := "!"
@@ -587,6 +591,42 @@ func truncatePreview(value string, maxLen int) string {
 		cut--
 	}
 	return value[:cut] + "..."
+}
+
+func runWithSpinner(actionName string, fn func() actions.ExecutionResult) actions.ExecutionResult {
+	if outputAsJSON() || !isInteractiveTTY(os.Stderr) {
+		return fn()
+	}
+	frames := []string{"⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"}
+	done := make(chan struct{})
+	start := time.Now()
+	var wg sync.WaitGroup
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		ticker := time.NewTicker(100 * time.Millisecond)
+		defer ticker.Stop()
+		i := 0
+		for {
+			select {
+			case <-done:
+				return
+			case <-ticker.C:
+				elapsed := time.Since(start)
+				elapsedStr := ""
+				if elapsed >= time.Second {
+					elapsedStr = fmt.Sprintf(" (%s)", elapsed.Round(time.Second))
+				}
+				_, _ = fmt.Fprintf(os.Stderr, "\r%s %s...%s", frames[i%len(frames)], actionName, elapsedStr)
+				i++
+			}
+		}
+	}()
+	result := fn()
+	close(done)
+	wg.Wait()
+	_, _ = fmt.Fprintf(os.Stderr, "\r\033[K")
+	return result
 }
 
 func isCredentialReady(cfg *config.KimbapConfig, req actions.ExecutionRequest) bool {
