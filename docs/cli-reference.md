@@ -154,6 +154,42 @@ Install sets up eligible shortcut aliases by default. Use `--no-shortcuts` to sk
 
 ---
 
+### kimbap service generate
+
+Generate a service manifest from an OpenAPI 3.x spec.
+
+Remote OpenAPI URLs must use `https://`. Plain `http://` is allowed only for localhost/loopback sources such as `http://127.0.0.1:8080/openapi.yaml`.
+
+**Syntax:**
+
+```
+kimbap service generate --openapi <path-or-url> [--name <service>] [--tag <tag> ...] [--path-prefix <prefix> ...] [--output file.yaml] [--install]
+```
+
+**Flags:**
+
+| Flag | Description |
+|---|---|
+| `--openapi <path-or-url>` | OpenAPI 3.x spec file path or URL |
+| `--name <service>` | Override the generated service name |
+| `--tag <tag>` | Include only operations with a matching OpenAPI tag. Repeatable |
+| `--path-prefix <prefix>` | Include only operations whose path starts with the given prefix. Repeatable |
+| `--output <file>` | Write the generated YAML to a file instead of stdout |
+| `--install` | Install the generated manifest immediately after generation |
+
+**Examples:**
+
+```bash
+kimbap service generate --openapi ./openapi.yaml
+kimbap service generate --openapi https://api.example.com/openapi.yaml --output my-service.yaml
+kimbap service generate --openapi http://127.0.0.1:8080/openapi.yaml --name local-api --install
+kimbap service generate --openapi ./openapi.yaml --tag admin --path-prefix /v1/admin --output admin-api.yaml
+```
+
+When `--install` is set, the command installs the manifest instead of printing YAML. In text mode it prints an install success message; in JSON mode it returns a structured install payload.
+
+---
+
 ### kimbap service validate \<file\>
 
 Parse and validate a service manifest without installing it. Reports all errors found, not just the first.
