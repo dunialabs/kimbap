@@ -8,7 +8,6 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
-	"reflect"
 	"regexp"
 	"sort"
 	"strconv"
@@ -129,7 +128,6 @@ type openAPIRefResolver struct {
 	root    map[string]any
 	rootDoc *openAPIDocument
 	docs    map[string]*openAPIDocument
-	mapDocs map[uintptr]*openAPIDocument
 }
 
 func newOpenAPIRefResolver(root map[string]any) *openAPIRefResolver {
@@ -145,33 +143,36 @@ func newOpenAPIFileRefResolver(path string, root map[string]any) *openAPIRefReso
 		root:    root,
 		rootDoc: doc,
 		docs:    map[string]*openAPIDocument{path: doc},
-		mapDocs: make(map[uintptr]*openAPIDocument),
 	}
-	resolver.registerDocumentValue(root, doc)
 	return resolver
 }
 
 func (r *openAPIRefResolver) resolveMap(in map[string]any) (map[string]any, error) {
+	resolved, _, err := r.resolveMapInDoc(in, r.rootDoc)
+	return resolved, err
+}
+
+func (r *openAPIRefResolver) resolveMapInDoc(in map[string]any, currentDoc *openAPIDocument) (map[string]any, *openAPIDocument, error) {
 	if in == nil {
-		return nil, nil
+		return nil, currentDoc, nil
 	}
 
 	out := in
-	currentDoc := r.documentForMap(in)
+	resolvedDoc := currentDoc
 	for range 8 {
 		ref := strings.TrimSpace(stringAt(out, "$ref"))
 		if ref == "" {
-			return out, nil
+			return out, resolvedDoc, nil
 		}
 
-		resolvedAny, resolvedDoc, err := r.resolveRef(currentDoc, ref)
+		resolvedAny, nextDoc, err := r.resolveRef(resolvedDoc, ref)
 		if err != nil {
-			return nil, err
+			return nil, nil, err
 		}
 
 		resolvedMap, ok := resolvedAny.(map[string]any)
 		if !ok {
-			return nil, fmt.Errorf("$ref %q did not resolve to an object", ref)
+			return nil, nil, fmt.Errorf("$ref %q did not resolve to an object", ref)
 		}
 
 		merged := cloneAnyMap(resolvedMap)
@@ -181,12 +182,11 @@ func (r *openAPIRefResolver) resolveMap(in map[string]any) (map[string]any, erro
 			}
 			merged[k] = v
 		}
-		r.registerMap(merged, resolvedDoc)
 		out = merged
-		currentDoc = resolvedDoc
+		resolvedDoc = nextDoc
 	}
 
-	return nil, fmt.Errorf("$ref resolution depth exceeded")
+	return nil, nil, fmt.Errorf("$ref resolution depth exceeded")
 }
 
 func (r *openAPIRefResolver) resolveRef(currentDoc *openAPIDocument, ref string) (any, *openAPIDocument, error) {
@@ -247,38 +247,7 @@ func (r *openAPIRefResolver) loadDocument(path string) (*openAPIDocument, error)
 		root: root,
 	}
 	r.docs[path] = doc
-	r.registerDocumentValue(root, doc)
 	return doc, nil
-}
-
-func (r *openAPIRefResolver) registerDocumentValue(value any, doc *openAPIDocument) {
-	switch typed := value.(type) {
-	case map[string]any:
-		r.registerMap(typed, doc)
-		for _, child := range typed {
-			r.registerDocumentValue(child, doc)
-		}
-	case []any:
-		for _, child := range typed {
-			r.registerDocumentValue(child, doc)
-		}
-	}
-}
-
-func (r *openAPIRefResolver) registerMap(m map[string]any, doc *openAPIDocument) {
-	if r.mapDocs == nil || m == nil {
-		return
-	}
-	r.mapDocs[mapIdentity(m)] = doc
-}
-
-func (r *openAPIRefResolver) documentForMap(m map[string]any) *openAPIDocument {
-	if r.mapDocs != nil {
-		if doc, ok := r.mapDocs[mapIdentity(m)]; ok {
-			return doc
-		}
-	}
-	return r.rootDoc
 }
 
 func splitOpenAPIRef(ref string) (string, string, error) {
@@ -322,13 +291,6 @@ func resolveOpenAPIJSONPointer(root any, pointer string, ref string) (any, error
 	}
 
 	return current, nil
-}
-
-func mapIdentity(m map[string]any) uintptr {
-	if m == nil {
-		return 0
-	}
-	return reflect.ValueOf(m).Pointer()
 }
 
 func parseOpenAPIRoot(spec []byte) (map[string]any, error) {
@@ -377,7 +339,7 @@ func extractAuth(root map[string]any, resolver *openAPIRefResolver, skillName st
 		return ServiceAuth{Type: "none"}, nil
 	}
 
-	scheme, err := resolver.resolveMap(rawScheme)
+	scheme, _, err := resolver.resolveMapInDoc(rawScheme, resolver.rootDoc)
 	if err != nil {
 		return ServiceAuth{}, fmt.Errorf("resolve security scheme %q: %w", schemeName, err)
 	}
@@ -409,7 +371,7 @@ func extractActions(root map[string]any, resolver *openAPIRefResolver, skillName
 			continue
 		}
 
-		pathItem, err := resolver.resolveMap(mapAt(paths, p))
+		pathItem, pathDoc, err := resolver.resolveMapInDoc(mapAt(paths, p), resolver.rootDoc)
 		if err != nil {
 			return nil, fmt.Errorf("resolve path item %q: %w", p, err)
 		}
@@ -421,7 +383,7 @@ func extractActions(root map[string]any, resolver *openAPIRefResolver, skillName
 				continue
 			}
 
-			op, err := resolver.resolveMap(rawOp)
+			op, opDoc, err := resolver.resolveMapInDoc(rawOp, pathDoc)
 			if err != nil {
 				return nil, fmt.Errorf("resolve operation %s %s: %w", strings.ToUpper(method), p, err)
 			}
@@ -430,7 +392,7 @@ func extractActions(root map[string]any, resolver *openAPIRefResolver, skillName
 			}
 			matchedFilteredOperation = true
 
-			action, err := buildAction(strings.ToUpper(method), p, op, pathParams, root, resolver, skillName)
+			action, err := buildAction(strings.ToUpper(method), p, op, opDoc, pathParams, pathDoc, root, resolver, skillName)
 			if err != nil {
 				return nil, err
 			}
@@ -524,7 +486,7 @@ func matchesOpenAPIPathPrefixFilter(path string, prefixes []string) bool {
 	return false
 }
 
-func buildAction(method, path string, op map[string]any, pathParams []any, root map[string]any, resolver *openAPIRefResolver, skillName string) (ServiceAction, error) {
+func buildAction(method, path string, op map[string]any, opDoc *openAPIDocument, pathParams []any, pathDoc *openAPIDocument, root map[string]any, resolver *openAPIRefResolver, skillName string) (ServiceAction, error) {
 	description := strings.TrimSpace(stringAt(op, "summary"))
 	if description == "" {
 		description = strings.TrimSpace(stringAt(op, "description"))
@@ -541,12 +503,12 @@ func buildAction(method, path string, op map[string]any, pathParams []any, root 
 			Body:       map[string]any{},
 			PathParams: map[string]string{},
 		},
-		Response: responseFromOperation(op, resolver),
+		Response: responseFromOperation(op, opDoc, resolver),
 		Risk:     riskFromMethod(method),
 	}
 
 	argIndex := map[string]int{}
-	mergeArgsAndRequest, err := mergeParameters(pathParams, anySliceAt(op, "parameters"), resolver)
+	mergeArgsAndRequest, err := mergeParameters(pathParams, pathDoc, anySliceAt(op, "parameters"), opDoc, resolver)
 	if err != nil {
 		return ServiceAction{}, err
 	}
@@ -563,7 +525,7 @@ func buildAction(method, path string, op map[string]any, pathParams []any, root 
 		}
 	}
 
-	if err := addRequestBodyArgs(&action, op, resolver, argIndex); err != nil {
+	if err := addRequestBodyArgs(&action, op, opDoc, resolver, argIndex); err != nil {
 		return ServiceAction{}, err
 	}
 
@@ -587,23 +549,23 @@ type parameterActionArg struct {
 	location string
 }
 
-func mergeParameters(pathLevel, operationLevel []any, resolver *openAPIRefResolver) ([]parameterActionArg, error) {
+func mergeParameters(pathLevel []any, pathDoc *openAPIDocument, operationLevel []any, operationDoc *openAPIDocument, resolver *openAPIRefResolver) ([]parameterActionArg, error) {
 	merged := map[string]parameterActionArg{}
 	order := make([]string, 0)
 
-	apply := func(raw []any) error {
+	apply := func(raw []any, currentDoc *openAPIDocument) error {
 		for _, item := range raw {
 			paramMap, ok := item.(map[string]any)
 			if !ok {
 				continue
 			}
 
-			resolved, err := resolver.resolveMap(paramMap)
+			resolved, resolvedDoc, err := resolver.resolveMapInDoc(paramMap, currentDoc)
 			if err != nil {
 				return fmt.Errorf("resolve parameter ref: %w", err)
 			}
 
-			arg, location, ok := parameterToArg(resolved, resolver)
+			arg, location, ok := parameterToArg(resolved, resolvedDoc, resolver)
 			if !ok {
 				continue
 			}
@@ -617,10 +579,10 @@ func mergeParameters(pathLevel, operationLevel []any, resolver *openAPIRefResolv
 		return nil
 	}
 
-	if err := apply(pathLevel); err != nil {
+	if err := apply(pathLevel, pathDoc); err != nil {
 		return nil, err
 	}
-	if err := apply(operationLevel); err != nil {
+	if err := apply(operationLevel, operationDoc); err != nil {
 		return nil, err
 	}
 
@@ -632,7 +594,7 @@ func mergeParameters(pathLevel, operationLevel []any, resolver *openAPIRefResolv
 	return result, nil
 }
 
-func parameterToArg(param map[string]any, resolver *openAPIRefResolver) (ActionArg, string, bool) {
+func parameterToArg(param map[string]any, currentDoc *openAPIDocument, resolver *openAPIRefResolver) (ActionArg, string, bool) {
 	name := strings.TrimSpace(stringAt(param, "name"))
 	in := strings.ToLower(strings.TrimSpace(stringAt(param, "in")))
 	if name == "" || (in != "query" && in != "path" && in != "header") {
@@ -641,11 +603,12 @@ func parameterToArg(param map[string]any, resolver *openAPIRefResolver) (ActionA
 
 	schema := mapAt(param, "schema")
 	if len(schema) > 0 {
-		resolved, err := resolver.resolveMap(schema)
+		resolved, resolvedDoc, err := resolver.resolveMapInDoc(schema, currentDoc)
 		if err == nil {
 			schema = resolved
+			currentDoc = resolvedDoc
 		}
-		schema = resolveCompositeSchema(schema, resolver)
+		schema = resolveCompositeSchema(schema, currentDoc, resolver)
 	}
 
 	arg := ActionArg{
@@ -664,13 +627,13 @@ func parameterToArg(param map[string]any, resolver *openAPIRefResolver) (ActionA
 	return arg, in, true
 }
 
-func addRequestBodyArgs(action *ServiceAction, op map[string]any, resolver *openAPIRefResolver, argIndex map[string]int) error {
+func addRequestBodyArgs(action *ServiceAction, op map[string]any, opDoc *openAPIDocument, resolver *openAPIRefResolver, argIndex map[string]int) error {
 	rawBody := mapAt(op, "requestBody")
 	if len(rawBody) == 0 {
 		return nil
 	}
 
-	requestBody, err := resolver.resolveMap(rawBody)
+	requestBody, requestBodyDoc, err := resolver.resolveMapInDoc(rawBody, opDoc)
 	if err != nil {
 		return fmt.Errorf("resolve requestBody ref: %w", err)
 	}
@@ -691,11 +654,11 @@ func addRequestBodyArgs(action *ServiceAction, op map[string]any, resolver *open
 		return nil
 	}
 
-	resolvedSchema, err := resolver.resolveMap(schema)
+	resolvedSchema, resolvedSchemaDoc, err := resolver.resolveMapInDoc(schema, requestBodyDoc)
 	if err != nil {
 		return fmt.Errorf("resolve request body schema ref: %w", err)
 	}
-	resolvedSchema = resolveCompositeSchema(resolvedSchema, resolver)
+	resolvedSchema = resolveCompositeSchema(resolvedSchema, resolvedSchemaDoc, resolver)
 	appendActionWarnings(action, schemaWarnings(resolvedSchema))
 
 	if opaque, _ := resolvedSchema[schemaOpaqueKey].(bool); opaque {
@@ -723,12 +686,12 @@ func addRequestBodyArgs(action *ServiceAction, op map[string]any, resolver *open
 		for _, propName := range propNames {
 			propSchema := mapAt(properties, propName)
 			if len(propSchema) > 0 {
-				resolved, resolveErr := resolver.resolveMap(propSchema)
+				resolved, propDoc, resolveErr := resolver.resolveMapInDoc(propSchema, resolvedSchemaDoc)
 				if resolveErr != nil {
 					return fmt.Errorf("resolve property %q schema ref: %w", propName, resolveErr)
 				}
 				propSchema = resolved
-				propSchema = resolveCompositeSchema(propSchema, resolver)
+				propSchema = resolveCompositeSchema(propSchema, propDoc, resolver)
 			}
 
 			arg := ActionArg{
@@ -759,7 +722,7 @@ func addRequestBodyArgs(action *ServiceAction, op map[string]any, resolver *open
 	return nil
 }
 
-func responseFromOperation(op map[string]any, resolver *openAPIRefResolver) ResponseSpec {
+func responseFromOperation(op map[string]any, opDoc *openAPIDocument, resolver *openAPIRefResolver) ResponseSpec {
 	resp := ResponseSpec{Extract: "", Type: "object"}
 
 	responses := mapAt(op, "responses")
@@ -773,7 +736,7 @@ func responseFromOperation(op map[string]any, resolver *openAPIRefResolver) Resp
 		return resp
 	}
 
-	resolvedResponse, err := resolver.resolveMap(rawResponse)
+	resolvedResponse, responseDoc, err := resolver.resolveMapInDoc(rawResponse, opDoc)
 	if err != nil {
 		return resp
 	}
@@ -789,7 +752,7 @@ func responseFromOperation(op map[string]any, resolver *openAPIRefResolver) Resp
 		return resp
 	}
 
-	resolvedSchema, err := resolver.resolveMap(schema)
+	resolvedSchema, _, err := resolver.resolveMapInDoc(schema, responseDoc)
 	if err != nil {
 		return resp
 	}
@@ -1126,11 +1089,11 @@ func authFromScheme(scheme map[string]any, skillName string) (ServiceAuth, error
 	return auth, nil
 }
 
-func resolveCompositeSchema(schema map[string]any, resolver *openAPIRefResolver) map[string]any {
-	return resolveCompositeSchemaDepth(schema, resolver, 0)
+func resolveCompositeSchema(schema map[string]any, currentDoc *openAPIDocument, resolver *openAPIRefResolver) map[string]any {
+	return resolveCompositeSchemaDepth(schema, currentDoc, resolver, 0)
 }
 
-func resolveCompositeSchemaDepth(schema map[string]any, resolver *openAPIRefResolver, depth int) map[string]any {
+func resolveCompositeSchemaDepth(schema map[string]any, currentDoc *openAPIDocument, resolver *openAPIRefResolver, depth int) map[string]any {
 	if len(schema) == 0 || depth > 16 {
 		if depth > 16 {
 			merged := cloneAnyMap(schema)
@@ -1144,8 +1107,10 @@ func resolveCompositeSchemaDepth(schema map[string]any, resolver *openAPIRefReso
 	}
 
 	resolved := schema
-	if next, err := resolver.resolveMap(schema); err == nil && len(next) > 0 {
+	resolvedDoc := currentDoc
+	if next, nextDoc, err := resolver.resolveMapInDoc(schema, currentDoc); err == nil && len(next) > 0 {
 		resolved = next
+		resolvedDoc = nextDoc
 	}
 
 	if allOf := anySliceAt(resolved, "allOf"); len(allOf) > 0 {
@@ -1166,7 +1131,7 @@ func resolveCompositeSchemaDepth(schema map[string]any, resolver *openAPIRefReso
 			if !ok {
 				continue
 			}
-			subResolved := resolveCompositeSchemaDepth(sub, resolver, depth+1)
+			subResolved := resolveCompositeSchemaDepth(sub, resolvedDoc, resolver, depth+1)
 			if disc, hasDisc := subResolved["discriminator"]; hasDisc {
 				merged["discriminator"] = disc
 			}
@@ -1226,7 +1191,7 @@ func resolveCompositeSchemaDepth(schema map[string]any, resolver *openAPIRefReso
 		if len(variants) == 0 {
 			continue
 		}
-		if isComplexComposition(variants, resolver) || hasKey(resolved, "discriminator") {
+		if isComplexComposition(variants, resolvedDoc, resolver) || hasKey(resolved, "discriminator") {
 			merged := cloneAnyMap(resolved)
 			delete(merged, keyword)
 			delete(merged, "required")
@@ -1238,7 +1203,7 @@ func resolveCompositeSchemaDepth(schema map[string]any, resolver *openAPIRefReso
 		if !ok {
 			break
 		}
-		primary := resolveCompositeSchemaDepth(first, resolver, depth+1)
+		primary := resolveCompositeSchemaDepth(first, resolvedDoc, resolver, depth+1)
 		parentRequired := anySliceAt(resolved, "required")
 		parentProps := mapAt(resolved, "properties")
 		merged := cloneAnyMap(resolved)
@@ -1277,7 +1242,7 @@ func resolveCompositeSchemaDepth(schema map[string]any, resolver *openAPIRefReso
 	return resolved
 }
 
-func isComplexComposition(variants []any, resolver *openAPIRefResolver) bool {
+func isComplexComposition(variants []any, currentDoc *openAPIDocument, resolver *openAPIRefResolver) bool {
 	if len(variants) >= 3 {
 		return true
 	}
@@ -1288,7 +1253,7 @@ func isComplexComposition(variants []any, resolver *openAPIRefResolver) bool {
 			continue
 		}
 		resolved := v
-		if next, err := resolver.resolveMap(v); err == nil && len(next) > 0 {
+		if next, _, err := resolver.resolveMapInDoc(v, currentDoc); err == nil && len(next) > 0 {
 			resolved = next
 		}
 		if hasKey(resolved, "discriminator") {
