@@ -7,6 +7,8 @@ import (
 	"maps"
 	"net/url"
 	"os"
+	"path/filepath"
+	"reflect"
 	"regexp"
 	"sort"
 	"strconv"
@@ -47,14 +49,16 @@ func GenerateFromOpenAPIWithOptions(spec []byte, opts OpenAPIGenerateOptions) (*
 	if err != nil {
 		return nil, err
 	}
+	return generateFromOpenAPIRoot(root, newOpenAPIRefResolver(root), opts)
+}
+
+func generateFromOpenAPIRoot(root map[string]any, resolver *openAPIRefResolver, opts OpenAPIGenerateOptions) (*ServiceManifest, error) {
 	normalizedOpts := normalizeOpenAPIGenerateOptions(opts)
 
 	openapiVersion := strings.TrimSpace(stringAt(root, "openapi"))
 	if openapiVersion == "" || !strings.HasPrefix(openapiVersion, "3") {
 		return nil, fmt.Errorf("unsupported OpenAPI version %q: only OpenAPI 3.x is supported", openapiVersion)
 	}
-
-	resolver := &openAPIRefResolver{root: root}
 
 	info := mapAt(root, "info")
 	name := normalizeSkillName(stringAt(info, "title"))
@@ -99,15 +103,52 @@ func GenerateFromOpenAPIFile(path string) (*ServiceManifest, error) {
 }
 
 func GenerateFromOpenAPIFileWithOptions(path string, opts OpenAPIGenerateOptions) (*ServiceManifest, error) {
-	data, err := os.ReadFile(path)
+	absolutePath, err := filepath.Abs(path)
+	if err != nil {
+		return nil, fmt.Errorf("resolve OpenAPI file path: %w", err)
+	}
+
+	data, err := os.ReadFile(absolutePath)
 	if err != nil {
 		return nil, fmt.Errorf("read OpenAPI file: %w", err)
 	}
-	return GenerateFromOpenAPIWithOptions(data, opts)
+	root, err := parseOpenAPIRoot(data)
+	if err != nil {
+		return nil, err
+	}
+
+	return generateFromOpenAPIRoot(root, newOpenAPIFileRefResolver(absolutePath, root), opts)
+}
+
+type openAPIDocument struct {
+	path string
+	root map[string]any
 }
 
 type openAPIRefResolver struct {
-	root map[string]any
+	root    map[string]any
+	rootDoc *openAPIDocument
+	docs    map[string]*openAPIDocument
+	mapDocs map[uintptr]*openAPIDocument
+}
+
+func newOpenAPIRefResolver(root map[string]any) *openAPIRefResolver {
+	return &openAPIRefResolver{root: root}
+}
+
+func newOpenAPIFileRefResolver(path string, root map[string]any) *openAPIRefResolver {
+	doc := &openAPIDocument{
+		path: path,
+		root: root,
+	}
+	resolver := &openAPIRefResolver{
+		root:    root,
+		rootDoc: doc,
+		docs:    map[string]*openAPIDocument{path: doc},
+		mapDocs: make(map[uintptr]*openAPIDocument),
+	}
+	resolver.registerDocumentValue(root, doc)
+	return resolver
 }
 
 func (r *openAPIRefResolver) resolveMap(in map[string]any) (map[string]any, error) {
@@ -116,13 +157,14 @@ func (r *openAPIRefResolver) resolveMap(in map[string]any) (map[string]any, erro
 	}
 
 	out := in
+	currentDoc := r.documentForMap(in)
 	for range 8 {
 		ref := strings.TrimSpace(stringAt(out, "$ref"))
 		if ref == "" {
 			return out, nil
 		}
 
-		resolvedAny, err := r.resolveRef(ref)
+		resolvedAny, resolvedDoc, err := r.resolveRef(currentDoc, ref)
 		if err != nil {
 			return nil, err
 		}
@@ -139,32 +181,154 @@ func (r *openAPIRefResolver) resolveMap(in map[string]any) (map[string]any, erro
 			}
 			merged[k] = v
 		}
+		r.registerMap(merged, resolvedDoc)
 		out = merged
+		currentDoc = resolvedDoc
 	}
 
 	return nil, fmt.Errorf("$ref resolution depth exceeded")
 }
 
-func (r *openAPIRefResolver) resolveRef(ref string) (any, error) {
-	if !strings.HasPrefix(ref, "#/") {
-		return nil, fmt.Errorf("unsupported $ref %q: only local refs are supported", ref)
+func (r *openAPIRefResolver) resolveRef(currentDoc *openAPIDocument, ref string) (any, *openAPIDocument, error) {
+	refPath, pointer, err := splitOpenAPIRef(ref)
+	if err != nil {
+		return nil, nil, err
 	}
 
-	current := any(r.root)
-	for rawPart := range strings.SplitSeq(strings.TrimPrefix(ref, "#/"), "/") {
+	if refPath == "" {
+		targetRoot := any(r.root)
+		targetDoc := currentDoc
+		if currentDoc != nil {
+			targetRoot = currentDoc.root
+		}
+		resolved, err := resolveOpenAPIJSONPointer(targetRoot, pointer, ref)
+		return resolved, targetDoc, err
+	}
+
+	if parsed, parseErr := url.Parse(refPath); parseErr == nil && parsed.Scheme != "" {
+		return nil, nil, fmt.Errorf("unsupported $ref %q: only local refs and relative file refs are supported", ref)
+	}
+	if filepath.IsAbs(refPath) {
+		return nil, nil, fmt.Errorf("unsupported $ref %q: only local refs and relative file refs are supported", ref)
+	}
+	if currentDoc == nil || strings.TrimSpace(currentDoc.path) == "" {
+		return nil, nil, fmt.Errorf("unsupported $ref %q: external file refs require OpenAPI file input", ref)
+	}
+
+	targetPath := filepath.Clean(filepath.Join(filepath.Dir(currentDoc.path), filepath.FromSlash(refPath)))
+	targetDoc, err := r.loadDocument(targetPath)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	resolved, err := resolveOpenAPIJSONPointer(targetDoc.root, pointer, ref)
+	return resolved, targetDoc, err
+}
+
+func (r *openAPIRefResolver) loadDocument(path string) (*openAPIDocument, error) {
+	if r.docs == nil {
+		r.docs = make(map[string]*openAPIDocument)
+	}
+	if doc, ok := r.docs[path]; ok {
+		return doc, nil
+	}
+
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return nil, fmt.Errorf("read referenced OpenAPI file %q: %w", path, err)
+	}
+	root, err := parseOpenAPIRoot(data)
+	if err != nil {
+		return nil, fmt.Errorf("parse referenced OpenAPI file %q: %w", path, err)
+	}
+
+	doc := &openAPIDocument{
+		path: path,
+		root: root,
+	}
+	r.docs[path] = doc
+	r.registerDocumentValue(root, doc)
+	return doc, nil
+}
+
+func (r *openAPIRefResolver) registerDocumentValue(value any, doc *openAPIDocument) {
+	switch typed := value.(type) {
+	case map[string]any:
+		r.registerMap(typed, doc)
+		for _, child := range typed {
+			r.registerDocumentValue(child, doc)
+		}
+	case []any:
+		for _, child := range typed {
+			r.registerDocumentValue(child, doc)
+		}
+	}
+}
+
+func (r *openAPIRefResolver) registerMap(m map[string]any, doc *openAPIDocument) {
+	if r.mapDocs == nil || m == nil {
+		return
+	}
+	r.mapDocs[mapIdentity(m)] = doc
+}
+
+func (r *openAPIRefResolver) documentForMap(m map[string]any) *openAPIDocument {
+	if r.mapDocs != nil {
+		if doc, ok := r.mapDocs[mapIdentity(m)]; ok {
+			return doc
+		}
+	}
+	return r.rootDoc
+}
+
+func splitOpenAPIRef(ref string) (string, string, error) {
+	refPath, fragment, hasFragment := strings.Cut(ref, "#")
+	switch {
+	case !hasFragment:
+		return refPath, "", nil
+	case fragment == "":
+		return refPath, "", nil
+	case !strings.HasPrefix(fragment, "/"):
+		return "", "", fmt.Errorf("unsupported $ref %q: only JSON Pointer fragments are supported", ref)
+	default:
+		return refPath, fragment, nil
+	}
+}
+
+func resolveOpenAPIJSONPointer(root any, pointer string, ref string) (any, error) {
+	if pointer == "" {
+		return root, nil
+	}
+
+	current := root
+	for rawPart := range strings.SplitSeq(strings.TrimPrefix(pointer, "/"), "/") {
 		part := strings.ReplaceAll(strings.ReplaceAll(rawPart, "~1", "/"), "~0", "~")
-		asMap, ok := current.(map[string]any)
-		if !ok {
+		switch typed := current.(type) {
+		case map[string]any:
+			next, ok := typed[part]
+			if !ok {
+				return nil, fmt.Errorf("unresolvable $ref %q", ref)
+			}
+			current = next
+		case []any:
+			index, err := strconv.Atoi(part)
+			if err != nil || index < 0 || index >= len(typed) {
+				return nil, fmt.Errorf("unresolvable $ref %q", ref)
+			}
+			current = typed[index]
+		default:
 			return nil, fmt.Errorf("invalid $ref %q", ref)
 		}
-		next, ok := asMap[part]
-		if !ok {
-			return nil, fmt.Errorf("unresolvable $ref %q", ref)
-		}
-		current = next
 	}
 
 	return current, nil
+}
+
+func mapIdentity(m map[string]any) uintptr {
+	if m == nil {
+		return 0
+	}
+	return reflect.ValueOf(m).Pointer()
 }
 
 func parseOpenAPIRoot(spec []byte) (map[string]any, error) {
