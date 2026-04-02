@@ -43,6 +43,28 @@ func TestValidateInputRequiredFieldMissing(t *testing.T) {
 	}
 }
 
+func TestValidateInputRequiredStringRejectsEmptyValue(t *testing.T) {
+	schema := &Schema{
+		Type:     "object",
+		Required: []string{"name"},
+		Properties: map[string]*Schema{
+			"name": {Type: "string"},
+		},
+		AdditionalProperties: false,
+	}
+
+	err := ValidateInput(schema, map[string]any{"name": "   "})
+	if err == nil {
+		t.Fatalf("expected error for empty required string")
+	}
+	if err.Code != ErrValidationFailed {
+		t.Fatalf("expected %q, got %q", ErrValidationFailed, err.Code)
+	}
+	if err.Details["field"] != "name" {
+		t.Fatalf("expected missing field detail to be name, got %v", err.Details["field"])
+	}
+}
+
 func TestValidateInputTypeString(t *testing.T) {
 	schema := &Schema{
 		Type: "object",

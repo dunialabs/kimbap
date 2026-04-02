@@ -259,6 +259,64 @@ func TestServiceDiscoveryCommandsDoNotMaterializeDataDir(t *testing.T) {
 	}
 }
 
+func TestLoadCatalogServiceSummariesSkipsBrokenManifestWithWarning(t *testing.T) {
+	prevList := listCatalogServices
+	prevGet := getCatalogService
+	listCatalogServices = func() ([]string, error) {
+		return []string{"broken", "working"}, nil
+	}
+	getCatalogService = func(name string) ([]byte, error) {
+		switch name {
+		case "broken":
+			return []byte("name: broken\nactions: ["), nil
+		case "working":
+			return []byte(`name: working
+version: 1.0.0
+description: Healthy service
+adapter: http
+base_url: https://api.example.com
+auth:
+  type: none
+actions:
+  ping:
+    method: GET
+    path: /ping
+    description: Ping
+    args: []
+    request: {}
+    response:
+      extract: ""
+      type: object
+    risk:
+      level: low
+`), nil
+		default:
+			return nil, os.ErrNotExist
+		}
+	}
+	t.Cleanup(func() {
+		listCatalogServices = prevList
+		getCatalogService = prevGet
+	})
+
+	stderr, err := captureStderr(t, func() error {
+		summaries, loadErr := loadCatalogServiceSummaries(nil)
+		if loadErr != nil {
+			return loadErr
+		}
+		if len(summaries) != 1 || summaries[0].Name != "working" {
+			t.Fatalf("expected only working summary to remain, got %+v", summaries)
+		}
+		return nil
+	})
+	if err != nil {
+		t.Fatalf("expected broken catalog manifest to be skipped, got %v", err)
+	}
+	if !strings.Contains(stderr, `warning: skipping catalog service "broken"`) {
+		t.Fatalf("expected warning for skipped catalog service, got %q", stderr)
+	}
+}
+
 func slicesContains(values []string, needle string) bool {
 	for _, value := range values {
 		if value == needle {

@@ -317,6 +317,40 @@ func TestGenerateFromOpenAPIWithOptionsFiltersByPathPrefix(t *testing.T) {
 	}
 }
 
+func TestGenerateFromOpenAPIWithOptionsSkipsBrokenExcludedPathPrefix(t *testing.T) {
+	spec := `openapi: 3.0.3
+info:
+  title: Filter Prefix Safety API
+  version: 1.0.0
+servers:
+  - url: https://api.example.com
+paths:
+  /public/broken:
+    $ref: '#/components/pathItems/MissingPath'
+  /admin/users:
+    get:
+      operationId: listUsers
+      tags: [admin]
+      responses:
+        '200':
+          description: ok
+          content:
+            application/json:
+              schema:
+                type: object
+`
+
+	manifest, err := GenerateFromOpenAPIWithOptions([]byte(spec), OpenAPIGenerateOptions{
+		PathPrefixes: []string{"/admin"},
+	})
+	if err != nil {
+		t.Fatalf("expected excluded broken path prefix to be ignored, got %v", err)
+	}
+	if _, ok := manifest.Actions["listusers"]; !ok {
+		t.Fatalf("expected admin action to remain available, got %+v", manifest.Actions)
+	}
+}
+
 func TestGenerateFromOpenAPIWithOptionsFiltersUseANDSemantics(t *testing.T) {
 	_, err := GenerateFromOpenAPIWithOptions([]byte(openAPIFilterFixture), OpenAPIGenerateOptions{
 		Tags:         []string{"public"},

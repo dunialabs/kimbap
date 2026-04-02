@@ -241,6 +241,10 @@ func extractActions(root map[string]any, resolver *openAPIRefResolver, skillName
 
 	pathKeys := sortedMapKeys(paths)
 	for _, p := range pathKeys {
+		if len(opts.PathPrefixes) > 0 && !matchesOpenAPIPathPrefixFilter(p, opts.PathPrefixes) {
+			continue
+		}
+
 		pathItem, err := resolver.resolveMap(mapAt(paths, p))
 		if err != nil {
 			return nil, fmt.Errorf("resolve path item %q: %w", p, err)
@@ -257,7 +261,7 @@ func extractActions(root map[string]any, resolver *openAPIRefResolver, skillName
 			if err != nil {
 				return nil, fmt.Errorf("resolve operation %s %s: %w", strings.ToUpper(method), p, err)
 			}
-			if !includeOpenAPIOperation(p, op, opts) {
+			if len(opts.Tags) > 0 && !matchesOpenAPITagFilter(op, opts.Tags) {
 				continue
 			}
 			matchedFilteredOperation = true
@@ -332,16 +336,6 @@ func normalizeOpenAPIPathPrefix(raw string) string {
 
 func hasOpenAPIOperationFilters(opts normalizedOpenAPIGenerateOptions) bool {
 	return len(opts.Tags) > 0 || len(opts.PathPrefixes) > 0
-}
-
-func includeOpenAPIOperation(path string, op map[string]any, opts normalizedOpenAPIGenerateOptions) bool {
-	if len(opts.Tags) > 0 && !matchesOpenAPITagFilter(op, opts.Tags) {
-		return false
-	}
-	if len(opts.PathPrefixes) > 0 && !matchesOpenAPIPathPrefixFilter(path, opts.PathPrefixes) {
-		return false
-	}
-	return true
 }
 
 func matchesOpenAPITagFilter(op map[string]any, allowed map[string]struct{}) bool {

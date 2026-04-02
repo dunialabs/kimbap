@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"os"
 	"slices"
 	"sort"
 	"strings"
@@ -10,6 +11,11 @@ import (
 	"github.com/dunialabs/kimbap/internal/registry"
 	"github.com/dunialabs/kimbap/internal/services"
 	"github.com/dunialabs/kimbap/services/catalog"
+)
+
+var (
+	listCatalogServices = catalog.List
+	getCatalogService   = catalog.Get
 )
 
 type catalogTriggerSummary struct {
@@ -104,7 +110,7 @@ type catalogDescribePayload struct {
 }
 
 func loadCatalogServiceSummaries(cfg *config.KimbapConfig) ([]catalogServiceSummary, error) {
-	names, err := catalog.List()
+	names, err := listCatalogServices()
 	if err != nil {
 		return nil, fmt.Errorf("list catalog services: %w", err)
 	}
@@ -124,13 +130,15 @@ func loadCatalogServiceSummaries(cfg *config.KimbapConfig) ([]catalogServiceSumm
 
 	summaries := make([]catalogServiceSummary, 0, len(names))
 	for _, name := range names {
-		data, getErr := catalog.Get(name)
+		data, getErr := getCatalogService(name)
 		if getErr != nil {
-			return nil, fmt.Errorf("load catalog service %q: %w", name, getErr)
+			warnSkippedCatalogService(name, getErr)
+			continue
 		}
 		manifest, parseErr := services.ParseManifest(data)
 		if parseErr != nil {
-			return nil, fmt.Errorf("parse catalog service %q: %w", name, parseErr)
+			warnSkippedCatalogService(name, fmt.Errorf("parse manifest: %w", parseErr))
+			continue
 		}
 
 		summary := buildCatalogServiceSummary(manifest)
@@ -275,13 +283,17 @@ func buildCatalogDescribePayload(summary catalogServiceSummary) catalogDescribeP
 }
 
 func findCatalogServiceSummary(summaries []catalogServiceSummary, name string) (catalogServiceSummary, bool) {
-	normalized := strings.ToLower(strings.TrimSpace(name))
+	normalized := strings.TrimSpace(name)
 	for _, summary := range summaries {
 		if strings.EqualFold(summary.Name, normalized) {
 			return summary, true
 		}
 	}
 	return catalogServiceSummary{}, false
+}
+
+func warnSkippedCatalogService(name string, err error) {
+	_, _ = fmt.Fprintf(os.Stderr, "warning: skipping catalog service %q: %v\n", name, err)
 }
 
 func catalogServiceNotFoundError(name string, summaries []catalogServiceSummary) error {

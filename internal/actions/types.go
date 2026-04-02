@@ -288,7 +288,8 @@ func ValidateInput(schema *Schema, input map[string]any) *ExecutionError {
 	}
 
 	for _, key := range schema.Required {
-		if _, ok := input[key]; !ok {
+		value, ok := input[key]
+		if !ok || requiredValueMissing(schema.Properties[key], value) {
 			return NewExecutionError(
 				ErrValidationFailed,
 				fmt.Sprintf("missing required field %q", key),
@@ -332,6 +333,20 @@ func ValidateInput(schema *Schema, input map[string]any) *ExecutionError {
 	}
 
 	return nil
+}
+
+func requiredValueMissing(fieldSchema *Schema, value any) bool {
+	if fieldSchema == nil {
+		return false
+	}
+	if !strings.EqualFold(strings.TrimSpace(fieldSchema.Type), "string") {
+		return false
+	}
+	v, ok := value.(string)
+	if !ok {
+		return false
+	}
+	return strings.TrimSpace(v) == ""
 }
 
 func toFloat64(v any) (float64, bool) {

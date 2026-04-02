@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"net"
 	"net/http"
 	"net/url"
 	"strings"
@@ -12,7 +13,16 @@ import (
 
 const defaultRemoteFetchTimeout = 30 * time.Second
 
+type remoteFetchOptions struct {
+	requireHTTPS      bool
+	allowLoopbackHTTP bool
+}
+
 func FetchHTTPResource(ctx context.Context, rawURL string, maxBytes int64, purpose string, requireHTTPS bool) ([]byte, *url.URL, error) {
+	return fetchHTTPResource(ctx, rawURL, maxBytes, purpose, remoteFetchOptions{requireHTTPS: requireHTTPS})
+}
+
+func fetchHTTPResource(ctx context.Context, rawURL string, maxBytes int64, purpose string, opts remoteFetchOptions) ([]byte, *url.URL, error) {
 	if ctx == nil {
 		ctx = context.Background()
 	}
@@ -24,7 +34,10 @@ func FetchHTTPResource(ctx context.Context, rawURL string, maxBytes int64, purpo
 	if parsed.Scheme != "http" && parsed.Scheme != "https" {
 		return nil, nil, fmt.Errorf("unsupported URL scheme %q for %s", parsed.Scheme, purpose)
 	}
-	if requireHTTPS && parsed.Scheme != "https" {
+	if opts.requireHTTPS && parsed.Scheme != "https" {
+		return nil, nil, fmt.Errorf("insecure URL %q rejected: use https:// for %s", rawURL, purpose)
+	}
+	if parsed.Scheme == "http" && opts.allowLoopbackHTTP && !isLoopbackHost(parsed.Hostname()) {
 		return nil, nil, fmt.Errorf("insecure URL %q rejected: use https:// for %s", rawURL, purpose)
 	}
 
@@ -33,7 +46,7 @@ func FetchHTTPResource(ctx context.Context, rawURL string, maxBytes int64, purpo
 		return nil, nil, fmt.Errorf("build request for %q: %w", rawURL, err)
 	}
 
-	client := newRemoteFetchClient(parsed.Scheme, requireHTTPS)
+	client := newRemoteFetchClient(parsed, opts)
 
 	resp, err := client.Do(req)
 	if err != nil {
@@ -56,20 +69,40 @@ func FetchHTTPResource(ctx context.Context, rawURL string, maxBytes int64, purpo
 	return body, resp.Request.URL, nil
 }
 
-func newRemoteFetchClient(initialScheme string, requireHTTPS bool) *http.Client {
+func newRemoteFetchClient(initialURL *url.URL, opts remoteFetchOptions) *http.Client {
+	initialScheme := ""
+	if initialURL != nil {
+		initialScheme = strings.ToLower(strings.TrimSpace(initialURL.Scheme))
+	}
 	return &http.Client{
 		Timeout: defaultRemoteFetchTimeout,
 		CheckRedirect: func(r *http.Request, via []*http.Request) error {
-			if r.URL.Scheme != "http" && r.URL.Scheme != "https" {
+			scheme := strings.ToLower(strings.TrimSpace(r.URL.Scheme))
+			if scheme != "http" && scheme != "https" {
 				return fmt.Errorf("redirect to unsupported URL scheme %q rejected", r.URL.Scheme)
 			}
-			if requireHTTPS && r.URL.Scheme != "https" {
+			if opts.requireHTTPS && scheme != "https" {
 				return fmt.Errorf("redirect to non-https URL %q rejected", r.URL)
 			}
-			if !requireHTTPS && strings.EqualFold(initialScheme, "https") && r.URL.Scheme != "https" {
+			if !opts.requireHTTPS && initialScheme == "https" && scheme != "https" {
+				return fmt.Errorf("redirect to non-https URL %q rejected", r.URL)
+			}
+			if !opts.requireHTTPS && opts.allowLoopbackHTTP && scheme == "http" && !isLoopbackHost(r.URL.Hostname()) {
 				return fmt.Errorf("redirect to non-https URL %q rejected", r.URL)
 			}
 			return nil
 		},
 	}
+}
+
+func isLoopbackHost(host string) bool {
+	host = strings.TrimSpace(host)
+	if host == "" {
+		return false
+	}
+	if strings.EqualFold(host, "localhost") {
+		return true
+	}
+	ip := net.ParseIP(host)
+	return ip != nil && ip.IsLoopback()
 }
