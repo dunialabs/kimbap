@@ -185,6 +185,7 @@ kimbap service validate my-service.yaml
 
 List installed services, or list all catalog services with install/enable status.
 Output includes shortcut aliases per service in both text (`SHORTCUTS` column) and JSON (`shortcuts` field).
+With `--available`, JSON output also includes catalog metadata such as `description`, `adapter`, `actions`, `auth_required`, and `triggers`.
 
 **Syntax:**
 
@@ -203,6 +204,51 @@ kimbap service list [--available]
 ```bash
 kimbap service list
 kimbap service list --available
+```
+
+---
+
+### kimbap service search \<query\>
+
+Search built-in catalog services before installation. Matches against service names, descriptions, trigger metadata, and action names/descriptions.
+
+**Syntax:**
+
+```
+kimbap service search <query> [--limit N]
+```
+
+**Flags:**
+
+| Flag | Description |
+|---|---|
+| `--limit <n>` | Maximum number of matches to return. `0` means no limit |
+
+**Examples:**
+
+```bash
+kimbap service search github
+kimbap service search "issue management"
+kimbap service search geocoding --limit 5
+```
+
+---
+
+### kimbap service describe \<name\>
+
+Describe a built-in catalog service before installation. Shows adapter type, auth summary, trigger metadata, action summaries, gotchas, recipes, and install status.
+
+**Syntax:**
+
+```
+kimbap service describe <name>
+```
+
+**Examples:**
+
+```bash
+kimbap service describe github
+kimbap service describe open-meteo-geocoding
 ```
 
 ---
