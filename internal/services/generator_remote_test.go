@@ -60,7 +60,7 @@ func TestGenerateFromOpenAPIURLRejectsRedirectToRemoteHTTP(t *testing.T) {
 	if err == nil {
 		t.Fatal("expected remote HTTP redirect to be rejected")
 	}
-	if !strings.Contains(err.Error(), "redirect to insecure URL") {
+	if !strings.Contains(err.Error(), "redirect to non-https URL") {
 		t.Fatalf("expected redirect security error, got %v", err)
 	}
 }

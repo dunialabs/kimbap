@@ -4,9 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"io"
-	"net"
-	"net/http"
 	"net/url"
 	"strings"
 
@@ -27,7 +24,7 @@ func GenerateFromOpenAPIURLWithOptions(ctx context.Context, rawURL string, opts 
 	if err != nil {
 		return nil, err
 	}
-	body, fetchedURL, err := fetchOpenAPISpec(ctx, parsed, rawURL)
+	body, fetchedURL, err := fetchHTTPResource(ctx, parsed.String(), maxOpenAPISpecBytes, "OpenAPI spec", remoteFetchOptions{allowLoopbackHTTP: true})
 	if err != nil {
 		return nil, err
 	}
@@ -47,63 +44,6 @@ func parseOpenAPISpecURL(rawURL string) (*url.URL, error) {
 		return nil, fmt.Errorf("insecure URL %q rejected: use https:// for OpenAPI sources", rawURL)
 	}
 	return parsed, nil
-}
-
-func fetchOpenAPISpec(ctx context.Context, parsed *url.URL, rawURL string) ([]byte, *url.URL, error) {
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, parsed.String(), nil)
-	if err != nil {
-		return nil, nil, fmt.Errorf("build request for %q: %w", rawURL, err)
-	}
-
-	initialScheme := strings.ToLower(strings.TrimSpace(parsed.Scheme))
-	client := &http.Client{
-		Timeout: defaultRemoteFetchTimeout,
-		CheckRedirect: func(r *http.Request, via []*http.Request) error {
-			scheme := strings.ToLower(strings.TrimSpace(r.URL.Scheme))
-			if scheme != "http" && scheme != "https" {
-				return fmt.Errorf("redirect to unsupported URL scheme %q rejected", r.URL.Scheme)
-			}
-			if initialScheme == "https" && scheme == "http" {
-				return fmt.Errorf("redirect to insecure URL %q rejected: use https:// for OpenAPI sources", r.URL)
-			}
-			if scheme == "http" && !isLoopbackHost(r.URL.Hostname()) {
-				return fmt.Errorf("redirect to insecure URL %q rejected: use https:// for OpenAPI sources", r.URL)
-			}
-			return nil
-		},
-	}
-
-	resp, err := client.Do(req)
-	if err != nil {
-		return nil, nil, fmt.Errorf("fetch OpenAPI spec from %q: %w", rawURL, err)
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode < http.StatusOK || resp.StatusCode >= http.StatusMultipleChoices {
-		return nil, nil, fmt.Errorf("fetch OpenAPI spec from %q: got HTTP %d", rawURL, resp.StatusCode)
-	}
-
-	body, err := io.ReadAll(io.LimitReader(resp.Body, maxOpenAPISpecBytes+1))
-	if err != nil {
-		return nil, nil, fmt.Errorf("read OpenAPI spec from %q: %w", rawURL, err)
-	}
-	if int64(len(body)) > maxOpenAPISpecBytes {
-		return nil, nil, fmt.Errorf("OpenAPI spec from %q exceeds %d bytes", rawURL, maxOpenAPISpecBytes)
-	}
-
-	return body, resp.Request.URL, nil
-}
-
-func isLoopbackHost(host string) bool {
-	host = strings.TrimSpace(host)
-	if host == "" {
-		return false
-	}
-	if strings.EqualFold(host, "localhost") {
-		return true
-	}
-	ip := net.ParseIP(host)
-	return ip != nil && ip.IsLoopback()
 }
 
 func resolveServerURL(specBytes []byte, fetchedURL string) []byte {
