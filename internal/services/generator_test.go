@@ -4,6 +4,8 @@ import (
 	"context"
 	"net/http"
 	"net/http/httptest"
+	"os"
+	"path/filepath"
 	"slices"
 	"strings"
 	"testing"
@@ -219,6 +221,238 @@ paths:
 
 	if manifest.BaseURL != server.URL+"/api" {
 		t.Fatalf("expected baseURL to resolve against fetched origin, got %q", manifest.BaseURL)
+	}
+}
+
+func TestGenerateFromOpenAPIFileSupportsNestedExternalRefs(t *testing.T) {
+	dir := t.TempDir()
+	rootPath := writeOpenAPITestFile(t, dir, "openapi.yaml", `openapi: 3.0.3
+info:
+  title: Split Pet API
+  version: 1.0.0
+servers:
+  - url: https://api.example.com
+paths:
+  /pets:
+    post:
+      operationId: createPet
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: ./schemas/pet-create.yaml#/PetCreate
+      responses:
+        '201':
+          description: created
+          content:
+            application/json:
+              schema:
+                type: object
+`)
+	writeOpenAPITestFile(t, dir, "schemas/pet-create.yaml", `PetCreate:
+  type: object
+  required: [name, category]
+  properties:
+    name:
+      type: string
+    category:
+      $ref: ./common/category.yaml#/Category
+`)
+	writeOpenAPITestFile(t, dir, "schemas/common/category.yaml", `Category:
+  type: string
+  enum: [dog, cat]
+`)
+
+	manifest, err := GenerateFromOpenAPIFile(rootPath)
+	if err != nil {
+		t.Fatalf("GenerateFromOpenAPIFile failed: %v", err)
+	}
+
+	action, ok := manifest.Actions["createpet"]
+	if !ok {
+		t.Fatalf("expected createpet action")
+	}
+
+	args := generatedActionArgsByName(action)
+	if args["name"].Type != "string" || !args["name"].Required {
+		t.Fatalf("expected required name:string arg, got %+v", args["name"])
+	}
+	if args["category"].Type != "string" || !args["category"].Required {
+		t.Fatalf("expected required category:string arg, got %+v", args["category"])
+	}
+	if !slices.Equal(args["category"].Enum, []any{"dog", "cat"}) {
+		t.Fatalf("expected category enum from nested external ref, got %+v", args["category"].Enum)
+	}
+	if action.Request.Body["category"] != "{category}" {
+		t.Fatalf("expected request body category mapping, got %+v", action.Request.Body)
+	}
+}
+
+func TestGenerateFromOpenAPIFileSupportsExternalPathItemsAndParameters(t *testing.T) {
+	dir := t.TempDir()
+	rootPath := writeOpenAPITestFile(t, dir, "openapi.yaml", `openapi: 3.0.3
+info:
+  title: Split Paths API
+  version: 1.0.0
+servers:
+  - url: https://api.example.com
+paths:
+  /pets/{petId}:
+    $ref: ./paths/pet-by-id.yaml#/PetByID
+`)
+	writeOpenAPITestFile(t, dir, "paths/pet-by-id.yaml", `PetByID:
+  parameters:
+    - $ref: ../components/parameters.yaml#/PetID
+  get:
+    operationId: getPet
+    parameters:
+      - $ref: ../components/parameters.yaml#/TraceID
+    responses:
+      '200':
+        description: ok
+        content:
+          application/json:
+            schema:
+              type: object
+`)
+	writeOpenAPITestFile(t, dir, "components/parameters.yaml", `PetID:
+  name: petId
+  in: path
+  required: true
+  schema:
+    type: string
+TraceID:
+  name: X-Trace-Id
+  in: header
+  schema:
+    type: string
+`)
+
+	manifest, err := GenerateFromOpenAPIFile(rootPath)
+	if err != nil {
+		t.Fatalf("GenerateFromOpenAPIFile failed: %v", err)
+	}
+
+	action, ok := manifest.Actions["getpet"]
+	if !ok {
+		t.Fatalf("expected getpet action")
+	}
+	if action.Request.PathParams["petId"] != "{petId}" {
+		t.Fatalf("expected path param mapping, got %+v", action.Request.PathParams)
+	}
+	if action.Request.Headers["X-Trace-Id"] != "{X-Trace-Id}" {
+		t.Fatalf("expected header param mapping, got %+v", action.Request.Headers)
+	}
+}
+
+func TestGenerateFromOpenAPIFileRejectsRemoteExternalRefs(t *testing.T) {
+	dir := t.TempDir()
+	rootPath := writeOpenAPITestFile(t, dir, "openapi.yaml", `openapi: 3.0.3
+info:
+  title: Remote Ref API
+  version: 1.0.0
+servers:
+  - url: https://api.example.com
+paths:
+  /pets:
+    post:
+      operationId: createPet
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: https://example.com/schemas/pet.yaml#/Pet
+      responses:
+        '201':
+          description: created
+          content:
+            application/json:
+              schema:
+                type: object
+`)
+
+	_, err := GenerateFromOpenAPIFile(rootPath)
+	if err == nil {
+		t.Fatal("expected remote external ref to fail")
+	}
+	if !strings.Contains(err.Error(), "only local refs and relative file refs are supported") {
+		t.Fatalf("expected explicit remote ref rejection, got %v", err)
+	}
+}
+
+func TestGenerateFromOpenAPIFileRejectsNonPointerExternalRefFragments(t *testing.T) {
+	dir := t.TempDir()
+	rootPath := writeOpenAPITestFile(t, dir, "openapi.yaml", `openapi: 3.0.3
+info:
+  title: Invalid Fragment API
+  version: 1.0.0
+servers:
+  - url: https://api.example.com
+paths:
+  /pets:
+    post:
+      operationId: createPet
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: ./schemas/pet.yaml#Pet
+      responses:
+        '201':
+          description: created
+          content:
+            application/json:
+              schema:
+                type: object
+`)
+	writeOpenAPITestFile(t, dir, "schemas/pet.yaml", `Pet:
+  type: object
+`)
+
+	_, err := GenerateFromOpenAPIFile(rootPath)
+	if err == nil {
+		t.Fatal("expected non-pointer fragment to fail")
+	}
+	if !strings.Contains(err.Error(), "only JSON Pointer fragments are supported") {
+		t.Fatalf("expected explicit invalid fragment error, got %v", err)
+	}
+}
+
+func TestGenerateFromOpenAPIRejectsExternalFileRefsWithoutFileContext(t *testing.T) {
+	spec := `openapi: 3.0.3
+info:
+  title: External Ref API
+  version: 1.0.0
+servers:
+  - url: https://api.example.com
+paths:
+  /pets:
+    post:
+      operationId: createPet
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: ./schemas/pet.yaml#/Pet
+      responses:
+        '201':
+          description: created
+          content:
+            application/json:
+              schema:
+                type: object
+`
+
+	_, err := GenerateFromOpenAPI([]byte(spec))
+	if err == nil {
+		t.Fatal("expected byte-based generation to reject external file refs")
+	}
+	if !strings.Contains(err.Error(), "external file refs require OpenAPI file input") {
+		t.Fatalf("expected explicit file-context error, got %v", err)
 	}
 }
 
@@ -1150,4 +1384,25 @@ paths:
 	if !argMap["kind"].Required {
 		t.Fatalf("expected parent-level required field 'kind' to stay required after oneOf flattening")
 	}
+}
+
+func writeOpenAPITestFile(t *testing.T, dir string, relativePath string, contents string) string {
+	t.Helper()
+
+	path := filepath.Join(dir, filepath.FromSlash(relativePath))
+	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+		t.Fatalf("MkdirAll(%q) failed: %v", path, err)
+	}
+	if err := os.WriteFile(path, []byte(strings.TrimSpace(contents)+"\n"), 0o644); err != nil {
+		t.Fatalf("WriteFile(%q) failed: %v", path, err)
+	}
+	return path
+}
+
+func generatedActionArgsByName(action ServiceAction) map[string]ActionArg {
+	args := make(map[string]ActionArg, len(action.Args))
+	for _, arg := range action.Args {
+		args[arg.Name] = arg
+	}
+	return args
 }

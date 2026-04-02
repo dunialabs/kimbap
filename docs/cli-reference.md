@@ -160,6 +160,8 @@ Generate a service manifest from an OpenAPI 3.x spec.
 
 Remote OpenAPI URLs must use `https://`. Plain `http://` is allowed only for localhost/loopback sources such as `http://127.0.0.1:8080/openapi.yaml`.
 
+When `--openapi` points at a local file, relative file `$ref` patterns such as `./schemas/pet.yaml#/Pet` are supported. Remote URL sources do not resolve external ref trees.
+
 **Syntax:**
 
 ```
