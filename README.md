@@ -116,6 +116,15 @@ Three adapter types: **HTTP** (REST APIs), **Command** (local executable CLIs), 
 
 Full schema and examples: **[Service Development Guide](./docs/service-development.md)**
 
+Already have an OpenAPI 3.x spec? Start there instead:
+
+```bash
+kimbap service generate --openapi ./openapi.yaml --output inventory-api.yaml
+kimbap service generate --openapi http://127.0.0.1:8080/openapi.yaml --name inventory-api --install
+```
+
+Remote OpenAPI URLs must use `https://`. Plain `http://` is only allowed for localhost/loopback during local development.
+
 ---
 
 ## Built-in services

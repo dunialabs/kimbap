@@ -39,6 +39,28 @@ actions:
 
 That's enough to install and call. Everything else in this guide is optional enrichment.
 
+### Optional: generate from OpenAPI first
+
+If you already have an OpenAPI 3.x spec, you do not need to hand-write the first manifest draft.
+
+```bash
+# Generate YAML from a local spec file
+kimbap service generate --openapi ./openapi.yaml --output my-service.yaml
+
+# Generate directly from a localhost dev server and install it
+kimbap service generate --openapi http://127.0.0.1:8080/openapi.yaml --name my-service --install
+
+# Generate only one part of a larger spec
+kimbap service generate --openapi ./openapi.yaml --tag admin --path-prefix /v1/admin --output admin-api.yaml
+```
+
+Security rule:
+
+- Remote OpenAPI URLs must use `https://`.
+- Plain `http://` is allowed only for localhost/loopback development sources.
+
+Generated manifests may include action warnings when parts of the spec cannot be mapped cleanly. In text mode, `kimbap service generate` prints those warnings to `stderr` so you can review the draft before installing or committing it.
+
 ### Optional: frictionless shortcuts (YAML-level)
 
 You can declare shortcut-friendly aliases directly in the manifest:
@@ -545,6 +567,9 @@ A map from HTTP status code (as a string key, e.g. `"404"`) to a human-readable 
 ```bash
 # Validate the manifest before installing
 kimbap service validate my-service.yaml
+
+# Or bootstrap the draft from OpenAPI first
+kimbap service generate --openapi ./openapi.yaml --output my-service.yaml
 
 # Install from a local file
 kimbap service install my-service.yaml

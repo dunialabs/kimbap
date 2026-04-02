@@ -26,11 +26,28 @@ const (
 	schemaWarningsKey = "x-kimbap-warnings"
 )
 
+type OpenAPIGenerateOptions struct {
+	NameOverride string
+	Tags         []string
+	PathPrefixes []string
+}
+
+type normalizedOpenAPIGenerateOptions struct {
+	NameOverride string
+	Tags         map[string]struct{}
+	PathPrefixes []string
+}
+
 func GenerateFromOpenAPI(spec []byte) (*ServiceManifest, error) {
+	return GenerateFromOpenAPIWithOptions(spec, OpenAPIGenerateOptions{})
+}
+
+func GenerateFromOpenAPIWithOptions(spec []byte, opts OpenAPIGenerateOptions) (*ServiceManifest, error) {
 	root, err := parseOpenAPIRoot(spec)
 	if err != nil {
 		return nil, err
 	}
+	normalizedOpts := normalizeOpenAPIGenerateOptions(opts)
 
 	openapiVersion := strings.TrimSpace(stringAt(root, "openapi"))
 	if openapiVersion == "" || !strings.HasPrefix(openapiVersion, "3") {
@@ -41,6 +58,9 @@ func GenerateFromOpenAPI(spec []byte) (*ServiceManifest, error) {
 
 	info := mapAt(root, "info")
 	name := normalizeSkillName(stringAt(info, "title"))
+	if normalizedOpts.NameOverride != "" {
+		name = normalizedOpts.NameOverride
+	}
 	version := normalizeVersion(stringAt(info, "version"))
 	description := strings.TrimSpace(stringAt(info, "description"))
 	baseURL, err := normalizeBaseURL(firstServerURL(root))
@@ -53,7 +73,7 @@ func GenerateFromOpenAPI(spec []byte) (*ServiceManifest, error) {
 		return nil, err
 	}
 
-	actions, err := extractActions(root, resolver, name)
+	actions, err := extractActions(root, resolver, name, normalizedOpts)
 	if err != nil {
 		return nil, err
 	}
@@ -75,11 +95,15 @@ func GenerateFromOpenAPI(spec []byte) (*ServiceManifest, error) {
 }
 
 func GenerateFromOpenAPIFile(path string) (*ServiceManifest, error) {
+	return GenerateFromOpenAPIFileWithOptions(path, OpenAPIGenerateOptions{})
+}
+
+func GenerateFromOpenAPIFileWithOptions(path string, opts OpenAPIGenerateOptions) (*ServiceManifest, error) {
 	data, err := os.ReadFile(path)
 	if err != nil {
 		return nil, fmt.Errorf("read OpenAPI file: %w", err)
 	}
-	return GenerateFromOpenAPI(data)
+	return GenerateFromOpenAPIWithOptions(data, opts)
 }
 
 type openAPIRefResolver struct {
@@ -210,9 +234,10 @@ func extractAuth(root map[string]any, resolver *openAPIRefResolver, skillName st
 	return auth, nil
 }
 
-func extractActions(root map[string]any, resolver *openAPIRefResolver, skillName string) (map[string]ServiceAction, error) {
+func extractActions(root map[string]any, resolver *openAPIRefResolver, skillName string, opts normalizedOpenAPIGenerateOptions) (map[string]ServiceAction, error) {
 	paths := mapAt(root, "paths")
 	actions := make(map[string]ServiceAction)
+	matchedFilteredOperation := false
 
 	pathKeys := sortedMapKeys(paths)
 	for _, p := range pathKeys {
@@ -232,6 +257,10 @@ func extractActions(root map[string]any, resolver *openAPIRefResolver, skillName
 			if err != nil {
 				return nil, fmt.Errorf("resolve operation %s %s: %w", strings.ToUpper(method), p, err)
 			}
+			if !includeOpenAPIOperation(p, op, opts) {
+				continue
+			}
+			matchedFilteredOperation = true
 
 			action, err := buildAction(strings.ToUpper(method), p, op, pathParams, root, resolver, skillName)
 			if err != nil {
@@ -244,7 +273,97 @@ func extractActions(root map[string]any, resolver *openAPIRefResolver, skillName
 		}
 	}
 
+	if hasOpenAPIOperationFilters(opts) && !matchedFilteredOperation {
+		return nil, fmt.Errorf("no OpenAPI operations matched the requested filters")
+	}
+
 	return actions, nil
+}
+
+func normalizeOpenAPIGenerateOptions(opts OpenAPIGenerateOptions) normalizedOpenAPIGenerateOptions {
+	normalized := normalizedOpenAPIGenerateOptions{
+		NameOverride: normalizeOpenAPINameOverride(opts.NameOverride),
+		Tags:         make(map[string]struct{}),
+		PathPrefixes: make([]string, 0, len(opts.PathPrefixes)),
+	}
+
+	for _, tag := range opts.Tags {
+		trimmed := strings.ToLower(strings.TrimSpace(tag))
+		if trimmed == "" {
+			continue
+		}
+		normalized.Tags[trimmed] = struct{}{}
+	}
+
+	seenPrefixes := map[string]struct{}{}
+	for _, prefix := range opts.PathPrefixes {
+		normalizedPrefix := normalizeOpenAPIPathPrefix(prefix)
+		if normalizedPrefix == "" {
+			continue
+		}
+		if _, exists := seenPrefixes[normalizedPrefix]; exists {
+			continue
+		}
+		seenPrefixes[normalizedPrefix] = struct{}{}
+		normalized.PathPrefixes = append(normalized.PathPrefixes, normalizedPrefix)
+	}
+
+	return normalized
+}
+
+func normalizeOpenAPINameOverride(raw string) string {
+	trimmed := strings.TrimSpace(raw)
+	if trimmed == "" {
+		return ""
+	}
+	return normalizeSkillName(trimmed)
+}
+
+func normalizeOpenAPIPathPrefix(raw string) string {
+	trimmed := strings.TrimSpace(raw)
+	if trimmed == "" {
+		return ""
+	}
+	if !strings.HasPrefix(trimmed, "/") {
+		trimmed = "/" + trimmed
+	}
+	return trimmed
+}
+
+func hasOpenAPIOperationFilters(opts normalizedOpenAPIGenerateOptions) bool {
+	return len(opts.Tags) > 0 || len(opts.PathPrefixes) > 0
+}
+
+func includeOpenAPIOperation(path string, op map[string]any, opts normalizedOpenAPIGenerateOptions) bool {
+	if len(opts.Tags) > 0 && !matchesOpenAPITagFilter(op, opts.Tags) {
+		return false
+	}
+	if len(opts.PathPrefixes) > 0 && !matchesOpenAPIPathPrefixFilter(path, opts.PathPrefixes) {
+		return false
+	}
+	return true
+}
+
+func matchesOpenAPITagFilter(op map[string]any, allowed map[string]struct{}) bool {
+	for _, tagAny := range anySliceAt(op, "tags") {
+		tag, ok := tagAny.(string)
+		if !ok {
+			continue
+		}
+		if _, exists := allowed[strings.ToLower(strings.TrimSpace(tag))]; exists {
+			return true
+		}
+	}
+	return false
+}
+
+func matchesOpenAPIPathPrefixFilter(path string, prefixes []string) bool {
+	for _, prefix := range prefixes {
+		if strings.HasPrefix(path, prefix) {
+			return true
+		}
+	}
+	return false
 }
 
 func buildAction(method, path string, op map[string]any, pathParams []any, root map[string]any, resolver *openAPIRefResolver, skillName string) (ServiceAction, error) {

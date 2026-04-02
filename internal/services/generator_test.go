@@ -4,6 +4,7 @@ import (
 	"context"
 	"net/http"
 	"net/http/httptest"
+	"slices"
 	"strings"
 	"testing"
 )
@@ -264,6 +265,121 @@ paths:
 		t.Fatalf("expected amount:number, got %+v", action.Args[0])
 	}
 }
+
+func TestGenerateFromOpenAPIWithOptionsNameOverride(t *testing.T) {
+	manifest, err := GenerateFromOpenAPIWithOptions([]byte(openAPIFilterFixture), OpenAPIGenerateOptions{
+		NameOverride: "Internal Admin API",
+	})
+	if err != nil {
+		t.Fatalf("GenerateFromOpenAPIWithOptions failed: %v", err)
+	}
+	if manifest.Name != "internal-admin-api" {
+		t.Fatalf("expected normalized name override, got %q", manifest.Name)
+	}
+}
+
+func TestGenerateFromOpenAPIWithOptionsFiltersByTag(t *testing.T) {
+	manifest, err := GenerateFromOpenAPIWithOptions([]byte(openAPIFilterFixture), OpenAPIGenerateOptions{
+		Tags: []string{"ADMIN"},
+	})
+	if err != nil {
+		t.Fatalf("GenerateFromOpenAPIWithOptions failed: %v", err)
+	}
+
+	if len(manifest.Actions) != 2 {
+		t.Fatalf("expected 2 admin actions, got %+v", manifest.Actions)
+	}
+	if _, ok := manifest.Actions["listusers"]; !ok {
+		t.Fatalf("expected unsuffixed listusers action after filtering, got %+v", manifest.Actions)
+	}
+	if _, ok := manifest.Actions["listaudit"]; !ok {
+		t.Fatalf("expected listaudit action after filtering, got %+v", manifest.Actions)
+	}
+	for actionName := range manifest.Actions {
+		if strings.HasPrefix(actionName, "listusers-") {
+			t.Fatalf("expected filter to run before action key disambiguation, got %q", actionName)
+		}
+	}
+}
+
+func TestGenerateFromOpenAPIWithOptionsFiltersByPathPrefix(t *testing.T) {
+	manifest, err := GenerateFromOpenAPIWithOptions([]byte(openAPIFilterFixture), OpenAPIGenerateOptions{
+		PathPrefixes: []string{"admin"},
+	})
+	if err != nil {
+		t.Fatalf("GenerateFromOpenAPIWithOptions failed: %v", err)
+	}
+
+	gotActions := sortedGeneratedActionKeys(manifest.Actions)
+	wantActions := []string{"listaudit", "listusers"}
+	if !slices.Equal(gotActions, wantActions) {
+		t.Fatalf("path-prefix filter actions = %v, want %v", gotActions, wantActions)
+	}
+}
+
+func TestGenerateFromOpenAPIWithOptionsFiltersUseANDSemantics(t *testing.T) {
+	_, err := GenerateFromOpenAPIWithOptions([]byte(openAPIFilterFixture), OpenAPIGenerateOptions{
+		Tags:         []string{"public"},
+		PathPrefixes: []string{"/admin"},
+	})
+	if err == nil {
+		t.Fatal("expected filter combination with no matches to fail")
+	}
+	if !strings.Contains(err.Error(), "no OpenAPI operations matched the requested filters") {
+		t.Fatalf("expected no-match filter error, got %v", err)
+	}
+}
+
+func sortedGeneratedActionKeys(actions map[string]ServiceAction) []string {
+	keys := make([]string, 0, len(actions))
+	for key := range actions {
+		keys = append(keys, key)
+	}
+	slices.Sort(keys)
+	return keys
+}
+
+const openAPIFilterFixture = `openapi: 3.0.3
+info:
+  title: Filter Fixture API
+  version: 1.0.0
+servers:
+  - url: https://api.example.com
+paths:
+  /public/users:
+    get:
+      operationId: listUsers
+      tags: [public]
+      responses:
+        '200':
+          description: ok
+          content:
+            application/json:
+              schema:
+                type: object
+  /admin/users:
+    get:
+      operationId: listUsers
+      tags: [admin]
+      responses:
+        '200':
+          description: ok
+          content:
+            application/json:
+              schema:
+                type: object
+  /admin/audit:
+    get:
+      operationId: listAudit
+      tags: [admin]
+      responses:
+        '200':
+          description: ok
+          content:
+            application/json:
+              schema:
+                type: object
+`
 
 func TestGenerateFromOpenAPIAcceptsCaseInsensitiveJSONMediaType(t *testing.T) {
 	spec := `openapi: 3.0.3
