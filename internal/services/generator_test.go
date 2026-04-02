@@ -289,6 +289,60 @@ paths:
 	}
 }
 
+func TestGenerateFromOpenAPIFileKeepsReferencedDocumentContextAfterSiblingOverrides(t *testing.T) {
+	dir := t.TempDir()
+	rootPath := writeOpenAPITestFile(t, dir, "openapi.yaml", `openapi: 3.0.3
+info:
+  title: Override Ref API
+  version: 1.0.0
+servers:
+  - url: https://api.example.com
+paths:
+  /pets:
+    post:
+      operationId: createPet
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: ./schemas/pet-create.yaml#/PetCreate
+              description: Pet payload override
+      responses:
+        '201':
+          description: created
+          content:
+            application/json:
+              schema:
+                type: object
+`)
+	writeOpenAPITestFile(t, dir, "schemas/pet-create.yaml", `PetCreate:
+  type: object
+  required: [category]
+  properties:
+    category:
+      $ref: ./common/category.yaml#/Category
+`)
+	writeOpenAPITestFile(t, dir, "schemas/common/category.yaml", `Category:
+  type: string
+  enum: [dog, cat]
+`)
+
+	manifest, err := GenerateFromOpenAPIFile(rootPath)
+	if err != nil {
+		t.Fatalf("GenerateFromOpenAPIFile failed: %v", err)
+	}
+
+	action, ok := manifest.Actions["createpet"]
+	if !ok {
+		t.Fatalf("expected createpet action")
+	}
+	args := generatedActionArgsByName(action)
+	if !slices.Equal(args["category"].Enum, []any{"dog", "cat"}) {
+		t.Fatalf("expected nested ref enum to survive sibling overrides, got %+v", args["category"].Enum)
+	}
+}
+
 func TestGenerateFromOpenAPIFileSupportsExternalPathItemsAndParameters(t *testing.T) {
 	dir := t.TempDir()
 	rootPath := writeOpenAPITestFile(t, dir, "openapi.yaml", `openapi: 3.0.3
