@@ -162,6 +162,7 @@ Optional frictionless shortcut (per action):
 `kimbap alias set <shortcut> <service>.<action>` → run `<shortcut> ...`
 
 You can inspect configured shortcuts with `kimbap service list` (`SHORTCUTS` column).
+To browse built-in services before installing, use `kimbap service list --available`, `kimbap service search <query>`, and `kimbap service describe <name>`.
 
 ---
 

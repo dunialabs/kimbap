@@ -34,6 +34,8 @@ func newServiceCommand() *cobra.Command {
 
 	cmd.AddCommand(newServiceInstallCommand())
 	cmd.AddCommand(newServiceListCommand())
+	cmd.AddCommand(newServiceSearchCommand())
+	cmd.AddCommand(newServiceDescribeCommand())
 	cmd.AddCommand(newServiceEnableCommand())
 	cmd.AddCommand(newServiceDisableCommand())
 	cmd.AddCommand(newServiceRemoveCommand())
@@ -330,78 +332,46 @@ func newServiceListCommand() *cobra.Command {
 		Use:   "list",
 		Short: "List installed services",
 		RunE: func(_ *cobra.Command, _ []string) error {
-			cfg, err := loadAppConfig()
-			if err != nil {
-				return err
-			}
-			shortcutsByService := shortcutsByServiceName(cfg.CommandAliases)
-
-			installer := installerFromConfig(cfg)
-			installed, err := installer.List()
+			cfg, err := loadAppConfigReadOnly()
 			if err != nil {
 				return err
 			}
 
 			if available {
-				catalogNames, listErr := catalog.List()
-				if listErr != nil {
-					return fmt.Errorf("list catalog services: %w", listErr)
+				summaries, summaryErr := loadCatalogServiceSummaries(cfg)
+				if summaryErr != nil {
+					return summaryErr
 				}
-
-				installedByName := make(map[string]services.InstalledService, len(installed))
-				for _, svc := range installed {
-					installedByName[svc.Manifest.Name] = svc
-				}
-
-				rows := make([]map[string]any, 0, len(catalogNames))
-				for _, name := range catalogNames {
-					row := map[string]any{
-						"name":      name,
-						"catalog":   true,
-						"installed": false,
-						"enabled":   false,
-						"status":    "not-installed",
-						"shortcuts": []string{},
-					}
-					if svc, ok := installedByName[name]; ok {
-						row["installed"] = true
-						row["enabled"] = svc.Enabled
-						if shortcuts, exists := shortcutsByService[name]; exists {
-							row["shortcuts"] = shortcuts
-						}
-						if svc.Enabled {
-							row["status"] = "enabled"
-						} else {
-							row["status"] = "disabled"
-						}
-					}
-					rows = append(rows, row)
-				}
+				rows := catalogListRows(summaries)
 				if outputAsJSON() {
 					return printOutput(rows)
 				}
 				useColor := isColorStdout()
 				fmt.Printf("%-20s %-14s %s\n", "NAME", "STATUS", "SHORTCUTS")
-				for _, r := range rows {
-					name, _ := r["name"].(string)
-					status, _ := r["status"].(string)
-					shortcuts, _ := r["shortcuts"].([]string)
+				for _, row := range rows {
 					shortcutDisplay := "-"
-					if len(shortcuts) > 0 {
-						shortcutDisplay = strings.Join(shortcuts, ",")
+					if len(row.Shortcuts) > 0 {
+						shortcutDisplay = strings.Join(row.Shortcuts, ",")
 					}
-					statusCol := fmt.Sprintf("%-14s", status)
+					statusCol := fmt.Sprintf("%-14s", row.Status)
 					if useColor {
-						switch status {
+						switch row.Status {
 						case "enabled":
 							statusCol = "\x1b[32m" + statusCol + "\x1b[0m"
 						case "disabled":
 							statusCol = "\x1b[2m" + statusCol + "\x1b[0m"
 						}
 					}
-					fmt.Printf("%-20s %s %s\n", name, statusCol, shortcutDisplay)
+					fmt.Printf("%-20s %s %s\n", row.Name, statusCol, shortcutDisplay)
 				}
 				return nil
+			}
+
+			shortcutsByService := shortcutsByServiceName(cfg.CommandAliases)
+			installer := installerFromConfig(cfg)
+			installed, err := installer.List()
+			if err != nil {
+				return err
 			}
 
 			if outputAsJSON() {
