@@ -62,6 +62,9 @@ func RunBrowserFlow(ctx context.Context, cfg BrowserFlowConfig, output io.Writer
 	if output == nil {
 		output = io.Discard
 	}
+	if ctx == nil {
+		ctx = context.Background()
+	}
 
 	timeout := cfg.Timeout
 	if timeout <= 0 {
@@ -81,24 +84,38 @@ func RunBrowserFlow(ctx context.Context, cfg BrowserFlowConfig, output io.Writer
 
 	bindHost := "127.0.0.1"
 	bindPort := cfg.Port
+	var customRedirectURL *url.URL
 	if cfg.RedirectURI != "" {
-		if redirectURL, parseErr := url.Parse(cfg.RedirectURI); parseErr == nil {
-			if h := redirectURL.Hostname(); h == "localhost" {
-				bindHost = h
-			} else if ip := net.ParseIP(h); ip != nil {
-				if !ip.IsLoopback() {
-					return nil, fmt.Errorf("redirect uri host %q must be loopback", h)
-				}
-				bindHost = h
-			}
-			if bindPort == 0 {
-				if p := redirectURL.Port(); p != "" {
-					if pi, convErr := strconv.Atoi(p); convErr == nil {
-						bindPort = pi
-					}
-				}
-			}
+		redirectURL, parseErr := url.Parse(cfg.RedirectURI)
+		if parseErr != nil {
+			return nil, fmt.Errorf("invalid redirect uri: %w", parseErr)
 		}
+		if !strings.EqualFold(strings.TrimSpace(redirectURL.Scheme), "http") {
+			return nil, fmt.Errorf("redirect uri scheme %q must be http", redirectURL.Scheme)
+		}
+		host := redirectURL.Hostname()
+		switch {
+		case host == "localhost":
+			bindHost = host
+		case net.ParseIP(host) != nil:
+			if !net.ParseIP(host).IsLoopback() {
+				return nil, fmt.Errorf("redirect uri host %q must be loopback", host)
+			}
+			bindHost = host
+		default:
+			return nil, fmt.Errorf("redirect uri host %q must be loopback", host)
+		}
+		if p := redirectURL.Port(); p != "" {
+			pi, convErr := strconv.Atoi(p)
+			if convErr != nil {
+				return nil, fmt.Errorf("invalid redirect uri port %q: %w", p, convErr)
+			}
+			if bindPort != 0 && bindPort != pi {
+				return nil, fmt.Errorf("redirect uri port %d does not match configured port %d", pi, bindPort)
+			}
+			bindPort = pi
+		}
+		customRedirectURL = redirectURL
 	}
 
 	listener, err := net.Listen("tcp", net.JoinHostPort(bindHost, strconv.Itoa(bindPort)))
@@ -109,7 +126,13 @@ func RunBrowserFlow(ctx context.Context, cfg BrowserFlowConfig, output io.Writer
 
 	actualPort := listener.Addr().(*net.TCPAddr).Port
 	redirectURI := cfg.RedirectURI
-	if redirectURI == "" {
+	if customRedirectURL != nil {
+		redirectCopy := *customRedirectURL
+		if redirectCopy.Port() == "" {
+			redirectCopy.Host = net.JoinHostPort(redirectCopy.Hostname(), strconv.Itoa(actualPort))
+			redirectURI = redirectCopy.String()
+		}
+	} else if redirectURI == "" {
 		redirectURI = fmt.Sprintf("http://127.0.0.1:%d/callback", actualPort)
 	}
 

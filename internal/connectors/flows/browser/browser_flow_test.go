@@ -97,6 +97,102 @@ func TestRunBrowserFlow_ValidatesRequiredFields(t *testing.T) {
 	}
 }
 
+func TestRunBrowserFlow_RejectsCustomRedirectURIWithNonLoopbackHost(t *testing.T) {
+	_, err := RunBrowserFlow(context.Background(), BrowserFlowConfig{
+		AuthEndpoint:  "https://auth.example.com/authorize",
+		TokenEndpoint: "https://auth.example.com/token",
+		ClientID:      "client-id",
+		RedirectURI:   "http://example.com/callback",
+		NoOpen:        true,
+	}, io.Discard)
+	if err == nil {
+		t.Fatal("expected redirect URI validation error")
+	}
+	if !strings.Contains(err.Error(), "must be loopback") {
+		t.Fatalf("expected loopback validation error, got %v", err)
+	}
+}
+
+func TestRunBrowserFlow_AssignsListenerPortToCustomRedirectURIWithoutPort(t *testing.T) {
+	tokenSrv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if err := r.ParseForm(); err != nil {
+			t.Fatalf("parse token form: %v", err)
+		}
+		redirectURI := r.PostForm.Get("redirect_uri")
+		parsedRedirect, err := url.Parse(redirectURI)
+		if err != nil {
+			t.Fatalf("parse redirect_uri: %v", err)
+		}
+		if parsedRedirect.Port() == "" {
+			t.Fatalf("redirect_uri %q should include assigned listener port", redirectURI)
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"access_token":"portless-token"}`))
+	}))
+	defer tokenSrv.Close()
+
+	writer := newSyncWriter()
+	resultCh := make(chan struct {
+		res *BrowserFlowResult
+		err error
+	}, 1)
+
+	go func() {
+		var nilCtx context.Context
+		res, runErr := RunBrowserFlow(nilCtx, BrowserFlowConfig{
+			AuthEndpoint:  "https://auth.example.com/authorize",
+			TokenEndpoint: tokenSrv.URL,
+			ClientID:      "client-id",
+			RedirectURI:   "http://127.0.0.1/oauth/callback",
+			NoOpen:        true,
+			Timeout:       3 * time.Second,
+		}, writer)
+		resultCh <- struct {
+			res *BrowserFlowResult
+			err error
+		}{res: res, err: runErr}
+	}()
+
+	authURL, err := writer.waitForAuthURL(2 * time.Second)
+	if err != nil {
+		t.Fatalf("wait for auth URL: %v", err)
+	}
+	parsedAuth, err := url.Parse(authURL)
+	if err != nil {
+		t.Fatalf("parse auth URL: %v", err)
+	}
+	redirectURI := parsedAuth.Query().Get("redirect_uri")
+	parsedRedirect, err := url.Parse(redirectURI)
+	if err != nil {
+		t.Fatalf("parse redirect uri from auth URL: %v", err)
+	}
+	if parsedRedirect.Port() == "" {
+		t.Fatalf("auth URL redirect_uri %q should include assigned port", redirectURI)
+	}
+	state := parsedAuth.Query().Get("state")
+	if state == "" {
+		t.Fatalf("auth URL state should be present: %s", authURL)
+	}
+
+	resp, err := http.Get(redirectURI + "?code=callback-code&state=" + url.QueryEscape(state))
+	if err != nil {
+		t.Fatalf("call assigned redirect URI: %v", err)
+	}
+	if resp.StatusCode != http.StatusOK {
+		_ = resp.Body.Close()
+		t.Fatalf("callback response status = %d, want 200", resp.StatusCode)
+	}
+	_ = resp.Body.Close()
+
+	result := <-resultCh
+	if result.err != nil {
+		t.Fatalf("RunBrowserFlow() error = %v", result.err)
+	}
+	if result.res == nil || result.res.AccessToken != "portless-token" {
+		t.Fatalf("unexpected browser flow result: %+v", result.res)
+	}
+}
+
 func TestExchangeAuthorizationCode_SuccessAndRequestFields(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if err := r.ParseForm(); err != nil {

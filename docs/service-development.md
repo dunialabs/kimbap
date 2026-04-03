@@ -59,7 +59,7 @@ Security rule:
 - Remote OpenAPI URLs must use `https://`.
 - Plain `http://` is allowed only for localhost/loopback development sources.
 
-Local file sources may use relative file `$ref` chains such as `./schemas/pet.yaml#/Pet` or `../common/params.yaml#/TraceId`. This support is limited to local file generation; remote URL specs do not fetch external ref trees.
+Local file sources may use relative file `$ref` chains such as `./schemas/pet.yaml#/Pet` or `../common/params.yaml#/TraceId`, including nested refs across split-file specs. This support is limited to local file generation; remote URL specs do not fetch external ref trees.
 
 Generated manifests may include action warnings when parts of the spec cannot be mapped cleanly. In text mode, `kimbap service generate` prints those warnings to `stderr` so you can review the draft before installing or committing it.
 

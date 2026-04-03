@@ -51,6 +51,10 @@ func RunDeviceFlow(ctx context.Context, cfg DeviceFlowConfig, output io.Writer) 
 		TokenURL:     cfg.TokenEndpoint,
 	}
 
+	if ctx == nil {
+		ctx = context.Background()
+	}
+
 	timeout := cfg.Timeout
 	if timeout <= 0 {
 		timeout = 5 * time.Minute

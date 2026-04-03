@@ -125,6 +125,8 @@ kimbap service generate --openapi http://127.0.0.1:8080/openapi.yaml --name inve
 
 Remote OpenAPI URLs must use `https://`. Plain `http://` is only allowed for localhost/loopback during local development.
 
+Local file specs may use split-file relative `$ref` chains.
+
 ---
 
 ## Built-in services
