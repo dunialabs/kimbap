@@ -160,7 +160,7 @@ Generate a service manifest from an OpenAPI 3.x spec.
 
 Remote OpenAPI URLs must use `https://`. Plain `http://` is allowed only for localhost/loopback sources such as `http://127.0.0.1:8080/openapi.yaml`.
 
-When `--openapi` points at a local file, relative file `$ref` patterns such as `./schemas/pet.yaml#/Pet` are supported. Remote URL sources do not resolve external ref trees.
+When `--openapi` points at a local file, relative file `$ref` patterns such as `./schemas/pet.yaml#/Pet` are supported, including nested refs across split-file specs. Remote URL sources do not resolve external ref trees.
 
 **Syntax:**
 
@@ -183,6 +183,7 @@ kimbap service generate --openapi <path-or-url> [--name <service>] [--tag <tag> 
 
 ```bash
 kimbap service generate --openapi ./openapi.yaml
+kimbap service generate --openapi ./openapi.yaml --output my-service.yaml  # split-file refs supported for local files
 kimbap service generate --openapi https://api.example.com/openapi.yaml --output my-service.yaml
 kimbap service generate --openapi http://127.0.0.1:8080/openapi.yaml --name local-api --install
 kimbap service generate --openapi ./openapi.yaml --tag admin --path-prefix /v1/admin --output admin-api.yaml

@@ -209,6 +209,73 @@ func TestRefreshAccessTokenMockHTTP(t *testing.T) {
 	}
 }
 
+func TestCompleteLoginClearsStaleExpiryWhenTokenHasNoExpiresIn(t *testing.T) {
+	ctx := context.Background()
+	store := newMemConnectorStore()
+	manager := NewManager(store)
+	t.Setenv("KIMBAP_CONNECTOR_ENCRYPTION_KEY", "connector-test-key")
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/device":
+			_, _ = w.Write([]byte(`{"device_code":"dev-123","verification_uri":"https://verify.example","user_code":"ABCD-123","expires_in":600,"interval":1}`))
+		case "/token":
+			if err := r.ParseForm(); err != nil {
+				t.Fatalf("parse form: %v", err)
+			}
+			_, _ = w.Write([]byte(`{"access_token":"access-2","refresh_token":"refresh-2","token_type":"Bearer","scope":"mail.read"}`))
+		default:
+			w.WriteHeader(http.StatusNotFound)
+		}
+	}))
+	defer server.Close()
+
+	manager.RegisterConfig(ConnectorConfig{
+		Name:      "mailbox",
+		Provider:  "mailbox",
+		ClientID:  "client-id",
+		TokenURL:  server.URL + "/token",
+		DeviceURL: server.URL + "/device",
+		Scopes:    []string{"mail.read"},
+	})
+
+	expired := time.Now().Add(-2 * time.Minute)
+	if err := store.Save(ctx, &ConnectorState{
+		Name:         "mailbox",
+		TenantID:     "tenant-1",
+		Provider:     "mailbox",
+		Status:       StatusOldExpired,
+		AccessToken:  mustEncryptToken(t, "old-access", "connector-test-key"),
+		RefreshToken: mustEncryptToken(t, "old-refresh", "connector-test-key"),
+		ExpiresAt:    &expired,
+		CreatedAt:    time.Now().Add(-time.Hour),
+		UpdatedAt:    time.Now().Add(-time.Hour),
+	}); err != nil {
+		t.Fatalf("seed store: %v", err)
+	}
+
+	if _, err := manager.Login(ctx, "tenant-1", "mailbox"); err != nil {
+		t.Fatalf("login: %v", err)
+	}
+	if err := manager.CompleteLogin(ctx, "tenant-1", "mailbox", ""); err != nil {
+		t.Fatalf("complete login: %v", err)
+	}
+
+	updated, err := store.Get(ctx, "tenant-1", "mailbox")
+	if err != nil {
+		t.Fatalf("store get: %v", err)
+	}
+	if updated == nil {
+		t.Fatal("expected updated connector state")
+	}
+	if updated.ExpiresAt != nil {
+		t.Fatalf("expected stale expiry to be cleared, got %v", updated.ExpiresAt)
+	}
+	if updated.Status != StatusHealthy {
+		t.Fatalf("expected healthy status, got %s", updated.Status)
+	}
+}
+
 func TestGetAccessTokenAutoRefreshExpiredToken(t *testing.T) {
 	ctx := context.Background()
 	store := newMemConnectorStore()
@@ -669,6 +736,23 @@ func TestPollForTokenWithContextCancelsDuringWait(t *testing.T) {
 	}
 	if !strings.Contains(err.Error(), "canceled") {
 		t.Fatalf("expected canceled error, got %v", err)
+	}
+}
+
+func TestPollForTokenWithContextAllowsNilContext(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"access_token":"tok","expires_in":3600,"token_type":"Bearer"}`))
+	}))
+	defer server.Close()
+
+	var nilCtx context.Context
+	token, err := PollForTokenWithContext(nilCtx, ConnectorConfig{ClientID: "cid", TokenURL: server.URL}, "dev-code", 1, 5*time.Second)
+	if err != nil {
+		t.Fatalf("PollForTokenWithContext() with nil context error = %v", err)
+	}
+	if token == nil || token.AccessToken != "tok" {
+		t.Fatalf("unexpected token: %+v", token)
 	}
 }
 

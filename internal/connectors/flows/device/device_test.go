@@ -141,6 +141,36 @@ func TestRunDeviceFlow_Success_PrintsInstructionsAndReturnsToken(t *testing.T) {
 	}
 }
 
+func TestRunDeviceFlow_AllowsNilContext(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/device":
+			w.Header().Set("Content-Type", "application/json")
+			_, _ = w.Write([]byte(`{"device_code":"dev-code","verification_uri":"https://verify.example.com","user_code":"ABCD-1234","expires_in":600,"interval":1}`))
+		case "/token":
+			w.Header().Set("Content-Type", "application/json")
+			_, _ = w.Write([]byte(`{"access_token":"token-123","refresh_token":"refresh-456","expires_in":3600,"scope":"scope.read"}`))
+		default:
+			w.WriteHeader(http.StatusNotFound)
+		}
+	}))
+	defer srv.Close()
+
+	var nilCtx context.Context
+	result, err := RunDeviceFlow(nilCtx, DeviceFlowConfig{
+		DeviceEndpoint: srv.URL + "/device",
+		TokenEndpoint:  srv.URL + "/token",
+		ClientID:       "client-id",
+		Timeout:        2 * time.Second,
+	}, nil)
+	if err != nil {
+		t.Fatalf("RunDeviceFlow() with nil context error = %v", err)
+	}
+	if result == nil || result.AccessToken != "token-123" {
+		t.Fatalf("unexpected device flow result: %+v", result)
+	}
+}
+
 func TestRunDeviceFlow_ContextCancellation(t *testing.T) {
 	tokenCalled := make(chan struct{})
 	var closeOnce sync.Once

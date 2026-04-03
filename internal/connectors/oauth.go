@@ -83,6 +83,9 @@ func PollForToken(cfg ConnectorConfig, deviceCode string, interval int, timeout 
 }
 
 func PollForTokenWithContext(ctx context.Context, cfg ConnectorConfig, deviceCode string, interval int, timeout time.Duration) (*TokenResponse, error) {
+	if ctx == nil {
+		ctx = context.Background()
+	}
 	if cfg.TokenURL == "" {
 		return nil, errors.New("token url is required")
 	}

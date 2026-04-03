@@ -31,6 +31,10 @@ func FetchUserInfo(ctx context.Context, endpoint, accessToken string) (*UserInfo
 		return nil, fmt.Errorf("endpoint and access token are required")
 	}
 
+	if ctx == nil {
+		ctx = context.Background()
+	}
+
 	ctx, cancel := context.WithTimeout(ctx, 10*time.Second)
 	defer cancel()
 
