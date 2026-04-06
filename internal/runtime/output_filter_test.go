@@ -1,6 +1,8 @@
 package runtime
 
 import (
+	"encoding/json"
+	"strings"
 	"testing"
 
 	"github.com/dunialabs/kimbap/internal/actions"
@@ -362,5 +364,147 @@ func TestApplyFilter_MetricsBytes(t *testing.T) {
 	}
 	if meta.FilteredBytes >= meta.OriginalBytes {
 		t.Errorf("FilteredBytes (%d) should be < OriginalBytes (%d)", meta.FilteredBytes, meta.OriginalBytes)
+	}
+}
+
+// ── Budget tests (T7) ────────────────────────────────────────────────────
+
+func TestApplyBudget_NoOp(t *testing.T) {
+	output := map[string]any{"id": 1, "name": "x"}
+	got, meta := ApplyBudget(output, 0)
+	if meta.Applied {
+		t.Error("budget=0 should be no-op")
+	}
+	if got["id"] != 1 {
+		t.Error("output should be unchanged")
+	}
+}
+
+func TestApplyBudget_TruncatesArray(t *testing.T) {
+	items := make([]any, 50)
+	for i := range items {
+		items[i] = map[string]any{"id": i, "name": "item"}
+	}
+	output := map[string]any{"result": items}
+	got, meta := ApplyBudget(output, 200)
+	if !meta.Applied {
+		t.Error("budget should be applied")
+	}
+	arr, ok := got["result"].([]any)
+	if !ok {
+		t.Fatal("result should be array")
+	}
+	if len(arr) >= 50 {
+		t.Error("array should be truncated")
+	}
+	// Verify valid JSON
+	encoded, _ := json.Marshal(got)
+	var check map[string]any
+	if err := json.Unmarshal(encoded, &check); err != nil {
+		t.Errorf("budget result should be valid JSON: %v", err)
+	}
+	if meta.ResultChars > meta.Limit {
+		t.Errorf("result chars (%d) should be <= budget (%d)", meta.ResultChars, meta.Limit)
+	}
+}
+
+func TestApplyBudget_TruncatesStrings(t *testing.T) {
+	longStr := make([]byte, 5000)
+	for i := range longStr {
+		longStr[i] = 'x'
+	}
+	output := map[string]any{"content": string(longStr)}
+	got, meta := ApplyBudget(output, 200)
+	if !meta.Applied {
+		t.Error("budget should be applied")
+	}
+	content, ok := got["content"].(string)
+	if !ok {
+		t.Fatal("content should be string")
+	}
+	if !strings.HasSuffix(content, "...") {
+		t.Error("truncated string should end with ...")
+	}
+	encoded, _ := json.Marshal(got)
+	if len(encoded) > 500 { // generous budget for small overhead
+		t.Errorf("result should be significantly smaller than original")
+	}
+}
+
+// ── Compact template tests (T11) ─────────────────────────────────────────
+
+func TestApplyCompactTemplate_RendersArray(t *testing.T) {
+	output := map[string]any{
+		"result": []any{
+			map[string]any{"number": 1, "title": "Bug", "state": "open"},
+			map[string]any{"number": 2, "title": "Feature", "state": "closed"},
+		},
+	}
+	tmpl := &actions.CompactTemplate{
+		Item: "#{{.number}} {{.title}} [{{.state}}]",
+	}
+	got, err := ApplyCompactTemplate(output, tmpl)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	summary, ok := got["summary"].(string)
+	if !ok {
+		t.Fatal("summary should be string")
+	}
+	if !strings.Contains(summary, "#1 Bug [open]") {
+		t.Errorf("summary should contain rendered item, got: %s", summary)
+	}
+	if !strings.Contains(summary, "#2 Feature [closed]") {
+		t.Errorf("summary should contain second item, got: %s", summary)
+	}
+	if got["_compact"] != true {
+		t.Error("_compact should be true")
+	}
+}
+
+func TestApplyCompactTemplate_WithHeaderFooter(t *testing.T) {
+	items := make([]any, 10)
+	for i := range items {
+		items[i] = map[string]any{"number": i + 1, "title": "Issue"}
+	}
+	output := map[string]any{"result": items[:3]} // already limited by max_items
+	tmpl := &actions.CompactTemplate{
+		Header: "Issues ({{.Total}} total):",
+		Item:   "  #{{.number}} {{.title}}",
+		Footer: "Showing {{.Count}} items",
+	}
+	got, err := ApplyCompactTemplate(output, tmpl)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	summary := got["summary"].(string)
+	if !strings.Contains(summary, "Issues (3 total):") {
+		t.Errorf("header not rendered, got: %s", summary)
+	}
+	if !strings.Contains(summary, "Showing 3 items") {
+		t.Errorf("footer not rendered, got: %s", summary)
+	}
+}
+
+func TestApplyCompactTemplate_NilTmpl(t *testing.T) {
+	output := map[string]any{"result": []any{map[string]any{"id": 1}}}
+	got, err := ApplyCompactTemplate(output, nil)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if got["_compact"] == true {
+		t.Error("nil template should be no-op")
+	}
+}
+
+func TestApplyCompactTemplate_SingleObject(t *testing.T) {
+	output := map[string]any{"id": 1, "name": "obj"}
+	tmpl := &actions.CompactTemplate{Item: "{{.name}}"}
+	got, err := ApplyCompactTemplate(output, tmpl)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if got["_compact"] == true {
+		t.Error("single object should be no-op for compact template")
 	}
 }

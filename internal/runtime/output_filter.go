@@ -1,8 +1,11 @@
 package runtime
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
+	"strings"
+	"text/template"
 
 	"github.com/dunialabs/kimbap/internal/actions"
 	"github.com/dunialabs/kimbap/internal/pathutil"
@@ -299,4 +302,188 @@ func isRawOutput(output map[string]any) bool {
 	}
 	_, hasRaw := output["raw"]
 	return hasRaw
+}
+
+// ── Budget enforcement (T7) ───────────────────────────────────────────────
+
+// BudgetMeta records what happened during budget enforcement.
+type BudgetMeta struct {
+	Applied       bool
+	Limit         int
+	OriginalChars int
+	ResultChars   int
+}
+
+// ApplyBudget enforces a maximum character count on serialized output.
+// For arrays: progressively removes items from the end until under budget.
+// For objects with long strings: truncates the longest string values.
+// Always produces valid JSON.
+func ApplyBudget(output map[string]any, maxChars int) (map[string]any, BudgetMeta) {
+	if maxChars <= 0 {
+		return output, BudgetMeta{}
+	}
+
+	raw, _ := json.Marshal(output)
+	meta := BudgetMeta{
+		Applied:       false,
+		Limit:         maxChars,
+		OriginalChars: len(raw),
+	}
+
+	if len(raw) <= maxChars {
+		meta.ResultChars = len(raw)
+		return output, meta
+	}
+
+	meta.Applied = true
+
+	// Try to trim arrays first
+	wrapperKey, payload := pathutil.DetectPayloadRoot(output)
+	if arr, ok := payload.([]any); ok && wrapperKey != "" {
+		// Remove items from end until under budget
+		trimmed := make([]any, len(arr))
+		copy(trimmed, arr)
+		for len(trimmed) > 0 {
+			candidate := make(map[string]any, len(output))
+			for k, v := range output {
+				if k == wrapperKey {
+					candidate[k] = trimmed
+				} else {
+					candidate[k] = v
+				}
+			}
+			encoded, _ := json.Marshal(candidate)
+			if len(encoded) <= maxChars {
+				meta.ResultChars = len(encoded)
+				return candidate, meta
+			}
+			trimmed = trimmed[:len(trimmed)-1]
+		}
+		// Array is empty and still over budget — truncate string values
+	}
+
+	// Truncate longest string values in the map
+	result := truncateLongStrings(output, maxChars)
+	encoded, _ := json.Marshal(result)
+	meta.ResultChars = len(encoded)
+	return result, meta
+}
+
+// truncateLongStrings recursively truncates string values to fit within budget.
+func truncateLongStrings(m map[string]any, maxChars int) map[string]any {
+	result := make(map[string]any, len(m))
+	for k, v := range m {
+		switch val := v.(type) {
+		case string:
+			if len(val) > maxChars/2 {
+				cutoff := maxChars / 4
+				if cutoff < 20 {
+					cutoff = 20
+				}
+				result[k] = val[:cutoff] + "..."
+			} else {
+				result[k] = v
+			}
+		case map[string]any:
+			result[k] = truncateLongStrings(val, maxChars)
+		default:
+			result[k] = v
+		}
+	}
+	return result
+}
+
+// ── Compact text templates (T11) ─────────────────────────────────────────
+
+// CompactResult is the output of ApplyCompactTemplate.
+type CompactResult struct {
+	Summary        string `json:"summary"`
+	Compact        bool   `json:"_compact"`
+	OriginalItems  int    `json:"_original_items"`
+}
+
+// ApplyCompactTemplate renders structured array data into a text summary.
+// Applied AFTER filter (select/max_items), so template sees already-filtered fields.
+// Only applies to array payloads — single objects are a no-op.
+// Returns {"summary": "...", "_compact": true, "_original_items": N}.
+func ApplyCompactTemplate(output map[string]any, tmpl *actions.CompactTemplate) (map[string]any, error) {
+	if tmpl == nil || tmpl.Item == "" {
+		return output, nil
+	}
+
+	wrapperKey, payload := pathutil.DetectPayloadRoot(output)
+	arr, ok := payload.([]any)
+	if !ok || wrapperKey == "" {
+		return output, nil // single object or unrecognized — no-op
+	}
+
+	itemTmpl, err := compileTemplate("item", tmpl.Item)
+	if err != nil {
+		return output, fmt.Errorf("compact item template: %w", err)
+	}
+
+	var lines []string
+
+	if tmpl.Header != "" {
+		headerTmpl, err := compileTemplate("header", tmpl.Header)
+		if err != nil {
+			return output, fmt.Errorf("compact header template: %w", err)
+		}
+		headerData := map[string]any{"Total": len(arr), "Count": len(arr)}
+		hLine, err := renderTemplate(headerTmpl, headerData)
+		if err != nil {
+			return output, fmt.Errorf("compact header render: %w", err)
+		}
+		lines = append(lines, hLine)
+	}
+
+	for _, item := range arr {
+		m, ok := item.(map[string]any)
+		if !ok {
+			continue
+		}
+		line, err := renderTemplate(itemTmpl, m)
+		if err != nil {
+			return output, fmt.Errorf("compact item render: %w", err)
+		}
+		lines = append(lines, line)
+	}
+
+	if tmpl.Footer != "" {
+		footerTmpl, err := compileTemplate("footer", tmpl.Footer)
+		if err != nil {
+			return output, fmt.Errorf("compact footer template: %w", err)
+		}
+		footerData := map[string]any{"Count": len(arr), "Total": len(arr), "Remaining": 0}
+		fLine, err := renderTemplate(footerTmpl, footerData)
+		if err != nil {
+			return output, fmt.Errorf("compact footer render: %w", err)
+		}
+		lines = append(lines, fLine)
+	}
+
+	summary := joinLines(lines)
+	return map[string]any{
+		"summary":         summary,
+		"_compact":        true,
+		"_original_items": len(arr),
+	}, nil
+}
+
+// ── Template helpers ──────────────────────────────────────────────────────
+
+func compileTemplate(name, src string) (*template.Template, error) {
+	return template.New(name).Option("missingkey=zero").Parse(src)
+}
+
+func renderTemplate(tmpl *template.Template, data any) (string, error) {
+	var buf bytes.Buffer
+	if err := tmpl.Execute(&buf, data); err != nil {
+		return "", err
+	}
+	return buf.String(), nil
+}
+
+func joinLines(lines []string) string {
+	return strings.Join(lines, "\n")
 }
