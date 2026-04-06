@@ -525,7 +525,7 @@ func (r *Runtime) executeFromCredentialsWithState(
 	result.Meta["raw_response_bytes"] = len(adapterResult.RawBody)
 	trace.Record("finalize", "ok", "success")
 
-	return r.finalizeWithStatus(
+	finalResult := r.finalizeWithStatus(
 		ctx,
 		&result,
 		req,
@@ -537,6 +537,56 @@ func (r *Runtime) executeFromCredentialsWithState(
 		policyDecision,
 		approvalRequestID,
 	)
+
+	// Apply output filter AFTER audit so audit trail records unfiltered output.
+	if finalResult.Status == actions.StatusSuccess && req.Action.FilterConfig != nil {
+		if outputMode, _ := req.Input["_output_mode"].(string); outputMode != "raw" {
+			filtered, filterMeta, filterErr := ApplyFilter(finalResult.Output, req.Action.FilterConfig)
+			if finalResult.Meta == nil {
+				finalResult.Meta = map[string]any{}
+			}
+			if filterErr != nil {
+				// All select paths missed — return unfiltered with warning
+				finalResult.Meta["filter_error"] = filterErr.Error()
+				finalResult.Meta["filter_applied"] = false
+			} else {
+				finalResult.Output = filtered
+				finalResult.Meta["filter_applied"] = filterMeta.Applied
+				finalResult.Meta["filter_original_bytes"] = filterMeta.OriginalBytes
+				finalResult.Meta["filter_result_bytes"] = filterMeta.FilteredBytes
+				if filterMeta.ItemsTruncatedFrom > 0 {
+					finalResult.Meta["filter_items_truncated_from"] = filterMeta.ItemsTruncatedFrom
+				}
+				if len(filterMeta.PartialMiss) > 0 {
+					finalResult.Meta["filter_partial_miss"] = filterMeta.PartialMiss
+				}
+				if filterMeta.Skipped != "" {
+					finalResult.Meta["filter_skipped"] = filterMeta.Skipped
+				}
+
+				// Apply budget enforcement after structural filtering
+				if budget, ok := req.Input["_budget"].(int); ok && budget > 0 {
+					budgeted, budgetMeta := ApplyBudget(finalResult.Output, budget)
+					finalResult.Output = budgeted
+					if budgetMeta.Applied {
+						finalResult.Meta["budget_applied"] = true
+						finalResult.Meta["budget_limit"] = budgetMeta.Limit
+						finalResult.Meta["budget_original_chars"] = budgetMeta.OriginalChars
+						finalResult.Meta["budget_result_chars"] = budgetMeta.ResultChars
+					}
+				}
+
+				// Apply compact template after filtering
+				if req.Action.CompactTemplate != nil {
+					compacted, compactErr := ApplyCompactTemplate(finalResult.Output, req.Action.CompactTemplate)
+					if compactErr == nil {
+						finalResult.Output = compacted
+					}
+				}
+			}
+		}
+	}
+	return finalResult
 }
 
 func (r *Runtime) authenticatePrincipal(ctx context.Context, req actions.ExecutionRequest) *actions.ExecutionError {

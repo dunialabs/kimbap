@@ -952,3 +952,153 @@ func baseRequest(action actions.ActionDefinition) actions.ExecutionRequest {
 		Mode:           actions.ModeCall,
 	}
 }
+
+// ── Output Filter Pipeline Integration Tests ──────────────────────────────
+
+func TestPipelineWithFilter_AppliedAfterAudit(t *testing.T) {
+	audit := &mockAuditWriter{}
+	rawOutput := map[string]any{
+		"result": []any{
+			map[string]any{"id": 1, "name": "x", "bio": "long field that should be stripped"},
+		},
+	}
+	rt := Runtime{
+		PolicyEvaluator: mockPolicyEvaluator{decision: &PolicyDecision{Decision: "allow"}},
+		AuditWriter:     audit,
+		Adapters: map[string]adapters.Adapter{
+			"http": mockAdapter{kind: "http", result: &adapters.AdapterResult{Output: rawOutput, HTTPStatus: 200}},
+		},
+	}
+
+	action := actions.ActionDefinition{
+		Name:        "test.filter",
+		InputSchema: &actions.Schema{Type: "object", AdditionalProperties: true},
+		Adapter:     actions.AdapterConfig{Type: "http", URLTemplate: "https://example.com"},
+		FilterConfig: &actions.FilterConfig{
+			Select: map[string]string{"id": "id"},
+		},
+	}
+	req := baseRequest(action)
+	res := rt.Execute(context.Background(), req)
+
+	if res.Status != actions.StatusSuccess {
+		t.Fatalf("expected success, got %s: %v", res.Status, res.Error)
+	}
+
+	// Output should be filtered
+	arr, ok := res.Output["result"].([]any)
+	if !ok || len(arr) != 1 {
+		t.Fatalf("expected filtered result array, got %v", res.Output)
+	}
+	item := arr[0].(map[string]any)
+	if _, hasBio := item["bio"]; hasBio {
+		t.Error("bio should be filtered from output")
+	}
+	if _, hasID := item["id"]; !hasID {
+		t.Error("id should remain in filtered output")
+	}
+
+	// Meta should record filtering
+	if res.Meta["filter_applied"] != true {
+		t.Errorf("filter_applied = %v, want true", res.Meta["filter_applied"])
+	}
+
+	// Audit event should have been written (proves finalizeWithStatus ran)
+	if len(audit.events) != 1 {
+		t.Fatalf("expected 1 audit event, got %d", len(audit.events))
+	}
+	if audit.events[0].Status != actions.StatusSuccess {
+		t.Errorf("audit event status = %s, want success", audit.events[0].Status)
+	}
+}
+
+func TestPipelineNoFilter_Passthrough(t *testing.T) {
+	rawOutput := map[string]any{"result": []any{map[string]any{"id": 1, "bio": "preserved"}}}
+	rt := Runtime{
+		PolicyEvaluator: mockPolicyEvaluator{decision: &PolicyDecision{Decision: "allow"}},
+		AuditWriter:     &mockAuditWriter{},
+		Adapters: map[string]adapters.Adapter{
+			"http": mockAdapter{kind: "http", result: &adapters.AdapterResult{Output: rawOutput, HTTPStatus: 200}},
+		},
+	}
+	action := actions.ActionDefinition{
+		Name:        "test.nofilter",
+		InputSchema: &actions.Schema{Type: "object", AdditionalProperties: true},
+		Adapter:     actions.AdapterConfig{Type: "http", URLTemplate: "https://example.com"},
+		// No FilterConfig
+	}
+	res := rt.Execute(context.Background(), baseRequest(action))
+	if res.Status != actions.StatusSuccess {
+		t.Fatalf("expected success, got %s", res.Status)
+	}
+	arr := res.Output["result"].([]any)
+	item := arr[0].(map[string]any)
+	if item["bio"] != "preserved" {
+		t.Error("without FilterConfig, output should pass through unchanged")
+	}
+	if res.Meta["filter_applied"] == true {
+		t.Error("filter_applied should not be set when no filter config")
+	}
+}
+
+func TestPipelineOutputModeRaw_BypassesFilter(t *testing.T) {
+	rawOutput := map[string]any{
+		"result": []any{
+			map[string]any{"id": 1, "bio": "should remain when _output_mode=raw"},
+		},
+	}
+	rt := Runtime{
+		PolicyEvaluator: mockPolicyEvaluator{decision: &PolicyDecision{Decision: "allow"}},
+		AuditWriter:     &mockAuditWriter{},
+		Adapters: map[string]adapters.Adapter{
+			"http": mockAdapter{kind: "http", result: &adapters.AdapterResult{Output: rawOutput, HTTPStatus: 200}},
+		},
+	}
+	action := actions.ActionDefinition{
+		Name:        "test.rawmode",
+		InputSchema: &actions.Schema{Type: "object", AdditionalProperties: true},
+		Adapter:     actions.AdapterConfig{Type: "http", URLTemplate: "https://example.com"},
+		FilterConfig: &actions.FilterConfig{
+			Select: map[string]string{"id": "id"},
+		},
+	}
+	req := baseRequest(action)
+	req.Input["_output_mode"] = "raw"
+	res := rt.Execute(context.Background(), req)
+
+	if res.Status != actions.StatusSuccess {
+		t.Fatalf("expected success, got %s", res.Status)
+	}
+	arr := res.Output["result"].([]any)
+	item := arr[0].(map[string]any)
+	if _, hasBio := item["bio"]; !hasBio {
+		t.Error("_output_mode=raw should bypass filter, bio should be present")
+	}
+}
+
+func TestPipelineFilterErrorImmunity(t *testing.T) {
+	// Error responses should not be filtered
+	rt := Runtime{
+		PolicyEvaluator: mockPolicyEvaluator{decision: &PolicyDecision{Decision: "allow"}},
+		AuditWriter:     &mockAuditWriter{},
+		Adapters: map[string]adapters.Adapter{
+			"http": mockAdapter{kind: "http", err: errors.New("not found")},
+		},
+	}
+	action := actions.ActionDefinition{
+		Name:        "test.errimmune",
+		InputSchema: &actions.Schema{Type: "object", AdditionalProperties: true},
+		Adapter:     actions.AdapterConfig{Type: "http", URLTemplate: "https://example.com"},
+		FilterConfig: &actions.FilterConfig{
+			Select: map[string]string{"id": "id"},
+		},
+	}
+	res := rt.Execute(context.Background(), baseRequest(action))
+	if res.Status == actions.StatusSuccess {
+		t.Fatal("expected error status")
+	}
+	// filter_applied should not be set on error
+	if res.Meta["filter_applied"] == true {
+		t.Error("filter should not be applied on error response")
+	}
+}
