@@ -216,6 +216,14 @@ func (r *openAPIRefResolver) resolveRef(currentDoc *openAPIDocument, ref string)
 	}
 
 	targetPath := filepath.Clean(filepath.Join(filepath.Dir(currentDoc.path), filepath.FromSlash(refPath)))
+	rootDir := ""
+	if r.rootDoc != nil && strings.TrimSpace(r.rootDoc.path) != "" {
+		rootDir = filepath.Clean(filepath.Dir(r.rootDoc.path))
+	}
+	if rootDir != "" && !strings.HasPrefix(targetPath, rootDir+string(os.PathSeparator)) && targetPath != rootDir {
+		return nil, nil, fmt.Errorf("$ref %q resolves outside the spec root directory", ref)
+	}
+
 	targetDoc, err := r.loadDocument(targetPath)
 	if err != nil {
 		return nil, nil, err

@@ -475,6 +475,96 @@ paths:
 	}
 }
 
+func TestGenerateFromOpenAPIFileRejectsTraversalOutsideSpecRoot(t *testing.T) {
+	baseDir := t.TempDir()
+	specDir := filepath.Join(baseDir, "spec")
+	rootPath := writeOpenAPITestFile(t, specDir, "openapi.yaml", `openapi: 3.0.3
+info:
+  title: Traversal Ref API
+  version: 1.0.0
+servers:
+  - url: https://api.example.com
+paths:
+  /pets:
+    post:
+      operationId: createPet
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: ../../outside.yaml#/Pet
+      responses:
+        '201':
+          description: created
+          content:
+            application/json:
+              schema:
+                type: object
+`)
+	writeOpenAPITestFile(t, baseDir, "outside.yaml", `Pet:
+  type: object
+`)
+
+	_, err := GenerateFromOpenAPIFile(rootPath)
+	if err == nil {
+		t.Fatal("expected traversal outside spec root to fail")
+	}
+	if !strings.Contains(err.Error(), "outside the spec root directory") {
+		t.Fatalf("expected explicit traversal containment error, got %v", err)
+	}
+}
+
+func TestGenerateFromOpenAPIFileAllowsExternalRefsWithinSpecRoot(t *testing.T) {
+	dir := t.TempDir()
+	rootPath := writeOpenAPITestFile(t, dir, "openapi.yaml", `openapi: 3.0.3
+info:
+  title: In Root Ref API
+  version: 1.0.0
+servers:
+  - url: https://api.example.com
+paths:
+  /pets:
+    post:
+      operationId: createPet
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: ./schemas/components.yaml#/Pet
+      responses:
+        '201':
+          description: created
+          content:
+            application/json:
+              schema:
+                type: object
+`)
+	writeOpenAPITestFile(t, dir, "schemas/components.yaml", `Pet:
+  type: object
+  required: [name]
+  properties:
+    name:
+      type: string
+`)
+
+	manifest, err := GenerateFromOpenAPIFile(rootPath)
+	if err != nil {
+		t.Fatalf("GenerateFromOpenAPIFile failed: %v", err)
+	}
+
+	action, ok := manifest.Actions["createpet"]
+	if !ok {
+		t.Fatalf("expected createpet action")
+	}
+
+	args := generatedActionArgsByName(action)
+	if args["name"].Type != "string" || !args["name"].Required {
+		t.Fatalf("expected required name:string arg from in-root ref, got %+v", args["name"])
+	}
+}
+
 func TestGenerateFromOpenAPIRejectsExternalFileRefsWithoutFileContext(t *testing.T) {
 	spec := `openapi: 3.0.3
 info:
