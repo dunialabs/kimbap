@@ -1008,9 +1008,13 @@ func isTimeoutError(err error) bool {
 }
 
 func isLoopbackHost(host string) bool {
-	if host == "localhost" {
+	if strings.EqualFold(host, "localhost") {
 		return true
 	}
-	ip := net.ParseIP(host)
+	normalized := host
+	if idx := strings.IndexByte(host, '%'); idx >= 0 {
+		normalized = host[:idx]
+	}
+	ip := net.ParseIP(normalized)
 	return ip != nil && ip.IsLoopback()
 }
