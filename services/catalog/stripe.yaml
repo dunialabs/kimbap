@@ -87,6 +87,18 @@ actions:
         id: "{id}"
     response:
       type: object
+      filter:
+        select:
+          id: id
+          amount: amount
+          currency: currency
+          status: status
+          customer: customer
+          created: created
+          paid: paid
+          receipt_url: receipt_url
+          failure_message: failure_message
+        drop_nulls: true
     risk:
       level: low
   list-customers:
@@ -132,6 +144,17 @@ actions:
         id: "{id}"
     response:
       type: object
+      filter:
+        select:
+          id: id
+          email: email
+          name: name
+          phone: phone
+          created: created
+          delinquent: delinquent
+          balance: balance
+          currency: currency
+        drop_nulls: true
     risk:
       level: low
   create-customer:

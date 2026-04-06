@@ -111,5 +111,9 @@ actions:
         User-Agent: "kimbap/1.0 (https://kimbap.sh)"
     response:
       type: object
+      filter:
+        select:
+          events: events
+        drop_nulls: true
     risk:
       level: low
