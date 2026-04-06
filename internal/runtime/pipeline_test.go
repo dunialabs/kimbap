@@ -532,8 +532,8 @@ func TestRuntimeExecuteStripsRuntimeKeysBeforeAdapterExecute(t *testing.T) {
 	if capture.lastReq.Action.Pagination == nil {
 		t.Fatal("expected pagination config to remain available to adapter")
 	}
-	if capture.lastReq.Action.Pagination.MaxPages != 5 {
-		t.Fatalf("expected runtime _max_pages override to update adapter action pagination, got %d", capture.lastReq.Action.Pagination.MaxPages)
+	if capture.lastReq.Action.Pagination.MaxPages != 2 {
+		t.Fatalf("expected _max_pages=5 clamped to manifest cap 2, got %d", capture.lastReq.Action.Pagination.MaxPages)
 	}
 	if got, _ := req.Input["_output_mode"].(string); got != "raw" {
 		t.Fatalf("expected request input to remain unchanged for post-processing, got %#v", req.Input["_output_mode"])

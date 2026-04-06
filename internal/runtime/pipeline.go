@@ -893,13 +893,17 @@ func applyRuntimeActionOverrides(action actions.ActionDefinition, input map[stri
 	if action.Pagination == nil {
 		return action
 	}
-	maxPages := coercePositiveInt(input["_max_pages"])
-	if maxPages <= 0 {
+	requested := coercePositiveInt(input["_max_pages"])
+	if requested <= 0 {
 		return action
+	}
+	effective := requested
+	if action.Pagination.MaxPages > 0 && requested > action.Pagination.MaxPages {
+		effective = action.Pagination.MaxPages
 	}
 	overridden := action
 	pagination := *action.Pagination
-	pagination.MaxPages = maxPages
+	pagination.MaxPages = effective
 	overridden.Pagination = &pagination
 	return overridden
 }

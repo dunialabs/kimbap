@@ -607,7 +607,7 @@ rules:
 }
 
 func ensurePolicyFile(path, mode string) doctorCheck {
-	if st, err := os.Stat(path); err == nil {
+	if st, err := os.Lstat(path); err == nil {
 		if st.IsDir() {
 			return doctorCheck{Name: "policy file valid", Status: "fail", Detail: "path exists but is a directory"}
 		}
@@ -681,7 +681,7 @@ func ensureEmptyFile(name, path string) doctorCheck {
 }
 
 func fileExists(path string) bool {
-	st, err := os.Stat(path)
+	st, err := os.Lstat(path)
 	return err == nil && !st.IsDir()
 }
 

@@ -44,4 +44,4 @@ actions:
     response:
       type: object
     risk:
-      level: low
+      level: medium
