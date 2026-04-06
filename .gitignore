@@ -55,3 +55,4 @@ artifacts/
 # ── Test code — not included in repository ──
 tests/
 /kimbap
+.opencode/
