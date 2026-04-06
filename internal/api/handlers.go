@@ -597,6 +597,10 @@ func (s *Server) handleExportAudit(w http.ResponseWriter, r *http.Request) {
 		writeEnvelopeError(w, r, actions.NewExecutionError(actions.ErrValidationFailed, "invalid 'to' timestamp: expected RFC3339 format", http.StatusBadRequest, false, nil))
 		return
 	}
+	if from == nil && to == nil {
+		writeEnvelopeError(w, r, actions.NewExecutionError(actions.ErrValidationFailed, "audit export requires at least one of 'from' or 'to' to bound the result set", http.StatusBadRequest, false, nil))
+		return
+	}
 	exportFilter := store.AuditFilter{
 		TenantID:  tenantID,
 		AgentName: r.URL.Query().Get("agent_name"),

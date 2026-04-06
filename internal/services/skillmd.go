@@ -6,6 +6,21 @@ import (
 	"strings"
 )
 
+var mdUnsafeLinePrefixes = []string{"#", "```", "---", "===", "***", "___", "> "}
+
+func safeMDProse(s string) string {
+	lines := strings.Split(s, "\n")
+	for i, line := range lines {
+		for _, prefix := range mdUnsafeLinePrefixes {
+			if strings.HasPrefix(line, prefix) {
+				lines[i] = `\` + line
+				break
+			}
+		}
+	}
+	return strings.Join(lines, "\n")
+}
+
 type SkillMDOption func(*skillMDConfig)
 
 type skillMDConfig struct {
@@ -89,7 +104,7 @@ func GenerateAgentSkillMD(manifest *ServiceManifest, opts ...SkillMDOption) (str
 
 	fmt.Fprintf(&sb, "# %s\n\n", manifest.Name)
 	if manifest.Description != "" {
-		fmt.Fprintf(&sb, "%s\n\n", manifest.Description)
+		fmt.Fprintf(&sb, "%s\n\n", safeMDProse(manifest.Description))
 	}
 
 	sb.WriteString("## Prerequisites\n\n")
@@ -131,7 +146,7 @@ func GenerateAgentSkillMD(manifest *ServiceManifest, opts ...SkillMDOption) (str
 		}
 		fmt.Fprintf(&sb, "### %s\n\n", actionName)
 		if action.Description != "" {
-			fmt.Fprintf(&sb, "%s\n\n", action.Description)
+			fmt.Fprintf(&sb, "%s\n\n", safeMDProse(action.Description))
 		}
 		switch normalizedAdapterType(manifest.Adapter) {
 		case "applescript", "command":
@@ -334,7 +349,7 @@ func generatePackSkillMD(manifest *ServiceManifest, cfg skillMDConfig) (string, 
 	sb.WriteString("---\n\n")
 	sb.WriteString(fmt.Sprintf("# %s\n\n", manifest.Name))
 	if manifest.Description != "" {
-		sb.WriteString(fmt.Sprintf("%s\n\n", manifest.Description))
+		sb.WriteString(fmt.Sprintf("%s\n\n", safeMDProse(manifest.Description)))
 	}
 	sb.WriteString("## Prerequisites\n\n")
 	sb.WriteString("- Kimbap CLI installed and in PATH\n")

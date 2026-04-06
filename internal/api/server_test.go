@@ -1969,7 +1969,7 @@ func TestServerExportAuditStreamsOnSuccess(t *testing.T) {
 
 	ts, rawBootstrap := newTestAPIServerFromStore(t, wrapped)
 
-	req, _ := http.NewRequest(http.MethodGet, ts.URL+"/v1/audit/export?format=jsonl", nil)
+	req, _ := http.NewRequest(http.MethodGet, ts.URL+"/v1/audit/export?format=jsonl&from=2020-01-01T00:00:00Z", nil)
 	req.Header.Set("Authorization", "Bearer "+rawBootstrap)
 
 	resp, err := http.DefaultClient.Do(req)
@@ -2005,7 +2005,7 @@ func TestServerExportAuditFailureReturnsErrorEnvelope(t *testing.T) {
 	wrapped := &forcedAuditExportStore{Store: baseStore, forcedExportErr: errors.New("db unavailable")}
 
 	ts, rawBootstrap := newTestAPIServerFromStore(t, wrapped)
-	req, _ := http.NewRequest(http.MethodGet, ts.URL+"/v1/audit/export?format=csv", nil)
+	req, _ := http.NewRequest(http.MethodGet, ts.URL+"/v1/audit/export?format=csv&from=2020-01-01T00:00:00Z", nil)
 	req.Header.Set("Authorization", "Bearer "+rawBootstrap)
 
 	resp, err := http.DefaultClient.Do(req)
