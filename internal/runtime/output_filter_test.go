@@ -742,3 +742,24 @@ func TestApplyBudget_ManyMediumStrings(t *testing.T) {
 		t.Errorf("result should be valid JSON: %v", err)
 	}
 }
+
+func TestApplyBudget_TinyBudget_NeverExpands(t *testing.T) {
+	// Strings of 7-9 runes under tiny budget — must never expand
+	output := map[string]any{
+		"a": "abcdefg",   // 7 runes
+		"b": "abcdefgh",  // 8 runes
+		"c": "abcdefghi", // 9 runes
+	}
+	origEncoded, _ := json.Marshal(output)
+	origSize := len(origEncoded)
+
+	got, meta := ApplyBudget(output, 15)
+	resultEncoded, _ := json.Marshal(got)
+	resultSize := len(resultEncoded)
+
+	// Result must never be LARGER than original
+	if resultSize > origSize {
+		t.Errorf("budget truncation expanded output: original=%d result=%d", origSize, resultSize)
+	}
+	_ = meta
+}

@@ -376,6 +376,9 @@ func ApplyBudget(output map[string]any, maxBytes int) (map[string]any, BudgetMet
 	// Each iteration lowers the per-string threshold to guarantee monotonic shrinkage.
 	result := base
 	threshold := maxBytes / 2
+	if threshold < 10 {
+		threshold = 10
+	}
 	for range 10 {
 		prevEncoded, _ := json.Marshal(result)
 		prevSize := len(prevEncoded)
@@ -407,11 +410,10 @@ func truncateLongStrings(m map[string]any, threshold int) map[string]any {
 		switch val := v.(type) {
 		case string:
 			runes := []rune(val)
-			if len(runes) > threshold {
+			// Only truncate if the string is longer than threshold AND truncation
+			// actually reduces length (cutoff + 3 for '...' must be < original).
+			if len(runes) > threshold && threshold+3 < len(runes) {
 				cutoff := threshold
-				if cutoff < 10 {
-					cutoff = 10
-				}
 				if cutoff > len(runes) {
 					cutoff = len(runes)
 				}
