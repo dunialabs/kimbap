@@ -18,6 +18,10 @@ func ApplyFilter(output map[string]any, config *actions.FilterConfig) (map[strin
 	if config == nil {
 		return output, actions.FilterMeta{}, nil
 	}
+	// Fast-path: empty config is a no-op (e.g. filter: {} in YAML)
+	if len(config.Select) == 0 && len(config.Exclude) == 0 && config.MaxItems == 0 && !config.DropNulls {
+		return output, actions.FilterMeta{}, nil
+	}
 
 	rawBytes, _ := json.Marshal(output)
 	filtered, filterMeta, err := detectAndFilter(output, config)
@@ -183,8 +187,8 @@ func projectArray(items []any, selectMap map[string]string) ([]any, []string, er
 		return items, nil, fmt.Errorf("all select paths missing from all items: %v", missing)
 	}
 
-	// Partial miss: paths that never appeared in any item
-	partialMiss := make([]string, 0)
+	// Partial miss: source paths that never appeared in any item
+	var partialMiss []string
 	for _, sourcePath := range selectMap {
 		found := false
 		for _, item := range items {
@@ -290,7 +294,8 @@ func dropNullsFromMap(m map[string]any, apply bool) map[string]any {
 	return dropNullsFromItem(m)
 }
 
-// isRawOutput returns true when the output map contains only a "raw" key with a string value.
+// isRawOutput returns true when the output map contains exactly one key ("raw").
+// The Command and AppleScript adapters produce {"raw": "..."} when stdout is not valid JSON.
 func isRawOutput(output map[string]any) bool {
 	if len(output) != 1 {
 		return false
@@ -313,19 +318,19 @@ type BudgetMeta struct {
 // For arrays: progressively removes items from the end until under budget.
 // For objects with long strings: rune-safely truncates the longest values.
 // Always produces valid JSON. Note: limit is measured in JSON bytes, not characters.
-func ApplyBudget(output map[string]any, maxChars int) (map[string]any, BudgetMeta) {
-	if maxChars <= 0 {
+func ApplyBudget(output map[string]any, maxBytes int) (map[string]any, BudgetMeta) {
+	if maxBytes <= 0 {
 		return output, BudgetMeta{}
 	}
 
 	raw, _ := json.Marshal(output)
 	meta := BudgetMeta{
 		Applied:       false,
-		Limit:         maxChars,
+		Limit:         maxBytes,
 		OriginalBytes: len(raw),
 	}
 
-	if len(raw) <= maxChars {
+	if len(raw) <= maxBytes {
 		meta.ResultBytes = len(raw)
 		return output, meta
 	}
@@ -348,7 +353,7 @@ func ApplyBudget(output map[string]any, maxChars int) (map[string]any, BudgetMet
 				}
 			}
 			encoded, _ := json.Marshal(candidate)
-			if len(encoded) <= maxChars {
+			if len(encoded) <= maxBytes {
 				meta.ResultBytes = len(encoded)
 				return candidate, meta
 			}
@@ -358,7 +363,7 @@ func ApplyBudget(output map[string]any, maxChars int) (map[string]any, BudgetMet
 	}
 
 	// Truncate longest string values in the map
-	result := truncateLongStrings(output, maxChars)
+	result := truncateLongStrings(output, maxBytes)
 	encoded, _ := json.Marshal(result)
 	meta.ResultBytes = len(encoded)
 	return result, meta
@@ -366,14 +371,14 @@ func ApplyBudget(output map[string]any, maxChars int) (map[string]any, BudgetMet
 
 // truncateLongStrings recursively truncates string values to fit within budget.
 // Uses rune-aware truncation to avoid splitting multi-byte UTF-8 characters.
-func truncateLongStrings(m map[string]any, maxChars int) map[string]any {
+func truncateLongStrings(m map[string]any, maxBytes int) map[string]any {
 	result := make(map[string]any, len(m))
 	for k, v := range m {
 		switch val := v.(type) {
 		case string:
 			runes := []rune(val)
-			if len(runes) > maxChars/2 {
-				cutoff := maxChars / 4
+			if len(runes) > maxBytes/2 {
+				cutoff := maxBytes / 4
 				if cutoff < 10 {
 					cutoff = 10
 				}
@@ -385,7 +390,7 @@ func truncateLongStrings(m map[string]any, maxChars int) map[string]any {
 				result[k] = v
 			}
 		case map[string]any:
-			result[k] = truncateLongStrings(val, maxChars)
+			result[k] = truncateLongStrings(val, maxBytes)
 		default:
 			result[k] = v
 		}
@@ -482,17 +487,31 @@ func joinLines(lines []string) string {
 }
 
 // coerceBudgetInt extracts a budget integer from any numeric type that input
-// parsing might produce: int (test literals), int64 (CLI parseScalar), float64
-// (JSON unmarshal). Returns 0 if the value is missing or non-numeric.
+// parsing might produce:
+//   - int: Go test literals and direct API callers
+//   - int64: CLI parseScalar path (strconv.ParseInt returns int64)
+//   - float64: standard json.Unmarshal into map[string]any
+//   - json.Number: dec.UseNumber() path before coerceJSONNumbers is called
+//
+// Returns 0 if the value is absent, non-numeric, or negative.
 func coerceBudgetInt(v any) int {
-	switch n := v.(type) {
+	var n int
+	switch val := v.(type) {
 	case int:
-		return n
+		n = val
 	case int64:
-		return int(n)
+		n = int(val)
 	case float64:
-		return int(n)
+		n = int(val)
+	case interface{ Int64() (int64, error) }: // handles json.Number
+		if i, err := val.Int64(); err == nil {
+			n = int(i)
+		}
 	default:
 		return 0
 	}
+	if n < 0 {
+		return 0
+	}
+	return n
 }

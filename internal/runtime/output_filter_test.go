@@ -598,3 +598,54 @@ func TestPipelineCompactOnly_NoFilterConfig(t *testing.T) {
 		t.Errorf("compact not applied, summary = %q", summary)
 	}
 }
+
+func TestApplyFilter_EmptyConfigFastPath(t *testing.T) {
+	// Empty (non-nil) config with no fields set should be a no-op
+	output := map[string]any{"result": []any{map[string]any{"id": 1, "bio": "long text"}}}
+	config := &actions.FilterConfig{} // non-nil but all zero
+	got, meta, err := ApplyFilter(output, config)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if meta.Applied {
+		t.Error("empty config should be no-op, Applied should be false")
+	}
+	// Output should be identical (same pointer is fine since no mutation occurred)
+	arr := got["result"].([]any)
+	item := arr[0].(map[string]any)
+	if item["bio"] != "long text" {
+		t.Error("bio should be present — empty config is no-op")
+	}
+}
+
+func TestCoerceBudgetInt_AllTypes(t *testing.T) {
+	cases := []struct {
+		name  string
+		input any
+		want  int
+	}{
+		{"int", int(100), 100},
+		{"int64", int64(200), 200},
+		{"float64", float64(300), 300},
+		{"float64 negative", float64(-5), 0},
+		{"int negative", int(-1), 0},
+		{"nil", nil, 0},
+		{"string", "100", 0},
+		{"json.Number int", interface{ Int64() (int64, error) }(jsonNumber("500")), 500},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			got := coerceBudgetInt(tc.input)
+			if got != tc.want {
+				t.Errorf("coerceBudgetInt(%v) = %d, want %d", tc.input, got, tc.want)
+			}
+		})
+	}
+}
+
+// jsonNumber wraps a string as a json.Number for testing.
+type jsonNumber string
+
+func (j jsonNumber) Int64() (int64, error) {
+	return json.Number(j).Int64()
+}

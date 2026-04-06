@@ -367,10 +367,9 @@ type FilterMeta struct {
 
 // CompactTemplate defines a template for compact textual representations of items.
 type CompactTemplate struct {
-	Header   string
-	Item     string
-	Footer   string
-	MaxItems int
+	Header string
+	Item   string
+	Footer string
 }
 
 func requiredValueMissing(fieldSchema *Schema, value any) bool {
