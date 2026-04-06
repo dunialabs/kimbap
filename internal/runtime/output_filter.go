@@ -504,9 +504,6 @@ func renderTemplate(tmpl *template.Template, data any) (string, error) {
 	return buf.String(), nil
 }
 
-func joinLines(lines []string) string {
-	return strings.Join(lines, "\n")
-}
 
 // coerceBudgetInt extracts a budget integer from any numeric type that input
 // parsing might produce:

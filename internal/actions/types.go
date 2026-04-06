@@ -266,10 +266,6 @@ type ExecutionResult struct {
 	Meta           map[string]any
 }
 
-type ResultEnvelope struct {
-	Data map[string]any `json:"data,omitempty"`
-	Meta map[string]any `json:"_meta,omitempty"`
-}
 
 func ValidateInput(schema *Schema, input map[string]any) *ExecutionError {
 	if schema == nil {
