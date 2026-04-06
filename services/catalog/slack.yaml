@@ -124,10 +124,6 @@ actions:
           type: type
           thread_ts: thread_ts
           reply_count: reply_count
-        exclude:
-          - blocks
-          - attachments
-          - reactions
         max_items: 30
         drop_nulls: true
     risk:
