@@ -40,9 +40,6 @@ func fetchHTTPResource(ctx context.Context, rawURL string, maxBytes int64, purpo
 	if parsed.Scheme == "http" && opts.allowLoopbackHTTP && !isLoopbackHost(parsed.Hostname()) {
 		return nil, nil, fmt.Errorf("insecure URL %q rejected: use https:// for %s", rawURL, purpose)
 	}
-	if isPrivateOrLoopbackServices(parsed.Hostname()) && !opts.allowLoopbackHTTP {
-		return nil, nil, fmt.Errorf("URL %q targets a private/loopback address and is not allowed for %s", rawURL, purpose)
-	}
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, parsed.String(), nil)
 	if err != nil {
@@ -77,8 +74,31 @@ func newRemoteFetchClient(initialURL *url.URL, opts remoteFetchOptions) *http.Cl
 	if initialURL != nil {
 		initialScheme = strings.ToLower(strings.TrimSpace(initialURL.Scheme))
 	}
+	safeDialer := &net.Dialer{Timeout: 10 * time.Second}
+	safeTransport := &http.Transport{
+		DialContext: func(ctx context.Context, network, addr string) (net.Conn, error) {
+			host, port, splitErr := net.SplitHostPort(addr)
+			if splitErr != nil {
+				return nil, fmt.Errorf("invalid dial address %q: %w", addr, splitErr)
+			}
+			addrs, resolveErr := net.DefaultResolver.LookupIPAddr(ctx, host)
+			if resolveErr != nil {
+				return nil, fmt.Errorf("resolve %q: %w", host, resolveErr)
+			}
+			for _, a := range addrs {
+				ip := a.IP
+				if ip.IsLoopback() || ip.IsPrivate() || ip.IsLinkLocalUnicast() || ip.IsLinkLocalMulticast() {
+					if !opts.allowLoopbackHTTP || !ip.IsLoopback() {
+						return nil, fmt.Errorf("resolved host %q to private/loopback address %s: SSRF protection rejected", host, ip)
+					}
+				}
+			}
+			return safeDialer.DialContext(ctx, network, net.JoinHostPort(addrs[0].IP.String(), port))
+		},
+	}
 	return &http.Client{
-		Timeout: defaultRemoteFetchTimeout,
+		Timeout:   defaultRemoteFetchTimeout,
+		Transport: safeTransport,
 		CheckRedirect: func(r *http.Request, via []*http.Request) error {
 			scheme := strings.ToLower(strings.TrimSpace(r.URL.Scheme))
 			if scheme != "http" && scheme != "https" {
@@ -90,11 +110,8 @@ func newRemoteFetchClient(initialURL *url.URL, opts remoteFetchOptions) *http.Cl
 			if !opts.requireHTTPS && initialScheme == "https" && scheme != "https" {
 				return fmt.Errorf("redirect to non-https URL %q rejected", r.URL)
 			}
-			if !opts.requireHTTPS && opts.allowLoopbackHTTP && scheme == "http" && !isLoopbackHost(r.URL.Hostname()) {
+			if scheme == "http" && opts.allowLoopbackHTTP && !isLoopbackHost(r.URL.Hostname()) {
 				return fmt.Errorf("redirect to non-https URL %q rejected", r.URL)
-			}
-			if isPrivateOrLoopbackServices(r.URL.Hostname()) && !opts.allowLoopbackHTTP {
-				return fmt.Errorf("redirect to private/loopback host %q rejected", r.URL.Hostname())
 			}
 			return nil
 		},
