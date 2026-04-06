@@ -208,6 +208,92 @@ actions:
 	}
 }
 
+func TestCollectCommandExecutablesReturnsUniqueCommandPaths(t *testing.T) {
+	servicesDir := t.TempDir()
+	installer := services.NewLocalInstaller(servicesDir)
+
+	commandManifest, err := services.ParseManifest([]byte(`name: diagram-cli
+version: 1.0.0
+adapter: command
+auth:
+  type: none
+command_spec:
+  executable: /usr/local/bin/mermaid
+actions:
+  create_diagram:
+    command: diagram create
+    risk:
+      level: low
+  validate_diagram:
+    command: diagram validate
+    risk:
+      level: low
+`))
+	if err != nil {
+		t.Fatalf("parse command manifest: %v", err)
+	}
+	if _, err := installer.Install(commandManifest, "local"); err != nil {
+		t.Fatalf("install command manifest: %v", err)
+	}
+
+	secondCommandManifest, err := services.ParseManifest([]byte(`name: image-cli
+version: 1.0.0
+adapter: command
+auth:
+  type: none
+command_spec:
+  executable: /opt/bin/imagetool
+actions:
+  render:
+    command: render image
+    risk:
+      level: low
+`))
+	if err != nil {
+		t.Fatalf("parse second command manifest: %v", err)
+	}
+	if _, err := installer.Install(secondCommandManifest, "local"); err != nil {
+		t.Fatalf("install second command manifest: %v", err)
+	}
+
+	httpManifest, err := services.ParseManifest([]byte(`name: http-skill
+version: 1.0.0
+base_url: https://api.example.com
+auth:
+  type: none
+actions:
+  ping:
+    method: GET
+    path: /ping
+    risk:
+      level: low
+`))
+	if err != nil {
+		t.Fatalf("parse http manifest: %v", err)
+	}
+	if _, err := installer.Install(httpManifest, "local"); err != nil {
+		t.Fatalf("install http manifest: %v", err)
+	}
+
+	registry := &servicesActionRegistry{
+		installer:       installer,
+		verifyMode:      "off",
+		signaturePolicy: "optional",
+		servicesDir:     servicesDir,
+	}
+
+	got := collectCommandExecutables(registry)
+	want := []string{"/usr/local/bin/mermaid", "/opt/bin/imagetool"}
+	if len(got) != len(want) {
+		t.Fatalf("len(collectCommandExecutables()) = %d, want %d (%v)", len(got), len(want), got)
+	}
+	for i := range want {
+		if got[i] != want[i] {
+			t.Fatalf("collectCommandExecutables()[%d] = %q, want %q (full=%v)", i, got[i], want[i], got)
+		}
+	}
+}
+
 func TestServicesActionRegistryRefreshesDefinitionsImmediatelyAfterManifestChange(t *testing.T) {
 	servicesDir := t.TempDir()
 	const manifest = `name: cached-skill

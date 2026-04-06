@@ -116,9 +116,10 @@ func BuildRuntime(deps RuntimeDeps) (*runtimepkg.Runtime, error) {
 		}
 	}
 
+	commandAllowlist := collectCommandExecutables(actionRegistry)
 	adaptersMap := map[string]adapters.Adapter{
 		"http":    adapters.NewHTTPAdapter(nil),
-		"command": adapters.NewCommandAdapter(nil, 60*time.Second),
+		"command": adapters.NewCommandAdapter(commandAllowlist, 60*time.Second),
 	}
 	if goruntime.GOOS == "darwin" {
 		adaptersMap["applescript"] = adapters.NewAppleScriptAdapter(nil)
@@ -134,6 +135,28 @@ func BuildRuntime(deps RuntimeDeps) (*runtimepkg.Runtime, error) {
 		Adapters:           adaptersMap,
 	}), nil
 
+}
+
+func collectCommandExecutables(registry *servicesActionRegistry) []string {
+	defs, err := registry.loadDefinitions()
+	if err != nil || len(defs) == 0 {
+		return nil
+	}
+
+	seen := make(map[string]bool)
+	var out []string
+	for _, def := range defs {
+		if strings.ToLower(strings.TrimSpace(def.Adapter.Type)) != "command" {
+			continue
+		}
+		exe := strings.TrimSpace(def.Adapter.ExecutablePath)
+		if exe != "" && !seen[exe] {
+			seen[exe] = true
+			out = append(out, exe)
+		}
+	}
+
+	return out
 }
 
 type servicesActionRegistry struct {
