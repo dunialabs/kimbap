@@ -100,15 +100,6 @@ type ClassificationInfo struct {
 	Confidence    float64
 }
 
-type ApprovalContext struct {
-	Required    bool
-	ApproverIDs []string
-	Reason      string
-	TicketRef   string
-	Deadline    *time.Time
-	Meta        map[string]any
-}
-
 type AuthType string
 
 const (
@@ -237,7 +228,6 @@ type ExecutionRequest struct {
 	Session         *SessionContext
 	Credentials     *ResolvedCredentialSet
 	Classification  *ClassificationInfo
-	ApprovalContext *ApprovalContext
 	IdempotencyKey  string
 	Timeout         time.Duration
 }
@@ -497,7 +487,8 @@ func validateValue(field string, schema *Schema, value any) *ExecutionError {
 		obj, valid = value.(map[string]any)
 		if valid {
 			for _, key := range schema.Required {
-				if _, ok := obj[key]; !ok {
+				nestedVal, ok := obj[key]
+				if !ok || requiredValueMissing(schema.Properties[key], nestedVal) {
 					return NewExecutionError(
 						ErrValidationFailed,
 						fmt.Sprintf("field %q missing required nested field %q", field, key),

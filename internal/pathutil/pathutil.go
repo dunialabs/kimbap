@@ -37,9 +37,9 @@ func ExtractSegment(value interface{}, segment string) (interface{}, bool) {
 	if open := strings.Index(segment, "["); open >= 0 && strings.HasSuffix(segment, "]") {
 		key = segment[:open]
 		idxStr := segment[open+1 : len(segment)-1]
-		// tolerate invalid indices by returning not found
+		// tolerate invalid or negative indices by returning not found
 		idx, err := strconv.Atoi(idxStr)
-		if err != nil {
+		if err != nil || idx < 0 {
 			return nil, false
 		}
 		index = idx
@@ -63,7 +63,7 @@ func ExtractSegment(value interface{}, segment string) (interface{}, bool) {
 		if !ok {
 			return nil, false
 		}
-		if index < 0 || index >= len(arr) {
+		if index >= len(arr) {
 			return nil, false
 		}
 		current = arr[index]

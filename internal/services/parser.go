@@ -186,6 +186,14 @@ func ValidateManifest(m *ServiceManifest) []ValidationError {
 					})
 				}
 			}
+			for enumIdx, enumVal := range arg.Enum {
+				if !isArgDefaultTypeCompatible(enumVal, arg.Type) {
+					errs = append(errs, ValidationError{
+						Field:   fmt.Sprintf("%s.enum[%d]", argField, enumIdx),
+						Message: fmt.Sprintf("enum value type does not match declared arg type %q", arg.Type),
+					})
+				}
+			}
 		}
 
 		if action.Auth != nil {

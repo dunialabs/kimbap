@@ -55,6 +55,8 @@ func classifyExecutionError(err *actions.ExecutionError, policyDecision string) 
 		return ErrorCategoryAuth
 	case actions.ErrApprovalRequired, actions.ErrApprovalTimeout:
 		return ErrorCategoryApproval
+	case actions.ErrResourceNotFound:
+		return ErrorCategoryInput
 	case actions.ErrRateLimited, actions.ErrDownstreamUnavailable:
 		return ErrorCategoryDownstream
 	case actions.ErrAuditRequired:
