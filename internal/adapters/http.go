@@ -68,10 +68,14 @@ func secureRedirectPolicy(req *http.Request, via []*http.Request) error {
 }
 
 func isPrivateOrLoopbackHost(host string) bool {
-	if host == "localhost" {
+	if strings.EqualFold(host, "localhost") {
 		return true
 	}
-	ip := net.ParseIP(host)
+	normalized := host
+	if idx := strings.IndexByte(host, '%'); idx >= 0 {
+		normalized = host[:idx]
+	}
+	ip := net.ParseIP(normalized)
 	if ip == nil {
 		return false
 	}

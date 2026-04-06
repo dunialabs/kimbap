@@ -472,8 +472,8 @@ func generatePackGotchasMD(manifest *ServiceManifest) string {
 			if g.AppliesTo != "" {
 				sb.WriteString(fmt.Sprintf("**Applies to**: `%s`\n\n", g.AppliesTo))
 			}
-			sb.WriteString(fmt.Sprintf("**Likely cause**: %s\n\n", g.LikelyCause))
-			sb.WriteString(fmt.Sprintf("**Recovery**: %s\n\n", g.Recovery))
+			sb.WriteString(fmt.Sprintf("**Likely cause**: %s\n\n", safeMDProse(g.LikelyCause)))
+			sb.WriteString(fmt.Sprintf("**Recovery**: %s\n\n", safeMDProse(g.Recovery)))
 			if g.Severity != "" {
 				sb.WriteString(fmt.Sprintf("**Severity**: %s\n\n", g.Severity))
 			}
@@ -492,7 +492,7 @@ func generatePackGotchasMD(manifest *ServiceManifest) string {
 		}
 		sb.WriteString(fmt.Sprintf("### %s.%s\n\n", manifest.Name, key))
 		for _, w := range action.Warnings {
-			sb.WriteString(fmt.Sprintf("- %s\n", w))
+			sb.WriteString(fmt.Sprintf("- %s\n", safeMDProse(w)))
 		}
 		sb.WriteString("\n")
 	}
@@ -508,12 +508,12 @@ func generatePackRecipesMD(manifest *ServiceManifest) string {
 	for _, recipe := range manifest.Recipes {
 		sb.WriteString(fmt.Sprintf("## %s\n\n", recipe.Name))
 		if recipe.Description != "" {
-			sb.WriteString(fmt.Sprintf("%s\n\n", recipe.Description))
+			sb.WriteString(fmt.Sprintf("%s\n\n", safeMDProse(recipe.Description)))
 		}
 		if len(recipe.Steps) > 0 {
 			sb.WriteString("### Steps\n\n")
 			for i, step := range recipe.Steps {
-				sb.WriteString(fmt.Sprintf("%d. %s\n", i+1, step))
+				sb.WriteString(fmt.Sprintf("%d. %s\n", i+1, safeMDProse(step)))
 			}
 			sb.WriteString("\n")
 		}

@@ -40,6 +40,9 @@ func fetchHTTPResource(ctx context.Context, rawURL string, maxBytes int64, purpo
 	if parsed.Scheme == "http" && opts.allowLoopbackHTTP && !isLoopbackHost(parsed.Hostname()) {
 		return nil, nil, fmt.Errorf("insecure URL %q rejected: use https:// for %s", rawURL, purpose)
 	}
+	if isPrivateOrLoopbackServices(parsed.Hostname()) && !opts.allowLoopbackHTTP {
+		return nil, nil, fmt.Errorf("URL %q targets a private/loopback address and is not allowed for %s", rawURL, purpose)
+	}
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, parsed.String(), nil)
 	if err != nil {
@@ -90,6 +93,9 @@ func newRemoteFetchClient(initialURL *url.URL, opts remoteFetchOptions) *http.Cl
 			if !opts.requireHTTPS && opts.allowLoopbackHTTP && scheme == "http" && !isLoopbackHost(r.URL.Hostname()) {
 				return fmt.Errorf("redirect to non-https URL %q rejected", r.URL)
 			}
+			if isPrivateOrLoopbackServices(r.URL.Hostname()) && !opts.allowLoopbackHTTP {
+				return fmt.Errorf("redirect to private/loopback host %q rejected", r.URL.Hostname())
+			}
 			return nil
 		},
 	}
@@ -105,4 +111,23 @@ func isLoopbackHost(host string) bool {
 	}
 	ip := net.ParseIP(host)
 	return ip != nil && ip.IsLoopback()
+}
+
+func isPrivateOrLoopbackServices(host string) bool {
+	host = strings.TrimSpace(host)
+	if host == "" {
+		return false
+	}
+	if strings.EqualFold(host, "localhost") {
+		return true
+	}
+	normalized := host
+	if idx := strings.IndexByte(host, '%'); idx >= 0 {
+		normalized = host[:idx]
+	}
+	ip := net.ParseIP(normalized)
+	if ip == nil {
+		return false
+	}
+	return ip.IsLoopback() || ip.IsPrivate() || ip.IsLinkLocalUnicast() || ip.IsLinkLocalMulticast()
 }
