@@ -373,14 +373,24 @@ func ApplyBudget(output map[string]any, maxBytes int) (map[string]any, BudgetMet
 	}
 
 	// Truncate long strings in the current base (which may have an empty array).
-	// Iterate until under budget or no more strings can be shortened.
+	// Each iteration lowers the per-string threshold to guarantee monotonic shrinkage.
 	result := base
-	for range 10 { // bounded iterations to prevent infinite loops
-		result = truncateLongStrings(result, maxBytes)
+	threshold := maxBytes / 2
+	for range 10 {
+		prevEncoded, _ := json.Marshal(result)
+		prevSize := len(prevEncoded)
+		result = truncateLongStrings(result, threshold)
 		encoded, _ := json.Marshal(result)
 		if len(encoded) <= maxBytes {
 			meta.ResultBytes = len(encoded)
 			return result, meta
+		}
+		// If no progress was made, lower threshold aggressively
+		if len(encoded) >= prevSize {
+			threshold = threshold / 2
+			if threshold < 10 {
+				break // can't shrink further
+			}
 		}
 	}
 	// Best effort — record final size even if still over budget
@@ -389,16 +399,16 @@ func ApplyBudget(output map[string]any, maxBytes int) (map[string]any, BudgetMet
 	return result, meta
 }
 
-// truncateLongStrings recursively truncates string values to fit within budget.
+// truncateLongStrings recursively truncates string values exceeding threshold runes.
 // Uses rune-aware truncation to avoid splitting multi-byte UTF-8 characters.
-func truncateLongStrings(m map[string]any, maxBytes int) map[string]any {
+func truncateLongStrings(m map[string]any, threshold int) map[string]any {
 	result := make(map[string]any, len(m))
 	for k, v := range m {
 		switch val := v.(type) {
 		case string:
 			runes := []rune(val)
-			if len(runes) > maxBytes/2 {
-				cutoff := maxBytes / 4
+			if len(runes) > threshold {
+				cutoff := threshold
 				if cutoff < 10 {
 					cutoff = 10
 				}
@@ -410,7 +420,7 @@ func truncateLongStrings(m map[string]any, maxBytes int) map[string]any {
 				result[k] = v
 			}
 		case map[string]any:
-			result[k] = truncateLongStrings(val, maxBytes)
+			result[k] = truncateLongStrings(val, threshold)
 		default:
 			result[k] = v
 		}

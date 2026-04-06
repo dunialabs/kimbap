@@ -3,6 +3,7 @@ package runtime
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"strings"
 	"testing"
 
@@ -714,5 +715,30 @@ func TestPipelineCompactOnly_OutputModeRawInjected(t *testing.T) {
 	// raw mode should skip compact template
 	if res.Output["_compact"] == true {
 		t.Error("_output_mode=raw should bypass compact template")
+	}
+}
+
+func TestApplyBudget_ManyMediumStrings(t *testing.T) {
+	// 20 strings each ~80 chars — total ~1700 bytes as JSON
+	// Budget = 200 — no single string > budget/2 (850), but aggregate exceeds budget
+	// This was the non-convergence case: truncateLongStrings threshold maxBytes/2
+	// was larger than any individual string, so nothing got truncated.
+	output := make(map[string]any, 20)
+	for i := 0; i < 20; i++ {
+		output[fmt.Sprintf("field_%02d", i)] = strings.Repeat("a", 80)
+	}
+	got, meta := ApplyBudget(output, 200)
+	if got == nil {
+		t.Fatal("result should not be nil")
+	}
+	encoded, _ := json.Marshal(got)
+	// With adaptive threshold, the result should be smaller than original
+	if meta.ResultBytes >= meta.OriginalBytes && meta.Applied {
+		t.Errorf("budget applied but no size reduction: original=%d, result=%d", meta.OriginalBytes, meta.ResultBytes)
+	}
+	// Verify it produces valid JSON
+	var check map[string]any
+	if err := json.Unmarshal(encoded, &check); err != nil {
+		t.Errorf("result should be valid JSON: %v", err)
 	}
 }
