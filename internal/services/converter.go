@@ -507,6 +507,9 @@ func injectOutputModeParam(def *actions.ActionDefinition) {
 		Type: "string",
 		Enum: []any{"default", "raw"},
 	}
+	def.InputSchema.Properties["_budget"] = &actions.Schema{
+		Type: "integer",
+	}
 }
 
 // convertCompactSpec converts a manifest CompactSpec to a runtime CompactTemplate.
