@@ -69,6 +69,7 @@ func toHTTPDefinitions(svc *ServiceManifest) ([]actions.ActionDefinition, error)
 			InputSchema:  buildInputSchema(actionSpec.Args, actionSpec.Request.PathParams, actionSpec.Pagination),
 			OutputSchema: buildOutputSchema(actionSpec.Response),
 			Defaults:     collectDefaults(actionSpec.Args),
+			FilterConfig: convertFilterSpec(actionSpec.Response.Filter),
 			Adapter: actions.AdapterConfig{
 				Type:        "http",
 				Method:      strings.ToUpper(actionSpec.Method),
@@ -93,6 +94,7 @@ func toHTTPDefinitions(svc *ServiceManifest) ([]actions.ActionDefinition, error)
 			Pagination:   mapPagination(actionSpec.Pagination),
 		}
 
+		injectOutputModeParam(&definition)
 		out = append(out, definition)
 	}
 
@@ -127,6 +129,7 @@ func toAppleScriptDefinitions(svc *ServiceManifest) ([]actions.ActionDefinition,
 			InputSchema:  buildInputSchema(actionSpec.Args, nil, nil),
 			OutputSchema: buildOutputSchema(actionSpec.Response),
 			Defaults:     collectDefaults(actionSpec.Args),
+			FilterConfig: convertFilterSpec(actionSpec.Response.Filter),
 			Adapter: actions.AdapterConfig{
 				Type:           "applescript",
 				TargetApp:      svc.TargetApp,
@@ -143,6 +146,7 @@ func toAppleScriptDefinitions(svc *ServiceManifest) ([]actions.ActionDefinition,
 			Pagination:   nil,
 		}
 
+		injectOutputModeParam(&definition)
 		out = append(out, definition)
 	}
 
@@ -231,6 +235,7 @@ func toCommandDefinitions(svc *ServiceManifest) ([]actions.ActionDefinition, err
 			InputSchema:  buildInputSchema(actionSpec.Args, nil, nil),
 			OutputSchema: buildOutputSchema(actionSpec.Response),
 			Defaults:     collectDefaults(actionSpec.Args),
+			FilterConfig: convertFilterSpec(actionSpec.Response.Filter),
 			Adapter: actions.AdapterConfig{
 				Type:           "command",
 				ExecutablePath: executable,
@@ -244,6 +249,7 @@ func toCommandDefinitions(svc *ServiceManifest) ([]actions.ActionDefinition, err
 			Pagination:   nil,
 		}
 
+		injectOutputModeParam(&definition)
 		out = append(out, definition)
 	}
 
@@ -470,4 +476,32 @@ func cloneIntMap(in map[int]string) map[int]string {
 		return nil
 	}
 	return maps.Clone(in)
+}
+
+func convertFilterSpec(spec *FilterSpec) *actions.FilterConfig {
+	if spec == nil {
+		return nil
+	}
+	return &actions.FilterConfig{
+		Select:    spec.Select,
+		Exclude:   spec.Exclude,
+		MaxItems:  spec.MaxItems,
+		DropNulls: spec.DropNulls,
+	}
+}
+
+func injectOutputModeParam(def *actions.ActionDefinition) {
+	if def == nil || def.FilterConfig == nil {
+		return
+	}
+	if def.InputSchema == nil {
+		def.InputSchema = &actions.Schema{Type: "object", Properties: map[string]*actions.Schema{}}
+	}
+	if def.InputSchema.Properties == nil {
+		def.InputSchema.Properties = map[string]*actions.Schema{}
+	}
+	def.InputSchema.Properties["_output_mode"] = &actions.Schema{
+		Type: "string",
+		Enum: []any{"default", "raw"},
+	}
 }

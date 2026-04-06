@@ -63,3 +63,44 @@ func TestToActionDefinitions_HTTPInputSchemaStrictWithPaginationControl(t *testi
 		t.Fatal("expected _max_pages pagination control in input schema properties")
 	}
 }
+
+func TestToActionDefinitions_CommandFilterConfig(t *testing.T) {
+	manifest := validCommandManifest()
+	action := manifest.Actions["create_diagram"]
+	action.Response.Filter = &FilterSpec{
+		Select:   map[string]string{"id": "id", "name": "name"},
+		MaxItems: 10,
+	}
+	manifest.Actions["create_diagram"] = action
+
+	defs, err := ToActionDefinitions(manifest)
+	if err != nil {
+		t.Fatalf("ToActionDefinitions() error = %v", err)
+	}
+	def := defs[0]
+
+	if def.FilterConfig == nil {
+		t.Fatalf("FilterConfig should not be nil when FilterSpec is set")
+	}
+	if def.FilterConfig.MaxItems != 10 {
+		t.Errorf("FilterConfig.MaxItems = %d, want 10", def.FilterConfig.MaxItems)
+	}
+	if def.InputSchema == nil || def.InputSchema.Properties["_output_mode"] == nil {
+		t.Error("_output_mode should be injected in InputSchema when FilterConfig is set")
+	}
+}
+
+func TestToActionDefinitions_CommandNoFilterConfig(t *testing.T) {
+	manifest := validCommandManifest()
+	defs, err := ToActionDefinitions(manifest)
+	if err != nil {
+		t.Fatalf("ToActionDefinitions() error = %v", err)
+	}
+	def := defs[0]
+	if def.FilterConfig != nil {
+		t.Error("FilterConfig should be nil when no FilterSpec set")
+	}
+	if def.InputSchema != nil && def.InputSchema.Properties["_output_mode"] != nil {
+		t.Error("_output_mode should not be present when no FilterConfig")
+	}
+}

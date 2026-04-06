@@ -48,6 +48,33 @@ func TestToActionDefinitionsAppleScriptDualPrefersInlineScript(t *testing.T) {
 	}
 }
 
+func TestToAppleScriptDefinitions_FilterConfig(t *testing.T) {
+	withAppleScriptRegistryMode(t, "legacy")
+	manifest := validAppleScriptManifest()
+	action := manifest.Actions["list_notes"]
+	action.Response.Filter = &FilterSpec{
+		Select:   map[string]string{"id": "id", "name": "name"},
+		MaxItems: 20,
+	}
+	manifest.Actions["list_notes"] = action
+
+	defs, err := ToActionDefinitions(manifest)
+	if err != nil {
+		t.Fatalf("ToActionDefinitions() error = %v", err)
+	}
+	def := defs[0]
+
+	if def.FilterConfig == nil {
+		t.Fatal("FilterConfig should not be nil when FilterSpec is set")
+	}
+	if def.FilterConfig.MaxItems != 20 {
+		t.Errorf("FilterConfig.MaxItems = %d, want 20", def.FilterConfig.MaxItems)
+	}
+	if def.InputSchema == nil || def.InputSchema.Properties["_output_mode"] == nil {
+		t.Error("_output_mode should be injected when FilterConfig is set")
+	}
+}
+
 func TestToActionDefinitionsAppleScriptLegacyUsesCommand(t *testing.T) {
 	withAppleScriptRegistryMode(t, "legacy")
 	manifest := validAppleScriptManifest()
