@@ -254,7 +254,7 @@ Action detail includes a shortcut setup snippet (`kimbap alias set <shortcut> <s
 - **[Security & Permissions](./docs/security.md)**
 - **[Deployment & Configuration](./docs/deployment.md)**
 - **[HTTP API Reference](./docs/api/API.md)**
-- **[Console Review Loop (100 rounds)](./docs/console-review-loop.md)**
+
 
 ---
 
