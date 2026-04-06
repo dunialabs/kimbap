@@ -482,7 +482,7 @@ func ApplyCompactTemplate(output map[string]any, tmpl *actions.CompactTemplate) 
 		lines = append(lines, fLine)
 	}
 
-	summary := joinLines(lines)
+	summary := strings.Join(lines, "\n")
 	return map[string]any{
 		"summary":         summary,
 		"_compact":        true,

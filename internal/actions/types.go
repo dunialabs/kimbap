@@ -347,12 +347,6 @@ type FilterConfig struct {
 	DropNulls bool
 }
 
-// BudgetConfig represents a budget for output size control.
-type BudgetConfig struct {
-	MaxChars int
-	Overflow string
-}
-
 // FilterMeta tracks metadata about applied filtering for an action's output.
 type FilterMeta struct {
 	Applied            bool
