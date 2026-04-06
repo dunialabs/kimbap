@@ -87,6 +87,15 @@ actions:
         types: "{types}"
     response:
       type: object
+      filter:
+        select:
+          id: id
+          name: name
+          is_channel: is_channel
+          is_private: is_private
+          num_members: num_members
+          topic_value: topic.value
+        drop_nulls: true
     risk:
       level: low
   get-channel-history:
@@ -107,5 +116,19 @@ actions:
         limit: "{limit}"
     response:
       type: object
+      filter:
+        select:
+          ts: ts
+          text: text
+          user: user
+          type: type
+          thread_ts: thread_ts
+          reply_count: reply_count
+        exclude:
+          - blocks
+          - attachments
+          - reactions
+        max_items: 30
+        drop_nulls: true
     risk:
       level: low

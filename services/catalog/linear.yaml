@@ -59,6 +59,15 @@ actions:
     response:
       extract: data.issues.nodes
       type: array
+      filter:
+        select:
+          id: id
+          title: title
+          state_name: state.name
+          assignee_name: assignee.name
+          priority: priority
+        max_items: 25
+        drop_nulls: true
     risk:
       level: low
     retry:
@@ -147,6 +156,11 @@ actions:
     response:
       extract: data.teams.nodes
       type: array
+      filter:
+        select:
+          id: id
+          name: name
+          key: key
     risk:
       level: low
   list-projects:
@@ -159,5 +173,10 @@ actions:
     response:
       extract: data.projects.nodes
       type: array
+      filter:
+        select:
+          id: id
+          name: name
+          state: state
     risk:
       level: low

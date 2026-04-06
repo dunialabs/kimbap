@@ -77,6 +77,21 @@ actions:
         Accept: application/vnd.github+json
     response:
       type: array
+      filter:
+        select:
+          id: id
+          name: name
+          full_name: full_name
+          html_url: html_url
+          description: description
+          language: language
+          updated_at: updated_at
+          stargazers_count: stargazers_count
+          private: private
+          fork: fork
+          owner_login: owner.login
+        max_items: 25
+        drop_nulls: true
     risk:
       level: low
     idempotent: true
@@ -138,6 +153,18 @@ actions:
         Accept: application/vnd.github+json
     response:
       type: object
+      filter:
+        select:
+          id: id
+          number: number
+          title: title
+          state: state
+          html_url: html_url
+          user_login: user.login
+          body: body
+          created_at: created_at
+          updated_at: updated_at
+        drop_nulls: true
     risk:
       level: low
     idempotent: true

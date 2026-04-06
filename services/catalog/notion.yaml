@@ -63,6 +63,15 @@ actions:
     response:
       extract: results
       type: array
+      filter:
+        select:
+          id: id
+          url: url
+          last_edited_time: last_edited_time
+          created_time: created_time
+          archived: archived
+        max_items: 20
+        drop_nulls: true
     risk:
       level: low
     retry:
@@ -84,6 +93,19 @@ actions:
         Notion-Version: "2022-06-28"
     response:
       type: object
+      filter:
+        select:
+          id: id
+          url: url
+          created_time: created_time
+          last_edited_time: last_edited_time
+          archived: archived
+          properties: properties
+        exclude:
+          - cover
+          - icon
+          - parent
+        drop_nulls: true
     risk:
       level: low
   create-page:
