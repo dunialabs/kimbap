@@ -56,3 +56,5 @@ artifacts/
 tests/
 /kimbap
 .opencode/
+.goreleaser.yml
+.dockerignore
