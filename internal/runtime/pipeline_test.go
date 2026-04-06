@@ -176,6 +176,27 @@ func (m mockAdapter) Execute(ctx context.Context, req adapters.AdapterRequest) (
 	return m.result, m.err
 }
 
+type captureAdapter struct {
+	kind    string
+	result  *adapters.AdapterResult
+	lastReq adapters.AdapterRequest
+	called  int
+}
+
+func (c *captureAdapter) Type() string {
+	return c.kind
+}
+
+func (c *captureAdapter) Validate(def actions.ActionDefinition) error {
+	return nil
+}
+
+func (c *captureAdapter) Execute(ctx context.Context, req adapters.AdapterRequest) (*adapters.AdapterResult, error) {
+	c.called++
+	c.lastReq = req
+	return c.result, nil
+}
+
 func TestRuntimeExecuteSuccess(t *testing.T) {
 	audit := &mockAuditWriter{}
 	rt := Runtime{
@@ -458,6 +479,70 @@ func TestRuntimeExecuteAdapterFailure(t *testing.T) {
 	}
 	if res.Error == nil || res.Error.Code != actions.ErrDownstreamUnavailable {
 		t.Fatalf("expected downstream unavailable, got %+v", res.Error)
+	}
+}
+
+func TestRuntimeExecuteStripsRuntimeKeysBeforeAdapterExecute(t *testing.T) {
+	capture := &captureAdapter{
+		kind:   "http",
+		result: &adapters.AdapterResult{Output: map[string]any{"ok": true}, HTTPStatus: 200},
+	}
+	rt := Runtime{
+		Adapters: map[string]adapters.Adapter{
+			"http": capture,
+		},
+	}
+
+	action := actions.ActionDefinition{
+		Name:        "github.issues.list",
+		InputSchema: &actions.Schema{Type: "object", AdditionalProperties: true},
+		Adapter:     actions.AdapterConfig{Type: "http", URLTemplate: "https://example.com"},
+		Pagination: &actions.PaginationConfig{
+			MaxPages: 2,
+		},
+		FilterConfig: &actions.FilterConfig{
+			Select: map[string]string{"owner": "owner"},
+		},
+	}
+	req := baseRequest(action)
+	req.Input["owner"] = "dunia"
+	req.Input["_output_mode"] = "raw"
+	req.Input["_budget"] = int64(100)
+	req.Input["_max_pages"] = "5"
+
+	res := rt.Execute(context.Background(), req)
+	if res.Status != actions.StatusSuccess {
+		t.Fatalf("expected success, got %s: %+v", res.Status, res.Error)
+	}
+	if capture.called != 1 {
+		t.Fatalf("expected adapter execute to be called once, got %d", capture.called)
+	}
+	if got := capture.lastReq.Input["owner"]; got != "dunia" {
+		t.Fatalf("expected non-runtime input preserved, got %#v", got)
+	}
+	if _, ok := capture.lastReq.Input["_output_mode"]; ok {
+		t.Fatal("expected _output_mode to be stripped before adapter execute")
+	}
+	if _, ok := capture.lastReq.Input["_budget"]; ok {
+		t.Fatal("expected _budget to be stripped before adapter execute")
+	}
+	if _, ok := capture.lastReq.Input["_max_pages"]; ok {
+		t.Fatal("expected _max_pages to be stripped before adapter execute")
+	}
+	if capture.lastReq.Action.Pagination == nil {
+		t.Fatal("expected pagination config to remain available to adapter")
+	}
+	if capture.lastReq.Action.Pagination.MaxPages != 5 {
+		t.Fatalf("expected runtime _max_pages override to update adapter action pagination, got %d", capture.lastReq.Action.Pagination.MaxPages)
+	}
+	if got, _ := req.Input["_output_mode"].(string); got != "raw" {
+		t.Fatalf("expected request input to remain unchanged for post-processing, got %#v", req.Input["_output_mode"])
+	}
+	if got := coerceBudgetInt(req.Input["_budget"]); got != 100 {
+		t.Fatalf("expected request input budget to remain unchanged, got %d", got)
+	}
+	if got := coercePositiveInt(req.Input["_max_pages"]); got != 5 {
+		t.Fatalf("expected request input _max_pages to remain unchanged, got %d", got)
 	}
 }
 

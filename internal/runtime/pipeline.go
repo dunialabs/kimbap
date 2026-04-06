@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"strconv"
 	"strings"
 	"time"
 	"unicode/utf8"
@@ -492,9 +493,10 @@ func (r *Runtime) executeFromCredentialsWithState(
 	}
 	trace.Record("validate_adapter", "ok", "")
 
+	adapterAction := applyRuntimeActionOverrides(req.Action, req.Input)
 	adapterResult, executeErr := adapter.Execute(ctx, adapters.AdapterRequest{
-		Action:      req.Action,
-		Input:       req.Input,
+		Action:      adapterAction,
+		Input:       stripRuntimeKeys(req.Input),
 		Credentials: req.Credentials,
 		RequestID:   req.RequestID,
 		Timeout:     req.Timeout,
@@ -871,6 +873,63 @@ func cloneInputMap(input map[string]any) map[string]any {
 		return nil
 	}
 	return cloned
+}
+
+func stripRuntimeKeys(input map[string]any) map[string]any {
+	if input == nil {
+		return nil
+	}
+	cleaned := make(map[string]any, len(input))
+	for key, value := range input {
+		cleaned[key] = value
+	}
+	delete(cleaned, "_output_mode")
+	delete(cleaned, "_budget")
+	delete(cleaned, "_max_pages")
+	return cleaned
+}
+
+func applyRuntimeActionOverrides(action actions.ActionDefinition, input map[string]any) actions.ActionDefinition {
+	if action.Pagination == nil {
+		return action
+	}
+	maxPages := coercePositiveInt(input["_max_pages"])
+	if maxPages <= 0 {
+		return action
+	}
+	overridden := action
+	pagination := *action.Pagination
+	pagination.MaxPages = maxPages
+	overridden.Pagination = &pagination
+	return overridden
+}
+
+func coercePositiveInt(value any) int {
+	maxInt := int(^uint(0) >> 1)
+	switch v := value.(type) {
+	case int:
+		if v > 0 {
+			return v
+		}
+	case int64:
+		if v > 0 && v <= int64(maxInt) {
+			return int(v)
+		}
+	case float64:
+		if v > 0 && v <= float64(maxInt) {
+			return int(v)
+		}
+	case string:
+		parsed := strings.TrimSpace(v)
+		if parsed == "" {
+			return 0
+		}
+		n, err := strconv.ParseInt(parsed, 10, 64)
+		if err == nil && n > 0 && n <= int64(maxInt) {
+			return int(n)
+		}
+	}
+	return 0
 }
 
 func withTimeout(ctx context.Context, timeout time.Duration) (context.Context, context.CancelFunc) {
