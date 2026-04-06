@@ -68,6 +68,8 @@ var proxyForwardTransport = &http.Transport{
 
 type ProxyOption func(*ProxyServer)
 
+const maxConcurrentConnects = 64
+
 type ProxyServer struct {
 	listenAddr string
 	ca         *CAConfig
@@ -76,6 +78,7 @@ type ProxyServer struct {
 	agentToken string
 	TenantID   string
 	AgentName  string
+	connectSem chan struct{}
 
 	unmatchedPolicy UnmatchedPolicy
 
@@ -115,6 +118,7 @@ func NewProxyServer(addr string, ca *CAConfig, opts ...ProxyOption) *ProxyServer
 		unmatchedPolicy: UnmatchedPolicyDeny,
 		TenantID:        "default",
 		AgentName:       "kimbap-proxy",
+		connectSem:      make(chan struct{}, maxConcurrentConnects),
 	}
 	for _, opt := range opts {
 		if opt != nil {
@@ -326,6 +330,15 @@ func (p *ProxyServer) handleConnect(w http.ResponseWriter, req *http.Request) {
 	if p.ca == nil {
 		http.Error(w, "proxy request denied", http.StatusBadGateway)
 		return
+	}
+	if p.connectSem != nil {
+		select {
+		case p.connectSem <- struct{}{}:
+			defer func() { <-p.connectSem }()
+		default:
+			http.Error(w, "too many concurrent connections", http.StatusServiceUnavailable)
+			return
+		}
 	}
 
 	host, port := splitHostPort(req.Host)
