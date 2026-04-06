@@ -202,6 +202,7 @@ func shouldRedact(key string, patterns []string) bool {
 var DefaultRedactPatterns = []string{
 	"password", "secret", "token", "key", "credential",
 	"authorization", "cookie", "api_key", "apikey", "private",
+	"masterPwd", "master_password",
 }
 
 type RedactingWriter struct {

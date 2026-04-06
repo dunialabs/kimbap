@@ -228,10 +228,13 @@ func isPrivateHost(ctx context.Context, host string) bool {
 	if ip != nil {
 		return webhooks.IsPrivateIP(ip)
 	}
+	if ctx.Err() != nil {
+		return false
+	}
 	resolver := net.Resolver{}
 	resolved, err := resolver.LookupIPAddr(ctx, host)
 	if err != nil || len(resolved) == 0 {
-		return false
+		return true
 	}
 	for _, addr := range resolved {
 		if webhooks.IsPrivateIP(addr.IP) {
