@@ -61,6 +61,14 @@ actions:
     args: []
     response:
       type: array
+      filter:
+        select:
+          windowIndex: windowIndex
+          tabIndex: tabIndex
+          title: title
+          url: url
+        max_items: 25
+        drop_nulls: true
     risk:
       level: low
   close-tab:

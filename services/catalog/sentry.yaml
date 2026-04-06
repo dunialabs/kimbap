@@ -64,6 +64,19 @@ actions:
         limit: "{limit}"
     response:
       type: array
+      filter:
+        select:
+          id: id
+          shortId: shortId
+          title: title
+          status: status
+          level: level
+          count: count
+          userCount: userCount
+          lastSeen: lastSeen
+          permalink: permalink
+        max_items: 25
+        drop_nulls: true
     risk:
       level: low
     retry:
@@ -83,6 +96,18 @@ actions:
         issue_id: "{issue_id}"
     response:
       type: object
+      filter:
+        select:
+          id: id
+          shortId: shortId
+          title: title
+          status: status
+          level: level
+          culprit: culprit
+          firstSeen: firstSeen
+          lastSeen: lastSeen
+          permalink: permalink
+        drop_nulls: true
     risk:
       level: low
   update-issue:
@@ -123,6 +148,15 @@ actions:
         organization_slug: "{organization_slug}"
     response:
       type: array
+      filter:
+        select:
+          id: id
+          slug: slug
+          name: name
+          platform: platform
+          dateCreated: dateCreated
+        max_items: 25
+        drop_nulls: true
     risk:
       level: low
   list-events:
@@ -144,5 +178,12 @@ actions:
         limit: "{limit}"
     response:
       type: array
+      filter:
+        select:
+          eventID: eventID
+          dateCreated: dateCreated
+          message: message
+        max_items: 10
+        drop_nulls: true
     risk:
       level: low

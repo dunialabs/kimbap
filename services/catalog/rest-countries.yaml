@@ -46,6 +46,17 @@ actions:
         fields: "{fields}"
     response:
       type: array
+      filter:
+        select:
+          name: name.common
+          cca2: cca2
+          cca3: cca3
+          capital: capital
+          region: region
+          subregion: subregion
+          population: population
+        max_items: 25
+        drop_nulls: true
     risk:
       level: low
     retry:
@@ -65,6 +76,17 @@ actions:
         name: "{name}"
     response:
       type: array
+      filter:
+        select:
+          name: name.common
+          cca2: cca2
+          cca3: cca3
+          capital: capital
+          region: region
+          subregion: subregion
+          population: population
+        max_items: 25
+        drop_nulls: true
     risk:
       level: low
   get-by-code:
@@ -80,6 +102,17 @@ actions:
         code: "{code}"
     response:
       type: array
+      filter:
+        select:
+          name: name.common
+          cca2: cca2
+          cca3: cca3
+          capital: capital
+          region: region
+          subregion: subregion
+          population: population
+        max_items: 5
+        drop_nulls: true
     risk:
       level: low
   get-by-region:
@@ -96,5 +129,16 @@ actions:
         region: "{region}"
     response:
       type: array
+      filter:
+        select:
+          name: name.common
+          cca2: cca2
+          cca3: cca3
+          capital: capital
+          region: region
+          subregion: subregion
+          population: population
+        max_items: 25
+        drop_nulls: true
     risk:
       level: low

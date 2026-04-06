@@ -115,5 +115,13 @@ actions:
     response:
       extract: result
       type: array
+      filter:
+        select:
+          id: id
+          name: name
+          generation: generation
+          updated_at: updated_at
+        max_items: 25
+        drop_nulls: true
     risk:
       level: low

@@ -47,6 +47,13 @@ actions:
         User-Agent: "kimbap/1.0 (https://kimbap.sh)"
     response:
       type: object
+      filter:
+        select:
+          title: title
+          description: description
+          extract: extract
+          page_url: content_urls.desktop.page
+        drop_nulls: true
     risk:
       level: low
     retry:
@@ -74,6 +81,15 @@ actions:
     response:
       extract: pages
       type: array
+      filter:
+        select:
+          id: id
+          key: key
+          title: title
+          description: description
+          excerpt: excerpt
+        max_items: 10
+        drop_nulls: true
     risk:
       level: low
   get-on-this-day:

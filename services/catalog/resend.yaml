@@ -92,6 +92,15 @@ actions:
     response:
       extract: data
       type: array
+      filter:
+        select:
+          id: id
+          from: from
+          to: to
+          subject: subject
+          created_at: created_at
+        max_items: 25
+        drop_nulls: true
     risk:
       level: low
     retry:
@@ -139,6 +148,16 @@ actions:
     response:
       extract: data
       type: array
+      filter:
+        select:
+          id: id
+          email: email
+          first_name: first_name
+          last_name: last_name
+          audience_id: audience_id
+          created_at: created_at
+        max_items: 25
+        drop_nulls: true
     risk:
       level: low
   remove-contact:

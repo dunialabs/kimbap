@@ -61,6 +61,13 @@ actions:
     response:
       extract: web.results
       type: array
+      filter:
+        select:
+          title: title
+          url: url
+          description: description
+        max_items: 10
+        drop_nulls: true
     risk:
       level: low
     retry:
@@ -97,5 +104,12 @@ actions:
     response:
       extract: results
       type: array
+      filter:
+        select:
+          title: title
+          url: url
+          description: description
+        max_items: 10
+        drop_nulls: true
     risk:
       level: low

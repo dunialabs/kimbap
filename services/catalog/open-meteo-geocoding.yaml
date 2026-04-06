@@ -56,6 +56,16 @@ actions:
     response:
       extract: results
       type: array
+      filter:
+        select:
+          name: name
+          admin1: admin1
+          country: country
+          latitude: latitude
+          longitude: longitude
+          timezone: timezone
+        max_items: 5
+        drop_nulls: true
     risk:
       level: low
     retry:

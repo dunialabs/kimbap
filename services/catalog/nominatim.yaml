@@ -67,6 +67,15 @@ actions:
         Accept: application/json
     response:
       type: array
+      filter:
+        select:
+          display_name: display_name
+          lat: lat
+          lon: lon
+          type: type
+          address: address
+        max_items: 5
+        drop_nulls: true
     risk:
       level: low
     retry:
@@ -114,5 +123,14 @@ actions:
         Accept: application/json
     response:
       type: array
+      filter:
+        select:
+          display_name: display_name
+          lat: lat
+          lon: lon
+          type: type
+          address: address
+        max_items: 10
+        drop_nulls: true
     risk:
       level: low

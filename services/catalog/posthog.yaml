@@ -51,6 +51,15 @@ actions:
     response:
       extract: results
       type: array
+      filter:
+        select:
+          id: id
+          key: key
+          name: name
+          active: active
+          created_at: created_at
+        max_items: 25
+        drop_nulls: true
     risk:
       level: low
     retry:
@@ -109,6 +118,14 @@ actions:
     response:
       extract: results
       type: array
+      filter:
+        select:
+          uuid: uuid
+          distinct_ids: distinct_ids
+          name: name
+          email: properties.email
+        max_items: 25
+        drop_nulls: true
     risk:
       level: low
   list-insights:
@@ -131,6 +148,14 @@ actions:
     response:
       extract: results
       type: array
+      filter:
+        select:
+          id: id
+          name: name
+          short_id: short_id
+          created_at: created_at
+        max_items: 25
+        drop_nulls: true
     risk:
       level: low
   capture-event:

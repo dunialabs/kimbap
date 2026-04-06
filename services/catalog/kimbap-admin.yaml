@@ -225,6 +225,17 @@ actions:
     response:
       extract: data.tokens
       type: array
+      filter:
+        select:
+          id: id
+          name: name
+          role: role
+          namespace: namespace
+          tags: tags
+          lastUsedAt: lastUsedAt
+          createdAt: createdAt
+        max_items: 25
+        drop_nulls: true
     risk:
       level: low
     retry:
@@ -381,6 +392,15 @@ actions:
     response:
       extract: data.policySets
       type: array
+      filter:
+        select:
+          id: id
+          serverId: serverId
+          status: status
+          createdAt: createdAt
+          updatedAt: updatedAt
+        max_items: 25
+        drop_nulls: true
     risk:
       level: low
     retry:
@@ -521,6 +541,16 @@ actions:
     response:
       extract: data.requests
       type: array
+      filter:
+        select:
+          id: id
+          userId: userId
+          serverId: serverId
+          toolName: toolName
+          status: status
+          createdAt: createdAt
+        max_items: 25
+        drop_nulls: true
     risk:
       level: low
     retry:
@@ -654,6 +684,15 @@ actions:
     response:
       extract: data.sessions
       type: array
+      filter:
+        select:
+          sessionId: sessionId
+          userId: userId
+          serverId: serverId
+          lastActivity: lastActivity
+          ipAddress: ipAddress
+        max_items: 25
+        drop_nulls: true
     risk:
       level: low
   list-templates:
@@ -668,6 +707,13 @@ actions:
     response:
       extract: data.templates
       type: array
+      filter:
+        select:
+          toolTmplId: toolTmplId
+          name: name
+          description: description
+        max_items: 25
+        drop_nulls: true
     risk:
       level: low
   get-cache-health:
@@ -843,6 +889,16 @@ actions:
     response:
       extract: data.tools
       type: array
+      filter:
+        select:
+          toolId: toolId
+          name: name
+          isEnabled: isEnabled
+          isStarted: isStarted
+          toolTmplId: toolTmplId
+          runningState: runningState
+        max_items: 25
+        drop_nulls: true
     risk:
       level: low
     retry:

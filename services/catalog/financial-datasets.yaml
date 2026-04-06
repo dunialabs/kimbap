@@ -151,6 +151,14 @@ actions:
     response:
       extract: companies
       type: array
+      filter:
+        select:
+          ticker: ticker
+          name: name
+          exchange: exchange
+          currency: currency
+        max_items: 10
+        drop_nulls: true
     risk:
       level: low
   get-company-news:
@@ -180,5 +188,13 @@ actions:
     response:
       extract: news
       type: array
+      filter:
+        select:
+          title: title
+          url: url
+          source: source
+          date: date
+        max_items: 10
+        drop_nulls: true
     risk:
       level: low

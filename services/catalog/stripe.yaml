@@ -56,6 +56,18 @@ actions:
     response:
       extract: data
       type: array
+      filter:
+        select:
+          id: id
+          amount: amount
+          currency: currency
+          status: status
+          customer: customer
+          created: created
+          paid: paid
+          receipt_url: receipt_url
+        max_items: 25
+        drop_nulls: true
     risk:
       level: low
     retry:
@@ -96,6 +108,15 @@ actions:
     response:
       extract: data
       type: array
+      filter:
+        select:
+          id: id
+          email: email
+          name: name
+          created: created
+          delinquent: delinquent
+        max_items: 25
+        drop_nulls: true
     risk:
       level: low
   get-customer:
@@ -163,6 +184,19 @@ actions:
     response:
       extract: data
       type: array
+      filter:
+        select:
+          id: id
+          number: number
+          status: status
+          customer: customer
+          amount_due: amount_due
+          amount_paid: amount_paid
+          currency: currency
+          created: created
+          hosted_invoice_url: hosted_invoice_url
+        max_items: 25
+        drop_nulls: true
     risk:
       level: low
   list-payment-intents:
@@ -184,6 +218,16 @@ actions:
     response:
       extract: data
       type: array
+      filter:
+        select:
+          id: id
+          amount: amount
+          currency: currency
+          status: status
+          customer: customer
+          created: created
+        max_items: 25
+        drop_nulls: true
     risk:
       level: low
   create-payment-link:
