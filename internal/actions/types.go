@@ -192,14 +192,6 @@ type PaginationConfig struct {
 	ResponseCursor string
 }
 
-type RateLimitConfig struct {
-	Scope         string
-	Requests      int
-	Per           time.Duration
-	Burst         int
-	RetryAfterMS  int
-	ProviderLimit string
-}
 
 type ClassifierRule struct {
 	Service     string
@@ -228,7 +220,6 @@ type ActionDefinition struct {
 	Classifiers  []ClassifierRule
 	ErrorMapping map[int]string
 	Pagination   *PaginationConfig
-	RateLimit    *RateLimitConfig
 	// Output filtering configuration applied at the action level (adapter-agnostic)
 	FilterConfig *FilterConfig // adapter-agnostic output filter
 	// Compact text template for list/search results
