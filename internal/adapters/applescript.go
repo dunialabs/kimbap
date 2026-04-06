@@ -50,7 +50,8 @@ func NewAppleScriptAdapter(runner CommandRunner) *AppleScriptAdapter {
 // Preflight checks if automation permission is granted for a target app.
 // It runs a minimal JXA probe; failure is advisory (does not block registration).
 func (a *AppleScriptAdapter) Preflight(ctx context.Context, targetApp string) error {
-	script := fmt.Sprintf(`Application("%s").name()`, targetApp)
+	escaped := strings.ReplaceAll(strings.ReplaceAll(targetApp, `\`, `\\`), `"`, `\"`)
+	script := fmt.Sprintf(`Application("%s").name()`, escaped)
 	_, stderr, _, _, err := a.runner.Run(ctx, "/usr/bin/osascript", []string{"-l", "JavaScript", "-e", script}, nil)
 	if err != nil {
 		stderrStr := string(stderr)
