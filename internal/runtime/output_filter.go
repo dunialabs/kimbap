@@ -336,34 +336,26 @@ func ApplyBudget(output map[string]any, maxBytes int) (map[string]any, BudgetMet
 	// Start from the original output; if array trimming reduces it, update the base.
 	base := output
 
-	// Try to trim arrays first
 	wrapperKey, payload := pathutil.DetectPayloadRoot(output)
 	if arr, ok := payload.([]any); ok && wrapperKey != "" {
-		// Remove items from end until under budget
-		trimmed := make([]any, len(arr))
-		copy(trimmed, arr)
-		for {
-			candidate := make(map[string]any, len(output))
-			for k, v := range output {
-				if k == wrapperKey {
-					candidate[k] = trimmed
-				} else {
-					candidate[k] = v
-				}
-			}
+		lo, hi := 0, len(arr)
+		for lo < hi {
+			mid := (lo + hi + 1) / 2
+			candidate := buildCandidateWithArray(output, wrapperKey, arr[:mid])
 			encoded, _ := json.Marshal(candidate)
 			if len(encoded) <= maxBytes {
-				meta.ResultBytes = len(encoded)
-				return candidate, meta
+				lo = mid
+			} else {
+				hi = mid - 1
 			}
-			if len(trimmed) == 0 {
-				// Even empty array is over budget — continue to string truncation
-				// but use this candidate (empty array) as our base, not the original.
-				base = candidate
-				break
-			}
-			trimmed = trimmed[:len(trimmed)-1]
 		}
+		finalCandidate := buildCandidateWithArray(output, wrapperKey, arr[:lo])
+		finalEncoded, _ := json.Marshal(finalCandidate)
+		if len(finalEncoded) <= maxBytes {
+			meta.ResultBytes = len(finalEncoded)
+			return finalCandidate, meta
+		}
+		base = finalCandidate
 	}
 
 	// Truncate long strings in the current base (which may have an empty array).
@@ -418,6 +410,18 @@ func truncateLongStrings(m map[string]any, threshold int) map[string]any {
 		}
 	}
 	return result
+}
+
+func buildCandidateWithArray(output map[string]any, wrapperKey string, items []any) map[string]any {
+	candidate := make(map[string]any, len(output))
+	for k, v := range output {
+		if k == wrapperKey {
+			candidate[k] = items
+		} else {
+			candidate[k] = v
+		}
+	}
+	return candidate
 }
 
 // ── Compact text templates (T11) ─────────────────────────────────────────
@@ -503,7 +507,6 @@ func renderTemplate(tmpl *template.Template, data any) (string, error) {
 	}
 	return buf.String(), nil
 }
-
 
 // coerceBudgetInt extracts a budget integer from any numeric type that input
 // parsing might produce:
