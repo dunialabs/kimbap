@@ -248,6 +248,7 @@ Action detail includes a shortcut setup snippet (`kimbap alias set <shortcut> <s
 - **[Installation Guide](./docs/installation.md)** — step-by-step setup, agent-readable
 - **[CLI Reference](./docs/cli-reference.md)** — commands, flags, configuration
 - **[Service Development Guide](./docs/service-development.md)** — manifest authoring, adapters
+- **[Output Filtering](./docs/output-filtering.md)** — reduce LLM token usage by 83–94% with declarative response shaping
 - **[Architecture & Internals](./docs/architecture.md)**
 - **[Security & Permissions](./docs/security.md)**
 - **[Deployment & Configuration](./docs/deployment.md)**
