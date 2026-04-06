@@ -183,6 +183,7 @@ Every action goes through the same pipeline. Policy is checked before execution.
 | Every service has different auth | One manifest format for REST APIs, CLI tools, and macOS apps |
 | Agents run dangerous actions unchecked | Policies and approvals enforced on every action |
 | No record of what the agent did | Audit trail on every action, automatically |
+| API responses flood the agent's context | [Output filtering](./docs/output-filtering.md) trims responses to only what the agent needs (83–94% reduction) |
 
 ---
 
