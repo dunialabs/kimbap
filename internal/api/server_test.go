@@ -109,9 +109,11 @@ func TestStoreTokenAdapterValidateAndResolveUsesTokenIDAsPrincipalID(t *testing.
 }
 
 func TestServerListActions(t *testing.T) {
-	ts, _ := newTestAPIServer(t)
+	ts, rawBootstrap := newTestAPIServer(t)
 
-	resp, err := http.Get(ts.URL + "/v1/actions")
+	req, _ := http.NewRequest(http.MethodGet, ts.URL+"/v1/actions", nil)
+	req.Header.Set("Authorization", "Bearer "+rawBootstrap)
+	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
 		t.Fatalf("actions request: %v", err)
 	}
@@ -159,7 +161,9 @@ func TestServerListActionsWithRuntime(t *testing.T) {
 		_ = st.Close()
 	})
 
-	resp, err := http.Get(ts.URL + "/v1/actions")
+	req, _ := http.NewRequest(http.MethodGet, ts.URL+"/v1/actions", nil)
+	req.Header.Set("Authorization", "Bearer ktk_bootstrap_token_for_tests")
+	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
 		t.Fatalf("actions request: %v", err)
 	}
@@ -279,9 +283,11 @@ func TestServerRejectsNegativeAuditPagination(t *testing.T) {
 }
 
 func TestServerRejectsNegativeActionLimit(t *testing.T) {
-	ts, _ := newTestAPIServer(t)
+	ts, rawBootstrap := newTestAPIServer(t)
 
-	resp, err := http.Get(ts.URL + "/v1/actions?limit=-1")
+	req, _ := http.NewRequest(http.MethodGet, ts.URL+"/v1/actions?limit=-1", nil)
+	req.Header.Set("Authorization", "Bearer "+rawBootstrap)
+	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
 		t.Fatalf("actions request: %v", err)
 	}

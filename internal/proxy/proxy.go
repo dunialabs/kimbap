@@ -674,8 +674,12 @@ func writeRuntimeConnResponse(w io.Writer, result actions.ExecutionResult) error
 func (p *ProxyServer) forwardRequest(in *http.Request) (*http.Response, error) {
 	outReq := in.Clone(in.Context())
 	outReq.RequestURI = ""
+	outReq.Host = outReq.URL.Host
 	clearHopHeaders(outReq.Header)
 	outReq.Header.Del("X-Kimbap-Agent-Token")
+	for _, h := range []string{"Forwarded", "X-Forwarded-For", "X-Forwarded-Host", "X-Forwarded-Proto", "X-Real-IP"} {
+		outReq.Header.Del(h)
+	}
 
 	resp, err := proxyForwardTransport.RoundTrip(outReq)
 	if err != nil {
