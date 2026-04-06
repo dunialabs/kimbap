@@ -1,0 +1,30 @@
+USER         PID %CPU %MEM    VSZ   RSS TTY      STAT START   TIME COMMAND
+root           1  0.0  0.0  18792  1532 ?        Ss   Jan01   0:04 /sbin/init splash
+root           2  0.0  0.0      0     0 ?        S    Jan01   0:00 [kthreadd]
+root         187  0.0  0.0  24680  3456 ?        Ss   Jan01   0:01 /lib/systemd/systemd-journald
+root         223  0.0  0.0  21564  1248 ?        Ss   Jan01   0:00 /lib/systemd/systemd-udevd
+root         523  0.0  0.0  19164   984 ?        Ss   Jan01   0:00 /lib/systemd/systemd-logind
+root         540  0.0  0.0   8540  2036 ?        Ss   Jan01   0:02 /usr/sbin/cron -f
+message+     548  0.0  0.0   9424  3684 ?        Ss   Jan01   0:05 /usr/bin/dbus-daemon --system
+root         612  0.0  0.1  72340  5420 ?        Ssl  Jan01   0:10 /usr/sbin/NetworkManager
+root         700  0.0  0.0  14472  2108 tty1     Ss+  Jan01   0:00 /sbin/agetty -o -p -- \u --noclear tty1 linux
+sshd         712  0.0  0.0  15432  3240 ?        Ss   Jan01   0:00 sshd: /usr/sbin/sshd -D
+deploy      1024  2.3  1.2 456789 48234 ?        Sl   10:00   5:23 /usr/bin/api-server --port 8080 --workers 4
+deploy      1025  0.8  0.5 234567 20480 ?        Sl   10:01   1:12 /usr/bin/cache-worker --redis-url redis://localhost:6379
+deploy      1026  1.5  0.9 345678 36864 ?        Sl   10:02   3:45 /usr/bin/auth-service --port 8443 --tls-cert /etc/ssl/auth.pem
+monitor     1027  0.3  0.3 123456 12288 ?        Sl   10:03   0:42 /usr/bin/log-collector --output /var/log/app/
+deploy      1028  3.1  1.4 567890 57344 ?        Sl   10:04   7:15 /usr/bin/queue-consumer --topic events --group prod-consumer
+deploy      1029  0.1  0.2  98765  8192 ?        Sl   10:05   0:08 /usr/bin/scheduler --config /etc/scheduler/cron.yaml
+monitor     1030  0.5  0.4 156789 16384 ?        Sl   10:06   0:55 /usr/bin/metric-exporter --prometheus-port 9090
+deploy      1031  4.2  1.7 678901 69632 ?        Sl   10:07  10:30 /usr/bin/gateway-proxy --port 443 --upstream api:8080
+postgres    1200  0.1  2.1 567890 86234 ?        Ss   09:55   0:30 /usr/lib/postgresql/14/bin/postgres -D /var/lib/postgresql/14/main
+postgres    1201  0.0  0.5 567890 20480 ?        Ss   09:55   0:02 postgres: 14/main: checkpointer
+postgres    1202  0.0  0.3 567890 12288 ?        Ss   09:55   0:05 postgres: 14/main: background writer
+postgres    1203  0.0  0.8 567890 32768 ?        Ss   09:55   0:08 postgres: 14/main: walwriter
+postgres    1204  0.0  0.2 569012  8192 ?        Ss   09:55   0:01 postgres: 14/main: autovacuum launcher
+deploy      1300  1.8  1.1 456789 45056 ?        Sl   10:08   2:34 /usr/bin/event-bus --port 4222 --cluster-port 6222
+deploy      1301  2.7  1.9 789012 77824 ?        Sl   10:09   4:12 /usr/bin/search-indexer --elasticsearch http://localhost:9200
+deploy      1302  5.1  2.2 890123 90112 ?        Sl   10:10   8:47 /usr/bin/notification-svc --port 8081 --smtp-host mail.internal
+monitor     1303  0.2  0.2  67890  6144 ?        Sl   10:11   0:15 /usr/bin/healthcheck-agent --interval 30s --targets /etc/health/targets.yaml
+root        2000  0.0  0.0  12780  2340 pts/0    Ss   14:30   0:00 -bash
+root        2045  0.0  0.0  14356  1784 pts/0    R+   15:42   0:00 ps aux

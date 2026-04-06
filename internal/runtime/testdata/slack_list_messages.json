@@ -1,0 +1,806 @@
+[
+  {
+    "type": "message",
+    "user": "U01AB2CD3EF",
+    "text": "Hey team, the deploy is done \u2705",
+    "ts": "1735000000.100000",
+    "team": "T01ABCDEF01",
+    "blocks": [
+      {
+        "type": "rich_text",
+        "block_id": "blk001",
+        "elements": [
+          {
+            "type": "rich_text_section",
+            "elements": [
+              {
+                "type": "text",
+                "text": "Hey team, the deploy is done"
+              }
+            ]
+          }
+        ]
+      }
+    ],
+    "attachments": [
+      {
+        "id": 1,
+        "fallback": "Attachment for message 1",
+        "text": "Build #2000 completed successfully in 3m 10s",
+        "title": "CI Build #2000",
+        "color": "#36a64f",
+        "ts": "1735000000"
+      }
+    ],
+    "reactions": [
+      {
+        "name": "thumbsup",
+        "users": [
+          "U03CD4EF5GH"
+        ],
+        "count": 1
+      },
+      {
+        "name": "white_check_mark",
+        "users": [
+          "U05EF6GH7IJ"
+        ],
+        "count": 1
+      }
+    ],
+    "reply_count": 0,
+    "reply_users": [],
+    "reply_users_count": 0,
+    "latest_reply": null,
+    "thread_ts": null,
+    "edited": null
+  },
+  {
+    "type": "message",
+    "user": "U02BC3DE4FG",
+    "text": "Can someone review PR #342? It's blocking the release",
+    "ts": "1735000127.100037",
+    "team": "T01ABCDEF01",
+    "blocks": [
+      {
+        "type": "rich_text",
+        "block_id": "blk002",
+        "elements": [
+          {
+            "type": "rich_text_section",
+            "elements": [
+              {
+                "type": "text",
+                "text": "Can someone review PR #342? It's blocking the release"
+              }
+            ]
+          }
+        ]
+      }
+    ],
+    "attachments": [],
+    "reactions": [
+      {
+        "name": "eyes",
+        "users": [
+          "U04DE5FG6HI"
+        ],
+        "count": 1
+      }
+    ],
+    "reply_count": 0,
+    "reply_users": [],
+    "reply_users_count": 0,
+    "latest_reply": null,
+    "thread_ts": null,
+    "edited": null
+  },
+  {
+    "type": "message",
+    "user": "U03CD4EF5GH",
+    "text": "Heads up: staging DB migration starts at 3pm UTC",
+    "ts": "1735000254.100074",
+    "team": "T01ABCDEF01",
+    "blocks": [
+      {
+        "type": "rich_text",
+        "block_id": "blk003",
+        "elements": [
+          {
+            "type": "rich_text_section",
+            "elements": [
+              {
+                "type": "text",
+                "text": "Heads up: staging DB migration starts at 3pm UTC"
+              }
+            ]
+          }
+        ]
+      }
+    ],
+    "attachments": [],
+    "reactions": [],
+    "reply_count": 0,
+    "reply_users": [],
+    "reply_users_count": 0,
+    "latest_reply": null,
+    "thread_ts": null,
+    "edited": null
+  },
+  {
+    "type": "message",
+    "user": "U04DE5FG6HI",
+    "text": "The new auth flow looks great in QA, ready for signoff",
+    "ts": "1735000381.100111",
+    "team": "T01ABCDEF01",
+    "blocks": [
+      {
+        "type": "rich_text",
+        "block_id": "blk004",
+        "elements": [
+          {
+            "type": "rich_text_section",
+            "elements": [
+              {
+                "type": "text",
+                "text": "The new auth flow looks great in QA, ready for signoff"
+              }
+            ]
+          }
+        ]
+      }
+    ],
+    "attachments": [
+      {
+        "id": 1,
+        "fallback": "Attachment for message 4",
+        "text": "Build #2003 completed successfully in 3m 13s",
+        "title": "CI Build #2003",
+        "color": "#36a64f",
+        "ts": "1735000381"
+      }
+    ],
+    "reactions": [],
+    "reply_count": 0,
+    "reply_users": [],
+    "reply_users_count": 0,
+    "latest_reply": null,
+    "thread_ts": null,
+    "edited": null
+  },
+  {
+    "type": "message",
+    "user": "U05EF6GH7IJ",
+    "text": "Anyone seeing latency spikes on the payment service?",
+    "ts": "1735000508.100148",
+    "team": "T01ABCDEF01",
+    "blocks": [
+      {
+        "type": "rich_text",
+        "block_id": "blk005",
+        "elements": [
+          {
+            "type": "rich_text_section",
+            "elements": [
+              {
+                "type": "text",
+                "text": "Anyone seeing latency spikes on the payment service?"
+              }
+            ]
+          }
+        ]
+      }
+    ],
+    "attachments": [],
+    "reactions": [
+      {
+        "name": "tada",
+        "users": [
+          "U07GH8IJ9KL"
+        ],
+        "count": 1
+      }
+    ],
+    "reply_count": 0,
+    "reply_users": [],
+    "reply_users_count": 0,
+    "latest_reply": null,
+    "thread_ts": null,
+    "edited": null
+  },
+  {
+    "type": "message",
+    "user": "U06FG7HI8JK",
+    "text": "@channel reminder: retro at 2pm in the main room",
+    "ts": "1735000635.100185",
+    "team": "T01ABCDEF01",
+    "blocks": [
+      {
+        "type": "rich_text",
+        "block_id": "blk006",
+        "elements": [
+          {
+            "type": "rich_text_section",
+            "elements": [
+              {
+                "type": "text",
+                "text": "@channel reminder: retro at 2pm in the main room"
+              }
+            ]
+          }
+        ]
+      }
+    ],
+    "attachments": [],
+    "reactions": [
+      {
+        "name": "heart",
+        "users": [
+          "U08HI9JK0LM"
+        ],
+        "count": 1
+      }
+    ],
+    "reply_count": 0,
+    "reply_users": [],
+    "reply_users_count": 0,
+    "latest_reply": null,
+    "thread_ts": null,
+    "edited": null
+  },
+  {
+    "type": "message",
+    "user": "U07GH8IJ9KL",
+    "text": "Just merged the rate limiter fix, monitoring dashboards now",
+    "ts": "1735000762.100222",
+    "team": "T01ABCDEF01",
+    "blocks": [
+      {
+        "type": "rich_text",
+        "block_id": "blk007",
+        "elements": [
+          {
+            "type": "rich_text_section",
+            "elements": [
+              {
+                "type": "text",
+                "text": "Just merged the rate limiter fix, monitoring dashboards now"
+              }
+            ]
+          }
+        ]
+      }
+    ],
+    "attachments": [
+      {
+        "id": 1,
+        "fallback": "Attachment for message 7",
+        "text": "Build #2006 completed successfully in 3m 16s",
+        "title": "CI Build #2006",
+        "color": "#36a64f",
+        "ts": "1735000762"
+      }
+    ],
+    "reactions": [],
+    "reply_count": 0,
+    "reply_users": [],
+    "reply_users_count": 0,
+    "latest_reply": null,
+    "thread_ts": null,
+    "edited": null
+  },
+  {
+    "type": "message",
+    "user": "U08HI9JK0LM",
+    "text": "FYI the CI pipeline is green again after the flaky test fix",
+    "ts": "1735000889.100259",
+    "team": "T01ABCDEF01",
+    "blocks": [
+      {
+        "type": "rich_text",
+        "block_id": "blk008",
+        "elements": [
+          {
+            "type": "rich_text_section",
+            "elements": [
+              {
+                "type": "text",
+                "text": "FYI the CI pipeline is green again after the flaky test fix"
+              }
+            ]
+          }
+        ]
+      }
+    ],
+    "attachments": [],
+    "reactions": [],
+    "reply_count": 0,
+    "reply_users": [],
+    "reply_users_count": 0,
+    "latest_reply": null,
+    "thread_ts": null,
+    "edited": null
+  },
+  {
+    "type": "message",
+    "user": "U09IJ0KL1MN",
+    "text": "Need help debugging the cache miss issue on node-3",
+    "ts": "1735001016.100296",
+    "team": "T01ABCDEF01",
+    "blocks": [
+      {
+        "type": "rich_text",
+        "block_id": "blk009",
+        "elements": [
+          {
+            "type": "rich_text_section",
+            "elements": [
+              {
+                "type": "text",
+                "text": "Need help debugging the cache miss issue on node-3"
+              }
+            ]
+          }
+        ]
+      }
+    ],
+    "attachments": [],
+    "reactions": [
+      {
+        "name": "rocket",
+        "users": [
+          "U01AB2CD3EF"
+        ],
+        "count": 1
+      },
+      {
+        "name": "heart",
+        "users": [
+          "U03CD4EF5GH"
+        ],
+        "count": 1
+      }
+    ],
+    "reply_count": 0,
+    "reply_users": [],
+    "reply_users_count": 0,
+    "latest_reply": null,
+    "thread_ts": null,
+    "edited": null
+  },
+  {
+    "type": "message",
+    "user": "U10JK1LM2NO",
+    "text": "Sprint planning moved to Thursday this week",
+    "ts": "1735001143.100333",
+    "team": "T01ABCDEF01",
+    "blocks": [
+      {
+        "type": "rich_text",
+        "block_id": "blk010",
+        "elements": [
+          {
+            "type": "rich_text_section",
+            "elements": [
+              {
+                "type": "text",
+                "text": "Sprint planning moved to Thursday this week"
+              }
+            ]
+          }
+        ]
+      }
+    ],
+    "attachments": [
+      {
+        "id": 1,
+        "fallback": "Attachment for message 10",
+        "text": "Build #2009 completed successfully in 3m 19s",
+        "title": "CI Build #2009",
+        "color": "#36a64f",
+        "ts": "1735001143"
+      }
+    ],
+    "reactions": [
+      {
+        "name": "white_check_mark",
+        "users": [
+          "U02BC3DE4FG"
+        ],
+        "count": 1
+      }
+    ],
+    "reply_count": 0,
+    "reply_users": [],
+    "reply_users_count": 0,
+    "latest_reply": null,
+    "thread_ts": null,
+    "edited": null
+  },
+  {
+    "type": "message",
+    "user": "U01AB2CD3EF",
+    "text": "Deployed v2.14.0 to production, all health checks passing",
+    "ts": "1735001270.100370",
+    "team": "T01ABCDEF01",
+    "blocks": [
+      {
+        "type": "rich_text",
+        "block_id": "blk011",
+        "elements": [
+          {
+            "type": "rich_text_section",
+            "elements": [
+              {
+                "type": "text",
+                "text": "Deployed v2.14.0 to production, all health checks passing"
+              }
+            ]
+          }
+        ]
+      }
+    ],
+    "attachments": [],
+    "reactions": [],
+    "reply_count": 0,
+    "reply_users": [],
+    "reply_users_count": 0,
+    "latest_reply": null,
+    "thread_ts": null,
+    "edited": null
+  },
+  {
+    "type": "message",
+    "user": "U02BC3DE4FG",
+    "text": "The new onboarding docs are published: https://docs.example.invalid/onboard",
+    "ts": "1735001397.100407",
+    "team": "T01ABCDEF01",
+    "blocks": [
+      {
+        "type": "rich_text",
+        "block_id": "blk012",
+        "elements": [
+          {
+            "type": "rich_text_section",
+            "elements": [
+              {
+                "type": "text",
+                "text": "The new onboarding docs are published: https://docs.example.invalid/onboard"
+              }
+            ]
+          }
+        ]
+      }
+    ],
+    "attachments": [],
+    "reactions": [],
+    "reply_count": 0,
+    "reply_users": [],
+    "reply_users_count": 0,
+    "latest_reply": null,
+    "thread_ts": null,
+    "edited": null
+  },
+  {
+    "type": "message",
+    "user": "U03CD4EF5GH",
+    "text": "Quick question: are we using Redis 6 or 7 in prod?",
+    "ts": "1735001524.100444",
+    "team": "T01ABCDEF01",
+    "blocks": [
+      {
+        "type": "rich_text",
+        "block_id": "blk013",
+        "elements": [
+          {
+            "type": "rich_text_section",
+            "elements": [
+              {
+                "type": "text",
+                "text": "Quick question: are we using Redis 6 or 7 in prod?"
+              }
+            ]
+          }
+        ]
+      }
+    ],
+    "attachments": [
+      {
+        "id": 1,
+        "fallback": "Attachment for message 13",
+        "text": "Build #2012 completed successfully in 3m 22s",
+        "title": "CI Build #2012",
+        "color": "#36a64f",
+        "ts": "1735001524"
+      }
+    ],
+    "reactions": [
+      {
+        "name": "thumbsup",
+        "users": [
+          "U05EF6GH7IJ"
+        ],
+        "count": 1
+      }
+    ],
+    "reply_count": 0,
+    "reply_users": [],
+    "reply_users_count": 0,
+    "latest_reply": null,
+    "thread_ts": null,
+    "edited": null
+  },
+  {
+    "type": "message",
+    "user": "U04DE5FG6HI",
+    "text": "Hotfix for the session timeout bug is ready for review",
+    "ts": "1735001651.100481",
+    "team": "T01ABCDEF01",
+    "blocks": [
+      {
+        "type": "rich_text",
+        "block_id": "blk014",
+        "elements": [
+          {
+            "type": "rich_text_section",
+            "elements": [
+              {
+                "type": "text",
+                "text": "Hotfix for the session timeout bug is ready for review"
+              }
+            ]
+          }
+        ]
+      }
+    ],
+    "attachments": [],
+    "reactions": [
+      {
+        "name": "eyes",
+        "users": [
+          "U06FG7HI8JK"
+        ],
+        "count": 1
+      }
+    ],
+    "reply_count": 0,
+    "reply_users": [],
+    "reply_users_count": 0,
+    "latest_reply": null,
+    "thread_ts": null,
+    "edited": null
+  },
+  {
+    "type": "message",
+    "user": "U05EF6GH7IJ",
+    "text": "Reminder: rotate the API keys before end of month",
+    "ts": "1735001778.100518",
+    "team": "T01ABCDEF01",
+    "blocks": [
+      {
+        "type": "rich_text",
+        "block_id": "blk015",
+        "elements": [
+          {
+            "type": "rich_text_section",
+            "elements": [
+              {
+                "type": "text",
+                "text": "Reminder: rotate the API keys before end of month"
+              }
+            ]
+          }
+        ]
+      }
+    ],
+    "attachments": [],
+    "reactions": [],
+    "reply_count": 0,
+    "reply_users": [],
+    "reply_users_count": 0,
+    "latest_reply": null,
+    "thread_ts": null,
+    "edited": null
+  },
+  {
+    "type": "message",
+    "user": "U06FG7HI8JK",
+    "text": "Great work on the migration everyone! Zero downtime \ud83c\udf89",
+    "ts": "1735001905.100555",
+    "team": "T01ABCDEF01",
+    "blocks": [
+      {
+        "type": "rich_text",
+        "block_id": "blk016",
+        "elements": [
+          {
+            "type": "rich_text_section",
+            "elements": [
+              {
+                "type": "text",
+                "text": "Great work on the migration everyone! Zero downtime"
+              }
+            ]
+          }
+        ]
+      }
+    ],
+    "attachments": [
+      {
+        "id": 1,
+        "fallback": "Attachment for message 16",
+        "text": "Build #2015 completed successfully in 3m 25s",
+        "title": "CI Build #2015",
+        "color": "#36a64f",
+        "ts": "1735001905"
+      }
+    ],
+    "reactions": [],
+    "reply_count": 0,
+    "reply_users": [],
+    "reply_users_count": 0,
+    "latest_reply": null,
+    "thread_ts": null,
+    "edited": null
+  },
+  {
+    "type": "message",
+    "user": "U07GH8IJ9KL",
+    "text": "I'll be OOO tomorrow, @asmith has context on the billing PR",
+    "ts": "1735002032.100592",
+    "team": "T01ABCDEF01",
+    "blocks": [
+      {
+        "type": "rich_text",
+        "block_id": "blk017",
+        "elements": [
+          {
+            "type": "rich_text_section",
+            "elements": [
+              {
+                "type": "text",
+                "text": "I'll be OOO tomorrow, @asmith has context on the billing PR"
+              }
+            ]
+          }
+        ]
+      }
+    ],
+    "attachments": [],
+    "reactions": [
+      {
+        "name": "tada",
+        "users": [
+          "U09IJ0KL1MN"
+        ],
+        "count": 1
+      },
+      {
+        "name": "eyes",
+        "users": [
+          "U01AB2CD3EF"
+        ],
+        "count": 1
+      }
+    ],
+    "reply_count": 0,
+    "reply_users": [],
+    "reply_users_count": 0,
+    "latest_reply": null,
+    "thread_ts": null,
+    "edited": null
+  },
+  {
+    "type": "message",
+    "user": "U08HI9JK0LM",
+    "text": "The load test results look promising, throughput up 40%",
+    "ts": "1735002159.100629",
+    "team": "T01ABCDEF01",
+    "blocks": [
+      {
+        "type": "rich_text",
+        "block_id": "blk018",
+        "elements": [
+          {
+            "type": "rich_text_section",
+            "elements": [
+              {
+                "type": "text",
+                "text": "The load test results look promising, throughput up 40%"
+              }
+            ]
+          }
+        ]
+      }
+    ],
+    "attachments": [],
+    "reactions": [
+      {
+        "name": "heart",
+        "users": [
+          "U10JK1LM2NO"
+        ],
+        "count": 1
+      }
+    ],
+    "reply_count": 0,
+    "reply_users": [],
+    "reply_users_count": 0,
+    "latest_reply": null,
+    "thread_ts": null,
+    "edited": null
+  },
+  {
+    "type": "message",
+    "user": "U09IJ0KL1MN",
+    "text": "Anyone available to pair on the GraphQL schema changes?",
+    "ts": "1735002286.100666",
+    "team": "T01ABCDEF01",
+    "blocks": [
+      {
+        "type": "rich_text",
+        "block_id": "blk019",
+        "elements": [
+          {
+            "type": "rich_text_section",
+            "elements": [
+              {
+                "type": "text",
+                "text": "Anyone available to pair on the GraphQL schema changes?"
+              }
+            ]
+          }
+        ]
+      }
+    ],
+    "attachments": [
+      {
+        "id": 1,
+        "fallback": "Attachment for message 19",
+        "text": "Build #2018 completed successfully in 3m 28s",
+        "title": "CI Build #2018",
+        "color": "#36a64f",
+        "ts": "1735002286"
+      }
+    ],
+    "reactions": [],
+    "reply_count": 0,
+    "reply_users": [],
+    "reply_users_count": 0,
+    "latest_reply": null,
+    "thread_ts": null,
+    "edited": null
+  },
+  {
+    "type": "message",
+    "user": "U10JK1LM2NO",
+    "text": "Standup notes posted in the thread below \u2b07\ufe0f",
+    "ts": "1735002413.100703",
+    "team": "T01ABCDEF01",
+    "blocks": [
+      {
+        "type": "rich_text",
+        "block_id": "blk020",
+        "elements": [
+          {
+            "type": "rich_text_section",
+            "elements": [
+              {
+                "type": "text",
+                "text": "Standup notes posted in the thread below"
+              }
+            ]
+          }
+        ]
+      }
+    ],
+    "attachments": [],
+    "reactions": [],
+    "reply_count": 0,
+    "reply_users": [],
+    "reply_users_count": 0,
+    "latest_reply": null,
+    "thread_ts": null,
+    "edited": null
+  }
+]

@@ -1,0 +1,302 @@
+[
+  {
+    "name": "api-server",
+    "status": "active",
+    "pid": 12345,
+    "cpu_percent": 2.3,
+    "memory_bytes": 456789012,
+    "path": "/usr/bin/api-server",
+    "metadata": {
+      "started": "2024-01-15T10:00:00Z",
+      "user": "deploy",
+      "tags": [
+        "prod",
+        "api"
+      ],
+      "config": {
+        "port": 8080,
+        "workers": 4
+      }
+    }
+  },
+  {
+    "name": "cache-worker",
+    "status": "active",
+    "pid": 12346,
+    "cpu_percent": 0.8,
+    "memory_bytes": 234567890,
+    "path": "/usr/bin/cache-worker",
+    "metadata": {
+      "started": "2024-01-15T10:01:00Z",
+      "user": "deploy",
+      "tags": [
+        "prod",
+        "cache"
+      ],
+      "config": {
+        "port": 6379,
+        "workers": 2
+      }
+    }
+  },
+  {
+    "name": "auth-service",
+    "status": "active",
+    "pid": 12347,
+    "cpu_percent": 1.5,
+    "memory_bytes": 345678901,
+    "path": "/usr/bin/auth-service",
+    "metadata": {
+      "started": "2024-01-15T10:02:00Z",
+      "user": "deploy",
+      "tags": [
+        "prod",
+        "auth"
+      ],
+      "config": {
+        "port": 8443,
+        "workers": 3
+      }
+    }
+  },
+  {
+    "name": "log-collector",
+    "status": "active",
+    "pid": 12348,
+    "cpu_percent": 0.3,
+    "memory_bytes": 123456789,
+    "path": "/usr/bin/log-collector",
+    "metadata": {
+      "started": "2024-01-15T10:03:00Z",
+      "user": "monitor",
+      "tags": [
+        "prod",
+        "logging"
+      ],
+      "config": {
+        "port": 5140,
+        "workers": 1
+      }
+    }
+  },
+  {
+    "name": "queue-consumer",
+    "status": "active",
+    "pid": 12349,
+    "cpu_percent": 3.1,
+    "memory_bytes": 567890123,
+    "path": "/usr/bin/queue-consumer",
+    "metadata": {
+      "started": "2024-01-15T10:04:00Z",
+      "user": "deploy",
+      "tags": [
+        "prod",
+        "messaging"
+      ],
+      "config": {
+        "port": 0,
+        "workers": 8
+      }
+    }
+  },
+  {
+    "name": "scheduler",
+    "status": "active",
+    "pid": 12350,
+    "cpu_percent": 0.1,
+    "memory_bytes": 98765432,
+    "path": "/usr/bin/scheduler",
+    "metadata": {
+      "started": "2024-01-15T10:05:00Z",
+      "user": "deploy",
+      "tags": [
+        "prod",
+        "cron"
+      ],
+      "config": {
+        "port": 0,
+        "workers": 1
+      }
+    }
+  },
+  {
+    "name": "metric-exporter",
+    "status": "active",
+    "pid": 12351,
+    "cpu_percent": 0.5,
+    "memory_bytes": 156789012,
+    "path": "/usr/bin/metric-exporter",
+    "metadata": {
+      "started": "2024-01-15T10:06:00Z",
+      "user": "monitor",
+      "tags": [
+        "prod",
+        "metrics"
+      ],
+      "config": {
+        "port": 9090,
+        "workers": 2
+      }
+    }
+  },
+  {
+    "name": "gateway-proxy",
+    "status": "active",
+    "pid": 12352,
+    "cpu_percent": 4.2,
+    "memory_bytes": 678901234,
+    "path": "/usr/bin/gateway-proxy",
+    "metadata": {
+      "started": "2024-01-15T10:07:00Z",
+      "user": "deploy",
+      "tags": [
+        "prod",
+        "gateway"
+      ],
+      "config": {
+        "port": 443,
+        "workers": 16
+      }
+    }
+  },
+  {
+    "name": "db-backup",
+    "status": "idle",
+    "pid": 12353,
+    "cpu_percent": 0.0,
+    "memory_bytes": 45678901,
+    "path": "/usr/bin/db-backup",
+    "metadata": {
+      "started": "2024-01-15T10:08:00Z",
+      "user": "postgres",
+      "tags": [
+        "prod",
+        "backup"
+      ],
+      "config": {
+        "port": 0,
+        "workers": 1
+      }
+    }
+  },
+  {
+    "name": "cert-renewer",
+    "status": "idle",
+    "pid": 12354,
+    "cpu_percent": 0.0,
+    "memory_bytes": 34567890,
+    "path": "/usr/bin/cert-renewer",
+    "metadata": {
+      "started": "2024-01-15T10:09:00Z",
+      "user": "root",
+      "tags": [
+        "prod",
+        "tls"
+      ],
+      "config": {
+        "port": 0,
+        "workers": 1
+      }
+    }
+  },
+  {
+    "name": "event-bus",
+    "status": "active",
+    "pid": 12355,
+    "cpu_percent": 1.8,
+    "memory_bytes": 456789012,
+    "path": "/usr/bin/event-bus",
+    "metadata": {
+      "started": "2024-01-15T10:10:00Z",
+      "user": "deploy",
+      "tags": [
+        "prod",
+        "events"
+      ],
+      "config": {
+        "port": 4222,
+        "workers": 4
+      }
+    }
+  },
+  {
+    "name": "search-indexer",
+    "status": "active",
+    "pid": 12356,
+    "cpu_percent": 2.7,
+    "memory_bytes": 789012345,
+    "path": "/usr/bin/search-indexer",
+    "metadata": {
+      "started": "2024-01-15T10:11:00Z",
+      "user": "deploy",
+      "tags": [
+        "prod",
+        "search"
+      ],
+      "config": {
+        "port": 9200,
+        "workers": 6
+      }
+    }
+  },
+  {
+    "name": "notification-svc",
+    "status": "degraded",
+    "pid": 12357,
+    "cpu_percent": 5.1,
+    "memory_bytes": 890123456,
+    "path": "/usr/bin/notification-svc",
+    "metadata": {
+      "started": "2024-01-15T10:12:00Z",
+      "user": "deploy",
+      "tags": [
+        "prod",
+        "notifications"
+      ],
+      "config": {
+        "port": 8081,
+        "workers": 4
+      }
+    }
+  },
+  {
+    "name": "healthcheck-agent",
+    "status": "active",
+    "pid": 12358,
+    "cpu_percent": 0.2,
+    "memory_bytes": 67890123,
+    "path": "/usr/bin/healthcheck-agent",
+    "metadata": {
+      "started": "2024-01-15T10:13:00Z",
+      "user": "monitor",
+      "tags": [
+        "prod",
+        "health"
+      ],
+      "config": {
+        "port": 8082,
+        "workers": 1
+      }
+    }
+  },
+  {
+    "name": "config-server",
+    "status": "stopped",
+    "pid": 12359,
+    "cpu_percent": 0.0,
+    "memory_bytes": 0,
+    "path": "/usr/bin/config-server",
+    "metadata": {
+      "started": "2024-01-15T10:14:00Z",
+      "user": "deploy",
+      "tags": [
+        "prod",
+        "config"
+      ],
+      "config": {
+        "port": 8888,
+        "workers": 2
+      }
+    }
+  }
+]
