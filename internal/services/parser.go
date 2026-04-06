@@ -136,6 +136,31 @@ func ValidateManifest(m *ServiceManifest) []ValidationError {
 			}
 		}
 
+		if f := action.Response.Filter; f != nil {
+			if f.MaxItems < 0 {
+				errs = append(errs, ValidationError{Field: prefix + ".response.filter.max_items", Message: "must be >= 0"})
+			}
+			for outputKey, sourcePath := range f.Select {
+				if strings.TrimSpace(outputKey) == "" {
+					errs = append(errs, ValidationError{Field: prefix + ".response.filter.select", Message: "output key must not be empty"})
+				}
+				if strings.TrimSpace(sourcePath) == "" {
+					errs = append(errs, ValidationError{Field: prefix + ".response.filter.select." + outputKey, Message: "source path must not be empty"})
+				}
+			}
+			for _, field := range f.Exclude {
+				if strings.TrimSpace(field) == "" {
+					errs = append(errs, ValidationError{Field: prefix + ".response.filter.exclude", Message: "exclude field name must not be empty"})
+				}
+			}
+		}
+
+		if c := action.Response.Compact; c != nil {
+			if strings.TrimSpace(c.Item) == "" {
+				errs = append(errs, ValidationError{Field: prefix + ".response.compact.item", Message: "item template is required"})
+			}
+		}
+
 		seenArgNames := make(map[string]int, len(action.Args))
 		for idx, arg := range action.Args {
 			argField := fmt.Sprintf("%s.args[%d]", prefix, idx)

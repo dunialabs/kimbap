@@ -97,7 +97,8 @@ func filterArray(items []any, config *actions.FilterConfig) ([]any, actions.Filt
 	if len(config.Select) > 0 {
 		projected, partialMiss, err := projectArray(result, config.Select)
 		if err != nil {
-			return items, meta, err
+			// Return original untruncated items with empty meta so caller gets a clean fallback.
+			return items, actions.FilterMeta{}, err
 		}
 		meta.PartialMiss = partialMiss
 		meta.FieldsSelected = len(config.Select)
@@ -337,13 +338,17 @@ func ApplyBudget(output map[string]any, maxBytes int) (map[string]any, BudgetMet
 
 	meta.Applied = true
 
+	// Determine the best starting point for string-truncation fallback.
+	// Start from the original output; if array trimming reduces it, update the base.
+	base := output
+
 	// Try to trim arrays first
 	wrapperKey, payload := pathutil.DetectPayloadRoot(output)
 	if arr, ok := payload.([]any); ok && wrapperKey != "" {
 		// Remove items from end until under budget
 		trimmed := make([]any, len(arr))
 		copy(trimmed, arr)
-		for len(trimmed) > 0 {
+		for {
 			candidate := make(map[string]any, len(output))
 			for k, v := range output {
 				if k == wrapperKey {
@@ -357,13 +362,28 @@ func ApplyBudget(output map[string]any, maxBytes int) (map[string]any, BudgetMet
 				meta.ResultBytes = len(encoded)
 				return candidate, meta
 			}
+			if len(trimmed) == 0 {
+				// Even empty array is over budget — continue to string truncation
+				// but use this candidate (empty array) as our base, not the original.
+				base = candidate
+				break
+			}
 			trimmed = trimmed[:len(trimmed)-1]
 		}
-		// Array is empty and still over budget — truncate string values
 	}
 
-	// Truncate longest string values in the map
-	result := truncateLongStrings(output, maxBytes)
+	// Truncate long strings in the current base (which may have an empty array).
+	// Iterate until under budget or no more strings can be shortened.
+	result := base
+	for range 10 { // bounded iterations to prevent infinite loops
+		result = truncateLongStrings(result, maxBytes)
+		encoded, _ := json.Marshal(result)
+		if len(encoded) <= maxBytes {
+			meta.ResultBytes = len(encoded)
+			return result, meta
+		}
+	}
+	// Best effort — record final size even if still over budget
 	encoded, _ := json.Marshal(result)
 	meta.ResultBytes = len(encoded)
 	return result, meta

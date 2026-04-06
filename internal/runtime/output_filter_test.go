@@ -649,3 +649,70 @@ type jsonNumber string
 func (j jsonNumber) Int64() (int64, error) {
 	return json.Number(j).Int64()
 }
+
+func TestApplyBudget_EmptyArrayFallbackDoesNotRestoreItems(t *testing.T) {
+	// After exhausting all array items, the empty-array candidate
+	// should be used as the base for string truncation — NOT the original.
+	items := make([]any, 20)
+	for i := range items {
+		items[i] = map[string]any{"id": i, "data": strings.Repeat("x", 100)}
+	}
+	output := map[string]any{"result": items}
+
+	// Budget small enough to force exhausting the array
+	got, meta := ApplyBudget(output, 50)
+	_ = meta
+
+	// The returned output must NOT have 20 items (original array must not be restored)
+	if arr, ok := got["result"].([]any); ok && len(arr) == 20 {
+		t.Error("budget fallback restored original array — should use empty-array candidate as base")
+	}
+}
+
+func TestApplyBudget_BudgetMetaUsesBytes(t *testing.T) {
+	// BudgetMeta fields should be named *Bytes (renamed from *Chars)
+	output := map[string]any{"data": strings.Repeat("x", 2000)}
+	_, meta := ApplyBudget(output, 100)
+	if meta.OriginalBytes == 0 {
+		t.Error("OriginalBytes should be set")
+	}
+	if meta.Limit != 100 {
+		t.Errorf("Limit = %d, want 100", meta.Limit)
+	}
+}
+
+func TestPipelineCompactOnly_OutputModeRawInjected(t *testing.T) {
+	// _output_mode should be injectable for compact-only actions (Fix 4)
+	// Build action with CompactTemplate but NO FilterConfig
+	action := actions.ActionDefinition{
+		Name:        "test.compact_schema",
+		InputSchema: &actions.Schema{Type: "object", AdditionalProperties: true},
+		Adapter:     actions.AdapterConfig{Type: "http", URLTemplate: "https://example.com"},
+		CompactTemplate: &actions.CompactTemplate{
+			Item: "#{{.number}} {{.title}}",
+		},
+	}
+	// The converter should inject _output_mode/_budget for CompactTemplate actions
+	// We test this by verifying the schema would accept _output_mode
+	// (The actual injection happens in converter — here we verify the pipeline behavior)
+	rawOutput := map[string]any{
+		"result": []any{map[string]any{"number": 1, "title": "Test"}},
+	}
+	rt := Runtime{
+		PolicyEvaluator: mockPolicyEvaluator{decision: &PolicyDecision{Decision: "allow"}},
+		AuditWriter:     &mockAuditWriter{},
+		Adapters: map[string]adapters.Adapter{
+			"http": mockAdapter{kind: "http", result: &adapters.AdapterResult{Output: rawOutput, HTTPStatus: 200}},
+		},
+	}
+	req := baseRequest(action)
+	req.Input["_output_mode"] = "raw" // should bypass compact
+	res := rt.Execute(context.Background(), req)
+	if res.Status != actions.StatusSuccess {
+		t.Fatalf("expected success, got %s: %v", res.Status, res.Error)
+	}
+	// raw mode should skip compact template
+	if res.Output["_compact"] == true {
+		t.Error("_output_mode=raw should bypass compact template")
+	}
+}

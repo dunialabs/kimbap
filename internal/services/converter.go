@@ -494,7 +494,9 @@ func convertFilterSpec(spec *FilterSpec) *actions.FilterConfig {
 }
 
 func injectOutputModeParam(def *actions.ActionDefinition) {
-	if def == nil || def.FilterConfig == nil {
+	// Inject _output_mode and _budget whenever ANY output transformation is configured.
+	// Budget and compact can operate without structural filtering (FilterConfig).
+	if def == nil || (def.FilterConfig == nil && def.CompactTemplate == nil) {
 		return
 	}
 	if def.InputSchema == nil {
