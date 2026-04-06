@@ -538,13 +538,19 @@ func (r *Runtime) executeFromCredentialsWithState(
 		approvalRequestID,
 	)
 
-	// Apply output filter AFTER audit so audit trail records unfiltered output.
-	if finalResult.Status == actions.StatusSuccess && req.Action.FilterConfig != nil {
-		if outputMode, _ := req.Input["_output_mode"].(string); outputMode != "raw" {
+	// Apply output transformations AFTER audit so audit trail records unfiltered output.
+	// Budget and compact run independently of structural filter (filter is optional).
+	if finalResult.Status == actions.StatusSuccess {
+		outputMode, _ := req.Input["_output_mode"].(string)
+		rawMode := outputMode == "raw"
+
+		if finalResult.Meta == nil {
+			finalResult.Meta = map[string]any{}
+		}
+
+		// 1. Structural filter (select/exclude/max_items/drop_nulls)
+		if req.Action.FilterConfig != nil && !rawMode {
 			filtered, filterMeta, filterErr := ApplyFilter(finalResult.Output, req.Action.FilterConfig)
-			if finalResult.Meta == nil {
-				finalResult.Meta = map[string]any{}
-			}
 			if filterErr != nil {
 				// All select paths missed — return unfiltered with warning
 				finalResult.Meta["filter_error"] = filterErr.Error()
@@ -563,28 +569,30 @@ func (r *Runtime) executeFromCredentialsWithState(
 				if filterMeta.Skipped != "" {
 					finalResult.Meta["filter_skipped"] = filterMeta.Skipped
 				}
+			}
+		}
 
-				// Apply budget enforcement after structural filtering
-				if budget := coerceBudgetInt(req.Input["_budget"]); budget > 0 {
-					budgeted, budgetMeta := ApplyBudget(finalResult.Output, budget)
-					finalResult.Output = budgeted
-					if budgetMeta.Applied {
-						finalResult.Meta["budget_applied"] = true
-						finalResult.Meta["budget_limit"] = budgetMeta.Limit
-						finalResult.Meta["budget_original_chars"] = budgetMeta.OriginalChars
-						finalResult.Meta["budget_result_chars"] = budgetMeta.ResultChars
-					}
+		// 2. Budget enforcement (independent of structural filter)
+		if !rawMode {
+			if budget := coerceBudgetInt(req.Input["_budget"]); budget > 0 {
+				budgeted, budgetMeta := ApplyBudget(finalResult.Output, budget)
+				finalResult.Output = budgeted
+				if budgetMeta.Applied {
+					finalResult.Meta["budget_applied"] = true
+					finalResult.Meta["budget_limit"] = budgetMeta.Limit
+					finalResult.Meta["budget_original_bytes"] = budgetMeta.OriginalBytes
+					finalResult.Meta["budget_result_bytes"] = budgetMeta.ResultBytes
 				}
+			}
+		}
 
-				// Apply compact template after filtering
-				if req.Action.CompactTemplate != nil {
-					compacted, compactErr := ApplyCompactTemplate(finalResult.Output, req.Action.CompactTemplate)
-					if compactErr == nil {
-						finalResult.Output = compacted
-					} else {
-						finalResult.Meta["compact_error"] = compactErr.Error()
-					}
-				}
+		// 3. Compact template (independent of structural filter)
+		if req.Action.CompactTemplate != nil && !rawMode {
+			compacted, compactErr := ApplyCompactTemplate(finalResult.Output, req.Action.CompactTemplate)
+			if compactErr == nil {
+				finalResult.Output = compacted
+			} else {
+				finalResult.Meta["compact_error"] = compactErr.Error()
 			}
 		}
 	}

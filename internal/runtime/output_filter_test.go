@@ -1,11 +1,13 @@
 package runtime
 
 import (
+	"context"
 	"encoding/json"
 	"strings"
 	"testing"
 
 	"github.com/dunialabs/kimbap/internal/actions"
+	"github.com/dunialabs/kimbap/internal/adapters"
 )
 
 func TestApplyFilter_NilConfig(t *testing.T) {
@@ -403,8 +405,8 @@ func TestApplyBudget_TruncatesArray(t *testing.T) {
 	if err := json.Unmarshal(encoded, &check); err != nil {
 		t.Errorf("budget result should be valid JSON: %v", err)
 	}
-	if meta.ResultChars > meta.Limit {
-		t.Errorf("result chars (%d) should be <= budget (%d)", meta.ResultChars, meta.Limit)
+	if meta.ResultBytes > meta.Limit {
+		t.Errorf("result bytes (%d) should be <= budget (%d)", meta.ResultBytes, meta.Limit)
 	}
 }
 
@@ -523,4 +525,76 @@ func TestApplyFilter_NonMapItemsPassThrough(t *testing.T) {
 	// Non-map items aren't projected, so foundAny=false → error is expected behavior
 	// (all "items" are primitives, none yield projected fields)
 	_ = err // document the behavior: either error or pass-through is acceptable
+}
+
+func TestApplyBudget_TinyBudget_NoPanic(t *testing.T) {
+	// Tiny budget should not panic even on short strings
+	output := map[string]any{"x": "hi"}
+	got, meta := ApplyBudget(output, 1) // extremely small budget
+	if got == nil {
+		t.Fatal("result should not be nil")
+	}
+	_ = meta // budget may or may not be applied depending on encoded size
+}
+
+func TestApplyBudget_UTF8Safe(t *testing.T) {
+	// Korean/CJK string — should not split multi-byte rune sequences
+	content := strings.Repeat("한", 100) // 100 Korean chars, 3 bytes each = 300 bytes
+	output := map[string]any{"text": content}
+	got, _ := ApplyBudget(output, 50) // force truncation
+	text, ok := got["text"].(string)
+	if !ok {
+		// budget removed text entirely — acceptable
+		return
+	}
+	// Verify the string is valid UTF-8 (no split bytes)
+	if !isValidUTF8(text) {
+		t.Error("truncated string should be valid UTF-8")
+	}
+}
+
+func isValidUTF8(s string) bool {
+	for _, r := range s {
+		if r == '\uFFFD' {
+			return false
+		}
+	}
+	return true
+}
+
+func TestPipelineCompactOnly_NoFilterConfig(t *testing.T) {
+	// Compact template should work even without FilterConfig (H4 fix)
+	rawOutput := map[string]any{
+		"result": []any{
+			map[string]any{"number": 1, "title": "Bug"},
+			map[string]any{"number": 2, "title": "Feature"},
+		},
+	}
+	rt := Runtime{
+		PolicyEvaluator: mockPolicyEvaluator{decision: &PolicyDecision{Decision: "allow"}},
+		AuditWriter:     &mockAuditWriter{},
+		Adapters: map[string]adapters.Adapter{
+			"http": mockAdapter{kind: "http", result: &adapters.AdapterResult{Output: rawOutput, HTTPStatus: 200}},
+		},
+	}
+	action := actions.ActionDefinition{
+		Name:        "test.compact_only",
+		InputSchema: &actions.Schema{Type: "object", AdditionalProperties: true},
+		Adapter:     actions.AdapterConfig{Type: "http", URLTemplate: "https://example.com"},
+		// No FilterConfig — compact should still work
+		CompactTemplate: &actions.CompactTemplate{
+			Item: "#{{.number}} {{.title}}",
+		},
+	}
+	res := rt.Execute(context.Background(), baseRequest(action))
+	if res.Status != actions.StatusSuccess {
+		t.Fatalf("expected success, got %s: %v", res.Status, res.Error)
+	}
+	summary, ok := res.Output["summary"].(string)
+	if !ok {
+		t.Fatalf("expected summary in output, got %v", res.Output)
+	}
+	if !strings.Contains(summary, "#1 Bug") {
+		t.Errorf("compact not applied, summary = %q", summary)
+	}
 }

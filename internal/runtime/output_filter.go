@@ -305,14 +305,14 @@ func isRawOutput(output map[string]any) bool {
 type BudgetMeta struct {
 	Applied       bool
 	Limit         int
-	OriginalChars int
-	ResultChars   int
+	OriginalBytes int // serialized JSON bytes before budget enforcement
+	ResultBytes   int // serialized JSON bytes after budget enforcement
 }
 
-// ApplyBudget enforces a maximum character count on serialized output.
+// ApplyBudget enforces a maximum serialized byte count on output.
 // For arrays: progressively removes items from the end until under budget.
-// For objects with long strings: truncates the longest string values.
-// Always produces valid JSON.
+// For objects with long strings: rune-safely truncates the longest values.
+// Always produces valid JSON. Note: limit is measured in JSON bytes, not characters.
 func ApplyBudget(output map[string]any, maxChars int) (map[string]any, BudgetMeta) {
 	if maxChars <= 0 {
 		return output, BudgetMeta{}
@@ -322,11 +322,11 @@ func ApplyBudget(output map[string]any, maxChars int) (map[string]any, BudgetMet
 	meta := BudgetMeta{
 		Applied:       false,
 		Limit:         maxChars,
-		OriginalChars: len(raw),
+		OriginalBytes: len(raw),
 	}
 
 	if len(raw) <= maxChars {
-		meta.ResultChars = len(raw)
+		meta.ResultBytes = len(raw)
 		return output, meta
 	}
 
@@ -349,7 +349,7 @@ func ApplyBudget(output map[string]any, maxChars int) (map[string]any, BudgetMet
 			}
 			encoded, _ := json.Marshal(candidate)
 			if len(encoded) <= maxChars {
-				meta.ResultChars = len(encoded)
+				meta.ResultBytes = len(encoded)
 				return candidate, meta
 			}
 			trimmed = trimmed[:len(trimmed)-1]
@@ -360,22 +360,27 @@ func ApplyBudget(output map[string]any, maxChars int) (map[string]any, BudgetMet
 	// Truncate longest string values in the map
 	result := truncateLongStrings(output, maxChars)
 	encoded, _ := json.Marshal(result)
-	meta.ResultChars = len(encoded)
+	meta.ResultBytes = len(encoded)
 	return result, meta
 }
 
 // truncateLongStrings recursively truncates string values to fit within budget.
+// Uses rune-aware truncation to avoid splitting multi-byte UTF-8 characters.
 func truncateLongStrings(m map[string]any, maxChars int) map[string]any {
 	result := make(map[string]any, len(m))
 	for k, v := range m {
 		switch val := v.(type) {
 		case string:
-			if len(val) > maxChars/2 {
+			runes := []rune(val)
+			if len(runes) > maxChars/2 {
 				cutoff := maxChars / 4
-				if cutoff < 20 {
-					cutoff = 20
+				if cutoff < 10 {
+					cutoff = 10
 				}
-				result[k] = val[:cutoff] + "..."
+				if cutoff > len(runes) {
+					cutoff = len(runes)
+				}
+				result[k] = string(runes[:cutoff]) + "..."
 			} else {
 				result[k] = v
 			}
