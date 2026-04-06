@@ -169,6 +169,10 @@ func ValidateManifest(m *ServiceManifest) []ValidationError {
 				errs = append(errs, ValidationError{Field: argField + ".name", Message: "is required"})
 			} else if firstIdx, exists := seenArgNames[argName]; exists {
 				errs = append(errs, ValidationError{Field: argField + ".name", Message: fmt.Sprintf("duplicates args[%d].name %q", firstIdx, argName)})
+			} else if argName == "_output_mode" || argName == "_budget" || argName == "_max_pages" {
+				errs = append(errs, ValidationError{Field: argField + ".name", Message: fmt.Sprintf("%q is a reserved runtime parameter name", argName)})
+			} else if strings.HasPrefix(argName, "_") {
+				errs = append(errs, ValidationError{Field: argField + ".name", Message: "arg names must not start with underscore (reserved for runtime)"})
 			} else {
 				seenArgNames[argName] = idx
 			}

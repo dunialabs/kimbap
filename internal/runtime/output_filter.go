@@ -318,7 +318,10 @@ func ApplyBudget(output map[string]any, maxBytes int) (map[string]any, BudgetMet
 		return output, BudgetMeta{}
 	}
 
-	raw, _ := json.Marshal(output)
+	raw, marshalErr := json.Marshal(output)
+	if marshalErr != nil {
+		return output, BudgetMeta{Limit: maxBytes}
+	}
 	meta := BudgetMeta{
 		Applied:       false,
 		Limit:         maxBytes,
