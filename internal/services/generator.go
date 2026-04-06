@@ -329,9 +329,12 @@ func extractAuth(root map[string]any, resolver *openAPIRefResolver, skillName st
 		}
 	}
 
-	schemeName := firstReferencedSecurityScheme(root)
+	schemeName, isCompound := firstReferencedSecurityScheme(root)
 	if schemeName == "" {
 		return ServiceAuth{Type: "none"}, nil
+	}
+	if isCompound {
+		return ServiceAuth{}, fmt.Errorf("compound security requirements (multiple schemes in one requirement) are not supported; simplify the OpenAPI security definition")
 	}
 
 	rawScheme := mapAt(schemes, schemeName)
@@ -604,10 +607,11 @@ func parameterToArg(param map[string]any, currentDoc *openAPIDocument, resolver 
 	schema := mapAt(param, "schema")
 	if len(schema) > 0 {
 		resolved, resolvedDoc, err := resolver.resolveMapInDoc(schema, currentDoc)
-		if err == nil {
-			schema = resolved
-			currentDoc = resolvedDoc
+		if err != nil {
+			return ActionArg{}, "", false
 		}
+		schema = resolved
+		currentDoc = resolvedDoc
 		schema = resolveCompositeSchema(schema, currentDoc, resolver)
 	}
 
@@ -821,7 +825,20 @@ func firstServerURL(root map[string]any) string {
 	if !ok {
 		return ""
 	}
-	return strings.TrimSpace(stringAt(first, "url"))
+	rawURL := strings.TrimSpace(stringAt(first, "url"))
+	// Resolve server URL template variables using declared defaults if present.
+	// Variables in the URL are expressed as {varName}.
+	if strings.Contains(rawURL, "{") {
+		variables := mapAt(first, "variables")
+		for varName, varDef := range variables {
+			if defMap, ok := varDef.(map[string]any); ok {
+				if defVal := strings.TrimSpace(stringAt(defMap, "default")); defVal != "" {
+					rawURL = strings.ReplaceAll(rawURL, "{"+varName+"}", defVal)
+				}
+			}
+		}
+	}
+	return rawURL
 }
 
 func normalizeBaseURL(raw string) (string, error) {
@@ -844,7 +861,10 @@ func normalizeBaseURL(raw string) (string, error) {
 	return u.String(), nil
 }
 
-func firstReferencedSecurityScheme(root map[string]any) string {
+// firstReferencedSecurityScheme returns the name of the first security scheme
+// referenced in the spec's top-level security array, plus a boolean indicating
+// whether the requirement is compound (multiple schemes in one requirement — AND logic).
+func firstReferencedSecurityScheme(root map[string]any) (string, bool) {
 	security := anySliceAt(root, "security")
 	for _, item := range security {
 		req, ok := item.(map[string]any)
@@ -852,9 +872,9 @@ func firstReferencedSecurityScheme(root map[string]any) string {
 			continue
 		}
 		keys := sortedMapKeys(req)
-		return keys[0]
+		return keys[0], len(keys) > 1
 	}
-	return ""
+	return "", false
 }
 
 func normalizeActionKey(operationID, method, path string) string {

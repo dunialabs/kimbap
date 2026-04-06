@@ -43,8 +43,10 @@ func detectAndFilter(output map[string]any, config *actions.FilterConfig) (map[s
 	// Handle raw text output — skip field selection
 	if isRawOutput(output) {
 		meta := actions.FilterMeta{Skipped: "raw_output"}
-		result := dropNullsFromMap(output, config.DropNulls)
-		return result, meta, nil
+		if config.DropNulls {
+			return dropNullsFromItem(output), meta, nil
+		}
+		return output, meta, nil
 	}
 
 	wrapperKey, payload := pathutil.DetectPayloadRoot(output)
@@ -285,14 +287,6 @@ func dropNullsFromItem(m map[string]any) map[string]any {
 		}
 	}
 	return result
-}
-
-// dropNullsFromMap applies dropNulls to a top-level map (used for raw output wrapper).
-func dropNullsFromMap(m map[string]any, apply bool) map[string]any {
-	if !apply {
-		return m
-	}
-	return dropNullsFromItem(m)
 }
 
 // isRawOutput returns true when the output map contains exactly one key ("raw").

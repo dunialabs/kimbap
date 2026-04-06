@@ -38,7 +38,7 @@ func ExtractSegment(value interface{}, segment string) (interface{}, bool) {
 		key = segment[:open]
 		idxStr := segment[open+1 : len(segment)-1]
 		// tolerate invalid indices by returning not found
-		idx, err := strconvAtoiSafe(idxStr)
+		idx, err := strconv.Atoi(idxStr)
 		if err != nil {
 			return nil, false
 		}
@@ -114,7 +114,3 @@ func DetectPayloadRoot(output map[string]interface{}) (string, interface{}) {
 	return "", output
 }
 
-// strconvAtoiSafe parses a non-negative integer string, returning an error on invalid input.
-func strconvAtoiSafe(s string) (int, error) {
-	return strconv.Atoi(s)
-}
