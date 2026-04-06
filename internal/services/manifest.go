@@ -75,9 +75,16 @@ type RequestSpec struct {
 }
 
 type ResponseSpec struct {
-	Extract string      `yaml:"extract"`
-	Type    string      `yaml:"type"`
-	Filter  *FilterSpec `yaml:"filter,omitempty"`
+	Extract string       `yaml:"extract"`
+	Type    string       `yaml:"type"`
+	Filter  *FilterSpec  `yaml:"filter,omitempty"`
+	Compact *CompactSpec `yaml:"compact,omitempty"`
+}
+
+type CompactSpec struct {
+	Header string `yaml:"header,omitempty"`
+	Item   string `yaml:"item"`
+	Footer string `yaml:"footer,omitempty"`
 }
 
 type FilterSpec struct {

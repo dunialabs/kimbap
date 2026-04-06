@@ -69,7 +69,8 @@ func toHTTPDefinitions(svc *ServiceManifest) ([]actions.ActionDefinition, error)
 			InputSchema:  buildInputSchema(actionSpec.Args, actionSpec.Request.PathParams, actionSpec.Pagination),
 			OutputSchema: buildOutputSchema(actionSpec.Response),
 			Defaults:     collectDefaults(actionSpec.Args),
-			FilterConfig: convertFilterSpec(actionSpec.Response.Filter),
+			FilterConfig:    convertFilterSpec(actionSpec.Response.Filter),
+			CompactTemplate: convertCompactSpec(actionSpec.Response.Compact),
 			Adapter: actions.AdapterConfig{
 				Type:        "http",
 				Method:      strings.ToUpper(actionSpec.Method),
@@ -129,7 +130,8 @@ func toAppleScriptDefinitions(svc *ServiceManifest) ([]actions.ActionDefinition,
 			InputSchema:  buildInputSchema(actionSpec.Args, nil, nil),
 			OutputSchema: buildOutputSchema(actionSpec.Response),
 			Defaults:     collectDefaults(actionSpec.Args),
-			FilterConfig: convertFilterSpec(actionSpec.Response.Filter),
+			FilterConfig:    convertFilterSpec(actionSpec.Response.Filter),
+			CompactTemplate: convertCompactSpec(actionSpec.Response.Compact),
 			Adapter: actions.AdapterConfig{
 				Type:           "applescript",
 				TargetApp:      svc.TargetApp,
@@ -235,7 +237,8 @@ func toCommandDefinitions(svc *ServiceManifest) ([]actions.ActionDefinition, err
 			InputSchema:  buildInputSchema(actionSpec.Args, nil, nil),
 			OutputSchema: buildOutputSchema(actionSpec.Response),
 			Defaults:     collectDefaults(actionSpec.Args),
-			FilterConfig: convertFilterSpec(actionSpec.Response.Filter),
+			FilterConfig:    convertFilterSpec(actionSpec.Response.Filter),
+			CompactTemplate: convertCompactSpec(actionSpec.Response.Compact),
 			Adapter: actions.AdapterConfig{
 				Type:           "command",
 				ExecutablePath: executable,
@@ -503,5 +506,18 @@ func injectOutputModeParam(def *actions.ActionDefinition) {
 	def.InputSchema.Properties["_output_mode"] = &actions.Schema{
 		Type: "string",
 		Enum: []any{"default", "raw"},
+	}
+}
+
+// convertCompactSpec converts a manifest CompactSpec to a runtime CompactTemplate.
+// Returns nil if spec is nil (backward compatible).
+func convertCompactSpec(spec *CompactSpec) *actions.CompactTemplate {
+	if spec == nil {
+		return nil
+	}
+	return &actions.CompactTemplate{
+		Header: spec.Header,
+		Item:   spec.Item,
+		Footer: spec.Footer,
 	}
 }
