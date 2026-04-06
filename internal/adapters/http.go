@@ -210,7 +210,17 @@ func (a *HTTPAdapter) executeWithPagination(ctx context.Context, req AdapterRequ
 			if cursorPath == "" {
 				cursorPath = "next_cursor"
 			}
-			nextCursor, _ := pathutil.ExtractByPath(result.Output, cursorPath)
+			// Extract cursor from the raw response body, not from normalizeOutput's result.
+			// response.extract may have stripped pagination metadata (e.g. extract:"data.results"
+			// removes sibling keys like "meta.next_cursor"). Raw body always has the full shape.
+			var rawForCursor any
+			if len(result.RawBody) > 0 {
+				_ = json.Unmarshal(result.RawBody, &rawForCursor)
+			}
+			if rawForCursor == nil {
+				rawForCursor = result.Output
+			}
+			nextCursor, _ := pathutil.ExtractByPath(rawForCursor, cursorPath)
 			if s, ok := nextCursor.(string); ok && s != "" {
 				cursor = s
 			} else {
@@ -827,6 +837,8 @@ func mapHTTPError(status int, _ map[int]string) string {
 		return actions.ErrUnauthenticated
 	case http.StatusForbidden:
 		return actions.ErrUnauthorized
+	case http.StatusNotFound:
+		return actions.ErrResourceNotFound
 	case http.StatusTooManyRequests:
 		return actions.ErrRateLimited
 	default:
