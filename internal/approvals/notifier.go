@@ -38,7 +38,9 @@ const (
 )
 
 func (w *WebhookNotifier) Notify(ctx context.Context, req *ApprovalRequest) error {
-	body, err := json.Marshal(req)
+	safe := *req
+	safe.Input = nil
+	body, err := json.Marshal(&safe)
 	if err != nil {
 		return fmt.Errorf("marshal approval webhook payload: %w", err)
 	}

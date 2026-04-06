@@ -11,6 +11,7 @@ import (
 	"io"
 	"net"
 	"net/http"
+	"net/url"
 	"slices"
 	"sync"
 	"time"
@@ -18,6 +19,15 @@ import (
 	"github.com/google/uuid"
 	"github.com/rs/zerolog/log"
 )
+
+func redactURL(raw string) string {
+	u, err := url.Parse(raw)
+	if err != nil || u.User == nil {
+		return raw
+	}
+	u.User = nil
+	return u.String()
+}
 
 type EventType string
 
@@ -336,7 +346,7 @@ func (d *Dispatcher) deliver(sub Subscription, event Event) {
 
 	req, err := http.NewRequest(http.MethodPost, sub.URL, bytes.NewReader(body))
 	if err != nil {
-		log.Warn().Err(err).Str("subscriptionId", sub.ID).Str("url", sub.URL).Msg("webhook deliver build request failed")
+		log.Warn().Err(err).Str("subscriptionId", sub.ID).Str("url", redactURL(sub.URL)).Msg("webhook deliver build request failed")
 		return
 	}
 	req.Header.Set("Content-Type", "application/json")
@@ -351,13 +361,13 @@ func (d *Dispatcher) deliver(sub Subscription, event Event) {
 
 	resp, err := d.client.Do(req)
 	if err != nil {
-		log.Warn().Err(err).Str("subscriptionId", sub.ID).Str("url", sub.URL).Msg("webhook deliver post failed")
+		log.Warn().Err(err).Str("subscriptionId", sub.ID).Str("url", redactURL(sub.URL)).Msg("webhook deliver post failed")
 		return
 	}
 	_, _ = io.Copy(io.Discard, resp.Body)
 	_ = resp.Body.Close()
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		log.Warn().Str("subscriptionId", sub.ID).Str("url", sub.URL).Int("statusCode", resp.StatusCode).Msg("webhook deliver non-2xx response")
+		log.Warn().Str("subscriptionId", sub.ID).Str("url", redactURL(sub.URL)).Int("statusCode", resp.StatusCode).Msg("webhook deliver non-2xx response")
 	}
 }
 
