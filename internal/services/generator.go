@@ -2,6 +2,7 @@ package services
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"hash/fnv"
 	"maps"
@@ -15,6 +16,8 @@ import (
 
 	"gopkg.in/yaml.v3"
 )
+
+var errSkipParameter = errors.New("skip parameter")
 
 var (
 	openAPIVersionPattern = regexp.MustCompile(`^(?:v)?(\d+)(?:\.(\d+))?(?:\.(\d+))?`)
@@ -576,9 +579,12 @@ func mergeParameters(pathLevel []any, pathDoc *openAPIDocument, operationLevel [
 				return fmt.Errorf("resolve parameter ref: %w", err)
 			}
 
-			arg, location, ok := parameterToArg(resolved, resolvedDoc, resolver)
-			if !ok {
-				continue
+			arg, location, argErr := parameterToArg(resolved, resolvedDoc, resolver)
+			if argErr != nil {
+				if errors.Is(argErr, errSkipParameter) {
+					continue
+				}
+				return fmt.Errorf("parameter %q: %w", stringAt(resolved, "name"), argErr)
 			}
 
 			id := location + ":" + arg.Name
@@ -605,18 +611,18 @@ func mergeParameters(pathLevel []any, pathDoc *openAPIDocument, operationLevel [
 	return result, nil
 }
 
-func parameterToArg(param map[string]any, currentDoc *openAPIDocument, resolver *openAPIRefResolver) (ActionArg, string, bool) {
+func parameterToArg(param map[string]any, currentDoc *openAPIDocument, resolver *openAPIRefResolver) (ActionArg, string, error) {
 	name := strings.TrimSpace(stringAt(param, "name"))
 	in := strings.ToLower(strings.TrimSpace(stringAt(param, "in")))
 	if name == "" || (in != "query" && in != "path" && in != "header") {
-		return ActionArg{}, "", false
+		return ActionArg{}, "", errSkipParameter
 	}
 
 	schema := mapAt(param, "schema")
 	if len(schema) > 0 {
 		resolved, resolvedDoc, err := resolver.resolveMapInDoc(schema, currentDoc)
 		if err != nil {
-			return ActionArg{}, "", false
+			return ActionArg{}, "", fmt.Errorf("resolve schema ref: %w", err)
 		}
 		schema = resolved
 		currentDoc = resolvedDoc
@@ -636,7 +642,7 @@ func parameterToArg(param map[string]any, currentDoc *openAPIDocument, resolver 
 		arg.Enum = enum
 	}
 
-	return arg, in, true
+	return arg, in, nil
 }
 
 func addRequestBodyArgs(action *ServiceAction, op map[string]any, opDoc *openAPIDocument, resolver *openAPIRefResolver, argIndex map[string]int) error {
@@ -1033,7 +1039,10 @@ func extractOperationAuth(op map[string]any, root map[string]any, resolver *open
 		return nil, fmt.Errorf("operation security must be an array")
 	}
 
-	schemeName := firstReferencedSecuritySchemeFromList(security)
+	schemeName, isCompound := firstReferencedSecuritySchemeFromList(security)
+	if isCompound {
+		return nil, fmt.Errorf("compound security requirements (multiple schemes in one requirement) are not supported; simplify the OpenAPI security definition")
+	}
 	if schemeName == "" {
 		auth := ServiceAuth{Type: "none"}
 		return &auth, nil
@@ -1062,16 +1071,16 @@ func extractOperationAuth(op map[string]any, root map[string]any, resolver *open
 	return &auth, nil
 }
 
-func firstReferencedSecuritySchemeFromList(security []any) string {
+func firstReferencedSecuritySchemeFromList(security []any) (string, bool) {
 	for _, item := range security {
 		req, ok := item.(map[string]any)
 		if !ok || len(req) == 0 {
 			continue
 		}
 		keys := sortedMapKeys(req)
-		return keys[0]
+		return keys[0], len(keys) > 1
 	}
-	return ""
+	return "", false
 }
 
 func authFromScheme(scheme map[string]any, skillName string) (ServiceAuth, error) {
