@@ -69,8 +69,6 @@ actions:
     method: POST
     path: /proxy
     description: Get proxy information
-    auth:
-      type: none
     args: []
     request:
       body: {}
@@ -486,7 +484,7 @@ actions:
     response:
       type: object
     risk:
-      level: medium
+      level: high
     idempotent: false
   delete-ip-whitelist:
     method: POST
@@ -502,7 +500,7 @@ actions:
     response:
       type: object
     risk:
-      level: medium
+      level: high
     idempotent: false
   allow-all-ips:
     method: POST
