@@ -413,11 +413,7 @@ func truncateLongStrings(m map[string]any, threshold int) map[string]any {
 			// Only truncate if the string is longer than threshold AND truncation
 			// actually reduces length (cutoff + 3 for '...' must be < original).
 			if len(runes) > threshold && threshold+3 < len(runes) {
-				cutoff := threshold
-				if cutoff > len(runes) {
-					cutoff = len(runes)
-				}
-				result[k] = string(runes[:cutoff]) + "..."
+				result[k] = string(runes[:threshold]) + "..."
 			} else {
 				result[k] = v
 			}
