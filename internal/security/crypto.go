@@ -15,18 +15,20 @@ import (
 )
 
 const (
-	pbkdf2Iterations = 100000
-	keyLengthBytes   = 32
-	ivLengthBytes    = 12
-	saltLengthBytes  = 16
-	gcmTagLength     = 16
+	pbkdf2IterationsV0 = 100_000
+	pbkdf2IterationsV1 = 600_000
+	keyLengthBytes     = 32
+	ivLengthBytes      = 12
+	saltLengthBytes    = 16
+	gcmTagLength       = 16
 )
 
 type encryptedData struct {
-	Data string `json:"data"`
-	IV   string `json:"iv"`
-	Salt string `json:"salt"`
-	Tag  string `json:"tag"`
+	Data    string `json:"data"`
+	IV      string `json:"iv"`
+	Salt    string `json:"salt"`
+	Tag     string `json:"tag"`
+	Version int    `json:"v,omitempty"`
 }
 
 func EncryptData(plaintext string, key string) (string, error) {
@@ -44,7 +46,7 @@ func EncryptData(plaintext string, key string) (string, error) {
 		return "", fmt.Errorf("failed to generate iv: %w", err)
 	}
 
-	derivedKey := deriveKey(key, salt)
+	derivedKey := deriveKey(key, salt, pbkdf2IterationsV1)
 	block, err := aes.NewCipher(derivedKey)
 	if err != nil {
 		return "", fmt.Errorf("failed to create AES cipher: %w", err)
@@ -60,10 +62,11 @@ func EncryptData(plaintext string, key string) (string, error) {
 	tag := encrypted[len(encrypted)-gcmTagLength:]
 
 	payload := encryptedData{
-		Data: base64.StdEncoding.EncodeToString(ciphertext),
-		IV:   base64.StdEncoding.EncodeToString(iv),
-		Salt: base64.StdEncoding.EncodeToString(salt),
-		Tag:  base64.StdEncoding.EncodeToString(tag),
+		Data:    base64.StdEncoding.EncodeToString(ciphertext),
+		IV:      base64.StdEncoding.EncodeToString(iv),
+		Salt:    base64.StdEncoding.EncodeToString(salt),
+		Tag:     base64.StdEncoding.EncodeToString(tag),
+		Version: 1,
 	}
 
 	buf, err := json.Marshal(payload)
@@ -115,7 +118,12 @@ func DecryptDataFromString(encryptedStr string, key string) (string, error) {
 	combined = append(combined, ciphertext...)
 	combined = append(combined, tag...)
 
-	derivedKey := deriveKey(key, salt)
+	iterations, err := iterationsForPayloadVersion(payload.Version)
+	if err != nil {
+		return "", err
+	}
+
+	derivedKey := deriveKey(key, salt, iterations)
 	block, err := aes.NewCipher(derivedKey)
 	if err != nil {
 		return "", errors.New("decryption failed: invalid key or corrupted data")
@@ -134,6 +142,17 @@ func DecryptDataFromString(encryptedStr string, key string) (string, error) {
 	return string(plaintxt), nil
 }
 
-func deriveKey(password string, salt []byte) []byte {
-	return pbkdf2.Key([]byte(password), salt, pbkdf2Iterations, keyLengthBytes, sha256.New)
+func deriveKey(password string, salt []byte, iterations int) []byte {
+	return pbkdf2.Key([]byte(password), salt, iterations, keyLengthBytes, sha256.New)
+}
+
+func iterationsForPayloadVersion(version int) (int, error) {
+	switch version {
+	case 0:
+		return pbkdf2IterationsV0, nil
+	case 1:
+		return pbkdf2IterationsV1, nil
+	default:
+		return 0, errors.New("unsupported encrypted data version")
+	}
 }
