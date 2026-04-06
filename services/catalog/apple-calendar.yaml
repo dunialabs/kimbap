@@ -62,12 +62,15 @@ actions:
       level: low
   get-event:
     command: get-event
-    description: Get event details by title
+    description: Get event details by title (specify calendar to avoid timeout on multi-calendar setups)
     idempotent: true
     args:
       - name: title
         type: string
         required: true
+      - name: calendar
+        type: string
+        required: false
     response:
       type: object
     risk:
@@ -101,12 +104,15 @@ actions:
       level: medium
   search-events:
     command: search-events
-    description: Search events by keyword
+    description: Search events by keyword (specify calendar to avoid timeout on multi-calendar setups)
     idempotent: true
     args:
       - name: query
         type: string
         required: true
+      - name: calendar
+        type: string
+        required: false
     response:
       type: array
     risk:

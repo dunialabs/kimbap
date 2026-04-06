@@ -69,13 +69,22 @@ JSON.stringify(result);`,
 var app = Application("Calendar");
 app.includeStandardAdditions = false;
 
-var calendars = app.calendars();
+var calendars;
+if (input.calendar) {
+	calendars = app.calendars.whose({name: input.calendar})();
+	if (calendars.length === 0) throw new Error("[NOT_FOUND] calendar not found: " + input.calendar);
+} else {
+	calendars = app.calendars();
+}
 var matches = [];
 var checked = 0;
 var limit = 500;
+var startMs = Date.now();
+var TIMEOUT_MS = 15000;
 
 for (var i = 0; i < calendars.length; i++) {
 	if (checked >= limit) break;
+	if (Date.now() - startMs > TIMEOUT_MS) throw new Error("[TIMEOUT] get-event timed out scanning " + calendars.length + " calendars; specify --calendar to narrow the search");
 	var c = calendars[i];
 	var calName = c.name();
 	var events = c.events();
@@ -141,12 +150,21 @@ var app = Application("Calendar");
 app.includeStandardAdditions = false;
 
 var query = (input.query || "").toLowerCase();
-var calendars = app.calendars();
+var calendars;
+if (input.calendar) {
+	calendars = app.calendars.whose({name: input.calendar})();
+	if (calendars.length === 0) throw new Error("[NOT_FOUND] calendar not found: " + input.calendar);
+} else {
+	calendars = app.calendars();
+}
 var result = [];
 var checked = 0;
 var limit = 500;
+var startMs = Date.now();
+var TIMEOUT_MS = 15000;
 
 for (var i = 0; i < calendars.length && checked < limit; i++) {
+	if (Date.now() - startMs > TIMEOUT_MS) throw new Error("[TIMEOUT] search-events timed out scanning " + calendars.length + " calendars; specify --calendar to narrow the search");
 	var c = calendars[i];
 	var calName = c.name();
 	var events = c.events();

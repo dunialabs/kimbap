@@ -15,6 +15,8 @@ import (
 	"github.com/dunialabs/kimbap/internal/adapters/commands"
 )
 
+const defaultAppleScriptAdapterTimeout = 30 * time.Second
+
 type AppleScriptAdapter struct {
 	runner   CommandRunner
 	commands map[string]commands.Command
@@ -145,6 +147,9 @@ func (a *AppleScriptAdapter) Execute(ctx context.Context, req AdapterRequest) (*
 	if timeout <= 0 {
 		timeout = req.Action.Adapter.Timeout
 	}
+	if timeout <= 0 {
+		timeout = defaultAppleScriptAdapterTimeout
+	}
 	if timeout > 0 {
 		var cancel context.CancelFunc
 		execCtx, cancel = context.WithTimeout(ctx, timeout)
@@ -272,6 +277,10 @@ func mapAppleScriptError(stderr []byte, err error) *actions.ExecutionError {
 	case strings.Contains(stderrStr, "[AMBIGUOUS]"):
 		status = http.StatusConflict
 		code = actions.ErrValidationFailed
+	case strings.Contains(stderrStr, "[TIMEOUT]"):
+		status = http.StatusGatewayTimeout
+		code = actions.ErrDownstreamUnavailable
+		retryable = true
 	case strings.Contains(stderrStr, "-2700"):
 		lower := strings.ToLower(stderrStr)
 		if strings.Contains(lower, "application can't be found") ||

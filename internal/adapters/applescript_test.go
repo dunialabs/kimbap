@@ -413,6 +413,7 @@ func TestErrorMappingTable(t *testing.T) {
 		{"Timeout", "execution error: (-1712)", 504},
 		{"Object not found", "execution error: (-1728)", 404},
 		{"NOT_FOUND sentinel", "execution error: [NOT_FOUND] note not found (-2700)", 404},
+		{"TIMEOUT sentinel", "execution error: [TIMEOUT] get-event timed out scanning 19 calendars", 504},
 		{"Script error", "execution error: (-2700)", 500},
 		{"Unknown error", "some random error", 500},
 	}
@@ -521,6 +522,37 @@ func (r *truncatingRunner) Run(ctx context.Context, name string, args []string, 
 func (r *ctxCapturingRunner) Run(ctx context.Context, name string, args []string, stdin io.Reader) ([]byte, []byte, bool, bool, error) {
 	r.capturedCtx = ctx
 	return r.inner.Run(ctx, name, args, stdin)
+}
+
+func TestAppleScriptAdapterExecute_DefaultTimeout(t *testing.T) {
+	capturing := &ctxCapturingRunner{
+		inner: NewMockRunner([]byte(`{"ok":true}`), nil, nil),
+	}
+	a := NewAppleScriptAdapter(capturing)
+
+	_, err := a.Execute(context.Background(), AdapterRequest{
+		Action: actions.ActionDefinition{
+			Adapter: actions.AdapterConfig{
+				Command:   "list-notes",
+				TargetApp: "Notes",
+			},
+		},
+		Input: map[string]any{},
+	})
+	if err != nil {
+		t.Fatalf("Execute() error = %v, want nil", err)
+	}
+	if capturing.capturedCtx == nil {
+		t.Fatal("context was never passed to runner")
+	}
+	deadline, hasDeadline := capturing.capturedCtx.Deadline()
+	if !hasDeadline {
+		t.Fatal("Execute() without explicit timeout should still set a default deadline")
+	}
+	remaining := time.Until(deadline)
+	if remaining > 31*time.Second || remaining < 1*time.Second {
+		t.Fatalf("default deadline remaining = %v, want ~30s", remaining)
+	}
 }
 
 func TestAppleScriptAdapterExecute_ConfigurableTimeout(t *testing.T) {

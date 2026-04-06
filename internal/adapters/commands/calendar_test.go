@@ -97,6 +97,52 @@ func TestCalendarListEventsHasDefaultLimit(t *testing.T) {
 	}
 }
 
+func TestCalendarGetEventHasTimeoutGuard(t *testing.T) {
+	cmd := CalendarCommands()["get-event"]
+	if !strings.Contains(cmd.Script, "[TIMEOUT]") {
+		t.Fatal("get-event should emit [TIMEOUT] sentinel when scanning takes too long")
+	}
+	if !strings.Contains(cmd.Script, "TIMEOUT_MS") {
+		t.Fatal("get-event should define a TIMEOUT_MS threshold")
+	}
+	if !strings.Contains(cmd.Script, "specify --calendar") {
+		t.Fatal("get-event timeout message should hint --calendar")
+	}
+}
+
+func TestCalendarSearchEventsHasTimeoutGuard(t *testing.T) {
+	cmd := CalendarCommands()["search-events"]
+	if !strings.Contains(cmd.Script, "[TIMEOUT]") {
+		t.Fatal("search-events should emit [TIMEOUT] sentinel when scanning takes too long")
+	}
+	if !strings.Contains(cmd.Script, "TIMEOUT_MS") {
+		t.Fatal("search-events should define a TIMEOUT_MS threshold")
+	}
+	if !strings.Contains(cmd.Script, "specify --calendar") {
+		t.Fatal("search-events timeout message should hint --calendar")
+	}
+}
+
+func TestCalendarGetEventSupportsCalendarScoping(t *testing.T) {
+	cmd := CalendarCommands()["get-event"]
+	if !strings.Contains(cmd.Script, "input.calendar") {
+		t.Fatal("get-event should support optional --calendar parameter to scope search")
+	}
+	if !strings.Contains(cmd.Script, `app.calendars.whose({name: input.calendar})`) {
+		t.Fatal("get-event should filter calendars by name when --calendar is provided")
+	}
+}
+
+func TestCalendarSearchEventsSupportsCalendarScoping(t *testing.T) {
+	cmd := CalendarCommands()["search-events"]
+	if !strings.Contains(cmd.Script, "input.calendar") {
+		t.Fatal("search-events should support optional --calendar parameter to scope search")
+	}
+	if !strings.Contains(cmd.Script, `app.calendars.whose({name: input.calendar})`) {
+		t.Fatal("search-events should filter calendars by name when --calendar is provided")
+	}
+}
+
 func TestCalendarCreateEventUsesEventClass(t *testing.T) {
 	cmd := CalendarCommands()["create-event"]
 	if strings.Contains(cmd.Script, "app.CalendarEvent(") {
