@@ -182,6 +182,10 @@ func (m *Manager) CompleteLogin(ctx context.Context, tenantID, name string, code
 	}
 	state.LastRefreshError = ""
 	state.RevokedAt = nil
+	state.FlowUsed = FlowDevice
+	if state.ConnectionScope == "" {
+		state.ConnectionScope = cfg.ConnectionScope
+	}
 	state.Status = deriveStatus(state)
 	state.UpdatedAt = now
 	if err := m.saveState(ctx, state); err != nil {

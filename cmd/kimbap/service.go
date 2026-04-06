@@ -451,6 +451,11 @@ func newServiceEnableCommand() *cobra.Command {
 			if enabledService, getErr := installer.Get(name); getErr != nil {
 				_, _ = fmt.Fprintf(os.Stderr, "warning: enabled service alias setup skipped for %s: %v\n", name, getErr)
 			} else {
+				if strings.HasPrefix(strings.TrimSpace(enabledService.Source), "registry:") {
+					if credErr := ensureInstalledServiceCredentials(commandContext(cmd), cfg, &enabledService.Manifest); credErr != nil {
+						return credErr
+					}
+				}
 				shortcutResult := applyInstalledShortcuts(cfg, installer, &enabledService.Manifest, "enabled")
 				autoAlias = shortcutResult.AutoAlias
 				autoAliasCreated = shortcutResult.AutoAliasCreated
