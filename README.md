@@ -7,6 +7,7 @@
 > **Turn anything into a CLI your agent can use. Securely.**
 > REST APIs, CLI tools, macOS apps — one YAML, one command.
 > Credentials never enter the agent process.
+> Cuts agent token usage by up to 90%.
 
 ![Go](https://img.shields.io/badge/go-%3E%3D1.24-green.svg)
 ![License](https://img.shields.io/badge/license-MIT-blue.svg)
