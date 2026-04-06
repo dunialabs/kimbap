@@ -37,7 +37,6 @@ type ApprovalRequest struct {
 	Action            string
 	Risk              string
 	Input             map[string]any
-	PolicyRuleID      string
 	CreatedAt         time.Time
 	ExpiresAt         time.Time
 	Status            ApprovalStatus

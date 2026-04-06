@@ -202,6 +202,10 @@ func (m *Manager) CompleteLogin(ctx context.Context, tenantID, name string, code
 }
 
 func (m *Manager) Refresh(ctx context.Context, tenantID, name string) error {
+	return m.refreshOnce(ctx, tenantID, name)
+}
+
+func (m *Manager) doRefresh(ctx context.Context, tenantID, name string) error {
 	cfg, err := m.configFor(name)
 	if err != nil {
 		return err
@@ -340,7 +344,7 @@ func (m *Manager) refreshOnce(ctx context.Context, tenantID, name string) error 
 			delete(m.refreshing, key)
 			m.refreshMu.Unlock()
 		}()
-		r.err = m.Refresh(context.WithoutCancel(ctx), tenantID, name)
+		r.err = m.doRefresh(context.WithoutCancel(ctx), tenantID, name)
 	}()
 
 	return r.err

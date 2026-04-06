@@ -83,8 +83,6 @@ type ApprovalRequest struct {
 	Principal actions.Principal
 	Action    actions.ActionDefinition
 	Input     map[string]any
-	Reason    string
-	Deadline  *time.Time
 	Meta      map[string]any
 }
 
