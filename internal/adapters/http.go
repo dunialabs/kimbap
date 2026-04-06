@@ -19,6 +19,7 @@ import (
 
 	"github.com/dunialabs/kimbap/internal/actions"
 	"github.com/dunialabs/kimbap/internal/headerutil"
+	"github.com/dunialabs/kimbap/internal/pathutil"
 )
 
 type HTTPAdapter struct {
@@ -209,7 +210,7 @@ func (a *HTTPAdapter) executeWithPagination(ctx context.Context, req AdapterRequ
 			if cursorPath == "" {
 				cursorPath = "next_cursor"
 			}
-			nextCursor, _ := extractByPath(result.Output, cursorPath)
+			nextCursor, _ := pathutil.ExtractByPath(result.Output, cursorPath)
 			if s, ok := nextCursor.(string); ok && s != "" {
 				cursor = s
 			} else {
@@ -802,7 +803,7 @@ func normalizeOutput(body []byte, extract string) (map[string]any, error) {
 	}
 
 	if strings.TrimSpace(extract) != "" {
-		value, ok := extractByPath(parsed, extract)
+		value, ok := pathutil.ExtractByPath(parsed, extract)
 		if !ok {
 			return nil, fmt.Errorf("extract path %q not found", extract)
 		}
@@ -818,57 +819,7 @@ func normalizeOutput(body []byte, extract string) (map[string]any, error) {
 	return map[string]any{"result": parsed}, nil
 }
 
-func extractByPath(value any, path string) (any, bool) {
-	parts := strings.Split(strings.TrimPrefix(path, "."), ".")
-	current := value
-	for _, part := range parts {
-		if part == "" {
-			continue
-		}
-		next, ok := extractSegment(current, part)
-		if !ok {
-			return nil, false
-		}
-		current = next
-	}
-	return current, true
-}
-
-func extractSegment(value any, segment string) (any, bool) {
-	key := segment
-	index := -1
-	if open := strings.Index(segment, "["); open >= 0 && strings.HasSuffix(segment, "]") {
-		key = segment[:open]
-		idx, err := strconv.Atoi(segment[open+1 : len(segment)-1])
-		if err != nil {
-			return nil, false
-		}
-		index = idx
-	}
-
-	var current any = value
-	if key != "" {
-		obj, ok := current.(map[string]any)
-		if !ok {
-			return nil, false
-		}
-		next, ok := obj[key]
-		if !ok {
-			return nil, false
-		}
-		current = next
-	}
-
-	if index >= 0 {
-		arr, ok := current.([]any)
-		if !ok || index < 0 || index >= len(arr) {
-			return nil, false
-		}
-		current = arr[index]
-	}
-
-	return current, true
-}
+// Note: extractByPath and extractSegment have been moved to internal/pathutil and are no longer defined here.
 
 func mapHTTPError(status int, _ map[int]string) string {
 	switch status {
