@@ -104,6 +104,14 @@ actions:
         Accept: application/json
     response:
       type: object
+      filter:
+        select:
+          display_name: display_name
+          lat: lat
+          lon: lon
+          type: type
+          address: address
+        drop_nulls: true
     risk:
       level: low
   lookup:
