@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"os"
@@ -345,7 +346,9 @@ func checkInitLocalAdapterReadiness(selection initServiceSelection, hasFailure b
 				issues = append(issues, fmt.Sprintf("%s (missing target_app)", name))
 				continue
 			}
-			if err := exec.Command("osascript", "-e", fmt.Sprintf("id of application \"%s\"", target)).Run(); err != nil {
+			appJSON, _ := json.Marshal(target)
+			probe := fmt.Sprintf("id of application %s", string(appJSON))
+			if err := exec.Command("osascript", "-e", probe).Run(); err != nil {
 				issues = append(issues, fmt.Sprintf("%s (application unavailable: %s)", name, target))
 			}
 		}

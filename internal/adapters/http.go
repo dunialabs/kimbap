@@ -84,7 +84,8 @@ func isPrivateOrLoopbackHost(host string) bool {
 
 func stripSensitiveRedirectHeaders(headers http.Header) {
 	for key := range headers {
-		if headerutil.IsCredentialLikeHeader(key) {
+		lk := strings.ToLower(strings.TrimSpace(key))
+		if headerutil.IsCredentialLikeHeader(key) || lk == "cookie" {
 			headers.Del(key)
 		}
 	}

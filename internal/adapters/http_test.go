@@ -69,8 +69,8 @@ func TestSecureRedirectPolicyStripsCredentialLikeHeaders(t *testing.T) {
 	if got := redirectReq.Header.Get("X-Access-Token"); got != "" {
 		t.Fatalf("expected X-Access-Token stripped, got %q", got)
 	}
-	if got := redirectReq.Header.Get("Cookie"); got != "session=keep" {
-		t.Fatalf("expected Cookie preserved for redirect policy, got %q", got)
+	if got := redirectReq.Header.Get("Cookie"); got != "" {
+		t.Fatalf("expected Cookie stripped on cross-host redirect, got %q", got)
 	}
 	if got := redirectReq.Header.Get("Content-Type"); got != "application/json" {
 		t.Fatalf("expected Content-Type preserved, got %q", got)

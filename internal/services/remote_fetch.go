@@ -85,6 +85,9 @@ func newRemoteFetchClient(initialURL *url.URL, opts remoteFetchOptions) *http.Cl
 			if resolveErr != nil {
 				return nil, fmt.Errorf("resolve %q: %w", host, resolveErr)
 			}
+			if len(addrs) == 0 {
+				return nil, fmt.Errorf("no address resolved for %q", host)
+			}
 			for _, a := range addrs {
 				ip := a.IP
 				if ip.IsLoopback() || ip.IsPrivate() || ip.IsLinkLocalUnicast() || ip.IsLinkLocalMulticast() {

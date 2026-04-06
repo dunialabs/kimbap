@@ -880,13 +880,20 @@ func normalizeBaseURL(raw string) (string, error) {
 // whether the requirement is compound (multiple schemes in one requirement — AND logic).
 func firstReferencedSecurityScheme(root map[string]any) (string, bool) {
 	security := anySliceAt(root, "security")
+	nonEmpty := 0
+	for _, item := range security {
+		req, ok := item.(map[string]any)
+		if ok && len(req) > 0 {
+			nonEmpty++
+		}
+	}
 	for _, item := range security {
 		req, ok := item.(map[string]any)
 		if !ok || len(req) == 0 {
 			continue
 		}
 		keys := sortedMapKeys(req)
-		return keys[0], len(keys) > 1
+		return keys[0], len(keys) > 1 || nonEmpty > 1
 	}
 	return "", false
 }
@@ -1072,13 +1079,20 @@ func extractOperationAuth(op map[string]any, root map[string]any, resolver *open
 }
 
 func firstReferencedSecuritySchemeFromList(security []any) (string, bool) {
+	nonEmpty := 0
+	for _, item := range security {
+		req, ok := item.(map[string]any)
+		if ok && len(req) > 0 {
+			nonEmpty++
+		}
+	}
 	for _, item := range security {
 		req, ok := item.(map[string]any)
 		if !ok || len(req) == 0 {
 			continue
 		}
 		keys := sortedMapKeys(req)
-		return keys[0], len(keys) > 1
+		return keys[0], len(keys) > 1 || nonEmpty > 1
 	}
 	return "", false
 }
