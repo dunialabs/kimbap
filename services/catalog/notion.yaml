@@ -193,11 +193,6 @@ actions:
     response:
       extract: results
       type: array
-      filter:
-        select:
-          id: id
-          type: type
-        drop_nulls: true
     risk:
       level: low
   query-database:
