@@ -4,18 +4,83 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"strings"
 	"sync"
 
 	"github.com/dunialabs/kimbap/internal/actions"
-	"github.com/dunialabs/kimbap/internal/runtime"
+	"github.com/dunialabs/kimbap/internal/approvals"
+	runtimepkg "github.com/dunialabs/kimbap/internal/runtime"
 	"github.com/dunialabs/kimbap/internal/store"
 )
+
+type ApprovalManagerAdapter struct {
+	mgr *approvals.ApprovalManager
+}
+
+func NewApprovalManagerAdapter(mgr *approvals.ApprovalManager) runtimepkg.ApprovalManager {
+	if mgr == nil {
+		return nil
+	}
+	return &ApprovalManagerAdapter{mgr: mgr}
+}
+
+func (a *ApprovalManagerAdapter) CreateRequest(ctx context.Context, req runtimepkg.ApprovalRequest) (*runtimepkg.ApprovalResult, error) {
+	if a == nil || a.mgr == nil {
+		return nil, fmt.Errorf("approval manager unavailable")
+	}
+	approvalReq := &approvals.ApprovalRequest{
+		TenantID:  req.TenantID,
+		RequestID: req.RequestID,
+		AgentName: req.Principal.AgentName,
+		Risk:      req.Action.Risk.DocVocab(),
+		Input:     req.Input,
+	}
+	actionName := strings.TrimSpace(req.Action.Name)
+	if actionName != "" {
+		if svc, action, ok := strings.Cut(actionName, "."); ok {
+			approvalReq.Service = strings.TrimSpace(svc)
+			actionName = strings.TrimSpace(action)
+		}
+	}
+	if approvalReq.Service == "" {
+		approvalReq.Service = strings.TrimSpace(req.Action.Namespace)
+	}
+	approvalReq.Action = actionName
+	if err := a.mgr.Submit(ctx, approvalReq); err != nil {
+		return nil, err
+	}
+
+	return &runtimepkg.ApprovalResult{
+		Approved:  false,
+		RequestID: approvalReq.ID,
+		Reason:    "approval pending",
+		Meta: map[string]any{
+			"approval_id": approvalReq.ID,
+			"status":      "pending",
+		},
+	}, nil
+}
+
+func (a *ApprovalManagerAdapter) CancelRequest(ctx context.Context, approvalRequestID string, reason string) error {
+	if a == nil || a.mgr == nil {
+		return fmt.Errorf("approval manager unavailable")
+	}
+	approvalRequestID = strings.TrimSpace(approvalRequestID)
+	if approvalRequestID == "" {
+		return fmt.Errorf("approval request id is required")
+	}
+	reason = strings.TrimSpace(reason)
+	if reason == "" {
+		reason = "cancelled by runtime"
+	}
+	return a.mgr.Deny(ctx, approvalRequestID, "system", reason)
+}
 
 type sqlHeldExecutionStore struct {
 	st store.HeldExecutionStore
 }
 
-func NewSQLHeldExecutionStore(st store.HeldExecutionStore) runtime.HeldExecutionStore {
+func NewSQLHeldExecutionStore(st store.HeldExecutionStore) runtimepkg.HeldExecutionStore {
 	return &sqlHeldExecutionStore{st: st}
 }
 
@@ -51,7 +116,7 @@ type memoryHeldExecutionStore struct {
 	held map[string]actions.ExecutionRequest
 }
 
-func NewMemoryHeldExecutionStore() runtime.HeldExecutionStore {
+func NewMemoryHeldExecutionStore() runtimepkg.HeldExecutionStore {
 	return &memoryHeldExecutionStore{held: map[string]actions.ExecutionRequest{}}
 }
 
