@@ -154,9 +154,7 @@ func projectArray(items []any, selectMap map[string]string) ([]any, []string, er
 	result := make([]any, 0, len(items))
 	allMissing := make(map[string]bool)
 	foundAny := false
-
-	// Track which paths ever succeeded across all items
-	everFound := make(map[string]bool)
+	hadMapItem := false
 
 	for _, item := range items {
 		m, ok := item.(map[string]any)
@@ -164,6 +162,7 @@ func projectArray(items []any, selectMap map[string]string) ([]any, []string, er
 			result = append(result, item)
 			continue
 		}
+		hadMapItem = true
 		projected, missing := projectItem(m, selectMap)
 		result = append(result, projected)
 		if len(projected) > 0 {
@@ -172,14 +171,11 @@ func projectArray(items []any, selectMap map[string]string) ([]any, []string, er
 		for _, p := range missing {
 			allMissing[p] = true
 		}
-		for k := range projected {
-			_ = k
-			everFound[k] = true
-		}
 	}
 
-	// If no item produced any output at all → error
-	if !foundAny && len(items) > 0 {
+	// Error only when we had map items but none produced any projected output
+	// (primitive items pass through and do not count toward the "all paths missing" error)
+	if hadMapItem && !foundAny {
 		missing := make([]string, 0, len(allMissing))
 		for p := range allMissing {
 			missing = append(missing, p)
@@ -189,8 +185,7 @@ func projectArray(items []any, selectMap map[string]string) ([]any, []string, er
 
 	// Partial miss: paths that never appeared in any item
 	partialMiss := make([]string, 0)
-	for outputKey, sourcePath := range selectMap {
-		_ = outputKey
+	for _, sourcePath := range selectMap {
 		found := false
 		for _, item := range items {
 			m, ok := item.(map[string]any)
@@ -394,13 +389,6 @@ func truncateLongStrings(m map[string]any, maxChars int) map[string]any {
 }
 
 // ── Compact text templates (T11) ─────────────────────────────────────────
-
-// CompactResult is the output of ApplyCompactTemplate.
-type CompactResult struct {
-	Summary        string `json:"summary"`
-	Compact        bool   `json:"_compact"`
-	OriginalItems  int    `json:"_original_items"`
-}
 
 // ApplyCompactTemplate renders structured array data into a text summary.
 // Applied AFTER filter (select/max_items), so template sees already-filtered fields.

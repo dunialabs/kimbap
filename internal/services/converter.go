@@ -69,7 +69,7 @@ func toHTTPDefinitions(svc *ServiceManifest) ([]actions.ActionDefinition, error)
 			InputSchema:  buildInputSchema(actionSpec.Args, actionSpec.Request.PathParams, actionSpec.Pagination),
 			OutputSchema: buildOutputSchema(actionSpec.Response),
 			Defaults:     collectDefaults(actionSpec.Args),
-			FilterConfig:    convertFilterSpec(actionSpec.Response.Filter),
+			FilterConfig: convertFilterSpec(actionSpec.Response.Filter),
 			CompactTemplate: convertCompactSpec(actionSpec.Response.Compact),
 			Adapter: actions.AdapterConfig{
 				Type:        "http",
@@ -130,7 +130,7 @@ func toAppleScriptDefinitions(svc *ServiceManifest) ([]actions.ActionDefinition,
 			InputSchema:  buildInputSchema(actionSpec.Args, nil, nil),
 			OutputSchema: buildOutputSchema(actionSpec.Response),
 			Defaults:     collectDefaults(actionSpec.Args),
-			FilterConfig:    convertFilterSpec(actionSpec.Response.Filter),
+			FilterConfig: convertFilterSpec(actionSpec.Response.Filter),
 			CompactTemplate: convertCompactSpec(actionSpec.Response.Compact),
 			Adapter: actions.AdapterConfig{
 				Type:           "applescript",
@@ -237,7 +237,7 @@ func toCommandDefinitions(svc *ServiceManifest) ([]actions.ActionDefinition, err
 			InputSchema:  buildInputSchema(actionSpec.Args, nil, nil),
 			OutputSchema: buildOutputSchema(actionSpec.Response),
 			Defaults:     collectDefaults(actionSpec.Args),
-			FilterConfig:    convertFilterSpec(actionSpec.Response.Filter),
+			FilterConfig: convertFilterSpec(actionSpec.Response.Filter),
 			CompactTemplate: convertCompactSpec(actionSpec.Response.Compact),
 			Adapter: actions.AdapterConfig{
 				Type:           "command",

@@ -2,6 +2,7 @@ package pathutil
 
 import (
 	"sort"
+	"strconv"
 	"strings"
 )
 
@@ -113,29 +114,7 @@ func DetectPayloadRoot(output map[string]interface{}) (string, interface{}) {
 	return "", output
 }
 
-// helper: fast strconv.Atoi with error passthrough (inlined for no extra deps)
+// strconvAtoiSafe parses a non-negative integer string, returning an error on invalid input.
 func strconvAtoiSafe(s string) (int, error) {
-	// simple fallback, reusing standard library by avoiding import in this minimal file
-	// Since we cannot import strconv here due to patch constraints, implement a tiny parser
-	// that handles non-negative integers (0..9). If invalid, return error.
-	if s == "" {
-		return 0, strconvError("empty")
-	}
-	n := 0
-	for i := 0; i < len(s); i++ {
-		c := s[i]
-		if c < '0' || c > '9' {
-			return 0, strconvError("invalid digit")
-		}
-		n = n*10 + int(c-'0')
-		if n < 0 { // overflow guard
-			return 0, strconvError("overflow")
-		}
-	}
-	return n, nil
+	return strconv.Atoi(s)
 }
-
-// tiny error type to satisfy return type without importing strconv
-type strconvError string
-
-func (e strconvError) Error() string { return string(e) }

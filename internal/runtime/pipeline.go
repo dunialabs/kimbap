@@ -581,6 +581,8 @@ func (r *Runtime) executeFromCredentialsWithState(
 					compacted, compactErr := ApplyCompactTemplate(finalResult.Output, req.Action.CompactTemplate)
 					if compactErr == nil {
 						finalResult.Output = compacted
+					} else {
+						finalResult.Meta["compact_error"] = compactErr.Error()
 					}
 				}
 			}
