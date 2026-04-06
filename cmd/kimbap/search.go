@@ -81,6 +81,61 @@ func newSearchCommand() *cobra.Command {
 				if outputAsJSON() {
 					return printOutput([]searchResult{})
 				}
+				if service == "" {
+					summaries, catalogErr := loadCatalogServiceSummaries(cfg)
+					if catalogErr == nil {
+						catalogResults := catalogSearchResults(summaries, terms)
+						notActive := make([]catalogSearchResult, 0, len(catalogResults))
+						for _, r := range catalogResults {
+							if !r.Enabled {
+								notActive = append(notActive, r)
+							}
+						}
+						if len(notActive) > 0 {
+							showLimit := limit
+							if showLimit <= 0 || showLimit > len(notActive) {
+								showLimit = len(notActive)
+							}
+							show := notActive[:showLimit]
+							fmt.Println("No matching actions found in installed services.")
+							fmt.Println()
+							fmt.Println("Found in catalog:")
+							for _, r := range show {
+								desc := r.Description
+								if desc == "" {
+									desc = "-"
+								}
+								fmt.Printf("  %-22s %-14s %s\n", r.Name, r.Status, desc)
+							}
+							if len(notActive) > showLimit {
+								fmt.Printf("  ... and %d more\n", len(notActive)-showLimit)
+							}
+							fmt.Println()
+							if len(notActive) == 1 {
+								for _, s := range summaries {
+									if s.Name == notActive[0].Name {
+										fmt.Println(catalogServiceInstallHint(s))
+										break
+									}
+								}
+							} else {
+								hasDisabled := false
+								for _, r := range notActive {
+									if r.Installed {
+										hasDisabled = true
+										break
+									}
+								}
+								if hasDisabled {
+									fmt.Println("Run 'kimbap service install <name>' to install, or 'kimbap service enable <name>' to enable.")
+								} else {
+									fmt.Println("Run 'kimbap service install <name>' to install.")
+								}
+							}
+							return nil
+						}
+					}
+				}
 				return printOutput("No matching actions found.")
 			}
 

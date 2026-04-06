@@ -148,19 +148,38 @@ func resolveChecklistServiceSelectionFromReader(reader io.Reader) (initServiceSe
 		}
 	}
 
+	canRedraw := isInteractiveTTY(os.Stderr) && os.Getenv("TERM") != "dumb"
+	prevLines := 0
+	statusMsg := ""
+
 	br := bufio.NewReader(reader)
 	for {
+		if canRedraw && prevLines > 0 {
+			_, _ = fmt.Fprintf(os.Stderr, "\033[%dA\033[J", prevLines+1)
+		}
+
+		lineCount := 0
 		_, _ = fmt.Fprintln(os.Stderr)
+		lineCount++
 		_, _ = fmt.Fprintln(os.Stderr, "Service checklist (checkbox style)")
+		lineCount++
 		_, _ = fmt.Fprintln(os.Stderr, "Commands: <idx>[,<idx>...] toggle · a=all · n=none · r=recommended · d=done · q=skip")
+		lineCount++
 		for idx, name := range all {
 			mark := " "
 			if selected[name] {
 				mark = "x"
 			}
 			_, _ = fmt.Fprintf(os.Stderr, " [%s] %2d) %s\n", mark, idx+1, name)
+			lineCount++
+		}
+		if statusMsg != "" {
+			_, _ = fmt.Fprintln(os.Stderr, statusMsg)
+			lineCount++
 		}
 		_, _ = fmt.Fprint(os.Stderr, "Select> ")
+		prevLines = lineCount
+		statusMsg = ""
 
 		line, readErr := br.ReadString('\n')
 		if readErr != nil && !errors.Is(readErr, io.EOF) {
@@ -201,7 +220,11 @@ func resolveChecklistServiceSelectionFromReader(reader io.Reader) (initServiceSe
 		default:
 			indices, parseErr := parseChecklistIndices(trimmed, len(all))
 			if parseErr != nil {
-				_, _ = fmt.Fprintf(os.Stderr, "Invalid selection: %v\n", parseErr)
+				if canRedraw {
+					statusMsg = fmt.Sprintf("Invalid selection: %v", parseErr)
+				} else {
+					_, _ = fmt.Fprintf(os.Stderr, "Invalid selection: %v\n", parseErr)
+				}
 				continue
 			}
 			for _, idx := range indices {

@@ -225,8 +225,57 @@ func showSplashOnce() {
 	if fi, err := os.Stdout.Stat(); err != nil || (fi.Mode()&os.ModeCharDevice) == 0 {
 		return
 	}
+	if splashShownRecently() {
+		splashShown = true
+		return
+	}
 	splash.Print(splashOptions())
+	markSplashShown()
 	splashShown = true
+}
+
+func splashShownRecently() bool {
+	stampPath, ok := resolveSplashStampPath()
+	if !ok {
+		return false
+	}
+	raw, err := os.ReadFile(stampPath)
+	if err != nil {
+		return false
+	}
+	ts, err := strconv.ParseInt(strings.TrimSpace(string(raw)), 10, 64)
+	if err != nil {
+		return false
+	}
+	shownAt := time.Unix(ts, 0)
+	if shownAt.After(time.Now()) {
+		return false
+	}
+	return time.Since(shownAt) < 2*time.Hour
+}
+
+func markSplashShown() {
+	stampPath, ok := resolveSplashStampPath()
+	if !ok {
+		return
+	}
+	if err := os.MkdirAll(filepath.Dir(stampPath), 0o700); err != nil {
+		return
+	}
+	_ = os.WriteFile(stampPath, []byte(strconv.FormatInt(time.Now().Unix(), 10)), 0o600)
+}
+
+func resolveSplashStampPath() (string, bool) {
+	cfg, err := loadBaseConfigForCLI()
+	if err != nil {
+		return "", false
+	}
+	config.ApplyDataDirOverride(cfg, opts.dataDir)
+	dataDir := strings.TrimSpace(cfg.DataDir)
+	if dataDir == "" {
+		return "", false
+	}
+	return filepath.Join(dataDir, ".splash-stamp"), true
 }
 
 func shouldSuppressSplashForInvocation(args []string) bool {

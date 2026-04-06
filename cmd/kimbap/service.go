@@ -122,7 +122,7 @@ func newServiceInstallCommand() *cobra.Command {
 				msg += fmt.Sprintf(" (alias: %s)", autoAlias)
 			}
 			if len(actionAliasesCreated) > 0 {
-				msg += fmt.Sprintf(" (action aliases: %s)", strings.Join(actionAliasesCreated, ", "))
+				msg += fmt.Sprintf(" (action aliases: %s)", formatActionAliasesSummary(actionAliasesCreated))
 			}
 			maybePrintAgentSyncHint(opts.format)
 			return printOutput(msg)
@@ -473,7 +473,7 @@ func newServiceEnableCommand() *cobra.Command {
 				msg += fmt.Sprintf(" (alias: %s)", autoAlias)
 			}
 			if len(actionAliasesCreated) > 0 {
-				msg += fmt.Sprintf(" (action aliases: %s)", strings.Join(actionAliasesCreated, ", "))
+				msg += fmt.Sprintf(" (action aliases: %s)", formatActionAliasesSummary(actionAliasesCreated))
 			}
 			return printOutput(msg)
 		},
@@ -661,7 +661,7 @@ func newServiceUpdateCommand() *cobra.Command {
 				msg += fmt.Sprintf(" (alias: %s)", autoAlias)
 			}
 			if len(actionAliasesCreated) > 0 {
-				msg += fmt.Sprintf(" (action aliases: %s)", strings.Join(actionAliasesCreated, ", "))
+				msg += fmt.Sprintf(" (action aliases: %s)", formatActionAliasesSummary(actionAliasesCreated))
 			}
 			return printOutput(msg)
 		},
@@ -1343,4 +1343,11 @@ func maybePrintAgentSyncHint(format string) {
 		_, _ = fmt.Fprintf(os.Stderr, "\nwarning: automatic agent sync skipped: %v\n", syncErr)
 	}
 	_, _ = fmt.Fprintln(os.Stderr, "\nHint: Run 'kimbap agents sync' to update your AI agents with this change.")
+}
+
+func formatActionAliasesSummary(aliases []string) string {
+	if len(aliases) <= 3 {
+		return strings.Join(aliases, ", ")
+	}
+	return strings.Join(aliases[:3], ", ") + fmt.Sprintf(", ... and %d more", len(aliases)-3)
 }
