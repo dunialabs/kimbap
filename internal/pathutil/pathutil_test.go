@@ -106,3 +106,12 @@ func TestDetectPayloadRoot(t *testing.T) {
 		t.Fatalf("expected payload to be array for fallback case, got %#v", payload3)
 	}
 }
+
+func TestExtractSegment_NegativeIndex(t *testing.T) {
+	arr := []interface{}{"a", "b", "c"}
+	// Negative index should return not-found, not the container
+	_, ok := ExtractSegment(arr, "[-1]")
+	if ok {
+		t.Error("negative index should return (nil, false)")
+	}
+}

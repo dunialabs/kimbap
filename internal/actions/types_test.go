@@ -256,3 +256,46 @@ func TestValidateInputRejectsUnknownNestedFieldWhenStrictSchema(t *testing.T) {
 		t.Fatalf("expected unknown nested field error, got %q", err.Message)
 	}
 }
+
+func TestValidateInputNestedRequiredRejectsBlankString(t *testing.T) {
+	// Nested required string with blank value should fail (same as top-level)
+	schema := &Schema{
+		Type: "object",
+		Properties: map[string]*Schema{
+			"config": {
+				Type: "object",
+				Properties: map[string]*Schema{
+					"name": {Type: "string"},
+				},
+				Required: []string{"name"},
+			},
+		},
+	}
+	err := ValidateInput(schema, map[string]any{
+		"config": map[string]any{"name": "   "}, // blank string
+	})
+	if err == nil {
+		t.Error("blank nested required string should fail validation")
+	}
+}
+
+func TestValidateInputNestedRequiredAcceptsNonBlank(t *testing.T) {
+	schema := &Schema{
+		Type: "object",
+		Properties: map[string]*Schema{
+			"config": {
+				Type: "object",
+				Properties: map[string]*Schema{
+					"name": {Type: "string"},
+				},
+				Required: []string{"name"},
+			},
+		},
+	}
+	err := ValidateInput(schema, map[string]any{
+		"config": map[string]any{"name": "valid"},
+	})
+	if err != nil {
+		t.Errorf("non-blank nested required string should pass: %v", err)
+	}
+}
