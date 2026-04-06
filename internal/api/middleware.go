@@ -16,9 +16,10 @@ import (
 type contextKey string
 
 const (
-	contextKeyPrincipal contextKey = "principal"
-	contextKeyTenant    contextKey = "tenant"
-	contextKeyRequestID contextKey = "request_id"
+	contextKeyPrincipal       contextKey = "principal"
+	contextKeyTenant          contextKey = "tenant"
+	contextKeyRequestID       contextKey = "request_id"
+	contextKeyClientRequestID contextKey = "client_request_id"
 )
 
 func BearerAuth(tokenService *auth.TokenService) func(next http.Handler) http.Handler {
@@ -107,12 +108,12 @@ func effectiveTenantID(principal *auth.Principal) string {
 func RequestID() func(next http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			id := sanitizeRequestID(r.Header.Get("X-Request-ID"))
-			if id == "" {
-				id = uuid.NewString()
-			}
+			id := uuid.NewString()
 			w.Header().Set("X-Request-ID", id)
 			ctx := context.WithValue(r.Context(), contextKeyRequestID, id)
+			if clientID := sanitizeRequestID(r.Header.Get("X-Request-ID")); clientID != "" {
+				ctx = context.WithValue(ctx, contextKeyClientRequestID, clientID)
+			}
 			next.ServeHTTP(w, r.WithContext(ctx))
 		})
 	}
