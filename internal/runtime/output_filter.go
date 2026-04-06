@@ -487,3 +487,19 @@ func renderTemplate(tmpl *template.Template, data any) (string, error) {
 func joinLines(lines []string) string {
 	return strings.Join(lines, "\n")
 }
+
+// coerceBudgetInt extracts a budget integer from any numeric type that input
+// parsing might produce: int (test literals), int64 (CLI parseScalar), float64
+// (JSON unmarshal). Returns 0 if the value is missing or non-numeric.
+func coerceBudgetInt(v any) int {
+	switch n := v.(type) {
+	case int:
+		return n
+	case int64:
+		return int(n)
+	case float64:
+		return int(n)
+	default:
+		return 0
+	}
+}

@@ -1102,3 +1102,43 @@ func TestPipelineFilterErrorImmunity(t *testing.T) {
 		t.Error("filter should not be applied on error response")
 	}
 }
+
+func TestPipelineBudget_Applied(t *testing.T) {
+	// Build output with 20 items — after filter, budget should trim to fit
+	items := make([]any, 20)
+	for i := range items {
+		items[i] = map[string]any{"id": i, "name": "item"}
+	}
+	rawOutput := map[string]any{"result": items}
+
+	rt := Runtime{
+		PolicyEvaluator: mockPolicyEvaluator{decision: &PolicyDecision{Decision: "allow"}},
+		AuditWriter:     &mockAuditWriter{},
+		Adapters: map[string]adapters.Adapter{
+			"http": mockAdapter{kind: "http", result: &adapters.AdapterResult{Output: rawOutput, HTTPStatus: 200}},
+		},
+	}
+	action := actions.ActionDefinition{
+		Name:        "test.budget",
+		InputSchema: &actions.Schema{Type: "object", AdditionalProperties: true},
+		Adapter:     actions.AdapterConfig{Type: "http", URLTemplate: "https://example.com"},
+		FilterConfig: &actions.FilterConfig{
+			Select: map[string]string{"id": "id"},
+		},
+	}
+	req := baseRequest(action)
+	req.Input["_budget"] = int64(100) // CLI path produces int64
+	res := rt.Execute(context.Background(), req)
+
+	if res.Status != actions.StatusSuccess {
+		t.Fatalf("expected success, got %s: %v", res.Status, res.Error)
+	}
+	// With budget=100 chars and 20 items, result should be trimmed
+	arr, ok := res.Output["result"].([]any)
+	if !ok {
+		t.Fatal("result should be array")
+	}
+	if len(arr) == 20 {
+		t.Error("budget should have trimmed the array from 20 items")
+	}
+}

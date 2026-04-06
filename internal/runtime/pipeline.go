@@ -565,7 +565,7 @@ func (r *Runtime) executeFromCredentialsWithState(
 				}
 
 				// Apply budget enforcement after structural filtering
-				if budget, ok := req.Input["_budget"].(int); ok && budget > 0 {
+				if budget := coerceBudgetInt(req.Input["_budget"]); budget > 0 {
 					budgeted, budgetMeta := ApplyBudget(finalResult.Output, budget)
 					finalResult.Output = budgeted
 					if budgetMeta.Applied {
