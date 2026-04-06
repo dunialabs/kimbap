@@ -58,3 +58,4 @@ tests/
 .opencode/
 .goreleaser.yml
 .dockerignore
+.wrangler/
