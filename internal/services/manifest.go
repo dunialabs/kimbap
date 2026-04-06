@@ -75,8 +75,16 @@ type RequestSpec struct {
 }
 
 type ResponseSpec struct {
-	Extract string `yaml:"extract"`
-	Type    string `yaml:"type"`
+	Extract string      `yaml:"extract"`
+	Type    string      `yaml:"type"`
+	Filter  *FilterSpec `yaml:"filter,omitempty"`
+}
+
+type FilterSpec struct {
+	Select    map[string]string `yaml:"select,omitempty"`
+	Exclude   []string          `yaml:"exclude,omitempty"`
+	MaxItems  int               `yaml:"max_items,omitempty"`
+	DropNulls bool              `yaml:"drop_nulls,omitempty"`
 }
 
 type RiskSpec struct {

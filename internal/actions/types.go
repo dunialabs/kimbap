@@ -229,6 +229,10 @@ type ActionDefinition struct {
 	ErrorMapping map[int]string
 	Pagination   *PaginationConfig
 	RateLimit    *RateLimitConfig
+	// Output filtering configuration applied at the action level (adapter-agnostic)
+	FilterConfig *FilterConfig // adapter-agnostic output filter
+	// Compact text template for list/search results
+	CompactTemplate *CompactTemplate // compact text template for list/search
 }
 
 type ExecutionRequest struct {
@@ -333,6 +337,40 @@ func ValidateInput(schema *Schema, input map[string]any) *ExecutionError {
 	}
 
 	return nil
+}
+
+// FilterConfig holds adapter-agnostic output filtering configuration for an action.
+type FilterConfig struct {
+	Select    map[string]string
+	Exclude   []string
+	MaxItems  int
+	DropNulls bool
+}
+
+// BudgetConfig represents a budget for output size control.
+type BudgetConfig struct {
+	MaxChars int
+	Overflow string
+}
+
+// FilterMeta tracks metadata about applied filtering for an action's output.
+type FilterMeta struct {
+	Applied            bool
+	FieldsSelected     int
+	FieldsExcluded     int
+	ItemsTruncatedFrom int
+	OriginalBytes      int
+	FilteredBytes      int
+	PartialMiss        []string
+	Skipped            string
+}
+
+// CompactTemplate defines a template for compact textual representations of items.
+type CompactTemplate struct {
+	Header   string
+	Item     string
+	Footer   string
+	MaxItems int
 }
 
 func requiredValueMissing(fieldSchema *Schema, value any) bool {
