@@ -379,26 +379,26 @@ func ApplyBudget(output map[string]any, maxBytes int) (map[string]any, BudgetMet
 	if threshold < 10 {
 		threshold = 10
 	}
+	var lastEncoded []byte
 	for range 10 {
 		prevEncoded, _ := json.Marshal(result)
 		prevSize := len(prevEncoded)
 		result = truncateLongStrings(result, threshold)
-		encoded, _ := json.Marshal(result)
-		if len(encoded) <= maxBytes {
-			meta.ResultBytes = len(encoded)
+		lastEncoded, _ = json.Marshal(result)
+		if len(lastEncoded) <= maxBytes {
+			meta.ResultBytes = len(lastEncoded)
 			return result, meta
 		}
 		// If no progress was made, lower threshold aggressively
-		if len(encoded) >= prevSize {
+		if len(lastEncoded) >= prevSize {
 			threshold = threshold / 2
 			if threshold < 10 {
 				break // can't shrink further
 			}
 		}
 	}
-	// Best effort — record final size even if still over budget
-	encoded, _ := json.Marshal(result)
-	meta.ResultBytes = len(encoded)
+	// Best effort — record size from last iteration (avoids redundant remarshal)
+	meta.ResultBytes = len(lastEncoded)
 	return result, meta
 }
 
