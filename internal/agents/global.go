@@ -464,6 +464,35 @@ func removeMarkerBlock(path string, dryRun bool) (bool, error) {
 	return true, atomicWriteFile(path, newContent)
 }
 
+// pathContainsSymlinkUnderRoot checks whether any existing component of path
+// (relative to root) is a symlink. Returns true if a symlink is found.
+func pathContainsSymlinkUnderRoot(path, root string) (bool, error) {
+	rel, err := filepath.Rel(root, path)
+	if err != nil {
+		return false, err
+	}
+	parts := strings.SplitAfter(filepath.ToSlash(rel), "/")
+	current := root
+	for _, part := range parts {
+		part = strings.Trim(part, "/")
+		if part == "" || part == "." {
+			continue
+		}
+		current = filepath.Join(current, part)
+		info, lstatErr := os.Lstat(current)
+		if lstatErr != nil {
+			if os.IsNotExist(lstatErr) {
+				return false, nil
+			}
+			return false, lstatErr
+		}
+		if info.Mode()&os.ModeSymlink != 0 {
+			return true, nil
+		}
+	}
+	return false, nil
+}
+
 // atomicWriteFile writes content to a temp file then renames it into place.
 func atomicWriteFile(path string, content string) error {
 	dir := filepath.Dir(path)

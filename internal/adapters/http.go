@@ -48,18 +48,34 @@ func secureRedirectPolicy(req *http.Request, via []*http.Request) error {
 		return nil
 	}
 
+	redirectHost := req.URL.Hostname()
+	if isPrivateOrLoopbackHost(redirectHost) {
+		return fmt.Errorf("redirect to private/loopback host %q is not allowed", redirectHost)
+	}
+
 	origin := via[0]
 	if origin == nil || origin.URL == nil {
 		return nil
 	}
 
-	crossHost := !strings.EqualFold(origin.URL.Hostname(), req.URL.Hostname()) || !strings.EqualFold(effectivePort(origin.URL), effectivePort(req.URL))
+	crossHost := !strings.EqualFold(origin.URL.Hostname(), redirectHost) || !strings.EqualFold(effectivePort(origin.URL), effectivePort(req.URL))
 	downgradedHTTPS := strings.EqualFold(origin.URL.Scheme, "https") && strings.EqualFold(req.URL.Scheme, "http")
 	if crossHost || downgradedHTTPS {
 		stripSensitiveRedirectHeaders(req.Header)
 	}
 
 	return nil
+}
+
+func isPrivateOrLoopbackHost(host string) bool {
+	if host == "localhost" {
+		return true
+	}
+	ip := net.ParseIP(host)
+	if ip == nil {
+		return false
+	}
+	return ip.IsLoopback() || ip.IsPrivate() || ip.IsLinkLocalUnicast() || ip.IsLinkLocalMulticast()
 }
 
 func stripSensitiveRedirectHeaders(headers http.Header) {

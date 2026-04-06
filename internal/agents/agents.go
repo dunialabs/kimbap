@@ -214,6 +214,23 @@ func SyncServices(installer ServiceInstaller, rulesContent string, opts SyncOpti
 		agentSkillsDir := ""
 		if selected.cfg.AgentSkillsDir != "" {
 			agentSkillsDir = filepath.Join(projectDir, selected.cfg.AgentSkillsDir)
+			if hasSymlink, slErr := pathContainsSymlinkUnderRoot(agentSkillsDir, projectDir); slErr != nil || hasSymlink {
+				errMsg := fmt.Sprintf("agent skills dir %q contains a symlink — skipping to prevent writes outside project", agentSkillsDir)
+				if slErr != nil {
+					errMsg = fmt.Sprintf("check agent skills dir %q: %v", agentSkillsDir, slErr)
+				}
+				result := SyncResult{
+					Agent:          selected.kind,
+					AgentSkillsDir: agentSkillsDir,
+					Written:        make([]string, 0),
+					Skipped:        make([]string, 0),
+					Protected:      make([]string, 0),
+					Failed:         make([]string, 0),
+					Errors:         []string{errMsg},
+				}
+				results = append(results, result)
+				continue
+			}
 		}
 		result := SyncResult{
 			Agent:          selected.kind,
@@ -380,19 +397,27 @@ func SyncServices(installer ServiceInstaller, rulesContent string, opts SyncOpti
 
 		if !opts.SkipRules {
 			rulesPath := filepath.Join(projectDir, selected.cfg.RulesFile)
-			needsWrite, checkErr := fileNeedsWrite(rulesPath, rulesContent, opts.Force)
-			if checkErr != nil {
-				result.Errors = append(result.Errors, fmt.Sprintf("rules: %v", checkErr))
-			} else if needsWrite {
-				if opts.DryRun {
-					result.RulesWritten = true
-				} else {
-					if err := os.MkdirAll(filepath.Dir(rulesPath), 0o755); err != nil {
-						result.Errors = append(result.Errors, fmt.Sprintf("rules: create dir: %v", err))
-					} else if err := atomicWriteFile(rulesPath, rulesContent); err != nil {
-						result.Errors = append(result.Errors, fmt.Sprintf("rules: write file: %v", err))
-					} else {
+			if hasSymlink, slErr := pathContainsSymlinkUnderRoot(filepath.Dir(rulesPath), projectDir); slErr != nil || hasSymlink {
+				errMsg := fmt.Sprintf("rules dir %q contains a symlink — skipping", filepath.Dir(rulesPath))
+				if slErr != nil {
+					errMsg = fmt.Sprintf("check rules dir: %v", slErr)
+				}
+				result.Errors = append(result.Errors, errMsg)
+			} else {
+				needsWrite, checkErr := fileNeedsWrite(rulesPath, rulesContent, opts.Force)
+				if checkErr != nil {
+					result.Errors = append(result.Errors, fmt.Sprintf("rules: %v", checkErr))
+				} else if needsWrite {
+					if opts.DryRun {
 						result.RulesWritten = true
+					} else {
+						if err := os.MkdirAll(filepath.Dir(rulesPath), 0o755); err != nil {
+							result.Errors = append(result.Errors, fmt.Sprintf("rules: create dir: %v", err))
+						} else if err := atomicWriteFile(rulesPath, rulesContent); err != nil {
+							result.Errors = append(result.Errors, fmt.Sprintf("rules: write file: %v", err))
+						} else {
+							result.RulesWritten = true
+						}
 					}
 				}
 			}

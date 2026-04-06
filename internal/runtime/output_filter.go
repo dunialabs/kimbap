@@ -393,23 +393,30 @@ func ApplyBudget(output map[string]any, maxBytes int) (map[string]any, BudgetMet
 func truncateLongStrings(m map[string]any, threshold int) map[string]any {
 	result := make(map[string]any, len(m))
 	for k, v := range m {
-		switch val := v.(type) {
-		case string:
-			runes := []rune(val)
-			// Only truncate if the string is longer than threshold AND truncation
-			// actually reduces length (cutoff + 3 for '...' must be < original).
-			if len(runes) > threshold && threshold+3 < len(runes) {
-				result[k] = string(runes[:threshold]) + "..."
-			} else {
-				result[k] = v
-			}
-		case map[string]any:
-			result[k] = truncateLongStrings(val, threshold)
-		default:
-			result[k] = v
-		}
+		result[k] = truncateAnyValue(v, threshold)
 	}
 	return result
+}
+
+func truncateAnyValue(v any, threshold int) any {
+	switch val := v.(type) {
+	case string:
+		runes := []rune(val)
+		if len(runes) > threshold && threshold+3 < len(runes) {
+			return string(runes[:threshold]) + "..."
+		}
+		return v
+	case map[string]any:
+		return truncateLongStrings(val, threshold)
+	case []any:
+		out := make([]any, len(val))
+		for i, item := range val {
+			out[i] = truncateAnyValue(item, threshold)
+		}
+		return out
+	default:
+		return v
+	}
 }
 
 func buildCandidateWithArray(output map[string]any, wrapperKey string, items []any) map[string]any {
