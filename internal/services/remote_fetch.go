@@ -133,21 +133,3 @@ func isLoopbackHost(host string) bool {
 	return ip != nil && ip.IsLoopback()
 }
 
-func isPrivateOrLoopbackServices(host string) bool {
-	host = strings.TrimSpace(host)
-	if host == "" {
-		return false
-	}
-	if strings.EqualFold(host, "localhost") {
-		return true
-	}
-	normalized := host
-	if idx := strings.IndexByte(host, '%'); idx >= 0 {
-		normalized = host[:idx]
-	}
-	ip := net.ParseIP(normalized)
-	if ip == nil {
-		return false
-	}
-	return ip.IsLoopback() || ip.IsPrivate() || ip.IsLinkLocalUnicast() || ip.IsLinkLocalMulticast()
-}
