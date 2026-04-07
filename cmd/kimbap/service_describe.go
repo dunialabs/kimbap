@@ -100,6 +100,11 @@ func printCatalogDescribeText(payload catalogDescribePayload) {
 	}
 
 	_, _ = fmt.Fprintf(os.Stdout, "Hint: %s\n", payload.InstallHint)
+	if payload.AuthRequired && payload.Status == "enabled" {
+		_, _ = fmt.Fprintf(os.Stdout, "Connect: run 'kimbap link %s --stdin' to store credentials.\n", payload.Name)
+	} else if payload.Status == "enabled" {
+		_, _ = fmt.Fprintf(os.Stdout, "Call: run 'kimbap actions list --service %s' to see available actions.\n", payload.Name)
+	}
 }
 
 func formatCatalogAuthSummary(payload catalogDescribePayload) string {

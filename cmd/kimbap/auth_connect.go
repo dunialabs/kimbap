@@ -205,6 +205,7 @@ func newAuthReconnectCommand() *cobra.Command {
 				if !outputAsJSON() {
 					_, _ = fmt.Fprintln(os.Stderr, "Scope changes: none (refresh does not change scopes)")
 					_, _ = fmt.Fprintln(os.Stderr, "Account changes: none")
+					_, _ = fmt.Fprintf(os.Stderr, "Run 'kimbap auth status %s' to verify the connection.\n", providerID)
 					return nil
 				}
 				return printOutput(map[string]any{

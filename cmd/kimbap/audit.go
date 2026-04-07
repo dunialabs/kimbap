@@ -69,6 +69,7 @@ func newAuditTailCommand() *cobra.Command {
 			}
 			if len(selected) == 0 {
 				fmt.Println("No audit events.")
+				fmt.Println("Use 'kimbap call <service>.<action>' to generate audit events.")
 				return nil
 			}
 			useColor := isColorStdout()
@@ -93,6 +94,8 @@ func newAuditTailCommand() *cobra.Command {
 					e.Timestamp.Format("2006-01-02 15:04:05"),
 				)
 			}
+			fmt.Println()
+			fmt.Println("Use 'kimbap audit export --from <date> --to <date>' to export events.")
 			return nil
 		},
 	}

@@ -118,6 +118,7 @@ func newServeCommand() *cobra.Command {
 			if enableConsole {
 				_, _ = fmt.Fprintf(os.Stdout, "Console: %s\n", consoleDisplayURL(listenAddr))
 			}
+			_, _ = fmt.Fprintln(os.Stdout, "Use 'kimbap call <service>.<action>' to execute actions via the server.")
 
 			if err := srv.Start(runCtx); err != nil {
 				return fmt.Errorf("start api server: %w", err)

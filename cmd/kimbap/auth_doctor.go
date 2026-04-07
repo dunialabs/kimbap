@@ -105,6 +105,7 @@ func newAuthDoctorCommand() *cobra.Command {
 					return fmt.Errorf("auth doctor found failing checks")
 				}
 				_, _ = fmt.Fprintln(os.Stdout, "\nAll checks passed.")
+				_, _ = fmt.Fprintln(os.Stdout, "Run 'kimbap auth connect <provider>' to connect a service.")
 				return nil
 			}
 

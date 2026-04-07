@@ -83,6 +83,9 @@ func newServiceInstallCommand() *cobra.Command {
 
 			installed, err := installer.InstallWithForceAndActivation(manifest, source, force, !noActivate)
 			if err != nil {
+				if errors.Is(err, services.ErrServiceAlreadyInstalled) {
+					return fmt.Errorf("%w — use --force to reinstall: kimbap service install %s --force", err, args[0])
+				}
 				return err
 			}
 			if installed.Enabled && strings.HasPrefix(strings.TrimSpace(source), "registry:") {
@@ -123,7 +126,13 @@ func newServiceInstallCommand() *cobra.Command {
 			}
 			msg += serviceShortcutHint(actionAliasesCreated)
 			maybePrintAgentSyncHint(opts.format)
-			return printOutput(msg)
+			if err := printOutput(msg); err != nil {
+				return err
+			}
+			if !installed.Enabled && !outputAsJSON() {
+				_, _ = fmt.Fprintf(os.Stdout, "Enable: run 'kimbap service enable %s' to activate the service.\n", installed.Manifest.Name)
+			}
+			return nil
 		},
 	}
 	cmd.Flags().BoolVar(&force, "force", false, "overwrite existing service if already installed")
@@ -157,6 +166,7 @@ func ensureInstalledServiceCredentials(ctx context.Context, cfg *config.KimbapCo
 		return nil
 	}
 	if !canPromptInTTY() {
+		_, _ = fmt.Fprintf(os.Stderr, "Tip: run 'kimbap link %s --stdin' to store credentials for this service.\n", strings.TrimSpace(manifest.Name))
 		return nil
 	}
 
@@ -344,8 +354,13 @@ func newServiceListCommand() *cobra.Command {
 				if outputAsJSON() {
 					return printOutput(rows)
 				}
+				if len(rows) == 0 {
+					fmt.Println("No catalog services available.")
+					return nil
+				}
 				useColor := isColorStdout()
 				fmt.Printf("%-20s %-14s %s\n", "NAME", "STATUS", "SHORTCUTS")
+				notInstalledNames := make([]string, 0)
 				for _, row := range rows {
 					shortcutDisplay := "-"
 					if len(row.Shortcuts) > 0 {
@@ -361,6 +376,15 @@ func newServiceListCommand() *cobra.Command {
 						}
 					}
 					fmt.Printf("%-20s %s %s\n", row.Name, statusCol, shortcutDisplay)
+					if row.Status == "not_installed" {
+						notInstalledNames = append(notInstalledNames, row.Name)
+					}
+				}
+				if len(notInstalledNames) > 0 {
+					fmt.Printf("\n%s\n", serviceInstallFooter(notInstalledNames))
+				} else if len(rows) > 0 {
+					fmt.Println()
+					fmt.Println("All catalog services are installed. Run 'kimbap service outdated' to check for updates.")
 				}
 				return nil
 			}
@@ -401,10 +425,13 @@ func newServiceListCommand() *cobra.Command {
 			}
 			useColor := isColorStdout()
 			fmt.Printf("%-20s %-10s %-9s %-8s %s\n", "NAME", "VERSION", "ACTIONS", "STATUS", "SHORTCUTS")
+			disabledNames := make([]string, 0)
 			for _, svc := range installed {
 				statusStr := "disabled"
 				if svc.Enabled {
 					statusStr = "enabled"
+				} else {
+					disabledNames = append(disabledNames, svc.Manifest.Name)
 				}
 				shortcutDisplay := "-"
 				if shortcuts, exists := shortcutsByService[svc.Manifest.Name]; exists && len(shortcuts) > 0 {
@@ -419,6 +446,17 @@ func newServiceListCommand() *cobra.Command {
 					}
 				}
 				fmt.Printf("%-20s %-10s %-9d %s %s\n", svc.Manifest.Name, svc.Manifest.Version, len(svc.Manifest.Actions), statusCol, shortcutDisplay)
+			}
+			if len(disabledNames) > 0 {
+				fmt.Printf("\n%s\n", serviceEnableFooter(disabledNames))
+			} else if len(installed) > 0 {
+				hasAnyShortcut := len(shortcutsByService) > 0
+				fmt.Println()
+				if hasAnyShortcut {
+					fmt.Println("Run 'kimbap call <service>.<action>' to use your services.")
+				} else {
+					fmt.Println("Run 'kimbap call <service>.<action>' to use your services, or 'kimbap alias set <shortcut> <service>.<action>' to create shortcuts.")
+				}
 			}
 			return nil
 		},
@@ -476,7 +514,13 @@ func newServiceEnableCommand() *cobra.Command {
 				msg += fmt.Sprintf(" (alias: %s)", autoAlias)
 			}
 			msg += serviceShortcutHint(actionAliasesCreated)
-			return printOutput(msg)
+			if err := printOutput(msg); err != nil {
+				return err
+			}
+			if !outputAsJSON() {
+				_, _ = fmt.Fprintf(os.Stdout, "Run 'kimbap actions list --service %s' to see available actions.\n", name)
+			}
+			return nil
 		},
 	}
 	return cmd
@@ -515,7 +559,13 @@ func newServiceDisableCommand() *cobra.Command {
 				return printOutput(map[string]any{"enabled": false, "name": name})
 			}
 			maybePrintAgentSyncHint(opts.format)
-			return printOutput(fmt.Sprintf(successCheck()+" %s disabled", name))
+			if err := printOutput(fmt.Sprintf(successCheck()+" %s disabled", name)); err != nil {
+				return err
+			}
+			if !outputAsJSON() {
+				_, _ = fmt.Fprintf(os.Stdout, "Re-enable: run 'kimbap service enable %s'.\n", name)
+			}
+			return nil
 		},
 	}
 	return cmd
@@ -554,7 +604,13 @@ func newServiceRemoveCommand() *cobra.Command {
 				return printOutput(map[string]any{"removed": true, "name": name})
 			}
 			maybePrintAgentSyncHint(opts.format)
-			return printOutput(fmt.Sprintf(successCheck()+" %s removed", name))
+			if err := printOutput(fmt.Sprintf(successCheck()+" %s removed", name)); err != nil {
+				return err
+			}
+			if !outputAsJSON() {
+				_, _ = fmt.Fprintf(os.Stdout, "Reinstall: run 'kimbap service install %s'.\n", name)
+			}
+			return nil
 		},
 	}
 	return cmd
@@ -607,11 +663,14 @@ func newServiceUpdateCommand() *cobra.Command {
 			source := strings.TrimSpace(installed.Source)
 			manifest, newSource, resolveErr := resolveServiceInstallSource(commandContext(cmd), sourceToInstallArg(source))
 			if resolveErr != nil {
+				if errors.Is(resolveErr, fs.ErrNotExist) {
+					return fmt.Errorf("resolve update source for %q: source file not found (%s) — reinstall with 'kimbap service install %s'", name, source, name)
+				}
 				return fmt.Errorf("resolve update source for %q (%s): %w", name, source, resolveErr)
 			}
 
 			if strings.TrimSpace(manifest.Name) != name {
-				return fmt.Errorf("update refused: fetched manifest has name %q but expected %q — source may have changed", manifest.Name, name)
+				return fmt.Errorf("update refused: fetched manifest has name %q but expected %q — source may have changed. Use 'kimbap service remove %s' and reinstall.", manifest.Name, name, name)
 			}
 
 			if !force && strings.TrimSpace(manifest.Version) == strings.TrimSpace(installed.Manifest.Version) {
@@ -662,7 +721,13 @@ func newServiceUpdateCommand() *cobra.Command {
 				msg += fmt.Sprintf(" (alias: %s)", autoAlias)
 			}
 			msg += serviceShortcutHint(actionAliasesCreated)
-			return printOutput(msg)
+			if err := printOutput(msg); err != nil {
+				return err
+			}
+			if !outputAsJSON() {
+				_, _ = fmt.Fprintln(os.Stdout, "Run 'kimbap service outdated' to check for other updates.")
+			}
+			return nil
 		},
 	}
 	cmd.Flags().BoolVar(&force, "force", false, "force update even if version is unchanged")
@@ -734,6 +799,7 @@ func newServiceOutdatedCommand() *cobra.Command {
 
 			if len(entries) == 0 {
 				fmt.Println("No outdated catalog services found.")
+				fmt.Println("All installed catalog services are up to date.")
 				return nil
 			}
 
@@ -768,12 +834,21 @@ func newServiceValidateCommand() *cobra.Command {
 				if outputAsJSON() {
 					_ = printOutput(map[string]any{"valid": false, "error": err.Error()})
 				}
+				if errors.Is(err, fs.ErrNotExist) {
+					return fmt.Errorf("manifest file %q not found — provide a valid YAML file path", args[0])
+				}
 				return err
 			}
 			if outputAsJSON() {
 				return printOutput(map[string]any{"valid": true, "name": manifest.Name, "version": manifest.Version})
 			}
-			return printOutput(fmt.Sprintf(successCheck()+" %s (%s) is valid", manifest.Name, manifest.Version))
+			if err := printOutput(fmt.Sprintf(successCheck()+" %s (%s) is valid", manifest.Name, manifest.Version)); err != nil {
+				return err
+			}
+			if !outputAsJSON() {
+				_, _ = fmt.Fprintf(os.Stdout, "Install: run 'kimbap service install %s'.\n", args[0])
+			}
+			return nil
 		},
 	}
 	return cmd
@@ -829,6 +904,9 @@ func newServiceVerifyCommand() *cobra.Command {
 				if !result.Verified {
 					return fmt.Errorf("service %q integrity check failed", args[0])
 				}
+				if !outputAsJSON() {
+					_, _ = fmt.Fprintf(os.Stdout, "Run 'kimbap service update %s' to update to the latest version.\n", args[0])
+				}
 				return nil
 			}
 
@@ -853,10 +931,17 @@ func newServiceVerifyCommand() *cobra.Command {
 					return printErr
 				}
 			}
+			allVerified := true
 			for _, result := range results {
 				if !result.Verified {
-					return fmt.Errorf("one or more services failed integrity check")
+					allVerified = false
 				}
+			}
+			if !allVerified {
+				return fmt.Errorf("one or more services failed integrity check")
+			}
+			if !outputAsJSON() && len(results) > 0 {
+				_, _ = fmt.Fprintln(os.Stdout, "Run 'kimbap service outdated' to check for available updates.")
 			}
 			return nil
 		},
@@ -899,7 +984,13 @@ func newServiceSignCommand() *cobra.Command {
 			if outputAsJSON() {
 				return printOutput(map[string]any{"signed": true})
 			}
-			return printOutput(successCheck() + " lockfile signed")
+			if err := printOutput(successCheck() + " lockfile signed"); err != nil {
+				return err
+			}
+			if !outputAsJSON() {
+				_, _ = fmt.Fprintln(os.Stdout, "Run 'kimbap service verify' to confirm integrity.")
+			}
+			return nil
 		},
 	}
 
@@ -960,7 +1051,7 @@ func resolveServiceInstallSource(ctx context.Context, arg string) (*services.Ser
 	}
 	trimmed := strings.TrimSpace(arg)
 	if trimmed == "" {
-		return nil, "", fmt.Errorf("service source is required")
+		return nil, "", fmt.Errorf("service source is required — provide a catalog name, file path, or URL")
 	}
 
 	if strings.HasPrefix(trimmed, "registry:") {
@@ -969,12 +1060,13 @@ func resolveServiceInstallSource(ctx context.Context, arg string) (*services.Ser
 	}
 
 	if scheme := serviceSourceURLScheme(trimmed); scheme == "http" {
-		return nil, "", fmt.Errorf("insecure URL %q rejected: use https:// to install service manifests", trimmed)
+		httpsURL := "https://" + strings.TrimPrefix(trimmed, "http://")
+		return nil, "", fmt.Errorf("insecure URL %q rejected: use https:// to install service manifests\nTry: kimbap service install %s", trimmed, httpsURL)
 	}
 	if scheme := serviceSourceURLScheme(trimmed); scheme == "https" {
 		manifest, err := parseServiceManifestURL(ctx, trimmed)
 		if err != nil {
-			return nil, "", err
+			return nil, "", fmt.Errorf("fetch manifest from %q: %w\nVerify the URL is accessible and returns a valid YAML manifest.", trimmed, err)
 		}
 		return manifest, "remote:" + trimmed, nil
 	}
@@ -989,17 +1081,17 @@ func resolveServiceInstallSource(ctx context.Context, arg string) (*services.Ser
 		defer cancel()
 		manifest, source, resolveErr := reg.Resolve(resolveCtx, serviceName)
 		if resolveErr != nil {
-			return nil, "", fmt.Errorf("fetch from GitHub %q: %w", trimmed, resolveErr)
+			return nil, "", fmt.Errorf("fetch from GitHub %q: %w\nVerify the repository and service name are correct.", trimmed, resolveErr)
 		}
 		if manifest.Name != serviceName {
-			return nil, "", fmt.Errorf("manifest name %q does not match requested service %q", manifest.Name, serviceName)
+			return nil, "", fmt.Errorf("manifest name %q does not match requested service %q — check the service name in the GitHub repository", manifest.Name, serviceName)
 		}
 		return manifest, source, nil
 	}
 
 	if stat, err := os.Stat(trimmed); err == nil {
 		if stat.IsDir() {
-			return nil, "", fmt.Errorf("service source %q is a directory. Pass a YAML file path, URL, or catalog service name", trimmed)
+			return nil, "", fmt.Errorf("service source %q is a directory — pass a YAML file path (e.g. ./service.yaml), URL, or catalog service name (e.g. github)", trimmed)
 		}
 		absPath, absErr := filepath.Abs(trimmed)
 		if absErr != nil {
@@ -1007,11 +1099,13 @@ func resolveServiceInstallSource(ctx context.Context, arg string) (*services.Ser
 		}
 		manifest, parseErr := services.ParseManifestFile(absPath)
 		if parseErr != nil {
-			return nil, "", parseErr
+			return nil, "", fmt.Errorf("parse manifest %q: %w\nRun 'kimbap service validate %s' for detailed validation errors.", absPath, parseErr, absPath)
 		}
 		return manifest, "local:" + absPath, nil
 	} else if !os.IsNotExist(err) {
 		return nil, "", fmt.Errorf("stat service source %q: %w", trimmed, err)
+	} else if strings.HasSuffix(strings.ToLower(trimmed), ".yaml") || strings.HasSuffix(strings.ToLower(trimmed), ".yml") {
+		return nil, "", fmt.Errorf("manifest file %q not found — check the file path or use a catalog service name", trimmed)
 	}
 
 	return resolveRegistryServiceByName(ctx, trimmed)
@@ -1030,7 +1124,7 @@ func resolveRegistryServiceByName(ctx context.Context, name string) (*services.S
 	if err == nil {
 		manifest, parseErr := services.ParseManifest(data)
 		if parseErr != nil {
-			return nil, "", fmt.Errorf("parse catalog service %q: %w", trimmed, parseErr)
+			return nil, "", fmt.Errorf("parse catalog service %q: %w\nReport this issue at https://github.com/dunialabs/kimbap/issues", trimmed, parseErr)
 		}
 		return manifest, "registry:" + trimmed, nil
 	}
@@ -1051,7 +1145,7 @@ func resolveRegistryServiceByName(ctx context.Context, name string) (*services.S
 			}
 			var notFound *registry.ErrNotFound
 			if !errors.As(resolveErr, &notFound) {
-				return nil, "", fmt.Errorf("load registry service %q from %s: %w", trimmed, registryURL, resolveErr)
+				return nil, "", fmt.Errorf("load registry service %q from %s: %w\nCheck your network connection and registry URL configuration.", trimmed, registryURL, resolveErr)
 			}
 		}
 	}
@@ -1113,9 +1207,9 @@ func augmentServiceNotFoundError(installer *services.LocalInstaller, name string
 		names[i] = svc.Manifest.Name
 	}
 	if suggestion := didYouMean(name, names); suggestion != "" {
-		return fmt.Errorf("%w\n\nDid you mean %q?", err, suggestion)
+		return fmt.Errorf("%w\n\nDid you mean %q? Run 'kimbap service list' to see installed services.", err, suggestion)
 	}
-	return err
+	return fmt.Errorf("%w\n\nRun 'kimbap service list' to see installed services.", err)
 }
 
 func collectServiceAliasesForTarget(serviceAliases map[string]string, serviceName string) map[string]string {
@@ -1351,6 +1445,36 @@ func formatActionAliasesSummary(aliases []string) string {
 		return strings.Join(aliases, ", ")
 	}
 	return strings.Join(aliases[:3], ", ") + fmt.Sprintf(", ... and %d more", len(aliases)-3)
+}
+
+func serviceInstallFooter(names []string) string {
+	switch len(names) {
+	case 0:
+		return "Run 'kimbap service install <name>' to install a service."
+	case 1:
+		return fmt.Sprintf("Run 'kimbap service install %s' to install.", names[0])
+	case 2:
+		return fmt.Sprintf("Run 'kimbap service install %s' or 'kimbap service install %s' to install.", names[0], names[1])
+	case 3:
+		return fmt.Sprintf("Run 'kimbap service install %s', '%s', or '%s' to install.", names[0], names[1], names[2])
+	default:
+		return fmt.Sprintf("Run 'kimbap service install <name>' to install. (%d services available)", len(names))
+	}
+}
+
+func serviceEnableFooter(names []string) string {
+	switch len(names) {
+	case 0:
+		return "Run 'kimbap service enable <name>' to enable a disabled service."
+	case 1:
+		return fmt.Sprintf("Run 'kimbap service enable %s' to enable it.", names[0])
+	case 2:
+		return fmt.Sprintf("Run 'kimbap service enable %s' or 'kimbap service enable %s' to enable.", names[0], names[1])
+	case 3:
+		return fmt.Sprintf("Run 'kimbap service enable %s', '%s', or '%s' to enable.", names[0], names[1], names[2])
+	default:
+		return fmt.Sprintf("Run 'kimbap service enable <name>' to enable. (%d services disabled)", len(names))
+	}
 }
 
 func serviceUpdateFooter(names []string) string {

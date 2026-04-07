@@ -147,6 +147,9 @@ Discover available actions:
 				if idemValid, ok := preview["idempotency_valid"].(bool); ok && !idemValid {
 					return fmt.Errorf("dry-run: non-idempotent action requires --idempotency-key")
 				}
+				if !outputAsJSON() {
+					_, _ = fmt.Fprintf(os.Stderr, "Remove --dry-run to execute: %s\n", preferredInvocation(actionName, cfg.CommandAliases))
+				}
 				return nil
 			}
 
@@ -177,6 +180,7 @@ Discover available actions:
 					warning = "\x1b[33m!\x1b[0m"
 				}
 				_, _ = fmt.Fprintf(os.Stderr, "%s Approval required for: %s\n", warning, actionName)
+				_, _ = fmt.Fprintln(os.Stderr, "Run 'kimbap approve list' to see pending requests, then 'kimbap approve accept <id>' to approve.")
 			}
 			if err := printCallResult(result); err != nil {
 				return err
@@ -418,7 +422,7 @@ func formatActionHelp(def actions.ActionDefinition, commandAliases map[string]st
 		b.WriteString("  (no input parameters)\n")
 		b.WriteString("\nUsage:\n  ")
 		b.WriteString(invocation)
-		b.WriteString("\n")
+		b.WriteString("\n\nRun without arguments to execute.\n")
 		return b.String()
 	}
 

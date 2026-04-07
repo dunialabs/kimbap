@@ -115,6 +115,11 @@ func newAgentsSetupCommand() *cobra.Command {
 				return fmt.Errorf("setup errors: %s", strings.Join(errs, "; "))
 			}
 
+			if !outputAsJSON() && len(results) > 0 && !doSync {
+				fmt.Println()
+				fmt.Println("Run 'kimbap service list' to see installed services and shortcuts.")
+			}
+
 			if withProfiles {
 				if err := installProfilesForAgents(results, profileDir, dryRun); err != nil {
 					return err
@@ -332,6 +337,10 @@ func newAgentsSyncCommand() *cobra.Command {
 				}
 				fmt.Printf("  %s %-16s written=%d skipped=%d failed=%d\n",
 					icon, r.Agent, len(r.Written), len(r.Skipped), len(r.Failed))
+			}
+			if result.AgentsFound > 0 {
+				fmt.Println()
+				fmt.Println("Run 'kimbap service install <name>' to add more services, then re-sync.")
 			}
 			return nil
 		},

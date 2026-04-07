@@ -128,6 +128,19 @@ func newApproveListCommand() *cobra.Command {
 						item.CreatedAt.Format("2006-01-02 15:04"),
 					)
 				}
+				fmt.Println()
+				switch s {
+				case "pending":
+					fmt.Println("Run 'kimbap approve accept <id>' to approve or 'kimbap approve deny <id> --reason <why>' to deny.")
+				case "approved":
+					fmt.Println("Run 'kimbap approve list --status pending' to see pending requests.")
+				case "denied":
+					fmt.Println("Run 'kimbap approve list --status pending' to see pending requests.")
+				case "expired":
+					fmt.Println("Expired requests cannot be approved. Run 'kimbap approve list --status pending' for active requests.")
+				default:
+					fmt.Println("Run 'kimbap approve list --status pending' to see pending requests.")
+				}
 				return nil
 			})
 			if err != nil {
@@ -196,6 +209,9 @@ func newApproveDenyCommand() *cobra.Command {
 						_, _ = st.ExpireApproval(contextBackground(), args[0])
 						_ = st.RemoveExecution(contextBackground(), args[0])
 					}
+					if errors.Is(err, store.ErrApprovalAlreadyResolved) || errors.Is(err, approvals.ErrAlreadyResolved) {
+						return fmt.Errorf("deny failed: %w — run 'kimbap approve list --status denied' to see resolved requests", err)
+					}
 					return fmt.Errorf("deny failed: %w", err)
 				}
 				_ = st.RemoveExecution(contextBackground(), args[0])
@@ -207,7 +223,13 @@ func newApproveDenyCommand() *cobra.Command {
 						"reason":      reason,
 					})
 				}
-				return printOutput(fmt.Sprintf(successCheck()+" %s denied", args[0]))
+				if err := printOutput(fmt.Sprintf(successCheck()+" %s denied", args[0])); err != nil {
+					return err
+				}
+				if !outputAsJSON() {
+					fmt.Println("Run 'kimbap approve list' to see remaining pending requests.")
+				}
+				return nil
 			})
 			if err != nil {
 				if isRuntimeStoreUnavailable(err) {
@@ -257,6 +279,9 @@ func runApproveAccept(requestID string) error {
 				_, _ = st.ExpireApproval(contextBackground(), requestID)
 				_ = st.RemoveExecution(contextBackground(), requestID)
 			}
+			if errors.Is(err, store.ErrApprovalAlreadyResolved) || errors.Is(err, approvals.ErrAlreadyResolved) {
+				return fmt.Errorf("approve failed: %w — run 'kimbap approve list --status approved' to see resolved requests", err)
+			}
 			return fmt.Errorf("approve failed: %w", err)
 		}
 		updated, err := manager.Get(contextBackground(), requestID)
@@ -290,6 +315,7 @@ func runApproveAccept(requestID string) error {
 			_, _ = fmt.Fprintf(os.Stdout, successCheck()+" %s approved\n", requestID)
 		} else {
 			_, _ = fmt.Fprintf(os.Stdout, successCheck()+" %s vote recorded (pending additional approvals)\n", requestID)
+			_, _ = fmt.Fprintln(os.Stdout, "Run 'kimbap approve list' to see remaining pending requests.")
 		}
 		if approved && lookupErr == nil && approval != nil && approval.Service != "" && approval.Action != "" {
 			_, _ = fmt.Fprintf(os.Stdout, "Resuming: %s.%s\n", approval.Service, approval.Action)

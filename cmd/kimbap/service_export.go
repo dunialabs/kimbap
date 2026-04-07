@@ -63,7 +63,11 @@ func newServiceExportAgentSkillCommand() *cobra.Command {
 					if outputAsJSON() {
 						return printOutput(map[string]any{"exported": true, "pack": true, "files": writtenFiles})
 					}
-					return printOutput(fmt.Sprintf(successCheck()+" %s exported (%d files)", installed.Manifest.Name, len(writtenFiles)))
+					if err := printOutput(fmt.Sprintf(successCheck()+" %s exported (%d files)", installed.Manifest.Name, len(writtenFiles))); err != nil {
+						return err
+					}
+					_, _ = fmt.Fprintf(os.Stdout, "Point your agent at %s to use the skill.\n", serviceDir)
+					return nil
 				}
 				content, legacyErr := services.GenerateAgentSkillMD(&installed.Manifest, skillOpts...)
 				if legacyErr != nil {

@@ -43,7 +43,11 @@ func newServiceSearchCommand() *cobra.Command {
 				if outputAsJSON() {
 					return printOutput([]catalogSearchResult{})
 				}
-				return printOutput("No matching catalog services found.")
+				if err := printOutput("No matching catalog services found."); err != nil {
+					return err
+				}
+				fmt.Println("Try 'kimbap service list --available' to browse all catalog services.")
+				return nil
 			}
 
 			if outputAsJSON() {

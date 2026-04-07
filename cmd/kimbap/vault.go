@@ -1,6 +1,7 @@
 package main
 
 import (
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -71,12 +72,19 @@ func newVaultSetCommand() *cobra.Command {
 				rec, err = store.Create(cmdCtx, defaultTenantID(), args[0], kind, payload, nil, "cli")
 			}
 			if err != nil {
+				if errors.Is(err, vault.ErrSecretAlreadyExists) {
+					return fmt.Errorf("%w — use --force to overwrite: kimbap vault set %s --stdin --force", err, args[0])
+				}
 				return err
 			}
 			if outputAsJSON() {
 				return printOutput(rec)
 			}
-			return printOutput(fmt.Sprintf(successCheck()+" %s stored (%s)", rec.Name, rec.Type))
+			if err := printOutput(fmt.Sprintf(successCheck()+" %s stored (%s)", rec.Name, rec.Type)); err != nil {
+				return err
+			}
+			_, _ = fmt.Fprintf(os.Stdout, "Use 'kimbap vault list' to see all stored secrets.\n")
+			return nil
 		},
 	}
 	cmd.Flags().StringVar(&filePath, "file", "", "read secret from file path")
@@ -110,6 +118,9 @@ func newVaultGetCommand() *cobra.Command {
 			if !reveal {
 				rec, err := store.GetMeta(cmdCtx, defaultTenantID(), args[0])
 				if err != nil {
+					if errors.Is(err, vault.ErrSecretNotFound) {
+						return fmt.Errorf("secret %q not found — run 'kimbap vault list' to see stored secrets", args[0])
+					}
 					return err
 				}
 				if outputAsJSON() {
@@ -124,6 +135,8 @@ func newVaultGetCommand() *cobra.Command {
 				}
 				fmt.Printf("Last Used:  %s\n", lastUsed)
 				fmt.Printf("Version:    %d\n", rec.CurrentVersion)
+				fmt.Println()
+				fmt.Printf("Use 'kimbap vault rotate %s --stdin' to update the secret value.\n", rec.Name)
 				return nil
 			}
 
@@ -182,6 +195,7 @@ func newVaultListCommand() *cobra.Command {
 
 			if len(records) == 0 {
 				_, _ = fmt.Fprintln(cmd.OutOrStdout(), "No secrets stored.")
+				_, _ = fmt.Fprintln(cmd.OutOrStdout(), "Use 'kimbap link <service> --stdin' to store credentials for a service.")
 				return nil
 			}
 
@@ -198,6 +212,9 @@ func newVaultListCommand() *cobra.Command {
 					lastUsed,
 				)
 			}
+			// Footer hint for connected services
+			fmt.Fprintln(cmd.OutOrStdout())
+			fmt.Fprintln(cmd.OutOrStdout(), "Use 'kimbap link list' to see which services are connected.")
 			return nil
 		},
 	}
@@ -229,12 +246,19 @@ func newVaultRotateCommand() *cobra.Command {
 			}
 			rec, err := store.Rotate(commandContext(cmd), defaultTenantID(), args[0], payload, "cli")
 			if err != nil {
+				if errors.Is(err, vault.ErrSecretNotFound) {
+					return fmt.Errorf("secret %q not found — use 'kimbap vault set %s --stdin' to create it first", args[0], args[0])
+				}
 				return err
 			}
 			if outputAsJSON() {
 				return printOutput(rec)
 			}
-			return printOutput(fmt.Sprintf(successCheck()+" %s rotated (version %d)", rec.Name, rec.CurrentVersion))
+			if err := printOutput(fmt.Sprintf(successCheck()+" %s rotated (version %d)", rec.Name, rec.CurrentVersion)); err != nil {
+				return err
+			}
+			_, _ = fmt.Fprintf(os.Stdout, "Use 'kimbap vault get %s' to verify the updated secret metadata.\n", rec.Name)
+			return nil
 		},
 	}
 	cmd.Flags().StringVar(&filePath, "file", "", "read new secret from file path")
@@ -271,12 +295,19 @@ func newVaultDeleteCommand() *cobra.Command {
 			defer closeVaultStoreIfPossible(store)
 
 			if err := store.Delete(commandContext(cmd), defaultTenantID(), name); err != nil {
+				if errors.Is(err, vault.ErrSecretNotFound) {
+					return fmt.Errorf("secret %q not found — run 'kimbap vault list' to see stored secrets", name)
+				}
 				return err
 			}
 			if outputAsJSON() {
 				return printOutput(map[string]any{"deleted": true, "name": name})
 			}
-			return printOutput(fmt.Sprintf(successCheck()+" %s deleted", name))
+			if err := printOutput(fmt.Sprintf(successCheck()+" %s deleted", name)); err != nil {
+				return err
+			}
+			_, _ = fmt.Fprintf(os.Stdout, "Use 'kimbap vault set %s --stdin' to store a new secret with this name.\n", name)
+			return nil
 		},
 	}
 	cmd.Flags().BoolVar(&force, "force", false, "confirm intent to permanently delete the secret")

@@ -299,7 +299,11 @@ func writeGeneratedOutput(content, outputPath, language string, totalActions int
 			"actions":   totalActions,
 		})
 	}
-	return printOutput(fmt.Sprintf(successCheck()+" Generated %s (%d actions)", outputPath, totalActions))
+	if err := printOutput(fmt.Sprintf(successCheck()+" Generated %s (%d actions)", outputPath, totalActions)); err != nil {
+		return err
+	}
+	_, _ = fmt.Fprintln(os.Stdout, "Import the generated file in your agent code to get typed inputs for each action.")
+	return nil
 }
 
 func sortedNamespaces(grouped map[string][]actions.ActionDefinition) []string {

@@ -208,6 +208,15 @@ func newAliasListCommand() *cobra.Command {
 					fmt.Printf("%-20s → %s\n", k, cfg.CommandAliases[k])
 				}
 			}
+			fmt.Println()
+			switch {
+			case len(cfg.CommandAliases) > 0 && len(cfg.Aliases) > 0:
+				fmt.Println("Run '<alias> --help' for command alias usage. Use 'kimbap call <alias>.<action>' for service aliases.")
+			case len(cfg.CommandAliases) > 0:
+				fmt.Println("Run '<alias> --help' to see usage for a command alias.")
+			case len(cfg.Aliases) > 0:
+				fmt.Println("Use 'kimbap call <alias>.<action>' to call actions via a service alias.")
+			}
 			return nil
 		},
 	}
@@ -259,7 +268,7 @@ func newAliasRemoveCommand() *cobra.Command {
 			}
 
 			if !serviceRemoved && !commandRemoved {
-				return fmt.Errorf("alias %q not found", alias)
+				return fmt.Errorf("alias %q not found — run 'kimbap alias list' to see configured aliases", alias)
 			}
 
 			return printOutput(map[string]any{

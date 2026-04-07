@@ -96,10 +96,10 @@ func TestRenderStatusSummaryAgentHintWhenNoCredentialServices(t *testing.T) {
 	}
 }
 
-func TestRenderStatusSummaryNoHintWhenAllConnected(t *testing.T) {
+func TestRenderStatusSummaryCallHintWhenAllConnected(t *testing.T) {
 	summary := statusSummary{Services: 3, Credentials: 2, Agents: 1}
 	out := renderStatusSummary(summary, nil)
-	if strings.Contains(out, "Run '") {
-		t.Fatalf("expected no hint when all connected, got:\n%s", out)
+	if !strings.Contains(out, "kimbap call") {
+		t.Fatalf("expected call hint when all connected, got:\n%s", out)
 	}
 }

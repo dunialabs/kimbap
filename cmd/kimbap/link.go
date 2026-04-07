@@ -151,9 +151,21 @@ func newLinkCommand() *cobra.Command {
 					}
 					switch status {
 					case string(connectors.StatusConnected):
-						return printOutput(fmt.Sprintf(successCheck()+" %s is connected via OAuth (%s)", info.Service, connectorName))
+						if err := printOutput(fmt.Sprintf(successCheck()+" %s is connected via OAuth (%s)", info.Service, connectorName)); err != nil {
+							return err
+						}
+						if !outputAsJSON() {
+							_, _ = fmt.Fprintf(os.Stdout, "Run 'kimbap actions list --service %s' to see available actions.\n", info.Service)
+						}
+						return nil
 					case "not_connected":
-						return printOutput(fmt.Sprintf("%s is not connected via OAuth (%s)", info.Service, connectorName))
+						if err := printOutput(fmt.Sprintf("%s is not connected via OAuth (%s)", info.Service, connectorName)); err != nil {
+							return err
+						}
+						if !outputAsJSON() {
+							_, _ = fmt.Fprintf(os.Stdout, "Run 'kimbap auth connect %s' to connect.\n", providerID)
+						}
+						return nil
 					default:
 						return printOutput(fmt.Sprintf("%s OAuth status: %s (%s)", info.Service, status, connectorName))
 					}
@@ -281,7 +293,11 @@ func newLinkListCommand() *cobra.Command {
 			}
 
 			if len(rows) == 0 {
-				return printOutput("No services found.")
+				if err := printOutput("No services found."); err != nil {
+					return err
+				}
+				_, _ = fmt.Fprintln(c.OutOrStdout(), "Run 'kimbap service install <name>' to install a service.")
+				return nil
 			}
 
 			sort.SliceStable(rows, func(i, j int) bool {
@@ -329,6 +345,7 @@ func newLinkListCommand() *cobra.Command {
 				_, _ = fmt.Fprintf(c.OutOrStdout(), "\n%s\n", linkConnectFooter(actionable))
 			} else {
 				_, _ = fmt.Fprintf(c.OutOrStdout(), "\nAll %d services connected\n", connected)
+				_, _ = fmt.Fprintln(c.OutOrStdout(), "Run 'kimbap call <service>.<action>' to use your connected services.")
 			}
 			return nil
 		},
@@ -570,6 +587,9 @@ func linkHandleKeyBasedService(ctx context.Context, cfg *config.KimbapConfig, in
 			msg := verifyLinkedService(ctx, cfg, info.Service, tenantID)
 			_, _ = fmt.Fprintln(os.Stderr, msg)
 		}
+		if !outputAsJSON() {
+			_, _ = fmt.Fprintf(os.Stderr, "Run 'kimbap actions list --service %s' to see available actions.\n", info.Service)
+		}
 		return nil
 	}
 
@@ -583,7 +603,11 @@ func linkHandleKeyBasedService(ctx context.Context, cfg *config.KimbapConfig, in
 				"credential_ref": credentialRef,
 			})
 		}
-		return printOutput(fmt.Sprintf(successCheck()+" %s is already connected (credential: %s)", info.Service, credentialRef))
+		if err := printOutput(fmt.Sprintf(successCheck()+" %s is already connected (credential: %s)", info.Service, credentialRef)); err != nil {
+			return err
+		}
+		_, _ = fmt.Fprintf(os.Stdout, "Run 'kimbap actions list --service %s' to see available actions.\n", info.Service)
+		return nil
 	}
 
 	if err != nil && !errors.Is(err, vault.ErrSecretNotFound) {
@@ -631,6 +655,9 @@ func linkHandleKeyBasedService(ctx context.Context, cfg *config.KimbapConfig, in
 		if !noVerify {
 			msg := verifyLinkedService(ctx, cfg, info.Service, tenantID)
 			_, _ = fmt.Fprintln(os.Stderr, msg)
+		}
+		if !outputAsJSON() {
+			_, _ = fmt.Fprintf(os.Stderr, "Run 'kimbap actions list --service %s' to see available actions.\n", info.Service)
 		}
 		return nil
 	}

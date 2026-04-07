@@ -70,6 +70,8 @@ func newAuthProvidersListCommand() *cobra.Command {
 						strings.Join(scopeStrs, ", "),
 					)
 				}
+				_, _ = fmt.Fprintln(os.Stdout)
+				_, _ = fmt.Fprintln(os.Stdout, "Run 'kimbap auth connect <provider>' to connect a provider.")
 				return nil
 			}
 
@@ -141,6 +143,8 @@ func newAuthProvidersDescribeCommand() *cobra.Command {
 				if provider.Notes != "" {
 					_, _ = fmt.Fprintf(os.Stdout, "Notes:                %s\n", provider.Notes)
 				}
+				_, _ = fmt.Fprintln(os.Stdout)
+				_, _ = fmt.Fprintf(os.Stdout, "Connect: run 'kimbap auth connect %s'.\n", provider.ID)
 				return nil
 			}
 

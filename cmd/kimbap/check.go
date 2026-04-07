@@ -316,5 +316,18 @@ func renderPreflightReport(report preflightReport) string {
 		b.WriteString("\n")
 	}
 
+	if report.Verdict != "ready" {
+		for _, blocker := range report.Blockers {
+			switch blocker {
+			case "credential_missing":
+				b.WriteString("\nFix: run 'kimbap link <service> --stdin' to store the required credential.")
+			case "vault_locked":
+				b.WriteString("\nFix: set KIMBAP_MASTER_KEY_HEX to unlock the vault.")
+			case "policy_denied":
+				b.WriteString("\nFix: update your policy with 'kimbap policy set --file <path>'.")
+			}
+		}
+	}
+
 	return strings.TrimRight(b.String(), "\n")
 }

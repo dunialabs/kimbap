@@ -84,6 +84,10 @@ func newServiceGenerateCommand() *cobra.Command {
 				fmt.Print(string(encoded))
 				return nil
 			}
+			if !outputAsJSON() && resolvedOutputPath != "" {
+				_, _ = fmt.Fprintf(os.Stdout, successCheck()+" Generated %s\n", resolvedOutputPath)
+				_, _ = fmt.Fprintf(os.Stdout, "Run 'kimbap service install %s' to install the generated manifest.\n", resolvedOutputPath)
+			}
 			return nil
 		},
 	}

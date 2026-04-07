@@ -61,7 +61,11 @@ func newPolicySetCommand() *cobra.Command {
 					"version":     doc.Version,
 				})
 			}
-			return printOutput(fmt.Sprintf(successCheck()+" policy loaded (%d rules, version %s)", len(doc.Rules), doc.Version))
+			if err := printOutput(fmt.Sprintf(successCheck()+" policy loaded (%d rules, version %s)", len(doc.Rules), doc.Version)); err != nil {
+				return err
+			}
+			fmt.Println("Run 'kimbap policy eval --agent <name> --action <service.action>' to test the policy.")
+			return nil
 		},
 	}
 	cmd.Flags().StringVar(&filePath, "file", "", "policy file path")
@@ -162,6 +166,13 @@ func newPolicyEvalCommand() *cobra.Command {
 			}
 			if res.MatchedRule != nil && strings.TrimSpace(res.MatchedRule.ID) != "" {
 				fmt.Printf("Rule:      %s\n", res.MatchedRule.ID)
+			}
+			fmt.Println()
+			switch res.Decision {
+			case "deny":
+				fmt.Println("Update your policy with 'kimbap policy set --file <path>'.")
+			default:
+				fmt.Printf("Run 'kimbap call %s' to execute.\n", strings.TrimSpace(action))
 			}
 			return nil
 		},

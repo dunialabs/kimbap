@@ -123,6 +123,8 @@ func renderStatusSummary(summary statusSummary, cfg *config.KimbapConfig) string
 		lines = append(lines, "", "Run 'kimbap link list' to see which services need credentials.")
 	} else if summary.Agents == 0 {
 		lines = append(lines, "", "Run 'kimbap agents setup' to configure AI agent integration.")
+	} else {
+		lines = append(lines, "", "Run 'kimbap call <service>.<action>' to use your services.")
 	}
 
 	return strings.Join(lines, "\n")

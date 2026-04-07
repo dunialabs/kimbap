@@ -59,6 +59,7 @@ func newAuthListCommand() *cobra.Command {
 			if !outputAsJSON() {
 				if len(items) == 0 {
 					_, _ = fmt.Fprintln(os.Stdout, "No OAuth connections found.")
+					_, _ = fmt.Fprintln(os.Stdout, "Run 'kimbap auth connect <provider>' to connect an OAuth service.")
 					return nil
 				}
 				_, _ = fmt.Fprintf(os.Stdout, "OAuth Connections (%d):\n\n", len(items))
@@ -78,6 +79,8 @@ func newAuthListCommand() *cobra.Command {
 					}
 					_, _ = fmt.Fprintf(os.Stdout, "  %-15s  status=%-20s  scope=%-10s  refresh=%-12s  principal=%s\n", display, status, scopeLevel, refreshHealth, principal)
 				}
+				_, _ = fmt.Fprintln(os.Stdout)
+				_, _ = fmt.Fprintln(os.Stdout, "Run 'kimbap auth status <provider>' for connection details.")
 				return nil
 			}
 
@@ -148,6 +151,7 @@ func newAuthStatusCommand() *cobra.Command {
 				if !outputAsJSON() {
 					if len(items) == 0 {
 						_, _ = fmt.Fprintln(os.Stdout, "No OAuth connections found.")
+						_, _ = fmt.Fprintln(os.Stdout, "Run 'kimbap auth connect <provider>' to connect an OAuth service.")
 						return nil
 					}
 					for _, item := range items {
@@ -166,6 +170,8 @@ func newAuthStatusCommand() *cobra.Command {
 						}
 						_, _ = fmt.Fprintf(os.Stdout, "%-15s  status=%-20s  scope=%-10s  refresh=%-12s  principal=%s\n", display, status, scopeLevel, refreshHealth, principal)
 					}
+					_, _ = fmt.Fprintln(os.Stdout)
+					_, _ = fmt.Fprintln(os.Stdout, "Run 'kimbap auth reconnect <provider>' to refresh a connection.")
 					return nil
 				}
 

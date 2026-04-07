@@ -22,3 +22,17 @@ func TestReadSecretInputRejectsOversizedFile(t *testing.T) {
 		t.Fatalf("unexpected error: %v", err)
 	}
 }
+
+func TestVaultListFooterEmpty(t *testing.T) {
+	hint := "Use 'kimbap link <service> --stdin' to store credentials for a service."
+	if !strings.Contains(hint, "kimbap link") {
+		t.Fatalf("empty-state footer hint does not reference kimbap link: %q", hint)
+	}
+}
+
+func TestVaultListFooterNonEmpty(t *testing.T) {
+	hint := "Use 'kimbap link list' to see which services are connected."
+	if !strings.Contains(hint, "kimbap link list") {
+		t.Fatalf("non-empty-state footer hint does not reference kimbap link list: %q", hint)
+	}
+}

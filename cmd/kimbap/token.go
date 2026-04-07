@@ -93,6 +93,7 @@ func newTokenCreateCommand() *cobra.Command {
 				scopes,
 				warning,
 			)
+			_, _ = fmt.Fprintln(os.Stdout, "Use 'kimbap token list' to see all issued tokens.")
 			return nil
 		},
 	}
@@ -182,6 +183,7 @@ func newTokenListCommand() *cobra.Command {
 			}
 			if len(tokens) == 0 {
 				_, _ = fmt.Fprintln(os.Stdout, "No tokens found.")
+				_, _ = fmt.Fprintln(os.Stdout, "Use 'kimbap token create --agent <name>' to issue a token for an agent.")
 				return nil
 			}
 			fmt.Printf("%-16s %-14s %-20s %-20s %s\n", "HINT", "AGENT", "EXPIRES", "LAST USED", "SCOPES")
@@ -212,6 +214,8 @@ func newTokenListCommand() *cobra.Command {
 					scopes,
 				)
 			}
+			fmt.Println()
+			fmt.Println("Use 'kimbap token revoke <id>' to revoke a token. Tokens expiring soon are highlighted.")
 			return nil
 		},
 	}

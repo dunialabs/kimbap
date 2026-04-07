@@ -77,6 +77,9 @@ func newDoctorCommand() *cobra.Command {
 			if hasFailure {
 				return fmt.Errorf("doctor found failing checks")
 			}
+			if !outputAsJSON() {
+				_, _ = fmt.Fprintln(os.Stdout, "\nRun 'kimbap call <service>.<action>' to start using your services.")
+			}
 			return nil
 		},
 	}

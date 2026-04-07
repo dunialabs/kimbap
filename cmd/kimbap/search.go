@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"os"
 	"sort"
 	"strings"
 
@@ -81,6 +82,13 @@ func newSearchCommand() *cobra.Command {
 				if outputAsJSON() {
 					return printOutput([]searchResult{})
 				}
+				if service != "" {
+					if err := printOutput(fmt.Sprintf("No matching actions found in service %q.", service)); err != nil {
+						return err
+					}
+					_, _ = fmt.Fprintln(os.Stdout, "Run 'kimbap actions list --service "+service+"' to see all actions in this service.")
+					return nil
+				}
 				if service == "" {
 					summaries, catalogErr := loadCatalogServiceSummaries(cfg)
 					if catalogErr == nil {
@@ -136,7 +144,13 @@ func newSearchCommand() *cobra.Command {
 						}
 					}
 				}
-				return printOutput("No matching actions found.")
+				if err := printOutput("No matching actions found."); err != nil {
+					return err
+				}
+				if !outputAsJSON() {
+					_, _ = fmt.Fprintln(os.Stdout, "Try 'kimbap service search <query>' to find catalog services to install.")
+				}
+				return nil
 			}
 
 			if outputAsJSON() {

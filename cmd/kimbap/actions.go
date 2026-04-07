@@ -57,7 +57,22 @@ func newActionsCommand() *cobra.Command {
 			}
 
 			if len(out) == 0 {
-				return printOutput("No actions found.")
+				if service != "" {
+					if err := printOutput(fmt.Sprintf("No actions found for service %q.", service)); err != nil {
+						return err
+					}
+					if !outputAsJSON() {
+						_, _ = fmt.Fprintf(os.Stdout, "Run 'kimbap service list' to see installed services.\n")
+					}
+					return nil
+				}
+				if err := printOutput("No actions found."); err != nil {
+					return err
+				}
+				if !outputAsJSON() {
+					_, _ = fmt.Fprintln(os.Stdout, "Run 'kimbap service install <name>' to install a service with actions.")
+				}
+				return nil
 			}
 
 			useColor := isColorStdout()
@@ -103,6 +118,7 @@ func newActionsCommand() *cobra.Command {
 				fmt.Println("Run '<shortcut> --help' for usage (or 'kimbap call <service.action> --help' for the full form).")
 			} else {
 				fmt.Println("Run 'kimbap call <service.action> --help' for usage details.")
+				fmt.Println("Tip: 'kimbap alias set <shortcut> <service.action>' creates a direct command shortcut.")
 			}
 
 			return nil
@@ -223,6 +239,9 @@ func newActionsCommand() *cobra.Command {
 			} else {
 				invocation := preferredInvocation(def.Name, cfg.CommandAliases)
 				fmt.Printf("Usage:\n  %s\n", invocation)
+			}
+			if !credReady && def.Auth.Type != actions.AuthTypeNone && !def.Auth.Optional {
+				fmt.Printf("\nConnect: run 'kimbap link %s --stdin' to store credentials.\n", def.Namespace)
 			}
 			return nil
 		},

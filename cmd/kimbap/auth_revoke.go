@@ -121,6 +121,7 @@ func newAuthRevokeCommand() *cobra.Command {
 				} else if deleteErr != nil {
 					_, _ = fmt.Fprintf(os.Stdout, "Local cleanup failed: %v\n", deleteErr)
 				}
+				_, _ = fmt.Fprintf(os.Stdout, "Reconnect: run 'kimbap auth connect %s' to reconnect.\n", providerID)
 				return nil
 			}
 
