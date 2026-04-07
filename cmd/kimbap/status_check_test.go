@@ -3,6 +3,7 @@ package main
 import (
 	"errors"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/dunialabs/kimbap/internal/config"
@@ -76,5 +77,29 @@ func TestClassifyVaultInitError(t *testing.T) {
 	}
 	if got := classifyVaultInitError(errors.New("open sqlite: permission denied")); got != "vault_error" {
 		t.Fatalf("expected vault_error, got %q", got)
+	}
+}
+
+func TestRenderStatusSummaryNoServicesHint(t *testing.T) {
+	summary := statusSummary{Services: 0, Credentials: 0, Agents: 0}
+	out := renderStatusSummary(summary, nil)
+	if !strings.Contains(out, "kimbap init") {
+		t.Fatalf("expected init hint when no services, got:\n%s", out)
+	}
+}
+
+func TestRenderStatusSummaryAgentHintWhenNoCredentialServices(t *testing.T) {
+	summary := statusSummary{Services: 1, Credentials: 0, Agents: 0}
+	out := renderStatusSummary(summary, nil)
+	if !strings.Contains(out, "kimbap agents setup") {
+		t.Fatalf("expected agents hint when no key-based services, got:\n%s", out)
+	}
+}
+
+func TestRenderStatusSummaryNoHintWhenAllConnected(t *testing.T) {
+	summary := statusSummary{Services: 3, Credentials: 2, Agents: 1}
+	out := renderStatusSummary(summary, nil)
+	if strings.Contains(out, "Run '") {
+		t.Fatalf("expected no hint when all connected, got:\n%s", out)
 	}
 }

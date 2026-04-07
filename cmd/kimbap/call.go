@@ -78,7 +78,7 @@ Discover available actions:
 					if cfgErr == nil {
 						def, resolveErr := resolveActionByName(cfg, actionName)
 						if resolveErr == nil {
-							fmt.Print(formatActionHelp(*def))
+							fmt.Print(formatActionHelp(*def, cfg.CommandAliases))
 							return nil
 						}
 					}
@@ -131,7 +131,7 @@ Discover available actions:
 			}
 
 			if !outputAsJSON() && !isDryRun() {
-				if err := checkRequiredInputs(def, input); err != nil {
+				if err := checkRequiredInputs(def, input, cfg.CommandAliases); err != nil {
 					return err
 				}
 			}
@@ -260,7 +260,7 @@ func actionHasInputField(def *actions.ActionDefinition, fieldName string) bool {
 	return exists
 }
 
-func checkRequiredInputs(def *actions.ActionDefinition, input map[string]any) error {
+func checkRequiredInputs(def *actions.ActionDefinition, input map[string]any, commandAliases map[string]string) error {
 	if def == nil || def.InputSchema == nil || len(def.InputSchema.Required) == 0 {
 		return nil
 	}
@@ -272,22 +272,23 @@ func checkRequiredInputs(def *actions.ActionDefinition, input map[string]any) er
 	}
 
 	actionName := strings.TrimSpace(def.Name)
+	invocation := preferredInvocation(actionName, commandAliases)
 	desc := strings.TrimSpace(def.Description)
 	if desc != "" {
 		return fmt.Errorf(
-			"missing required parameters: %s\n\n%s: %s\n\nUsage:\n  %s\n\nRun 'kimbap call %s --help' for details.",
+			"missing required parameters: %s\n\n%s: %s\n\nUsage:\n  %s\n\nRun '%s --help' for details.",
 			strings.Join(missing, ", "),
 			actionName,
 			desc,
-			buildCallUsageLine(*def),
-			actionName,
+			buildCallUsageLine(*def, invocation),
+			invocation,
 		)
 	}
 	return fmt.Errorf(
-		"missing required parameters: %s\n\nUsage:\n  %s\n\nRun 'kimbap call %s --help' for details.",
+		"missing required parameters: %s\n\nUsage:\n  %s\n\nRun '%s --help' for details.",
 		strings.Join(missing, ", "),
-		buildCallUsageLine(*def),
-		actionName,
+		buildCallUsageLine(*def, invocation),
+		invocation,
 	)
 }
 
@@ -319,8 +320,12 @@ func missingRequiredInputs(required []string, input map[string]any) []string {
 	return missing
 }
 
-func buildCallUsageLine(def actions.ActionDefinition) string {
-	usage := []string{"kimbap", "call", strings.TrimSpace(def.Name)}
+func buildCallUsageLine(def actions.ActionDefinition, invocationBase ...string) string {
+	base := "kimbap call " + strings.TrimSpace(def.Name)
+	if len(invocationBase) > 0 && strings.TrimSpace(invocationBase[0]) != "" {
+		base = strings.TrimSpace(invocationBase[0])
+	}
+	usage := []string{base}
 	if def.InputSchema == nil || len(def.InputSchema.Properties) == 0 {
 		return strings.Join(usage, " ")
 	}
@@ -395,8 +400,9 @@ func printCallResult(result actions.ExecutionResult) error {
 	return nil
 }
 
-func formatActionHelp(def actions.ActionDefinition) string {
+func formatActionHelp(def actions.ActionDefinition, commandAliases map[string]string) string {
 	var b strings.Builder
+	invocation := preferredInvocation(strings.TrimSpace(def.Name), commandAliases)
 
 	b.WriteString("Action: ")
 	b.WriteString(strings.TrimSpace(def.Name))
@@ -410,8 +416,8 @@ func formatActionHelp(def actions.ActionDefinition) string {
 
 	if def.InputSchema == nil || len(def.InputSchema.Properties) == 0 {
 		b.WriteString("  (no input parameters)\n")
-		b.WriteString("\nUsage:\n  kimbap call ")
-		b.WriteString(strings.TrimSpace(def.Name))
+		b.WriteString("\nUsage:\n  ")
+		b.WriteString(invocation)
 		b.WriteString("\n")
 		return b.String()
 	}
@@ -473,8 +479,8 @@ func formatActionHelp(def actions.ActionDefinition) string {
 		}
 	}
 
-	b.WriteString("\nUsage:\n  kimbap call ")
-	b.WriteString(strings.TrimSpace(def.Name))
+	b.WriteString("\nUsage:\n  ")
+	b.WriteString(invocation)
 	for _, p := range requiredParams {
 		b.WriteString(" ")
 		b.WriteString(p)

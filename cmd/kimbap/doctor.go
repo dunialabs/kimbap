@@ -212,7 +212,7 @@ func checkCredentialHealth(cfg *config.KimbapConfig) doctorCheck {
 		return doctorCheck{Name: "credentials stored", Status: "skip", Detail: err.Error()}
 	}
 	if count == 0 {
-		return doctorCheck{Name: "credentials stored", Status: "warn", Detail: "no credentials stored — run 'kimbap link <service>'"}
+		return doctorCheck{Name: "credentials stored", Status: "warn", Detail: "no credentials stored — run 'kimbap link list'"}
 	}
 	return doctorCheck{Name: "credentials stored", Status: "ok", Detail: fmt.Sprintf("%d credential(s) stored", count)}
 }
@@ -314,7 +314,7 @@ func doctorSuggestedFix(checkName string) string {
 	case "agent integration":
 		return "kimbap agents setup"
 	case "credentials stored":
-		return "kimbap link <service>"
+		return "kimbap link list"
 	case "action readiness":
 		return "kimbap service install <name>"
 	default:

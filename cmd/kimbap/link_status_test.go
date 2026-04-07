@@ -1,6 +1,9 @@
 package main
 
-import "testing"
+import (
+	"strings"
+	"testing"
+)
 
 func TestLinkOAuthConnectionStatus_DefaultFallbackUsesLegacyRowOnly(t *testing.T) {
 	states := []connectorStateRow{
@@ -63,5 +66,39 @@ func TestLinkOAuthConnectionStatus_RevokedTakesPrecedence(t *testing.T) {
 	status := linkOAuthConnectionStatus("github", "default", states)
 	if status != "revoked" {
 		t.Fatalf("expected revoked, got %q", status)
+	}
+}
+
+func TestLinkConnectFooterZeroActionable(t *testing.T) {
+	footer := linkConnectFooter(nil)
+	if !strings.Contains(footer, "<service>") {
+		t.Fatalf("expected generic footer for zero actionable, got %q", footer)
+	}
+}
+
+func TestLinkConnectFooterOneActionable(t *testing.T) {
+	footer := linkConnectFooter([]string{"stripe"})
+	if footer != "Run 'kimbap link stripe' to connect." {
+		t.Fatalf("unexpected footer: %q", footer)
+	}
+}
+
+func TestLinkConnectFooterTwoActionable(t *testing.T) {
+	footer := linkConnectFooter([]string{"stripe", "github"})
+	if !strings.Contains(footer, "stripe") || !strings.Contains(footer, "github") {
+		t.Fatalf("expected both services in footer, got %q", footer)
+	}
+	if strings.Contains(footer, "<service>") {
+		t.Fatalf("expected specific services, not placeholder, got %q", footer)
+	}
+}
+
+func TestLinkConnectFooterFourPlusActionable(t *testing.T) {
+	footer := linkConnectFooter([]string{"a", "b", "c", "d"})
+	if !strings.Contains(footer, "4 services") {
+		t.Fatalf("expected count in footer for 4+ actionable, got %q", footer)
+	}
+	if !strings.Contains(footer, "<service>") {
+		t.Fatalf("expected generic placeholder for 4+ actionable, got %q", footer)
 	}
 }

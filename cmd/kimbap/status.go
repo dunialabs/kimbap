@@ -8,6 +8,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/dunialabs/kimbap/internal/actions"
 	"github.com/dunialabs/kimbap/internal/agents"
 	"github.com/dunialabs/kimbap/internal/config"
 	"github.com/spf13/cobra"
@@ -35,7 +36,7 @@ func newStatusCommand() *cobra.Command {
 			if outputAsJSON() {
 				return printOutput(summary)
 			}
-			return printOutput(renderStatusSummary(summary))
+			return printOutput(renderStatusSummary(summary, cfg))
 		},
 	}
 	return cmd
@@ -74,7 +75,23 @@ func statusHealthColor(val, good string, warn []string) string {
 	return "[31m" + val + "[0m"
 }
 
-func renderStatusSummary(summary statusSummary) string {
+func statusHasKeyBasedServices(cfg *config.KimbapConfig) bool {
+	if cfg == nil {
+		return false
+	}
+	services, err := loadLinkServices(cfg)
+	if err != nil {
+		return false
+	}
+	for _, info := range services {
+		if info.AuthType != actions.AuthTypeNone && !linkIsOAuthService(info, nil) {
+			return true
+		}
+	}
+	return false
+}
+
+func renderStatusSummary(summary statusSummary, cfg *config.KimbapConfig) string {
 	vault := statusHealthColor(summary.Vault, "ready", []string{"locked", "not initialized"})
 	policy := statusHealthColor(summary.Policy, "loaded", []string{"not configured"})
 	servicesStr := fmt.Sprintf("%d enabled", summary.Services)
@@ -102,6 +119,8 @@ func renderStatusSummary(summary statusSummary) string {
 
 	if summary.Services == 0 {
 		lines = append(lines, "", "Run 'kimbap init --services select' to install services.")
+	} else if summary.Credentials == 0 && statusHasKeyBasedServices(cfg) {
+		lines = append(lines, "", "Run 'kimbap link list' to see which services need credentials.")
 	} else if summary.Agents == 0 {
 		lines = append(lines, "", "Run 'kimbap agents setup' to configure AI agent integration.")
 	}

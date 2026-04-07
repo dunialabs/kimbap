@@ -121,9 +121,7 @@ func newServiceInstallCommand() *cobra.Command {
 			if autoAlias != "" {
 				msg += fmt.Sprintf(" (alias: %s)", autoAlias)
 			}
-			if len(actionAliasesCreated) > 0 {
-				msg += fmt.Sprintf(" (action aliases: %s)", formatActionAliasesSummary(actionAliasesCreated))
-			}
+			msg += serviceShortcutHint(actionAliasesCreated)
 			maybePrintAgentSyncHint(opts.format)
 			return printOutput(msg)
 		},
@@ -477,9 +475,7 @@ func newServiceEnableCommand() *cobra.Command {
 			if autoAlias != "" {
 				msg += fmt.Sprintf(" (alias: %s)", autoAlias)
 			}
-			if len(actionAliasesCreated) > 0 {
-				msg += fmt.Sprintf(" (action aliases: %s)", formatActionAliasesSummary(actionAliasesCreated))
-			}
+			msg += serviceShortcutHint(actionAliasesCreated)
 			return printOutput(msg)
 		},
 	}
@@ -665,9 +661,7 @@ func newServiceUpdateCommand() *cobra.Command {
 			if autoAlias != "" {
 				msg += fmt.Sprintf(" (alias: %s)", autoAlias)
 			}
-			if len(actionAliasesCreated) > 0 {
-				msg += fmt.Sprintf(" (action aliases: %s)", formatActionAliasesSummary(actionAliasesCreated))
-			}
+			msg += serviceShortcutHint(actionAliasesCreated)
 			return printOutput(msg)
 		},
 	}
@@ -745,6 +739,7 @@ func newServiceOutdatedCommand() *cobra.Command {
 
 			fmt.Printf("%-30s %-12s %-12s %s\n", "SERVICE", "INSTALLED", "LATEST", "SOURCE")
 			useColor := isColorStdout()
+			names := make([]string, 0, len(entries))
 			for _, e := range entries {
 				instVer := fmt.Sprintf("%-12s", e.InstalledVersion)
 				latestVer := fmt.Sprintf("%-12s", e.LatestVersion)
@@ -753,8 +748,9 @@ func newServiceOutdatedCommand() *cobra.Command {
 					latestVer = "\x1b[32m" + latestVer + "\x1b[0m"
 				}
 				fmt.Printf("%-30s %s %s %s\n", e.Name, instVer, latestVer, e.Source)
+				names = append(names, e.Name)
 			}
-			fmt.Printf("\nRun 'kimbap service update <name>' to update a service.\n")
+			fmt.Printf("\n%s\n", serviceUpdateFooter(names))
 			return nil
 		},
 	}
@@ -1355,4 +1351,27 @@ func formatActionAliasesSummary(aliases []string) string {
 		return strings.Join(aliases, ", ")
 	}
 	return strings.Join(aliases[:3], ", ") + fmt.Sprintf(", ... and %d more", len(aliases)-3)
+}
+
+func serviceUpdateFooter(names []string) string {
+	switch len(names) {
+	case 0:
+		return "Run 'kimbap service update <name>' to update a service."
+	case 1:
+		return fmt.Sprintf("Run 'kimbap service update %s' to update.", names[0])
+	case 2:
+		return fmt.Sprintf("Run 'kimbap service update %s' or 'kimbap service update %s' to update.", names[0], names[1])
+	case 3:
+		return fmt.Sprintf("Run 'kimbap service update %s', 'kimbap service update %s', or 'kimbap service update %s' to update.", names[0], names[1], names[2])
+	default:
+		return fmt.Sprintf("Run 'kimbap service update <name>' to update. (%d services outdated)", len(names))
+	}
+}
+
+func serviceShortcutHint(actionAliasesCreated []string) string {
+	if len(actionAliasesCreated) == 0 {
+		return ""
+	}
+	return "\n  Shortcuts: " + formatActionAliasesSummary(actionAliasesCreated) +
+		"\n  Try: " + actionAliasesCreated[0] + " --help"
 }

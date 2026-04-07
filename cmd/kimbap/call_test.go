@@ -241,7 +241,7 @@ func TestCheckRequiredInputsListsAllMissingParameters(t *testing.T) {
 			},
 			Required: []string{"owner", "repo", "title"},
 		},
-	}, map[string]any{"owner": "acme"})
+	}, map[string]any{"owner": "acme"}, nil)
 	if err == nil {
 		t.Fatal("expected error for missing required params")
 	}
@@ -267,15 +267,36 @@ func TestCheckRequiredInputsHonorsDefaults(t *testing.T) {
 			},
 			Required: []string{"repo"},
 		},
-	}, map[string]any{})
+	}, map[string]any{}, nil)
 	if err != nil {
 		t.Fatalf("expected defaults to satisfy required inputs, got %v", err)
 	}
 }
 
 func TestCheckRequiredInputsSkipsWhenNoSchemaRequirements(t *testing.T) {
-	if err := checkRequiredInputs(&actions.ActionDefinition{Name: "svc.action"}, map[string]any{}); err != nil {
+	if err := checkRequiredInputs(&actions.ActionDefinition{Name: "svc.action"}, map[string]any{}, nil); err != nil {
 		t.Fatalf("expected nil error without schema, got %v", err)
+	}
+}
+
+func TestCheckRequiredInputsPrefersShortcutHelpHint(t *testing.T) {
+	err := checkRequiredInputs(&actions.ActionDefinition{
+		Name: "github.create-issue",
+		InputSchema: &actions.Schema{
+			Properties: map[string]*actions.Schema{
+				"owner": {Type: "string"},
+			},
+			Required: []string{"owner"},
+		},
+	}, map[string]any{}, map[string]string{"ghissue": "github.create-issue"})
+	if err == nil {
+		t.Fatal("expected error for missing required params")
+	}
+	if !strings.Contains(err.Error(), "Run 'ghissue --help' for details.") {
+		t.Fatalf("expected shortcut-aware help hint, got %q", err.Error())
+	}
+	if !strings.Contains(err.Error(), "Usage:\n  ghissue") {
+		t.Fatalf("expected shortcut in Usage line, got %q", err.Error())
 	}
 }
 

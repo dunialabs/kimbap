@@ -128,7 +128,7 @@ func filterObject(obj map[string]any, config *actions.FilterConfig) (map[string]
 
 	// Select
 	if len(config.Select) > 0 {
-		projected, missing := projectItem(result, config.Select)
+		projected, missing, _ := projectItem(result, config.Select)
 		if len(projected) == 0 && len(missing) == len(config.Select) {
 			return obj, meta, fmt.Errorf("all select paths missing from object: %v", missing)
 		}
@@ -162,6 +162,7 @@ func projectArray(items []any, selectMap map[string]string) ([]any, []string, er
 	allMissing := make(map[string]bool)
 	foundAny := false
 	hadMapItem := false
+	foundPaths := make(map[string]bool, len(selectMap))
 
 	for _, item := range items {
 		m, ok := item.(map[string]any)
@@ -170,13 +171,16 @@ func projectArray(items []any, selectMap map[string]string) ([]any, []string, er
 			continue
 		}
 		hadMapItem = true
-		projected, missing := projectItem(m, selectMap)
+		projected, missing, found := projectItem(m, selectMap)
 		result = append(result, projected)
 		if len(projected) > 0 {
 			foundAny = true
 		}
 		for _, p := range missing {
 			allMissing[p] = true
+		}
+		for _, p := range found {
+			foundPaths[p] = true
 		}
 	}
 
@@ -190,42 +194,32 @@ func projectArray(items []any, selectMap map[string]string) ([]any, []string, er
 		return items, nil, fmt.Errorf("all select paths missing from all items: %v", missing)
 	}
 
-	// Partial miss: source paths that never appeared in any item
-	var partialMiss []string
+	// Partial miss: source paths that never appeared in any item.
+	partialMiss := make([]string, 0, len(selectMap))
 	for _, sourcePath := range selectMap {
-		found := false
-		for _, item := range items {
-			m, ok := item.(map[string]any)
-			if !ok {
-				continue
-			}
-			if _, ok2 := pathutil.ExtractByPath(m, sourcePath); ok2 {
-				found = true
-				break
-			}
-		}
-		if !found {
+		if !foundPaths[sourcePath] {
 			partialMiss = append(partialMiss, sourcePath)
 		}
 	}
-
 	return result, partialMiss, nil
 }
 
 // projectItem applies a select map to a single item map.
 // outputKey: sourcePath — extracts sourcePath from item, stores as outputKey.
-func projectItem(item map[string]any, selectMap map[string]string) (map[string]any, []string) {
+func projectItem(item map[string]any, selectMap map[string]string) (map[string]any, []string, []string) {
 	result := make(map[string]any, len(selectMap))
 	var missing []string
+	var found []string
 	for outputKey, sourcePath := range selectMap {
 		val, ok := pathutil.ExtractByPath(item, sourcePath)
 		if ok {
 			result[outputKey] = val
+			found = append(found, sourcePath)
 		} else {
 			missing = append(missing, sourcePath)
 		}
 	}
-	return result, missing
+	return result, missing, found
 }
 
 // excludeArray applies excludeItem to every array element.

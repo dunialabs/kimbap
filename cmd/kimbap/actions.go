@@ -61,21 +61,49 @@ func newActionsCommand() *cobra.Command {
 			}
 
 			useColor := isColorStdout()
+
+			hasAnyShortcut := false
+			for _, def := range out {
+				if shortestCommandAlias(def.Name, cfg.CommandAliases) != "" {
+					hasAnyShortcut = true
+					break
+				}
+			}
+
+			if hasAnyShortcut {
+				fmt.Printf("%-40s %-16s %s\n", "ACTION", "SHORTCUT", "DESCRIPTION")
+			}
 			for _, def := range out {
 				desc := def.Description
 				if desc == "" {
 					desc = "-"
 				}
 				badge := searchRiskBadge(string(def.Risk), useColor)
-				if badge != "" {
-					fmt.Printf("%-40s %s  %s\n", def.Name, desc, badge)
+				if hasAnyShortcut {
+					shortcut := shortestCommandAlias(def.Name, cfg.CommandAliases)
+					if shortcut == "" {
+						shortcut = "-"
+					}
+					if badge != "" {
+						fmt.Printf("%-40s %-16s %s  %s\n", def.Name, shortcut, desc, badge)
+					} else {
+						fmt.Printf("%-40s %-16s %s\n", def.Name, shortcut, desc)
+					}
 				} else {
-					fmt.Printf("%-40s %s\n", def.Name, desc)
+					if badge != "" {
+						fmt.Printf("%-40s %s  %s\n", def.Name, desc, badge)
+					} else {
+						fmt.Printf("%-40s %s\n", def.Name, desc)
+					}
 				}
 			}
 
 			fmt.Println()
-			fmt.Println("Run 'kimbap call <service.action> --help' for usage details.")
+			if hasAnyShortcut {
+				fmt.Println("Run '<shortcut> --help' for usage (or 'kimbap call <service.action> --help' for the full form).")
+			} else {
+				fmt.Println("Run 'kimbap call <service.action> --help' for usage details.")
+			}
 
 			return nil
 		},
@@ -119,6 +147,9 @@ func newActionsCommand() *cobra.Command {
 			}
 
 			fmt.Printf("Action: %s\n", def.Name)
+			if shortcut := shortestCommandAlias(def.Name, cfg.CommandAliases); shortcut != "" {
+				fmt.Printf("Shortcut: %s\n", shortcut)
+			}
 			fmt.Printf("Description: %s\n", def.Description)
 			fmt.Printf("Namespace: %s\n", def.Namespace)
 			fmt.Printf("HTTP: %s %s\n", strings.ToUpper(def.Verb), def.Resource)
@@ -180,7 +211,8 @@ func newActionsCommand() *cobra.Command {
 						optionalParts = append(optionalParts, fmt.Sprintf("[--%s <%s>]", key, paramType))
 					}
 				}
-				fmt.Printf("Usage:\n  kimbap call %s", def.Name)
+				invocation := preferredInvocation(def.Name, cfg.CommandAliases)
+				fmt.Printf("Usage:\n  %s", invocation)
 				for _, p := range requiredParts {
 					fmt.Printf(" %s", p)
 				}
@@ -189,7 +221,8 @@ func newActionsCommand() *cobra.Command {
 				}
 				fmt.Println()
 			} else {
-				fmt.Printf("Usage:\n  kimbap call %s\n", def.Name)
+				invocation := preferredInvocation(def.Name, cfg.CommandAliases)
+				fmt.Printf("Usage:\n  %s\n", invocation)
 			}
 			return nil
 		},

@@ -315,15 +315,18 @@ func newLinkListCommand() *cobra.Command {
 				)
 			}
 			connected := 0
+			actionable := make([]string, 0)
 			for _, row := range rows {
 				if row.Status == "connected" {
 					connected++
+				} else if row.Status == "not_connected" {
+					actionable = append(actionable, row.Service)
 				}
 			}
 			notConnected := len(rows) - connected
 			if notConnected > 0 {
 				_, _ = fmt.Fprintf(c.OutOrStdout(), "\n%d connected · %d not connected\n", connected, notConnected)
-				_, _ = fmt.Fprintf(c.OutOrStdout(), "\nRun 'kimbap link <service>' to connect a service.\n")
+				_, _ = fmt.Fprintf(c.OutOrStdout(), "\n%s\n", linkConnectFooter(actionable))
 			} else {
 				_, _ = fmt.Fprintf(c.OutOrStdout(), "\nAll %d services connected\n", connected)
 			}
@@ -747,4 +750,19 @@ func linkDefaultDash(v string) string {
 		return "-"
 	}
 	return v
+}
+
+func linkConnectFooter(actionable []string) string {
+	switch len(actionable) {
+	case 0:
+		return "Run 'kimbap link <service>' to connect a service."
+	case 1:
+		return fmt.Sprintf("Run 'kimbap link %s' to connect.", actionable[0])
+	case 2:
+		return fmt.Sprintf("Run 'kimbap link %s' or 'kimbap link %s' to connect.", actionable[0], actionable[1])
+	case 3:
+		return fmt.Sprintf("Run 'kimbap link %s', 'kimbap link %s', or 'kimbap link %s' to connect.", actionable[0], actionable[1], actionable[2])
+	default:
+		return fmt.Sprintf("Run 'kimbap link <service>' to connect. (%d services need credentials)", len(actionable))
+	}
 }

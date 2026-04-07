@@ -144,17 +144,49 @@ func newSearchCommand() *cobra.Command {
 			}
 
 			useColor := isColorStdout()
+
+			hasAnyShortcut := false
 			for _, result := range results {
+				if shortestCommandAlias(result.Name, cfg.CommandAliases) != "" {
+					hasAnyShortcut = true
+					break
+				}
+			}
+
+			if hasAnyShortcut {
+				fmt.Printf("%-40s %-16s %s\n", "ACTION", "SHORTCUT", "DESCRIPTION")
+			}
+			for _, result := range results {
+				desc := result.Description
+				if desc == "" {
+					desc = "-"
+				}
 				badge := searchRiskBadge(string(result.Risk), useColor)
-				if badge != "" {
-					fmt.Printf("%-40s %s  %s\n", result.Name, result.Description, badge)
+				if hasAnyShortcut {
+					shortcut := shortestCommandAlias(result.Name, cfg.CommandAliases)
+					if shortcut == "" {
+						shortcut = "-"
+					}
+					if badge != "" {
+						fmt.Printf("%-40s %-16s %s  %s\n", result.Name, shortcut, desc, badge)
+					} else {
+						fmt.Printf("%-40s %-16s %s\n", result.Name, shortcut, desc)
+					}
 				} else {
-					fmt.Printf("%-40s %s\n", result.Name, result.Description)
+					if badge != "" {
+						fmt.Printf("%-40s %s  %s\n", result.Name, desc, badge)
+					} else {
+						fmt.Printf("%-40s %s\n", result.Name, desc)
+					}
 				}
 			}
 
 			fmt.Println()
-			fmt.Println("Run 'kimbap call <service.action> --help' for usage details.")
+			if hasAnyShortcut {
+				fmt.Println("Run '<shortcut> --help' for usage (or 'kimbap call <service.action> --help').")
+			} else {
+				fmt.Println("Run 'kimbap call <service.action> --help' for usage details.")
+			}
 
 			return nil
 		},

@@ -752,8 +752,22 @@ func renderInitSummary(configPath string, checks []doctorCheck) string {
 
 	if failed == 0 && created > 0 {
 		b.WriteString("\nNext steps:\n")
+		if payload, readErr := os.ReadFile(configPath); readErr == nil {
+			var loadedCfg config.KimbapConfig
+			if unmarshalErr := yaml.Unmarshal(payload, &loadedCfg); unmarshalErr == nil && len(loadedCfg.CommandAliases) > 0 {
+				shortcuts := make([]string, 0, len(loadedCfg.CommandAliases))
+				for alias := range loadedCfg.CommandAliases {
+					shortcuts = append(shortcuts, alias)
+				}
+				sort.Strings(shortcuts)
+				if len(shortcuts) > 3 {
+					shortcuts = shortcuts[:3]
+				}
+				examples := strings.Join(shortcuts, ", ")
+				_, _ = fmt.Fprintf(&b, "  %-38s %s\n", examples+" --help", "Try your installed shortcuts")
+			}
+		}
 		_, _ = fmt.Fprintf(&b, "  %-38s %s\n", "kimbap actions list", "See available actions")
-		_, _ = fmt.Fprintf(&b, "  %-38s %s\n", "kimbap call <service.action> --help", "Learn how to use an action")
 		_, _ = fmt.Fprintf(&b, "  %-38s %s\n", "kimbap link <service>", "Connect a service with credentials")
 		_, _ = fmt.Fprintf(&b, "  %-38s %s\n", "kimbap agents setup", "Set up AI agent integration")
 	}

@@ -302,6 +302,22 @@ func TestRenderInitSummaryIncludesWarnings(t *testing.T) {
 	}
 }
 
+func TestRenderInitSummaryShowsShortcutExamples(t *testing.T) {
+	configPath := filepath.Join(t.TempDir(), "config.yaml")
+	if err := os.WriteFile(configPath, []byte("command_aliases:\n  weather: open-meteo.forecast\n  geosearch: open-meteo-geocoding.search\n  wiki: wikipedia.search\n  hn: hacker-news.search\n"), 0o644); err != nil {
+		t.Fatalf("write config: %v", err)
+	}
+
+	summary := renderInitSummary(configPath, []doctorCheck{{Name: "config file", Status: "ok", Detail: "created"}})
+
+	if !strings.Contains(summary, "geosearch, hn, weather --help") {
+		t.Fatalf("expected sorted shortcut examples, got:\n%s", summary)
+	}
+	if strings.Contains(summary, "kimbap call <service.action> --help") {
+		t.Fatalf("expected old call guidance removed, got:\n%s", summary)
+	}
+}
+
 func TestEnsurePolicyFileFailsForInvalidExistingPolicy(t *testing.T) {
 	policyPath := filepath.Join(t.TempDir(), "policy.yaml")
 	invalid := "version: 1\nrules:\n- id: bad\n  effect: allow\n"

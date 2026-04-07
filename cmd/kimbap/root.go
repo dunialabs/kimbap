@@ -617,6 +617,26 @@ func loadInstalledActions(cfg *config.KimbapConfig) ([]actions.ActionDefinition,
 	return out, nil
 }
 
+func shortestCommandAlias(actionName string, commandAliases map[string]string) string {
+	shortest := ""
+	for alias, target := range commandAliases {
+		if target != actionName {
+			continue
+		}
+		if shortest == "" || len(alias) < len(shortest) {
+			shortest = alias
+		}
+	}
+	return shortest
+}
+
+func preferredInvocation(actionName string, commandAliases map[string]string) string {
+	if shortcut := shortestCommandAlias(actionName, commandAliases); shortcut != "" {
+		return shortcut
+	}
+	return "kimbap call " + actionName
+}
+
 func resolveActionByName(cfg *config.KimbapConfig, name string) (*actions.ActionDefinition, error) {
 	resolved := resolveAliasedActionName(cfg, name)
 	defs, err := loadInstalledActions(cfg)
@@ -663,7 +683,8 @@ func resolveActionByName(cfg *config.KimbapConfig, name string) (*actions.Action
 				if desc == "" {
 					desc = "-"
 				}
-				sb.WriteString(fmt.Sprintf("  kimbap call %-40s %s\n", serviceActions[i].Name, desc))
+				invocation := preferredInvocation(serviceActions[i].Name, cfg.CommandAliases)
+				sb.WriteString(fmt.Sprintf("  %-44s %s\n", invocation, desc))
 			}
 			if len(serviceActions) > 5 {
 				sb.WriteString(fmt.Sprintf("\nRun 'kimbap actions list --service %s' to see all %d actions.", canonicalNamespace, len(serviceActions)))
@@ -678,7 +699,8 @@ func resolveActionByName(cfg *config.KimbapConfig, name string) (*actions.Action
 	}
 	hint := "Run 'kimbap actions list' to see available actions, or 'kimbap search <query>' to find by keyword."
 	if suggestion := didYouMean(resolved, names); suggestion != "" {
-		hint = fmt.Sprintf("Did you mean %q? Run 'kimbap actions list' to see all available actions.", suggestion)
+		invocation := preferredInvocation(suggestion, cfg.CommandAliases)
+		hint = fmt.Sprintf("Did you mean %q? Try: %s --help", suggestion, invocation)
 	}
 	return nil, fmt.Errorf("action %q not found in installed services. %s", resolved, hint)
 }

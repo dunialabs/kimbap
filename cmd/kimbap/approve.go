@@ -319,7 +319,8 @@ func runApproveAccept(requestID string) error {
 	result, resumed, resumeErr := resumeApprovedExecutionForCLI(cfg, requestID)
 	if resumeErr != nil {
 		if !outputAsJSON() && lookupErr == nil && approval != nil && approval.Service != "" && approval.Action != "" {
-			_, _ = fmt.Fprintf(os.Stdout, "Retry: kimbap call %s.%s\n", approval.Service, approval.Action)
+			actionName := approval.Service + "." + approval.Action
+			_, _ = fmt.Fprintf(os.Stdout, "Retry: %s\n", preferredInvocation(actionName, cfg.CommandAliases))
 		}
 		return unavailableError(componentRuntime, resumeErr)
 	}
@@ -328,7 +329,8 @@ func runApproveAccept(requestID string) error {
 			return printOutput(approvalPayload)
 		}
 		if !outputAsJSON() && lookupErr == nil && approval != nil && approval.Service != "" && approval.Action != "" {
-			_, _ = fmt.Fprintf(os.Stdout, "Retry: kimbap call %s.%s\n", approval.Service, approval.Action)
+			actionName := approval.Service + "." + approval.Action
+			_, _ = fmt.Fprintf(os.Stdout, "Retry: %s\n", preferredInvocation(actionName, cfg.CommandAliases))
 		}
 		return nil
 	}

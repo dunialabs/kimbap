@@ -1435,3 +1435,68 @@ func TestServiceGenerateRejectsInsecureHTTPURL(t *testing.T) {
 		t.Fatalf("unexpected error: %v", err)
 	}
 }
+
+func TestServiceUpdateFooterZero(t *testing.T) {
+	footer := serviceUpdateFooter(nil)
+	if !strings.Contains(footer, "<name>") {
+		t.Fatalf("expected generic footer for zero entries, got %q", footer)
+	}
+}
+
+func TestServiceUpdateFooterOne(t *testing.T) {
+	footer := serviceUpdateFooter([]string{"github"})
+	if footer != "Run 'kimbap service update github' to update." {
+		t.Fatalf("unexpected footer: %q", footer)
+	}
+}
+
+func TestServiceUpdateFooterTwo(t *testing.T) {
+	footer := serviceUpdateFooter([]string{"github", "slack"})
+	if !strings.Contains(footer, "github") || !strings.Contains(footer, "slack") {
+		t.Fatalf("expected both services in footer, got %q", footer)
+	}
+	if strings.Contains(footer, "<name>") {
+		t.Fatalf("expected specific services, not placeholder, got %q", footer)
+	}
+}
+
+func TestServiceUpdateFooterFourPlus(t *testing.T) {
+	footer := serviceUpdateFooter([]string{"a", "b", "c", "d"})
+	if !strings.Contains(footer, "4 services") {
+		t.Fatalf("expected count in footer for 4+ entries, got %q", footer)
+	}
+	if !strings.Contains(footer, "<name>") {
+		t.Fatalf("expected generic placeholder for 4+ entries, got %q", footer)
+	}
+}
+
+func TestServiceShortcutHintEmpty(t *testing.T) {
+	hint := serviceShortcutHint(nil)
+	if hint != "" {
+		t.Fatalf("expected empty hint for nil aliases, got %q", hint)
+	}
+	hint = serviceShortcutHint([]string{})
+	if hint != "" {
+		t.Fatalf("expected empty hint for empty aliases, got %q", hint)
+	}
+}
+
+func TestServiceShortcutHintSingle(t *testing.T) {
+	hint := serviceShortcutHint([]string{"geosearch"})
+	if !strings.Contains(hint, "Shortcuts: geosearch") {
+		t.Fatalf("expected Shortcuts line, got %q", hint)
+	}
+	if !strings.Contains(hint, "Try: geosearch --help") {
+		t.Fatalf("expected Try line with first shortcut, got %q", hint)
+	}
+}
+
+func TestServiceShortcutHintMultiple(t *testing.T) {
+	hint := serviceShortcutHint([]string{"geosearch", "weather", "hn"})
+	if !strings.Contains(hint, "geosearch") {
+		t.Fatalf("expected geosearch in hint, got %q", hint)
+	}
+	if !strings.Contains(hint, "Try: geosearch --help") {
+		t.Fatalf("expected Try line with first shortcut, got %q", hint)
+	}
+}
