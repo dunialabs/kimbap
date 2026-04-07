@@ -37,7 +37,10 @@ actions:
     command: shortcuts-list
     description: List shortcuts available in the Shortcuts app
     idempotent: true
-    args: []
+    args:
+      - name: limit
+        type: integer
+        required: false
     response:
       type: array
     risk:

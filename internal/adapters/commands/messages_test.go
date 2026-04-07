@@ -67,3 +67,16 @@ func TestMessagesSendNormalizesHandleAndSanitizesNotFound(t *testing.T) {
 		t.Error("messages-send should not echo handle values in not-found error")
 	}
 }
+
+func TestMessagesListChatsNoFullMaterialization(t *testing.T) {
+	cmd := MessagesCommands()["messages-list-chats"]
+	if strings.Contains(cmd.Script, "app.chats()") {
+		t.Error("messages-list-chats: script materializes all chats with app.chats()")
+	}
+	if !strings.Contains(cmd.Script, "app.chats.length") {
+		t.Error("messages-list-chats: script should use app.chats.length for index-based access")
+	}
+	if !strings.Contains(cmd.Script, "app.chats[i]") {
+		t.Error("messages-list-chats: script should use app.chats[i] for index-based access")
+	}
+}

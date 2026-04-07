@@ -58,10 +58,12 @@ function mapPerson(person, includeExtra) {
 
 var parsedLimit = parseInt(input.limit, 10);
 var limit = isNaN(parsedLimit) || parsedLimit <= 0 ? 50 : parsedLimit;
-var people = app.people();
-var result = people.slice(0, limit).map(function(person) {
-	return mapPerson(person, false);
-});
+var total = app.people.length;
+var end = Math.min(limit, total);
+var result = [];
+for (var i = 0; i < end; i++) {
+	result.push(mapPerson(app.people[i], false));
+}
 
 JSON.stringify(result);`,
 		},
@@ -131,10 +133,10 @@ byName.forEach(function(person) {
 });
 
 if (result.length < 10) {
-	var all = app.people();
+	var total = app.people.length;
 	var checked = 0;
-	for (var i = 0; i < all.length && checked < 100 && result.length < 50; i++) {
-		var person = all[i];
+	for (var i = 0; i < total && checked < 100 && result.length < 50; i++) {
+		var person = app.people[i];
 		checked++;
 		var key = "";
 		try { key = person.id(); } catch (e) {}
@@ -217,11 +219,11 @@ function mapPerson(person) {
 }
 
 var targetName = String(input.name).toLowerCase();
-var people = app.people();
+var total = app.people.length;
 var match = null;
 
-for (var i = 0; i < people.length; i++) {
-	var p = people[i];
+for (var i = 0; i < total; i++) {
+	var p = app.people[i];
 	var name = "";
 	try { name = (p.name() || "").toLowerCase(); } catch (e) {}
 	if (name === targetName) {
@@ -231,8 +233,8 @@ for (var i = 0; i < people.length; i++) {
 }
 
 if (!match) {
-	for (var j = 0; j < people.length; j++) {
-		var p2 = people[j];
+	for (var j = 0; j < total; j++) {
+		var p2 = app.people[j];
 		var name2 = "";
 		try { name2 = (p2.name() || "").toLowerCase(); } catch (e) {}
 		if (name2.indexOf(targetName) >= 0) {

@@ -53,8 +53,11 @@ app.includeStandardAdditions = false;
 var parsedLimit = parseInt(input.limit, 10);
 var limit = isNaN(parsedLimit) || parsedLimit <= 0 ? 10 : parsedLimit;
 
-var chats = app.chats();
-var result = chats.slice(0, limit).map(function(chat) {
+var total = app.chats.length;
+var end = Math.min(limit, total);
+var result = [];
+for (var i = 0; i < end; i++) {
+	var chat = app.chats[i];
 	var participants = [];
 	var lastMessage = null;
 
@@ -89,13 +92,13 @@ var result = chats.slice(0, limit).map(function(chat) {
 
 	var chatId = "";
 	try { chatId = chat.id(); } catch (e) {}
-	return {
+	result.push({
 		id: chatId,
 		participants: participants,
 		displayName: displayName,
 		lastMessage: lastMessage
-	};
-});
+	});
+}
 
 JSON.stringify(result);`,
 		},

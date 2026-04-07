@@ -80,3 +80,41 @@ func TestNotesNotFoundCommandsEmitSentinel(t *testing.T) {
 		}
 	}
 }
+
+func TestNotesLimitPatterns(t *testing.T) {
+	cmds := NotesCommands()
+
+	listNotes := cmds["list-notes"]
+	if !strings.Contains(listNotes.Script, "parseInt(input.limit, 10)") {
+		t.Error("list-notes: script does not parse input.limit")
+	}
+	if !strings.Contains(listNotes.Script, "app.notes.length") {
+		t.Error("list-notes: script does not use app.notes.length for index-based access")
+	}
+	if !strings.Contains(listNotes.Script, "app.notes[i]") {
+		t.Error("list-notes: script does not use app.notes[i] for index-based access")
+	}
+	if strings.Contains(listNotes.Script, "notes = app.notes();") {
+		t.Error("list-notes: script still materializes all notes with app.notes()")
+	}
+	if strings.Contains(listNotes.Script, "folders[0].notes()") {
+		t.Error("list-notes: script still materializes folder notes with folders[0].notes()")
+	}
+	if strings.Contains(listNotes.Script, ".notes().slice") {
+		t.Error("list-notes: script still slices a materialized folder notes array")
+	}
+
+	searchNotes := cmds["search-notes"]
+	if !strings.Contains(searchNotes.Script, "parseInt(input.limit, 10)") {
+		t.Error("search-notes: script does not parse input.limit")
+	}
+	if !strings.Contains(searchNotes.Script, "app.notes.length") {
+		t.Error("search-notes: script does not use app.notes.length for index-based access")
+	}
+	if !strings.Contains(searchNotes.Script, "app.notes[i]") {
+		t.Error("search-notes: script does not use app.notes[i] for index-based access")
+	}
+	if strings.Contains(searchNotes.Script, "app.notes()") {
+		t.Error("search-notes: script still materializes all notes with app.notes()")
+	}
+}

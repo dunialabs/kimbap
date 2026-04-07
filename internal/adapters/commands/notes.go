@@ -32,14 +32,28 @@ JSON.stringify(result);`,
 			Script: stdinReader + `
 var app = Application("Notes");
 app.includeStandardAdditions = false;
+var parsedLimit = parseInt(input.limit, 10);
+var limit = isNaN(parsedLimit) || parsedLimit <= 0 ? 20 : parsedLimit;
 var notes;
 if (input.folder) {
 	var folders = app.folders.whose({name: input.folder})();
 	if (folders.length === 0) throw new Error("[NOT_FOUND] folder not found: " + input.folder);
 	if (folders.length > 1) throw new Error("[AMBIGUOUS] multiple folders with name " + JSON.stringify(input.folder));
-	notes = folders[0].notes();
+	var folderNotes = folders[0].notes;
+	var folderTotal = folderNotes.length;
+	var folderEnd = Math.min(limit, folderTotal);
+	notes = [];
+	for (var i = 0; i < folderEnd; i++) {
+		notes.push(folderNotes[i]);
+	}
 } else {
-	notes = app.notes();
+	var total = app.notes.length;
+	var end = Math.min(limit, total);
+	notes = [];
+	for (var i = 0; i < end; i++) {
+		var n = app.notes[i];
+		notes.push(n);
+	}
 }
 var result = notes.map(function(n) {
 	return {
@@ -74,18 +88,24 @@ JSON.stringify(result);`,
 			Script: stdinReader + `
 var app = Application("Notes");
 app.includeStandardAdditions = false;
-var all = app.notes();
+var parsedLimit = parseInt(input.limit, 10);
+var limit = isNaN(parsedLimit) || parsedLimit <= 0 ? 20 : parsedLimit;
 var query = (input.query || "").toLowerCase();
-var result = all.filter(function(n) {
-	return n.name().toLowerCase().indexOf(query) >= 0 ||
-	       n.plaintext().toLowerCase().indexOf(query) >= 0;
-}).map(function(n) {
-	return {
-		name: n.name(),
-		folder: n.container().name(),
-		snippet: n.plaintext().substring(0, 200)
-	};
-});
+var total = app.notes.length;
+var result = [];
+for (var i = 0; i < total && result.length < limit; i++) {
+	var n = app.notes[i];
+	var noteName = n.name();
+	var body = n.plaintext();
+	if (noteName.toLowerCase().indexOf(query) >= 0 ||
+	    body.toLowerCase().indexOf(query) >= 0) {
+		result.push({
+			name: noteName,
+			folder: n.container().name(),
+			snippet: body.substring(0, 200)
+		});
+	}
+}
 JSON.stringify(result);`,
 		},
 		"create-note": {

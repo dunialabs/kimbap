@@ -8,7 +8,13 @@ func ShortcutsCommands() map[string]Command {
 var app = Application("Shortcuts");
 app.includeStandardAdditions = false;
 
-var result = app.shortcuts().map(function(sc) {
+var parsedLimit = parseInt(input.limit, 10);
+var limit = isNaN(parsedLimit) || parsedLimit <= 0 ? 50 : parsedLimit;
+var total = app.shortcuts.length;
+var end = Math.min(limit, total);
+var result = [];
+for (var i = 0; i < end; i++) {
+	var sc = app.shortcuts[i];
 	var folderName = null;
 	try {
 		var folder = sc.folder();
@@ -16,11 +22,8 @@ var result = app.shortcuts().map(function(sc) {
 	} catch (e) {
 		folderName = null;
 	}
-	return {
-		name: sc.name(),
-		folder: folderName
-	};
-});
+	result.push({name: sc.name(), folder: folderName});
+}
 JSON.stringify(result);`,
 		},
 		"shortcuts-run": {

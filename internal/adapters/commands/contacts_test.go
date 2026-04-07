@@ -71,3 +71,40 @@ func TestContactsCreateSaveErrorIsSanitized(t *testing.T) {
 		t.Error("contacts-create should not expose internal e.message details")
 	}
 }
+
+func TestContactsNoFullMaterialization(t *testing.T) {
+	cmds := ContactsCommands()
+
+	list := cmds["contacts-list"]
+	if strings.Contains(list.Script, "app.people()") {
+		t.Error("contacts-list: script materializes all contacts with app.people()")
+	}
+	if !strings.Contains(list.Script, "app.people.length") {
+		t.Error("contacts-list: script should use app.people.length for index-based access")
+	}
+	if !strings.Contains(list.Script, "app.people[i]") {
+		t.Error("contacts-list: script should use app.people[i] for index-based access")
+	}
+
+	search := cmds["contacts-search"]
+	if strings.Contains(search.Script, "app.people()") {
+		t.Error("contacts-search: fallback still materializes all contacts with app.people()")
+	}
+	if !strings.Contains(search.Script, "app.people.length") {
+		t.Error("contacts-search: fallback should use app.people.length for index-based access")
+	}
+	if !strings.Contains(search.Script, "app.people[i]") {
+		t.Error("contacts-search: fallback should use app.people[i] for index-based access")
+	}
+
+	get := cmds["contacts-get"]
+	if strings.Contains(get.Script, "app.people()") {
+		t.Error("contacts-get: script materializes all contacts with app.people()")
+	}
+	if !strings.Contains(get.Script, "app.people.length") {
+		t.Error("contacts-get: script should use app.people.length for index-based access")
+	}
+	if !strings.Contains(get.Script, "app.people[i]") {
+		t.Error("contacts-get: script should use app.people[i] for index-based access")
+	}
+}
