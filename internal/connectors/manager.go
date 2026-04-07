@@ -68,6 +68,7 @@ func (m *Manager) RegisterConfig(cfg ConnectorConfig) {
 }
 
 func (m *Manager) Login(ctx context.Context, tenantID, name string) (*DeviceFlowResult, error) {
+	ctx = normalizeContext(ctx)
 	cfg, err := m.configFor(name)
 	if err != nil {
 		return nil, err
@@ -91,6 +92,7 @@ func (m *Manager) Login(ctx context.Context, tenantID, name string) (*DeviceFlow
 }
 
 func (m *Manager) CompleteLogin(ctx context.Context, tenantID, name string, code string) error {
+	ctx = normalizeContext(ctx)
 	cfg, err := m.configFor(name)
 	if err != nil {
 		return err
@@ -202,7 +204,7 @@ func (m *Manager) CompleteLogin(ctx context.Context, tenantID, name string, code
 }
 
 func (m *Manager) Refresh(ctx context.Context, tenantID, name string) error {
-	return m.refreshOnce(ctx, tenantID, name)
+	return m.refreshOnce(normalizeContext(ctx), tenantID, name)
 }
 
 func (m *Manager) doRefresh(ctx context.Context, tenantID, name string) error {
@@ -287,6 +289,7 @@ func (m *Manager) doRefresh(ctx context.Context, tenantID, name string) error {
 }
 
 func (m *Manager) GetAccessToken(ctx context.Context, tenantID, name string) (string, error) {
+	ctx = normalizeContext(ctx)
 	state, err := m.store.Get(ctx, tenantID, name)
 	if err != nil {
 		return "", err
@@ -321,6 +324,7 @@ func (m *Manager) GetAccessToken(ctx context.Context, tenantID, name string) (st
 // refreshOnce ensures only one refresh runs per connector at a time.
 // Concurrent callers wait for the first refresh to complete and reuse the result.
 func (m *Manager) refreshOnce(ctx context.Context, tenantID, name string) error {
+	ctx = normalizeContext(ctx)
 	key := tenantID + "::" + name
 
 	m.refreshMu.Lock()
@@ -351,6 +355,7 @@ func (m *Manager) refreshOnce(ctx context.Context, tenantID, name string) error 
 }
 
 func (m *Manager) List(ctx context.Context, tenantID string) ([]ConnectorState, error) {
+	ctx = normalizeContext(ctx)
 	items, err := m.store.List(ctx, tenantID)
 	if err != nil {
 		return nil, err
@@ -370,6 +375,7 @@ func (m *Manager) List(ctx context.Context, tenantID string) ([]ConnectorState, 
 }
 
 func (m *Manager) Status(ctx context.Context, tenantID, name string) (*ConnectorState, error) {
+	ctx = normalizeContext(ctx)
 	state, err := m.store.Get(ctx, tenantID, name)
 	if err != nil {
 		return nil, err
@@ -463,6 +469,13 @@ func connectorEncryptionKey() string {
 	return strings.TrimSpace(os.Getenv("KIMBAP_CONNECTOR_ENCRYPTION_KEY"))
 }
 
+func normalizeContext(ctx context.Context) context.Context {
+	if ctx == nil {
+		return context.Background()
+	}
+	return ctx
+}
+
 func deriveStatus(state *ConnectorState) ConnectorStatus {
 	if state == nil {
 		return StatusPending
@@ -521,6 +534,7 @@ func DeriveConnectionStatus(state *ConnectorState) ConnectionStatus {
 }
 
 func (m *Manager) Revoke(ctx context.Context, tenantID, name string) error {
+	ctx = normalizeContext(ctx)
 	state, err := m.store.Get(ctx, tenantID, name)
 	if err != nil {
 		return err
@@ -540,10 +554,11 @@ func (m *Manager) Revoke(ctx context.Context, tenantID, name string) error {
 }
 
 func (m *Manager) Delete(ctx context.Context, tenantID, name string) error {
-	return m.store.Delete(ctx, tenantID, name)
+	return m.store.Delete(normalizeContext(ctx), tenantID, name)
 }
 
 func (m *Manager) StoreConnection(ctx context.Context, tenantID, name, provider string, accessToken, refreshToken string, expiresIn int, scope string, flowUsed FlowType, connScope ConnectionScope, workspaceID string) error {
+	ctx = normalizeContext(ctx)
 	now := time.Now().UTC()
 
 	state, loadErr := m.loadDecryptedState(ctx, tenantID, name)

@@ -503,6 +503,51 @@ func (s *memConnectorStore) key(tenantID, name string) string {
 	return tenantID + "::" + name
 }
 
+func TestManagerRefreshAllowsNilContext(t *testing.T) {
+	store := newMemConnectorStore()
+	manager := NewManager(store)
+	const encKey = "connector-test-key"
+	t.Setenv("KIMBAP_CONNECTOR_ENCRYPTION_KEY", encKey)
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if err := r.ParseForm(); err != nil {
+			t.Fatalf("parse form: %v", err)
+		}
+		if got := r.Form.Get("refresh_token"); got != "refresh-token" {
+			t.Fatalf("expected refresh-token, got %s", got)
+		}
+		_, _ = w.Write([]byte(`{"access_token":"new-access","refresh_token":"new-refresh","expires_in":3600,"token_type":"Bearer"}`))
+	}))
+	defer server.Close()
+
+	manager.RegisterConfig(ConnectorConfig{
+		Name:     "source-control",
+		Provider: "source-control",
+		ClientID: "client-id",
+		TokenURL: server.URL,
+	})
+
+	expired := time.Now().Add(-10 * time.Minute)
+	if err := store.Save(context.Background(), &ConnectorState{
+		Name:         "source-control",
+		TenantID:     "tenant-1",
+		Provider:     "source-control",
+		Status:       StatusOldExpired,
+		AccessToken:  mustEncryptToken(t, "old-access", encKey),
+		RefreshToken: mustEncryptToken(t, "refresh-token", encKey),
+		ExpiresAt:    &expired,
+		CreatedAt:    time.Now().Add(-time.Hour),
+		UpdatedAt:    time.Now().Add(-time.Hour),
+	}); err != nil {
+		t.Fatalf("seed store: %v", err)
+	}
+
+	var nilCtx context.Context
+	if err := manager.Refresh(nilCtx, "tenant-1", "source-control"); err != nil {
+		t.Fatalf("Refresh() with nil context error = %v", err)
+	}
+}
+
 func TestRefreshNoTokenRotation_NoDoubleEncryption(t *testing.T) {
 	ctx := context.Background()
 	store := newMemConnectorStore()
