@@ -309,6 +309,7 @@ func TestFormatStaleWarning(t *testing.T) {
 				"+ notion (new)",
 				"- slack (removed)",
 				"Run: kimbap agents sync",
+				"--dir /path/to/project",
 			},
 		},
 		{
@@ -322,6 +323,7 @@ func TestFormatStaleWarning(t *testing.T) {
 				"warning: agent services out of sync",
 				"service content changed",
 				"Run: kimbap agents sync",
+				"--dir /path/to/project",
 			},
 		},
 		{

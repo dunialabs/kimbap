@@ -190,7 +190,7 @@ func FormatStaleWarning(result *StaleCheckResult) string {
 	for _, name := range result.RemovedServices {
 		_, _ = fmt.Fprintf(&sb, "  - %s (removed)\n", name)
 	}
-	_, _ = fmt.Fprintf(&sb, "  Run: kimbap agents sync    (this project)\n")
+	_, _ = fmt.Fprintf(&sb, "  Run: kimbap agents sync    (this project, or use --dir /path/to/project)\n")
 
 	return sb.String()
 }
