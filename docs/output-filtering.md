@@ -68,8 +68,8 @@ Real-world API responses wrap their data in inconsistent keys. `detectAndFilter`
 | Priority | Wrapper key | Source |
 |---|---|---|
 | 1 | `items` | HTTP pagination (`executeWithPagination`) |
-| 2 | `result` | HTTP single-response normalization (`normalizeOutput`) |
-| 3 | `data` | Command / AppleScript non-map array output |
+| 2 | `data` | HTTP `normalizeOutput` / Command / AppleScript non-map array output |
+| 3 | `result` | Legacy external response shape (recognized, not emitted by current kimbap adapters) |
 | 4 | *(first array-valued key)* | Fallback for non-standard shapes |
 | — | *(none)* | Flat object — filter applied directly to the map |
 

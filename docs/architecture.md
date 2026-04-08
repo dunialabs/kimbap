@@ -449,7 +449,7 @@ chi router
   │   ├── Execute: POST https://api.stripe.com/v1/refunds
   │   └── Audit: write full decision path
   │
-  └── Response: { "result": { ... } }
+  └── Response: { "success": true, "data": { ... }, "request_id": "..." }
 ```
 
 ### Approval Flow
