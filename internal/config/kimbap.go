@@ -154,6 +154,7 @@ func LoadKimbapConfigWithoutDefault(paths ...string) (*KimbapConfig, error) {
 }
 
 func loadKimbapConfig(includeDefault bool, paths ...string) (*KimbapConfig, error) {
+	ensureDotenvLoaded()
 	cfg := DefaultConfig()
 
 	if includeDefault {
@@ -205,6 +206,7 @@ func loadKimbapConfig(includeDefault bool, paths ...string) (*KimbapConfig, erro
 }
 
 func ResolveConfigPath(explicitPath string) (string, error) {
+	ensureDotenvLoaded()
 	if trimmed := strings.TrimSpace(explicitPath); trimmed != "" {
 		return trimmed, nil
 	}

@@ -4,6 +4,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 	"testing"
 
 	"gopkg.in/yaml.v3"
@@ -36,6 +37,45 @@ func TestLoadKimbapConfigAppliesConsoleEnabledFromEnv(t *testing.T) {
 	}
 	if !cfg.Console.Enabled {
 		t.Fatal("expected console enabled from env")
+	}
+}
+
+func TestLoadKimbapConfigLoadsDotenvLazily(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	originalMode, hadMode := os.LookupEnv("KIMBAP_MODE")
+	if err := os.Unsetenv("KIMBAP_MODE"); err != nil {
+		t.Fatalf("unset KIMBAP_MODE: %v", err)
+	}
+
+	originalWD, err := os.Getwd()
+	if err != nil {
+		t.Fatalf("getwd: %v", err)
+	}
+	dotenvDir := t.TempDir()
+	if err := os.WriteFile(filepath.Join(dotenvDir, ".env"), []byte("KIMBAP_MODE=connected\n"), 0o644); err != nil {
+		t.Fatalf("write .env: %v", err)
+	}
+	if err := os.Chdir(dotenvDir); err != nil {
+		t.Fatalf("chdir dotenv dir: %v", err)
+	}
+	t.Cleanup(func() {
+		_ = os.Chdir(originalWD)
+		if hadMode {
+			_ = os.Setenv("KIMBAP_MODE", originalMode)
+		} else {
+			_ = os.Unsetenv("KIMBAP_MODE")
+		}
+		dotenvOnce = sync.Once{}
+	})
+	dotenvOnce = sync.Once{}
+
+	cfg, err := LoadKimbapConfigWithoutDefault()
+	if err != nil {
+		t.Fatalf("LoadKimbapConfigWithoutDefault: %v", err)
+	}
+	if cfg.Mode != "connected" {
+		t.Fatalf("expected mode from lazily loaded .env, got %q", cfg.Mode)
 	}
 }
 

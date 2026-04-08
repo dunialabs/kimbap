@@ -3,6 +3,7 @@ package config
 import (
 	"os"
 	"strings"
+	"sync"
 
 	"github.com/joho/godotenv"
 )
@@ -27,6 +28,8 @@ var AppInfo = struct {
 	Date:        date,
 	Description: "Kimbap - Secure action runtime for AI agents",
 }
+
+var dotenvOnce sync.Once
 
 func CLIVersion() string {
 	v := strings.TrimSpace(AppInfo.Version)
@@ -56,11 +59,14 @@ func CLIVersionDisplay() string {
 	return v + " (" + strings.Join(meta, ", ") + ")"
 }
 
-func init() {
-	_ = godotenv.Load()
+func ensureDotenvLoaded() {
+	dotenvOnce.Do(func() {
+		_ = godotenv.Load()
+	})
 }
 
 func Env(key string, defaultVal ...string) string {
+	ensureDotenvLoaded()
 	if val := os.Getenv(key); val != "" {
 		return val
 	}
