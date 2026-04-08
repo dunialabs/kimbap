@@ -24,6 +24,46 @@ func TestBuildInitConfigRebasesPolicyPathWithDataDir(t *testing.T) {
 	}
 }
 
+func TestBuildInitConfigRebasesPolicyPathWithEnvDataDir(t *testing.T) {
+	original := opts
+	t.Cleanup(func() { opts = original })
+
+	dataDir := t.TempDir()
+	t.Setenv("KIMBAP_DATA_DIR", dataDir)
+	opts = cliOptions{}
+
+	cfg := buildInitConfig()
+	want := filepath.Join(dataDir, "policy.yaml")
+	if cfg.Policy.Path != want {
+		t.Fatalf("expected policy path %q, got %q", want, cfg.Policy.Path)
+	}
+}
+
+func TestWriteInitConfigPrefersKimbapConfigEnvOverEnvDataDir(t *testing.T) {
+	original := opts
+	t.Cleanup(func() { opts = original })
+
+	configPath := filepath.Join(t.TempDir(), "custom-config.yaml")
+	dataDir := t.TempDir()
+	t.Setenv("KIMBAP_CONFIG", configPath)
+	t.Setenv("KIMBAP_DATA_DIR", dataDir)
+	opts = cliOptions{}
+
+	path, check := writeInitConfig(buildInitConfig(), true)
+	if check.Status != "ok" {
+		t.Fatalf("expected config write ok, got %q (%s)", check.Status, check.Detail)
+	}
+	if path != configPath {
+		t.Fatalf("expected init config path %q, got %q", configPath, path)
+	}
+	if _, err := os.Stat(configPath); err != nil {
+		t.Fatalf("expected config file at %q: %v", configPath, err)
+	}
+	if _, err := os.Stat(filepath.Join(dataDir, "config.yaml")); !os.IsNotExist(err) {
+		t.Fatalf("expected data-dir config to be absent, got err=%v", err)
+	}
+}
+
 func TestBuildInitConfigDefaultsToDevMode(t *testing.T) {
 	original := opts
 	t.Cleanup(func() { opts = original })
@@ -409,6 +449,9 @@ func TestResolveInitServiceSelectionFromReader(t *testing.T) {
 		{name: "services all returns all", rawServices: "all", wantAll: true},
 		{name: "services ALL case insensitive", rawServices: "ALL", wantAll: true},
 		{name: "services all with whitespace", rawServices: " all ", wantAll: true},
+		{name: "services none skips", rawServices: "none", wantSkipped: true},
+		{name: "services NONE case insensitive", rawServices: "NONE", wantSkipped: true},
+		{name: "services none with whitespace", rawServices: " none ", wantSkipped: true},
 		{name: "services recommended returns preset", rawServices: "recommended", wantStarter: true},
 		{name: "services starter legacy alias returns preset", rawServices: "starter", wantStarter: true},
 		{name: "services csv returns normalized", rawServices: "github,slack", wantNames: []string{"github", "slack"}},

@@ -459,14 +459,21 @@ func printCatalogServiceCategories() error {
 
 func buildInitConfig() *config.KimbapConfig {
 	cfg := config.DefaultConfig()
-	if strings.TrimSpace(opts.dataDir) != "" {
-		config.ApplyDataDirOverride(cfg, opts.dataDir)
+	if dataDir := resolvedInitDataDir(); dataDir != "" {
+		config.ApplyDataDirOverride(cfg, dataDir)
 	}
 	if strings.TrimSpace(opts.logLevel) != "" {
 		cfg.LogLevel = opts.logLevel
 	}
 	cfg.Mode = resolveInitMode()
 	return cfg
+}
+
+func resolvedInitDataDir() string {
+	if dataDir := strings.TrimSpace(opts.dataDir); dataDir != "" {
+		return dataDir
+	}
+	return strings.TrimSpace(os.Getenv("KIMBAP_DATA_DIR"))
 }
 
 func resolveInitMode() string {
@@ -489,7 +496,7 @@ func validateInitMode(mode string) error {
 }
 
 func writeInitConfig(cfg *config.KimbapConfig, force bool) (string, doctorCheck) {
-	path, err := config.ResolveConfigPathWithDataDir(opts.configPath, opts.dataDir)
+	path, err := resolveInitConfigPath()
 	if err != nil {
 		return "", doctorCheck{Name: "config file", Status: "fail", Detail: err.Error()}
 	}
@@ -537,6 +544,16 @@ func writeInitConfig(cfg *config.KimbapConfig, force bool) (string, doctorCheck)
 		return path, doctorCheck{Name: "config file", Status: "fail", Detail: rErr.Error()}
 	}
 	return path, doctorCheck{Name: "config file", Status: status, Detail: fmt.Sprintf("%s: %s", detailPrefix, path)}
+}
+
+func resolveInitConfigPath() (string, error) {
+	if trimmed := strings.TrimSpace(opts.configPath); trimmed != "" {
+		return config.ResolveConfigPath(trimmed)
+	}
+	if envPath := strings.TrimSpace(os.Getenv("KIMBAP_CONFIG")); envPath != "" {
+		return envPath, nil
+	}
+	return config.ResolveConfigPathWithDataDir("", resolvedInitDataDir())
 }
 
 func ensureDirWithStatus(name, dir string) doctorCheck {

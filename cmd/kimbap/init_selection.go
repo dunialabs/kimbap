@@ -79,6 +79,9 @@ func resolveInitServiceSelectionFromReader(rawServices string, noServices bool, 
 	if noServices {
 		return initServiceSelection{Skipped: true, Reason: "skipped by --no-services"}, nil
 	}
+	if strings.EqualFold(strings.TrimSpace(rawServices), "none") {
+		return initServiceSelection{Skipped: true, Reason: "skipped by --services none"}, nil
+	}
 
 	if isChecklistSelectionKeyword(rawServices) {
 		if !interactive {
