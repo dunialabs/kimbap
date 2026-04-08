@@ -1397,6 +1397,39 @@ func TestServiceInstallPrintsSyncHint(t *testing.T) {
 	}
 }
 
+func TestServiceInstallSuppressesSyncHintWithoutConfiguredAgent(t *testing.T) {
+	dataDir := t.TempDir()
+	servicesDir := filepath.Join(dataDir, "services")
+	configPath := writeServiceCLIConfig(t, dataDir, servicesDir)
+
+	homeDir := t.TempDir()
+	t.Setenv("HOME", homeDir)
+	t.Setenv("XDG_CONFIG_HOME", filepath.Join(homeDir, ".config"))
+	if err := os.MkdirAll(filepath.Join(homeDir, ".claude"), 0o755); err != nil {
+		t.Fatalf("create detected agent dir: %v", err)
+	}
+
+	manifestPath := filepath.Join(t.TempDir(), "local-hint.yaml")
+	writeLocalManifest(t, manifestPath, "local-hint", "1.0.0")
+
+	prev := opts
+	opts = cliOptions{configPath: configPath, format: "text", noSplash: true}
+	t.Cleanup(func() { opts = prev })
+
+	installCmd := newServiceInstallCommand()
+	installCmd.SetArgs([]string{manifestPath})
+	stderr, err := captureStderr(t, installCmd.Execute)
+	if err != nil {
+		t.Fatalf("service install failed: %v", err)
+	}
+	if strings.Contains(stderr, "Hint: Run 'kimbap agents sync'") {
+		t.Fatalf("expected no sync hint without configured agent integration, got %q", stderr)
+	}
+	if strings.Contains(stderr, "automatic agent sync skipped") {
+		t.Fatalf("expected no verbose sync warning without configured agent integration, got %q", stderr)
+	}
+}
+
 func TestServiceCLIInstalledFileParsesAsValidManifest(t *testing.T) {
 	dataDir := t.TempDir()
 	servicesDir := filepath.Join(dataDir, "services")

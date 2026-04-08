@@ -1391,51 +1391,19 @@ func maybePrintAgentSyncHint(format string) {
 		return
 	}
 
-	projectDir, wdErr := os.Getwd()
-	if wdErr != nil || strings.TrimSpace(projectDir) == "" {
-		projectDir = "."
-	}
-
-	syncResult, syncErr := runAgentsSync(projectDir, "", "", false, false)
-	if syncErr == nil && syncResult.AgentsFound > 0 {
-		written := 0
-		pruned := 0
-		hasFailures := false
-		for _, r := range syncResult.SyncResults {
-			written += len(r.Written)
-			pruned += len(r.Pruned)
-			if len(r.Failed) > 0 || len(r.Errors) > 0 {
-				hasFailures = true
-			}
-		}
-
-		if hasFailures {
-			_, _ = fmt.Fprintf(os.Stderr, "\nWarning: automatic agent sync completed with issues. Run 'kimbap agents sync --force' to inspect and repair.\n")
-			return
-		}
-
-		if written > 0 || pruned > 0 || len(syncResult.MetaAgentSkillPaths) > 0 {
-			_, _ = fmt.Fprintf(os.Stderr, "\nSynced AI agent skills automatically (agents=%d, written=%d, pruned=%d).\n", syncResult.AgentsFound, written, pruned)
-		}
-		return
-	}
-
 	results, err := agents.GlobalStatus()
 	if err != nil || len(results) == 0 {
 		return
 	}
 	hasAgent := false
 	for _, r := range results {
-		if r.Detected || r.AgentSkillPresent || r.InjectPresent {
+		if r.AgentSkillPresent || r.InjectPresent {
 			hasAgent = true
 			break
 		}
 	}
 	if !hasAgent {
 		return
-	}
-	if syncErr != nil {
-		_, _ = fmt.Fprintf(os.Stderr, "\nwarning: automatic agent sync skipped: %v\n", syncErr)
 	}
 	_, _ = fmt.Fprintln(os.Stderr, "\nHint: Run 'kimbap agents sync' to update your AI agents with this change.")
 }
