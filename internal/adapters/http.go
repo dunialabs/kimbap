@@ -259,7 +259,7 @@ func (a *HTTPAdapter) executeWithPagination(ctx context.Context, req AdapterRequ
 }
 
 func extractResponseItems(output map[string]any) ([]any, bool) {
-	for _, key := range []string{"result", "items", "data"} {
+	for _, key := range []string{"items", "data", "result"} {
 		if items, ok := output[key].([]any); ok {
 			return items, true
 		}
@@ -297,6 +297,10 @@ func (a *HTTPAdapter) executeSingle(ctx context.Context, req AdapterRequest) (*A
 	payload := filterInputBySchema(req.Input, req.Action.InputSchema)
 	if payload == nil {
 		payload = map[string]any{}
+	}
+	payload, err = normalizeActionInput(req.Action.Name, payload)
+	if err != nil {
+		return nil, actions.NewExecutionError(actions.ErrValidationFailed, err.Error(), http.StatusBadRequest, false, nil)
 	}
 
 	if err := injectBodyCredential(payload, req.Action.Auth, req.Credentials); err != nil {
@@ -841,13 +845,113 @@ func normalizeOutput(body []byte, extract string) (map[string]any, error) {
 		if out, ok := value.(map[string]any); ok {
 			return out, nil
 		}
-		return map[string]any{"result": value}, nil
+		return map[string]any{"data": value}, nil
 	}
 
 	if out, ok := parsed.(map[string]any); ok {
 		return out, nil
 	}
-	return map[string]any{"result": parsed}, nil
+	return map[string]any{"data": parsed}, nil
+}
+
+func normalizeActionInput(actionName string, input map[string]any) (map[string]any, error) {
+	normalized := cloneAnyMap(input)
+	if normalized == nil {
+		normalized = map[string]any{}
+	}
+	switch strings.TrimSpace(actionName) {
+	case "notion.create-page":
+		return normalizeNotionCreatePageInput(normalized)
+	case "notion.update-page":
+		return normalizeNotionUpdatePageInput(normalized)
+	default:
+		return normalized, nil
+	}
+}
+
+func normalizeNotionCreatePageInput(input map[string]any) (map[string]any, error) {
+	if _, ok := input["parent"]; !ok {
+		if databaseID, ok := nonEmptyStringValue(input, "database_id"); ok {
+			input["parent"] = map[string]any{"database_id": databaseID}
+		} else if parentID, ok := nonEmptyStringValue(input, "parent_id"); ok {
+			input["parent"] = map[string]any{"page_id": parentID}
+		}
+	}
+	if _, ok := input["parent"]; !ok {
+		return nil, fmt.Errorf("notion.create-page requires parent, parent_id, or database_id")
+	}
+
+	if _, ok := input["properties"]; !ok {
+		if title, ok := nonEmptyStringValue(input, "title"); ok {
+			titleProperty, _ := nonEmptyStringValue(input, "title_property")
+			input["properties"] = notionTitleProperties(titleProperty, title)
+		}
+	}
+
+	if _, ok := input["children"]; !ok {
+		if content, ok := nonEmptyStringValue(input, "content"); ok {
+			input["children"] = notionParagraphChildren(content)
+		}
+	} else if _, ok := nonEmptyStringValue(input, "content"); ok {
+		return nil, fmt.Errorf("notion.create-page content cannot be combined with children")
+	}
+
+	return input, nil
+}
+
+func normalizeNotionUpdatePageInput(input map[string]any) (map[string]any, error) {
+	if _, ok := input["properties"]; !ok {
+		if title, ok := nonEmptyStringValue(input, "title"); ok {
+			titleProperty, _ := nonEmptyStringValue(input, "title_property")
+			input["properties"] = notionTitleProperties(titleProperty, title)
+		}
+	}
+	return input, nil
+}
+
+func notionTitleProperties(titleProperty string, title string) map[string]any {
+	key := strings.TrimSpace(titleProperty)
+	if key == "" {
+		key = "title"
+	}
+	return map[string]any{
+		key: map[string]any{
+			"title": []any{
+				map[string]any{
+					"text": map[string]any{"content": title},
+				},
+			},
+		},
+	}
+}
+
+func notionParagraphChildren(content string) []any {
+	return []any{
+		map[string]any{
+			"object": "block",
+			"type":   "paragraph",
+			"paragraph": map[string]any{
+				"rich_text": []any{
+					map[string]any{
+						"type": "text",
+						"text": map[string]any{"content": content},
+					},
+				},
+			},
+		},
+	}
+}
+
+func nonEmptyStringValue(input map[string]any, key string) (string, bool) {
+	value, ok := input[key]
+	if !ok || value == nil {
+		return "", false
+	}
+	trimmed := strings.TrimSpace(toString(value))
+	if trimmed == "" || trimmed == "<nil>" {
+		return "", false
+	}
+	return trimmed, true
 }
 
 // Note: extractByPath and extractSegment have been moved to internal/pathutil and are no longer defined here.

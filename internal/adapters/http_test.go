@@ -7,6 +7,7 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"reflect"
 	"strconv"
 	"testing"
 	"time"
@@ -206,6 +207,250 @@ func TestHTTPAdapterURLTemplateAndCustomHeader(t *testing.T) {
 
 	if err != nil {
 		t.Fatalf("expected no error, got %v", err)
+	}
+}
+
+func TestNormalizeOutputUsesDataWrapperForExtractedArrays(t *testing.T) {
+	got, err := normalizeOutput([]byte(`{"results":[{"id":1}]}`), "results")
+	if err != nil {
+		t.Fatalf("normalizeOutput() error = %v", err)
+	}
+	arr, ok := got["data"].([]any)
+	if !ok || len(arr) != 1 {
+		t.Fatalf("expected data array wrapper, got %+v", got)
+	}
+	if _, has := got["result"]; has {
+		t.Fatalf("expected legacy result wrapper to be absent, got %+v", got)
+	}
+}
+
+func TestNormalizeActionInputNotionCreatePageFriendlyFields(t *testing.T) {
+	input := map[string]any{
+		"parent_id": "page-123",
+		"title":     "My Page",
+		"content":   "Hello, Notion!",
+	}
+	got, err := normalizeActionInput("notion.create-page", input)
+	if err != nil {
+		t.Fatalf("normalizeActionInput() error = %v", err)
+	}
+	parent, ok := got["parent"].(map[string]any)
+	if !ok || parent["page_id"] != "page-123" {
+		t.Fatalf("expected synthesized parent page_id, got %+v", got["parent"])
+	}
+	properties, ok := got["properties"].(map[string]any)
+	if !ok {
+		t.Fatalf("expected synthesized properties, got %+v", got["properties"])
+	}
+	titleProp, ok := properties["title"].(map[string]any)
+	if !ok {
+		t.Fatalf("expected title property object, got %+v", properties)
+	}
+	titleItems, ok := titleProp["title"].([]any)
+	if !ok || len(titleItems) != 1 {
+		t.Fatalf("expected title rich text items, got %+v", titleProp)
+	}
+	textNode := titleItems[0].(map[string]any)["text"].(map[string]any)
+	if textNode["content"] != "My Page" {
+		t.Fatalf("expected title content My Page, got %+v", textNode)
+	}
+	children, ok := got["children"].([]any)
+	if !ok || len(children) != 1 {
+		t.Fatalf("expected synthesized children, got %+v", got["children"])
+	}
+	paragraph := children[0].(map[string]any)["paragraph"].(map[string]any)
+	richText := paragraph["rich_text"].([]any)
+	textNode = richText[0].(map[string]any)["text"].(map[string]any)
+	if textNode["content"] != "Hello, Notion!" {
+		t.Fatalf("expected paragraph content Hello, Notion!, got %+v", textNode)
+	}
+}
+
+func TestNormalizeActionInputNotionCreatePageFriendlyDatabaseID(t *testing.T) {
+	got, err := normalizeActionInput("notion.create-page", map[string]any{
+		"database_id": "db-123",
+		"title":       "Database Page",
+	})
+	if err != nil {
+		t.Fatalf("normalizeActionInput() error = %v", err)
+	}
+	parent, ok := got["parent"].(map[string]any)
+	if !ok || parent["database_id"] != "db-123" {
+		t.Fatalf("expected synthesized parent database_id, got %+v", got["parent"])
+	}
+}
+
+func TestNormalizeActionInputNotionCreatePagePreservesAdvancedFields(t *testing.T) {
+	rawParent := map[string]any{"database_id": "db-123"}
+	rawProperties := map[string]any{"Name": map[string]any{"title": []any{}}}
+	rawIcon := map[string]any{"type": "emoji", "emoji": "🔥"}
+	rawCover := map[string]any{"type": "external", "external": map[string]any{"url": "https://example.com/cover.png"}}
+	input := map[string]any{
+		"parent":     rawParent,
+		"properties": rawProperties,
+		"children":   []any{map[string]any{"object": "block"}},
+		"icon":       rawIcon,
+		"cover":      rawCover,
+	}
+	got, err := normalizeActionInput("notion.create-page", input)
+	if err != nil {
+		t.Fatalf("normalizeActionInput() error = %v", err)
+	}
+	if !reflect.DeepEqual(got["parent"], rawParent) {
+		t.Fatalf("expected raw parent preserved, got %+v", got["parent"])
+	}
+	if !reflect.DeepEqual(got["properties"], rawProperties) {
+		t.Fatalf("expected raw properties preserved, got %+v", got["properties"])
+	}
+	if !reflect.DeepEqual(got["icon"], rawIcon) {
+		t.Fatalf("expected raw icon preserved, got %+v", got["icon"])
+	}
+	if !reflect.DeepEqual(got["cover"], rawCover) {
+		t.Fatalf("expected raw cover preserved, got %+v", got["cover"])
+	}
+	if _, hasMarkdown := got["markdown"]; hasMarkdown {
+		t.Fatalf("expected markdown to remain unset when content is absent, got %+v", got)
+	}
+}
+
+func TestHTTPAdapterNotionCreatePagePreservesIconAndCoverInBody(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		body, _ := io.ReadAll(r.Body)
+		var payload map[string]any
+		_ = json.Unmarshal(body, &payload)
+		if _, ok := payload["icon"].(map[string]any); !ok {
+			t.Fatalf("expected icon in payload, got %+v", payload)
+		}
+		if _, ok := payload["cover"].(map[string]any); !ok {
+			t.Fatalf("expected cover in payload, got %+v", payload)
+		}
+		w.WriteHeader(http.StatusCreated)
+		_, _ = w.Write([]byte(`{"id":"page-1"}`))
+	}))
+	defer server.Close()
+
+	adapter := NewHTTPAdapter(server.Client())
+	res, err := adapter.Execute(context.Background(), AdapterRequest{
+		Action: actions.ActionDefinition{
+			Name: "notion.create-page",
+			InputSchema: &actions.Schema{Properties: map[string]*actions.Schema{
+				"parent":     {Type: "object"},
+				"properties": {Type: "object"},
+				"children":   {Type: "array"},
+				"icon":       {Type: "object"},
+				"cover":      {Type: "object"},
+			}},
+			Adapter: actions.AdapterConfig{
+				Type:        "http",
+				Method:      "POST",
+				URLTemplate: server.URL + "/pages",
+				RequestBody: `{"parent":"{parent}","properties":"{properties}","children":"{children}","icon":"{icon}","cover":"{cover}"}`,
+			},
+		},
+		Input: map[string]any{
+			"parent":     map[string]any{"database_id": "db-123"},
+			"properties": map[string]any{"title": map[string]any{"title": []any{}}},
+			"children":   []any{map[string]any{"object": "block"}},
+			"icon":       map[string]any{"type": "emoji", "emoji": "🔥"},
+			"cover":      map[string]any{"type": "external", "external": map[string]any{"url": "https://example.com/cover.png"}},
+		},
+	})
+
+	if err != nil {
+		t.Fatalf("expected no error, got %v", err)
+	}
+	if res.HTTPStatus != http.StatusCreated {
+		t.Fatalf("expected 201, got %d", res.HTTPStatus)
+	}
+}
+
+func TestNormalizeActionInputNotionUpdatePageFriendlyFields(t *testing.T) {
+	got, err := normalizeActionInput("notion.update-page", map[string]any{
+		"title":          "Renamed",
+		"title_property": "Name",
+		"archived":       true,
+	})
+	if err != nil {
+		t.Fatalf("normalizeActionInput() error = %v", err)
+	}
+	if got["archived"] != true {
+		t.Fatalf("expected archived flag preserved, got %+v", got)
+	}
+	properties, ok := got["properties"].(map[string]any)
+	if !ok {
+		t.Fatalf("expected synthesized properties, got %+v", got["properties"])
+	}
+	if _, ok := properties["Name"]; !ok {
+		t.Fatalf("expected synthesized title property, got %+v", properties)
+	}
+}
+
+func TestHTTPAdapterNotionUpdatePagePreservesIconCoverAndTrashInBody(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		body, _ := io.ReadAll(r.Body)
+		var payload map[string]any
+		_ = json.Unmarshal(body, &payload)
+		if _, ok := payload["icon"].(map[string]any); !ok {
+			t.Fatalf("expected icon in payload, got %+v", payload)
+		}
+		if _, ok := payload["cover"].(map[string]any); !ok {
+			t.Fatalf("expected cover in payload, got %+v", payload)
+		}
+		if payload["in_trash"] != true {
+			t.Fatalf("expected in_trash=true in payload, got %+v", payload)
+		}
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(`{"id":"page-1"}`))
+	}))
+	defer server.Close()
+
+	adapter := NewHTTPAdapter(server.Client())
+	res, err := adapter.Execute(context.Background(), AdapterRequest{
+		Action: actions.ActionDefinition{
+			Name: "notion.update-page",
+			InputSchema: &actions.Schema{Properties: map[string]*actions.Schema{
+				"page_id":        {Type: "string"},
+				"properties":     {Type: "object"},
+				"icon":           {Type: "object"},
+				"cover":          {Type: "object"},
+				"in_trash":       {Type: "boolean"},
+				"title":          {Type: "string"},
+				"title_property": {Type: "string"},
+			}},
+			Adapter: actions.AdapterConfig{
+				Type:        "http",
+				Method:      "PATCH",
+				URLTemplate: server.URL + "/pages/123",
+				RequestBody: `{"properties":"{properties}","in_trash":"{in_trash}","icon":"{icon}","cover":"{cover}"}`,
+			},
+		},
+		Input: map[string]any{
+			"page_id":        "123",
+			"title":          "Updated",
+			"title_property": "Name",
+			"icon":           map[string]any{"type": "emoji", "emoji": "📝"},
+			"cover":          map[string]any{"type": "external", "external": map[string]any{"url": "https://example.com/updated-cover.png"}},
+			"in_trash":       true,
+		},
+	})
+
+	if err != nil {
+		t.Fatalf("expected no error, got %v", err)
+	}
+	if res.HTTPStatus != http.StatusOK {
+		t.Fatalf("expected 200, got %d", res.HTTPStatus)
+	}
+}
+
+func TestNormalizeActionInputNotionCreatePageRejectsConflictingContentAndChildren(t *testing.T) {
+	_, err := normalizeActionInput("notion.create-page", map[string]any{
+		"parent_id": "page-123",
+		"title":     "My Page",
+		"content":   "hello",
+		"children":  []any{map[string]any{"object": "block"}},
+	})
+	if err == nil || err.Error() != "notion.create-page content cannot be combined with children" {
+		t.Fatalf("expected content/children validation error, got %v", err)
 	}
 }
 
