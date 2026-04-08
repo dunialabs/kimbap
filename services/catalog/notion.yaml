@@ -19,7 +19,7 @@ gotchas:
     severity: high
   - symptom: Page creation fails even though title/properties look valid
     likely_cause: New pages require a valid parent (page_id or database_id)
-    recovery: Provide a parent object explicitly when calling create-page
+    recovery: Provide parent, parent_id, or database_id when calling create-page
     severity: high
   - symptom: 403 or object_not_found when reading known pages/databases
     likely_cause: Integration has not been shared with the page/database in Notion UI
@@ -109,14 +109,35 @@ actions:
     path: /pages
     description: Create a new page in a parent page or database
     args:
+      - name: parent_id
+        type: string
+        required: false
+      - name: database_id
+        type: string
+        required: false
+      - name: title
+        type: string
+        required: false
+      - name: title_property
+        type: string
+        required: false
+      - name: content
+        type: string
+        required: false
       - name: parent
         type: object
-        required: true
+        required: false
       - name: properties
         type: object
-        required: true
+        required: false
       - name: children
         type: array
+        required: false
+      - name: icon
+        type: object
+        required: false
+      - name: cover
+        type: object
         required: false
     request:
       headers:
@@ -125,8 +146,20 @@ actions:
         parent: "{parent}"
         properties: "{properties}"
         children: "{children}"
+        icon: "{icon}"
+        cover: "{cover}"
     response:
       type: object
+      filter:
+        select:
+          id: id
+          url: url
+          created_time: created_time
+          last_edited_time: last_edited_time
+          archived: archived
+          in_trash: in_trash
+          properties: properties
+        drop_nulls: true
     risk:
       level: medium
   update-page:
@@ -137,11 +170,26 @@ actions:
       - name: page_id
         type: string
         required: true
+      - name: title
+        type: string
+        required: false
+      - name: title_property
+        type: string
+        required: false
       - name: properties
         type: object
-        required: true
+        required: false
       - name: archived
         type: boolean
+        required: false
+      - name: in_trash
+        type: boolean
+        required: false
+      - name: icon
+        type: object
+        required: false
+      - name: cover
+        type: object
         required: false
     request:
       path_params:
@@ -151,8 +199,21 @@ actions:
       body:
         properties: "{properties}"
         archived: "{archived}"
+        in_trash: "{in_trash}"
+        icon: "{icon}"
+        cover: "{cover}"
     response:
       type: object
+      filter:
+        select:
+          id: id
+          url: url
+          created_time: created_time
+          last_edited_time: last_edited_time
+          archived: archived
+          in_trash: in_trash
+          properties: properties
+        drop_nulls: true
     risk:
       level: medium
   append-blocks:
@@ -193,6 +254,9 @@ actions:
     response:
       extract: results
       type: array
+      filter:
+        max_items: 50
+        drop_nulls: true
     risk:
       level: low
   query-database:
