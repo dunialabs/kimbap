@@ -60,9 +60,11 @@ func TestDetectPayloadRoot(t *testing.T) {
 		wantKey string
 	}{
 		{map[string]interface{}{"items": []interface{}{1, 2, 3}}, "items"},
-		{map[string]interface{}{"result": []interface{}{1, 2, 3}}, "result"},
 		{map[string]interface{}{"data": []interface{}{1, 2, 3}}, "data"},
+		{map[string]interface{}{"result": []interface{}{1, 2, 3}}, "result"},
 		{map[string]interface{}{"items": []interface{}{1}, "_pagination": map[string]interface{}{"next": "x"}}, "items"},
+		{map[string]interface{}{"data": []interface{}{1}, "result": []interface{}{2}}, "data"},
+		{map[string]interface{}{"data": map[string]interface{}{"id": 1}, "result": []interface{}{2}}, "result"},
 	} {
 		key, payload := DetectPayloadRoot(tc.in)
 		if key != tc.wantKey {

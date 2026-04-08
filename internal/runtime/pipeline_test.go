@@ -1043,7 +1043,7 @@ func baseRequest(action actions.ActionDefinition) actions.ExecutionRequest {
 func TestPipelineWithFilter_AppliedAfterAudit(t *testing.T) {
 	audit := &mockAuditWriter{}
 	rawOutput := map[string]any{
-		"result": []any{
+		"data": []any{
 			map[string]any{"id": 1, "name": "x", "bio": "long field that should be stripped"},
 		},
 	}
@@ -1071,7 +1071,7 @@ func TestPipelineWithFilter_AppliedAfterAudit(t *testing.T) {
 	}
 
 	// Output should be filtered
-	arr, ok := res.Output["result"].([]any)
+	arr, ok := res.Output["data"].([]any)
 	if !ok || len(arr) != 1 {
 		t.Fatalf("expected filtered result array, got %v", res.Output)
 	}
@@ -1098,7 +1098,7 @@ func TestPipelineWithFilter_AppliedAfterAudit(t *testing.T) {
 }
 
 func TestPipelineNoFilter_Passthrough(t *testing.T) {
-	rawOutput := map[string]any{"result": []any{map[string]any{"id": 1, "bio": "preserved"}}}
+	rawOutput := map[string]any{"data": []any{map[string]any{"id": 1, "bio": "preserved"}}}
 	rt := Runtime{
 		PolicyEvaluator: mockPolicyEvaluator{decision: &PolicyDecision{Decision: "allow"}},
 		AuditWriter:     &mockAuditWriter{},
@@ -1116,7 +1116,7 @@ func TestPipelineNoFilter_Passthrough(t *testing.T) {
 	if res.Status != actions.StatusSuccess {
 		t.Fatalf("expected success, got %s", res.Status)
 	}
-	arr := res.Output["result"].([]any)
+	arr := res.Output["data"].([]any)
 	item := arr[0].(map[string]any)
 	if item["bio"] != "preserved" {
 		t.Error("without FilterConfig, output should pass through unchanged")
@@ -1128,7 +1128,7 @@ func TestPipelineNoFilter_Passthrough(t *testing.T) {
 
 func TestPipelineOutputModeRaw_BypassesFilter(t *testing.T) {
 	rawOutput := map[string]any{
-		"result": []any{
+		"data": []any{
 			map[string]any{"id": 1, "bio": "should remain when _output_mode=raw"},
 		},
 	}
@@ -1154,7 +1154,7 @@ func TestPipelineOutputModeRaw_BypassesFilter(t *testing.T) {
 	if res.Status != actions.StatusSuccess {
 		t.Fatalf("expected success, got %s", res.Status)
 	}
-	arr := res.Output["result"].([]any)
+	arr := res.Output["data"].([]any)
 	item := arr[0].(map[string]any)
 	if _, hasBio := item["bio"]; !hasBio {
 		t.Error("_output_mode=raw should bypass filter, bio should be present")
@@ -1194,7 +1194,7 @@ func TestPipelineBudget_Applied(t *testing.T) {
 	for i := range items {
 		items[i] = map[string]any{"id": i, "name": "item"}
 	}
-	rawOutput := map[string]any{"result": items}
+	rawOutput := map[string]any{"data": items}
 
 	rt := Runtime{
 		PolicyEvaluator: mockPolicyEvaluator{decision: &PolicyDecision{Decision: "allow"}},
@@ -1219,7 +1219,7 @@ func TestPipelineBudget_Applied(t *testing.T) {
 		t.Fatalf("expected success, got %s: %v", res.Status, res.Error)
 	}
 	// With budget=100 chars and 20 items, result should be trimmed
-	arr, ok := res.Output["result"].([]any)
+	arr, ok := res.Output["data"].([]any)
 	if !ok {
 		t.Fatal("result should be array")
 	}

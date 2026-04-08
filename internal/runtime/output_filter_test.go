@@ -619,6 +619,39 @@ func TestApplyFilter_EmptyConfigFastPath(t *testing.T) {
 	}
 }
 
+func TestApplyFilter_DataWrapperPath(t *testing.T) {
+	output := map[string]any{
+		"data": []any{
+			map[string]any{"id": 1, "name": "alpha", "bio": "remove me"},
+		},
+	}
+	config := &actions.FilterConfig{
+		Select: map[string]string{"id": "id", "name": "name"},
+	}
+
+	got, meta, err := ApplyFilter(output, config)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if !meta.Applied {
+		t.Fatal("expected filter to be applied")
+	}
+	arr, ok := got["data"].([]any)
+	if !ok || len(arr) != 1 {
+		t.Fatalf("expected filtered data array, got %v", got)
+	}
+	item, ok := arr[0].(map[string]any)
+	if !ok {
+		t.Fatalf("expected filtered item map, got %#v", arr[0])
+	}
+	if item["id"] != 1 || item["name"] != "alpha" {
+		t.Fatalf("unexpected filtered item: %#v", item)
+	}
+	if _, hasBio := item["bio"]; hasBio {
+		t.Fatalf("expected unselected field bio to be removed, got %#v", item)
+	}
+}
+
 func TestCoerceBudgetInt_AllTypes(t *testing.T) {
 	cases := []struct {
 		name  string

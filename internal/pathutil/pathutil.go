@@ -75,8 +75,8 @@ func ExtractSegment(value interface{}, segment string) (interface{}, bool) {
 // DetectPayloadRoot inspects a payload (as map[string]interface{}) to determine the root wrapper key
 // and the corresponding payload. It follows the priority rules described in the task:
 // 1) "items" if present and is an array
-// 2) "result" if present and is an array
-// 3) "data" if present and is an array
+// 2) "data" if present and is an array
+// 3) "result" if present and is an array
 // 4) first key whose value is []interface{} (deterministic order by key name)
 // 5) if no wrapper found, return empty key and the original output as payload
 func DetectPayloadRoot(output map[string]interface{}) (string, interface{}) {
@@ -86,14 +86,14 @@ func DetectPayloadRoot(output map[string]interface{}) (string, interface{}) {
 			return "items", arr
 		}
 	}
-	if v, ok := output["result"]; ok {
-		if arr, ok2 := v.([]interface{}); ok2 {
-			return "result", arr
-		}
-	}
 	if v, ok := output["data"]; ok {
 		if arr, ok2 := v.([]interface{}); ok2 {
 			return "data", arr
+		}
+	}
+	if v, ok := output["result"]; ok {
+		if arr, ok2 := v.([]interface{}); ok2 {
+			return "result", arr
 		}
 	}
 
@@ -113,4 +113,3 @@ func DetectPayloadRoot(output map[string]interface{}) (string, interface{}) {
 	// 5: no wrapper; return whole map as payload
 	return "", output
 }
-
