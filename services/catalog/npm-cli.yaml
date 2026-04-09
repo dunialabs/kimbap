@@ -1,0 +1,50 @@
+name: npm-cli
+version: 1.0.0
+description: Node.js package manager
+adapter: command
+command_spec:
+  executable: npm
+  json_flag: "none"
+auth:
+  type: none
+triggers:
+  task_verbs: [list, install, run, check]
+  objects: [packages, dependencies, scripts]
+actions:
+  list:
+    command: "list --json"
+    description: List installed packages
+    args:
+      - name: depth
+        type: integer
+        required: false
+        default: 0
+    idempotent: true
+    response:
+      type: object
+    risk:
+      level: low
+  outdated:
+    command: "outdated --json"
+    description: Check for outdated packages
+    idempotent: true
+    success_codes: [0, 1]
+    response:
+      type: object
+    risk:
+      level: low
+  run:
+    command: "run"
+    description: Run a package script
+    args:
+      - name: script
+        type: string
+        required: true
+        style: positional
+    response:
+      type: object
+      text_filter:
+        strip_lines_matching: ["^npm warn", "^$"]
+        max_lines: 50
+    risk:
+      level: low

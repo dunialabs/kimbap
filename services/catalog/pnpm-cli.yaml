@@ -1,0 +1,44 @@
+name: pnpm-cli
+version: 1.0.0
+description: Fast Node.js package manager
+adapter: command
+command_spec:
+  executable: pnpm
+  json_flag: "none"
+auth:
+  type: none
+triggers:
+  task_verbs: [list, install, check]
+  objects: [packages, dependencies, node modules]
+gotchas:
+  - symptom: install modifies lockfile unexpectedly
+    likely_cause: pnpm version mismatch or missing lockfile
+    recovery: Verify pnpm version matches project expectations before install
+    severity: medium
+actions:
+  list:
+    command: "list --json"
+    description: List installed packages
+    idempotent: true
+    response:
+      type: object
+    risk:
+      level: low
+  outdated:
+    command: "outdated --json"
+    description: Check for outdated packages
+    idempotent: true
+    response:
+      type: object
+    risk:
+      level: low
+  install:
+    command: "install"
+    description: Install dependencies
+    response:
+      type: object
+      text_filter:
+        strip_lines_matching: ["^Progress"]
+        max_lines: 20
+    risk:
+      level: medium
