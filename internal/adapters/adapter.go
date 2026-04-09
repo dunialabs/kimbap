@@ -23,6 +23,7 @@ type AdapterRequest struct {
 
 type AdapterResult struct {
 	Output     map[string]any
+	ExitCode   int
 	HTTPStatus int
 	Headers    map[string]string
 	DurationMS int64
