@@ -1,0 +1,29 @@
+name: log-cli
+version: 1.0.0
+description: Log file viewer with deduplication
+adapter: command
+command_spec:
+  executable: cat
+  json_flag: "none"
+auth:
+  type: none
+triggers:
+  task_verbs: [read, inspect, view]
+  objects: [logs, log files]
+actions:
+  view:
+    command: "--"
+    description: View log file with deduplication of repeated lines
+    args:
+      - name: file
+        type: string
+        required: true
+        style: positional
+    idempotent: true
+    response:
+      type: object
+      text_filter:
+        dedup: true
+        max_lines: 100
+    risk:
+      level: low

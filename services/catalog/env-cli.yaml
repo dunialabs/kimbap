@@ -1,0 +1,24 @@
+name: env-cli
+version: 1.0.0
+description: Environment variable viewer with sensitive data filtering
+adapter: command
+command_spec:
+  executable: env
+  json_flag: "none"
+auth:
+  type: none
+triggers:
+  task_verbs: [list, inspect]
+  objects: [environment, variables, env vars]
+actions:
+  list:
+    command: "--"
+    description: List environment variables with sensitive values masked
+    idempotent: true
+    response:
+      type: object
+      text_filter:
+        strip_lines_matching: ["PASSWORD", "SECRET", "TOKEN", "KEY=", "CREDENTIAL"]
+        max_lines: 50
+    risk:
+      level: low
