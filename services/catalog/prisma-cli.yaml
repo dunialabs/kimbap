@@ -1,0 +1,47 @@
+name: prisma-cli
+version: 1.0.0
+description: Prisma ORM CLI
+adapter: command
+command_spec:
+  executable: npx
+  json_flag: "none"
+auth:
+  type: none
+triggers:
+  task_verbs: [generate, migrate, push]
+  objects: [prisma client, migrations, database schema]
+gotchas:
+  - symptom: db-push drops data in existing tables
+    likely_cause: Schema change requires destructive migration that Prisma applies automatically
+    recovery: Use migrate-status to review pending changes before running db-push
+    severity: high
+actions:
+  generate:
+    command: "prisma generate"
+    description: Generate Prisma client
+    response:
+      type: object
+      text_filter:
+        strip_lines_matching: ["^\\s*[╔╚╗╝║═│┌┐└┘├┤┬┴┼]"]
+        max_lines: 10
+    risk:
+      level: low
+  migrate-status:
+    command: "prisma migrate status"
+    description: Check migration status
+    idempotent: true
+    response:
+      type: object
+      text_filter:
+        max_lines: 20
+    risk:
+      level: low
+  db-push:
+    command: "prisma db push"
+    description: Push schema changes
+    response:
+      type: object
+      text_filter:
+        max_lines: 15
+    risk:
+      level: high
