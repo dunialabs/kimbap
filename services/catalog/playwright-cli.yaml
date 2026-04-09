@@ -1,0 +1,23 @@
+name: playwright-cli
+version: 1.0.0
+description: Playwright end-to-end test runner
+adapter: command
+command_spec:
+  executable: npx
+  json_flag: "none"
+auth:
+  type: none
+triggers:
+  task_verbs: [test, run]
+  objects: [e2e tests, browser tests, playwright tests]
+actions:
+  test:
+    command: "playwright test"
+    description: Run Playwright tests
+    response:
+      type: object
+      text_filter:
+        keep_lines_matching: ["✓", "✗", "×", "failed", "passed", "\\d+ test"]
+        max_lines: 50
+    risk:
+      level: low

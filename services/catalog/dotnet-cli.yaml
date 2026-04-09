@@ -1,0 +1,52 @@
+name: dotnet-cli
+version: 1.0.0
+description: .NET CLI for build, test, and project management
+adapter: command
+command_spec:
+  executable: dotnet
+  json_flag: "none"
+auth:
+  type: none
+triggers:
+  task_verbs: [test, build, restore]
+  objects: [dotnet projects, tests, nuget packages]
+actions:
+  test:
+    command: "test"
+    description: Run .NET tests
+    args:
+      - name: project
+        type: string
+        required: false
+        style: positional
+    response:
+      type: object
+      text_filter:
+        keep_lines_matching: ["Passed", "Failed", "Total", "Error"]
+        max_lines: 50
+    risk:
+      level: low
+  build:
+    command: "build"
+    description: Build .NET project
+    args:
+      - name: project
+        type: string
+        required: false
+        style: positional
+    response:
+      type: object
+      text_filter:
+        keep_lines_matching: ["Build succeeded", "Error", "Warning", "->"]
+        max_lines: 30
+    risk:
+      level: low
+  restore:
+    command: "restore"
+    description: Restore NuGet packages
+    response:
+      type: object
+      text_filter:
+        max_lines: 20
+    risk:
+      level: low
