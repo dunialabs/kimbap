@@ -1,0 +1,25 @@
+name: rspec-cli
+version: 1.0.0
+description: Ruby RSpec test framework
+adapter: command
+command_spec:
+  executable: rspec
+  json_flag: "--format json"
+auth:
+  type: none
+triggers:
+  task_verbs: [test, run]
+  objects: [specs, ruby tests, rspec tests]
+actions:
+  run:
+    command: "--"
+    description: Run RSpec tests
+    args:
+      - name: path
+        type: string
+        required: false
+        style: positional
+    response:
+      type: object
+    risk:
+      level: low
