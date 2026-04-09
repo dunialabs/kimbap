@@ -1,0 +1,47 @@
+name: graphite-cli
+version: 1.0.0
+description: Graphite stacked PR tool
+adapter: command
+command_spec:
+  executable: gt
+  json_flag: "none"
+auth:
+  type: none
+triggers:
+  task_verbs: [log, submit, sync]
+  objects: [branch stack, pull requests, graphite]
+gotchas:
+  - symptom: submit creates PRs against wrong base branch
+    likely_cause: Branch stack is out of sync with remote
+    recovery: Run sync before submit to ensure stack is up to date
+    severity: medium
+actions:
+  log:
+    command: "log"
+    description: Show branch stack
+    idempotent: true
+    response:
+      type: object
+      text_filter:
+        strip_ansi: true
+        max_lines: 30
+    risk:
+      level: low
+  submit:
+    command: "submit"
+    description: Submit PRs for stack
+    response:
+      type: object
+      text_filter:
+        max_lines: 20
+    risk:
+      level: medium
+  sync:
+    command: "sync"
+    description: Sync with remote
+    response:
+      type: object
+      text_filter:
+        max_lines: 15
+    risk:
+      level: low
