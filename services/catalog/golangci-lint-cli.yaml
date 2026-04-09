@@ -1,0 +1,25 @@
+name: golangci-lint-cli
+version: 1.0.0
+description: Go meta-linter
+adapter: command
+command_spec:
+  executable: golangci-lint
+  json_flag: "none"
+auth:
+  type: none
+triggers:
+  task_verbs: [lint, check]
+  objects: [go code, lint errors, go linters]
+actions:
+  run:
+    command: "run --out-format json"
+    description: Run Go linters with JSON output
+    args:
+      - name: path
+        type: string
+        required: false
+        style: positional
+    response:
+      type: object
+    risk:
+      level: low

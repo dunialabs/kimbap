@@ -1,0 +1,25 @@
+name: rubocop-cli
+version: 1.0.0
+description: Ruby static code analyzer
+adapter: command
+command_spec:
+  executable: rubocop
+  json_flag: "--format json"
+auth:
+  type: none
+triggers:
+  task_verbs: [lint, check]
+  objects: [ruby code, lint errors, rubocop]
+actions:
+  check:
+    command: "--"
+    description: Run RuboCop analysis
+    args:
+      - name: path
+        type: string
+        required: false
+        style: positional
+    response:
+      type: object
+    risk:
+      level: low
