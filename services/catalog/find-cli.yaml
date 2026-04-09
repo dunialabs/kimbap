@@ -1,0 +1,38 @@
+name: find-cli
+version: 1.0.0
+description: File search utility
+adapter: command
+command_spec:
+  executable: find
+  json_flag: "none"
+auth:
+  type: none
+triggers:
+  task_verbs: [search, find, locate]
+  objects: [files, directories, paths]
+  instead_of:
+    - running find directly without output limits
+  exclusions:
+    - content search inside files
+actions:
+  search:
+    command: "--"
+    description: Find files matching criteria
+    args:
+      - name: path
+        type: string
+        required: false
+        style: positional
+      - name: name
+        type: string
+        required: false
+      - name: type
+        type: string
+        required: false
+    idempotent: true
+    response:
+      type: object
+      text_filter:
+        max_lines: 50
+    risk:
+      level: low
