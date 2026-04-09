@@ -25,10 +25,14 @@ type ServiceAuth struct {
 }
 
 type CommandSpec struct {
-	Executable string            `yaml:"executable"`
-	JSONFlag   string            `yaml:"json_flag,omitempty"`
-	Timeout    string            `yaml:"timeout,omitempty"`
-	EnvInject  map[string]string `yaml:"env_inject,omitempty"`
+	Executable     string            `yaml:"executable"`
+	JSONFlag       string            `yaml:"json_flag,omitempty"`
+	SuccessCodes   []int             `yaml:"success_codes,omitempty"`
+	Timeout        string            `yaml:"timeout,omitempty"`
+	EnvInject      map[string]string `yaml:"env_inject,omitempty"`
+	EnvPassthrough []string          `yaml:"env_passthrough,omitempty"`
+	WorkingDir     string            `yaml:"working_dir,omitempty"`
+	MergeStderr    bool              `yaml:"merge_stderr,omitempty"`
 }
 
 type ServiceAction struct {
@@ -38,6 +42,8 @@ type ServiceAction struct {
 	Warnings     []string       `yaml:"warnings,omitempty"`
 	Aliases      []string       `yaml:"aliases,omitempty"`
 	Command      string         `yaml:"command,omitempty"`
+	JSONFlag     string         `yaml:"json_flag,omitempty"`
+	SuccessCodes []int          `yaml:"success_codes,omitempty"`
 	InlineScript *InlineScript  `yaml:"inline_script,omitempty"`
 	Idempotent   *bool          `yaml:"idempotent,omitempty"`
 	Auth         *ServiceAuth   `yaml:"auth,omitempty"`
@@ -62,6 +68,7 @@ type InlineScript struct {
 type ActionArg struct {
 	Name     string `yaml:"name"`
 	Type     string `yaml:"type"`
+	Style    string `yaml:"style,omitempty"`
 	Required bool   `yaml:"required"`
 	Default  any    `yaml:"default,omitempty"`
 	Enum     []any  `yaml:"enum,omitempty"`
@@ -75,10 +82,20 @@ type RequestSpec struct {
 }
 
 type ResponseSpec struct {
-	Extract string       `yaml:"extract"`
-	Type    string       `yaml:"type"`
-	Filter  *FilterSpec  `yaml:"filter,omitempty"`
-	Compact *CompactSpec `yaml:"compact,omitempty"`
+	Extract    string          `yaml:"extract"`
+	Type       string          `yaml:"type"`
+	Filter     *FilterSpec     `yaml:"filter,omitempty"`
+	TextFilter *TextFilterSpec `yaml:"text_filter,omitempty"`
+	Compact    *CompactSpec    `yaml:"compact,omitempty"`
+}
+
+type TextFilterSpec struct {
+	StripLinesMatching []string `yaml:"strip_lines_matching,omitempty"`
+	KeepLinesMatching  []string `yaml:"keep_lines_matching,omitempty"`
+	MaxLines           int      `yaml:"max_lines,omitempty"`
+	Dedup              bool     `yaml:"dedup,omitempty"`
+	OnEmpty            string   `yaml:"on_empty,omitempty"`
+	StripAnsi          bool     `yaml:"strip_ansi,omitempty"`
 }
 
 type CompactSpec struct {

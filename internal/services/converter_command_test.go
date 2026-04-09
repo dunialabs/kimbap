@@ -34,6 +34,30 @@ func TestToActionDefinitions_CommandAdapterConfig(t *testing.T) {
 	if got := def.Adapter.EnvInject["MERMAID_ENV"]; got != "dev" {
 		t.Fatalf("adapter.env_inject[MERMAID_ENV] = %q, want dev", got)
 	}
+	if len(def.Adapter.SuccessCodes) != 0 {
+		t.Fatalf("adapter.success_codes = %v, want empty", def.Adapter.SuccessCodes)
+	}
+}
+
+func TestToActionDefinitions_CommandAdapterActionOverrides(t *testing.T) {
+	manifest := validCommandManifest()
+	manifest.CommandSpec.SuccessCodes = []int{0, 2}
+	action := manifest.Actions["create_diagram"]
+	action.JSONFlag = "--output json"
+	action.SuccessCodes = []int{0, 1}
+	manifest.Actions["create_diagram"] = action
+
+	defs, err := ToActionDefinitions(manifest)
+	if err != nil {
+		t.Fatalf("ToActionDefinitions() error = %v", err)
+	}
+	def := defs[0]
+	if def.Adapter.JSONFlag != "--output json" {
+		t.Fatalf("adapter.json_flag = %q, want --output json", def.Adapter.JSONFlag)
+	}
+	if len(def.Adapter.SuccessCodes) != 2 || def.Adapter.SuccessCodes[0] != 0 || def.Adapter.SuccessCodes[1] != 1 {
+		t.Fatalf("adapter.success_codes = %v, want [0 1]", def.Adapter.SuccessCodes)
+	}
 }
 
 func TestToActionDefinitions_HTTPInputSchemaStrictWithPaginationControl(t *testing.T) {

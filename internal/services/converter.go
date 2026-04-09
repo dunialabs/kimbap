@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"maps"
 	"net/url"
+	"regexp"
 	"slices"
 	"sort"
 	"strings"
@@ -55,22 +56,23 @@ func toHTTPDefinitions(svc *ServiceManifest) ([]actions.ActionDefinition, error)
 		idempotent := resolveIdempotent(actionSpec, isIdempotent(actionSpec.Method))
 
 		definition := actions.ActionDefinition{
-			Name:            svc.Name + "." + key,
-			Version:         1,
-			DisplayName:     nonEmptyString(actionSpec.Description, key),
-			Namespace:       svc.Name,
-			Verb:            strings.ToLower(actionSpec.Method),
-			Resource:        actionSpec.Path,
-			Description:     actionSpec.Description,
-			Risk:            mapRisk(actionSpec.Risk.Level),
-			Idempotent:      idempotent,
-			ApprovalHint:    mapApprovalHint(actionSpec.Risk.Level),
-			Auth:            mapAuth(resolveActionAuth(svc.Auth, actionSpec.Auth)),
-			InputSchema:     buildInputSchema(actionSpec.Args, actionSpec.Request.PathParams, actionSpec.Pagination),
-			OutputSchema:    buildOutputSchema(actionSpec.Response),
-			Defaults:        collectDefaults(actionSpec.Args),
-			FilterConfig:    convertFilterSpec(actionSpec.Response.Filter),
-			CompactTemplate: convertCompactSpec(actionSpec.Response.Compact),
+			Name:             svc.Name + "." + key,
+			Version:          1,
+			DisplayName:      nonEmptyString(actionSpec.Description, key),
+			Namespace:        svc.Name,
+			Verb:             strings.ToLower(actionSpec.Method),
+			Resource:         actionSpec.Path,
+			Description:      actionSpec.Description,
+			Risk:             mapRisk(actionSpec.Risk.Level),
+			Idempotent:       idempotent,
+			ApprovalHint:     mapApprovalHint(actionSpec.Risk.Level),
+			Auth:             mapAuth(resolveActionAuth(svc.Auth, actionSpec.Auth)),
+			InputSchema:      buildInputSchema(actionSpec.Args, actionSpec.Request.PathParams, actionSpec.Pagination),
+			OutputSchema:     buildOutputSchema(actionSpec.Response),
+			Defaults:         collectDefaults(actionSpec.Args),
+			FilterConfig:     convertFilterSpec(actionSpec.Response.Filter),
+			TextFilterConfig: convertTextFilterSpec(actionSpec.Response.TextFilter),
+			CompactTemplate:  convertCompactSpec(actionSpec.Response.Compact),
 			Adapter: actions.AdapterConfig{
 				Type:        "http",
 				Method:      strings.ToUpper(actionSpec.Method),
@@ -116,22 +118,23 @@ func toAppleScriptDefinitions(svc *ServiceManifest) ([]actions.ActionDefinition,
 		idempotent := resolveIdempotent(actionSpec, false)
 
 		definition := actions.ActionDefinition{
-			Name:            svc.Name + "." + key,
-			Version:         1,
-			DisplayName:     nonEmptyString(actionSpec.Description, key),
-			Namespace:       svc.Name,
-			Verb:            commandName,
-			Resource:        svc.TargetApp,
-			Description:     actionSpec.Description,
-			Risk:            mapRisk(actionSpec.Risk.Level),
-			Idempotent:      idempotent,
-			ApprovalHint:    mapApprovalHint(actionSpec.Risk.Level),
-			Auth:            mapAuth(resolveActionAuth(svc.Auth, actionSpec.Auth)),
-			InputSchema:     buildInputSchema(actionSpec.Args, nil, nil),
-			OutputSchema:    buildOutputSchema(actionSpec.Response),
-			Defaults:        collectDefaults(actionSpec.Args),
-			FilterConfig:    convertFilterSpec(actionSpec.Response.Filter),
-			CompactTemplate: convertCompactSpec(actionSpec.Response.Compact),
+			Name:             svc.Name + "." + key,
+			Version:          1,
+			DisplayName:      nonEmptyString(actionSpec.Description, key),
+			Namespace:        svc.Name,
+			Verb:             commandName,
+			Resource:         svc.TargetApp,
+			Description:      actionSpec.Description,
+			Risk:             mapRisk(actionSpec.Risk.Level),
+			Idempotent:       idempotent,
+			ApprovalHint:     mapApprovalHint(actionSpec.Risk.Level),
+			Auth:             mapAuth(resolveActionAuth(svc.Auth, actionSpec.Auth)),
+			InputSchema:      buildInputSchema(actionSpec.Args, nil, nil),
+			OutputSchema:     buildOutputSchema(actionSpec.Response),
+			Defaults:         collectDefaults(actionSpec.Args),
+			FilterConfig:     convertFilterSpec(actionSpec.Response.Filter),
+			TextFilterConfig: convertTextFilterSpec(actionSpec.Response.TextFilter),
+			CompactTemplate:  convertCompactSpec(actionSpec.Response.Compact),
 			Adapter: actions.AdapterConfig{
 				Type:           "applescript",
 				TargetApp:      svc.TargetApp,
@@ -208,44 +211,63 @@ func toCommandDefinitions(svc *ServiceManifest) ([]actions.ActionDefinition, err
 
 	executable := ""
 	jsonFlag := ""
+	var successCodes []int
 	timeout := time.Duration(0)
 	var envInject map[string]string
+	var envPassthrough []string
+	workingDir := ""
 	if svc.CommandSpec != nil {
 		executable = strings.TrimSpace(svc.CommandSpec.Executable)
 		jsonFlag = strings.TrimSpace(svc.CommandSpec.JSONFlag)
+		successCodes = cloneIntSlice(svc.CommandSpec.SuccessCodes)
 		timeout = parseDurationOrZero(svc.CommandSpec.Timeout)
 		envInject = cloneStringMap(svc.CommandSpec.EnvInject)
+		envPassthrough = slices.Clone(svc.CommandSpec.EnvPassthrough)
+		workingDir = strings.TrimSpace(svc.CommandSpec.WorkingDir)
 	}
 
 	for _, key := range keys {
 		actionSpec := svc.Actions[key]
+		actionJSONFlag := jsonFlag
+		if strings.TrimSpace(actionSpec.JSONFlag) != "" {
+			actionJSONFlag = strings.TrimSpace(actionSpec.JSONFlag)
+		}
+		actionSuccessCodes := cloneIntSlice(successCodes)
+		if actionSpec.SuccessCodes != nil {
+			actionSuccessCodes = cloneIntSlice(actionSpec.SuccessCodes)
+		}
 
 		idempotent := resolveIdempotent(actionSpec, false)
 
 		definition := actions.ActionDefinition{
-			Name:            svc.Name + "." + key,
-			Version:         1,
-			DisplayName:     nonEmptyString(actionSpec.Description, key),
-			Namespace:       svc.Name,
-			Verb:            actionSpec.Command,
-			Resource:        executable,
-			Description:     actionSpec.Description,
-			Risk:            mapRisk(actionSpec.Risk.Level),
-			Idempotent:      idempotent,
-			ApprovalHint:    mapApprovalHint(actionSpec.Risk.Level),
-			Auth:            mapAuth(resolveActionAuth(svc.Auth, actionSpec.Auth)),
-			InputSchema:     buildInputSchema(actionSpec.Args, nil, nil),
-			OutputSchema:    buildOutputSchema(actionSpec.Response),
-			Defaults:        collectDefaults(actionSpec.Args),
-			FilterConfig:    convertFilterSpec(actionSpec.Response.Filter),
-			CompactTemplate: convertCompactSpec(actionSpec.Response.Compact),
+			Name:             svc.Name + "." + key,
+			Version:          1,
+			DisplayName:      nonEmptyString(actionSpec.Description, key),
+			Namespace:        svc.Name,
+			Verb:             actionSpec.Command,
+			Resource:         executable,
+			Description:      actionSpec.Description,
+			Risk:             mapRisk(actionSpec.Risk.Level),
+			Idempotent:       idempotent,
+			ApprovalHint:     mapApprovalHint(actionSpec.Risk.Level),
+			Auth:             mapAuth(resolveActionAuth(svc.Auth, actionSpec.Auth)),
+			InputSchema:      buildInputSchema(actionSpec.Args, nil, nil),
+			OutputSchema:     buildOutputSchema(actionSpec.Response),
+			Defaults:         collectDefaults(actionSpec.Args),
+			FilterConfig:     convertFilterSpec(actionSpec.Response.Filter),
+			TextFilterConfig: convertTextFilterSpec(actionSpec.Response.TextFilter),
+			CompactTemplate:  convertCompactSpec(actionSpec.Response.Compact),
 			Adapter: actions.AdapterConfig{
 				Type:           "command",
 				ExecutablePath: executable,
 				Command:        actionSpec.Command,
-				JSONFlag:       jsonFlag,
+				JSONFlag:       actionJSONFlag,
+				SuccessCodes:   actionSuccessCodes,
 				EnvInject:      cloneStringMap(envInject),
+				EnvPassthrough: slices.Clone(envPassthrough),
+				WorkingDir:     workingDir,
 				Timeout:        timeout,
+				MergeStderr:    svc.CommandSpec != nil && svc.CommandSpec.MergeStderr,
 			},
 			Classifiers:  nil,
 			ErrorMapping: nil,
@@ -346,14 +368,17 @@ func buildInputSchema(args []ActionArg, pathParams map[string]string, page *Page
 	}
 
 	properties := make(map[string]*actions.Schema, len(args)+len(pathParams)+1)
+	argOrder := make([]string, 0, len(args))
 	required := make([]string, 0)
 	requiredSet := make(map[string]struct{})
 
 	for _, arg := range args {
 		name := strings.TrimSpace(arg.Name)
+		argOrder = append(argOrder, name)
 		properties[name] = &actions.Schema{
-			Type: strings.ToLower(strings.TrimSpace(arg.Type)),
-			Enum: arg.Enum,
+			Type:     strings.ToLower(strings.TrimSpace(arg.Type)),
+			Enum:     arg.Enum,
+			ArgStyle: strings.TrimSpace(arg.Style),
 		}
 		if arg.Required {
 			if _, ok := requiredSet[name]; !ok {
@@ -383,6 +408,7 @@ func buildInputSchema(args []ActionArg, pathParams map[string]string, page *Page
 		Type:                 "object",
 		Required:             required,
 		Properties:           properties,
+		ArgOrder:             argOrder,
 		AdditionalProperties: false,
 	}
 }
@@ -481,6 +507,13 @@ func cloneIntMap(in map[int]string) map[int]string {
 	return maps.Clone(in)
 }
 
+func cloneIntSlice(in []int) []int {
+	if in == nil {
+		return nil
+	}
+	return slices.Clone(in)
+}
+
 func convertFilterSpec(spec *FilterSpec) *actions.FilterConfig {
 	if spec == nil {
 		return nil
@@ -494,9 +527,7 @@ func convertFilterSpec(spec *FilterSpec) *actions.FilterConfig {
 }
 
 func injectOutputModeParam(def *actions.ActionDefinition) {
-	// Inject _output_mode and _budget whenever ANY output transformation is configured.
-	// Budget and compact can operate without structural filtering (FilterConfig).
-	if def == nil || (def.FilterConfig == nil && def.CompactTemplate == nil) {
+	if def == nil || (def.FilterConfig == nil && def.TextFilterConfig == nil && def.CompactTemplate == nil) {
 		return
 	}
 	if def.InputSchema == nil {
@@ -514,8 +545,29 @@ func injectOutputModeParam(def *actions.ActionDefinition) {
 	}
 }
 
-// convertCompactSpec converts a manifest CompactSpec to a runtime CompactTemplate.
-// Returns nil if spec is nil (backward compatible).
+func convertTextFilterSpec(spec *TextFilterSpec) *actions.TextFilterConfig {
+	if spec == nil {
+		return nil
+	}
+	cfg := &actions.TextFilterConfig{
+		MaxLines:  spec.MaxLines,
+		Dedup:     spec.Dedup,
+		OnEmpty:   spec.OnEmpty,
+		StripAnsi: spec.StripAnsi,
+	}
+	for _, pattern := range spec.StripLinesMatching {
+		if re, err := regexp.Compile(pattern); err == nil {
+			cfg.StripLinesMatching = append(cfg.StripLinesMatching, re)
+		}
+	}
+	for _, pattern := range spec.KeepLinesMatching {
+		if re, err := regexp.Compile(pattern); err == nil {
+			cfg.KeepLinesMatching = append(cfg.KeepLinesMatching, re)
+		}
+	}
+	return cfg
+}
+
 func convertCompactSpec(spec *CompactSpec) *actions.CompactTemplate {
 	if spec == nil {
 		return nil

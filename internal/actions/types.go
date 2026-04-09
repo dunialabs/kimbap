@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"math"
 	"reflect"
+	"regexp"
 	"strings"
 	"time"
 )
@@ -135,7 +136,10 @@ type AdapterConfig struct {
 	Headers        map[string]string
 	Query          map[string]string
 	EnvInject      map[string]string
+	EnvPassthrough []string
+	WorkingDir     string
 	JSONFlag       string
+	SuccessCodes   []int
 	RequestBody    string
 	Response       ResponseConfig
 	Retry          RetryConfig
@@ -148,6 +152,7 @@ type AdapterConfig struct {
 	ApprovalRef    string
 	AuditRef       string
 	RegistryMode   string
+	MergeStderr    bool
 }
 
 type ResponseConfig struct {
@@ -170,6 +175,8 @@ type Schema struct {
 	Properties           map[string]*Schema
 	Items                *Schema
 	Enum                 []any
+	ArgStyle             string
+	ArgOrder             []string
 	AdditionalProperties bool
 }
 
@@ -182,7 +189,6 @@ type PaginationConfig struct {
 	MaxPages       int
 	ResponseCursor string
 }
-
 
 type ClassifierRule struct {
 	Service     string
@@ -213,23 +219,35 @@ type ActionDefinition struct {
 	Pagination   *PaginationConfig
 	// Output filtering configuration applied at the action level (adapter-agnostic)
 	FilterConfig *FilterConfig // adapter-agnostic output filter
+	// Text filter for raw (non-JSON) command output
+	TextFilterConfig *TextFilterConfig
 	// Compact text template for list/search results
 	CompactTemplate *CompactTemplate // compact text template for list/search
 }
 
+// TextFilterConfig holds line-based filtering configuration for raw text output.
+type TextFilterConfig struct {
+	StripLinesMatching []*regexp.Regexp
+	KeepLinesMatching  []*regexp.Regexp
+	MaxLines           int
+	Dedup              bool
+	OnEmpty            string
+	StripAnsi          bool
+}
+
 type ExecutionRequest struct {
-	RequestID       string
-	TraceID         string
-	TenantID        string
-	Principal       Principal
-	Action          ActionDefinition
-	Input           map[string]any
-	Mode            ExecutionMode
-	Session         *SessionContext
-	Credentials     *ResolvedCredentialSet
-	Classification  *ClassificationInfo
-	IdempotencyKey  string
-	Timeout         time.Duration
+	RequestID      string
+	TraceID        string
+	TenantID       string
+	Principal      Principal
+	Action         ActionDefinition
+	Input          map[string]any
+	Mode           ExecutionMode
+	Session        *SessionContext
+	Credentials    *ResolvedCredentialSet
+	Classification *ClassificationInfo
+	IdempotencyKey string
+	Timeout        time.Duration
 }
 
 type ExecutionResult struct {
@@ -246,7 +264,6 @@ type ExecutionResult struct {
 	AuditRef       string
 	Meta           map[string]any
 }
-
 
 func ValidateInput(schema *Schema, input map[string]any) *ExecutionError {
 	if schema == nil {
