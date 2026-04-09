@@ -1,0 +1,94 @@
+name: docker
+version: 1.0.0
+description: Docker container and image management CLI
+adapter: command
+command_spec:
+  executable: docker
+  json_flag: "none"
+  env_passthrough: ["DOCKER_*"]
+auth:
+  type: none
+triggers:
+  task_verbs: [list, inspect, manage]
+  objects: [containers, images, logs]
+  instead_of:
+    - running docker commands directly without output filtering
+  exclusions:
+    - non-Docker container runtimes
+actions:
+  ps:
+    command: "ps --format json"
+    description: List running containers as JSON (NDJSON)
+    idempotent: true
+    response:
+      type: array
+      filter:
+        select:
+          id: ID
+          names: Names
+          status: Status
+          ports: Ports
+          image: Image
+        max_items: 50
+        drop_nulls: true
+    risk:
+      level: low
+  images:
+    command: "images --format json"
+    description: List local images as JSON (NDJSON)
+    idempotent: true
+    response:
+      type: array
+      filter:
+        select:
+          id: ID
+          repository: Repository
+          tag: Tag
+          size: Size
+        max_items: 50
+    risk:
+      level: low
+  logs:
+    command: "logs"
+    description: Fetch container logs
+    args:
+      - name: container
+        type: string
+        required: true
+        style: positional
+      - name: tail
+        type: string
+        required: false
+        default: "100"
+      - name: since
+        type: string
+        required: false
+    idempotent: true
+    response:
+      type: object
+      text_filter:
+        dedup: true
+        max_lines: 100
+    risk:
+      level: low
+  inspect:
+    command: "inspect"
+    description: Return low-level info on a container or image
+    args:
+      - name: name
+        type: string
+        required: true
+        style: positional
+    idempotent: true
+    response:
+      type: array
+    risk:
+      level: low
+  compose-ps:
+    command: "compose ps --format json"
+    description: List compose services as JSON
+    idempotent: true
+    response:
+      type: array
+    risk:
+      level: low
