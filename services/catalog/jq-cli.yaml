@@ -1,0 +1,30 @@
+name: jq-cli
+version: 1.0.0
+description: JSON processing and structure viewing
+adapter: command
+command_spec:
+  executable: jq
+  json_flag: "none"
+auth:
+  type: none
+triggers:
+  task_verbs: [query, filter, transform]
+  objects: [JSON data, structured output]
+  instead_of:
+    - running jq directly without output filtering
+  exclusions:
+    - non-JSON data processing
+actions:
+  query:
+    command: "."
+    description: Process JSON with jq expression
+    args:
+      - name: file
+        type: string
+        required: false
+        style: positional
+    idempotent: true
+    response:
+      type: object
+    risk:
+      level: low

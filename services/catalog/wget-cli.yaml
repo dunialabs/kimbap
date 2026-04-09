@@ -1,0 +1,34 @@
+name: wget-cli
+version: 1.0.0
+description: File download utility
+adapter: command
+command_spec:
+  executable: wget
+  json_flag: "none"
+auth:
+  type: none
+triggers:
+  task_verbs: [download, fetch, retrieve]
+  objects: [files, URLs, web resources]
+  instead_of:
+    - running wget directly without output filtering
+  exclusions:
+    - interactive HTTP testing
+actions:
+  download:
+    command: "-q"
+    description: Download a file quietly
+    args:
+      - name: url
+        type: string
+        required: true
+        style: positional
+      - name: O
+        type: string
+        required: false
+    response:
+      type: object
+      text_filter:
+        strip_lines_matching: ["^\\s*\\d+K", "Resolving", "Connecting"]
+    risk:
+      level: low

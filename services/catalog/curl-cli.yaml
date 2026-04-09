@@ -1,0 +1,39 @@
+name: curl-cli
+version: 1.0.0
+description: HTTP client for API testing
+adapter: command
+command_spec:
+  executable: curl
+  json_flag: "none"
+auth:
+  type: none
+triggers:
+  task_verbs: [fetch, request, test]
+  objects: [URLs, HTTP endpoints, API responses]
+  instead_of:
+    - running curl directly without output filtering
+  exclusions:
+    - file downloads requiring progress tracking
+actions:
+  request:
+    command: "-s"
+    description: Make an HTTP request
+    args:
+      - name: url
+        type: string
+        required: true
+        style: positional
+      - name: X
+        type: string
+        required: false
+      - name: d
+        type: string
+        required: false
+      - name: H
+        type: string
+        required: false
+    idempotent: true
+    response:
+      type: object
+    risk:
+      level: low
