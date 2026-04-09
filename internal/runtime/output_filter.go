@@ -4,12 +4,15 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"regexp"
 	"strings"
 	"text/template"
 
 	"github.com/dunialabs/kimbap/internal/actions"
 	"github.com/dunialabs/kimbap/internal/pathutil"
 )
+
+var ansiEscapeRe = regexp.MustCompile(`\x1b\[[0-9;]*[a-zA-Z]`)
 
 // ApplyFilter applies FilterConfig transformations to an output map.
 // Returns error only when ALL select paths miss for every item (API schema change).
@@ -61,7 +64,7 @@ func detectAndFilter(output map[string]any, config *actions.FilterConfig) (map[s
 		if err != nil {
 			return output, meta, err
 		}
-		return filtered, meta, nil
+		return mergeMetadataKeys(filtered, output), meta, nil
 	}
 
 	// Array payload
@@ -286,11 +289,141 @@ func dropNullsFromItem(m map[string]any) map[string]any {
 // isRawOutput returns true when the output map contains exactly one key ("raw").
 // The Command and AppleScript adapters produce {"raw": "..."} when stdout is not valid JSON.
 func isRawOutput(output map[string]any) bool {
-	if len(output) != 1 {
+	_, hasRaw := output["raw"]
+	if !hasRaw {
 		return false
 	}
-	_, hasRaw := output["raw"]
-	return hasRaw
+	for key := range output {
+		if key == "raw" || isMetadataKey(key) {
+			continue
+		}
+		return false
+	}
+	return true
+}
+
+func isMetadataKey(key string) bool {
+	switch key {
+	case "_exit_code", "_text_filtered", "_compact", "_original_items", "stderr":
+		return true
+	default:
+		return false
+	}
+}
+
+func mergeMetadataKeys(filtered map[string]any, original map[string]any) map[string]any {
+	if len(original) == 0 {
+		return filtered
+	}
+	result := make(map[string]any, len(filtered)+len(original))
+	for k, v := range filtered {
+		result[k] = v
+	}
+	for k, v := range original {
+		if isMetadataKey(k) {
+			result[k] = v
+		}
+	}
+	return result
+}
+
+func ApplyTextFilter(output map[string]any, config *actions.TextFilterConfig) (map[string]any, error) {
+	if config == nil {
+		return output, nil
+	}
+
+	rawVal, ok := output["raw"]
+	if !ok {
+		return output, nil
+	}
+	rawStr, ok := rawVal.(string)
+	if !ok {
+		return output, nil
+	}
+
+	if config.StripAnsi {
+		rawStr = stripAnsiCodes(rawStr)
+	}
+
+	lines := strings.Split(rawStr, "\n")
+
+	if len(config.StripLinesMatching) > 0 {
+		filtered := make([]string, 0, len(lines))
+		for _, line := range lines {
+			matched := false
+			for _, re := range config.StripLinesMatching {
+				if re.MatchString(line) {
+					matched = true
+					break
+				}
+			}
+			if !matched {
+				filtered = append(filtered, line)
+			}
+		}
+		lines = filtered
+	}
+
+	if len(config.KeepLinesMatching) > 0 {
+		filtered := make([]string, 0, len(lines))
+		for _, line := range lines {
+			for _, re := range config.KeepLinesMatching {
+				if re.MatchString(line) {
+					filtered = append(filtered, line)
+					break
+				}
+			}
+		}
+		lines = filtered
+	}
+
+	if config.Dedup && len(lines) > 0 {
+		deduped := make([]string, 0, len(lines))
+		prev := lines[0]
+		count := 1
+		for i := 1; i < len(lines); i++ {
+			if lines[i] == prev {
+				count++
+			} else {
+				if count > 1 {
+					deduped = append(deduped, fmt.Sprintf("%s (x%d)", prev, count))
+				} else {
+					deduped = append(deduped, prev)
+				}
+				prev = lines[i]
+				count = 1
+			}
+		}
+		if count > 1 {
+			deduped = append(deduped, fmt.Sprintf("%s (x%d)", prev, count))
+		} else {
+			deduped = append(deduped, prev)
+		}
+		lines = deduped
+	}
+
+	if config.MaxLines > 0 && len(lines) > config.MaxLines {
+		lines = lines[:config.MaxLines]
+	}
+
+	result := strings.Join(lines, "\n")
+	result = strings.TrimRight(result, "\n")
+
+	if result == "" && config.OnEmpty != "" {
+		result = config.OnEmpty
+	}
+
+	filtered := make(map[string]any, len(output)+1)
+	for k, v := range output {
+		filtered[k] = v
+	}
+	filtered["raw"] = result
+	filtered["_text_filtered"] = true
+	return filtered, nil
+}
+
+func stripAnsiCodes(s string) string {
+	return ansiEscapeRe.ReplaceAllString(s, "")
 }
 
 // ── Budget enforcement (T7) ───────────────────────────────────────────────
@@ -491,11 +624,17 @@ func ApplyCompactTemplate(output map[string]any, tmpl *actions.CompactTemplate) 
 	}
 
 	summary := strings.Join(lines, "\n")
-	return map[string]any{
-		"summary":         summary,
-		"_compact":        true,
-		"_original_items": len(arr),
-	}, nil
+	result := make(map[string]any, len(output)+2)
+	for k, v := range output {
+		if k == wrapperKey {
+			continue
+		}
+		result[k] = v
+	}
+	result["summary"] = summary
+	result["_compact"] = true
+	result["_original_items"] = len(arr)
+	return result, nil
 }
 
 // ── Template helpers ──────────────────────────────────────────────────────

@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"net/http"
+	"regexp"
 	"strings"
 	"testing"
 	"time"
@@ -479,6 +480,61 @@ func TestRuntimeExecuteAdapterFailure(t *testing.T) {
 	}
 	if res.Error == nil || res.Error.Code != actions.ErrDownstreamUnavailable {
 		t.Fatalf("expected downstream unavailable, got %+v", res.Error)
+	}
+}
+
+func TestRuntimeExecuteAdapterFailurePreservesOutput(t *testing.T) {
+	rt := Runtime{
+		Adapters: map[string]adapters.Adapter{
+			"command": mockAdapter{
+				kind:   "command",
+				result: &adapters.AdapterResult{Output: map[string]any{"raw": "compile failed", "_exit_code": float64(1)}, HTTPStatus: 502},
+				err:    actions.NewExecutionError(actions.ErrDownstreamUnavailable, "boom", 502, true, nil),
+			},
+		},
+	}
+
+	res := rt.Execute(context.Background(), baseRequest(actions.ActionDefinition{
+		Name:    "cargo-cli.test",
+		Adapter: actions.AdapterConfig{Type: "command", ExecutablePath: "cargo"},
+	}))
+
+	if res.Status != actions.StatusError {
+		t.Fatalf("expected error status, got %s", res.Status)
+	}
+	if res.Output == nil || res.Output["raw"] != "compile failed" {
+		t.Fatalf("expected adapter error output preserved, got %#v", res.Output)
+	}
+	if res.Output["_exit_code"] != float64(1) {
+		t.Fatalf("expected _exit_code preserved, got %#v", res.Output)
+	}
+}
+
+func TestRuntimeExecuteAdapterFailureAppliesTextFilter(t *testing.T) {
+	rt := Runtime{
+		Adapters: map[string]adapters.Adapter{
+			"command": mockAdapter{
+				kind:   "command",
+				result: &adapters.AdapterResult{Output: map[string]any{"raw": "noise\nERROR boom\nnoise2", "_exit_code": float64(1)}, HTTPStatus: 502},
+				err:    actions.NewExecutionError(actions.ErrDownstreamUnavailable, "boom", 502, true, nil),
+			},
+		},
+	}
+
+	res := rt.Execute(context.Background(), baseRequest(actions.ActionDefinition{
+		Name:             "pytest-cli.run",
+		Adapter:          actions.AdapterConfig{Type: "command", ExecutablePath: "pytest"},
+		TextFilterConfig: &actions.TextFilterConfig{KeepLinesMatching: []*regexp.Regexp{regexp.MustCompile("ERROR")}},
+	}))
+
+	if res.Status != actions.StatusError {
+		t.Fatalf("expected error status, got %s", res.Status)
+	}
+	if res.Output == nil || res.Output["raw"] != "ERROR boom" {
+		t.Fatalf("expected filtered error output, got %#v", res.Output)
+	}
+	if res.Output["_text_filtered"] != true {
+		t.Fatalf("expected _text_filtered marker, got %#v", res.Output)
 	}
 }
 

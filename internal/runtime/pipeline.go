@@ -500,14 +500,23 @@ func (r *Runtime) executeFromCredentialsWithState(
 		Timeout:     req.Timeout,
 	})
 	if executeErr != nil {
+		errorOutput := transformErrorOutput(req, adapterResult)
+		if adapterResult != nil {
+			if result.Meta == nil {
+				result.Meta = map[string]any{}
+			}
+			result.Meta["adapter_type"] = adapter.Type()
+			result.Meta["http_headers"] = redactHeaders(adapterResult.Headers)
+			result.Meta["raw_response_bytes"] = len(adapterResult.RawBody)
+		}
 		if errors.Is(ctx.Err(), context.DeadlineExceeded) || errors.Is(executeErr, context.DeadlineExceeded) {
 			timeoutErr := actions.NewExecutionError(actions.ErrDownstreamUnavailable, "execution timed out", 504, true, nil)
 			trace.Record("execute_adapter", "error", timeoutErr.Error())
-			return r.finalizeWithStatus(ctx, &result, req, actions.StatusTimeout, timeoutErr, nil, 504, startedAt, policyDecision, approvalRequestID)
+			return r.finalizeWithStatus(ctx, &result, req, actions.StatusTimeout, timeoutErr, errorOutput, 504, startedAt, policyDecision, approvalRequestID)
 		}
 		mapped := actions.AsExecutionError(executeErr)
 		trace.Record("execute_adapter", "error", mapped.Error())
-		return r.finalizeWithError(ctx, &result, req, mapped, startedAt, policyDecision, approvalRequestID)
+		return r.finalizeWithErrorOutput(ctx, &result, req, mapped, errorOutput, startedAt, policyDecision, approvalRequestID)
 	}
 
 	if adapterResult == nil {
@@ -572,7 +581,15 @@ func (r *Runtime) executeFromCredentialsWithState(
 			}
 		}
 
-		// 2. Budget enforcement (independent of structural filter)
+		// 2. Text filter for raw (non-JSON) output
+		if req.Action.TextFilterConfig != nil && !rawMode {
+			filtered, tfErr := ApplyTextFilter(finalResult.Output, req.Action.TextFilterConfig)
+			if tfErr == nil {
+				finalResult.Output = filtered
+			}
+		}
+
+		// 3. Budget enforcement (independent of structural filter)
 		if !rawMode {
 			if budget := coerceBudgetInt(req.Input["_budget"]); budget > 0 {
 				budgeted, budgetMeta := ApplyBudget(finalResult.Output, budget)
@@ -586,7 +603,7 @@ func (r *Runtime) executeFromCredentialsWithState(
 			}
 		}
 
-		// 3. Compact template (independent of structural filter)
+		// 4. Compact template (independent of structural filter)
 		if req.Action.CompactTemplate != nil && !rawMode {
 			compacted, compactErr := ApplyCompactTemplate(finalResult.Output, req.Action.CompactTemplate)
 			if compactErr == nil {
@@ -745,6 +762,45 @@ func (r *Runtime) finalizeWithError(
 		httpStatus = err.HTTPStatus
 	}
 	return r.finalizeWithStatus(ctx, result, req, status, err, nil, httpStatus, startedAt, policyDecision, approvalRequestID)
+}
+
+func (r *Runtime) finalizeWithErrorOutput(
+	ctx context.Context,
+	result *actions.ExecutionResult,
+	req actions.ExecutionRequest,
+	err *actions.ExecutionError,
+	output map[string]any,
+	startedAt time.Time,
+	policyDecision string,
+	approvalRequestID string,
+) actions.ExecutionResult {
+	status := actions.StatusError
+	if errors.Is(ctx.Err(), context.Canceled) {
+		status = actions.StatusCancelled
+	} else if errors.Is(ctx.Err(), context.DeadlineExceeded) {
+		status = actions.StatusTimeout
+	}
+	httpStatus := 500
+	if err != nil && err.HTTPStatus > 0 {
+		httpStatus = err.HTTPStatus
+	}
+	return r.finalizeWithStatus(ctx, result, req, status, err, output, httpStatus, startedAt, policyDecision, approvalRequestID)
+}
+
+func transformErrorOutput(req actions.ExecutionRequest, adapterResult *adapters.AdapterResult) map[string]any {
+	if adapterResult == nil || adapterResult.Output == nil {
+		return nil
+	}
+	output := adapterResult.Output
+	outputMode, _ := req.Input["_output_mode"].(string)
+	if outputMode == "raw" || req.Action.TextFilterConfig == nil {
+		return output
+	}
+	filtered, err := ApplyTextFilter(output, req.Action.TextFilterConfig)
+	if err != nil {
+		return output
+	}
+	return filtered
 }
 
 func (r *Runtime) finalizeWithStatus(

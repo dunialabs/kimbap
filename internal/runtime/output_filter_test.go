@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"regexp"
 	"strings"
 	"testing"
 
@@ -512,6 +513,97 @@ func TestApplyCompactTemplate_SingleObject(t *testing.T) {
 	}
 }
 
+func TestApplyCompactTemplate_PreservesSiblingKeys(t *testing.T) {
+	output := map[string]any{
+		"result": []any{
+			map[string]any{"number": 1, "title": "Bug"},
+		},
+		"_exit_code": float64(0),
+		"stderr":     "warning",
+	}
+	tmpl := &actions.CompactTemplate{Item: "#{{.number}} {{.title}}"}
+	got, err := ApplyCompactTemplate(output, tmpl)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if got["_exit_code"] != float64(0) {
+		t.Fatalf("expected _exit_code preserved, got %v", got["_exit_code"])
+	}
+	if got["stderr"] != "warning" {
+		t.Fatalf("expected stderr preserved, got %v", got["stderr"])
+	}
+	if _, ok := got["result"]; ok {
+		t.Fatal("expected original payload wrapper to be omitted from compact output")
+	}
+	if got["_compact"] != true {
+		t.Fatal("expected _compact to be true")
+	}
+	if got["_original_items"] != 1 {
+		t.Fatalf("expected _original_items = 1, got %v", got["_original_items"])
+	}
+}
+
+func TestApplyFilter_PreservesMetadataForSingleObject(t *testing.T) {
+	output := map[string]any{
+		"Account":    "123456789012",
+		"Arn":        "arn:aws:iam::123456789012:user/demo",
+		"UserId":     "demo",
+		"_exit_code": float64(0),
+	}
+	config := &actions.FilterConfig{
+		Select: map[string]string{"account": "Account", "arn": "Arn"},
+	}
+	got, _, err := ApplyFilter(output, config)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if got["account"] != "123456789012" || got["arn"] == nil {
+		t.Fatalf("filtered object missing selected fields: %#v", got)
+	}
+	if got["_exit_code"] != float64(0) {
+		t.Fatalf("expected _exit_code preserved, got %#v", got["_exit_code"])
+	}
+}
+
+func TestApplyFilter_DoesNotPreservePayloadUnderscoreFields(t *testing.T) {
+	output := map[string]any{
+		"Account":    "123456789012",
+		"_links":     map[string]any{"self": "/demo"},
+		"_exit_code": float64(0),
+	}
+	config := &actions.FilterConfig{
+		Select: map[string]string{"account": "Account"},
+	}
+	got, _, err := ApplyFilter(output, config)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if _, ok := got["_links"]; ok {
+		t.Fatalf("expected payload underscore field to be filtered out, got %#v", got)
+	}
+	if got["_exit_code"] != float64(0) {
+		t.Fatalf("expected runtime metadata preserved, got %#v", got["_exit_code"])
+	}
+}
+
+func TestApplyFilter_RawOutputWithMetadataSkipsStructuralFiltering(t *testing.T) {
+	output := map[string]any{
+		"raw":        "line1\nline2",
+		"_exit_code": float64(0),
+	}
+	config := &actions.FilterConfig{Select: map[string]string{"id": "id"}}
+	got, meta, err := ApplyFilter(output, config)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if meta.Skipped != "raw_output" {
+		t.Fatalf("expected raw_output skip, got %q", meta.Skipped)
+	}
+	if got["raw"] != "line1\nline2" || got["_exit_code"] != float64(0) {
+		t.Fatalf("expected raw output and metadata preserved, got %#v", got)
+	}
+}
+
 func TestApplyFilter_NonMapItemsPassThrough(t *testing.T) {
 	// Array of primitive values (non-map) should pass through without error
 	output := map[string]any{
@@ -795,4 +887,191 @@ func TestApplyBudget_TinyBudget_NeverExpands(t *testing.T) {
 		t.Errorf("budget truncation expanded output: original=%d result=%d", origSize, resultSize)
 	}
 	_ = meta
+}
+
+// ── Text filter tests ────────────────────────────────────────────────────
+
+func TestApplyTextFilter_StripLines(t *testing.T) {
+	output := map[string]any{
+		"raw": "Compiling foo v0.1.0\nwarning: unused variable\nFinished dev\nerror[E0308]: mismatched types",
+	}
+	config := &actions.TextFilterConfig{
+		StripLinesMatching: []*regexp.Regexp{
+			regexp.MustCompile(`^Compiling`),
+			regexp.MustCompile(`^Finished`),
+		},
+	}
+	got, err := ApplyTextFilter(output, config)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	raw := got["raw"].(string)
+	if strings.Contains(raw, "Compiling") {
+		t.Error("Compiling line should be stripped")
+	}
+	if strings.Contains(raw, "Finished") {
+		t.Error("Finished line should be stripped")
+	}
+	if !strings.Contains(raw, "warning: unused variable") {
+		t.Error("warning line should remain")
+	}
+	if !strings.Contains(raw, "error[E0308]") {
+		t.Error("error line should remain")
+	}
+	if got["_text_filtered"] != true {
+		t.Error("_text_filtered should be true")
+	}
+}
+
+func TestApplyTextFilter_KeepLines(t *testing.T) {
+	output := map[string]any{
+		"raw": "info: line1\nerror: bad thing\ninfo: line2\nwarning: something\nerror: another",
+	}
+	config := &actions.TextFilterConfig{
+		KeepLinesMatching: []*regexp.Regexp{
+			regexp.MustCompile(`^error:`),
+		},
+	}
+	got, err := ApplyTextFilter(output, config)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	raw := got["raw"].(string)
+	lines := strings.Split(raw, "\n")
+	if len(lines) != 2 {
+		t.Fatalf("expected 2 lines, got %d: %q", len(lines), raw)
+	}
+	for _, line := range lines {
+		if !strings.HasPrefix(line, "error:") {
+			t.Errorf("unexpected line kept: %q", line)
+		}
+	}
+}
+
+func TestApplyTextFilter_Dedup(t *testing.T) {
+	output := map[string]any{
+		"raw": "building...\nbuilding...\nbuilding...\ndone",
+	}
+	config := &actions.TextFilterConfig{Dedup: true}
+	got, err := ApplyTextFilter(output, config)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	raw := got["raw"].(string)
+	if !strings.Contains(raw, "building... (x3)") {
+		t.Errorf("expected deduped line with count, got: %q", raw)
+	}
+	if !strings.Contains(raw, "done") {
+		t.Error("non-repeated line should remain")
+	}
+}
+
+func TestApplyTextFilter_MaxLines(t *testing.T) {
+	var lines []string
+	for i := 0; i < 100; i++ {
+		lines = append(lines, fmt.Sprintf("line %d", i))
+	}
+	output := map[string]any{"raw": strings.Join(lines, "\n")}
+	config := &actions.TextFilterConfig{MaxLines: 5}
+	got, err := ApplyTextFilter(output, config)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	raw := got["raw"].(string)
+	resultLines := strings.Split(raw, "\n")
+	if len(resultLines) != 5 {
+		t.Errorf("expected 5 lines, got %d", len(resultLines))
+	}
+	if resultLines[0] != "line 0" {
+		t.Errorf("first line should be 'line 0', got %q", resultLines[0])
+	}
+}
+
+func TestApplyTextFilter_OnEmpty(t *testing.T) {
+	output := map[string]any{"raw": "noise1\nnoise2"}
+	config := &actions.TextFilterConfig{
+		StripLinesMatching: []*regexp.Regexp{regexp.MustCompile(`noise`)},
+		OnEmpty:            "(no relevant output)",
+	}
+	got, err := ApplyTextFilter(output, config)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	raw := got["raw"].(string)
+	if raw != "(no relevant output)" {
+		t.Errorf("expected OnEmpty replacement, got %q", raw)
+	}
+}
+
+func TestApplyTextFilter_StripAnsi(t *testing.T) {
+	output := map[string]any{
+		"raw": "\x1b[31merror\x1b[0m: something failed\n\x1b[32mok\x1b[0m",
+	}
+	config := &actions.TextFilterConfig{StripAnsi: true}
+	got, err := ApplyTextFilter(output, config)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	raw := got["raw"].(string)
+	if strings.Contains(raw, "\x1b") {
+		t.Errorf("ANSI codes should be stripped, got: %q", raw)
+	}
+	if !strings.Contains(raw, "error: something failed") {
+		t.Errorf("text content should remain, got: %q", raw)
+	}
+}
+
+func TestApplyTextFilter_NilConfig(t *testing.T) {
+	output := map[string]any{"raw": "hello world"}
+	got, err := ApplyTextFilter(output, nil)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if got["raw"] != "hello world" {
+		t.Error("nil config should return unchanged output")
+	}
+	if got["_text_filtered"] == true {
+		t.Error("_text_filtered should not be set for nil config")
+	}
+}
+
+func TestApplyTextFilter_NonRaw(t *testing.T) {
+	output := map[string]any{"id": 1, "name": "test"}
+	config := &actions.TextFilterConfig{MaxLines: 5}
+	got, err := ApplyTextFilter(output, config)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if got["id"] != 1 || got["name"] != "test" {
+		t.Error("non-raw output should be returned unchanged")
+	}
+	if got["_text_filtered"] == true {
+		t.Error("_text_filtered should not be set for non-raw output")
+	}
+}
+
+func TestApplyTextFilter_PreservesSiblingKeys(t *testing.T) {
+	output := map[string]any{
+		"raw":        "line1\nline2\nline3",
+		"_exit_code": float64(0),
+		"stderr":     "some warning",
+	}
+	config := &actions.TextFilterConfig{MaxLines: 2}
+	got, err := ApplyTextFilter(output, config)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if got["_exit_code"] != float64(0) {
+		t.Errorf("_exit_code lost: got %v", got["_exit_code"])
+	}
+	if got["stderr"] != "some warning" {
+		t.Errorf("stderr lost: got %v", got["stderr"])
+	}
+	if got["_text_filtered"] != true {
+		t.Error("_text_filtered should be true")
+	}
+	lines := strings.Split(got["raw"].(string), "\n")
+	if len(lines) != 2 {
+		t.Errorf("expected 2 lines, got %d", len(lines))
+	}
 }
