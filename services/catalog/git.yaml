@@ -1,0 +1,212 @@
+name: git
+version: 1.0.0
+description: Git version control CLI with compact output for AI agents
+adapter: command
+command_spec:
+  executable: git
+  json_flag: "none"
+  env_passthrough: ["GIT_*"]
+auth:
+  type: none
+triggers:
+  task_verbs: [inspect, manage, track]
+  objects: [commits, branches, diffs, status]
+  instead_of:
+    - running git commands directly without output filtering
+  exclusions:
+    - non-git version control systems
+gotchas:
+  - symptom: push is rejected with non-fast-forward error
+    likely_cause: remote branch has new commits not present locally
+    recovery: pull or fetch and rebase before pushing again
+    severity: medium
+  - symptom: commit fails with nothing to commit
+    likely_cause: no files have been staged with git add
+    recovery: stage files with the add action before committing
+    severity: low
+actions:
+  status:
+    command: "status --short"
+    description: Show working tree status in short format
+    success_codes: [0, 1]
+    idempotent: true
+    response:
+      type: object
+      text_filter:
+        max_lines: 50
+        strip_ansi: true
+    risk:
+      level: low
+  log:
+    command: "log --oneline"
+    description: Show commit log in one-line format
+    args:
+      - name: n
+        type: integer
+        required: false
+        default: 10
+    idempotent: true
+    response:
+      type: object
+      text_filter:
+        max_lines: 30
+    risk:
+      level: low
+  diff:
+    command: "diff"
+    description: Show changes between commits or working tree
+    success_codes: [0, 1]
+    args:
+      - name: ref
+        type: string
+        required: false
+        style: positional
+      - name: stat
+        type: boolean
+        required: false
+        style: boolean
+      - name: cached
+        type: boolean
+        required: false
+        style: boolean
+    idempotent: true
+    response:
+      type: object
+      text_filter:
+        max_lines: 100
+    risk:
+      level: low
+  show:
+    command: "show --stat"
+    description: Show commit details with diffstat
+    args:
+      - name: ref
+        type: string
+        required: false
+        style: positional
+    idempotent: true
+    response:
+      type: object
+      text_filter:
+        max_lines: 50
+    risk:
+      level: low
+  add:
+    command: "add"
+    description: Stage files for commit
+    args:
+      - name: path
+        type: string
+        required: true
+        style: positional
+    response:
+      type: object
+      text_filter:
+        on_empty: "ok"
+    risk:
+      level: medium
+  commit:
+    command: "commit"
+    description: Record changes to the repository
+    args:
+      - name: message
+        type: string
+        required: true
+      - name: all
+        type: boolean
+        required: false
+        style: boolean
+    response:
+      type: object
+      text_filter:
+        keep_lines_matching: ["^\\["]
+        on_empty: "ok"
+    risk:
+      level: medium
+  push:
+    command: "push"
+    description: Push commits to remote
+    args:
+      - name: remote
+        type: string
+        required: false
+        style: positional
+      - name: branch
+        type: string
+        required: false
+        style: positional
+    response:
+      type: object
+      text_filter:
+        keep_lines_matching: ["->", "ok", "error", "rejected"]
+        on_empty: "ok"
+    risk:
+      level: medium
+  pull:
+    command: "pull"
+    description: Fetch and merge from remote
+    idempotent: true
+    response:
+      type: object
+      text_filter:
+        strip_lines_matching: ["^remote:", "^Unpacking"]
+        max_lines: 10
+    risk:
+      level: medium
+  branch:
+    command: "branch"
+    description: List or manage branches
+    args:
+      - name: name
+        type: string
+        required: false
+        style: positional
+      - name: delete
+        type: boolean
+        required: false
+        style: boolean
+    idempotent: true
+    response:
+      type: object
+      text_filter:
+        max_lines: 30
+    risk:
+      level: low
+  fetch:
+    command: "fetch"
+    description: Download objects from remote
+    idempotent: true
+    response:
+      type: object
+      text_filter:
+        on_empty: "ok"
+        max_lines: 10
+    risk:
+      level: low
+  stash-list:
+    command: "stash list"
+    description: List stashed changes
+    idempotent: true
+    response:
+      type: object
+      text_filter:
+        max_lines: 20
+    risk:
+      level: low
+  clone:
+    command: "clone"
+    description: Clone a repository
+    args:
+      - name: url
+        type: string
+        required: true
+        style: positional
+      - name: depth
+        type: integer
+        required: false
+    response:
+      type: object
+      text_filter:
+        strip_lines_matching: ["^Cloning", "^Receiving", "^Resolving"]
+    risk:
+      level: low
