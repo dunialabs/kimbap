@@ -144,6 +144,10 @@ Telegram · WhatsApp · Zoom · Apple Mail · Messages
 
 Blender · ComfyUI · Ollama · Mermaid · Kitty · Spotify
 
+### Developer CLI
+
+Git · Docker · kubectl · AWS CLI · GitHub CLI · Terraform · Helm · Make · psql · pnpm · npm · pip · cargo · go · pytest · vitest · Playwright · TypeScript · ESLint · Prettier · Ruff · mypy · golangci-lint · RuboCop · Next.js CLI · Prisma · Bundler · Rake · RSpec · Graphite · dotnet · env · log · deps · ls · tree · find · grep · cat · diff · wc · curl · wget · jq
+
 ### macOS native
 
 Finder · Safari · Contacts · Shortcuts · Apple Notes · Apple Calendar · Apple Reminders · Keynote · Pages · Numbers
