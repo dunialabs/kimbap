@@ -413,8 +413,124 @@ func TestValidateCommandManifest_CommandRequired(t *testing.T) {
 	a.Command = ""
 	m.Actions["create_diagram"] = a
 	errList := ValidateManifest(m)
-	if !hasValidationError(errList, "actions.create_diagram.command", "is required") {
-		t.Fatalf("expected command required error, got %v", errList)
+	if len(errList) != 0 {
+		t.Fatalf("expected empty command to be allowed when executable is set, got %v", errList)
+	}
+}
+
+func TestValidateCommandManifest_RejectsWildcardAllEnvPassthrough(t *testing.T) {
+	m := validCommandManifest()
+	m.CommandSpec.EnvPassthrough = []string{"*"}
+	errList := ValidateManifest(m)
+	if !hasValidationError(errList, "command_spec.env_passthrough[0]", "must not be wildcard-all") {
+		t.Fatalf("expected wildcard-all env_passthrough validation error, got %v", errList)
+	}
+}
+
+func TestValidateCommandManifest_RejectsInternalEnvPassthrough(t *testing.T) {
+	m := validCommandManifest()
+	m.CommandSpec.EnvPassthrough = []string{"KIMBAP_SECRET", "KIMBAP_*"}
+	errList := ValidateManifest(m)
+	if !hasValidationError(errList, "command_spec.env_passthrough[0]", "must not expose internal KIMBAP_ variables") {
+		t.Fatalf("expected KIMBAP env passthrough validation error, got %v", errList)
+	}
+	if !hasValidationError(errList, "command_spec.env_passthrough[1]", "must not expose internal KIMBAP_ variables") {
+		t.Fatalf("expected KIMBAP_* env passthrough validation error, got %v", errList)
+	}
+}
+
+func TestValidateCommandManifest_RejectsEmptyEnvPassthrough(t *testing.T) {
+	m := validCommandManifest()
+	m.CommandSpec.EnvPassthrough = []string{"   "}
+	errList := ValidateManifest(m)
+	if !hasValidationError(errList, "command_spec.env_passthrough[0]", "must be non-empty") {
+		t.Fatalf("expected empty env passthrough validation error, got %v", errList)
+	}
+}
+
+func TestValidateCommandManifest_RejectsMultiStarEnvPassthrough(t *testing.T) {
+	m := validCommandManifest()
+	m.CommandSpec.EnvPassthrough = []string{"AWS_*_SECRET*"}
+	errList := ValidateManifest(m)
+	if !hasValidationError(errList, "command_spec.env_passthrough[0]", "may contain at most one wildcard") {
+		t.Fatalf("expected multi-star env passthrough validation error, got %v", errList)
+	}
+}
+
+func TestValidateCommandManifest_RejectsNonSuffixStarEnvPassthrough(t *testing.T) {
+	m := validCommandManifest()
+	m.CommandSpec.EnvPassthrough = []string{"AWS_*_SECRET"}
+	errList := ValidateManifest(m)
+	if !hasValidationError(errList, "command_spec.env_passthrough[0]", "wildcard is only allowed as a suffix") {
+		t.Fatalf("expected non-suffix wildcard env passthrough validation error, got %v", errList)
+	}
+}
+
+func TestValidateCommandManifest_RejectsNegativeSuccessCodes(t *testing.T) {
+	m := validCommandManifest()
+	m.CommandSpec.SuccessCodes = []int{-1}
+	a := m.Actions["create_diagram"]
+	a.SuccessCodes = []int{-2}
+	m.Actions["create_diagram"] = a
+	errList := ValidateManifest(m)
+	if !hasValidationError(errList, "command_spec.success_codes[0]", "must be >= 0") {
+		t.Fatalf("expected command_spec negative success code validation error, got %v", errList)
+	}
+	if !hasValidationError(errList, "actions.create_diagram.success_codes[0]", "must be >= 0") {
+		t.Fatalf("expected action negative success code validation error, got %v", errList)
+	}
+	if hasValidationError(errList, "actions.create_diagram.command", "is required") {
+		t.Fatalf("did not expect command required error, got %v", errList)
+	}
+}
+
+func TestValidateCommandManifest_RejectsInvalidTextFilterRegex(t *testing.T) {
+	m := validCommandManifest()
+	a := m.Actions["create_diagram"]
+	a.Response.TextFilter = &TextFilterSpec{
+		StripLinesMatching: []string{"[unterminated"},
+		KeepLinesMatching:  []string{"   "},
+	}
+	m.Actions["create_diagram"] = a
+	errList := ValidateManifest(m)
+	if !hasValidationError(errList, "actions.create_diagram.response.text_filter.strip_lines_matching[0]", "must be a valid regexp") {
+		t.Fatalf("expected invalid strip regex validation error, got %v", errList)
+	}
+	if !hasValidationError(errList, "actions.create_diagram.response.text_filter.keep_lines_matching[0]", "must be non-empty") {
+		t.Fatalf("expected empty keep regex validation error, got %v", errList)
+	}
+}
+
+func TestValidateCommandManifest_RejectsNegativeTextFilterMaxLines(t *testing.T) {
+	m := validCommandManifest()
+	a := m.Actions["create_diagram"]
+	a.Response.TextFilter = &TextFilterSpec{MaxLines: -1}
+	m.Actions["create_diagram"] = a
+	errList := ValidateManifest(m)
+	if !hasValidationError(errList, "actions.create_diagram.response.text_filter.max_lines", "must be >= 0") {
+		t.Fatalf("expected negative max_lines validation error, got %v", errList)
+	}
+}
+
+func TestValidateCommandManifest_RejectsInvalidArgStyle(t *testing.T) {
+	m := validCommandManifest()
+	a := m.Actions["create_diagram"]
+	a.Args = []ActionArg{{Name: "mode", Type: "string", Style: "sideways"}}
+	m.Actions["create_diagram"] = a
+	errList := ValidateManifest(m)
+	if !hasValidationError(errList, "actions.create_diagram.args[0].style", "must be one of flag, positional, boolean") {
+		t.Fatalf("expected invalid arg style validation error, got %v", errList)
+	}
+}
+
+func TestValidateCommandManifest_RejectsBooleanStyleOnNonBooleanArg(t *testing.T) {
+	m := validCommandManifest()
+	a := m.Actions["create_diagram"]
+	a.Args = []ActionArg{{Name: "mode", Type: "string", Style: "boolean"}}
+	m.Actions["create_diagram"] = a
+	errList := ValidateManifest(m)
+	if !hasValidationError(errList, "actions.create_diagram.args[0].style", "boolean style requires arg type boolean") {
+		t.Fatalf("expected boolean-style type validation error, got %v", errList)
 	}
 }
 

@@ -27,6 +27,7 @@ var (
 	validAdapterTypeSet          = map[string]struct{}{"http": {}, "applescript": {}, "command": {}}
 	validAppleScriptCommands     = buildValidAppleScriptCommands()
 	validArgTypeSet              = map[string]struct{}{"string": {}, "integer": {}, "number": {}, "boolean": {}, "array": {}, "object": {}}
+	validCommandArgStyleSet      = map[string]struct{}{"": {}, "flag": {}, "positional": {}, "boolean": {}}
 	validPageTypeSet             = map[string]struct{}{"cursor": {}, "offset": {}}
 	validResponseTypeSet         = map[string]struct{}{"object": {}, "array": {}}
 	validGotchaSeveritySet       = map[string]struct{}{"low": {}, "medium": {}, "high": {}, "critical": {}, "common": {}, "rare": {}}
@@ -161,6 +162,30 @@ func ValidateManifest(m *ServiceManifest) []ValidationError {
 			}
 		}
 
+		if tf := action.Response.TextFilter; tf != nil {
+			if tf.MaxLines < 0 {
+				errs = append(errs, ValidationError{Field: prefix + ".response.text_filter.max_lines", Message: "must be >= 0"})
+			}
+			for i, pattern := range tf.StripLinesMatching {
+				if strings.TrimSpace(pattern) == "" {
+					errs = append(errs, ValidationError{Field: fmt.Sprintf("%s.response.text_filter.strip_lines_matching[%d]", prefix, i), Message: "must be non-empty"})
+					continue
+				}
+				if _, err := regexp.Compile(pattern); err != nil {
+					errs = append(errs, ValidationError{Field: fmt.Sprintf("%s.response.text_filter.strip_lines_matching[%d]", prefix, i), Message: fmt.Sprintf("must be a valid regexp: %v", err)})
+				}
+			}
+			for i, pattern := range tf.KeepLinesMatching {
+				if strings.TrimSpace(pattern) == "" {
+					errs = append(errs, ValidationError{Field: fmt.Sprintf("%s.response.text_filter.keep_lines_matching[%d]", prefix, i), Message: "must be non-empty"})
+					continue
+				}
+				if _, err := regexp.Compile(pattern); err != nil {
+					errs = append(errs, ValidationError{Field: fmt.Sprintf("%s.response.text_filter.keep_lines_matching[%d]", prefix, i), Message: fmt.Sprintf("must be a valid regexp: %v", err)})
+				}
+			}
+		}
+
 		seenArgNames := make(map[string]int, len(action.Args))
 		for idx, arg := range action.Args {
 			argField := fmt.Sprintf("%s.args[%d]", prefix, idx)
@@ -178,6 +203,15 @@ func ValidateManifest(m *ServiceManifest) []ValidationError {
 			}
 			if _, ok := validArgTypeSet[strings.ToLower(strings.TrimSpace(arg.Type))]; !ok {
 				errs = append(errs, ValidationError{Field: argField + ".type", Message: "must be one of string, integer, number, boolean, array, object"})
+			}
+			if adapterType == "command" {
+				argStyle := strings.ToLower(strings.TrimSpace(arg.Style))
+				if _, ok := validCommandArgStyleSet[argStyle]; !ok {
+					errs = append(errs, ValidationError{Field: argField + ".style", Message: "must be one of flag, positional, boolean"})
+				}
+				if argStyle == "boolean" && strings.ToLower(strings.TrimSpace(arg.Type)) != "boolean" {
+					errs = append(errs, ValidationError{Field: argField + ".style", Message: "boolean style requires arg type boolean"})
+				}
 			}
 			if arg.Required && arg.Default != nil {
 				errs = append(errs, ValidationError{Field: argField + ".default", Message: "required args must not have defaults"})
@@ -663,6 +697,16 @@ func validateCommandManifest(m *ServiceManifest) []ValidationError {
 		if strings.TrimSpace(m.CommandSpec.Executable) == "" {
 			errs = append(errs, ValidationError{Field: "command_spec.executable", Message: "must be non-empty"})
 		}
+		for i, code := range m.CommandSpec.SuccessCodes {
+			if code < 0 {
+				errs = append(errs, ValidationError{Field: fmt.Sprintf("command_spec.success_codes[%d]", i), Message: "must be >= 0"})
+			}
+		}
+		for i, pattern := range m.CommandSpec.EnvPassthrough {
+			if msg := validateCommandEnvPassthroughPattern(pattern); msg != "" {
+				errs = append(errs, ValidationError{Field: fmt.Sprintf("command_spec.env_passthrough[%d]", i), Message: msg})
+			}
+		}
 		if timeout := strings.TrimSpace(m.CommandSpec.Timeout); timeout != "" {
 			if _, err := time.ParseDuration(timeout); err != nil {
 				errs = append(errs, ValidationError{Field: "command_spec.timeout", Message: "must be a valid Go duration (e.g. 30s, 1m)"})
@@ -673,8 +717,13 @@ func validateCommandManifest(m *ServiceManifest) []ValidationError {
 	for actionKey, action := range m.Actions {
 		prefix := "actions." + actionKey
 
-		if strings.TrimSpace(action.Command) == "" {
+		if strings.TrimSpace(action.Command) == "" && (m.CommandSpec == nil || strings.TrimSpace(m.CommandSpec.Executable) == "") {
 			errs = append(errs, ValidationError{Field: prefix + ".command", Message: "is required"})
+		}
+		for i, code := range action.SuccessCodes {
+			if code < 0 {
+				errs = append(errs, ValidationError{Field: fmt.Sprintf("%s.success_codes[%d]", prefix, i), Message: "must be >= 0"})
+			}
 		}
 
 		if strings.TrimSpace(action.Method) != "" {
@@ -716,6 +765,29 @@ func validateCommandManifest(m *ServiceManifest) []ValidationError {
 	}
 
 	return errs
+}
+
+func validateCommandEnvPassthroughPattern(pattern string) string {
+	pattern = strings.TrimSpace(pattern)
+	if pattern == "" {
+		return "must be non-empty"
+	}
+	if pattern == "*" {
+		return "must not be wildcard-all"
+	}
+	if strings.HasPrefix(pattern, "KIMBAP_") {
+		return "must not expose internal KIMBAP_ variables"
+	}
+	if strings.Count(pattern, "*") > 1 {
+		return "may contain at most one wildcard"
+	}
+	if strings.Contains(pattern, "*") && !strings.HasSuffix(pattern, "*") {
+		return "wildcard is only allowed as a suffix"
+	}
+	if strings.HasSuffix(pattern, "*") && strings.TrimSuffix(pattern, "*") == "" {
+		return "wildcard prefix must be non-empty"
+	}
+	return ""
 }
 
 func isLoopbackHostname(host string) bool {
