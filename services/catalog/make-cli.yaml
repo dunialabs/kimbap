@@ -1,0 +1,29 @@
+name: make-cli
+version: 1.0.0
+description: Build automation tool
+adapter: command
+command_spec:
+  executable: make
+  json_flag: "none"
+auth:
+  type: none
+triggers:
+  task_verbs: [build, run]
+  objects: [make targets, builds, makefiles]
+actions:
+  run:
+    command: "--"
+    description: Run make target
+    args:
+      - name: target
+        type: string
+        required: false
+        style: positional
+    response:
+      type: object
+      text_filter:
+        strip_lines_matching: ["^make\\[\\d+\\]:", "^\\s*$"]
+        on_empty: "make: ok"
+        max_lines: 50
+    risk:
+      level: low

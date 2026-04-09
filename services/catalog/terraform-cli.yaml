@@ -1,0 +1,51 @@
+name: terraform-cli
+version: 1.0.0
+description: Infrastructure as code tool
+adapter: command
+command_spec:
+  executable: terraform
+  json_flag: "none"
+auth:
+  type: none
+triggers:
+  task_verbs: [plan, apply, init]
+  objects: [infrastructure, terraform state, resources]
+gotchas:
+  - symptom: apply destroys resources unexpectedly
+    likely_cause: State drift or plan not reviewed before apply
+    recovery: Always run plan first and review the output before applying changes
+    severity: high
+actions:
+  plan:
+    command: "plan"
+    description: Show execution plan
+    idempotent: true
+    response:
+      type: object
+      text_filter:
+        strip_lines_matching: ["^Refreshing state", "^Acquiring state", "^Releasing state", "^\\s*$"]
+        strip_ansi: true
+        max_lines: 80
+    risk:
+      level: low
+  init:
+    command: "init"
+    description: Initialize working directory
+    response:
+      type: object
+      text_filter:
+        strip_lines_matching: ["^Initializing", "^\\s*$"]
+        keep_lines_matching: ["successfully", "error", "Error"]
+        max_lines: 20
+    risk:
+      level: low
+  apply:
+    command: "apply -auto-approve"
+    description: Apply infrastructure changes
+    response:
+      type: object
+      text_filter:
+        strip_ansi: true
+        max_lines: 50
+    risk:
+      level: high

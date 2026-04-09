@@ -1,0 +1,34 @@
+name: psql-cli
+version: 1.0.0
+description: PostgreSQL interactive terminal
+adapter: command
+command_spec:
+  executable: psql
+  json_flag: "none"
+  env_passthrough: ["PGHOST", "PGPORT", "PGUSER", "PGDATABASE", "PGPASSWORD"]
+auth:
+  type: none
+triggers:
+  task_verbs: [query, inspect]
+  objects: [database, tables, sql queries]
+gotchas:
+  - symptom: Query modifies data unexpectedly
+    likely_cause: SQL statement contains INSERT, UPDATE, DELETE, or DDL without review
+    recovery: Always review SQL before execution; prefer read-only queries
+    severity: high
+actions:
+  query:
+    command: "-c"
+    description: Execute a SQL query
+    args:
+      - name: query
+        type: string
+        required: true
+        style: positional
+    idempotent: true
+    response:
+      type: object
+      text_filter:
+        max_lines: 50
+    risk:
+      level: medium
