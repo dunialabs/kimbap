@@ -1,0 +1,68 @@
+name: cargo-cli
+version: 1.0.0
+description: Rust build system and package manager
+adapter: command
+command_spec:
+  executable: cargo
+  json_flag: "none"
+  merge_stderr: true
+auth:
+  type: none
+triggers:
+  task_verbs: [test, build, check, lint]
+  objects: [crates, tests, builds]
+actions:
+  test:
+    command: "test"
+    description: Run Rust tests (failures only in output)
+    args:
+      - name: package
+        type: string
+        required: false
+      - name: release
+        type: boolean
+        required: false
+        style: boolean
+    response:
+      type: object
+      text_filter:
+        keep_lines_matching: ["FAILED", "error", "^test result", "^running"]
+        max_lines: 50
+    risk:
+      level: low
+  build:
+    command: "build"
+    description: Compile Rust project
+    args:
+      - name: release
+        type: boolean
+        required: false
+        style: boolean
+    response:
+      type: object
+      text_filter:
+        strip_lines_matching: ["^\\s+Compiling", "^\\s+Downloading"]
+        keep_lines_matching: ["error", "warning", "^\\s+Finished"]
+        max_lines: 50
+    risk:
+      level: low
+  clippy:
+    command: "clippy"
+    description: Run Clippy linter
+    response:
+      type: object
+      text_filter:
+        keep_lines_matching: ["warning", "error", "^\\s+-->"]
+        max_lines: 50
+    risk:
+      level: low
+  check:
+    command: "check"
+    description: Check compilation without building
+    response:
+      type: object
+      text_filter:
+        keep_lines_matching: ["error", "warning", "^\\s+Finished"]
+        max_lines: 30
+    risk:
+      level: low

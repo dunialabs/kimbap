@@ -1,0 +1,33 @@
+name: pytest-cli
+version: 1.0.0
+description: Python test framework
+adapter: command
+command_spec:
+  executable: pytest
+  json_flag: "none"
+auth:
+  type: none
+triggers:
+  task_verbs: [test, run]
+  objects: [tests, test suites, python tests]
+actions:
+  run:
+    command: "--"
+    description: Run pytest tests (failures highlighted)
+    args:
+      - name: path
+        type: string
+        required: false
+        style: positional
+      - name: verbose
+        type: boolean
+        required: false
+        style: boolean
+    response:
+      type: object
+      text_filter:
+        keep_lines_matching: ["FAILED", "ERROR", "^=", "^PASSED", "^E "]
+        strip_lines_matching: ["^collecting", "^\\s*$"]
+        max_lines: 50
+    risk:
+      level: low

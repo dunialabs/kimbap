@@ -1,0 +1,27 @@
+name: vitest-cli
+version: 1.0.0
+description: Vite-native test framework
+adapter: command
+command_spec:
+  executable: npx
+  json_flag: "none"
+auth:
+  type: none
+triggers:
+  task_verbs: [test, run]
+  objects: [tests, vitest tests, unit tests]
+actions:
+  run:
+    command: "vitest run"
+    description: Run Vitest tests
+    args:
+      - name: reporter
+        type: string
+        required: false
+    response:
+      type: object
+      text_filter:
+        keep_lines_matching: ["FAIL", "✓", "✗", "×", "Tests\\s+\\d", "^\\s+❯"]
+        max_lines: 50
+    risk:
+      level: low
