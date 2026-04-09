@@ -1,0 +1,23 @@
+name: tsc-cli
+version: 1.0.0
+description: TypeScript compiler
+adapter: command
+command_spec:
+  executable: npx
+  json_flag: "none"
+auth:
+  type: none
+triggers:
+  task_verbs: [check, typecheck]
+  objects: [typescript, types, type errors]
+actions:
+  check:
+    command: "tsc --noEmit"
+    description: Type-check without emitting files
+    response:
+      type: object
+      text_filter:
+        strip_ansi: true
+        max_lines: 50
+    risk:
+      level: low
