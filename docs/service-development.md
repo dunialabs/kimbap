@@ -192,9 +192,9 @@ actions:
 
 ### Key Concepts
 
-**`base_url`** must be an absolute `http://` or `https://` URL. It must not include a query string or fragment. Correct: `https://api.github.com`. Incorrect: `https://api.github.com?version=2022`.
+**`base_url`** must be an absolute URL and must not include a query string or fragment. Remote URLs must use `https://`; plain `http://` is allowed only for localhost/loopback development sources.
 
-**`path`** is appended to `base_url` and must start with `/`. Path parameters like `{owner}` are interpolated from the `path_params` map in the request block.
+**`path`** is appended to `base_url`. Kimbap normalizes a missing leading `/`, but manifests should include it for clarity. Path parameters like `{owner}` are interpolated from the `path_params` map in the request block.
 
 **`request` block** controls how args map into the outgoing request. Values like `"{sort}"` are string templates referencing arg names. You can place arg values into `query`, `headers`, `body`, or `path_params`.
 
@@ -204,7 +204,7 @@ actions:
 
 ## Command Adapter
 
-The command adapter runs a local executable for each action. It's suited for CLI tools that accept structured arguments and return JSON.
+The command adapter runs a local executable for each action. It supports both JSON-returning CLIs and plain-text tools whose output needs line-based filtering.
 
 ### Full Example
 
@@ -263,14 +263,28 @@ actions:
 
 ### Key Concepts
 
-**`command_spec`** is required for the command adapter and has four fields:
+**`command_spec`** is required for the command adapter and supports:
 
 - `executable` (required): the binary name or full path. It must be on `$PATH` or an absolute path.
 - `json_flag` (optional): flags appended to every invocation to request JSON output (e.g. `--json`, `--output json`). Set to `none` (or `off`/`false`/`-`) to disable appending a JSON flag.
 - `timeout` (optional): a duration string like `"30s"` or `"5m"`. Defaults to the global runtime timeout if omitted.
 - `env_inject` (optional): a map of environment variables to inject at invocation time. Values are passed through literally.
+- `env_passthrough` (optional): a list of exact environment variable names or prefix globs like `AWS_*` to forward from the current process.
+- `working_dir` (optional): working directory for the subprocess.
+- `merge_stderr` (optional): merge stderr into stdout before output parsing/filtering.
+- `success_codes` (optional): exit codes treated as success. If omitted, only `0` is treated as success.
 
-**`command`** on each action is the subcommand string passed to the executable. For the example above, `kimbap call blender.render` would run something equivalent to `blender render execute --json --project ... --output ...`.
+**`command`** on each action is the subcommand string passed to the executable. It may be empty when the executable itself is the full command (for example `cat`, `find`, or `tree`).
+
+**`args[].style`** controls argument rendering for command actions:
+
+- `flag` (default): `--name value`
+- `positional`: `value`
+- `boolean`: `--name` only when true
+
+Actions may also override `json_flag` and `success_codes` per action.
+
+For plain-text commands, use `response.text_filter` to strip noise, keep only matching lines, deduplicate repeated lines, and cap line count before the result reaches the caller.
 
 Actions under the command adapter do not have `method` or `path` fields. The `args` block still works the same way.
 
@@ -278,7 +292,7 @@ Actions under the command adapter do not have `method` or `path` fields. The `ar
 
 ## AppleScript Adapter
 
-The AppleScript adapter automates macOS applications by dispatching named handlers. It's macOS-only.
+The AppleScript adapter automates macOS applications. Actions can use registered handlers or inline manifest-defined scripts. It's macOS-only.
 
 ### Full Example
 
@@ -324,7 +338,7 @@ actions:
 
 **`target_app`** is required for the applescript adapter. It must be the exact name of the macOS application as it appears in Script Editor (e.g. `Finder`, `Safari`, `Mail`).
 
-**`command`** on each action must reference a registered AppleScript command handler. Kimbap dispatches to this handler by name, passing args as a record. If the handler is not registered, the action will fail at runtime with a handler-not-found error.
+**`command`** on each AppleScript action references a registered AppleScript command handler when you are using registry-backed actions. If you use `inline_script`, the action does not need a registered handler.
 
 **`inline_script`** can be used to define AppleScript/JXA action behavior directly in the manifest so new apps/services can be onboarded without adding new Go command registries. In dual mode, either `command` or `inline_script` is accepted; in manifest mode, `inline_script` is required.
 
@@ -377,7 +391,7 @@ The adapter does not use `method`, `path`, `base_url`, or `command_spec`. Auth t
 | `version` | string | yes | Semver-like, e.g. `1.0.0` or `v1.2.3` |
 | `description` | string | no | Free text, shown in listings and SKILL.md |
 | `adapter` | string | no | `http`, `command`, or `applescript`. Defaults to `http` |
-| `base_url` | string | required for http | Absolute `http`/`https` URL, no query string or fragment |
+| `base_url` | string | required for http | Absolute URL, no query string or fragment. Remote URLs must use `https`; plain `http` is allowed only for loopback/local development |
 | `command_spec` | object | required for command | See sub-fields below |
 | `target_app` | string | required for applescript | Exact macOS application name |
 | `auth` | object | yes | See sub-fields below |
@@ -394,6 +408,10 @@ The adapter does not use `method`, `path`, `base_url`, or `command_spec`. Auth t
 | `json_flag` | string | no | Flag appended to every invocation to request JSON |
 | `timeout` | string | no | Duration string, e.g. `"300s"`, `"5m"` |
 | `env_inject` | map | no | Environment variables to inject. Values are passed through literally |
+| `env_passthrough` | string[] | no | Exact env names or prefix globs like `AWS_*` forwarded from the current process |
+| `working_dir` | string | no | Working directory for the subprocess |
+| `merge_stderr` | boolean | no | Merge stderr into stdout before parsing/filtering |
+| `success_codes` | int[] | no | Exit codes treated as success |
 
 ### auth fields
 
@@ -439,7 +457,7 @@ The adapter does not use `method`, `path`, `base_url`, or `command_spec`. Auth t
 | action key | string | yes | Must match `[a-z][a-z0-9_-]*` |
 | `method` | string | for http | `GET`, `POST`, `PUT`, `PATCH`, `DELETE`, `HEAD`, or `OPTIONS` |
 | `path` | string | for http | Must start with `/` |
-| `command` | string | for command/applescript | Subcommand string or handler name |
+| `command` | string | for command/applescript | Subcommand string or handler name. For command actions it may be empty when `command_spec.executable` is sufficient |
 | `inline_script` | object | for applescript (recommended) | Inline script execution specification |
 | `description` | string | no | Human-readable description |
 | `idempotent` | boolean | no | Whether repeated calls have the same effect |
@@ -452,6 +470,8 @@ The adapter does not use `method`, `path`, `base_url`, or `command_spec`. Auth t
 | `retry` | object | no | Retry configuration |
 | `pagination` | object | no | Pagination configuration |
 | `error_mapping` | map | no | HTTP status codes mapped to error messages |
+| `json_flag` | string | no | Command adapter only. Overrides `command_spec.json_flag` for this action |
+| `success_codes` | int[] | no | Command adapter only. Overrides `command_spec.success_codes` for this action |
 
 ### args entry fields
 
@@ -462,6 +482,7 @@ The adapter does not use `method`, `path`, `base_url`, or `command_spec`. Auth t
 | `required` | boolean | yes | If true, caller must provide a value |
 | `default` | any | no | Must not be set on required args. Type must match declared type |
 | `enum` | array | no | Restricts accepted values to this list |
+| `style` | string | no | Command adapter only. `flag` (default), `positional`, or `boolean` |
 
 ### inline_script fields (AppleScript adapter)
 
@@ -489,6 +510,9 @@ The adapter does not use `method`, `path`, `base_url`, or `command_spec`. Auth t
 |---|---|---|
 | `type` | string | `object` or `array` |
 | `extract` | string | Dot-path expression (with optional `[index]`) to pull a sub-value from the response |
+| `filter` | object | Structural field filtering (`select`, `exclude`, `max_items`, `drop_nulls`) |
+| `text_filter` | object | Plain-text line filtering for raw command/applescript output |
+| `compact` | object | Text/template summary rendering for array output |
 
 ### risk fields
 
@@ -540,10 +564,10 @@ A map from HTTP status code (as a string key, e.g. `"404"`) to a human-readable 
 - If a `default` is set, its Go type must match the declared `type` (e.g. a default of `30` on a `string` arg will fail).
 
 **HTTP adapter**
-- `base_url` must be set and must be an absolute URL with scheme `http` or `https`.
+- `base_url` must be set and must be an absolute URL. Remote URLs must use `https`; plain `http` is allowed only for loopback/local development.
 - `base_url` must not include a query string (`?`) or fragment (`#`).
 - `method` must be one of `GET`, `POST`, `PUT`, `PATCH`, `DELETE`, `HEAD`, or `OPTIONS`.
-- `path` must start with `/`.
+- `path` is normalized to start with `/`; manifests should include the leading slash for clarity.
 
 **Command adapter**
 - `command_spec` must be present.
@@ -551,7 +575,7 @@ A map from HTTP status code (as a string key, e.g. `"404"`) to a human-readable 
 
 **AppleScript adapter**
 - `target_app` must be set and must not be empty.
-- Each action's `command` must reference a registered AppleScript handler name.
+- Each AppleScript action must provide either a registered `command` handler or an `inline_script` (required in manifest mode).
 
 **Triggers**
 - If `triggers` is present, both `task_verbs` and `objects` must have at least one entry each.

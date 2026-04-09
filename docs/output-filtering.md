@@ -28,20 +28,21 @@ External API → Adapter → AdapterResult.Output (full)
                                 ↓
                           Audit record written (full output)
                                 ↓
-                    ApplyFilter  →  ApplyBudget  →  ApplyCompactTemplate
+                    ApplyFilter  →  ApplyTextFilter  →  ApplyBudget  →  ApplyCompactTemplate
                                 ↓
                      ExecutionResult.Output (filtered)
                                 ↓
                           LLM consumer
 ```
 
-All three transformation stages are skipped when `_output_mode: raw` is passed by the caller.
+All four transformation stages are skipped when `_output_mode: raw` is passed by the caller.
 
-The three stages are independent and composable:
+The transformation stages are independent and composable:
 
 1. **Structural filter** — select specific fields, exclude noisy fields, limit array size, strip null values.
-2. **Budget enforcement** — hard cap on serialized output bytes; trims arrays then truncates long strings.
-3. **Compact template** — render array output as a text summary using Go's `text/template` syntax.
+2. **Text filter** — line-based filtering for raw command/applescript output.
+3. **Budget enforcement** — hard cap on serialized output bytes; trims arrays then truncates long strings.
+4. **Compact template** — render array output as a text summary using Go's `text/template` syntax.
 
 ---
 
@@ -61,7 +62,7 @@ AppleScript     ──┘
 
 Real-world API responses wrap their data in inconsistent keys. `detectAndFilter` in `internal/runtime/output_filter.go` handles two cases before calling `DetectPayloadRoot`:
 
-**Fast path — raw text output**: If the output map contains exactly one key (`"raw"`), field selection is skipped entirely. This covers CLI tools and AppleScript commands that return plain text instead of JSON. Only `drop_nulls` applies.
+**Fast path — raw text output**: If the output map contains `raw` plus only runtime metadata (such as `_exit_code`), structural field selection is skipped. This covers CLI tools and AppleScript commands that return plain text instead of JSON.
 
 **Normal path — structured JSON**: `pathutil.DetectPayloadRoot` identifies the data array by checking wrapper keys in priority order:
 
@@ -83,7 +84,7 @@ Filtering is wired in `internal/runtime/pipeline.go` at the end of `executeFromC
 // Audit sees the full unfiltered output.
 finalResult := r.finalizeWithStatus(ctx, ...)
 
-// Then filter, budget, and compact are applied (all skipped in rawMode).
+// Success outputs can run structural filter, text filter, budget, and compact.
 if finalResult.Status == actions.StatusSuccess {
     outputMode, _ := req.Input["_output_mode"].(string)
     rawMode := outputMode == "raw"
@@ -91,7 +92,9 @@ if finalResult.Status == actions.StatusSuccess {
     if req.Action.FilterConfig != nil && !rawMode {
         filtered, filterMeta, _ := ApplyFilter(finalResult.Output, req.Action.FilterConfig)
         finalResult.Output = filtered
-        // filterMeta written to finalResult.Meta
+    }
+    if req.Action.TextFilterConfig != nil && !rawMode {
+        finalResult.Output, _ = ApplyTextFilter(finalResult.Output, req.Action.TextFilterConfig)
     }
     if !rawMode {
         if budget := coerceBudgetInt(req.Input["_budget"]); budget > 0 {
@@ -102,16 +105,19 @@ if finalResult.Status == actions.StatusSuccess {
         finalResult.Output, _ = ApplyCompactTemplate(finalResult.Output, req.Action.CompactTemplate)
     }
 }
+
+// Adapter error outputs keep their adapter payload and may still run text_filter.
 ```
 
 ### Type flow
 
 ```
-manifest.FilterSpec  ──convertFilterSpec()──→  actions.FilterConfig  ──→  ActionDefinition.FilterConfig
-manifest.CompactSpec ──convertCompactSpec()──→  actions.CompactTemplate ──→  ActionDefinition.CompactTemplate
+manifest.FilterSpec     ──convertFilterSpec()──────→  actions.FilterConfig      ──→  ActionDefinition.FilterConfig
+manifest.TextFilterSpec ──convertTextFilterSpec()──→  actions.TextFilterConfig  ──→  ActionDefinition.TextFilterConfig
+manifest.CompactSpec    ──convertCompactSpec()─────→  actions.CompactTemplate   ──→  ActionDefinition.CompactTemplate
 ```
 
-`internal/services/converter.go` maps manifest types to runtime types for all three adapter paths. `_output_mode` and `_budget` parameters are automatically injected into the action's input schema whenever `FilterConfig` or `CompactTemplate` is present.
+`internal/services/converter.go` maps manifest types to runtime types for all three adapter paths. `_output_mode` and `_budget` parameters are automatically injected into the action's input schema whenever `filter`, `text_filter`, or `compact` is present.
 
 ---
 
@@ -152,6 +158,36 @@ response:
 | Raw text output (`{"raw": "..."}`) | `select` and `exclude` skipped; `drop_nulls` applies |
 | Error response (non-success status) | Filter not applied |
 
+### `response.text_filter`
+
+Line-based filtering for raw text output from command/applescript actions.
+
+```yaml
+response:
+  text_filter:
+    strip_lines_matching:
+      - "^Collecting"
+      - "^Downloading"
+    keep_lines_matching:
+      - "ERROR"
+      - "FAILED"
+    dedup: true
+    max_lines: 50
+    strip_ansi: true
+    on_empty: "ok"
+```
+
+Order of operations:
+
+1. strip ANSI escape sequences (optional)
+2. drop lines matching `strip_lines_matching`
+3. keep only lines matching `keep_lines_matching` (if set)
+4. deduplicate consecutive identical lines
+5. truncate to `max_lines`
+6. replace empty output with `on_empty` (if set)
+
+`text_filter` applies to raw text success output, and also to adapter error output when the adapter returns a raw payload.
+
 ### `response.compact`
 
 Renders array output as a human-readable text summary. Applied after `filter`.
@@ -179,7 +215,7 @@ When `filter` or `compact` is configured, two parameters are automatically added
 
 | Parameter | Type | Effect |
 |---|---|---|
-| `_output_mode` | `"default" \| "raw"` | `"raw"` bypasses all output transformations (filter, budget, compact) |
+| `_output_mode` | `"default" \| "raw"` | `"raw"` bypasses all output transformations (filter, text_filter, budget, compact) |
 | `_budget` | `integer` | Maximum output size in bytes; trims arrays then truncates strings |
 
 These do not need to be declared in the manifest.
@@ -225,12 +261,12 @@ When a filter is applied, `ExecutionResult.Meta` is populated:
 
 | File | Purpose |
 |---|---|
-| `internal/runtime/output_filter.go` | Core transformation functions: `ApplyFilter`, `ApplyBudget`, `ApplyCompactTemplate` |
+| `internal/runtime/output_filter.go` | Core transformation functions: `ApplyFilter`, `ApplyTextFilter`, `ApplyBudget`, `ApplyCompactTemplate` |
 | `internal/pathutil/pathutil.go` | Shared path utilities: `ExtractByPath`, `ExtractSegment`, `DetectPayloadRoot` |
 | `internal/runtime/pipeline.go` | Filter insertion point after `finalizeWithStatus` |
-| `internal/actions/types.go` | `FilterConfig`, `FilterMeta`, `CompactTemplate` types |
-| `internal/services/manifest.go` | `FilterSpec`, `CompactSpec` YAML types |
-| `internal/services/converter.go` | `FilterSpec` → `FilterConfig` conversion for all 3 adapters |
+| `internal/actions/types.go` | `FilterConfig`, `TextFilterConfig`, `FilterMeta`, `CompactTemplate` types |
+| `internal/services/manifest.go` | `FilterSpec`, `TextFilterSpec`, `CompactSpec` YAML types |
+| `internal/services/converter.go` | Filter/text-filter/compact conversion for all 3 adapters |
 | `services/catalog/github.yaml` | Example: GitHub filter configs |
 | `services/catalog/slack.yaml` | Example: Slack filter configs |
 | `services/catalog/notion.yaml` | Example: Notion filter configs |
@@ -275,7 +311,9 @@ Validate before installing:
 kimbap service validate my-service.yaml
 ```
 
-Filter configs are validated at manifest load time:
+Output transformation configs are validated at manifest load time:
 - `max_items` must be ≥ 0.
 - `select` keys and source paths must be non-empty strings.
+- `text_filter.max_lines` must be ≥ 0.
+- `text_filter` regex lists must contain non-empty valid regex patterns.
 - `compact.item` is required when `compact` is present.
