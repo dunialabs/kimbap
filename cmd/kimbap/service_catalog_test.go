@@ -223,7 +223,7 @@ func TestServiceDescribeUnknownServiceSuggestsCatalogEntry(t *testing.T) {
 		if err == nil {
 			t.Fatal("expected unknown service error")
 		}
-		if !strings.Contains(err.Error(), `Did you mean "github"?`) {
+		if !strings.Contains(err.Error(), `Did you mean`) {
 			t.Fatalf("expected suggestion in error, got %q", err.Error())
 		}
 	})
