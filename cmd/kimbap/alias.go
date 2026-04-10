@@ -106,6 +106,9 @@ func newAliasSetCommand() *cobra.Command {
 				if existing, ok := cfg.Aliases[alias]; ok {
 					return fmt.Errorf("alias %q already used as service alias -> %q", alias, existing)
 				}
+				if conflictPath, conflict := aliasConflictsWithExistingPathCommand(alias); conflict {
+					return fmt.Errorf("alias %q conflicts with existing command on PATH: %s", alias, conflictPath)
+				}
 				executablePath, executableCreated, aliasErr := ensureExecutableActionAlias(alias)
 				if aliasErr != nil {
 					return aliasErr
@@ -345,6 +348,36 @@ func aliasConflictsWithBuiltinCommand(alias string) bool {
 		}
 	}
 	return false
+}
+
+func aliasConflictsWithExistingPathCommand(alias string) (string, bool) {
+	resolved, err := aliasLookPath(alias)
+	if err != nil || strings.TrimSpace(resolved) == "" {
+		return "", false
+	}
+
+	execPath, execErr := aliasExecutablePath()
+	if execErr != nil {
+		return filepath.Clean(resolved), true
+	}
+
+	info, statErr := aliasFileLstat(resolved)
+	if os.IsNotExist(statErr) {
+		return "", false
+	}
+	if statErr == nil && info.Mode()&os.ModeSymlink != 0 {
+		target, readErr := aliasFileReadlink(resolved)
+		if readErr == nil {
+			if symlinkTargetMatchesExecutable(resolved, target, execPath) || symlinkTargetReferencesKimbapBinary(resolved, target) {
+				return "", false
+			}
+		}
+	}
+	if statErr != nil {
+		return filepath.Clean(resolved), true
+	}
+
+	return filepath.Clean(resolved), true
 }
 
 func ensureExecutableActionAlias(alias string) (string, bool, error) {

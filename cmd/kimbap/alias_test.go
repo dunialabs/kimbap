@@ -12,12 +12,21 @@ import (
 
 type symlinkFileInfo struct{}
 
+type fakeRegularFileInfo struct{ name string }
+
 func (symlinkFileInfo) Name() string       { return "geosearch" }
 func (symlinkFileInfo) Size() int64        { return 0 }
 func (symlinkFileInfo) Mode() os.FileMode  { return os.ModeSymlink }
 func (symlinkFileInfo) ModTime() time.Time { return time.Time{} }
 func (symlinkFileInfo) IsDir() bool        { return false }
 func (symlinkFileInfo) Sys() any           { return nil }
+
+func (f fakeRegularFileInfo) Name() string       { return f.name }
+func (f fakeRegularFileInfo) Size() int64        { return 0 }
+func (f fakeRegularFileInfo) Mode() os.FileMode  { return 0 }
+func (f fakeRegularFileInfo) ModTime() time.Time { return time.Time{} }
+func (f fakeRegularFileInfo) IsDir() bool        { return false }
+func (f fakeRegularFileInfo) Sys() any           { return nil }
 
 func TestAliasSetActionAliasCreatesExecutableAndConfigEntry(t *testing.T) {
 	dataDir := t.TempDir()
@@ -367,6 +376,72 @@ func TestAliasSetActionAliasRollsBackExecutableWhenConfigWriteFails(t *testing.T
 		}
 		if _, exists := updatedCfg.CommandAliases["geosearch"]; exists {
 			t.Fatalf("expected command alias not to be persisted on failed write, got %+v", updatedCfg.CommandAliases)
+		}
+	})
+}
+
+func TestAliasSetActionAliasRejectsExistingPathCommand(t *testing.T) {
+	dataDir := t.TempDir()
+	servicesDir := filepath.Join(dataDir, "services")
+	configPath := writeServiceCLIConfig(t, dataDir, servicesDir)
+
+	withServiceCLIOpts(t, configPath, func() {
+		cfg, err := loadAppConfig()
+		if err != nil {
+			t.Fatalf("loadAppConfig() error: %v", err)
+		}
+		installer := installerFromConfig(cfg)
+		manifest := &services.ServiceManifest{
+			Name:    "open-meteo-geocoding",
+			Version: "1.0.0",
+			Adapter: "http",
+			BaseURL: "https://example.com",
+			Auth:    services.ServiceAuth{Type: "none"},
+			Actions: map[string]services.ServiceAction{
+				"search": {
+					Method:      "GET",
+					Path:        "/search",
+					Description: "search",
+					Risk:        services.RiskSpec{Level: "low"},
+					Response:    services.ResponseSpec{Type: "object"},
+				},
+			},
+		}
+		if _, err := installer.Install(manifest, "local"); err != nil {
+			t.Fatalf("install service: %v", err)
+		}
+
+		origLookPath := aliasLookPath
+		origExecutablePath := aliasExecutablePath
+		origLstat := aliasFileLstat
+		t.Cleanup(func() {
+			aliasLookPath = origLookPath
+			aliasExecutablePath = origExecutablePath
+			aliasFileLstat = origLstat
+		})
+
+		aliasLookPath = func(file string) (string, error) {
+			if file == "git" {
+				return "/usr/bin/git", nil
+			}
+			return "", os.ErrNotExist
+		}
+		aliasExecutablePath = func() (string, error) { return "/opt/homebrew/bin/kimbap", nil }
+		aliasFileLstat = func(path string) (os.FileInfo, error) {
+			if path == "/usr/bin/git" {
+				return fakeRegularFileInfo{name: "git"}, nil
+			}
+			return nil, os.ErrNotExist
+		}
+
+		setCmd := newAliasSetCommand()
+		setCmd.SetArgs([]string{"git", "open-meteo-geocoding.search"})
+		_, err = captureStdout(t, setCmd.Execute)
+		if err == nil {
+			t.Fatal("expected alias set to reject existing PATH command")
+		}
+		if !strings.Contains(err.Error(), "conflicts with existing command on PATH") {
+			t.Fatalf("expected PATH conflict error, got %v", err)
 		}
 	})
 }
