@@ -1286,20 +1286,21 @@ func resolveRegistryServiceByName(ctx context.Context, name string) (*services.S
 	}
 
 	cfg, cfgErr := loadAppConfig()
-	if cfgErr == nil {
-		registryURL := strings.TrimSpace(cfg.Services.RegistryURL)
-		if registryURL != "" && registryURL != "https://services.kimbap.ai" {
-			remoteReg := registry.NewRemoteRegistry("registry", registryURL)
-			resolveCtx, cancel := context.WithTimeout(ctx, 30*time.Second)
-			defer cancel()
-			manifest, _, resolveErr := remoteReg.Resolve(resolveCtx, trimmed)
-			if resolveErr == nil {
-				return manifest, "registry:" + trimmed, nil
-			}
-			var notFound *registry.ErrNotFound
-			if !errors.As(resolveErr, &notFound) {
-				return nil, "", fmt.Errorf("load registry service %q from %s: %w\nCheck your network connection and registry URL configuration.", trimmed, registryURL, resolveErr)
-			}
+	if cfgErr != nil {
+		return nil, "", fmt.Errorf("load config for registry lookup: %w", cfgErr)
+	}
+	registryURL := strings.TrimSpace(cfg.Services.RegistryURL)
+	if registryURL != "" && registryURL != "https://services.kimbap.ai" {
+		remoteReg := registry.NewRemoteRegistry("registry", registryURL)
+		resolveCtx, cancel := context.WithTimeout(ctx, 30*time.Second)
+		defer cancel()
+		manifest, _, resolveErr := remoteReg.Resolve(resolveCtx, trimmed)
+		if resolveErr == nil {
+			return manifest, "registry:" + trimmed, nil
+		}
+		var notFound *registry.ErrNotFound
+		if !errors.As(resolveErr, &notFound) {
+			return nil, "", fmt.Errorf("load registry service %q from %s: %w\nCheck your network connection and registry URL configuration.", trimmed, registryURL, resolveErr)
 		}
 	}
 

@@ -742,15 +742,7 @@ func (r *Runtime) getAdapter(adapterType string) (adapters.Adapter, *actions.Exe
 	return adapter, nil
 }
 
-func (r *Runtime) finalizeWithError(
-	ctx context.Context,
-	result *actions.ExecutionResult,
-	req actions.ExecutionRequest,
-	err *actions.ExecutionError,
-	startedAt time.Time,
-	policyDecision string,
-	approvalRequestID string,
-) actions.ExecutionResult {
+func resolveErrorStatus(ctx context.Context, err *actions.ExecutionError) (actions.ExecutionStatus, int) {
 	status := actions.StatusError
 	if errors.Is(ctx.Err(), context.Canceled) {
 		status = actions.StatusCancelled
@@ -761,6 +753,19 @@ func (r *Runtime) finalizeWithError(
 	if err != nil && err.HTTPStatus > 0 {
 		httpStatus = err.HTTPStatus
 	}
+	return status, httpStatus
+}
+
+func (r *Runtime) finalizeWithError(
+	ctx context.Context,
+	result *actions.ExecutionResult,
+	req actions.ExecutionRequest,
+	err *actions.ExecutionError,
+	startedAt time.Time,
+	policyDecision string,
+	approvalRequestID string,
+) actions.ExecutionResult {
+	status, httpStatus := resolveErrorStatus(ctx, err)
 	return r.finalizeWithStatus(ctx, result, req, status, err, nil, httpStatus, startedAt, policyDecision, approvalRequestID)
 }
 
@@ -774,16 +779,7 @@ func (r *Runtime) finalizeWithErrorOutput(
 	policyDecision string,
 	approvalRequestID string,
 ) actions.ExecutionResult {
-	status := actions.StatusError
-	if errors.Is(ctx.Err(), context.Canceled) {
-		status = actions.StatusCancelled
-	} else if errors.Is(ctx.Err(), context.DeadlineExceeded) {
-		status = actions.StatusTimeout
-	}
-	httpStatus := 500
-	if err != nil && err.HTTPStatus > 0 {
-		httpStatus = err.HTTPStatus
-	}
+	status, httpStatus := resolveErrorStatus(ctx, err)
 	return r.finalizeWithStatus(ctx, result, req, status, err, output, httpStatus, startedAt, policyDecision, approvalRequestID)
 }
 
@@ -895,7 +891,7 @@ func (r *Runtime) writeAudit(ctx context.Context, req actions.ExecutionRequest, 
 		PolicyDecision: result.PolicyDecision,
 		DurationMS:     result.DurationMS,
 		Timestamp:      r.now(),
-		Meta:           result.Meta,
+		Meta:           cloneMetaMap(result.Meta),
 	}
 	if result.Error != nil {
 		event.ErrorCode = result.Error.Code
@@ -927,6 +923,17 @@ func cloneInputMap(input map[string]any) map[string]any {
 		return nil
 	}
 	return cloned
+}
+
+func cloneMetaMap(m map[string]any) map[string]any {
+	if m == nil {
+		return nil
+	}
+	out := make(map[string]any, len(m))
+	for k, v := range m {
+		out[k] = v
+	}
+	return out
 }
 
 func stripRuntimeKeys(input map[string]any) map[string]any {

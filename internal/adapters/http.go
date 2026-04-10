@@ -51,11 +51,17 @@ func secureRedirectPolicy(req *http.Request, via []*http.Request) error {
 	}
 
 	redirectHost := req.URL.Hostname()
+	origin := via[0]
+
+	// Block redirects from a public host to a private/loopback host (SSRF prevention).
+	// Allow same-zone redirects (e.g. localhost→localhost) which occur legitimately
+	// with trailing-slash normalization on local services.
 	if isPrivateOrLoopbackHost(redirectHost) {
-		return fmt.Errorf("redirect to private/loopback host %q is not allowed", redirectHost)
+		if origin == nil || origin.URL == nil || !isPrivateOrLoopbackHost(origin.URL.Hostname()) {
+			return fmt.Errorf("redirect to private/loopback host %q is not allowed", redirectHost)
+		}
 	}
 
-	origin := via[0]
 	if origin == nil || origin.URL == nil {
 		return nil
 	}
