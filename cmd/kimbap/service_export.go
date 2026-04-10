@@ -89,6 +89,9 @@ func newServiceExportAgentSkillCommand() *cobra.Command {
 			}
 
 			if strings.TrimSpace(outputPath) != "" {
+				if err := ensureDirectOutputPathSafe(outputPath); err != nil {
+					return err
+				}
 				if err := os.WriteFile(outputPath, []byte(content), 0o644); err != nil {
 					return fmt.Errorf("write SKILL.md: %w", err)
 				}

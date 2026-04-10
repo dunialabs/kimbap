@@ -3,6 +3,7 @@ package main
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -163,4 +164,39 @@ func TestWriteSkillPackDirLeavesNoTmpDirOnValidationFailure(t *testing.T) {
 			t.Fatalf("unexpected leftover directory in parent after validation error: %q", e.Name())
 		}
 	}
+}
+
+func TestServiceExportRejectsSymlinkOutputPath(t *testing.T) {
+	dataDir := t.TempDir()
+	servicesDir := filepath.Join(dataDir, "services")
+	configPath := writeServiceCLIConfig(t, dataDir, servicesDir)
+	manifestPath := filepath.Join(t.TempDir(), "notes-service.yaml")
+	writeLocalManifest(t, manifestPath, "notes-service", "1.0.0")
+	base := t.TempDir()
+	realTarget := filepath.Join(base, "real.md")
+	outputPath := filepath.Join(base, "SKILL.md")
+	if err := os.WriteFile(realTarget, []byte("existing"), 0o644); err != nil {
+		t.Fatalf("write real target: %v", err)
+	}
+	if err := os.Symlink(realTarget, outputPath); err != nil {
+		t.Fatalf("create symlink: %v", err)
+	}
+
+	withServiceCLIOpts(t, configPath, func() {
+		installCmd := newServiceInstallCommand()
+		installCmd.SetArgs([]string{manifestPath, "--no-shortcuts"})
+		if _, err := captureStdout(t, installCmd.Execute); err != nil {
+			t.Fatalf("service install failed: %v", err)
+		}
+
+		cmd := newServiceExportAgentSkillCommand()
+		cmd.SetArgs([]string{"notes-service", "--output", outputPath})
+		_, err := captureStdout(t, cmd.Execute)
+		if err == nil {
+			t.Fatal("expected symlink output path to be rejected")
+		}
+		if !strings.Contains(err.Error(), "symlinked output path") {
+			t.Fatalf("unexpected error: %v", err)
+		}
+	})
 }
