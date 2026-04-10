@@ -5,7 +5,7 @@ func MessagesCommands() map[string]Command {
 		"messages-send": {
 			Name: "messages-send", TargetApp: "Messages",
 			Script: stdinReader + `
-var app = Application("Messages");
+var app = Application("com.apple.MobileSMS");
 app.includeStandardAdditions = false;
 
 if (!input.to) throw new Error("to is required");
@@ -47,7 +47,7 @@ JSON.stringify({to: toHandle, sent: true});`,
 		"messages-list-chats": {
 			Name: "messages-list-chats", TargetApp: "Messages",
 			Script: stdinReader + `
-var app = Application("Messages");
+var app = Application("com.apple.MobileSMS");
 app.includeStandardAdditions = false;
 
 var parsedLimit = parseInt(input.limit, 10);

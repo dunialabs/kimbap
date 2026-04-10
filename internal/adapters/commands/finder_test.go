@@ -52,6 +52,9 @@ func TestFinderTargetApp(t *testing.T) {
 		if cmd.TargetApp != "Finder" {
 			t.Errorf("%s: TargetApp = %q, want Finder", name, cmd.TargetApp)
 		}
+		if !strings.Contains(cmd.Script, "Application(\"com.apple.finder\")") {
+			t.Errorf("%s: script should target Finder by bundle identifier", name)
+		}
 	}
 }
 

@@ -53,7 +53,7 @@ func FinderCommands() map[string]Command {
 		"finder-list-items": {
 			Name: "finder-list-items", TargetApp: "Finder",
 			Script: stdinReader + `
-var app = Application("Finder");
+var app = Application("com.apple.finder");
 app.includeStandardAdditions = false;
 if (!input.path) throw new Error("path is required");
 
@@ -109,7 +109,7 @@ JSON.stringify(result);`,
 		"finder-get-info": {
 			Name: "finder-get-info", TargetApp: "Finder",
 			Script: stdinReader + `
-var app = Application("Finder");
+var app = Application("com.apple.finder");
 app.includeStandardAdditions = false;
 if (!input.path) throw new Error("path is required");
 
@@ -164,7 +164,7 @@ JSON.stringify(result);`,
 		"finder-create-folder": {
 			Name: "finder-create-folder", TargetApp: "Finder",
 			Script: stdinReader + `
-var app = Application("Finder");
+var app = Application("com.apple.finder");
 app.includeStandardAdditions = false;
 if (!input.path) throw new Error("path is required");
 if (!input.name) throw new Error("name is required");
@@ -198,7 +198,7 @@ JSON.stringify({
 		"finder-move-item": {
 			Name: "finder-move-item", TargetApp: "Finder",
 			Script: stdinReader + `
-var app = Application("Finder");
+var app = Application("com.apple.finder");
 app.includeStandardAdditions = false;
 if (!input.source_path) throw new Error("source_path is required");
 if (!input.destination_path) throw new Error("destination_path is required");
@@ -235,7 +235,7 @@ JSON.stringify({
 		"finder-copy-item": {
 			Name: "finder-copy-item", TargetApp: "Finder",
 			Script: stdinReader + `
-var app = Application("Finder");
+var app = Application("com.apple.finder");
 app.includeStandardAdditions = false;
 if (!input.source_path) throw new Error("source_path is required");
 if (!input.destination_path) throw new Error("destination_path is required");
@@ -272,7 +272,7 @@ JSON.stringify({
 		"finder-delete-item": {
 			Name: "finder-delete-item", TargetApp: "Finder",
 			Script: stdinReader + `
-var app = Application("Finder");
+var app = Application("com.apple.finder");
 app.includeStandardAdditions = false;
 if (!input.path) throw new Error("path is required");
 ` + finderPathHelpers + `
@@ -291,7 +291,7 @@ JSON.stringify({name: name, deleted: true});`,
 		"finder-open-item": {
 			Name: "finder-open-item", TargetApp: "Finder",
 			Script: stdinReader + `
-var app = Application("Finder");
+var app = Application("com.apple.finder");
 app.includeStandardAdditions = false;
 if (!input.path) throw new Error("path is required");
 ` + finderPathHelpers + `

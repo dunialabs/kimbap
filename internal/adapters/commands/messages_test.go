@@ -49,6 +49,9 @@ func TestMessagesTargetApp(t *testing.T) {
 		if cmd.TargetApp != "Messages" {
 			t.Errorf("%s: TargetApp = %q, want Messages", name, cmd.TargetApp)
 		}
+		if !strings.Contains(cmd.Script, "Application(\"com.apple.MobileSMS\")") {
+			t.Errorf("%s: script should target Messages by bundle identifier", name)
+		}
 	}
 }
 
