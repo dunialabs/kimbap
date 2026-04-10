@@ -3,6 +3,7 @@ package app
 import (
 	"context"
 	"errors"
+	"io"
 	"os"
 	"path/filepath"
 	goruntime "runtime"
@@ -11,6 +12,7 @@ import (
 	"time"
 
 	"github.com/dunialabs/kimbap/internal/actions"
+	"github.com/dunialabs/kimbap/internal/adapters"
 	"github.com/dunialabs/kimbap/internal/approvals"
 	"github.com/dunialabs/kimbap/internal/audit"
 	"github.com/dunialabs/kimbap/internal/config"
@@ -20,6 +22,25 @@ import (
 	"github.com/dunialabs/kimbap/internal/store"
 	"github.com/dunialabs/kimbap/internal/vault"
 )
+
+func captureBootstrapStderr(t *testing.T, fn func()) string {
+	t.Helper()
+	old := os.Stderr
+	r, w, err := os.Pipe()
+	if err != nil {
+		t.Fatalf("create stderr pipe: %v", err)
+	}
+	os.Stderr = w
+	fn()
+	_ = w.Close()
+	os.Stderr = old
+	out, readErr := io.ReadAll(r)
+	_ = r.Close()
+	if readErr != nil {
+		t.Fatalf("read captured stderr: %v", readErr)
+	}
+	return string(out)
+}
 
 func TestBuildRuntimeNilConfig(t *testing.T) {
 	rt, err := BuildRuntime(RuntimeDeps{})
@@ -282,7 +303,10 @@ actions:
 		servicesDir:     servicesDir,
 	}
 
-	got := collectCommandExecutables(registry)
+	got, err := collectCommandExecutables(registry)
+	if err != nil {
+		t.Fatalf("collectCommandExecutables() error = %v", err)
+	}
 	want := []string{"/usr/local/bin/mermaid", "/opt/bin/imagetool"}
 	if len(got) != len(want) {
 		t.Fatalf("len(collectCommandExecutables()) = %d, want %d (%v)", len(got), len(want), got)
@@ -291,6 +315,68 @@ actions:
 		if got[i] != want[i] {
 			t.Fatalf("collectCommandExecutables()[%d] = %q, want %q (full=%v)", i, got[i], want[i], got)
 		}
+	}
+}
+
+func TestBuildRuntimeFailsWhenCommandAllowlistCollectionErrors(t *testing.T) {
+	servicesDir := t.TempDir()
+	if err := os.WriteFile(filepath.Join(servicesDir, "bad-command.yaml"), []byte(`name: bad-command
+version: 1.0.0
+adapter: command
+[
+`), 0o644); err != nil {
+		t.Fatalf("write bad command manifest: %v", err)
+	}
+
+	const httpManifest = `name: http-skill
+version: 1.0.0
+base_url: https://api.example.com
+auth:
+  type: none
+actions:
+  ping:
+    method: GET
+    path: /ping
+    risk:
+      level: low
+`
+	if err := os.WriteFile(filepath.Join(servicesDir, "http-skill.yaml"), []byte(httpManifest), 0o644); err != nil {
+		t.Fatalf("write http manifest: %v", err)
+	}
+
+	var (
+		rt       *runtimepkg.Runtime
+		buildErr error
+	)
+	stderr := captureBootstrapStderr(t, func() {
+		rt, buildErr = BuildRuntime(RuntimeDeps{Config: &config.KimbapConfig{Services: config.ServicesConfig{Dir: servicesDir}, Policy: config.PolicyConfig{Path: ""}}})
+	})
+	if buildErr != nil {
+		t.Fatalf("expected BuildRuntime() to keep unrelated services available, got %v", buildErr)
+	}
+	if !strings.Contains(stderr, "command allowlist initialization failed") {
+		t.Fatalf("expected bootstrap warning about command allowlist failure, got %q", stderr)
+	}
+
+	if rt == nil {
+		t.Fatal("expected runtime to be created")
+	}
+	httpAdapter, ok := rt.Adapters["http"]
+	if !ok || httpAdapter == nil {
+		t.Fatal("expected unrelated http adapter to remain available")
+	}
+
+	commandAdapter, ok := rt.Adapters["command"]
+	if !ok || commandAdapter == nil {
+		t.Fatal("expected command adapter to be registered")
+	}
+	blockedReq := adapters.AdapterRequest{
+		Action: actions.ActionDefinition{
+			Adapter: actions.AdapterConfig{ExecutablePath: "/bin/echo"},
+		},
+	}
+	if _, execErr := commandAdapter.Execute(context.Background(), blockedReq); execErr == nil {
+		t.Fatal("expected command adapter to deny execution when allowlist collection failed")
 	}
 }
 
@@ -431,6 +517,220 @@ actions:
 	}
 	if len(actionsList) != 0 {
 		t.Fatalf("expected unsigned unlocked service to be skipped under required signature policy, got %d actions", len(actionsList))
+	}
+}
+
+func TestBuildRuntimeDoesNotWarnForUnrelatedUnlockedServices(t *testing.T) {
+	servicesDir := t.TempDir()
+	installer := services.NewLocalInstaller(servicesDir)
+
+	validManifest, err := services.ParseManifest([]byte(`name: target-cli
+version: 1.0.0
+adapter: command
+auth:
+  type: none
+command_spec:
+  executable: /usr/bin/printf
+actions:
+  list:
+    command: list
+    risk:
+      level: low
+`))
+	if err != nil {
+		t.Fatalf("parse target manifest: %v", err)
+	}
+	if _, err := installer.Install(validManifest, "local"); err != nil {
+		t.Fatalf("install target manifest: %v", err)
+	}
+
+	if err := os.WriteFile(filepath.Join(servicesDir, "unrelated-http.yaml"), []byte(`name: unrelated-http
+version: 1.0.0
+base_url: https://example.com
+auth:
+  type: none
+actions:
+  ping:
+    method: GET
+    path: /ping
+    risk:
+      level: low
+`), 0o644); err != nil {
+		t.Fatalf("write unrelated manifest: %v", err)
+	}
+
+	cfg := &config.KimbapConfig{
+		Services: config.ServicesConfig{Dir: servicesDir, Verify: "warn", SignaturePolicy: "optional"},
+		Policy:   config.PolicyConfig{Path: ""},
+	}
+	stderr := captureBootstrapStderr(t, func() {
+		if _, err := BuildRuntime(RuntimeDeps{Config: cfg}); err != nil {
+			t.Fatalf("build runtime: %v", err)
+		}
+	})
+	if strings.Contains(stderr, "unrelated-http") || strings.Contains(stderr, "failed digest verification") {
+		t.Fatalf("expected runtime bootstrap to stay quiet for unrelated unlocked services, got stderr=%q", stderr)
+	}
+}
+
+func TestServicesActionRegistryLookupOnlyWarnsForRequestedService(t *testing.T) {
+	servicesDir := t.TempDir()
+	installer := services.NewLocalInstaller(servicesDir)
+
+	validManifest, err := services.ParseManifest([]byte(`name: target-http
+version: 1.0.0
+base_url: https://example.com
+auth:
+  type: none
+actions:
+  ping:
+    method: GET
+    path: /ping
+    risk:
+      level: low
+`))
+	if err != nil {
+		t.Fatalf("parse target manifest: %v", err)
+	}
+	if _, err := installer.Install(validManifest, "local"); err != nil {
+		t.Fatalf("install target manifest: %v", err)
+	}
+
+	if err := os.WriteFile(filepath.Join(servicesDir, "unrelated-http.yaml"), []byte(`name: unrelated-http
+version: 1.0.0
+base_url: https://example.com
+auth:
+  type: none
+actions:
+  ping:
+    method: GET
+    path: /ping
+    risk:
+      level: low
+`), 0o644); err != nil {
+		t.Fatalf("write unrelated manifest: %v", err)
+	}
+
+	registry := &servicesActionRegistry{
+		installer:       installer,
+		verifyMode:      "warn",
+		signaturePolicy: "optional",
+		servicesDir:     servicesDir,
+	}
+	stderr := captureBootstrapStderr(t, func() {
+		def, err := registry.Lookup(context.Background(), "target-http.ping")
+		if err != nil {
+			t.Fatalf("lookup target action: %v", err)
+		}
+		if def == nil || def.Name != "target-http.ping" {
+			t.Fatalf("unexpected lookup result: %+v", def)
+		}
+	})
+	if strings.Contains(stderr, "unrelated-http") || strings.Contains(stderr, "failed digest verification") {
+		t.Fatalf("expected lookup to avoid unrelated digest warnings, got stderr=%q", stderr)
+	}
+}
+
+func TestServicesActionRegistryLookupMissingActionAvoidsUnrelatedWarnings(t *testing.T) {
+	servicesDir := t.TempDir()
+	installer := services.NewLocalInstaller(servicesDir)
+
+	validManifest, err := services.ParseManifest([]byte(`name: target-http
+version: 1.0.0
+base_url: https://example.com
+auth:
+  type: none
+actions:
+  ping:
+    method: GET
+    path: /ping
+    risk:
+      level: low
+`))
+	if err != nil {
+		t.Fatalf("parse target manifest: %v", err)
+	}
+	if _, err := installer.Install(validManifest, "local"); err != nil {
+		t.Fatalf("install target manifest: %v", err)
+	}
+
+	if err := os.WriteFile(filepath.Join(servicesDir, "unrelated-http.yaml"), []byte(`name: unrelated-http
+version: 1.0.0
+base_url: https://example.com
+auth:
+  type: none
+actions:
+  ping:
+    method: GET
+    path: /ping
+    risk:
+      level: low
+`), 0o644); err != nil {
+		t.Fatalf("write unrelated manifest: %v", err)
+	}
+
+	registry := &servicesActionRegistry{
+		installer:       installer,
+		verifyMode:      "warn",
+		signaturePolicy: "optional",
+		servicesDir:     servicesDir,
+	}
+
+	var lookupErr error
+	stderr := captureBootstrapStderr(t, func() {
+		def, err := registry.Lookup(context.Background(), "target-http.missing")
+		if def != nil {
+			t.Fatalf("expected nil definition for missing action, got %+v", def)
+		}
+		lookupErr = err
+	})
+	if !errors.Is(lookupErr, actions.ErrLookupNotFound) {
+		t.Fatalf("expected lookup not found error, got %v", lookupErr)
+	}
+	if strings.Contains(stderr, "unrelated-http") || strings.Contains(stderr, "failed digest verification") {
+		t.Fatalf("expected missing-action lookup to avoid unrelated digest warnings, got stderr=%q", stderr)
+	}
+}
+
+func TestServicesActionRegistryLookupMissingServiceAvoidsUnrelatedWarnings(t *testing.T) {
+	servicesDir := t.TempDir()
+	installer := services.NewLocalInstaller(servicesDir)
+
+	if err := os.WriteFile(filepath.Join(servicesDir, "unrelated-http.yaml"), []byte(`name: unrelated-http
+version: 1.0.0
+base_url: https://example.com
+auth:
+  type: none
+actions:
+  ping:
+    method: GET
+    path: /ping
+    risk:
+      level: low
+`), 0o644); err != nil {
+		t.Fatalf("write unrelated manifest: %v", err)
+	}
+
+	registry := &servicesActionRegistry{
+		installer:       installer,
+		verifyMode:      "warn",
+		signaturePolicy: "optional",
+		servicesDir:     servicesDir,
+	}
+
+	var lookupErr error
+	stderr := captureBootstrapStderr(t, func() {
+		def, err := registry.Lookup(context.Background(), "missing-service.ping")
+		if def != nil {
+			t.Fatalf("expected nil definition for missing service, got %+v", def)
+		}
+		lookupErr = err
+	})
+	if !errors.Is(lookupErr, actions.ErrLookupNotFound) {
+		t.Fatalf("expected lookup not found error, got %v", lookupErr)
+	}
+	if strings.Contains(stderr, "unrelated-http") || strings.Contains(stderr, "failed digest verification") {
+		t.Fatalf("expected missing-service lookup to avoid unrelated digest warnings, got stderr=%q", stderr)
 	}
 }
 

@@ -106,7 +106,11 @@ func BuildRuntime(deps RuntimeDeps) (*runtimepkg.Runtime, error) {
 		}
 	}
 
-	commandAllowlist := collectCommandExecutables(actionRegistry)
+	commandAllowlist, commandAllowlistErr := collectCommandExecutables(actionRegistry)
+	if commandAllowlistErr != nil {
+		_, _ = fmt.Fprintf(os.Stderr, "warning: command allowlist initialization failed: %v; command actions will remain blocked until services are fixed\n", commandAllowlistErr)
+		commandAllowlist = []string{}
+	}
 	adaptersMap := map[string]adapters.Adapter{
 		"http":    adapters.NewHTTPAdapter(nil),
 		"command": adapters.NewCommandAdapter(commandAllowlist, 60*time.Second),
@@ -127,24 +131,13 @@ func BuildRuntime(deps RuntimeDeps) (*runtimepkg.Runtime, error) {
 
 }
 
-func collectCommandExecutables(registry *servicesActionRegistry) []string {
-	defs, err := registry.loadDefinitions()
-	if err != nil || len(defs) == 0 {
-		return nil
+func collectCommandExecutables(registry *servicesActionRegistry) ([]string, error) {
+	executables, err := registry.commandExecutables()
+	if err != nil {
+		return nil, err
 	}
-
-	seen := make(map[string]bool)
-	var out []string
-	for _, def := range defs {
-		if strings.ToLower(strings.TrimSpace(def.Adapter.Type)) != "command" {
-			continue
-		}
-		exe := strings.TrimSpace(def.Adapter.ExecutablePath)
-		if exe != "" && !seen[exe] {
-			seen[exe] = true
-			out = append(out, exe)
-		}
+	if len(executables) == 0 {
+		return nil, nil
 	}
-
-	return out
+	return executables, nil
 }

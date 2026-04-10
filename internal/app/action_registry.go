@@ -2,6 +2,7 @@ package app
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -47,10 +48,6 @@ func (r *servicesActionRegistry) Lookup(_ context.Context, name string) (*action
 	if name == "" {
 		return nil, fmt.Errorf("action name is required")
 	}
-	defs, err := r.loadDefinitions()
-	if err != nil {
-		return nil, err
-	}
 
 	r.mu.RLock()
 	if byName := r.cachedByName; byName != nil {
@@ -62,12 +59,59 @@ func (r *servicesActionRegistry) Lookup(_ context.Context, name string) (*action
 	}
 	r.mu.RUnlock()
 
+	if def, handled, err := r.lookupTargeted(name); err != nil || handled {
+		return def, err
+	}
+
+	defs, err := r.loadDefinitions()
+	if err != nil {
+		return nil, err
+	}
+
 	for i := range defs {
 		if defs[i].Name == name {
 			return &defs[i], nil
 		}
 	}
 	return nil, fmt.Errorf("%w: %s", actions.ErrLookupNotFound, name)
+}
+
+func (r *servicesActionRegistry) lookupTargeted(name string) (*actions.ActionDefinition, bool, error) {
+	serviceName, _, ok := strings.Cut(name, ".")
+	if !ok {
+		return nil, false, nil
+	}
+
+	installed, err := r.installer.Get(serviceName)
+	if err != nil {
+		if errors.Is(err, os.ErrNotExist) {
+			return nil, true, fmt.Errorf("%w: %s", actions.ErrLookupNotFound, name)
+		}
+		return nil, true, err
+	}
+	if !installed.Enabled {
+		return nil, true, fmt.Errorf("%w: %s", actions.ErrLookupNotFound, name)
+	}
+
+	okToUse, verifyErr := r.verifyInstalledServiceWithWarnings(serviceName, true)
+	if !okToUse {
+		if verifyErr != nil {
+			return nil, true, verifyErr
+		}
+		return nil, true, fmt.Errorf("%w: %s", actions.ErrLookupNotFound, name)
+	}
+
+	defs, convErr := services.ToActionDefinitions(&installed.Manifest)
+	if convErr != nil {
+		return nil, true, convErr
+	}
+	for i := range defs {
+		if defs[i].Name == name {
+			copyDef := defs[i]
+			return &copyDef, true, nil
+		}
+	}
+	return nil, true, fmt.Errorf("%w: %s", actions.ErrLookupNotFound, name)
 }
 
 func (r *servicesActionRegistry) List(_ context.Context, opts runtimepkg.ListOptions) ([]actions.ActionDefinition, error) {
@@ -149,7 +193,7 @@ func (r *servicesActionRegistry) loadDefinitions() ([]actions.ActionDefinition, 
 		return r.cachedDefs, nil
 	}
 
-	defs, err := r.loadDefinitionsUncached()
+	defs, err := r.loadDefinitionsUncached(true)
 	if err != nil {
 		return nil, err
 	}
@@ -165,14 +209,14 @@ func (r *servicesActionRegistry) loadDefinitions() ([]actions.ActionDefinition, 
 	return defs, nil
 }
 
-func (r *servicesActionRegistry) loadDefinitionsUncached() ([]actions.ActionDefinition, error) {
+func (r *servicesActionRegistry) loadDefinitionsUncached(emitWarnings bool) ([]actions.ActionDefinition, error) {
 	installed, err := r.installer.ListEnabled()
 	if err != nil {
 		return nil, err
 	}
 	out := make([]actions.ActionDefinition, 0)
 	for _, it := range installed {
-		if ok, verifyErr := r.verifyInstalledService(it.Manifest.Name); !ok {
+		if ok, verifyErr := r.verifyInstalledServiceWithWarnings(it.Manifest.Name, emitWarnings); !ok {
 			if verifyErr != nil {
 				return nil, verifyErr
 			}
@@ -187,7 +231,7 @@ func (r *servicesActionRegistry) loadDefinitionsUncached() ([]actions.ActionDefi
 	return out, nil
 }
 
-func (r *servicesActionRegistry) verifyInstalledService(name string) (bool, error) {
+func (r *servicesActionRegistry) verifyInstalledServiceWithWarnings(name string, emitWarnings bool) (bool, error) {
 	verifyMode := normalizeVerifyMode(r.verifyMode)
 	signaturePolicy := normalizeSignaturePolicy(r.signaturePolicy)
 
@@ -203,7 +247,9 @@ func (r *servicesActionRegistry) verifyInstalledService(name string) (bool, erro
 		if verifyMode == "strict" {
 			return false, fmt.Errorf("verify installed service %q: %w", name, err)
 		}
-		_, _ = fmt.Fprintf(os.Stderr, "warning: verify installed service %q failed: %v\n", name, err)
+		if emitWarnings {
+			_, _ = fmt.Fprintf(os.Stderr, "warning: verify installed service %q failed: %v\n", name, err)
+		}
 		return true, nil
 	}
 
@@ -213,7 +259,9 @@ func (r *servicesActionRegistry) verifyInstalledService(name string) (bool, erro
 			if verifyMode == "strict" {
 				return false, fmt.Errorf("%s", msg)
 			}
-			_, _ = fmt.Fprintln(os.Stderr, "warning:", msg)
+			if emitWarnings {
+				_, _ = fmt.Fprintln(os.Stderr, "warning:", msg)
+			}
 			return false, nil
 		}
 	}
@@ -224,12 +272,59 @@ func (r *servicesActionRegistry) verifyInstalledService(name string) (bool, erro
 			if verifyMode == "strict" {
 				return false, fmt.Errorf("%s", msg)
 			}
-			_, _ = fmt.Fprintln(os.Stderr, "warning:", msg)
+			if emitWarnings {
+				_, _ = fmt.Fprintln(os.Stderr, "warning:", msg)
+			}
 			return true, nil
 		}
 	}
 
 	return true, nil
+}
+
+func (r *servicesActionRegistry) commandExecutables() ([]string, error) {
+	installed, err := r.installer.ListEnabled()
+	if err != nil {
+		return nil, err
+	}
+
+	seen := make(map[string]bool)
+	out := make([]string, 0)
+	for _, it := range installed {
+		adapterType := strings.ToLower(strings.TrimSpace(it.Manifest.Adapter))
+		if adapterType == "" {
+			adapterType = "http"
+		}
+		if adapterType != "command" {
+			continue
+		}
+
+		ok, verifyErr := r.verifyInstalledServiceWithWarnings(it.Manifest.Name, false)
+		if !ok {
+			if verifyErr != nil {
+				return nil, verifyErr
+			}
+			continue
+		}
+
+		defs, convErr := services.ToActionDefinitions(&it.Manifest)
+		if convErr != nil {
+			return nil, convErr
+		}
+		for _, def := range defs {
+			if strings.ToLower(strings.TrimSpace(def.Adapter.Type)) != "command" {
+				continue
+			}
+			exe := strings.TrimSpace(def.Adapter.ExecutablePath)
+			if exe == "" || seen[exe] {
+				continue
+			}
+			seen[exe] = true
+			out = append(out, exe)
+		}
+	}
+
+	return out, nil
 }
 
 func normalizeVerifyMode(mode string) string {
