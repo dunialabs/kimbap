@@ -62,6 +62,9 @@ func TestRemindersTargetApp(t *testing.T) {
 		if cmd.TargetApp != "Reminders" {
 			t.Fatalf("command %q has target app %q, want %q", name, cmd.TargetApp, "Reminders")
 		}
+		if !strings.Contains(cmd.Script, "Application(\"com.apple.reminders\")") {
+			t.Fatalf("command %q should target Reminders by bundle identifier", name)
+		}
 	}
 }
 

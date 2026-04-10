@@ -67,6 +67,9 @@ func TestCalendarTargetApp(t *testing.T) {
 		if cmd.TargetApp != "Calendar" {
 			t.Fatalf("command %q target app = %q, want %q", name, cmd.TargetApp, "Calendar")
 		}
+		if !strings.Contains(cmd.Script, "Application(\"com.apple.iCal\")") {
+			t.Fatalf("command %q should target Calendar by bundle identifier", name)
+		}
 	}
 }
 

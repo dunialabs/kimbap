@@ -5,7 +5,7 @@ func RemindersCommands() map[string]Command {
 		"list-lists": {
 			Name: "list-lists", TargetApp: "Reminders",
 			Script: stdinReader + `
-var app = Application("Reminders");
+var app = Application("com.apple.reminders");
 app.includeStandardAdditions = false;
 var lists = app.lists();
 var result = lists.map(function(l) { return {name: l.name()}; });
@@ -14,14 +14,14 @@ JSON.stringify(result);`,
 		"list-reminders": {
 			Name: "list-reminders", TargetApp: "Reminders",
 			Script: stdinReader + `
-var app = Application("Reminders");
+var app = Application("com.apple.reminders");
 app.includeStandardAdditions = false;
 throw new Error("[NOT_SUPPORTED] list-reminders is temporarily disabled because Reminders enumeration can hang in JXA; use get-reminder with an exact name instead");`,
 		},
 		"get-reminder": {
 			Name: "get-reminder", TargetApp: "Reminders",
 			Script: stdinReader + `
-var app = Application("Reminders");
+var app = Application("com.apple.reminders");
 app.includeStandardAdditions = false;
 var matches = app.reminders.whose({name: input.name})();
 if (matches.length === 0) throw new Error("[NOT_FOUND] reminder not found");
@@ -40,7 +40,7 @@ JSON.stringify(result);`,
 		"create-reminder": {
 			Name: "create-reminder", TargetApp: "Reminders",
 			Script: stdinReader + `
-var app = Application("Reminders");
+var app = Application("com.apple.reminders");
 app.includeStandardAdditions = false;
 var targetList = null;
 if (input.list) {
@@ -64,7 +64,7 @@ JSON.stringify({name: reminder.name(), list: targetList.name()});`,
 		"complete-reminder": {
 			Name: "complete-reminder", TargetApp: "Reminders",
 			Script: stdinReader + `
-var app = Application("Reminders");
+var app = Application("com.apple.reminders");
 app.includeStandardAdditions = false;
 var matches = app.reminders.whose({name: input.name})();
 if (matches.length === 0) throw new Error("[NOT_FOUND] reminder not found");

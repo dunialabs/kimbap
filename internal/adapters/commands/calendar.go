@@ -5,7 +5,7 @@ func CalendarCommands() map[string]Command {
 		"list-calendars": {
 			Name: "list-calendars", TargetApp: "Calendar",
 			Script: stdinReader + `
-var app = Application("Calendar");
+var app = Application("com.apple.iCal");
 app.includeStandardAdditions = false;
 var calendars = app.calendars();
 var result = calendars.map(function(c) {
@@ -19,7 +19,7 @@ JSON.stringify(result);`,
 		"list-events": {
 			Name: "list-events", TargetApp: "Calendar",
 			Script: stdinReader + `
-var app = Application("Calendar");
+var app = Application("com.apple.iCal");
 app.includeStandardAdditions = false;
 
 var start = input.start_date ? new Date(input.start_date) : new Date();
@@ -66,7 +66,7 @@ JSON.stringify(result);`,
 		"get-event": {
 			Name: "get-event", TargetApp: "Calendar",
 			Script: stdinReader + `
-var app = Application("Calendar");
+var app = Application("com.apple.iCal");
 app.includeStandardAdditions = false;
 
 var calendars;
@@ -112,7 +112,7 @@ JSON.stringify(result);`,
 		"create-event": {
 			Name: "create-event", TargetApp: "Calendar",
 			Script: stdinReader + `
-var app = Application("Calendar");
+var app = Application("com.apple.iCal");
 app.includeStandardAdditions = false;
 
 var calendars;
@@ -146,7 +146,7 @@ JSON.stringify(result);`,
 		"search-events": {
 			Name: "search-events", TargetApp: "Calendar",
 			Script: stdinReader + `
-var app = Application("Calendar");
+var app = Application("com.apple.iCal");
 app.includeStandardAdditions = false;
 
 var query = (input.query || "").toLowerCase();
