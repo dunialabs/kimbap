@@ -11,6 +11,7 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/dunialabs/kimbap/internal/adapters"
 	"github.com/dunialabs/kimbap/internal/agents"
 	"github.com/dunialabs/kimbap/internal/config"
 	"github.com/dunialabs/kimbap/internal/policy"
@@ -346,8 +347,7 @@ func checkInitLocalAdapterReadiness(selection initServiceSelection, hasFailure b
 				issues = append(issues, fmt.Sprintf("%s (missing target_app)", name))
 				continue
 			}
-			appJSON, _ := json.Marshal(target)
-			probe := fmt.Sprintf("id of application %s", string(appJSON))
+			probe := appleScriptDoctorProbe(target)
 			if err := exec.Command("osascript", "-e", probe).Run(); err != nil {
 				issues = append(issues, fmt.Sprintf("%s (application unavailable: %s)", name, target))
 			}
@@ -366,6 +366,15 @@ func checkInitLocalAdapterReadiness(selection initServiceSelection, hasFailure b
 	}
 
 	return doctorCheck{Name: "local adapter readiness", Status: "ok", Detail: fmt.Sprintf("verified runtime prerequisites for %d local-adapter services", inspected)}
+}
+
+func appleScriptDoctorProbe(target string) string {
+	mapped := adapters.AppleScriptAppReference(target)
+	mappedJSON, _ := json.Marshal(mapped)
+	if mapped != strings.TrimSpace(target) {
+		return fmt.Sprintf("id of application id %s", string(mappedJSON))
+	}
+	return fmt.Sprintf("id of application %s", string(mappedJSON))
 }
 
 func normalizeSelectedCatalogServices(names []string) ([]string, error) {

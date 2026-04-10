@@ -600,3 +600,12 @@ func TestCheckInitLocalAdapterReadinessWarnsForMissingCommandExecutable(t *testi
 		t.Fatalf("expected readiness warning to mention kitty, got %q", check.Detail)
 	}
 }
+
+func TestAppleScriptDoctorProbeUsesApplicationIDForMappedApps(t *testing.T) {
+	if got := appleScriptDoctorProbe("Notes"); got != `id of application id "com.apple.Notes"` {
+		t.Fatalf("appleScriptDoctorProbe(Notes) = %q", got)
+	}
+	if got := appleScriptDoctorProbe("CustomApp"); got != `id of application "CustomApp"` {
+		t.Fatalf("appleScriptDoctorProbe(CustomApp) = %q", got)
+	}
+}
