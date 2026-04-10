@@ -210,6 +210,95 @@ func TestHTTPAdapterURLTemplateAndCustomHeader(t *testing.T) {
 	}
 }
 
+func TestHTTPAdapterOmitsUnresolvedOptionalQueryTemplates(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if got := r.URL.Query().Get("name"); got != "北京" {
+			t.Fatalf("expected name query to be preserved, got %q", got)
+		}
+		if got := r.URL.Query().Get("count"); got != "" {
+			t.Fatalf("expected unresolved count query to be omitted, got %q", got)
+		}
+		if got := r.URL.Query().Get("language"); got != "" {
+			t.Fatalf("expected unresolved language query to be omitted, got %q", got)
+		}
+		_, _ = w.Write([]byte(`{"results":[{"name":"Beijing"}]}`))
+	}))
+	defer server.Close()
+
+	adapter := NewHTTPAdapter(server.Client())
+	_, err := adapter.Execute(context.Background(), AdapterRequest{
+		Action: actions.ActionDefinition{
+			Adapter: actions.AdapterConfig{
+				Type:        "http",
+				Method:      http.MethodGet,
+				BaseURL:     server.URL,
+				URLTemplate: "/search",
+				Query: map[string]string{
+					"name":     "{name}",
+					"count":    "{count}",
+					"language": "{language}",
+				},
+				Response: actions.ResponseConfig{Extract: "results"},
+			},
+		},
+		Input: map[string]any{"name": "北京"},
+	})
+	if err != nil {
+		t.Fatalf("expected no error, got %v", err)
+	}
+}
+
+func TestHTTPAdapterHydratesHackerNewsFeedActions(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/topstories.json":
+			_, _ = w.Write([]byte(`[3,2,1]`))
+		case "/item/3.json":
+			_, _ = w.Write([]byte(`{"id":3,"type":"story","title":"third","score":300}`))
+		case "/item/2.json":
+			_, _ = w.Write([]byte(`{"id":2,"type":"story","deleted":true}`))
+		case "/item/1.json":
+			_, _ = w.Write([]byte(`{"id":1,"type":"story","title":"first","score":100}`))
+		default:
+			t.Fatalf("unexpected path: %s", r.URL.Path)
+		}
+	}))
+	defer server.Close()
+
+	adapter := NewHTTPAdapter(server.Client())
+	res, err := adapter.Execute(context.Background(), AdapterRequest{
+		Action: actions.ActionDefinition{
+			Name:      "hacker-news.get-top-stories",
+			Namespace: "hacker-news",
+			Adapter: actions.AdapterConfig{
+				Type:        "http",
+				Method:      http.MethodGet,
+				BaseURL:     server.URL,
+				URLTemplate: "/topstories.json",
+			},
+		},
+		Input: map[string]any{"limit": 2},
+	})
+	if err != nil {
+		t.Fatalf("expected no error, got %v", err)
+	}
+	stories, ok := res.Output["data"].([]any)
+	if !ok {
+		t.Fatalf("expected hydrated data array, got %+v", res.Output)
+	}
+	if len(stories) != 2 {
+		t.Fatalf("expected 2 hydrated stories, got %+v", stories)
+	}
+	third, ok := stories[0].(map[string]any)
+	if !ok || third["title"] != "third" {
+		t.Fatalf("expected first story payload, got %+v", stories[0])
+	}
+	first, ok := stories[1].(map[string]any)
+	if !ok || first["title"] != "first" {
+		t.Fatalf("expected deleted item skipped and second story preserved, got %+v", stories[1])
+	}
+}
+
 func TestNormalizeOutputUsesDataWrapperForExtractedArrays(t *testing.T) {
 	got, err := normalizeOutput([]byte(`{"results":[{"id":1}]}`), "results")
 	if err != nil {

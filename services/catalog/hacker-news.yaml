@@ -35,7 +35,12 @@ actions:
   get-top-stories:
     method: GET
     path: /topstories.json
-    description: Get IDs of the current top stories
+    description: Get the current top stories as story objects
+    args:
+      - name: limit
+        type: integer
+        required: false
+        default: 10
     response:
       type: array
     risk:
@@ -47,7 +52,12 @@ actions:
   get-new-stories:
     method: GET
     path: /newstories.json
-    description: Get IDs of the newest stories
+    description: Get the newest stories as story objects
+    args:
+      - name: limit
+        type: integer
+        required: false
+        default: 10
     response:
       type: array
     risk:
@@ -55,7 +65,12 @@ actions:
   get-best-stories:
     method: GET
     path: /beststories.json
-    description: Get IDs of the best stories
+    description: Get the best stories as story objects
+    args:
+      - name: limit
+        type: integer
+        required: false
+        default: 10
     response:
       type: array
     risk:
