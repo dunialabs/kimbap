@@ -291,6 +291,27 @@ func buildEnv(base []string, extra map[string]string, proxyAddr, agentToken stri
 
 	maps.Copy(envMap, extra)
 
+	// Extra must not reintroduce secret keys or override managed token/proxy settings.
+	delete(envMap, "KIMBAP_MASTER_KEY_HEX")
+	delete(envMap, "KIMBAP_DEV")
+	if strings.TrimSpace(agentToken) != "" {
+		envMap["KIMBAP_AGENT_TOKEN"] = strings.TrimSpace(agentToken)
+	} else {
+		delete(envMap, "KIMBAP_AGENT_TOKEN")
+	}
+	if proxyAddr != "" {
+		proxyURL := proxyAddr
+		if strings.TrimSpace(agentToken) != "" {
+			proxyURL = embedProxyAuth(proxyAddr, agentToken)
+		}
+		envMap["HTTP_PROXY"] = proxyURL
+		envMap["HTTPS_PROXY"] = proxyURL
+		envMap["ALL_PROXY"] = proxyURL
+		envMap["http_proxy"] = proxyURL
+		envMap["https_proxy"] = proxyURL
+		envMap["all_proxy"] = proxyURL
+	}
+
 	out := make([]string, 0, len(envMap))
 	for k, v := range envMap {
 		out = append(out, k+"="+v)

@@ -146,6 +146,9 @@ func parseDynamicInput(tokens []string) (map[string]any, error) {
 			value any = true
 		)
 		if left, right, ok := strings.Cut(nameValue, "="); ok {
+			if strings.TrimSpace(left) == "" {
+				return nil, fmt.Errorf("empty flag name in %q", tok)
+			}
 			name = left
 			value = parseScalar(right)
 		} else {
