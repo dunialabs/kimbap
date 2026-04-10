@@ -286,6 +286,9 @@ func writeGeneratedOutput(content, outputPath, language string, totalActions int
 		_, err := fmt.Fprint(os.Stdout, content)
 		return err
 	}
+	if err := ensureDirectOutputPathSafe(outputPath); err != nil {
+		return err
+	}
 
 	if err := os.WriteFile(outputPath, []byte(content), 0o644); err != nil {
 		return fmt.Errorf("write generated snippet: %w", err)
