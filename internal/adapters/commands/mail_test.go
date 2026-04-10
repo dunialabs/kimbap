@@ -71,6 +71,9 @@ func TestMailTargetApp(t *testing.T) {
 		if cmd.TargetApp != "Mail" {
 			t.Fatalf("command %q has TargetApp %q", name, cmd.TargetApp)
 		}
+		if !strings.Contains(cmd.Script, "Application(\"com.apple.mail\")") {
+			t.Fatalf("command %q should target Mail by bundle identifier", name)
+		}
 	}
 }
 

@@ -5,7 +5,7 @@ func MailCommands() map[string]Command {
 		"list-mailboxes": {
 			Name: "list-mailboxes", TargetApp: "Mail",
 			Script: stdinReader + `
-var app = Application("Mail");
+var app = Application("com.apple.mail");
 app.includeStandardAdditions = false;
 function flattenMailboxes(boxes, accountName, result) {
 	boxes.forEach(function(box) {
@@ -25,7 +25,7 @@ JSON.stringify(result);`,
 		"list-messages": {
 			Name: "list-messages", TargetApp: "Mail",
 			Script: stdinReader + `
-var app = Application("Mail");
+var app = Application("com.apple.mail");
 app.includeStandardAdditions = false;
 function collectMailboxes(boxes, all) {
 	boxes.forEach(function(box) {
@@ -67,7 +67,7 @@ JSON.stringify(result);`,
 		"get-message": {
 			Name: "get-message", TargetApp: "Mail",
 			Script: stdinReader + `
-var app = Application("Mail");
+var app = Application("com.apple.mail");
 app.includeStandardAdditions = false;
 if (!input.subject) throw new Error("subject is required");
 function collectMailboxes(boxes, all) {
@@ -117,7 +117,7 @@ JSON.stringify(result);`,
 		"send-message": {
 			Name: "send-message", TargetApp: "Mail",
 			Script: stdinReader + `
-var app = Application("Mail");
+var app = Application("com.apple.mail");
 app.includeStandardAdditions = false;
 if (!input.to) throw new Error("to is required");
 if (!input.subject) throw new Error("subject is required");
@@ -146,7 +146,7 @@ JSON.stringify({subject: input.subject, to: toList, sent: true});`,
 		"search-messages": {
 			Name: "search-messages", TargetApp: "Mail",
 			Script: stdinReader + `
-var app = Application("Mail");
+var app = Application("com.apple.mail");
 app.includeStandardAdditions = false;
 function collectMailboxes(boxes, all) {
 	boxes.forEach(function(box) { all.push(box); try { collectMailboxes(box.mailboxes(), all); } catch (e) {} });

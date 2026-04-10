@@ -49,6 +49,9 @@ func TestContactsTargetApp(t *testing.T) {
 		if cmd.TargetApp != "Contacts" {
 			t.Errorf("%s: TargetApp = %q, want Contacts", name, cmd.TargetApp)
 		}
+		if !strings.Contains(cmd.Script, "Application(\"com.apple.AddressBook\")") {
+			t.Errorf("%s: script should target Contacts by bundle identifier", name)
+		}
 	}
 }
 

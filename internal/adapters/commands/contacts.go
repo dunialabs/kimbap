@@ -5,7 +5,7 @@ func ContactsCommands() map[string]Command {
 		"contacts-list": {
 			Name: "contacts-list", TargetApp: "Contacts",
 			Script: stdinReader + `
-var app = Application("Contacts");
+var app = Application("com.apple.AddressBook");
 app.includeStandardAdditions = false;
 
 function mapLabeledValues(values) {
@@ -70,7 +70,7 @@ JSON.stringify(result);`,
 		"contacts-search": {
 			Name: "contacts-search", TargetApp: "Contacts",
 			Script: stdinReader + `
-var app = Application("Contacts");
+var app = Application("com.apple.AddressBook");
 app.includeStandardAdditions = false;
 if (!input.query) throw new Error("query is required");
 
@@ -170,7 +170,7 @@ JSON.stringify(result);`,
 		"contacts-get": {
 			Name: "contacts-get", TargetApp: "Contacts",
 			Script: stdinReader + `
-var app = Application("Contacts");
+var app = Application("com.apple.AddressBook");
 app.includeStandardAdditions = false;
 if (!input.name) throw new Error("name is required");
 
@@ -250,7 +250,7 @@ JSON.stringify(mapPerson(match));`,
 		"contacts-create": {
 			Name: "contacts-create", TargetApp: "Contacts",
 			Script: stdinReader + `
-var app = Application("Contacts");
+var app = Application("com.apple.AddressBook");
 app.includeStandardAdditions = false;
 if (!input.first_name) throw new Error("first_name is required");
 
