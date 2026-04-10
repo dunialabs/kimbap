@@ -539,7 +539,7 @@ func TestValidateCommandManifest_RejectsInvalidArgStyle(t *testing.T) {
 	a.Args = []ActionArg{{Name: "mode", Type: "string", Style: "sideways"}}
 	m.Actions["create_diagram"] = a
 	errList := ValidateManifest(m)
-	if !hasValidationError(errList, "actions.create_diagram.args[0].style", "must be one of flag, positional, boolean") {
+	if !hasValidationError(errList, "actions.create_diagram.args[0].style", "must be one of flag, positional, boolean, meta, repo-flag, repo-positional") {
 		t.Fatalf("expected invalid arg style validation error, got %v", errList)
 	}
 }

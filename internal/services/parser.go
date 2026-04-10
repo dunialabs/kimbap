@@ -27,7 +27,7 @@ var (
 	validAdapterTypeSet          = map[string]struct{}{"http": {}, "applescript": {}, "command": {}}
 	validAppleScriptCommands     = buildValidAppleScriptCommands()
 	validArgTypeSet              = map[string]struct{}{"string": {}, "integer": {}, "number": {}, "boolean": {}, "array": {}, "object": {}}
-	validCommandArgStyleSet      = map[string]struct{}{"": {}, "flag": {}, "positional": {}, "boolean": {}}
+	validCommandArgStyleSet      = map[string]struct{}{"": {}, "flag": {}, "positional": {}, "boolean": {}, "meta": {}, "repo-flag": {}, "repo-positional": {}}
 	validPageTypeSet             = map[string]struct{}{"cursor": {}, "offset": {}}
 	validResponseTypeSet         = map[string]struct{}{"object": {}, "array": {}}
 	validGotchaSeveritySet       = map[string]struct{}{"low": {}, "medium": {}, "high": {}, "critical": {}, "common": {}, "rare": {}}
@@ -208,10 +208,13 @@ func ValidateManifest(m *ServiceManifest) []ValidationError {
 			if adapterType == "command" {
 				argStyle := strings.ToLower(strings.TrimSpace(arg.Style))
 				if _, ok := validCommandArgStyleSet[argStyle]; !ok {
-					errs = append(errs, ValidationError{Field: argField + ".style", Message: "must be one of flag, positional, boolean"})
+					errs = append(errs, ValidationError{Field: argField + ".style", Message: "must be one of flag, positional, boolean, meta, repo-flag, repo-positional"})
 				}
 				if argStyle == "boolean" && strings.ToLower(strings.TrimSpace(arg.Type)) != "boolean" {
 					errs = append(errs, ValidationError{Field: argField + ".style", Message: "boolean style requires arg type boolean"})
+				}
+				if (argStyle == "repo-flag" || argStyle == "repo-positional" || argStyle == "meta") && strings.ToLower(strings.TrimSpace(arg.Type)) != "string" {
+					errs = append(errs, ValidationError{Field: argField + ".style", Message: "repo/meta styles require arg type string"})
 				}
 			}
 			if arg.Required && arg.Default != nil {
