@@ -188,3 +188,56 @@ func TestNotionUpdatePageDefinitionIncludesFriendlyAndAdvancedFields(t *testing.
 
 	t.Fatal("notion.update-page action definition missing after conversion")
 }
+
+func TestWikipediaSearchUsesCurrentRESTPathInEmbeddedCatalog(t *testing.T) {
+	data, err := catalog.Get("wikipedia")
+	if err != nil {
+		t.Fatalf("Get(wikipedia) error = %v", err)
+	}
+
+	manifest, err := services.ParseManifest(data)
+	if err != nil {
+		t.Fatalf("ParseManifest(wikipedia) error = %v", err)
+	}
+	action, ok := manifest.Actions["search"]
+	if !ok {
+		t.Fatal("wikipedia manifest missing search action")
+	}
+	if action.Path != "/w/rest.php/v1/search/page" {
+		t.Fatalf("expected embedded wikipedia search path to use current REST endpoint, got %q", action.Path)
+	}
+}
+
+func TestHackerNewsFeedActionsExposeConfigurableLimit(t *testing.T) {
+	data, err := catalog.Get("hacker-news")
+	if err != nil {
+		t.Fatalf("Get(hacker-news) error = %v", err)
+	}
+
+	manifest, err := services.ParseManifest(data)
+	if err != nil {
+		t.Fatalf("ParseManifest(hacker-news) error = %v", err)
+	}
+	for _, actionName := range []string{"get-top-stories", "get-new-stories", "get-best-stories"} {
+		action, ok := manifest.Actions[actionName]
+		if !ok {
+			t.Fatalf("hacker-news manifest missing %s action", actionName)
+		}
+		foundLimit := false
+		for _, arg := range action.Args {
+			if arg.Name != "limit" {
+				continue
+			}
+			foundLimit = true
+			if arg.Required {
+				t.Fatalf("expected %s limit arg to be optional", actionName)
+			}
+			if arg.Default != 10 {
+				t.Fatalf("expected %s limit arg default 10, got %+v", actionName, arg.Default)
+			}
+		}
+		if !foundLimit {
+			t.Fatalf("expected %s action to expose limit arg, got %+v", actionName, action.Args)
+		}
+	}
+}
