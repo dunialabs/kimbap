@@ -187,6 +187,33 @@ func TestServiceGenerateInstallWritesFileAndInstalls(t *testing.T) {
 	})
 }
 
+func TestServiceGenerateRejectsSymlinkOutputPath(t *testing.T) {
+	resetOptsForTest(t)
+	specPath := filepath.Join(t.TempDir(), "openapi.yaml")
+	if err := os.WriteFile(specPath, []byte(serviceGenerateFilterFixture), 0o644); err != nil {
+		t.Fatalf("write OpenAPI fixture: %v", err)
+	}
+	base := t.TempDir()
+	realTarget := filepath.Join(base, "real.yaml")
+	outputPath := filepath.Join(base, "generated.yaml")
+	if err := os.WriteFile(realTarget, []byte("existing"), 0o644); err != nil {
+		t.Fatalf("write real target: %v", err)
+	}
+	if err := os.Symlink(realTarget, outputPath); err != nil {
+		t.Fatalf("create symlink: %v", err)
+	}
+
+	cmd := newServiceGenerateCommand()
+	cmd.SetArgs([]string{"--openapi", specPath, "--output", outputPath})
+	err := cmd.Execute()
+	if err == nil {
+		t.Fatal("expected symlink output path to be rejected")
+	}
+	if !strings.Contains(err.Error(), "symlinked output path") {
+		t.Fatalf("unexpected error: %v", err)
+	}
+}
+
 func TestIsServiceHTTPURLHandlesUppercaseScheme(t *testing.T) {
 	if !isServiceHTTPURL("HTTPS://example.com/openapi.yaml") {
 		t.Fatal("expected uppercase HTTPS scheme to be recognized")

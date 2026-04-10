@@ -177,6 +177,9 @@ func writeGeneratedManifest(outputPath string, encoded []byte) (string, error) {
 	if trimmed == "" {
 		return "", nil
 	}
+	if err := ensureDirectOutputPathSafe(trimmed); err != nil {
+		return "", err
+	}
 	if err := os.WriteFile(trimmed, encoded, 0o644); err != nil {
 		return "", fmt.Errorf("write generated manifest file: %w", err)
 	}
