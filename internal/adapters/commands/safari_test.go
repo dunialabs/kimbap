@@ -52,5 +52,8 @@ func TestSafariTargetApp(t *testing.T) {
 		if cmd.TargetApp != "Safari" {
 			t.Errorf("%s: TargetApp = %q, want Safari", name, cmd.TargetApp)
 		}
+		if !strings.Contains(cmd.Script, "Application(\"com.apple.Safari\")") {
+			t.Errorf("%s: script should target Safari by bundle identifier", name)
+		}
 	}
 }

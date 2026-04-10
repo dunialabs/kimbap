@@ -5,7 +5,7 @@ func SafariCommands() map[string]Command {
 		"safari-get-url": {
 			Name: "safari-get-url", TargetApp: "Safari",
 			Script: stdinReader + `
-var app = Application("Safari");
+var app = Application("com.apple.Safari");
 app.includeStandardAdditions = false;
 
 var windows = app.windows();
@@ -20,7 +20,7 @@ JSON.stringify({
 		"safari-open-url": {
 			Name: "safari-open-url", TargetApp: "Safari",
 			Script: stdinReader + `
-var app = Application("Safari");
+var app = Application("com.apple.Safari");
 app.includeStandardAdditions = true;
 if (!input.url) throw new Error("url is required");
 
@@ -34,7 +34,7 @@ JSON.stringify({url: urlStr, opened: true});`,
 		"safari-list-tabs": {
 			Name: "safari-list-tabs", TargetApp: "Safari",
 			Script: stdinReader + `
-var app = Application("Safari");
+var app = Application("com.apple.Safari");
 app.includeStandardAdditions = false;
 
 var result = [];
@@ -54,7 +54,7 @@ JSON.stringify(result);`,
 		"safari-close-tab": {
 			Name: "safari-close-tab", TargetApp: "Safari",
 			Script: stdinReader + `
-var app = Application("Safari");
+var app = Application("com.apple.Safari");
 app.includeStandardAdditions = false;
 
 if (typeof input.window_index !== "number") throw new Error("window_index is required");
@@ -76,7 +76,7 @@ JSON.stringify({closed: true});`,
 		"safari-get-source": {
 			Name: "safari-get-source", TargetApp: "Safari",
 			Script: stdinReader + `
-var app = Application("Safari");
+var app = Application("com.apple.Safari");
 app.includeStandardAdditions = false;
 
 var windows = app.windows();

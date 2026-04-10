@@ -5,7 +5,7 @@ func ShortcutsCommands() map[string]Command {
 		"shortcuts-list": {
 			Name: "shortcuts-list", TargetApp: "Shortcuts",
 			Script: stdinReader + `
-var app = Application("Shortcuts");
+var app = Application("com.apple.shortcuts");
 app.includeStandardAdditions = false;
 
 var parsedLimit = parseInt(input.limit, 10);
@@ -29,7 +29,7 @@ JSON.stringify(result);`,
 		"shortcuts-run": {
 			Name: "shortcuts-run", TargetApp: "Shortcuts",
 			Script: stdinReader + `
-var app = Application("Shortcuts");
+var app = Application("com.apple.shortcuts");
 app.includeStandardAdditions = false;
 
 if (!input.name) throw new Error("name is required");
@@ -58,7 +58,7 @@ JSON.stringify(result);`,
 		"shortcuts-run-with-input": {
 			Name: "shortcuts-run-with-input", TargetApp: "Shortcuts",
 			Script: stdinReader + `
-var app = Application("Shortcuts");
+var app = Application("com.apple.shortcuts");
 app.includeStandardAdditions = false;
 
 if (!input.name) throw new Error("name is required");
