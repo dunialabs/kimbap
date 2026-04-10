@@ -5,6 +5,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"net/url"
 	"os"
 	"path/filepath"
 	"sort"
@@ -306,7 +307,7 @@ func splashOptions() splash.Options {
 			Version:      config.CLIVersion(),
 			Mode:         modeFromRaw(opts.mode),
 			VaultStatus:  vaultStatusFromRaw(opts.mode),
-			Server:       strings.TrimSpace(os.Getenv("KIMBAP_AUTH_SERVER_URL")),
+			Server:       sanitizeDisplayURL(strings.TrimSpace(os.Getenv("KIMBAP_AUTH_SERVER_URL"))),
 			ColorProfile: detectSplashColorProfile(),
 			Background:   detectSplashBackgroundTone(),
 		}
@@ -320,7 +321,7 @@ func splashOptions() splash.Options {
 		Version:      config.CLIVersion(),
 		Mode:         modeFromRaw(cfg.Mode),
 		VaultStatus:  vaultStatusFromConfig(cfg),
-		Server:       strings.TrimSpace(cfg.Auth.ServerURL),
+		Server:       sanitizeDisplayURL(strings.TrimSpace(cfg.Auth.ServerURL)),
 		ColorProfile: detectSplashColorProfile(),
 		Background:   detectSplashBackgroundTone(),
 	}
@@ -877,6 +878,15 @@ func parseJSONMap(raw string) (map[string]any, error) {
 		return nil, err
 	}
 	return out, nil
+}
+
+func sanitizeDisplayURL(rawURL string) string {
+	u, err := url.Parse(rawURL)
+	if err != nil || u.User == nil {
+		return rawURL
+	}
+	u.User = nil
+	return u.String()
 }
 
 func contextBackground() context.Context {

@@ -942,7 +942,12 @@ func ensureUniqueActionKey(base, method, path string, existing map[string]Servic
 		}
 	}
 
-	return base + "-" + sum
+	for n := 2; ; n++ {
+		candidate := fmt.Sprintf("%s-%s-%d", base, sum, n)
+		if _, ok := existing[candidate]; !ok {
+			return candidate
+		}
+	}
 }
 
 func pickMediaType(content map[string]any) string {
