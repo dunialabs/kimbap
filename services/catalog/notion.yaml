@@ -51,6 +51,7 @@ actions:
     method: POST
     path: /search
     description: Search across all pages and databases in the workspace
+    idempotent: true
     args:
       - name: query
         type: string

@@ -7,6 +7,8 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/dunialabs/kimbap/internal/actions"
 )
 
 func TestAllCatalogServicesValidate(t *testing.T) {
@@ -299,5 +301,59 @@ func TestAllCatalogServicesHavePackMetadata(t *testing.T) {
 				t.Error("missing gotchas — required for services with non-low-risk or warned actions")
 			}
 		})
+	}
+}
+
+func TestNotionSearchIsIdempotent(t *testing.T) {
+	manifest, err := ParseManifestFile("../../services/catalog/notion.yaml")
+	if err != nil {
+		t.Fatalf("ParseManifestFile() error: %v", err)
+	}
+	defs, err := ToActionDefinitions(manifest)
+	if err != nil {
+		t.Fatalf("ToActionDefinitions() error: %v", err)
+	}
+	for _, def := range defs {
+		if def.Name != "notion.search" {
+			continue
+		}
+		if !def.Idempotent {
+			t.Fatal("notion.search should be idempotent")
+		}
+		return
+	}
+	t.Fatal("notion.search definition not found")
+}
+
+func TestGHCLIRepoScopedActionsAcceptExplicitRepo(t *testing.T) {
+	manifest, err := ParseManifestFile("../../services/catalog/gh-cli.yaml")
+	if err != nil {
+		t.Fatalf("ParseManifestFile() error: %v", err)
+	}
+	defs, err := ToActionDefinitions(manifest)
+	if err != nil {
+		t.Fatalf("ToActionDefinitions() error: %v", err)
+	}
+	defMap := make(map[string]actions.ActionDefinition, len(defs))
+	for _, def := range defs {
+		defMap[def.Name] = def
+	}
+	for _, actionName := range []string{"gh-cli.pr-list", "gh-cli.pr-view", "gh-cli.pr-checks", "gh-cli.issue-list", "gh-cli.run-list", "gh-cli.repo-view"} {
+		def, ok := defMap[actionName]
+		if !ok {
+			t.Fatalf("missing action %s", actionName)
+		}
+		if def.InputSchema == nil || def.InputSchema.Properties["repo"] == nil {
+			t.Fatalf("%s should expose explicit repo input", actionName)
+		}
+		if def.InputSchema.Properties["owner"] == nil {
+			t.Fatalf("%s should expose owner input for owner/repo composition", actionName)
+		}
+	}
+	if got := defMap["gh-cli.repo-view"].InputSchema.Properties["repo"].ArgStyle; got != "repo-positional" {
+		t.Fatalf("gh-cli.repo-view repo arg style = %q, want repo-positional", got)
+	}
+	if got := defMap["gh-cli.issue-list"].InputSchema.Properties["repo"].ArgStyle; got != "repo-flag" {
+		t.Fatalf("gh-cli.issue-list repo arg style = %q, want repo-flag", got)
 	}
 }

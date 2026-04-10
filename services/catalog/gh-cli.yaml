@@ -20,6 +20,14 @@ actions:
     command: "pr list --json number,title,state,author,url"
     description: List pull requests as JSON
     args:
+      - name: owner
+        type: string
+        required: false
+        style: meta
+      - name: repo
+        type: string
+        required: false
+        style: repo-flag
       - name: state
         type: string
         required: false
@@ -37,6 +45,14 @@ actions:
     command: "pr view"
     description: View a specific pull request
     args:
+      - name: owner
+        type: string
+        required: false
+        style: meta
+      - name: repo
+        type: string
+        required: false
+        style: repo-flag
       - name: number
         type: integer
         required: true
@@ -54,6 +70,14 @@ actions:
     command: "pr checks"
     description: View PR check statuses
     args:
+      - name: owner
+        type: string
+        required: false
+        style: meta
+      - name: repo
+        type: string
+        required: false
+        style: repo-flag
       - name: number
         type: integer
         required: true
@@ -68,6 +92,15 @@ actions:
   issue-list:
     command: "issue list --json number,title,state,labels,assignees"
     description: List issues as JSON
+    args:
+      - name: owner
+        type: string
+        required: false
+        style: meta
+      - name: repo
+        type: string
+        required: false
+        style: repo-flag
     idempotent: true
     response:
       type: array
@@ -80,6 +113,15 @@ actions:
   run-list:
     command: "run list --json databaseId,displayTitle,status,conclusion"
     description: List workflow runs as JSON
+    args:
+      - name: owner
+        type: string
+        required: false
+        style: meta
+      - name: repo
+        type: string
+        required: false
+        style: repo-flag
     idempotent: true
     response:
       type: array
@@ -92,6 +134,15 @@ actions:
   repo-view:
     command: "repo view --json name,description,url,stargazerCount"
     description: View repository details
+    args:
+      - name: owner
+        type: string
+        required: false
+        style: meta
+      - name: repo
+        type: string
+        required: true
+        style: repo-positional
     idempotent: true
     response:
       type: object
