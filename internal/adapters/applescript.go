@@ -16,6 +16,7 @@ import (
 )
 
 const defaultAppleScriptAdapterTimeout = 30 * time.Second
+const maxInlineAppleScriptTimeout = 10 * time.Minute
 
 type AppleScriptAdapter struct {
 	runner   CommandRunner
@@ -83,6 +84,9 @@ func (a *AppleScriptAdapter) Validate(def actions.ActionDefinition) error {
 	if scriptSource != "" {
 		if _, err := resolveAppleScriptLanguage(def.Adapter.ScriptLanguage); err != nil {
 			return err
+		}
+		if def.Adapter.Timeout > maxInlineAppleScriptTimeout {
+			return fmt.Errorf("inline applescript timeout must be <= %s", maxInlineAppleScriptTimeout)
 		}
 		if strings.TrimSpace(def.Adapter.ApprovalRef) == "" {
 			return fmt.Errorf("applescript inline script requires approval_ref")
@@ -153,6 +157,10 @@ func (a *AppleScriptAdapter) Execute(ctx context.Context, req AdapterRequest) (*
 	}
 	if timeout <= 0 {
 		timeout = defaultAppleScriptAdapterTimeout
+	}
+	if scriptSource != "" && timeout > maxInlineAppleScriptTimeout {
+		execErr := actions.NewExecutionError(actions.ErrValidationFailed, fmt.Sprintf("inline applescript timeout must be <= %s", maxInlineAppleScriptTimeout), http.StatusBadRequest, false, nil)
+		return &AdapterResult{HTTPStatus: http.StatusBadRequest, DurationMS: time.Since(start).Milliseconds()}, execErr
 	}
 	if timeout > 0 {
 		var cancel context.CancelFunc

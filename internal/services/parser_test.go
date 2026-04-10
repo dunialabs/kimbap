@@ -163,6 +163,27 @@ func TestValidateAppleScriptManifest_InlineScriptRequiresApprovalAndAuditRefs(t 
 	}
 }
 
+func TestValidateAppleScriptManifest_InlineScriptRejectsOversizedTimeout(t *testing.T) {
+	withAppleScriptRegistryMode(t, "dual")
+	m := validAppleScriptManifest()
+	a := m.Actions["list_notes"]
+	a.Command = ""
+	a.InlineScript = &InlineScript{
+		ID:          "notes.list_notes.inline",
+		Language:    "jxa",
+		Source:      `ObjC.import('stdlib'); JSON.stringify({ok:true});`,
+		Timeout:     "11m",
+		ApprovalRef: "approval.default",
+		AuditRef:    "audit.default",
+	}
+	m.Actions["list_notes"] = a
+
+	errList := ValidateManifest(m)
+	if !hasValidationError(errList, "actions.list_notes.inline_script.timeout", "must be > 0 and <=") {
+		t.Fatalf("expected inline_script timeout upper-bound error, got %v", errList)
+	}
+}
+
 func TestValidateAppleScriptManifest_UnknownCommand(t *testing.T) {
 	m := validAppleScriptManifest()
 	a := m.Actions["list_notes"]

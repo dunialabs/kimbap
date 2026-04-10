@@ -35,6 +35,7 @@ var (
 )
 
 const maxInlineScriptBytes = 64 * 1024
+const maxInlineScriptTimeout = 10 * time.Minute
 
 type ValidationError struct {
 	Field   string
@@ -661,8 +662,11 @@ func validateInlineScriptSpec(spec *InlineScript, fieldPrefix string) []Validati
 	}
 
 	if timeout := strings.TrimSpace(spec.Timeout); timeout != "" {
-		if _, err := time.ParseDuration(timeout); err != nil {
+		parsed, err := time.ParseDuration(timeout)
+		if err != nil {
 			errList = append(errList, ValidationError{Field: fieldPrefix + ".timeout", Message: "must be a valid Go duration (e.g. 10s, 1m)"})
+		} else if parsed <= 0 || parsed > maxInlineScriptTimeout {
+			errList = append(errList, ValidationError{Field: fieldPrefix + ".timeout", Message: fmt.Sprintf("must be > 0 and <= %s", maxInlineScriptTimeout)})
 		}
 	}
 

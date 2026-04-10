@@ -118,6 +118,26 @@ func TestAppleScriptAdapterValidate_InlineScriptRequiresAuditRef(t *testing.T) {
 	}
 }
 
+func TestAppleScriptAdapterValidate_RejectsOversizedInlineScriptTimeout(t *testing.T) {
+	a := NewAppleScriptAdapter(NewMockRunner(nil, nil, nil))
+	err := a.Validate(actions.ActionDefinition{
+		Adapter: actions.AdapterConfig{
+			TargetApp:      "Notes",
+			ScriptSource:   `ObjC.import('stdlib'); JSON.stringify({ok:true});`,
+			ScriptLanguage: "jxa",
+			ApprovalRef:    "approval.default",
+			AuditRef:       "audit.default",
+			Timeout:        11 * time.Minute,
+		},
+	})
+	if err == nil {
+		t.Fatal("Validate() error = nil, want oversized timeout error")
+	}
+	if !strings.Contains(err.Error(), "timeout") {
+		t.Fatalf("error = %q, want timeout guidance", err.Error())
+	}
+}
+
 func TestAppleScriptAdapterLoadsAllRegistries(t *testing.T) {
 	a := NewAppleScriptAdapter(NewMockRunner(nil, nil, nil))
 	tests := []actions.AdapterConfig{
