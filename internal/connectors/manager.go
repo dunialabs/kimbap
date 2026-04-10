@@ -27,6 +27,9 @@ type Manager struct {
 	mu      sync.RWMutex
 	pending map[string]pendingLogin
 
+	stateMu    sync.Mutex
+	stateLocks map[string]*sync.Mutex
+
 	refreshMu  sync.Mutex
 	refreshing map[string]*refreshResult
 }
@@ -57,14 +60,30 @@ func NewManager(store ConnectorStore) *Manager {
 		configs:    map[string]ConnectorConfig{},
 		store:      store,
 		pending:    map[string]pendingLogin{},
+		stateLocks: map[string]*sync.Mutex{},
 		refreshing: map[string]*refreshResult{},
 	}
 }
 
 func (m *Manager) RegisterConfig(cfg ConnectorConfig) {
+	cloned := cfg
+	cloned.Scopes = append([]string(nil), cfg.Scopes...)
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	m.configs[cfg.Name] = cfg
+	m.configs[cloned.Name] = cloned
+}
+
+func (m *Manager) lockStateMutation(tenantID, name string) func() {
+	key := tenantID + "::" + name
+	m.stateMu.Lock()
+	mu, ok := m.stateLocks[key]
+	if !ok {
+		mu = &sync.Mutex{}
+		m.stateLocks[key] = mu
+	}
+	m.stateMu.Unlock()
+	mu.Lock()
+	return mu.Unlock
 }
 
 func (m *Manager) Login(ctx context.Context, tenantID, name string) (*DeviceFlowResult, error) {
@@ -93,6 +112,8 @@ func (m *Manager) Login(ctx context.Context, tenantID, name string) (*DeviceFlow
 
 func (m *Manager) CompleteLogin(ctx context.Context, tenantID, name string, code string) error {
 	ctx = normalizeContext(ctx)
+	unlock := m.lockStateMutation(tenantID, name)
+	defer unlock()
 	cfg, err := m.configFor(name)
 	if err != nil {
 		return err
@@ -208,6 +229,8 @@ func (m *Manager) Refresh(ctx context.Context, tenantID, name string) error {
 }
 
 func (m *Manager) doRefresh(ctx context.Context, tenantID, name string) error {
+	unlock := m.lockStateMutation(tenantID, name)
+	defer unlock()
 	cfg, err := m.configFor(name)
 	if err != nil {
 		return err
@@ -535,6 +558,8 @@ func DeriveConnectionStatus(state *ConnectorState) ConnectionStatus {
 
 func (m *Manager) Revoke(ctx context.Context, tenantID, name string) error {
 	ctx = normalizeContext(ctx)
+	unlock := m.lockStateMutation(tenantID, name)
+	defer unlock()
 	state, err := m.store.Get(ctx, tenantID, name)
 	if err != nil {
 		return err
@@ -554,11 +579,16 @@ func (m *Manager) Revoke(ctx context.Context, tenantID, name string) error {
 }
 
 func (m *Manager) Delete(ctx context.Context, tenantID, name string) error {
-	return m.store.Delete(normalizeContext(ctx), tenantID, name)
+	ctx = normalizeContext(ctx)
+	unlock := m.lockStateMutation(tenantID, name)
+	defer unlock()
+	return m.store.Delete(ctx, tenantID, name)
 }
 
 func (m *Manager) StoreConnection(ctx context.Context, tenantID, name, provider string, accessToken, refreshToken string, expiresIn int, scope string, flowUsed FlowType, connScope ConnectionScope, workspaceID string) error {
 	ctx = normalizeContext(ctx)
+	unlock := m.lockStateMutation(tenantID, name)
+	defer unlock()
 	now := time.Now().UTC()
 
 	state, loadErr := m.loadDecryptedState(ctx, tenantID, name)

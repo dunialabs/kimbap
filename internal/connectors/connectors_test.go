@@ -728,6 +728,111 @@ func TestStoreConnectionOverExisting_NoDoubleEncryption(t *testing.T) {
 	}
 }
 
+func TestRegisterConfigClonesScopes(t *testing.T) {
+	store := newMemConnectorStore()
+	manager := NewManager(store)
+	cfg := ConnectorConfig{
+		Name:     "mailbox",
+		Provider: "mailbox",
+		ClientID: "client-id",
+		Scopes:   []string{"mail.read"},
+	}
+	manager.RegisterConfig(cfg)
+	cfg.Scopes[0] = "tampered"
+
+	stored, err := manager.configFor("mailbox")
+	if err != nil {
+		t.Fatalf("configFor() error: %v", err)
+	}
+	if got := strings.Join(stored.Scopes, " "); got != "mail.read" {
+		t.Fatalf("stored scopes = %q, want original unmodified scopes", got)
+	}
+}
+
+func TestStoreConnectionDoesNotLoseConcurrentRefreshState(t *testing.T) {
+	ctx := context.Background()
+	store := newMemConnectorStore()
+	manager := NewManager(store)
+	const encKey = "connector-test-key"
+	t.Setenv("KIMBAP_CONNECTOR_ENCRYPTION_KEY", encKey)
+
+	refreshStarted := make(chan struct{}, 1)
+	allowRefreshResponse := make(chan struct{})
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if err := r.ParseForm(); err != nil {
+			t.Fatalf("parse form: %v", err)
+		}
+		refreshStarted <- struct{}{}
+		<-allowRefreshResponse
+		_, _ = w.Write([]byte(`{"access_token":"refreshed-access","refresh_token":"refreshed-refresh","expires_in":3600,"token_type":"Bearer","scope":"repo"}`))
+	}))
+	defer server.Close()
+
+	manager.RegisterConfig(ConnectorConfig{
+		Name:     "source-control",
+		Provider: "source-control",
+		ClientID: "client-id",
+		TokenURL: server.URL,
+	})
+
+	expired := time.Now().Add(-10 * time.Minute)
+	if err := store.Save(ctx, &ConnectorState{
+		Name:         "source-control",
+		TenantID:     "tenant-1",
+		Provider:     "source-control",
+		Status:       StatusOldExpired,
+		AccessToken:  mustEncryptToken(t, "old-access", encKey),
+		RefreshToken: mustEncryptToken(t, "refresh-token", encKey),
+		ExpiresAt:    &expired,
+		CreatedAt:    time.Now().Add(-time.Hour),
+		UpdatedAt:    time.Now().Add(-time.Hour),
+	}); err != nil {
+		t.Fatalf("seed store: %v", err)
+	}
+
+	refreshErrCh := make(chan error, 1)
+	go func() {
+		refreshErrCh <- manager.Refresh(ctx, "tenant-1", "source-control")
+	}()
+
+	select {
+	case <-refreshStarted:
+	case <-time.After(2 * time.Second):
+		t.Fatal("timed out waiting for refresh request to start")
+	}
+
+	storeDone := make(chan error, 1)
+	go func() {
+		storeDone <- manager.StoreConnection(ctx, "tenant-1", "source-control", "source-control", "browser-access", "browser-refresh", 3600, "repo workspace", FlowBrowser, ScopeWorkspace, "ws-1")
+	}()
+
+	close(allowRefreshResponse)
+	if err := <-refreshErrCh; err != nil {
+		t.Fatalf("Refresh() error: %v", err)
+	}
+	if err := <-storeDone; err != nil {
+		t.Fatalf("StoreConnection() error: %v", err)
+	}
+
+	stored, err := store.Get(ctx, "tenant-1", "source-control")
+	if err != nil {
+		t.Fatalf("store.Get() error: %v", err)
+	}
+	if stored == nil {
+		t.Fatal("stored connector state is nil")
+	}
+	if stored.WorkspaceID != "ws-1" {
+		t.Fatalf("workspace_id = %q, want ws-1", stored.WorkspaceID)
+	}
+	decryptedAccess, err := security.DecryptDataFromString(stored.AccessToken, encKey)
+	if err != nil {
+		t.Fatalf("decrypt access: %v", err)
+	}
+	if decryptedAccess != "browser-access" {
+		t.Fatalf("access token = %q, want browser-access", decryptedAccess)
+	}
+}
+
 func TestPollForTokenSlowDownIncrementsBy5(t *testing.T) {
 	originalWait := pollIntervalWait
 	t.Cleanup(func() { pollIntervalWait = originalWait })
