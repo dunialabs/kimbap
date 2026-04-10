@@ -229,6 +229,37 @@ func resolveAgentsSyncProjectDir(projectDir string) (string, error) {
 	return absDir, nil
 }
 
+func secureProjectSyncPath(projectDir string, elems ...string) (string, error) {
+	joined := filepath.Join(append([]string{projectDir}, elems...)...)
+	rel, err := filepath.Rel(projectDir, joined)
+	if err != nil {
+		return "", fmt.Errorf("resolve project-relative path %q: %w", joined, err)
+	}
+	if rel == ".." || strings.HasPrefix(rel, ".."+string(os.PathSeparator)) {
+		return "", fmt.Errorf("refusing to write outside project directory: %s", joined)
+	}
+
+	current := projectDir
+	for _, part := range strings.Split(rel, string(os.PathSeparator)) {
+		if strings.TrimSpace(part) == "" || part == "." {
+			continue
+		}
+		current = filepath.Join(current, part)
+		info, statErr := os.Lstat(current)
+		if os.IsNotExist(statErr) {
+			continue
+		}
+		if statErr != nil {
+			return "", fmt.Errorf("inspect sync path %q: %w", current, statErr)
+		}
+		if info.Mode()&os.ModeSymlink != 0 {
+			return "", fmt.Errorf("refusing to write through symlinked path: %s", current)
+		}
+	}
+
+	return joined, nil
+}
+
 func installProfilesForAgents(results []agents.GlobalSetupResult, targetDir string, dryRun bool) error {
 	dir := strings.TrimSpace(targetDir)
 	if dir == "" {
@@ -560,8 +591,14 @@ func runAgentsSync(projectDir string, rawAgentKinds string, rawServices string, 
 			continue
 		}
 
-		metaDir := filepath.Join(normalizedProjectDir, agentCfg.AgentSkillsDir, "kimbap")
-		metaPath := filepath.Join(metaDir, "SKILL.md")
+		metaDir, secureErr := secureProjectSyncPath(normalizedProjectDir, agentCfg.AgentSkillsDir, "kimbap")
+		if secureErr != nil {
+			return agentSetupResult{}, fmt.Errorf("resolve meta-skill path for %q: %w", result.Agent, secureErr)
+		}
+		metaPath, secureErr := secureProjectSyncPath(normalizedProjectDir, agentCfg.AgentSkillsDir, "kimbap", "SKILL.md")
+		if secureErr != nil {
+			return agentSetupResult{}, fmt.Errorf("resolve meta-skill file for %q: %w", result.Agent, secureErr)
+		}
 
 		needsWrite := force
 		if !needsWrite {

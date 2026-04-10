@@ -224,6 +224,43 @@ func TestRunAgentsSyncSkipsUnmanagedSkillDirsWithoutError(t *testing.T) {
 	})
 }
 
+func TestRunAgentsSyncRejectsSymlinkedMetaSkillPath(t *testing.T) {
+	dataDir := t.TempDir()
+	servicesDir := filepath.Join(dataDir, "services")
+	configPath := writeServiceCLIConfig(t, dataDir, servicesDir)
+	manifestPath := filepath.Join(t.TempDir(), "notes-service.yaml")
+	writeLocalManifest(t, manifestPath, "notes-service", "1.0.0")
+	projectDir := t.TempDir()
+	metaBaseDir := filepath.Join(projectDir, ".claude", "skills")
+	if err := os.MkdirAll(metaBaseDir, 0o755); err != nil {
+		t.Fatalf("create meta base dir: %v", err)
+	}
+	outsideDir := t.TempDir()
+	if err := os.Symlink(outsideDir, filepath.Join(metaBaseDir, "kimbap")); err != nil {
+		t.Fatalf("create kimbap symlink: %v", err)
+	}
+
+	withServiceCLIOpts(t, configPath, func() {
+		installCmd := newServiceInstallCommand()
+		installCmd.SetArgs([]string{manifestPath, "--no-shortcuts"})
+		if _, err := captureStdout(t, installCmd.Execute); err != nil {
+			t.Fatalf("service install failed: %v", err)
+		}
+
+		_, err := runAgentsSync(projectDir, "claude-code", "", false, false)
+		if err == nil {
+			t.Fatal("expected runAgentsSync to reject symlinked meta-skill path")
+		}
+		if !strings.Contains(err.Error(), "symlinked path") {
+			t.Fatalf("expected symlink rejection error, got %v", err)
+		}
+	})
+
+	if _, err := os.Stat(filepath.Join(outsideDir, "SKILL.md")); !os.IsNotExist(err) {
+		t.Fatalf("expected no file to be written outside project, got stat err=%v", err)
+	}
+}
+
 func TestDescribeAgentsSetupSyncOutcomeDistinguishesProtectedSkips(t *testing.T) {
 	msg := describeAgentsSetupSyncOutcome(&agentSetupResult{
 		AgentsFound: 1,
