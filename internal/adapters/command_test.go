@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"reflect"
 	"strconv"
 	"strings"
 	"testing"
@@ -456,6 +457,87 @@ func TestCommandAdapterExecute_PositionalArgs(t *testing.T) {
 		if gotArgs[i] != want {
 			t.Fatalf("args[%d] = %q, want %q (all args: %v)", i, gotArgs[i], want, gotArgs)
 		}
+	}
+}
+
+func TestCommandAdapterExecute_RepositoryPositionalArgCombinesOwnerAndRepo(t *testing.T) {
+	a := NewCommandAdapter(nil, 5*time.Second)
+
+	res, err := a.Execute(context.Background(), AdapterRequest{
+		Action: actions.ActionDefinition{
+			InputSchema: &actions.Schema{
+				Type:     "object",
+				ArgOrder: []string{"owner", "repo"},
+				Properties: map[string]*actions.Schema{
+					"owner": {Type: "string", ArgStyle: "meta"},
+					"repo":  {Type: "string", ArgStyle: "repo-positional"},
+				},
+			},
+			Adapter: actions.AdapterConfig{
+				ExecutablePath: os.Args[0],
+				Command:        "-test.run=TestCommandAdapterHelperProcess -- echo-args",
+				JSONFlag:       "none",
+				EnvInject:      map[string]string{"GO_WANT_HELPER_PROCESS": "1"},
+			},
+		},
+		Input: map[string]any{"owner": "dunialabs", "repo": "kimbap"},
+	})
+	if err != nil {
+		t.Fatalf("Execute() error = %v, want nil", err)
+	}
+
+	argsAny, ok := res.Output["args"].([]any)
+	if !ok {
+		t.Fatalf("output[args] type = %T, want []any", res.Output["args"])
+	}
+	gotArgs := make([]string, 0, len(argsAny))
+	for _, item := range argsAny {
+		gotArgs = append(gotArgs, fmt.Sprintf("%v", item))
+	}
+	wantArgs := []string{"echo-args", "dunialabs/kimbap"}
+	if !reflect.DeepEqual(gotArgs, wantArgs) {
+		t.Fatalf("args = %v, want %v", gotArgs, wantArgs)
+	}
+}
+
+func TestCommandAdapterExecute_RepositoryFlagCombinesOwnerAndRepo(t *testing.T) {
+	a := NewCommandAdapter(nil, 5*time.Second)
+
+	res, err := a.Execute(context.Background(), AdapterRequest{
+		Action: actions.ActionDefinition{
+			InputSchema: &actions.Schema{
+				Type:     "object",
+				ArgOrder: []string{"owner", "repo", "state"},
+				Properties: map[string]*actions.Schema{
+					"owner": {Type: "string", ArgStyle: "meta"},
+					"repo":  {Type: "string", ArgStyle: "repo-flag"},
+					"state": {Type: "string", ArgStyle: "flag"},
+				},
+			},
+			Adapter: actions.AdapterConfig{
+				ExecutablePath: os.Args[0],
+				Command:        "-test.run=TestCommandAdapterHelperProcess -- echo-args",
+				JSONFlag:       "none",
+				EnvInject:      map[string]string{"GO_WANT_HELPER_PROCESS": "1"},
+			},
+		},
+		Input: map[string]any{"owner": "dunialabs", "repo": "kimbap", "state": "open"},
+	})
+	if err != nil {
+		t.Fatalf("Execute() error = %v, want nil", err)
+	}
+
+	argsAny, ok := res.Output["args"].([]any)
+	if !ok {
+		t.Fatalf("output[args] type = %T, want []any", res.Output["args"])
+	}
+	gotArgs := make([]string, 0, len(argsAny))
+	for _, item := range argsAny {
+		gotArgs = append(gotArgs, fmt.Sprintf("%v", item))
+	}
+	wantArgs := []string{"echo-args", "--repo", "dunialabs/kimbap", "--state", "open"}
+	if !reflect.DeepEqual(gotArgs, wantArgs) {
+		t.Fatalf("args = %v, want %v", gotArgs, wantArgs)
 	}
 }
 

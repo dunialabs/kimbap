@@ -345,6 +345,8 @@ func buildCommandArgPairs(req AdapterRequest) []string {
 			continue
 		}
 
+		repoValue, hasRepoValue := resolveRepositoryArgValue(input, name, value)
+
 		switch style {
 		case "boolean":
 			boolValue, ok := value.(bool)
@@ -357,6 +359,18 @@ func buildCommandArgPairs(req AdapterRequest) []string {
 				continue
 			}
 			positionalArgs = append(positionalArgs, stringifyArgValue(value))
+		case "meta":
+			continue
+		case "repo-positional":
+			if !hasRepoValue {
+				continue
+			}
+			positionalArgs = append(positionalArgs, repoValue)
+		case "repo-flag":
+			if !hasRepoValue {
+				continue
+			}
+			flagArgs = append(flagArgs, "--"+flagName, repoValue)
 		default:
 			if !isNonEmptyArgValue(value) {
 				continue
@@ -366,6 +380,25 @@ func buildCommandArgPairs(req AdapterRequest) []string {
 	}
 
 	return append(positionalArgs, flagArgs...)
+}
+
+func resolveRepositoryArgValue(input map[string]any, name string, value any) (string, bool) {
+	if strings.TrimSpace(name) != "repo" {
+		if !isNonEmptyArgValue(value) {
+			return "", false
+		}
+		return stringifyArgValue(value), true
+	}
+
+	repoPart := strings.TrimSpace(stringifyArgValue(value))
+	if repoPart == "" {
+		return "", false
+	}
+	ownerPart := strings.TrimSpace(stringifyArgValue(input["owner"]))
+	if ownerPart != "" && !strings.Contains(repoPart, "/") {
+		return ownerPart + "/" + repoPart, true
+	}
+	return repoPart, true
 }
 
 func orderedCommandArgNames(req AdapterRequest) []string {
