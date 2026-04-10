@@ -88,6 +88,9 @@ func TestNotesLimitPatterns(t *testing.T) {
 	if !strings.Contains(listNotes.Script, "parseInt(input.limit, 10)") {
 		t.Error("list-notes: script does not parse input.limit")
 	}
+	if !strings.Contains(listNotes.Script, "? 5 : parsedLimit") {
+		t.Error("list-notes: script should default limit to 5")
+	}
 	if !strings.Contains(listNotes.Script, "app.notes.length") {
 		t.Error("list-notes: script does not use app.notes.length for index-based access")
 	}
@@ -103,10 +106,19 @@ func TestNotesLimitPatterns(t *testing.T) {
 	if strings.Contains(listNotes.Script, ".notes().slice") {
 		t.Error("list-notes: script still slices a materialized folder notes array")
 	}
+	if strings.Contains(listNotes.Script, "snippet:") {
+		t.Error("list-notes: script should not fetch plaintext snippet in list view")
+	}
 
 	searchNotes := cmds["search-notes"]
 	if !strings.Contains(searchNotes.Script, "parseInt(input.limit, 10)") {
 		t.Error("search-notes: script does not parse input.limit")
+	}
+	if !strings.Contains(searchNotes.Script, "? 5 : parsedLimit") {
+		t.Error("search-notes: script should default limit to 5")
+	}
+	if !strings.Contains(searchNotes.Script, "TIMEOUT_MS") || !strings.Contains(searchNotes.Script, "[TIMEOUT] search-notes timed out scanning Notes") {
+		t.Error("search-notes: script should fail with a bounded timeout message instead of being killed")
 	}
 	if !strings.Contains(searchNotes.Script, "app.notes.length") {
 		t.Error("search-notes: script does not use app.notes.length for index-based access")
@@ -116,5 +128,14 @@ func TestNotesLimitPatterns(t *testing.T) {
 	}
 	if strings.Contains(searchNotes.Script, "app.notes()") {
 		t.Error("search-notes: script still materializes all notes with app.notes()")
+	}
+	if !strings.Contains(searchNotes.Script, "if (noteName.toLowerCase().indexOf(query) >= 0)") {
+		t.Error("search-notes: script should short-circuit title matches before fetching plaintext")
+	}
+	if !strings.Contains(listNotes.Script, "Application(\"com.apple.Notes\")") {
+		t.Error("list-notes: script should target Notes by bundle identifier")
+	}
+	if !strings.Contains(searchNotes.Script, "Application(\"com.apple.Notes\")") {
+		t.Error("search-notes: script should target Notes by bundle identifier")
 	}
 }

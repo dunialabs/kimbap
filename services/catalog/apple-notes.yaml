@@ -53,6 +53,7 @@ actions:
       - name: limit
         type: integer
         required: false
+        default: 5
     response:
       type: array
     risk:
@@ -80,6 +81,7 @@ actions:
       - name: limit
         type: integer
         required: false
+        default: 5
     response:
       type: array
     risk:

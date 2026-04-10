@@ -21,7 +21,7 @@ func NotesCommands() map[string]Command {
 		"list-folders": {
 			Name: "list-folders", TargetApp: "Notes",
 			Script: stdinReader + `
-var app = Application("Notes");
+var app = Application("com.apple.Notes");
 app.includeStandardAdditions = false;
 var folders = app.folders();
 var result = folders.map(function(f) { return {name: f.name()}; });
@@ -30,10 +30,10 @@ JSON.stringify(result);`,
 		"list-notes": {
 			Name: "list-notes", TargetApp: "Notes",
 			Script: stdinReader + `
-var app = Application("Notes");
+var app = Application("com.apple.Notes");
 app.includeStandardAdditions = false;
 var parsedLimit = parseInt(input.limit, 10);
-var limit = isNaN(parsedLimit) || parsedLimit <= 0 ? 20 : parsedLimit;
+var limit = isNaN(parsedLimit) || parsedLimit <= 0 ? 5 : parsedLimit;
 var notes;
 if (input.folder) {
 	var folders = app.folders.whose({name: input.folder})();
@@ -59,7 +59,6 @@ var result = notes.map(function(n) {
 	return {
 		name: n.name(),
 		folder: n.container().name(),
-		snippet: n.plaintext().substring(0, 200),
 		modifiedDate: n.modificationDate().toISOString()
 	};
 });
@@ -68,7 +67,7 @@ JSON.stringify(result);`,
 		"get-note": {
 			Name: "get-note", TargetApp: "Notes",
 			Script: stdinReader + `
-var app = Application("Notes");
+var app = Application("com.apple.Notes");
 app.includeStandardAdditions = false;
 var matches = app.notes.whose({name: input.name})();
 if (matches.length === 0) throw new Error("[NOT_FOUND] note not found");
@@ -86,19 +85,29 @@ JSON.stringify(result);`,
 		"search-notes": {
 			Name: "search-notes", TargetApp: "Notes",
 			Script: stdinReader + `
-var app = Application("Notes");
+var app = Application("com.apple.Notes");
 app.includeStandardAdditions = false;
 var parsedLimit = parseInt(input.limit, 10);
-var limit = isNaN(parsedLimit) || parsedLimit <= 0 ? 20 : parsedLimit;
+var limit = isNaN(parsedLimit) || parsedLimit <= 0 ? 5 : parsedLimit;
 var query = (input.query || "").toLowerCase();
 var total = app.notes.length;
 var result = [];
+var startMs = Date.now();
+var TIMEOUT_MS = 12000;
 for (var i = 0; i < total && result.length < limit; i++) {
+	if (Date.now() - startMs > TIMEOUT_MS) throw new Error("[TIMEOUT] search-notes timed out scanning Notes; narrow the query or lower --limit");
 	var n = app.notes[i];
 	var noteName = n.name();
+	if (noteName.toLowerCase().indexOf(query) >= 0) {
+		result.push({
+			name: noteName,
+			folder: n.container().name(),
+			snippet: ""
+		});
+		continue;
+	}
 	var body = n.plaintext();
-	if (noteName.toLowerCase().indexOf(query) >= 0 ||
-	    body.toLowerCase().indexOf(query) >= 0) {
+	if (body.toLowerCase().indexOf(query) >= 0) {
 		result.push({
 			name: noteName,
 			folder: n.container().name(),
@@ -111,7 +120,7 @@ JSON.stringify(result);`,
 		"create-note": {
 			Name: "create-note", TargetApp: "Notes",
 			Script: stdinReader + `
-var app = Application("Notes");
+var app = Application("com.apple.Notes");
 app.includeStandardAdditions = false;
 var targetFolder;
 if (input.folder) {

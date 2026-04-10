@@ -219,10 +219,13 @@ func TestIntegration_ListNotes(t *testing.T) {
 		if !ok {
 			t.Fatalf("first note is %T, want map[string]any", arr[0])
 		}
-		for _, key := range []string{"name", "folder", "snippet", "modifiedDate"} {
+		for _, key := range []string{"name", "folder", "modifiedDate"} {
 			if _, has := first[key]; !has {
 				t.Fatalf("first note missing %q key: %+v", key, first)
 			}
+		}
+		if _, has := first["snippet"]; has {
+			t.Fatalf("list-notes should not include snippet in list output: %+v", first)
 		}
 	}
 }
