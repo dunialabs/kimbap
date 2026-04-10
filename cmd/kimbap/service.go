@@ -296,7 +296,160 @@ func runInstalledShortcutSetup(cfg *config.KimbapConfig, installer *services.Loc
 		result.ActionAliasesCreated = createdActionAliases
 	}
 
+	configPath, resolveErr := resolveConfigPath()
+	if resolveErr != nil {
+		combinedAliasErr := errors.Join(aliasErr, fmt.Errorf("resolve config path for shortcut verification: %w", resolveErr))
+		combinedActionErr := errors.Join(actionAliasErr, fmt.Errorf("resolve config path for shortcut verification: %w", resolveErr))
+		return result, skippedActionAliases, combinedAliasErr, combinedActionErr
+	}
+
+	persistedCfg, persistedErr := loadPersistedShortcutConfig(configPath)
+	if persistedErr != nil {
+		combinedAliasErr := errors.Join(aliasErr, persistedErr)
+		combinedActionErr := errors.Join(actionAliasErr, persistedErr)
+		return result, skippedActionAliases, combinedAliasErr, combinedActionErr
+	}
+
+	if aliasValidateErr := validatePersistedServiceAlias(persistedCfg, manifest, result.AutoAlias); aliasValidateErr != nil {
+		result.AutoAlias = ""
+		result.AutoAliasCreated = false
+		aliasErr = errors.Join(aliasErr, aliasValidateErr)
+	}
+
+	validatedActionAliases, validationSkipped := filterPersistedActionAliases(persistedCfg, manifest, result.ActionAliasesCreated)
+	result.ActionAliasesCreated = validatedActionAliases
+	if len(validationSkipped) > 0 {
+		skippedActionAliases = append(skippedActionAliases, validationSkipped...)
+	}
+
+	rollbackRejectedActionAliasExecutables(createdActionAliases, validatedActionAliases)
+
 	return result, skippedActionAliases, aliasErr, actionAliasErr
+}
+
+func rollbackRejectedActionAliasExecutables(created, validated []string) {
+	if len(created) == 0 {
+		return
+	}
+	kept := make(map[string]struct{}, len(validated))
+	for _, alias := range validated {
+		kept[strings.ToLower(strings.TrimSpace(alias))] = struct{}{}
+	}
+	for _, alias := range created {
+		normalized := strings.ToLower(strings.TrimSpace(alias))
+		if _, ok := kept[normalized]; ok {
+			continue
+		}
+		_, _ = removeExecutableActionAlias(normalized)
+	}
+}
+
+func loadPersistedShortcutConfig(configPath string) (*config.KimbapConfig, error) {
+	trimmed := strings.TrimSpace(configPath)
+	if trimmed == "" {
+		return &config.KimbapConfig{Aliases: map[string]string{}, CommandAliases: map[string]string{}}, nil
+	}
+	if _, err := os.Stat(trimmed); err != nil {
+		if os.IsNotExist(err) {
+			return &config.KimbapConfig{Aliases: map[string]string{}, CommandAliases: map[string]string{}}, nil
+		}
+		return nil, fmt.Errorf("stat persisted config %q: %w", trimmed, err)
+	}
+
+	persistedCfg, err := config.LoadKimbapConfigWithoutDefault(trimmed)
+	if err != nil {
+		return nil, fmt.Errorf("load persisted config %q: %w", trimmed, err)
+	}
+	if persistedCfg.Aliases == nil {
+		persistedCfg.Aliases = map[string]string{}
+	}
+	if persistedCfg.CommandAliases == nil {
+		persistedCfg.CommandAliases = map[string]string{}
+	}
+	return persistedCfg, nil
+}
+
+func validatePersistedServiceAlias(persistedCfg *config.KimbapConfig, manifest *services.ServiceManifest, alias string) error {
+	alias = strings.ToLower(strings.TrimSpace(alias))
+	if alias == "" || persistedCfg == nil || manifest == nil {
+		return nil
+	}
+	target := strings.ToLower(strings.TrimSpace(manifest.Name))
+	if target == "" {
+		return nil
+	}
+	if persistedTarget := strings.ToLower(strings.TrimSpace(persistedCfg.Aliases[alias])); persistedTarget != target {
+		return fmt.Errorf("auto alias %q was not persisted to config for %s", alias, target)
+	}
+	return nil
+}
+
+func filterPersistedActionAliases(persistedCfg *config.KimbapConfig, manifest *services.ServiceManifest, aliases []string) ([]string, []string) {
+	if len(aliases) == 0 {
+		return nil, nil
+	}
+	expectedTargets := expectedActionAliasTargets(manifest)
+	validated := make([]string, 0, len(aliases))
+	skipped := make([]string, 0)
+	for _, rawAlias := range aliases {
+		alias := strings.ToLower(strings.TrimSpace(rawAlias))
+		if alias == "" {
+			continue
+		}
+		expectedTarget, ok := expectedTargets[alias]
+		if !ok {
+			skipped = append(skipped, alias+" (no matching manifest action)")
+			continue
+		}
+		persistedTarget := strings.ToLower(strings.TrimSpace(persistedCfg.CommandAliases[alias]))
+		if persistedTarget == "" {
+			skipped = append(skipped, alias+" (not persisted in config)")
+			continue
+		}
+		if persistedTarget != expectedTarget {
+			skipped = append(skipped, alias+" (config maps to "+persistedTarget+")")
+			continue
+		}
+		if _, err := aliasLookPath(alias); err != nil {
+			skipped = append(skipped, alias+" (not discoverable on PATH)")
+			continue
+		}
+		validated = append(validated, alias)
+	}
+	return validated, skipped
+}
+
+func expectedActionAliasTargets(manifest *services.ServiceManifest) map[string]string {
+	if manifest == nil || len(manifest.Actions) == 0 {
+		return map[string]string{}
+	}
+	targetService := strings.ToLower(strings.TrimSpace(manifest.Name))
+	out := make(map[string]string)
+	actionKeys := make([]string, 0, len(manifest.Actions))
+	for actionKey := range manifest.Actions {
+		actionKeys = append(actionKeys, actionKey)
+	}
+	sort.Strings(actionKeys)
+	defaultActionKey := defaultShortcutActionKey(manifest)
+	for _, actionKey := range actionKeys {
+		action := manifest.Actions[actionKey]
+		target := targetService + "." + actionKey
+		for _, alias := range action.Aliases {
+			normalized := strings.ToLower(strings.TrimSpace(alias))
+			if normalized != "" {
+				out[normalized] = target
+			}
+		}
+		if len(action.Aliases) == 0 && actionKey == defaultActionKey {
+			for _, alias := range generatedDefaultActionAliases(manifest, actionKey) {
+				normalized := strings.ToLower(strings.TrimSpace(alias))
+				if normalized != "" {
+					out[normalized] = target
+				}
+			}
+		}
+	}
+	return out
 }
 
 func applyInstalledShortcuts(cfg *config.KimbapConfig, installer *services.LocalInstaller, manifest *services.ServiceManifest, mode string) serviceShortcutResult {

@@ -323,6 +323,208 @@ func TestServiceCLIEnableBackfillsActionAliasesAfterNoActivateInstall(t *testing
 	})
 }
 
+func TestRunInstalledShortcutSetupDoesNotReportUnpersistedAliases(t *testing.T) {
+	dataDir := t.TempDir()
+	servicesDir := filepath.Join(dataDir, "services")
+	configPath := writeServiceCLIConfig(t, dataDir, servicesDir)
+
+	withServiceCLIOpts(t, configPath, func() {
+		execDir := t.TempDir()
+		execPath := filepath.Join(execDir, "kimbap")
+		stubAliasLookPathToDir(t, execDir)
+		origExecutablePath := aliasExecutablePath
+		origLstat := aliasFileLstat
+		origSymlink := aliasFileSymlink
+		t.Cleanup(func() {
+			aliasExecutablePath = origExecutablePath
+			aliasFileLstat = origLstat
+			aliasFileSymlink = origSymlink
+		})
+		var removedAliases []string
+		aliasExecutablePath = func() (string, error) { return execPath, nil }
+		aliasFileLstat = func(path string) (os.FileInfo, error) { return nil, os.ErrNotExist }
+		aliasFileSymlink = func(oldname, newname string) error { return nil }
+		origRemove := aliasFileRemove
+		t.Cleanup(func() { aliasFileRemove = origRemove })
+		aliasFileRemove = func(path string) error {
+			removedAliases = append(removedAliases, filepath.Base(path))
+			return nil
+		}
+
+		cfg, err := loadAppConfig()
+		if err != nil {
+			t.Fatalf("loadAppConfig() error: %v", err)
+		}
+		cfg.Aliases = map[string]string{"go": "go-cli"}
+		cfg.CommandAliases = map[string]string{"clibuild": "go-cli.build"}
+
+		manifest := &services.ServiceManifest{
+			Name:    "go-cli",
+			Version: "1.0.0",
+			Aliases: []string{"go"},
+			Actions: map[string]services.ServiceAction{
+				"build": {
+					Method:  "GET",
+					Path:    "/build",
+					Aliases: []string{"clibuild"},
+					Risk:    services.RiskSpec{Level: "low"},
+				},
+			},
+		}
+
+		result, skipped, aliasErr, actionAliasErr := runInstalledShortcutSetup(cfg, installerFromConfig(cfg), manifest)
+		if actionAliasErr != nil {
+			t.Fatalf("unexpected action alias error: %v", actionAliasErr)
+		}
+		if aliasErr == nil || !strings.Contains(aliasErr.Error(), "not persisted to config") {
+			t.Fatalf("expected stale auto alias to be rejected, got %v", aliasErr)
+		}
+		if result.AutoAlias != "" {
+			t.Fatalf("expected stale auto alias to be filtered from result, got %q", result.AutoAlias)
+		}
+		if len(result.ActionAliasesCreated) != 0 {
+			t.Fatalf("expected stale action alias to be filtered from result, got %+v", result.ActionAliasesCreated)
+		}
+		if !strings.Contains(strings.Join(skipped, ", "), "clibuild (not persisted in config)") {
+			t.Fatalf("expected stale action alias to be reported as skipped, got %+v", skipped)
+		}
+		_ = removedAliases
+	})
+}
+
+func TestRunInstalledShortcutSetupRollsBackRejectedAliasExecutables(t *testing.T) {
+	dataDir := t.TempDir()
+	servicesDir := filepath.Join(dataDir, "services")
+	configPath := writeServiceCLIConfig(t, dataDir, servicesDir)
+
+	withServiceCLIOpts(t, configPath, func() {
+		execDir := t.TempDir()
+		execPath := filepath.Join(execDir, "kimbap")
+		stubAliasLookPathToDir(t, execDir)
+
+		createdSymlinks := map[string]bool{}
+		origExecutablePath := aliasExecutablePath
+		origLstat := aliasFileLstat
+		origSymlink := aliasFileSymlink
+		origRemove := aliasFileRemove
+		origReadlink := aliasFileReadlink
+		t.Cleanup(func() {
+			aliasExecutablePath = origExecutablePath
+			aliasFileLstat = origLstat
+			aliasFileSymlink = origSymlink
+			aliasFileRemove = origRemove
+			aliasFileReadlink = origReadlink
+		})
+		aliasExecutablePath = func() (string, error) { return execPath, nil }
+		aliasFileLstat = func(path string) (os.FileInfo, error) {
+			base := filepath.Base(path)
+			if createdSymlinks[base] {
+				return symlinkFileInfo{}, nil
+			}
+			return nil, os.ErrNotExist
+		}
+		aliasFileSymlink = func(oldname, newname string) error {
+			createdSymlinks[filepath.Base(newname)] = true
+			return nil
+		}
+		aliasFileReadlink = func(path string) (string, error) {
+			return execPath, nil
+		}
+		aliasFileRemove = func(path string) error {
+			delete(createdSymlinks, filepath.Base(path))
+			return nil
+		}
+
+		cfg, err := loadAppConfig()
+		if err != nil {
+			t.Fatalf("loadAppConfig() error: %v", err)
+		}
+		cfg.CommandAliases = map[string]string{"clibuild": "go-cli.build"}
+
+		manifest := &services.ServiceManifest{
+			Name:    "go-cli",
+			Version: "1.0.0",
+			Actions: map[string]services.ServiceAction{
+				"build": {
+					Method:  "GET",
+					Path:    "/build",
+					Aliases: []string{"clibuild"},
+					Risk:    services.RiskSpec{Level: "low"},
+				},
+			},
+		}
+
+		result, _, _, actionAliasErr := runInstalledShortcutSetup(cfg, installerFromConfig(cfg), manifest)
+		if actionAliasErr != nil {
+			t.Fatalf("unexpected action alias error: %v", actionAliasErr)
+		}
+		if len(result.ActionAliasesCreated) != 0 {
+			t.Fatalf("expected stale alias to be filtered from result, got %+v", result.ActionAliasesCreated)
+		}
+		if createdSymlinks["clibuild"] {
+			t.Fatal("expected rollback to remove orphaned clibuild symlink, but it still exists")
+		}
+	})
+}
+
+func TestRunInstalledShortcutSetupDoesNotReportUndiscoverableAliases(t *testing.T) {
+	dataDir := t.TempDir()
+	servicesDir := filepath.Join(dataDir, "services")
+	configPath := writeServiceCLIConfig(t, dataDir, servicesDir)
+
+	withServiceCLIOpts(t, configPath, func() {
+		execDir := t.TempDir()
+		execPath := filepath.Join(execDir, "kimbap")
+		origExecutablePath := aliasExecutablePath
+		origLstat := aliasFileLstat
+		origSymlink := aliasFileSymlink
+		origLookPath := aliasLookPath
+		t.Cleanup(func() {
+			aliasExecutablePath = origExecutablePath
+			aliasFileLstat = origLstat
+			aliasFileSymlink = origSymlink
+			aliasLookPath = origLookPath
+		})
+		aliasExecutablePath = func() (string, error) { return execPath, nil }
+		aliasFileLstat = func(path string) (os.FileInfo, error) { return nil, os.ErrNotExist }
+		aliasFileSymlink = func(oldname, newname string) error { return nil }
+		aliasLookPath = func(file string) (string, error) { return "", os.ErrNotExist }
+
+		cfg, err := loadAppConfig()
+		if err != nil {
+			t.Fatalf("loadAppConfig() error: %v", err)
+		}
+
+		manifest := &services.ServiceManifest{
+			Name:    "go-cli",
+			Version: "1.0.0",
+			Actions: map[string]services.ServiceAction{
+				"build": {
+					Method:  "GET",
+					Path:    "/build",
+					Aliases: []string{"clibuild"},
+					Risk:    services.RiskSpec{Level: "low"},
+				},
+			},
+		}
+
+		result, skipped, aliasErr, actionAliasErr := runInstalledShortcutSetup(cfg, installerFromConfig(cfg), manifest)
+		if aliasErr != nil {
+			t.Fatalf("unexpected service alias error: %v", aliasErr)
+		}
+		if actionAliasErr != nil {
+			t.Fatalf("unexpected action alias error: %v", actionAliasErr)
+		}
+		if len(result.ActionAliasesCreated) != 0 {
+			t.Fatalf("expected undiscoverable alias to be filtered from result, got %+v", result.ActionAliasesCreated)
+		}
+		skippedText := strings.Join(skipped, ", ")
+		if !strings.Contains(skippedText, "clibuild") || !strings.Contains(skippedText, "not discoverable on PATH") {
+			t.Fatalf("expected PATH discoverability failure to be reported, got %+v", skipped)
+		}
+	})
+}
+
 func TestServiceCLIInstallAutoAliasConfiguredAndPersisted(t *testing.T) {
 	dataDir := t.TempDir()
 	servicesDir := filepath.Join(dataDir, "services")
