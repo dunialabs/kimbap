@@ -51,7 +51,7 @@ func NewAppleScriptAdapter(runner CommandRunner) *AppleScriptAdapter {
 // Preflight checks if automation permission is granted for a target app.
 // It runs a minimal JXA probe; failure is advisory (does not block registration).
 func (a *AppleScriptAdapter) Preflight(ctx context.Context, targetApp string) error {
-	appJSON, jsErr := json.Marshal(targetApp)
+	appJSON, jsErr := json.Marshal(AppleScriptAppReference(targetApp))
 	if jsErr != nil {
 		return fmt.Errorf("encode target app name: %w", jsErr)
 	}
@@ -295,13 +295,13 @@ func mapAppleScriptError(stderr []byte, err error) *actions.ExecutionError {
 		retryable = true
 	case strings.Contains(stderrStr, "-2700"):
 		lower := strings.ToLower(stderrStr)
+		message = "target application could not be resolved by AppleScript. Verify the app is installed and scriptable; on localized macOS, bundle-identifier targeting may be required."
 		if strings.Contains(lower, "application can't be found") ||
 			strings.Contains(lower, "application can’t be found") ||
 			strings.Contains(lower, "can't get application") ||
 			strings.Contains(lower, "can’t get application") {
 			status = http.StatusNotFound
 			code = actions.ErrActionNotFound
-			message = "target application is unavailable. Install/open the app and retry."
 		} else {
 			status = http.StatusInternalServerError
 		}

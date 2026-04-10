@@ -383,8 +383,8 @@ func TestTCCPreflightSuccess(t *testing.T) {
 		t.Fatalf("mock calls = %d, want 1", len(mock.Calls))
 	}
 	call := mock.Calls[0]
-	if !strings.Contains(strings.Join(call.Args, " "), `Application("Notes").name()`) {
-		t.Fatalf("script = %v, want Application(\"Notes\").name()", call.Args)
+	if !strings.Contains(strings.Join(call.Args, " "), `Application("com.apple.Notes").name()`) {
+		t.Fatalf("script = %v, want Application(\"com.apple.Notes\").name()", call.Args)
 	}
 }
 
@@ -418,6 +418,22 @@ func TestTCCPreflightAppNotFound(t *testing.T) {
 	}
 }
 
+func TestPreflightUsesBundleIdentifierForKnownAppleApps(t *testing.T) {
+	mock := NewMockRunner([]byte("Notes"), nil, nil)
+	a := NewAppleScriptAdapter(mock)
+	if err := a.Preflight(context.Background(), "Notes"); err != nil {
+		t.Fatalf("Preflight() error = %v, want nil", err)
+	}
+	if len(mock.Calls) != 1 {
+		t.Fatalf("calls = %d, want 1", len(mock.Calls))
+	}
+	args := mock.Calls[0].Args
+	joined := strings.Join(args, " ")
+	if !strings.Contains(joined, "com.apple.Notes") {
+		t.Fatalf("preflight args = %v, want bundle identifier", args)
+	}
+}
+
 func TestErrorMappingTable(t *testing.T) {
 	cases := []struct {
 		name       string
@@ -444,6 +460,26 @@ func TestErrorMappingTable(t *testing.T) {
 				t.Fatalf("HTTPStatus = %d, want %d", got.HTTPStatus, tc.wantStatus)
 			}
 		})
+	}
+}
+
+func TestAppLookupErrorIncludesLocalizationGuidance(t *testing.T) {
+	err := mapAppleScriptError([]byte("execution error: Application can't be found. (-2700)"), errors.New("exit status 1"))
+	if err.HTTPStatus != 404 {
+		t.Fatalf("HTTPStatus = %d, want 404", err.HTTPStatus)
+	}
+	if !strings.Contains(err.Message, "bundle-identifier targeting") {
+		t.Fatalf("Message = %q, want localization guidance", err.Message)
+	}
+}
+
+func TestLocalizedAppLookupErrorIncludesGuidanceWithoutEnglishPhraseMatch(t *testing.T) {
+	err := mapAppleScriptError([]byte("execution error: 无法取得应用程序。 (-2700)"), errors.New("exit status 1"))
+	if err.HTTPStatus != 500 {
+		t.Fatalf("HTTPStatus = %d, want 500", err.HTTPStatus)
+	}
+	if !strings.Contains(err.Message, "bundle-identifier targeting") {
+		t.Fatalf("Message = %q, want localization guidance", err.Message)
 	}
 }
 
