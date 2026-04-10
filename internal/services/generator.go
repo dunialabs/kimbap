@@ -1227,6 +1227,21 @@ func resolveCompositeSchemaDepth(schema map[string]any, currentDoc *openAPIDocum
 		if len(properties) > 0 {
 			merged["properties"] = properties
 			merged["type"] = "object"
+		} else if _, hasType := merged["type"]; !hasType {
+			for _, item := range allOf {
+				sub, ok := item.(map[string]any)
+				if !ok {
+					continue
+				}
+				subResolved := resolveCompositeSchemaDepth(sub, resolvedDoc, resolver, depth+1)
+				if t := stringAt(subResolved, "type"); t != "" && t != "object" {
+					merged["type"] = t
+					if items, ok := subResolved["items"]; ok {
+						merged["items"] = items
+					}
+					break
+				}
+			}
 		}
 		required := make([]any, 0, len(requiredSet))
 		for _, key := range sortedStringKeys(requiredSet) {
