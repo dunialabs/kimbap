@@ -4,164 +4,12 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"os"
-	"strconv"
 	"strings"
 	"time"
-	"unicode/utf8"
 
 	"github.com/dunialabs/kimbap/internal/actions"
 	"github.com/dunialabs/kimbap/internal/adapters"
-	"github.com/dunialabs/kimbap/internal/headerutil"
 )
-
-type PolicyRequest struct {
-	TenantID       string
-	Principal      actions.Principal
-	Action         actions.ActionDefinition
-	Input          map[string]any
-	Mode           actions.ExecutionMode
-	Session        *actions.SessionContext
-	Classification *actions.ClassificationInfo
-}
-
-type PolicyDecision struct {
-	Decision string
-	Reason   string
-	RuleID   string
-	Meta     map[string]any
-}
-
-type CredentialResolver interface {
-	Resolve(ctx context.Context, tenantID string, req actions.AuthRequirement) (*actions.ResolvedCredentialSet, error)
-}
-
-type PolicyEvaluator interface {
-	Evaluate(ctx context.Context, req PolicyRequest) (*PolicyDecision, error)
-}
-
-type AuditEvent struct {
-	RequestID       string
-	TraceID         string
-	TenantID        string
-	PrincipalID     string
-	AgentName       string
-	ActionName      string
-	Input           map[string]any
-	Mode            actions.ExecutionMode
-	Status          actions.ExecutionStatus
-	HTTPStatus      int
-	ErrorCode       string
-	ErrorMessage    string
-	PolicyDecision  string
-	ApprovalRequest string
-	DurationMS      int64
-	Timestamp       time.Time
-	Meta            map[string]any
-}
-
-type AuditWriter interface {
-	Write(ctx context.Context, event AuditEvent) error
-}
-
-type ListOptions struct {
-	Namespace string
-	Resource  string
-	Verb      string
-	Limit     int
-}
-
-type ActionRegistry interface {
-	Lookup(ctx context.Context, name string) (*actions.ActionDefinition, error)
-	List(ctx context.Context, opts ListOptions) ([]actions.ActionDefinition, error)
-}
-
-type ApprovalRequest struct {
-	RequestID string
-	TraceID   string
-	TenantID  string
-	Principal actions.Principal
-	Action    actions.ActionDefinition
-	Input     map[string]any
-	Meta      map[string]any
-}
-
-type ApprovalResult struct {
-	Approved  bool
-	RequestID string
-	Timeout   bool
-	Reason    string
-	Meta      map[string]any
-}
-
-type ApprovalManager interface {
-	CreateRequest(ctx context.Context, req ApprovalRequest) (*ApprovalResult, error)
-	CancelRequest(ctx context.Context, approvalRequestID string, reason string) error
-}
-
-// PrincipalVerifier validates that a principal is authentic.
-// CLI surfaces may use a no-op verifier for local-dev; server surfaces
-// must verify against issued tokens.
-type PrincipalVerifier interface {
-	Verify(ctx context.Context, principal actions.Principal) error
-}
-
-// HeldExecutionStore persists execution requests that are waiting for approval.
-type HeldExecutionStore interface {
-	Hold(ctx context.Context, approvalRequestID string, req actions.ExecutionRequest) error
-	Resume(ctx context.Context, approvalRequestID string) (*actions.ExecutionRequest, error)
-	Remove(ctx context.Context, approvalRequestID string) error
-}
-
-type Runtime struct {
-	PrincipalVerifier  PrincipalVerifier // nil = ID-only check (local dev)
-	PolicyEvaluator    PolicyEvaluator
-	CredentialResolver CredentialResolver
-	AuditWriter        AuditWriter
-	AuditRequired      bool // If true, audit write failure aborts execution
-	ActionRegistry     ActionRegistry
-	ApprovalManager    ApprovalManager
-	HeldExecutionStore HeldExecutionStore // nil = no resume support
-	Adapters           map[string]adapters.Adapter
-	Now                func() time.Time
-}
-
-const auditWriteTimeout = 3 * time.Second
-
-type TraceStep struct {
-	Step       string `json:"step"`
-	Status     string `json:"status"`
-	Detail     string `json:"detail,omitempty"`
-	DurationMS int64  `json:"duration_ms"`
-}
-
-type TraceCollector struct {
-	Steps    []TraceStep
-	lastStep time.Time
-	now      func() time.Time
-}
-
-func NewTraceCollector(now func() time.Time) *TraceCollector {
-	if now == nil {
-		now = time.Now
-	}
-	t := now()
-	return &TraceCollector{lastStep: t, now: now}
-}
-
-func (tc *TraceCollector) Record(step, status, detail string) {
-	if tc == nil {
-		return
-	}
-	now := tc.now()
-	tc.Steps = append(tc.Steps, TraceStep{
-		Step:       step,
-		Status:     status,
-		Detail:     detail,
-		DurationMS: now.Sub(tc.lastStep).Milliseconds(),
-	})
-	tc.lastStep = now
-}
 
 func (r *Runtime) Execute(ctx context.Context, req actions.ExecutionRequest) actions.ExecutionResult {
 	return r.execute(ctx, req, nil)
@@ -239,9 +87,7 @@ func (r *Runtime) ResumeApproved(ctx context.Context, approvalRequestID string) 
 	held.TenantID = tenantID
 
 	if validationErr := actions.ValidateInput(held.Action.InputSchema, held.Input); validationErr != nil {
-		return reholdIfRetryable(r.finalizeWithError(ctx, &result, *held,
-			validationErr,
-			startedAt, "require_approval", approvalRequestID))
+		return reholdIfRetryable(r.finalizeWithError(ctx, &result, *held, validationErr, startedAt, "require_approval", approvalRequestID))
 	}
 
 	if sanitizeErr := SanitizeInput(held.Input); sanitizeErr != nil {
@@ -392,13 +238,7 @@ func (r *Runtime) execute(ctx context.Context, req actions.ExecutionRequest, tra
 		}
 		if !approvalRes.Approved {
 			if r.HeldExecutionStore == nil {
-				holdMissingErr := actions.NewExecutionError(
-					actions.ErrDownstreamUnavailable,
-					"approval resume unavailable: held execution store is not configured",
-					500,
-					false,
-					nil,
-				)
+				holdMissingErr := actions.NewExecutionError(actions.ErrDownstreamUnavailable, "approval resume unavailable: held execution store is not configured", 500, false, nil)
 				trace.Record("hold_execution", "error", holdMissingErr.Error())
 				return r.finalizeWithError(ctx, &result, req, holdMissingErr, startedAt, "require_approval", approvalRes.RequestID)
 			}
@@ -451,31 +291,29 @@ func (r *Runtime) executeFromCredentialsWithState(
 		trace.Record("resolve_credentials", "skipped", "auth none")
 	} else if req.Credentials != nil {
 		trace.Record("resolve_credentials", "ok", "provided")
-	} else {
-		if r.CredentialResolver == nil {
-			if req.Action.Auth.Optional {
-				req.Credentials = nil
-				trace.Record("resolve_credentials", "ok", "optional-no-resolver")
-			} else {
-				missingErr := actions.NewExecutionError(actions.ErrCredentialMissing, "credential resolver unavailable", 500, false, nil)
-				trace.Record("resolve_credentials", "error", missingErr.Error())
-				return r.finalizeWithError(ctx, &result, req, missingErr, startedAt, policyDecision, approvalRequestID)
-			}
+	} else if r.CredentialResolver == nil {
+		if req.Action.Auth.Optional {
+			req.Credentials = nil
+			trace.Record("resolve_credentials", "ok", "optional-no-resolver")
 		} else {
-			creds, credErr := r.CredentialResolver.Resolve(ctx, req.TenantID, req.Action.Auth)
-			if credErr != nil {
-				mapped := actions.NewExecutionError(actions.ErrDownstreamUnavailable, credErr.Error(), 502, true, nil)
-				trace.Record("resolve_credentials", "error", mapped.Error())
-				return r.finalizeWithError(ctx, &result, req, mapped, startedAt, policyDecision, approvalRequestID)
-			}
-			if creds == nil && !req.Action.Auth.Optional {
-				mapped := actions.NewExecutionError(actions.ErrCredentialMissing, "credentials not found", 401, false, nil)
-				trace.Record("resolve_credentials", "error", mapped.Error())
-				return r.finalizeWithError(ctx, &result, req, mapped, startedAt, policyDecision, approvalRequestID)
-			}
-			req.Credentials = creds
-			trace.Record("resolve_credentials", "ok", strings.TrimSpace(req.Action.Auth.CredentialRef))
+			missingErr := actions.NewExecutionError(actions.ErrCredentialMissing, "credential resolver unavailable", 500, false, nil)
+			trace.Record("resolve_credentials", "error", missingErr.Error())
+			return r.finalizeWithError(ctx, &result, req, missingErr, startedAt, policyDecision, approvalRequestID)
 		}
+	} else {
+		creds, credErr := r.CredentialResolver.Resolve(ctx, req.TenantID, req.Action.Auth)
+		if credErr != nil {
+			mapped := actions.NewExecutionError(actions.ErrDownstreamUnavailable, credErr.Error(), 502, true, nil)
+			trace.Record("resolve_credentials", "error", mapped.Error())
+			return r.finalizeWithError(ctx, &result, req, mapped, startedAt, policyDecision, approvalRequestID)
+		}
+		if creds == nil && !req.Action.Auth.Optional {
+			mapped := actions.NewExecutionError(actions.ErrCredentialMissing, "credentials not found", 401, false, nil)
+			trace.Record("resolve_credentials", "error", mapped.Error())
+			return r.finalizeWithError(ctx, &result, req, mapped, startedAt, policyDecision, approvalRequestID)
+		}
+		req.Credentials = creds
+		trace.Record("resolve_credentials", "ok", strings.TrimSpace(req.Action.Auth.CredentialRef))
 	}
 
 	adapter, adapterErr := r.getAdapter(req.Action.Adapter.Type)
@@ -534,21 +372,8 @@ func (r *Runtime) executeFromCredentialsWithState(
 	result.Meta["raw_response_bytes"] = len(adapterResult.RawBody)
 	trace.Record("finalize", "ok", "success")
 
-	finalResult := r.finalizeWithStatus(
-		ctx,
-		&result,
-		req,
-		actions.StatusSuccess,
-		nil,
-		adapterResult.Output,
-		adapterResult.HTTPStatus,
-		startedAt,
-		policyDecision,
-		approvalRequestID,
-	)
+	finalResult := r.finalizeWithStatus(ctx, &result, req, actions.StatusSuccess, nil, adapterResult.Output, adapterResult.HTTPStatus, startedAt, policyDecision, approvalRequestID)
 
-	// Apply output transformations AFTER audit so audit trail records unfiltered output.
-	// Budget and compact run independently of structural filter (filter is optional).
 	if finalResult.Status == actions.StatusSuccess {
 		outputMode, _ := req.Input["_output_mode"].(string)
 		rawMode := outputMode == "raw"
@@ -557,11 +382,9 @@ func (r *Runtime) executeFromCredentialsWithState(
 			finalResult.Meta = map[string]any{}
 		}
 
-		// 1. Structural filter (select/exclude/max_items/drop_nulls)
 		if req.Action.FilterConfig != nil && !rawMode {
 			filtered, filterMeta, filterErr := ApplyFilter(finalResult.Output, req.Action.FilterConfig)
 			if filterErr != nil {
-				// All select paths missed — return unfiltered with warning
 				finalResult.Meta["filter_error"] = filterErr.Error()
 				finalResult.Meta["filter_applied"] = false
 			} else {
@@ -581,7 +404,6 @@ func (r *Runtime) executeFromCredentialsWithState(
 			}
 		}
 
-		// 2. Text filter for raw (non-JSON) output
 		if req.Action.TextFilterConfig != nil && !rawMode {
 			filtered, tfErr := ApplyTextFilter(finalResult.Output, req.Action.TextFilterConfig)
 			if tfErr == nil {
@@ -589,7 +411,6 @@ func (r *Runtime) executeFromCredentialsWithState(
 			}
 		}
 
-		// 3. Budget enforcement (independent of structural filter)
 		if !rawMode {
 			if budget := coerceBudgetInt(req.Input["_budget"]); budget > 0 {
 				budgeted, budgetMeta := ApplyBudget(finalResult.Output, budget)
@@ -603,7 +424,6 @@ func (r *Runtime) executeFromCredentialsWithState(
 			}
 		}
 
-		// 4. Compact template (independent of structural filter)
 		if req.Action.CompactTemplate != nil && !rawMode {
 			compacted, compactErr := ApplyCompactTemplate(finalResult.Output, req.Action.CompactTemplate)
 			if compactErr == nil {
@@ -614,446 +434,4 @@ func (r *Runtime) executeFromCredentialsWithState(
 		}
 	}
 	return finalResult
-}
-
-func (r *Runtime) authenticatePrincipal(ctx context.Context, req actions.ExecutionRequest) *actions.ExecutionError {
-	if strings.TrimSpace(req.Principal.ID) == "" {
-		return actions.NewExecutionError(actions.ErrUnauthenticated, "principal identity required", 401, false, nil)
-	}
-	if r.PrincipalVerifier != nil {
-		if err := r.PrincipalVerifier.Verify(ctx, req.Principal); err != nil {
-			return actions.NewExecutionError(actions.ErrUnauthenticated, err.Error(), 401, false, nil)
-		}
-	}
-	return nil
-}
-
-func (r *Runtime) resolveTenant(req actions.ExecutionRequest) (string, *actions.ExecutionError) {
-	tenantID := strings.TrimSpace(req.TenantID)
-	if tenantID == "" {
-		tenantID = strings.TrimSpace(req.Principal.TenantID)
-	}
-	if tenantID == "" {
-		return "", actions.NewExecutionError(actions.ErrUnauthorized, "tenant context is required", 403, false, nil)
-	}
-	return tenantID, nil
-}
-
-func (r *Runtime) resolveAction(ctx context.Context, req actions.ExecutionRequest) (actions.ActionDefinition, *actions.ExecutionError) {
-	if strings.TrimSpace(req.Action.Name) != "" {
-		if r.ActionRegistry != nil {
-			resolved, err := r.ActionRegistry.Lookup(ctx, req.Action.Name)
-			if err != nil {
-				if errors.Is(err, actions.ErrLookupNotFound) {
-					return actions.ActionDefinition{}, actions.NewExecutionError(actions.ErrActionNotFound, "action not found", 404, false, map[string]any{"action": req.Action.Name})
-				}
-				return actions.ActionDefinition{}, actions.NewExecutionError(actions.ErrDownstreamUnavailable, "action lookup failed", 500, true, map[string]any{"action": req.Action.Name})
-			}
-			if resolved != nil {
-				return *resolved, nil
-			}
-		}
-		return req.Action, nil
-	}
-
-	if req.Classification == nil || strings.TrimSpace(req.Classification.ActionName) == "" {
-		return actions.ActionDefinition{}, actions.NewExecutionError(actions.ErrClassificationFailed, "action resolution failed", 400, false, nil)
-	}
-	if r.ActionRegistry == nil {
-		return actions.ActionDefinition{}, actions.NewExecutionError(actions.ErrActionNotFound, "action registry unavailable", 500, false, nil)
-	}
-	resolved, err := r.ActionRegistry.Lookup(ctx, req.Classification.ActionName)
-	if err != nil {
-		if errors.Is(err, actions.ErrLookupNotFound) {
-			return actions.ActionDefinition{}, actions.NewExecutionError(actions.ErrActionNotFound, "action not found", 404, false, map[string]any{"action": req.Classification.ActionName})
-		}
-		return actions.ActionDefinition{}, actions.NewExecutionError(actions.ErrDownstreamUnavailable, "action resolution failed", 500, true, map[string]any{"action": req.Classification.ActionName})
-	}
-	if resolved == nil {
-		return actions.ActionDefinition{}, actions.NewExecutionError(actions.ErrActionNotFound, "action not found", 404, false, map[string]any{"action": req.Classification.ActionName})
-	}
-	return *resolved, nil
-}
-
-func (r *Runtime) requestApproval(ctx context.Context, req actions.ExecutionRequest) (*ApprovalResult, *actions.ExecutionError) {
-	if r.ApprovalManager == nil {
-		return nil, actions.NewExecutionError(actions.ErrDownstreamUnavailable, "approval manager unavailable", 500, false, nil)
-	}
-	approvalMeta := map[string]any{
-		"mode": req.Mode,
-	}
-	if approvalRef := strings.TrimSpace(req.Action.Adapter.ApprovalRef); approvalRef != "" {
-		approvalMeta["approval_ref"] = approvalRef
-	}
-
-	approvalResult, err := r.ApprovalManager.CreateRequest(ctx, ApprovalRequest{
-		RequestID: req.RequestID,
-		TraceID:   req.TraceID,
-		TenantID:  req.TenantID,
-		Principal: req.Principal,
-		Action:    req.Action,
-		Input:     req.Input,
-		Meta:      approvalMeta,
-	})
-	if err != nil {
-		return nil, actions.NewExecutionError(actions.ErrDownstreamUnavailable, err.Error(), 500, false, nil)
-	}
-	if approvalResult == nil {
-		return nil, actions.NewExecutionError(actions.ErrDownstreamUnavailable, "approval response missing", 500, false, nil)
-	}
-	return approvalResult, nil
-}
-
-func (r *Runtime) cancelApprovalOnHoldFailure(ctx context.Context, approvalRequestID string, holdErr error) error {
-	if r == nil || r.ApprovalManager == nil || strings.TrimSpace(approvalRequestID) == "" {
-		return nil
-	}
-	reason := "auto-cancel after hold failure"
-	if holdErr != nil {
-		reason = fmt.Sprintf("auto-cancel after hold failure: %v", holdErr)
-	}
-	cancelCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), auditWriteTimeout)
-	defer cancel()
-	return r.ApprovalManager.CancelRequest(cancelCtx, approvalRequestID, reason)
-}
-
-func requiresInlineScriptApproval(action actions.ActionDefinition) bool {
-	if !strings.EqualFold(strings.TrimSpace(action.Adapter.Type), "applescript") {
-		return false
-	}
-	if strings.TrimSpace(action.Adapter.ScriptSource) == "" {
-		return false
-	}
-	return strings.TrimSpace(action.Adapter.ApprovalRef) != ""
-}
-
-func (r *Runtime) getAdapter(adapterType string) (adapters.Adapter, *actions.ExecutionError) {
-	kind := strings.TrimSpace(adapterType)
-	if kind == "" {
-		kind = "http"
-	}
-	if r.Adapters == nil {
-		return nil, actions.NewExecutionError(actions.ErrDownstreamUnavailable, "adapter registry unavailable", 500, false, nil)
-	}
-	adapter, ok := r.Adapters[kind]
-	if !ok || adapter == nil {
-		return nil, actions.NewExecutionError(actions.ErrDownstreamUnavailable, fmt.Sprintf("adapter %q not found", kind), 500, false, nil)
-	}
-	return adapter, nil
-}
-
-func resolveErrorStatus(ctx context.Context, err *actions.ExecutionError) (actions.ExecutionStatus, int) {
-	status := actions.StatusError
-	if errors.Is(ctx.Err(), context.Canceled) {
-		status = actions.StatusCancelled
-	} else if errors.Is(ctx.Err(), context.DeadlineExceeded) {
-		status = actions.StatusTimeout
-	}
-	httpStatus := 500
-	if err != nil && err.HTTPStatus > 0 {
-		httpStatus = err.HTTPStatus
-	}
-	return status, httpStatus
-}
-
-func (r *Runtime) finalizeWithError(
-	ctx context.Context,
-	result *actions.ExecutionResult,
-	req actions.ExecutionRequest,
-	err *actions.ExecutionError,
-	startedAt time.Time,
-	policyDecision string,
-	approvalRequestID string,
-) actions.ExecutionResult {
-	status, httpStatus := resolveErrorStatus(ctx, err)
-	return r.finalizeWithStatus(ctx, result, req, status, err, nil, httpStatus, startedAt, policyDecision, approvalRequestID)
-}
-
-func (r *Runtime) finalizeWithErrorOutput(
-	ctx context.Context,
-	result *actions.ExecutionResult,
-	req actions.ExecutionRequest,
-	err *actions.ExecutionError,
-	output map[string]any,
-	startedAt time.Time,
-	policyDecision string,
-	approvalRequestID string,
-) actions.ExecutionResult {
-	status, httpStatus := resolveErrorStatus(ctx, err)
-	return r.finalizeWithStatus(ctx, result, req, status, err, output, httpStatus, startedAt, policyDecision, approvalRequestID)
-}
-
-func transformErrorOutput(req actions.ExecutionRequest, adapterResult *adapters.AdapterResult) map[string]any {
-	if adapterResult == nil || adapterResult.Output == nil {
-		return nil
-	}
-	output := adapterResult.Output
-	outputMode, _ := req.Input["_output_mode"].(string)
-	if outputMode == "raw" || req.Action.TextFilterConfig == nil {
-		return output
-	}
-	filtered, err := ApplyTextFilter(output, req.Action.TextFilterConfig)
-	if err != nil {
-		return output
-	}
-	return filtered
-}
-
-func (r *Runtime) finalizeWithStatus(
-	ctx context.Context,
-	result *actions.ExecutionResult,
-	req actions.ExecutionRequest,
-	status actions.ExecutionStatus,
-	execErr *actions.ExecutionError,
-	output map[string]any,
-	httpStatus int,
-	startedAt time.Time,
-	policyDecision string,
-	approvalRequestID string,
-) actions.ExecutionResult {
-	execErr = annotateExecutionError(execErr, policyDecision)
-	result.Status = status
-	result.Error = execErr
-	result.HTTPStatus = httpStatus
-	result.Output = output
-	result.PolicyDecision = policyDecision
-	result.DurationMS = r.now().Sub(startedAt).Milliseconds()
-	result.Retryable = execErr != nil && execErr.Retryable
-	if result.Meta == nil {
-		result.Meta = map[string]any{}
-	}
-	if category := ExecutionErrorCategory(execErr); category != "" {
-		result.Meta["error_category"] = category
-	}
-	if approvalRequestID != "" {
-		result.Meta["approval_request_id"] = approvalRequestID
-	}
-	if err := ctx.Err(); err != nil {
-		result.Meta["context_error"] = err.Error()
-	}
-
-	auditRef := strings.TrimSpace(req.Action.Adapter.AuditRef)
-	if auditRef == "" {
-		auditRef = req.RequestID
-	}
-	if auditRef == "" {
-		auditRef = req.TraceID
-	}
-	result.AuditRef = auditRef
-	result.Meta["audit_ref"] = auditRef
-
-	auditCtx, cancelAudit := context.WithTimeout(context.WithoutCancel(ctx), auditWriteTimeout)
-	defer cancelAudit()
-	if auditErr := r.writeAudit(auditCtx, req, *result); auditErr != nil {
-		if !r.AuditRequired {
-			return *result
-		}
-		if result.Meta == nil {
-			result.Meta = map[string]any{}
-		}
-		result.Meta["pre_audit_status"] = string(result.Status)
-		result.Meta["pre_audit_http_status"] = result.HTTPStatus
-		result.Meta["pre_audit_retryable"] = result.Retryable
-		if result.Error != nil {
-			result.Meta["original_error"] = result.Error.Message
-			result.Meta["original_error_code"] = result.Error.Code
-		}
-		result.Status = actions.StatusError
-		result.Error = annotateExecutionError(auditErr, policyDecision)
-		result.HTTPStatus = auditErr.HTTPStatus
-		result.Output = nil
-		result.Retryable = auditErr.Retryable
-		if category := ExecutionErrorCategory(result.Error); category != "" {
-			result.Meta["error_category"] = category
-		}
-	}
-	return *result
-}
-
-func (r *Runtime) writeAudit(ctx context.Context, req actions.ExecutionRequest, result actions.ExecutionResult) *actions.ExecutionError {
-	if r.AuditWriter == nil {
-		if r.AuditRequired {
-			return actions.NewExecutionError(actions.ErrAuditRequired, "audit writer unavailable but audit is required", 500, false, nil)
-		}
-		return nil
-	}
-	event := AuditEvent{
-		RequestID:      req.RequestID,
-		TraceID:        req.TraceID,
-		TenantID:       req.TenantID,
-		PrincipalID:    req.Principal.ID,
-		AgentName:      req.Principal.AgentName,
-		ActionName:     req.Action.Name,
-		Input:          cloneInputMap(req.Input),
-		Mode:           req.Mode,
-		Status:         result.Status,
-		HTTPStatus:     result.HTTPStatus,
-		PolicyDecision: result.PolicyDecision,
-		DurationMS:     result.DurationMS,
-		Timestamp:      r.now(),
-		Meta:           cloneMetaMap(result.Meta),
-	}
-	if result.Error != nil {
-		event.ErrorCode = result.Error.Code
-		msg := result.Error.Message
-		for len(msg) > 256 {
-			_, size := utf8.DecodeLastRuneInString(msg)
-			msg = msg[:len(msg)-size]
-		}
-		event.ErrorMessage = msg
-	}
-	if approvalID, ok := result.Meta["approval_request_id"].(string); ok {
-		event.ApprovalRequest = approvalID
-	}
-	if err := r.AuditWriter.Write(ctx, event); err != nil {
-		if r.AuditRequired {
-			return actions.NewExecutionError(actions.ErrAuditRequired, fmt.Sprintf("audit write failed: %v", err), 500, false, nil)
-		}
-		_, _ = fmt.Fprintf(os.Stderr, "warning: audit write failed for request %s: %v\n", req.RequestID, err)
-	}
-	return nil
-}
-
-func cloneInputMap(input map[string]any) map[string]any {
-	if input == nil {
-		return nil
-	}
-	cloned, ok := deepCloneValue(input).(map[string]any)
-	if !ok {
-		return nil
-	}
-	return cloned
-}
-
-func cloneMetaMap(m map[string]any) map[string]any {
-	if m == nil {
-		return nil
-	}
-	out := make(map[string]any, len(m))
-	for k, v := range m {
-		out[k] = v
-	}
-	return out
-}
-
-func stripRuntimeKeys(input map[string]any) map[string]any {
-	if input == nil {
-		return nil
-	}
-	cleaned := make(map[string]any, len(input))
-	for key, value := range input {
-		cleaned[key] = value
-	}
-	delete(cleaned, "_output_mode")
-	delete(cleaned, "_budget")
-	delete(cleaned, "_max_pages")
-	return cleaned
-}
-
-func applyRuntimeActionOverrides(action actions.ActionDefinition, input map[string]any) actions.ActionDefinition {
-	if action.Pagination == nil {
-		return action
-	}
-	requested := coercePositiveInt(input["_max_pages"])
-	if requested <= 0 {
-		return action
-	}
-	effective := requested
-	if action.Pagination.MaxPages > 0 && requested > action.Pagination.MaxPages {
-		effective = action.Pagination.MaxPages
-	}
-	overridden := action
-	pagination := *action.Pagination
-	pagination.MaxPages = effective
-	overridden.Pagination = &pagination
-	return overridden
-}
-
-func coercePositiveInt(value any) int {
-	maxInt := int(^uint(0) >> 1)
-	switch v := value.(type) {
-	case int:
-		if v > 0 {
-			return v
-		}
-	case int64:
-		if v > 0 && v <= int64(maxInt) {
-			return int(v)
-		}
-	case float64:
-		if v > 0 && v <= float64(maxInt) {
-			return int(v)
-		}
-	case string:
-		parsed := strings.TrimSpace(v)
-		if parsed == "" {
-			return 0
-		}
-		n, err := strconv.ParseInt(parsed, 10, 64)
-		if err == nil && n > 0 && n <= int64(maxInt) {
-			return int(n)
-		}
-	}
-	return 0
-}
-
-func withTimeout(ctx context.Context, timeout time.Duration) (context.Context, context.CancelFunc) {
-	if timeout <= 0 {
-		return ctx, func() {}
-	}
-	return context.WithTimeout(ctx, timeout)
-}
-
-func deepCloneValue(v any) any {
-	switch val := v.(type) {
-	case map[string]any:
-		out := make(map[string]any, len(val))
-		for k, vv := range val {
-			out[k] = deepCloneValue(vv)
-		}
-		return out
-	case []any:
-		out := make([]any, len(val))
-		for i, vv := range val {
-			out[i] = deepCloneValue(vv)
-		}
-		return out
-	default:
-		return v
-	}
-}
-
-func normalizePolicyDecision(decision string) string {
-	switch strings.ToLower(strings.TrimSpace(decision)) {
-	case "allow":
-		return "allow"
-	case "deny":
-		return "deny"
-	case "require_approval":
-		return "require_approval"
-	default:
-		return "deny"
-	}
-}
-
-func (r *Runtime) now() time.Time {
-	if r.Now == nil {
-		return time.Now()
-	}
-	return r.Now()
-}
-
-func redactHeaders(headers map[string]string) map[string]string {
-	if len(headers) == 0 {
-		return map[string]string{}
-	}
-
-	redacted := make(map[string]string, len(headers))
-	for key, value := range headers {
-		if headerutil.IsSensitiveAuditHeader(key) {
-			continue
-		}
-		redacted[key] = value
-	}
-	return redacted
 }
