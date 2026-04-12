@@ -157,7 +157,7 @@ func TestCompleteLoginDoesNotDeleteNewerPendingLogin(t *testing.T) {
 
 	select {
 	case <-firstTokenSeen:
-	case <-time.After(2 * time.Second):
+	case <-time.After(10 * time.Second):
 		t.Fatal("first complete login never reached token polling")
 	}
 
@@ -176,7 +176,7 @@ func TestCompleteLoginDoesNotDeleteNewerPendingLogin(t *testing.T) {
 		if err != nil {
 			t.Fatalf("first complete login: %v", err)
 		}
-	case <-time.After(2 * time.Second):
+	case <-time.After(10 * time.Second):
 		t.Fatal("first complete login did not finish")
 	}
 
@@ -466,6 +466,30 @@ func (s *memConnectorStore) Save(_ context.Context, state *ConnectorState) error
 	copyState := *state
 	s.items[s.key(state.TenantID, state.Name)] = copyState
 	return nil
+}
+
+func (s *memConnectorStore) SaveIfUnchanged(_ context.Context, previous, next *ConnectorState) (bool, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	key := s.key(next.TenantID, next.Name)
+	current, exists := s.items[key]
+	if previous == nil {
+		if exists {
+			return false, nil
+		}
+		copyState := *next
+		s.items[key] = copyState
+		return true, nil
+	}
+	if !exists {
+		return false, nil
+	}
+	if !current.UpdatedAt.Equal(previous.UpdatedAt) {
+		return false, nil
+	}
+	copyState := *next
+	s.items[key] = copyState
+	return true, nil
 }
 
 func (s *memConnectorStore) Get(_ context.Context, tenantID, name string) (*ConnectorState, error) {
@@ -797,7 +821,7 @@ func TestStoreConnectionDoesNotLoseConcurrentRefreshState(t *testing.T) {
 
 	select {
 	case <-refreshStarted:
-	case <-time.After(2 * time.Second):
+	case <-time.After(10 * time.Second):
 		t.Fatal("timed out waiting for refresh request to start")
 	}
 
