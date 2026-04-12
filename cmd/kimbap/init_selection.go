@@ -9,6 +9,7 @@ import (
 	"runtime"
 	"strconv"
 	"strings"
+	"unicode/utf8"
 
 	"github.com/dunialabs/kimbap/internal/services"
 	"github.com/dunialabs/kimbap/services/catalog"
@@ -18,6 +19,12 @@ type initServiceSelection struct {
 	Names   []string
 	Skipped bool
 	Reason  string
+}
+
+type initChecklistService struct {
+	Name         string
+	Description  string
+	AuthRequired bool
 }
 
 func starterServiceNames() []string {
@@ -145,6 +152,7 @@ func resolveChecklistServiceSelectionFromReader(reader io.Reader) (initServiceSe
 	for _, name := range starterServiceNames() {
 		starterSet[name] = struct{}{}
 	}
+	serviceMeta := loadInitChecklistServices(all)
 	for _, name := range all {
 		if _, ok := starterSet[name]; ok {
 			selected[name] = true
@@ -173,7 +181,7 @@ func resolveChecklistServiceSelectionFromReader(reader io.Reader) (initServiceSe
 			if selected[name] {
 				mark = "x"
 			}
-			_, _ = fmt.Fprintf(os.Stderr, " [%s] %2d) %s\n", mark, idx+1, name)
+			_, _ = fmt.Fprintf(os.Stderr, " [%s] %2d) %s\n", mark, idx+1, renderInitChecklistRow(name, serviceMeta[name], starterSet))
 			lineCount++
 		}
 		if statusMsg != "" {
@@ -236,6 +244,65 @@ func resolveChecklistServiceSelectionFromReader(reader io.Reader) (initServiceSe
 			}
 		}
 	}
+}
+
+func loadInitChecklistServices(names []string) map[string]initChecklistService {
+	servicesByName := make(map[string]initChecklistService, len(names))
+	for _, name := range names {
+		servicesByName[name] = initChecklistService{Name: name}
+		data, err := catalog.Get(name)
+		if err != nil {
+			continue
+		}
+		manifest, err := services.ParseManifest(data)
+		if err != nil {
+			continue
+		}
+		summary := buildCatalogServiceSummary(manifest)
+		servicesByName[name] = initChecklistService{
+			Name:         name,
+			Description:  summary.Description,
+			AuthRequired: summary.AuthRequired,
+		}
+	}
+	return servicesByName
+}
+
+func renderInitChecklistRow(name string, meta initChecklistService, starterSet map[string]struct{}) string {
+	parts := []string{name}
+	if _, ok := starterSet[name]; ok {
+		parts = append(parts, "(recommended)")
+	}
+	if meta.AuthRequired {
+		parts = append(parts, "[auth]")
+	}
+	description := compactChecklistDescription(meta.Description, 72)
+	if description != "-" {
+		parts = append(parts, "—", description)
+	}
+	return strings.Join(parts, " ")
+}
+
+func compactChecklistDescription(value string, maxLen int) string {
+	value = strings.TrimSpace(value)
+	if value == "" {
+		return "-"
+	}
+	value = strings.Join(strings.Fields(value), " ")
+	if maxLen <= 0 || len(value) <= maxLen {
+		return value
+	}
+	if maxLen <= 3 {
+		return strings.Repeat(".", maxLen)
+	}
+	cut := maxLen - 3
+	for cut > 0 && !utf8.RuneStart(value[cut]) {
+		cut--
+	}
+	if cut == 0 {
+		return "..."
+	}
+	return strings.TrimSpace(value[:cut]) + "..."
 }
 
 func parseChecklistIndices(raw string, max int) ([]int, error) {

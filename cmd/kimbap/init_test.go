@@ -332,7 +332,7 @@ func TestRenderInitSummaryIncludesWarnings(t *testing.T) {
 		{Name: "b", Status: "warn", Detail: "warn"},
 		{Name: "c", Status: "skip", Detail: "skip"},
 		{Name: "d", Status: "fail", Detail: "fail"},
-	})
+	}, initServiceSelection{})
 
 	if !strings.Contains(summary, "warnings: 1") {
 		t.Fatalf("expected warning count in summary, got:\n%s", summary)
@@ -348,13 +348,30 @@ func TestRenderInitSummaryShowsShortcutExamples(t *testing.T) {
 		t.Fatalf("write config: %v", err)
 	}
 
-	summary := renderInitSummary(configPath, []doctorCheck{{Name: "config file", Status: "ok", Detail: "created"}})
+	summary := renderInitSummary(configPath, []doctorCheck{{Name: "config file", Status: "ok", Detail: "created"}}, initServiceSelection{})
 
 	if !strings.Contains(summary, "geosearch, hn, weather --help") {
 		t.Fatalf("expected sorted shortcut examples, got:\n%s", summary)
 	}
 	if strings.Contains(summary, "kimbap call <service.action> --help") {
 		t.Fatalf("expected old call guidance removed, got:\n%s", summary)
+	}
+}
+
+func TestRenderInitSummaryShowsSelectedLinkCommands(t *testing.T) {
+	summary := renderInitSummary("/tmp/config.yaml", []doctorCheck{{Name: "config file", Status: "ok", Detail: "created"}}, initServiceSelection{Names: []string{"github", "open-meteo", "slack"}})
+
+	if !strings.Contains(summary, "kimbap link github") {
+		t.Fatalf("expected github link command in summary, got:\n%s", summary)
+	}
+	if !strings.Contains(summary, "kimbap link slack") {
+		t.Fatalf("expected slack link command in summary, got:\n%s", summary)
+	}
+	if strings.Contains(summary, "kimbap link open-meteo") {
+		t.Fatalf("expected non-auth service to be omitted from link commands, got:\n%s", summary)
+	}
+	if strings.Contains(summary, "kimbap link <service>") {
+		t.Fatalf("expected generic link placeholder to be replaced when explicit commands exist, got:\n%s", summary)
 	}
 }
 
@@ -573,6 +590,38 @@ func TestFilterStarterServiceNamesExcludesCredentialRequiredServices(t *testing.
 		if got[i] != want[i] {
 			t.Fatalf("starter[%d]: expected %q, got %q", i, want[i], got[i])
 		}
+	}
+}
+
+func TestRenderInitChecklistRowIncludesRecommendedAuthAndDescription(t *testing.T) {
+	starterSet := map[string]struct{}{"github": {}}
+	row := renderInitChecklistRow("github", initChecklistService{
+		Name:         "github",
+		Description:  "Manage repositories and issues",
+		AuthRequired: true,
+	}, starterSet)
+
+	if !strings.Contains(row, "github") {
+		t.Fatalf("expected row to include service name, got %q", row)
+	}
+	if !strings.Contains(row, "(recommended)") {
+		t.Fatalf("expected row to include recommended marker, got %q", row)
+	}
+	if !strings.Contains(row, "[auth]") {
+		t.Fatalf("expected row to include auth marker, got %q", row)
+	}
+	if !strings.Contains(row, "Manage repositories and issues") {
+		t.Fatalf("expected row to include description, got %q", row)
+	}
+}
+
+func TestCompactChecklistDescriptionCollapsesWhitespaceAndTruncates(t *testing.T) {
+	got := compactChecklistDescription("  first line\n second   line  ", 10)
+	if got != "first l..." {
+		t.Fatalf("compactChecklistDescription() = %q, want %q", got, "first l...")
+	}
+	if len(got) != 10 {
+		t.Fatalf("expected truncated description length 10, got %d (%q)", len(got), got)
 	}
 }
 

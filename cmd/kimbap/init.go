@@ -100,7 +100,7 @@ func newInitCommand() *cobra.Command {
 				return nil
 			}
 
-			if err := printOutput(renderInitSummary(configPath, checks)); err != nil {
+			if err := printOutput(renderInitSummary(configPath, checks, serviceSelection)); err != nil {
 				return err
 			}
 			if hasFailure {
@@ -722,7 +722,7 @@ func appendInitChecks(checks []doctorCheck, hasFailure bool, newChecks ...doctor
 	return checks, hasFailure
 }
 
-func renderInitSummary(configPath string, checks []doctorCheck) string {
+func renderInitSummary(configPath string, checks []doctorCheck, selection initServiceSelection) string {
 	created := 0
 	skipped := 0
 	warnings := 0
@@ -794,11 +794,49 @@ func renderInitSummary(configPath string, checks []doctorCheck) string {
 			}
 		}
 		_, _ = fmt.Fprintf(&b, "  %-38s %s\n", "kimbap actions list", "See available actions")
-		_, _ = fmt.Fprintf(&b, "  %-38s %s\n", "kimbap link <service>", "Connect a service with credentials")
+		linkCommands := initSummaryLinkCommands(selection)
+		if len(linkCommands) > 0 {
+			for _, cmd := range linkCommands {
+				_, _ = fmt.Fprintf(&b, "  %-38s %s\n", cmd, "Connect selected service credentials")
+			}
+		} else {
+			_, _ = fmt.Fprintf(&b, "  %-38s %s\n", "kimbap link <service>", "Connect a service with credentials")
+		}
 		_, _ = fmt.Fprintf(&b, "  %-38s %s\n", "kimbap agents setup", "Set up AI agent integration")
 	}
 
 	return strings.TrimRight(b.String(), "\n")
+}
+
+func initSummaryLinkCommands(selection initServiceSelection) []string {
+	if selection.Skipped || len(selection.Names) == 0 {
+		return nil
+	}
+	commands := make([]string, 0, len(selection.Names))
+	seen := make(map[string]struct{}, len(selection.Names))
+	for _, name := range selection.Names {
+		trimmed := strings.TrimSpace(name)
+		if trimmed == "" {
+			continue
+		}
+		if _, ok := seen[trimmed]; ok {
+			continue
+		}
+		seen[trimmed] = struct{}{}
+		data, err := catalog.Get(trimmed)
+		if err != nil {
+			continue
+		}
+		manifest, err := services.ParseManifest(data)
+		if err != nil {
+			continue
+		}
+		if !serviceManifestRequiresCredentials(manifest) {
+			continue
+		}
+		commands = append(commands, "kimbap link "+trimmed)
+	}
+	return commands
 }
 
 func ensureKBSymlink() doctorCheck {
