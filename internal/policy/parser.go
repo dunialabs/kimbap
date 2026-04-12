@@ -1,6 +1,7 @@
 package policy
 
 import (
+	"bytes"
 	"fmt"
 	"os"
 	"path"
@@ -31,7 +32,9 @@ type ValidationError struct {
 
 func ParseDocument(data []byte) (*PolicyDocument, error) {
 	var doc PolicyDocument
-	if err := yaml.Unmarshal(data, &doc); err != nil {
+	dec := yaml.NewDecoder(bytes.NewReader(data))
+	dec.KnownFields(true)
+	if err := dec.Decode(&doc); err != nil {
 		return nil, fmt.Errorf("parse policy document: %w", err)
 	}
 	errs := ValidateDocument(&doc)

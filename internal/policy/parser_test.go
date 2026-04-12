@@ -46,6 +46,24 @@ rules:
 	}
 }
 
+func TestParseDocumentRejectsUnknownFields(t *testing.T) {
+	data := []byte(`
+version: "1.0.0"
+rules:
+  - id: typo
+    priority: 1
+    match: { actions: ["*"] }
+    decsion: allow
+`)
+	_, err := ParseDocument(data)
+	if err == nil {
+		t.Fatal("expected unknown-field parse error")
+	}
+	if !strings.Contains(err.Error(), "decsion") {
+		t.Fatalf("expected unknown field in error, got %v", err)
+	}
+}
+
 func TestParseDocumentRejectsInvalidTimeWindowAfter(t *testing.T) {
 	data := []byte(`
 version: "1.0.0"
