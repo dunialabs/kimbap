@@ -109,10 +109,9 @@ func TestStoreTokenAdapterValidateAndResolveUsesTokenIDAsPrincipalID(t *testing.
 }
 
 func TestServerListActions(t *testing.T) {
-	ts, rawBootstrap := newTestAPIServer(t)
+	ts, _ := newTestAPIServer(t)
 
 	req, _ := http.NewRequest(http.MethodGet, ts.URL+"/v1/actions", nil)
-	req.Header.Set("Authorization", "Bearer "+rawBootstrap)
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
 		t.Fatalf("actions request: %v", err)
@@ -162,7 +161,6 @@ func TestServerListActionsWithRuntime(t *testing.T) {
 	})
 
 	req, _ := http.NewRequest(http.MethodGet, ts.URL+"/v1/actions", nil)
-	req.Header.Set("Authorization", "Bearer ktk_bootstrap_token_for_tests")
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
 		t.Fatalf("actions request: %v", err)
@@ -186,6 +184,86 @@ func TestServerListActionsWithRuntime(t *testing.T) {
 	}
 	if len(data) != 1 {
 		t.Fatalf("expected 1 action, got %d", len(data))
+	}
+	item, ok := data[0].(map[string]any)
+	if !ok {
+		t.Fatalf("expected action item object, got %T", data[0])
+	}
+	auth, ok := item["Auth"].(map[string]any)
+	if !ok {
+		t.Fatalf("expected auth object, got %T", item["Auth"])
+	}
+	if auth["Type"] != "" && auth["Type"] != "none" {
+		t.Fatalf("expected public auth type only, got %v", auth["Type"])
+	}
+	if _, exists := auth["CredentialRef"]; exists {
+		t.Fatalf("expected CredentialRef to be omitted from public list payload")
+	}
+	if _, exists := item["Adapter"]; exists {
+		t.Fatalf("expected Adapter to be omitted from public list payload")
+	}
+}
+
+func TestServerDescribeActionIsPublic(t *testing.T) {
+	st, err := store.OpenSQLiteStore(filepath.Join(t.TempDir(), "api-action-detail-runtime.sqlite"))
+	if err != nil {
+		t.Fatalf("open sqlite store: %v", err)
+	}
+	if err := st.Migrate(context.Background()); err != nil {
+		t.Fatalf("migrate store: %v", err)
+	}
+
+	server := NewServer(":0", st, WithRuntime(&runtimepkg.Runtime{ActionRegistry: staticActionRegistry{items: []actions.ActionDefinition{{
+		Name:        "apple-notes.list-notes",
+		Namespace:   "apple-notes",
+		Description: "List Apple Notes",
+	}}}}))
+	ts := httptest.NewServer(server.Router())
+	t.Cleanup(func() {
+		ts.Close()
+		_ = st.Close()
+	})
+
+	req, _ := http.NewRequest(http.MethodGet, ts.URL+"/v1/actions/apple-notes/list-notes", nil)
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatalf("describe action request: %v", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("expected 200, got %d", resp.StatusCode)
+	}
+
+	var body map[string]any
+	if err := json.NewDecoder(resp.Body).Decode(&body); err != nil {
+		t.Fatalf("decode action detail response: %v", err)
+	}
+	if body["success"] != true {
+		t.Fatalf("expected success=true, got %v", body["success"])
+	}
+	data, ok := body["data"].(map[string]any)
+	if !ok {
+		t.Fatalf("expected data object, got %T", body["data"])
+	}
+	if data["Name"] != "apple-notes.list-notes" {
+		t.Fatalf("expected action name, got %v", data["Name"])
+	}
+	auth, ok := data["Auth"].(map[string]any)
+	if !ok {
+		t.Fatalf("expected auth object, got %T", data["Auth"])
+	}
+	if auth["Type"] != "none" {
+		t.Fatalf("expected public auth type none, got %v", auth["Type"])
+	}
+	if _, exists := auth["CredentialRef"]; exists {
+		t.Fatalf("expected CredentialRef to be omitted from public detail payload")
+	}
+	if _, exists := data["Adapter"]; exists {
+		t.Fatalf("expected Adapter to be omitted from public detail payload")
+	}
+	if _, exists := data["OutputSchema"]; exists {
+		t.Fatalf("expected OutputSchema to be omitted from public detail payload")
 	}
 }
 

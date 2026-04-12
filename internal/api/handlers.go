@@ -58,7 +58,7 @@ func (s *Server) handleListActions(w http.ResponseWriter, r *http.Request) {
 		writeEnvelopeError(w, r, actions.NewExecutionError(actions.ErrDownstreamUnavailable, "internal server error", http.StatusInternalServerError, false, nil))
 		return
 	}
-	writeSuccess(w, r, http.StatusOK, defs)
+	writeSuccess(w, r, http.StatusOK, toPublicActionDefinitions(defs))
 }
 
 func (s *Server) handleDescribeAction(w http.ResponseWriter, r *http.Request) {
@@ -80,7 +80,57 @@ func (s *Server) handleDescribeAction(w http.ResponseWriter, r *http.Request) {
 		writeEnvelopeError(w, r, actions.NewExecutionError(actions.ErrActionNotFound, "action not found", http.StatusNotFound, false, map[string]any{"action": name}))
 		return
 	}
-	writeSuccess(w, r, http.StatusOK, def)
+	writeSuccess(w, r, http.StatusOK, toPublicActionDefinition(*def))
+}
+
+type publicAuthRequirement struct {
+	Type string `json:"Type"`
+}
+
+type publicActionDefinition struct {
+	Name         string                `json:"Name"`
+	Version      int                   `json:"Version"`
+	DisplayName  string                `json:"DisplayName"`
+	Namespace    string                `json:"Namespace"`
+	Verb         string                `json:"Verb"`
+	Resource     string                `json:"Resource"`
+	Description  string                `json:"Description"`
+	Risk         actions.RiskLevel     `json:"Risk"`
+	Idempotent   bool                  `json:"Idempotent"`
+	ApprovalHint actions.ApprovalHint  `json:"ApprovalHint"`
+	Auth         publicAuthRequirement `json:"Auth"`
+	InputSchema  *actions.Schema       `json:"InputSchema,omitempty"`
+}
+
+func toPublicActionDefinitions(defs []actions.ActionDefinition) []publicActionDefinition {
+	out := make([]publicActionDefinition, 0, len(defs))
+	for _, def := range defs {
+		out = append(out, toPublicActionDefinition(def))
+	}
+	return out
+}
+
+func toPublicActionDefinition(def actions.ActionDefinition) publicActionDefinition {
+	authType := string(def.Auth.Type)
+	if authType == "" {
+		authType = string(actions.AuthTypeNone)
+	}
+	return publicActionDefinition{
+		Name:         def.Name,
+		Version:      def.Version,
+		DisplayName:  def.DisplayName,
+		Namespace:    def.Namespace,
+		Verb:         def.Verb,
+		Resource:     def.Resource,
+		Description:  def.Description,
+		Risk:         def.Risk,
+		Idempotent:   def.Idempotent,
+		ApprovalHint: def.ApprovalHint,
+		Auth: publicAuthRequirement{
+			Type: authType,
+		},
+		InputSchema: def.InputSchema,
+	}
 }
 
 func (s *Server) handleExecuteAction(w http.ResponseWriter, r *http.Request) {

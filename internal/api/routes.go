@@ -17,13 +17,13 @@ func (s *Server) registerRoutes() {
 	r.Route("/v1", func(r chi.Router) {
 		r.Use(JSONContentType())
 		r.Get("/health", s.handleHealth)
+		r.Get("/actions", s.handleListActions)
+		r.Get("/actions/{service}/{action}", s.handleDescribeAction)
 
 		r.Group(func(r chi.Router) {
 			r.Use(BearerAuth(s.tokenService))
 			r.Use(TenantContext())
 
-			r.With(RequireScope("actions:read")).Get("/actions", s.handleListActions)
-			r.With(RequireScope("actions:read")).Get("/actions/{service}/{action}", s.handleDescribeAction)
 			r.With(RequireScope("actions:execute")).Post("/actions/{service}/{action}:execute", s.handleExecuteAction)
 			r.Post("/actions/validate", s.handleValidateAction)
 
