@@ -47,7 +47,6 @@ func (s *sqlConnectorStore) Save(ctx context.Context, state *connectors.Connecto
 	if err := s.ensureConnectorSchema(ctx); err != nil {
 		return err
 	}
-	scopesJSON := strings.Join(state.Scopes, " ")
 	q := `INSERT INTO connector_states (tenant_id, name, provider, status, account, expires_at, updated_at, last_refresh, scopes_json,
 			access_token, refresh_token, workspace_id, connected_principal, connection_scope, revoked_at, flow_used, last_refresh_error, last_used_at, created_at)
 		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
@@ -60,14 +59,87 @@ func (s *sqlConnectorStore) Save(ctx context.Context, state *connectors.Connecto
 			connection_scope=excluded.connection_scope, revoked_at=excluded.revoked_at,
 			flow_used=excluded.flow_used, last_refresh_error=excluded.last_refresh_error,
 			last_used_at=excluded.last_used_at`
-	_, err := s.db.ExecContext(ctx, bindQuery(q, s.dialect),
-		state.TenantID, state.Name, state.Provider, string(state.Status),
-		state.Account, state.ExpiresAt, state.UpdatedAt, state.LastRefresh, scopesJSON,
-		state.AccessToken, state.RefreshToken, state.WorkspaceID, state.ConnectedPrincipal,
-		string(state.ConnectionScope), state.RevokedAt, string(state.FlowUsed), state.LastRefreshError, state.LastUsedAt,
-		state.CreatedAt,
-	)
+	_, err := s.db.ExecContext(ctx, bindQuery(q, s.dialect), connectorStateArgs(state)...)
 	return err
+}
+
+func (s *sqlConnectorStore) SaveIfUnchanged(ctx context.Context, previous, next *connectors.ConnectorState) (bool, error) {
+	if err := s.ensureConnectorSchema(ctx); err != nil {
+		return false, err
+	}
+	if previous == nil {
+		q := `INSERT INTO connector_states (tenant_id, name, provider, status, account, expires_at, updated_at, last_refresh, scopes_json,
+				access_token, refresh_token, workspace_id, connected_principal, connection_scope, revoked_at, flow_used, last_refresh_error, last_used_at, created_at)
+			VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+			ON CONFLICT(tenant_id, name) DO NOTHING`
+		result, err := s.db.ExecContext(ctx, bindQuery(q, s.dialect), connectorStateArgs(next)...)
+		if err != nil {
+			return false, err
+		}
+		rows, err := result.RowsAffected()
+		if err != nil {
+			return false, err
+		}
+		return rows > 0, nil
+	}
+
+	setClause := `provider=?, status=?, account=?, expires_at=?, updated_at=?, last_refresh=?, scopes_json=?,
+		access_token=?, refresh_token=?, workspace_id=?, connected_principal=?, connection_scope=?, revoked_at=?, flow_used=?,
+		last_refresh_error=?, last_used_at=?, created_at=?`
+	args := connectorStateUpdateArgs(next)
+	if previous.UpdatedAt.IsZero() {
+		q := `UPDATE connector_states SET ` + setClause + ` WHERE tenant_id = ? AND name = ? AND updated_at IS NULL`
+		args = append(args, next.TenantID, next.Name)
+		result, err := s.db.ExecContext(ctx, bindQuery(q, s.dialect), args...)
+		if err != nil {
+			return false, err
+		}
+		rows, err := result.RowsAffected()
+		if err != nil {
+			return false, err
+		}
+		return rows > 0, nil
+	}
+
+	q := `UPDATE connector_states SET ` + setClause + ` WHERE tenant_id = ? AND name = ? AND updated_at = ?`
+	args = append(args, next.TenantID, next.Name, previous.UpdatedAt)
+	result, err := s.db.ExecContext(ctx, bindQuery(q, s.dialect), args...)
+	if err != nil {
+		return false, err
+	}
+	rows, err := result.RowsAffected()
+	if err != nil {
+		return false, err
+	}
+	return rows > 0, nil
+}
+
+func connectorStateArgs(state *connectors.ConnectorState) []any {
+	args := connectorStateUpdateArgs(state)
+	return append([]any{state.TenantID, state.Name}, args...)
+}
+
+func connectorStateUpdateArgs(state *connectors.ConnectorState) []any {
+	scopesJSON := strings.Join(state.Scopes, " ")
+	return []any{
+		state.Provider,
+		string(state.Status),
+		state.Account,
+		state.ExpiresAt,
+		state.UpdatedAt,
+		state.LastRefresh,
+		scopesJSON,
+		state.AccessToken,
+		state.RefreshToken,
+		state.WorkspaceID,
+		state.ConnectedPrincipal,
+		string(state.ConnectionScope),
+		state.RevokedAt,
+		string(state.FlowUsed),
+		state.LastRefreshError,
+		state.LastUsedAt,
+		state.CreatedAt,
+	}
 }
 
 func scanConnectorRow(scanner interface{ Scan(...any) error }, tenantID string) (connectors.ConnectorState, error) {

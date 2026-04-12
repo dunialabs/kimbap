@@ -105,6 +105,105 @@ func TestSQLConnectorStoreRoundTripAndIdempotentMigration(t *testing.T) {
 	}
 }
 
+func TestSQLConnectorStoreSaveIfUnchangedRejectsStaleSnapshot(t *testing.T) {
+	dsn := filepath.Join(t.TempDir(), "connector-stale.db")
+	db, err := sql.Open("sqlite", dsn)
+	if err != nil {
+		t.Fatalf("open sqlite: %v", err)
+	}
+	store := &sqlConnectorStore{db: db, dialect: "sqlite"}
+	t.Cleanup(func() {
+		_ = store.Close()
+	})
+
+	now := time.Now().UTC().Round(0)
+	initial := &connectors.ConnectorState{
+		TenantID:        "tenant-a",
+		Name:            "github",
+		Provider:        "github",
+		Status:          connectors.StatusHealthy,
+		CreatedAt:       now,
+		UpdatedAt:       now,
+		ConnectionScope: connectors.ScopeUser,
+	}
+	if err := store.Save(context.Background(), initial); err != nil {
+		t.Fatalf("save initial state: %v", err)
+	}
+
+	fresh, err := store.Get(context.Background(), "tenant-a", "github")
+	if err != nil {
+		t.Fatalf("get fresh state: %v", err)
+	}
+	stale := *fresh
+
+	fresh.Status = connectors.StatusExpiring
+	fresh.UpdatedAt = now.Add(1 * time.Minute)
+	saved, err := store.SaveIfUnchanged(context.Background(), &stale, fresh)
+	if err != nil {
+		t.Fatalf("save fresh snapshot: %v", err)
+	}
+	if !saved {
+		t.Fatal("expected fresh snapshot save to succeed")
+	}
+
+	stale.Status = connectors.StatusReauthNeeded
+	stale.UpdatedAt = now.Add(2 * time.Minute)
+	saved, err = store.SaveIfUnchanged(context.Background(), &stale, &stale)
+	if err != nil {
+		t.Fatalf("save stale snapshot: %v", err)
+	}
+	if saved {
+		t.Fatal("expected stale snapshot save to be rejected")
+	}
+
+	got, err := store.Get(context.Background(), "tenant-a", "github")
+	if err != nil {
+		t.Fatalf("get state after stale save: %v", err)
+	}
+	if got == nil || got.Status != connectors.StatusExpiring {
+		t.Fatalf("expected latest status to remain expiring, got %+v", got)
+	}
+}
+
+func TestSQLConnectorStoreSaveIfUnchangedInsertsOnlyOnce(t *testing.T) {
+	dsn := filepath.Join(t.TempDir(), "connector-insert.db")
+	db, err := sql.Open("sqlite", dsn)
+	if err != nil {
+		t.Fatalf("open sqlite: %v", err)
+	}
+	store := &sqlConnectorStore{db: db, dialect: "sqlite"}
+	t.Cleanup(func() {
+		_ = store.Close()
+	})
+
+	now := time.Now().UTC().Round(0)
+	state := &connectors.ConnectorState{
+		TenantID:        "tenant-a",
+		Name:            "github",
+		Provider:        "github",
+		Status:          connectors.StatusHealthy,
+		CreatedAt:       now,
+		UpdatedAt:       now,
+		ConnectionScope: connectors.ScopeUser,
+	}
+
+	saved, err := store.SaveIfUnchanged(context.Background(), nil, state)
+	if err != nil {
+		t.Fatalf("first conditional insert: %v", err)
+	}
+	if !saved {
+		t.Fatal("expected first conditional insert to succeed")
+	}
+
+	saved, err = store.SaveIfUnchanged(context.Background(), nil, state)
+	if err != nil {
+		t.Fatalf("second conditional insert: %v", err)
+	}
+	if saved {
+		t.Fatal("expected duplicate conditional insert to be rejected")
+	}
+}
+
 func TestConnectorReadOnlyStoreSupportsSQLiteURIDSNOnMainAgain(t *testing.T) {
 	dbPath := filepath.Join(t.TempDir(), "connector.db")
 	db, err := sql.Open("sqlite", dbPath)
