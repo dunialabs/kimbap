@@ -661,23 +661,24 @@ func TestCommandAdapterExecute_EnvPassthrough(t *testing.T) {
 	}
 }
 
-func TestSafeProcessEnv_AllowlistOnly(t *testing.T) {
+func TestSafeProcessEnv_PreservesOperationalEnvOnly(t *testing.T) {
 	t.Setenv("PATH", "/usr/bin")
 	t.Setenv("LANG", "en_US.UTF-8")
 	t.Setenv("LC_ALL", "en_US.UTF-8")
 	t.Setenv("HTTP_PROXY", "http://proxy.local:8080")
+	t.Setenv("SSL_CERT_FILE", "/etc/ssl/custom.pem")
 	t.Setenv("KIMBAP_MASTER_KEY_HEX", "secret")
 
 	out := safeProcessEnv()
 	joined := strings.Join(out, "\n")
 
-	for _, want := range []string{"PATH=/usr/bin", "LANG=en_US.UTF-8", "LC_ALL=en_US.UTF-8"} {
+	for _, want := range []string{"PATH=/usr/bin", "LANG=en_US.UTF-8", "LC_ALL=en_US.UTF-8", "HTTP_PROXY=http://proxy.local:8080", "SSL_CERT_FILE=/etc/ssl/custom.pem"} {
 		if !strings.Contains(joined, want) {
 			t.Fatalf("expected %q to be preserved, got %v", want, out)
 		}
 	}
 
-	for _, blocked := range []string{"HTTP_PROXY=http://proxy.local:8080", "KIMBAP_MASTER_KEY_HEX=secret"} {
+	for _, blocked := range []string{"KIMBAP_MASTER_KEY_HEX=secret"} {
 		if strings.Contains(joined, blocked) {
 			t.Fatalf("expected %q to be excluded by allowlist, got %v", blocked, out)
 		}

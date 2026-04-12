@@ -478,7 +478,12 @@ func isDisabledCommandJSONFlag(raw string) bool {
 }
 
 func safeProcessEnv() []string {
-	allowedPrefixes := []string{"PATH=", "HOME=", "USER=", "LOGNAME=", "SHELL=", "TMPDIR=", "TMP=", "TEMP=", "LANG=", "LC_"}
+	allowedPrefixes := []string{
+		"PATH=", "HOME=", "USER=", "LOGNAME=", "SHELL=", "TMPDIR=", "TMP=", "TEMP=", "LANG=", "LC_",
+		"HTTP_PROXY=", "HTTPS_PROXY=", "ALL_PROXY=", "NO_PROXY=",
+		"http_proxy=", "https_proxy=", "all_proxy=", "no_proxy=",
+		"SSL_CERT_FILE=", "NODE_EXTRA_CA_CERTS=", "REQUESTS_CA_BUNDLE=", "CURL_CA_BUNDLE=", "GIT_SSL_CAINFO=", "GRPC_DEFAULT_SSL_ROOTS_FILE_PATH=",
+	}
 	out := make([]string, 0, len(allowedPrefixes))
 	for _, entry := range os.Environ() {
 		for _, prefix := range allowedPrefixes {
