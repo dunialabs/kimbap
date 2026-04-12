@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"sort"
 	"strconv"
 	"strings"
 
@@ -22,6 +23,8 @@ type statusSummary struct {
 	Agents      int    `json:"agents"`
 	Policy      string `json:"policy"`
 }
+
+var statusLoadLinkServices = loadLinkServices
 
 func newStatusCommand() *cobra.Command {
 	cmd := &cobra.Command{
@@ -79,7 +82,7 @@ func statusHasKeyBasedServices(cfg *config.KimbapConfig) bool {
 	if cfg == nil {
 		return false
 	}
-	services, err := loadLinkServices(cfg)
+	services, err := statusLoadLinkServices(cfg)
 	if err != nil {
 		return false
 	}
@@ -89,6 +92,29 @@ func statusHasKeyBasedServices(cfg *config.KimbapConfig) bool {
 		}
 	}
 	return false
+}
+
+func statusActionableLinkServices(cfg *config.KimbapConfig) []string {
+	if cfg == nil {
+		return nil
+	}
+	services, err := statusLoadLinkServices(cfg)
+	if err != nil {
+		return nil
+	}
+	actionable := make([]string, 0, len(services))
+	for _, info := range services {
+		if info.AuthType == actions.AuthTypeNone || linkIsOAuthService(info, nil) {
+			continue
+		}
+		name := strings.TrimSpace(info.Service)
+		if name == "" {
+			continue
+		}
+		actionable = append(actionable, name)
+	}
+	sort.Strings(actionable)
+	return actionable
 }
 
 func renderStatusSummary(summary statusSummary, cfg *config.KimbapConfig) string {
@@ -120,7 +146,12 @@ func renderStatusSummary(summary statusSummary, cfg *config.KimbapConfig) string
 	if summary.Services == 0 {
 		lines = append(lines, "", "Run 'kimbap init --services select' to install services.")
 	} else if summary.Credentials == 0 && statusHasKeyBasedServices(cfg) {
-		lines = append(lines, "", "Run 'kimbap link list' to see which services need credentials.")
+		actionable := statusActionableLinkServices(cfg)
+		if len(actionable) > 0 && len(actionable) <= 3 {
+			lines = append(lines, "", linkConnectFooter(actionable))
+		} else {
+			lines = append(lines, "", "Run 'kimbap link list' to see which services need credentials.")
+		}
 	} else if summary.Agents == 0 {
 		lines = append(lines, "", "Run 'kimbap agents setup' to configure AI agent integration.")
 	} else {

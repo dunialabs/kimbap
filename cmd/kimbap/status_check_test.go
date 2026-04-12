@@ -6,6 +6,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/dunialabs/kimbap/internal/actions"
 	"github.com/dunialabs/kimbap/internal/config"
 )
 
@@ -101,5 +102,50 @@ func TestRenderStatusSummaryCallHintWhenAllConnected(t *testing.T) {
 	out := renderStatusSummary(summary, nil)
 	if !strings.Contains(out, "kimbap call") {
 		t.Fatalf("expected call hint when all connected, got:\n%s", out)
+	}
+}
+
+func TestRenderStatusSummaryShowsSpecificLinkCommands(t *testing.T) {
+	original := statusLoadLinkServices
+	t.Cleanup(func() { statusLoadLinkServices = original })
+
+	statusLoadLinkServices = func(cfg *config.KimbapConfig) (map[string]linkServiceInfo, error) {
+		return map[string]linkServiceInfo{
+			"github":  {Service: "github", AuthType: actions.AuthTypeBearer},
+			"slack":   {Service: "slack", AuthType: actions.AuthTypeHeader},
+			"weather": {Service: "weather", AuthType: actions.AuthTypeNone},
+		}, nil
+	}
+
+	summary := statusSummary{Services: 2, Credentials: 0, Agents: 0}
+	out := renderStatusSummary(summary, &config.KimbapConfig{})
+	if !strings.Contains(out, "kimbap link github") || !strings.Contains(out, "kimbap link slack") {
+		t.Fatalf("expected explicit link commands, got:\n%s", out)
+	}
+	if strings.Contains(out, "kimbap link weather") {
+		t.Fatalf("expected no non-auth service hint, got:\n%s", out)
+	}
+	if strings.Contains(out, "kimbap link list") {
+		t.Fatalf("expected explicit link guidance instead of generic list hint, got:\n%s", out)
+	}
+}
+
+func TestRenderStatusSummaryFallsBackToLinkListForManyActionableServices(t *testing.T) {
+	original := statusLoadLinkServices
+	t.Cleanup(func() { statusLoadLinkServices = original })
+
+	statusLoadLinkServices = func(cfg *config.KimbapConfig) (map[string]linkServiceInfo, error) {
+		return map[string]linkServiceInfo{
+			"github":   {Service: "github", AuthType: actions.AuthTypeBearer},
+			"stripe":   {Service: "stripe", AuthType: actions.AuthTypeHeader},
+			"airtable": {Service: "airtable", AuthType: actions.AuthTypeHeader},
+			"resend":   {Service: "resend", AuthType: actions.AuthTypeHeader},
+		}, nil
+	}
+
+	summary := statusSummary{Services: 4, Credentials: 0, Agents: 0}
+	out := renderStatusSummary(summary, &config.KimbapConfig{})
+	if !strings.Contains(out, "kimbap link list") {
+		t.Fatalf("expected generic link-list fallback for many actionable services, got:\n%s", out)
 	}
 }
