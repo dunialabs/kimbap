@@ -23,43 +23,7 @@ func TestOfficialAppleScriptCommandsMatchManifestTargetApp(t *testing.T) {
 		t.Fatalf("read services/catalog: %v", err)
 	}
 
-	commands := map[string]adaptercommands.Command{}
-	for name, cmd := range adaptercommands.NotesCommands() {
-		commands[strings.TrimSpace(name)] = cmd
-	}
-	for name, cmd := range adaptercommands.CalendarCommands() {
-		commands[strings.TrimSpace(name)] = cmd
-	}
-	for name, cmd := range adaptercommands.RemindersCommands() {
-		commands[strings.TrimSpace(name)] = cmd
-	}
-	for name, cmd := range adaptercommands.MailCommands() {
-		commands[strings.TrimSpace(name)] = cmd
-	}
-	for name, cmd := range adaptercommands.FinderCommands() {
-		commands[strings.TrimSpace(name)] = cmd
-	}
-	for name, cmd := range adaptercommands.SafariCommands() {
-		commands[strings.TrimSpace(name)] = cmd
-	}
-	for name, cmd := range adaptercommands.MessagesCommands() {
-		commands[strings.TrimSpace(name)] = cmd
-	}
-	for name, cmd := range adaptercommands.ContactsCommands() {
-		commands[strings.TrimSpace(name)] = cmd
-	}
-	for name, cmd := range adaptercommands.MSOfficeCommands() {
-		commands[strings.TrimSpace(name)] = cmd
-	}
-	for name, cmd := range adaptercommands.IWorkCommands() {
-		commands[strings.TrimSpace(name)] = cmd
-	}
-	for name, cmd := range adaptercommands.SpotifyCommands() {
-		commands[strings.TrimSpace(name)] = cmd
-	}
-	for name, cmd := range adaptercommands.ShortcutsCommands() {
-		commands[strings.TrimSpace(name)] = cmd
-	}
+	commands := adaptercommands.AllCommands()
 
 	checked := 0
 	for _, entry := range entries {

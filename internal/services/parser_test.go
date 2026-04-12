@@ -600,26 +600,7 @@ func TestValidateManifest_RejectsDuplicateArgNames(t *testing.T) {
 }
 
 func TestAppleScriptCommandAllowlistMatchesRegisteredCommands(t *testing.T) {
-	registered := make(map[string]struct{})
-	registries := []map[string]adaptercommands.Command{
-		adaptercommands.NotesCommands(),
-		adaptercommands.CalendarCommands(),
-		adaptercommands.RemindersCommands(),
-		adaptercommands.MailCommands(),
-		adaptercommands.FinderCommands(),
-		adaptercommands.SafariCommands(),
-		adaptercommands.MessagesCommands(),
-		adaptercommands.ContactsCommands(),
-		adaptercommands.MSOfficeCommands(),
-		adaptercommands.IWorkCommands(),
-		adaptercommands.SpotifyCommands(),
-		adaptercommands.ShortcutsCommands(),
-	}
-	for _, registry := range registries {
-		for name := range registry {
-			registered[name] = struct{}{}
-		}
-	}
+	registered := adaptercommands.CommandNameSet()
 
 	for name := range registered {
 		if _, ok := validAppleScriptCommands[name]; !ok {
