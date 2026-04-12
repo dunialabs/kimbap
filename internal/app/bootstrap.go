@@ -27,6 +27,7 @@ type RuntimeDeps struct {
 	PolicyPath       string
 	ServicesDir      string
 	AuditWriter      runtimepkg.AuditWriter
+	AuditRequired    bool
 	ApprovalManager  runtimepkg.ApprovalManager
 	HeldStore        store.HeldExecutionStore
 }
@@ -112,8 +113,10 @@ func BuildRuntime(deps RuntimeDeps) (*runtimepkg.Runtime, error) {
 		commandAllowlist = []string{}
 	}
 	adaptersMap := map[string]adapters.Adapter{
-		"http":    adapters.NewHTTPAdapter(nil),
-		"command": adapters.NewCommandAdapter(commandAllowlist, 60*time.Second),
+		"http": adapters.NewHTTPAdapter(nil),
+		"command": adapters.NewDynamicCommandAdapter(commandAllowlist, 60*time.Second, func() ([]string, error) {
+			return collectCommandExecutables(actionRegistry)
+		}),
 	}
 	if goruntime.GOOS == "darwin" {
 		adaptersMap["applescript"] = adapters.NewAppleScriptAdapter(nil)
@@ -124,6 +127,7 @@ func BuildRuntime(deps RuntimeDeps) (*runtimepkg.Runtime, error) {
 		PolicyEvaluator:    policyEvaluator,
 		CredentialResolver: credentialResolver,
 		AuditWriter:        deps.AuditWriter,
+		AuditRequired:      deps.AuditRequired,
 		ApprovalManager:    deps.ApprovalManager,
 		HeldExecutionStore: heldStore,
 		Adapters:           adaptersMap,

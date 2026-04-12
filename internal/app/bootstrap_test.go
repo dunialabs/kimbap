@@ -380,6 +380,59 @@ actions:
 	}
 }
 
+func TestBuildRuntimeRefreshesCommandAllowlistAfterServiceInstall(t *testing.T) {
+	servicesDir := t.TempDir()
+	cfg := &config.KimbapConfig{Services: config.ServicesConfig{Dir: servicesDir}, Policy: config.PolicyConfig{Path: ""}}
+	rt, err := BuildRuntime(RuntimeDeps{Config: cfg})
+	if err != nil {
+		t.Fatalf("build runtime: %v", err)
+	}
+
+	installer := services.NewLocalInstaller(servicesDir)
+	manifest, err := services.ParseManifest([]byte(`name: dynamic-cli
+version: 1.0.0
+adapter: command
+auth:
+  type: none
+command_spec:
+  executable: /bin/echo
+actions:
+  run:
+    command: hello dynamic
+    json_flag: none
+    risk:
+      level: low
+`))
+	if err != nil {
+		t.Fatalf("parse command manifest: %v", err)
+	}
+	if _, err := installer.Install(manifest, "local"); err != nil {
+		t.Fatalf("install command manifest: %v", err)
+	}
+
+	def, err := rt.ActionRegistry.Lookup(context.Background(), "dynamic-cli.run")
+	if err != nil {
+		t.Fatalf("lookup dynamic command action: %v", err)
+	}
+	commandAdapter, ok := rt.Adapters["command"]
+	if !ok || commandAdapter == nil {
+		t.Fatal("expected command adapter to be registered")
+	}
+	if err := commandAdapter.Validate(*def); err != nil {
+		t.Fatalf("expected dynamic allowlist refresh to permit installed executable, got %v", err)
+	}
+	res, execErr := commandAdapter.Execute(context.Background(), adapters.AdapterRequest{Action: *def})
+	if execErr != nil {
+		t.Fatalf("execute dynamic command action: %v", execErr)
+	}
+	if got := res.Output["raw"]; got != "hello dynamic" {
+		t.Fatalf("expected command output to reflect installed service, got %+v", res.Output)
+	}
+	if res.HTTPStatus != 200 {
+		t.Fatalf("expected http status 200, got %d", res.HTTPStatus)
+	}
+}
+
 func TestServicesActionRegistryRefreshesDefinitionsImmediatelyAfterManifestChange(t *testing.T) {
 	servicesDir := t.TempDir()
 	const manifest = `name: cached-skill

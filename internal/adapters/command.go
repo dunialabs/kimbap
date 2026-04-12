@@ -21,11 +21,16 @@ const maxCommandOutputBytes int64 = 4 << 20
 const maxCommandStderrBytes int64 = 1 << 20
 
 type CommandAdapter struct {
-	allowlist map[string]bool
-	timeout   time.Duration
+	allowlist         map[string]bool
+	allowlistProvider func() ([]string, error)
+	timeout           time.Duration
 }
 
 func NewCommandAdapter(allowlist []string, timeout time.Duration) *CommandAdapter {
+	return NewDynamicCommandAdapter(allowlist, timeout, nil)
+}
+
+func NewDynamicCommandAdapter(allowlist []string, timeout time.Duration, allowlistProvider func() ([]string, error)) *CommandAdapter {
 	var allowMap map[string]bool
 	if allowlist != nil {
 		allowMap = make(map[string]bool, len(allowlist))
@@ -40,7 +45,7 @@ func NewCommandAdapter(allowlist []string, timeout time.Duration) *CommandAdapte
 		timeout = defaultCommandAdapterTimeout
 	}
 
-	return &CommandAdapter{allowlist: allowMap, timeout: timeout}
+	return &CommandAdapter{allowlist: allowMap, allowlistProvider: allowlistProvider, timeout: timeout}
 }
 
 func (a *CommandAdapter) Type() string {
@@ -54,7 +59,11 @@ func (a *CommandAdapter) Validate(def actions.ActionDefinition) error {
 	if strings.TrimSpace(def.Adapter.ExecutablePath) == "" {
 		return fmt.Errorf("command adapter requires executable path")
 	}
-	if a.allowlist != nil && !a.allowlist[strings.TrimSpace(def.Adapter.ExecutablePath)] {
+	allowlist, err := a.currentAllowlist()
+	if err != nil {
+		return err
+	}
+	if allowlist != nil && !allowlist[strings.TrimSpace(def.Adapter.ExecutablePath)] {
 		return fmt.Errorf("executable not allowed: %s", strings.TrimSpace(def.Adapter.ExecutablePath))
 	}
 	return nil
@@ -69,7 +78,12 @@ func (a *CommandAdapter) Execute(ctx context.Context, req AdapterRequest) (*Adap
 		execErr := actions.NewExecutionError(actions.ErrValidationFailed, "command adapter requires executable path", http.StatusBadRequest, false, nil)
 		return &AdapterResult{HTTPStatus: http.StatusBadRequest, DurationMS: time.Since(start).Milliseconds()}, execErr
 	}
-	if a.allowlist != nil && !a.allowlist[executable] {
+	allowlist, allowlistErr := a.currentAllowlist()
+	if allowlistErr != nil {
+		execErr := actions.NewExecutionError(actions.ErrDownstreamUnavailable, allowlistErr.Error(), http.StatusBadGateway, true, nil)
+		return &AdapterResult{HTTPStatus: http.StatusBadGateway, DurationMS: time.Since(start).Milliseconds()}, execErr
+	}
+	if allowlist != nil && !allowlist[executable] {
 		execErr := actions.NewExecutionError(actions.ErrUnauthorized, fmt.Sprintf("executable not allowed: %s", executable), http.StatusForbidden, false, nil)
 		return &AdapterResult{HTTPStatus: http.StatusForbidden, DurationMS: time.Since(start).Milliseconds()}, execErr
 	}
@@ -264,6 +278,30 @@ func (a *CommandAdapter) Execute(ctx context.Context, req AdapterRequest) (*Adap
 		DurationMS: durationMS,
 		RawBody:    stdout,
 	}, nil
+}
+
+func (a *CommandAdapter) currentAllowlist() (map[string]bool, error) {
+	if a == nil {
+		return nil, nil
+	}
+	if a.allowlistProvider == nil {
+		return a.allowlist, nil
+	}
+	executables, err := a.allowlistProvider()
+	if err != nil {
+		return nil, fmt.Errorf("resolve command allowlist: %w", err)
+	}
+	if executables == nil {
+		return nil, nil
+	}
+	allowlist := make(map[string]bool, len(executables))
+	for _, executable := range executables {
+		trimmed := strings.TrimSpace(executable)
+		if trimmed != "" {
+			allowlist[trimmed] = true
+		}
+	}
+	return allowlist, nil
 }
 
 func parseCommandOutput(stdout []byte) map[string]any {
