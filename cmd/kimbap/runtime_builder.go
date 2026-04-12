@@ -136,14 +136,17 @@ func buildRuntimeFromConfigWithCleanup(cfg *config.KimbapConfig) (*runtime.Runti
 
 	var auditWriter runtime.AuditWriter
 	var auditCloser interface{ Close() error }
+	auditRequired := false
 	auditPath := strings.TrimSpace(cfg.Audit.Path)
 	if auditPath != "" {
 		jw, jwErr := audit.NewJSONLWriter(auditPath)
 		if jwErr != nil {
-			_, _ = fmt.Fprintf(os.Stderr, "warning: audit writer init failed (%v), audit events will not be recorded\n", jwErr)
+			closeVaultStoreForBuild(vaultStore)
+			return nil, nil, fmt.Errorf("initialize audit writer: %w", jwErr)
 		} else {
 			auditWriter = app.NewAuditWriterAdapter(audit.NewRedactingWriter(jw))
 			auditCloser = jw
+			auditRequired = true
 		}
 	}
 
@@ -178,6 +181,7 @@ func buildRuntimeFromConfigWithCleanup(cfg *config.KimbapConfig) (*runtime.Runti
 		PolicyPath:       cfg.Policy.Path,
 		ServicesDir:      cfg.Services.Dir,
 		AuditWriter:      auditWriter,
+		AuditRequired:    auditRequired,
 		ApprovalManager:  approvalManager,
 		HeldStore:        runtimeStoreForCleanup,
 	})

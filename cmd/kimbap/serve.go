@@ -373,10 +373,12 @@ func buildServeRuntime(cfg *config.KimbapConfig, st *store.SQLStore, vaultStore 
 	}
 	var auditWriter runtime.AuditWriter
 	var auditCloser interface{ Close() error }
+	auditRequired := false
 	if len(writers) > 0 {
 		multiWriter := audit.NewMultiWriter(writers...)
 		auditWriter = app.NewAuditWriterAdapter(multiWriter)
 		auditCloser = multiWriter
+		auditRequired = true
 	}
 
 	approvalMgr := approvals.NewApprovalManager(
@@ -403,6 +405,7 @@ func buildServeRuntime(cfg *config.KimbapConfig, st *store.SQLStore, vaultStore 
 		PolicyPath:       cfg.Policy.Path,
 		ServicesDir:      cfg.Services.Dir,
 		AuditWriter:      auditWriter,
+		AuditRequired:    auditRequired,
 		ApprovalManager:  app.NewApprovalManagerAdapter(approvalMgr),
 		HeldStore:        st,
 	})

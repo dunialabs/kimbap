@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/dunialabs/kimbap/internal/actions"
@@ -181,4 +182,114 @@ func TestBuildRuntimeFromConfigClosesStoresOnBuildFailure(t *testing.T) {
 	if connectorStore.closed != 1 {
 		t.Fatalf("expected connector store Close once, got %d", connectorStore.closed)
 	}
+}
+
+func TestBuildRuntimeFromConfigFailsWhenConfiguredAuditWriterCannotInitialize(t *testing.T) {
+	dataDir := t.TempDir()
+	cfg := config.DefaultConfig()
+	cfg.Mode = "dev"
+	config.ApplyDataDirOverride(cfg, dataDir)
+	cfg.Audit.Path = dataDir
+
+	prevInitVault := initVaultStoreForBuild
+	prevOpenRuntime := openRuntimeStoreForBuild
+	prevOpenConnector := openConnectorStoreForBuild
+	prevCloseVault := closeVaultStoreForBuild
+	prevBuildRuntime := buildRuntimeForConfig
+	defer func() {
+		initVaultStoreForBuild = prevInitVault
+		openRuntimeStoreForBuild = prevOpenRuntime
+		openConnectorStoreForBuild = prevOpenConnector
+		closeVaultStoreForBuild = prevCloseVault
+		buildRuntimeForConfig = prevBuildRuntime
+	}()
+
+	vaultStore := &buildFailVaultStore{}
+	closeCalls := 0
+	initVaultStoreForBuild = func(*config.KimbapConfig) (vault.Store, error) {
+		return vaultStore, nil
+	}
+	openRuntimeStoreForBuild = func(*config.KimbapConfig) (*store.SQLStore, error) {
+		return nil, errors.New("runtime store unavailable")
+	}
+	openConnectorStoreForBuild = func(*config.KimbapConfig) (connectors.ConnectorStore, error) {
+		return nil, errors.New("connector store unavailable")
+	}
+	closeVaultStoreForBuild = func(st vault.Store) {
+		closeCalls++
+		if closer, ok := st.(interface{ Close() error }); ok {
+			_ = closer.Close()
+		}
+	}
+	buildRuntimeForConfig = func(app.RuntimeDeps) (*runtimepkg.Runtime, error) {
+		t.Fatal("buildRuntimeForConfig should not be called when audit writer initialization fails")
+		return nil, nil
+	}
+
+	_, err := buildRuntimeFromConfig(cfg)
+	if err == nil {
+		t.Fatal("expected audit writer initialization failure")
+	}
+	if !strings.Contains(err.Error(), "initialize audit writer") {
+		t.Fatalf("expected audit writer init error, got %v", err)
+	}
+	if closeCalls != 1 {
+		t.Fatalf("expected vault store close once, got %d", closeCalls)
+	}
+	if vaultStore.closed != 1 {
+		t.Fatalf("expected vault store Close once, got %d", vaultStore.closed)
+	}
+}
+
+func TestBuildRuntimeFromConfigMarksAuditAsRequiredWhenAuditWriterConfigured(t *testing.T) {
+	dataDir := t.TempDir()
+	cfg := config.DefaultConfig()
+	cfg.Mode = "dev"
+	config.ApplyDataDirOverride(cfg, dataDir)
+	cfg.Audit.Path = filepath.Join(dataDir, "audit.jsonl")
+
+	prevInitVault := initVaultStoreForBuild
+	prevOpenRuntime := openRuntimeStoreForBuild
+	prevOpenConnector := openConnectorStoreForBuild
+	prevCloseVault := closeVaultStoreForBuild
+	prevBuildRuntime := buildRuntimeForConfig
+	defer func() {
+		initVaultStoreForBuild = prevInitVault
+		openRuntimeStoreForBuild = prevOpenRuntime
+		openConnectorStoreForBuild = prevOpenConnector
+		closeVaultStoreForBuild = prevCloseVault
+		buildRuntimeForConfig = prevBuildRuntime
+	}()
+
+	vaultStore := &buildFailVaultStore{}
+	initVaultStoreForBuild = func(*config.KimbapConfig) (vault.Store, error) {
+		return vaultStore, nil
+	}
+	openRuntimeStoreForBuild = func(*config.KimbapConfig) (*store.SQLStore, error) {
+		return nil, errors.New("runtime store unavailable")
+	}
+	openConnectorStoreForBuild = func(*config.KimbapConfig) (connectors.ConnectorStore, error) {
+		return nil, errors.New("connector store unavailable")
+	}
+
+	var capturedDeps app.RuntimeDeps
+	buildRuntimeForConfig = func(deps app.RuntimeDeps) (*runtimepkg.Runtime, error) {
+		capturedDeps = deps
+		return &runtimepkg.Runtime{}, nil
+	}
+
+	rt, cleanup, err := buildRuntimeFromConfigWithCleanup(cfg)
+	if err != nil {
+		t.Fatalf("build runtime with audit writer: %v", err)
+	}
+	if rt == nil {
+		t.Fatal("expected runtime")
+	}
+	if !capturedDeps.AuditRequired {
+		t.Fatal("expected configured audit writer to mark runtime audit as required")
+	}
+	if capturedDeps.AuditWriter == nil {
+		t.Fatal("expected configured audit writer to be passed to runtime build")
+	}
+	cleanup()
 }
