@@ -16,6 +16,7 @@ import (
 	"time"
 
 	"github.com/dunialabs/kimbap/internal/actions"
+	"github.com/dunialabs/kimbap/internal/adapters"
 	"github.com/dunialabs/kimbap/internal/auth"
 	"github.com/dunialabs/kimbap/internal/authstore"
 	"github.com/dunialabs/kimbap/internal/config"
@@ -1000,6 +1001,93 @@ func TestServerApproveRequiresMultipleVotesWhenConfigured(t *testing.T) {
 	}
 	if len(votes) != 2 {
 		t.Fatalf("expected 2 votes persisted, got %d (%s)", len(votes), finalRecord.VotesJSON)
+	}
+}
+
+func TestServerApprovePropagatesResumedExecutionHTTPStatus(t *testing.T) {
+	ts, rawBootstrap, stAny := newTestAPIServerWithStore(t)
+	st, ok := stAny.(*store.SQLStore)
+	if !ok {
+		t.Fatalf("expected *store.SQLStore, got %T", stAny)
+	}
+
+	approvalID := "apr_resume_failure"
+	if err := st.CreateApproval(context.Background(), &store.ApprovalRecord{
+		ID:        approvalID,
+		TenantID:  "tenant-a",
+		RequestID: "req_resume_failure",
+		AgentName: "agent-a",
+		Service:   "command-skill",
+		Action:    "run",
+		Status:    "pending",
+		InputJSON: `{}`,
+		CreatedAt: time.Now().UTC(),
+		ExpiresAt: time.Now().UTC().Add(10 * time.Minute),
+	}); err != nil {
+		t.Fatalf("create approval: %v", err)
+	}
+
+	held := &recordingHeldExecutionStore{held: map[string]actions.ExecutionRequest{
+		approvalID: {
+			RequestID: "req_resume_failure",
+			TraceID:   "tr_resume_failure",
+			TenantID:  "tenant-a",
+			Principal: actions.Principal{ID: "principal-1", TenantID: "tenant-a", AgentName: "agent-a"},
+			Action: actions.ActionDefinition{
+				Name: "command-skill.run",
+				Adapter: actions.AdapterConfig{
+					Type:           "command",
+					ExecutablePath: "/bin/failing",
+				},
+			},
+		},
+	}}
+	server := NewServer(":0", st, WithRuntime(&runtimepkg.Runtime{
+		HeldExecutionStore: held,
+		Adapters: map[string]adapters.Adapter{
+			"command": failingApprovalAdapter{},
+		},
+	}))
+	ts.Close()
+	ts = httptest.NewServer(server.Router())
+	t.Cleanup(func() { ts.Close() })
+
+	req, _ := http.NewRequest(http.MethodPost, ts.URL+"/v1/approvals/"+approvalID+":approve", nil)
+	req.Header.Set("Authorization", "Bearer "+rawBootstrap)
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatalf("approve request: %v", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusBadGateway {
+		b, _ := io.ReadAll(resp.Body)
+		t.Fatalf("expected 502 when resumed execution fails, got %d body=%s", resp.StatusCode, string(b))
+	}
+	var payload map[string]any
+	if err := json.NewDecoder(resp.Body).Decode(&payload); err != nil {
+		t.Fatalf("decode payload: %v", err)
+	}
+	if payload["success"] != true {
+		t.Fatalf("expected envelope success=true with execution details, got %+v", payload)
+	}
+	data, ok := payload["data"].(map[string]any)
+	if !ok {
+		t.Fatalf("expected data object, got %T", payload["data"])
+	}
+	execution, ok := data["execution"].(map[string]any)
+	if !ok {
+		t.Fatalf("expected execution payload, got %+v", data)
+	}
+	if got := execution["http_status"]; got != float64(http.StatusBadGateway) {
+		t.Fatalf("expected execution http_status 502, got %v", got)
+	}
+	errMap, ok := execution["error"].(map[string]any)
+	if !ok {
+		t.Fatalf("expected execution error payload, got %+v", execution)
+	}
+	if errMap["code"] != actions.ErrDownstreamUnavailable {
+		t.Fatalf("expected downstream unavailable code, got %v", errMap["code"])
 	}
 }
 
@@ -2480,6 +2568,16 @@ func (s *recordingHeldExecutionStore) Remove(_ context.Context, approvalRequestI
 	s.removeCalls++
 	delete(s.held, approvalRequestID)
 	return nil
+}
+
+type failingApprovalAdapter struct{}
+
+func (failingApprovalAdapter) Type() string { return "command" }
+
+func (failingApprovalAdapter) Validate(actions.ActionDefinition) error { return nil }
+
+func (failingApprovalAdapter) Execute(context.Context, adapters.AdapterRequest) (*adapters.AdapterResult, error) {
+	return &adapters.AdapterResult{HTTPStatus: http.StatusBadGateway}, actions.NewExecutionError(actions.ErrDownstreamUnavailable, "resume execution failed", http.StatusBadGateway, true, nil)
 }
 
 type stubVaultStore struct {

@@ -169,7 +169,15 @@ func (s *Server) handleApprove(w http.ResponseWriter, r *http.Request) {
 		}
 		resp["execution"] = execMap
 	}
-	writeSuccess(w, r, http.StatusOK, resp)
+	statusCode := http.StatusOK
+	if execResult != nil && execResult.Status != actions.StatusSuccess {
+		if execResult.HTTPStatus > 0 {
+			statusCode = execResult.HTTPStatus
+		} else {
+			statusCode = http.StatusBadGateway
+		}
+	}
+	writeSuccess(w, r, statusCode, resp)
 }
 
 func (s *Server) handleDeny(w http.ResponseWriter, r *http.Request) {
