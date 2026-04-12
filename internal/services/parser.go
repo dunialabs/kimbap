@@ -43,27 +43,7 @@ type ValidationError struct {
 }
 
 func buildValidAppleScriptCommands() map[string]struct{} {
-	allowed := make(map[string]struct{})
-	registries := []map[string]adaptercommands.Command{
-		adaptercommands.NotesCommands(),
-		adaptercommands.CalendarCommands(),
-		adaptercommands.RemindersCommands(),
-		adaptercommands.MailCommands(),
-		adaptercommands.FinderCommands(),
-		adaptercommands.SafariCommands(),
-		adaptercommands.MessagesCommands(),
-		adaptercommands.ContactsCommands(),
-		adaptercommands.MSOfficeCommands(),
-		adaptercommands.IWorkCommands(),
-		adaptercommands.SpotifyCommands(),
-		adaptercommands.ShortcutsCommands(),
-	}
-	for _, registry := range registries {
-		for name := range registry {
-			allowed[name] = struct{}{}
-		}
-	}
-	return allowed
+	return adaptercommands.CommandNameSet()
 }
 
 func ParseManifest(data []byte) (*ServiceManifest, error) {

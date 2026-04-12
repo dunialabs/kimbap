@@ -6,7 +6,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"maps"
 	"net/http"
 	"strings"
 	"time"
@@ -28,23 +27,9 @@ func NewAppleScriptAdapter(runner CommandRunner) *AppleScriptAdapter {
 		runner = NewOSAScriptRunner()
 	}
 
-	allCmds := make(map[string]commands.Command)
-	maps.Copy(allCmds, commands.NotesCommands())
-	maps.Copy(allCmds, commands.CalendarCommands())
-	maps.Copy(allCmds, commands.RemindersCommands())
-	maps.Copy(allCmds, commands.MailCommands())
-	maps.Copy(allCmds, commands.FinderCommands())
-	maps.Copy(allCmds, commands.SafariCommands())
-	maps.Copy(allCmds, commands.MessagesCommands())
-	maps.Copy(allCmds, commands.ContactsCommands())
-	maps.Copy(allCmds, commands.MSOfficeCommands())
-	maps.Copy(allCmds, commands.IWorkCommands())
-	maps.Copy(allCmds, commands.SpotifyCommands())
-	maps.Copy(allCmds, commands.ShortcutsCommands())
-
 	return &AppleScriptAdapter{
 		runner:   runner,
-		commands: allCmds,
+		commands: commands.AllCommands(),
 	}
 }
 
