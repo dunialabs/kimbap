@@ -1,6 +1,8 @@
 package main
 
 import (
+	"crypto/ed25519"
+	"encoding/hex"
 	"encoding/json"
 	"io"
 	"net/http"
@@ -1655,6 +1657,141 @@ func TestServiceCLIInstalledFileParsesAsValidManifest(t *testing.T) {
 		}
 		if manifest.Name != serviceName {
 			t.Fatalf("installed manifest name = %q, want %q", manifest.Name, serviceName)
+		}
+	})
+}
+
+func TestServiceValidateCommandPrintsInstallHintInTextMode(t *testing.T) {
+	manifestPath := filepath.Join(t.TempDir(), "local-validate.yaml")
+	writeLocalManifest(t, manifestPath, "local-validate", "1.0.0")
+
+	prev := opts
+	opts = cliOptions{format: "text", noSplash: true}
+	t.Cleanup(func() { opts = prev })
+
+	validateCmd := newServiceValidateCommand()
+	validateCmd.SetArgs([]string{manifestPath})
+	stdout, err := captureStdout(t, validateCmd.Execute)
+	if err != nil {
+		t.Fatalf("service validate failed: %v", err)
+	}
+	if !strings.Contains(stdout, "local-validate (1.0.0) is valid") {
+		t.Fatalf("expected validation success message, got %q", stdout)
+	}
+	if !strings.Contains(stdout, "Install: run 'kimbap service install "+manifestPath+"'.") {
+		t.Fatalf("expected install hint, got %q", stdout)
+	}
+}
+
+func TestServiceSignAndVerifyCommandsWithPinnedKey(t *testing.T) {
+	dataDir := t.TempDir()
+	servicesDir := filepath.Join(dataDir, "services")
+	configPath := writeServiceCLIConfig(t, dataDir, servicesDir)
+
+	manifestPath := filepath.Join(t.TempDir(), "local-signed.yaml")
+	const serviceName = "local-signed"
+	writeLocalManifest(t, manifestPath, serviceName, "1.0.0")
+
+	prev := opts
+	opts = cliOptions{configPath: configPath, format: "text", noSplash: true}
+	t.Cleanup(func() { opts = prev })
+
+	installCmd := newServiceInstallCommand()
+	installCmd.SetArgs([]string{manifestPath})
+	if _, err := captureStdout(t, installCmd.Execute); err != nil {
+		t.Fatalf("service install failed: %v", err)
+	}
+
+	pub, priv, err := ed25519.GenerateKey(nil)
+	if err != nil {
+		t.Fatalf("generate ed25519 keypair: %v", err)
+	}
+
+	signingKeyPath := filepath.Join(t.TempDir(), "signing.key")
+	if err := os.WriteFile(signingKeyPath, []byte(hex.EncodeToString(priv.Seed())), 0o600); err != nil {
+		t.Fatalf("write signing key: %v", err)
+	}
+	pinnedKeyPath := filepath.Join(t.TempDir(), "signing.pub")
+	if err := os.WriteFile(pinnedKeyPath, []byte(hex.EncodeToString(pub)), 0o644); err != nil {
+		t.Fatalf("write pinned public key: %v", err)
+	}
+
+	signCmd := newServiceSignCommand()
+	signCmd.SetArgs([]string{"--key", signingKeyPath})
+	signOut, err := captureStdout(t, signCmd.Execute)
+	if err != nil {
+		t.Fatalf("service sign failed: %v", err)
+	}
+	if !strings.Contains(signOut, "lockfile signed") {
+		t.Fatalf("expected sign success output, got %q", signOut)
+	}
+	if !strings.Contains(signOut, "Run 'kimbap service verify' to confirm integrity.") {
+		t.Fatalf("expected verify hint after signing, got %q", signOut)
+	}
+
+	verifyCmd := newServiceVerifyCommand()
+	verifyCmd.SetArgs([]string{serviceName, "--key", pinnedKeyPath, "--signatures"})
+	verifyOut, err := captureStdout(t, verifyCmd.Execute)
+	if err != nil {
+		t.Fatalf("service verify with pinned key failed: %v", err)
+	}
+	if !strings.Contains(verifyOut, serviceName+": VERIFIED (locked) [signature: valid]") {
+		t.Fatalf("expected verified signature output, got %q", verifyOut)
+	}
+	if !strings.Contains(verifyOut, "Run 'kimbap service update "+serviceName+"' to update to the latest version.") {
+		t.Fatalf("expected update hint after verify, got %q", verifyOut)
+	}
+}
+
+func TestServiceVerifyCommandReturnsJSONFailureForTamperedManifest(t *testing.T) {
+	dataDir := t.TempDir()
+	servicesDir := filepath.Join(dataDir, "services")
+	configPath := writeServiceCLIConfig(t, dataDir, servicesDir)
+
+	withServiceCLIOpts(t, configPath, func() {
+		manifestPath := filepath.Join(t.TempDir(), "local-verify-tampered.yaml")
+		const serviceName = "local-verify-tampered"
+		writeLocalManifest(t, manifestPath, serviceName, "1.0.0")
+
+		installCmd := newServiceInstallCommand()
+		installCmd.SetArgs([]string{manifestPath})
+		if _, err := captureStdout(t, installCmd.Execute); err != nil {
+			t.Fatalf("service install failed: %v", err)
+		}
+
+		installedPath := filepath.Join(servicesDir, serviceName+".yaml")
+		installedData, err := os.ReadFile(installedPath)
+		if err != nil {
+			t.Fatalf("read installed manifest: %v", err)
+		}
+		if err := os.WriteFile(installedPath, append(installedData, []byte("\n# tampered\n")...), 0o644); err != nil {
+			t.Fatalf("tamper installed manifest: %v", err)
+		}
+
+		verifyCmd := newServiceVerifyCommand()
+		verifyCmd.SetArgs([]string{serviceName})
+		stdout, err := captureStdout(t, verifyCmd.Execute)
+		if err == nil {
+			t.Fatal("expected service verify to fail for tampered manifest")
+		}
+		if !strings.Contains(err.Error(), `service "local-verify-tampered" integrity check failed`) {
+			t.Fatalf("unexpected verify error: %v", err)
+		}
+
+		payload := decodeJSONObject(t, stdout)
+		if got, ok := payload["name"].(string); !ok || got != serviceName {
+			t.Fatalf("expected name %q in payload, got %#v", serviceName, payload["name"])
+		}
+		if got, ok := payload["verified"].(bool); !ok || got {
+			t.Fatalf("expected verified=false in payload, got %#v", payload["verified"])
+		}
+		if got, ok := payload["locked"].(bool); !ok || !got {
+			t.Fatalf("expected locked=true in payload, got %#v", payload["locked"])
+		}
+		expectedDigest, _ := payload["expected_digest"].(string)
+		actualDigest, _ := payload["actual_digest"].(string)
+		if expectedDigest == "" || actualDigest == "" || expectedDigest == actualDigest {
+			t.Fatalf("expected differing digests in payload, got expected=%q actual=%q", expectedDigest, actualDigest)
 		}
 	})
 }
