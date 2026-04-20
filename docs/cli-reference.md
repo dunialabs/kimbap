@@ -619,10 +619,17 @@ kimbap approve accept req_01HX...
 
 Show a recent snapshot of audit log entries (non-streaming). Error messages in audit records are capped at 256 characters.
 
+**Syntax:**
+
+```bash
+kimbap audit tail [--agent <name>] [--service <name>] [--action <name>] [--status <status>] [--limit 20]
+```
+
 **Example:**
 
 ```bash
 kimbap audit tail
+kimbap audit tail --service github --action list-issues --status success
 ```
 
 ---
@@ -644,6 +651,30 @@ Accepted date formats for `--from` / `--to`: `RFC3339` or `YYYY-MM-DD`.
 ```bash
 kimbap audit export --from 2026-03-01 --to 2026-03-31
 kimbap audit export --from 2026-03-01 --to 2026-03-31 --format csv > audit-202603.csv
+```
+
+---
+
+### kimbap audit summary
+
+Show an aggregated summary for a recent audit window. This is the default spot-check command when you want a quick view of usage, status distribution, latency, and the most active services or actions.
+
+**Syntax:**
+
+```bash
+kimbap audit summary [--since <duration> | --from <time> --to <time>] [--agent <name>] [--service <name>] [--action <name>] [--status <status>]
+```
+
+Accepted `--since` examples: Go durations such as `24h`, plus integer day shorthands such as `7d`.
+
+Accepted date formats for `--from` / `--to`: `RFC3339` or `YYYY-MM-DD`.
+
+**Example:**
+
+```bash
+kimbap audit summary --since 24h
+kimbap audit summary --since 7d --service github
+kimbap audit summary --from 2026-04-01 --to 2026-04-20 --status error
 ```
 
 ---

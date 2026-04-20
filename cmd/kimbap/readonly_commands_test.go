@@ -152,6 +152,72 @@ func TestAuthStatusDoesNotMaterializeDataDir(t *testing.T) {
 	}
 }
 
+func TestAuditTailDoesNotMaterializeDataDir(t *testing.T) {
+	servicesDir := t.TempDir()
+	missingDataDir := filepath.Join(t.TempDir(), "missing-data-dir")
+	configPath := filepath.Join(t.TempDir(), "config.yaml")
+
+	writeMinimalConfig(t, configPath, missingDataDir, servicesDir)
+
+	prev := opts
+	opts = cliOptions{configPath: configPath}
+	t.Cleanup(func() { opts = prev })
+
+	cmd := newAuditTailCommand()
+	cmd.SetArgs([]string{"--service", "github", "--action", "list-issues", "--status", "success"})
+	if err := cmd.Execute(); err != nil {
+		t.Fatalf("audit tail failed: %v", err)
+	}
+
+	if _, err := os.Stat(missingDataDir); !os.IsNotExist(err) {
+		t.Fatalf("audit tail must not create data_dir, stat err=%v", err)
+	}
+}
+
+func TestAuditExportDoesNotMaterializeDataDir(t *testing.T) {
+	servicesDir := t.TempDir()
+	missingDataDir := filepath.Join(t.TempDir(), "missing-data-dir")
+	configPath := filepath.Join(t.TempDir(), "config.yaml")
+
+	writeMinimalConfig(t, configPath, missingDataDir, servicesDir)
+
+	prev := opts
+	opts = cliOptions{configPath: configPath}
+	t.Cleanup(func() { opts = prev })
+
+	cmd := newAuditExportCommand()
+	cmd.SetArgs([]string{"--from", "2026-04-19", "--to", "2026-04-20"})
+	if err := cmd.Execute(); err != nil {
+		t.Fatalf("audit export failed: %v", err)
+	}
+
+	if _, err := os.Stat(missingDataDir); !os.IsNotExist(err) {
+		t.Fatalf("audit export must not create data_dir, stat err=%v", err)
+	}
+}
+
+func TestAuditSummaryDoesNotMaterializeDataDir(t *testing.T) {
+	servicesDir := t.TempDir()
+	missingDataDir := filepath.Join(t.TempDir(), "missing-data-dir")
+	configPath := filepath.Join(t.TempDir(), "config.yaml")
+
+	writeMinimalConfig(t, configPath, missingDataDir, servicesDir)
+
+	prev := opts
+	opts = cliOptions{configPath: configPath}
+	t.Cleanup(func() { opts = prev })
+
+	cmd := newAuditSummaryCommand()
+	cmd.SetArgs([]string{"--since", "24h"})
+	if err := cmd.Execute(); err != nil {
+		t.Fatalf("audit summary failed: %v", err)
+	}
+
+	if _, err := os.Stat(missingDataDir); !os.IsNotExist(err) {
+		t.Fatalf("audit summary must not create data_dir, stat err=%v", err)
+	}
+}
+
 func TestAuthListDoesNotMutateExistingConnectorDB(t *testing.T) {
 	dataDir := t.TempDir()
 	dbPath := filepath.Join(dataDir, "kimbap.db")

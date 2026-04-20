@@ -21,6 +21,7 @@ func newAuditCommand() *cobra.Command {
 
 	cmd.AddCommand(newAuditTailCommand())
 	cmd.AddCommand(newAuditExportCommand())
+	cmd.AddCommand(newAuditSummaryCommand())
 
 	return cmd
 }
@@ -29,13 +30,15 @@ func newAuditTailCommand() *cobra.Command {
 	var (
 		agent   string
 		service string
+		action  string
+		status  string
 		limit   int
 	)
 	cmd := &cobra.Command{
-		Use:   "tail [--agent <name>] [--service <name>] [--limit 20]",
+		Use:   "tail [--agent <name>] [--service <name>] [--action <name>] [--status <status>] [--limit 20]",
 		Short: "Tail recent audit events",
 		RunE: func(_ *cobra.Command, _ []string) error {
-			cfg, err := loadAppConfig()
+			cfg, err := loadAppConfigReadOnly()
 			if err != nil {
 				return err
 			}
@@ -43,9 +46,10 @@ func newAuditTailCommand() *cobra.Command {
 				return fmt.Errorf("--limit must be greater than 0")
 			}
 
+			filter := newAuditEventFilter(agent, service, action, status)
 			selected := make([]audit.AuditEvent, 0, limit)
 			if err := forEachAuditEvent(cfg.Audit.Path, func(e audit.AuditEvent) error {
-				if !auditEventMatches(e, agent, service) {
+				if !filter.matches(e) {
 					return nil
 				}
 				if len(selected) < limit {
@@ -61,10 +65,16 @@ func newAuditTailCommand() *cobra.Command {
 
 			if outputAsJSON() {
 				return printOutput(map[string]any{
-					"path":    cfg.Audit.Path,
-					"count":   len(selected),
-					"filters": map[string]any{"agent": strings.TrimSpace(agent), "service": strings.TrimSpace(service), "limit": limit},
-					"events":  selected,
+					"path":  cfg.Audit.Path,
+					"count": len(selected),
+					"filters": map[string]any{
+						"agent":   filter.Agent,
+						"service": filter.Service,
+						"action":  filter.Action,
+						"status":  filter.Status,
+						"limit":   limit,
+					},
+					"events": selected,
 				})
 			}
 			if len(selected) == 0 {
@@ -101,6 +111,8 @@ func newAuditTailCommand() *cobra.Command {
 	}
 	cmd.Flags().StringVar(&agent, "agent", "", "filter by agent name")
 	cmd.Flags().StringVar(&service, "service", "", "filter by service name")
+	cmd.Flags().StringVar(&action, "action", "", "filter by action name")
+	cmd.Flags().StringVar(&status, "status", "", "filter by audit status")
 	cmd.Flags().IntVar(&limit, "limit", 20, "max events to return")
 	return cmd
 }
@@ -136,10 +148,11 @@ func newAuditExportCommand() *cobra.Command {
 				return fmt.Errorf("--to must be after or equal to --from")
 			}
 
-			cfg, err := loadAppConfig()
+			cfg, err := loadAppConfigReadOnly()
 			if err != nil {
 				return err
 			}
+			filter := newAuditEventFilter(agent, service, "", "")
 			switch strings.ToLower(strings.TrimSpace(format)) {
 			case "", "jsonl", "json":
 				enc := json.NewEncoder(os.Stdout)
@@ -147,7 +160,7 @@ func newAuditExportCommand() *cobra.Command {
 					if e.Timestamp.Before(fromTime) || e.Timestamp.After(toTime) {
 						return nil
 					}
-					if !auditEventMatches(e, agent, service) {
+					if !filter.matches(e) {
 						return nil
 					}
 					return enc.Encode(e)
@@ -165,7 +178,7 @@ func newAuditExportCommand() *cobra.Command {
 					if e.Timestamp.Before(fromTime) || e.Timestamp.After(toTime) {
 						return nil
 					}
-					if !auditEventMatches(e, agent, service) {
+					if !filter.matches(e) {
 						return nil
 					}
 					errorCode := ""
@@ -210,6 +223,53 @@ func newAuditExportCommand() *cobra.Command {
 	return cmd
 }
 
+func newAuditSummaryCommand() *cobra.Command {
+	var (
+		since   string
+		from    string
+		to      string
+		agent   string
+		service string
+		action  string
+		status  string
+	)
+	cmd := &cobra.Command{
+		Use:   "summary [--since <duration> | --from <time> --to <time>] [--agent <name>] [--service <name>] [--action <name>] [--status <status>]",
+		Short: "Show an aggregated audit summary",
+		Example: strings.Join([]string{
+			"  kimbap audit summary --since 24h",
+			"  kimbap audit summary --since 7d --service github",
+			"  kimbap audit summary --from 2026-04-01 --to 2026-04-20 --status error",
+		}, "\n"),
+		RunE: func(_ *cobra.Command, _ []string) error {
+			cfg, err := loadAppConfigReadOnly()
+			if err != nil {
+				return err
+			}
+			window, err := resolveAuditQueryWindow(since, from, to, 24*time.Hour, time.Now().UTC())
+			if err != nil {
+				return err
+			}
+			summary, err := summarizeAuditEvents(cfg.Audit.Path, window, newAuditEventFilter(agent, service, action, status))
+			if err != nil {
+				return err
+			}
+			if outputAsJSON() {
+				return printOutput(summary)
+			}
+			return printOutput(renderAuditSummaryText(summary))
+		},
+	}
+	cmd.Flags().StringVar(&since, "since", "", "relative time window (for example 24h, 7d)")
+	cmd.Flags().StringVar(&from, "from", "", "from datetime (RFC3339 or YYYY-MM-DD)")
+	cmd.Flags().StringVar(&to, "to", "", "to datetime (RFC3339 or YYYY-MM-DD)")
+	cmd.Flags().StringVar(&agent, "agent", "", "filter by agent name")
+	cmd.Flags().StringVar(&service, "service", "", "filter by service name")
+	cmd.Flags().StringVar(&action, "action", "", "filter by action name")
+	cmd.Flags().StringVar(&status, "status", "", "filter by audit status")
+	return cmd
+}
+
 func forEachAuditEvent(path string, handle func(audit.AuditEvent) error) error {
 	if strings.TrimSpace(path) == "" {
 		return fmt.Errorf("audit path is required")
@@ -241,16 +301,6 @@ func forEachAuditEvent(path string, handle func(audit.AuditEvent) error) error {
 		}
 	}
 	return nil
-}
-
-func auditEventMatches(event audit.AuditEvent, agent string, service string) bool {
-	if a := strings.TrimSpace(agent); a != "" && !strings.EqualFold(event.AgentName, a) {
-		return false
-	}
-	if s := strings.TrimSpace(service); s != "" && !strings.EqualFold(event.Service, s) {
-		return false
-	}
-	return true
 }
 
 func parseAuditTime(raw string) (time.Time, error) {
