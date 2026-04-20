@@ -538,6 +538,15 @@ func TestE2EStatusShowsLinkHintForDisconnectedService(t *testing.T) {
 	mustRunOK(t, env, "--no-splash", "init", "--mode", "dev", "--no-services")
 	mustRunOK(t, env, "--no-splash", "service", "install", "github")
 
+	jsonOut, _ := mustRunOK(t, env, "--no-splash", "--format", "json", "status")
+	payload := decodeJSONMap(t, jsonOut)
+	if got, _ := payload["services"].(float64); got != 1 {
+		t.Fatalf("expected services=1 in status JSON, got %+v", payload)
+	}
+	if got, _ := payload["credentials"].(float64); got != 0 {
+		t.Fatalf("expected credentials=0 in status JSON, got %+v", payload)
+	}
+
 	stdout, stderr, err := e2eRun(t, env, "--no-splash", "status")
 	if err != nil {
 		t.Fatalf("status command failed: %v\nstdout:\n%s\nstderr:\n%s", err, stdout, stderr)
@@ -545,14 +554,8 @@ func TestE2EStatusShowsLinkHintForDisconnectedService(t *testing.T) {
 	if stderr != "" {
 		t.Fatalf("expected empty stderr from status command, got %q", stderr)
 	}
-	if !strings.Contains(stdout, "Services:") || !strings.Contains(stdout, "1 enabled") {
-		t.Fatalf("expected status output to mention enabled service count, got:\n%s", stdout)
-	}
-	if !strings.Contains(stdout, "Credentials:") || !strings.Contains(stdout, "0 stored") {
-		t.Fatalf("expected status output to mention zero stored credentials, got:\n%s", stdout)
-	}
-	if !strings.Contains(stdout, "Run 'kimbap link github' to connect.") {
-		t.Fatalf("expected status footer to show actionable link hint, got:\n%s", stdout)
+	if !strings.Contains(stdout, "kimbap link github") {
+		t.Fatalf("expected status footer to suggest 'kimbap link github', got:\n%s", stdout)
 	}
 }
 
